@@ -6,7 +6,7 @@ import {
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import { repairCriticityLabels, repairStateLabels } from '@/shared/utils/mappers';
+import { repairCriticityLabels, repairStateLabels, typeOfMaintenanceLabels } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
 import { CircleOff } from 'lucide-react';
 import moment from 'moment';
@@ -79,6 +79,7 @@ export function _RepairSolicitudesDataTable({
       'vehicle',
       'reparation_type',
       'criticity',
+      'type_of_maintenance',
       'last_modified_by',
       'closed_by',
       'user_description',
@@ -165,6 +166,22 @@ export function _RepairSolicitudesDataTable({
             : []),
         ],
         externalCounts: facets?.criticity,
+      },
+
+      // Tipo de mantenimiento (enum en types_of_repairs)
+      {
+        columnId: 'type_of_maintenance',
+        title: 'Tipo de mtto.',
+        options: [
+          ...Object.keys(typeOfMaintenanceLabels).map((value) => ({
+            value,
+            label: typeOfMaintenanceLabels[value] ?? value,
+          })),
+          ...(facets?.type_of_maintenance?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin tipo', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.type_of_maintenance,
       },
 
       // Últ. modificación por (FK profile UUID)
@@ -282,6 +299,7 @@ export function _RepairSolicitudesDataTable({
         formatters: {
           state: (val) => repairStateLabels[val as string] ?? String(val ?? ''),
           criticity: (val) => repairCriticityLabels[val as string] ?? String(val ?? ''),
+          type_of_maintenance: (val) => typeOfMaintenanceLabels[val as string] ?? String(val ?? ''),
           scheduled: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           updated_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),

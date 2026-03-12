@@ -230,6 +230,7 @@ function buildWhereClause(
   const MANUALLY_HANDLED = [
     'vehicle', // FK → equipment_id, manejado con vehicleFilter
     'criticity', // campo en types_of_repairs (relación), no en repair_solicitudes
+    'type_of_maintenance', // campo en types_of_repairs (relación), no en repair_solicitudes
     'last_modified_by', // filtro sobre repairlogs (último log)
     'closed_by', // filtro sobre repairlogs con title === 'Finalizado'
     ...VEHICLE_TEXT_FILTER_COLUMNS, // domain, serie, intern_number en relación vehicles
@@ -280,8 +281,10 @@ function buildWhereClause(
     });
   }
 
-  // ─── Filtro criticity (campo en types_of_repairs) ─────────────────────────
-  const criticityFilter: Record<string, unknown> = {};
+  // ─── Filtro criticity + type_of_maintenance (campos en types_of_repairs) ──
+  // Se combinan en un solo objeto para evitar que se pisen al spread.
+  const typesOfRepairsWhere: Record<string, unknown> = {};
+
   const criticityValues = state.filters['criticity'];
   if (criticityValues?.length) {
     const hasNull = criticityValues.includes(NULL_FILTER_VALUE);
@@ -289,9 +292,22 @@ function buildWhereClause(
     if (hasNull && realValues.length > 0) {
       // caso mixto se maneja en extraAndConditions
     } else if (hasNull) {
-      criticityFilter.types_of_repairs = { criticity: null };
+      typesOfRepairsWhere.criticity = null;
     } else {
-      criticityFilter.types_of_repairs = { criticity: { in: realValues } };
+      typesOfRepairsWhere.criticity = { in: realValues };
+    }
+  }
+
+  const typeOfMaintenanceValues = state.filters['type_of_maintenance'];
+  if (typeOfMaintenanceValues?.length) {
+    const hasNull = typeOfMaintenanceValues.includes(NULL_FILTER_VALUE);
+    const realValues = typeOfMaintenanceValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      // caso mixto se maneja en extraAndConditions
+    } else if (hasNull) {
+      typesOfRepairsWhere.type_of_maintenance = null;
+    } else {
+      typesOfRepairsWhere.type_of_maintenance = { in: realValues };
     }
   }
 
@@ -367,6 +383,20 @@ function buildWhereClause(
     }
   }
 
+  // Caso mixto para type_of_maintenance
+  if (typeOfMaintenanceValues?.length) {
+    const hasNull = typeOfMaintenanceValues.includes(NULL_FILTER_VALUE);
+    const realValues = typeOfMaintenanceValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      extraAndConditions.push({
+        OR: [
+          { types_of_repairs: { type_of_maintenance: { in: realValues } } },
+          { types_of_repairs: { type_of_maintenance: null } },
+        ],
+      });
+    }
+  }
+
   // Caso mixto para last_modified_by (null + usuarios reales)
   if (lastModifiedByValues?.length) {
     const hasNull = lastModifiedByValues.includes(NULL_FILTER_VALUE);
@@ -417,7 +447,7 @@ function buildWhereClause(
     ...textFiltersWhere,
     ...dateFiltersWhere,
     ...vehicleFilter,
-    ...criticityFilter,
+    ...(Object.keys(typesOfRepairsWhere).length > 0 ? { types_of_repairs: typesOfRepairsWhere } : {}),
     ...lastModifiedByFilter,
     ...closedByFilter,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
@@ -621,6 +651,7 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
       crossWhereVehicle,
       crossWhereReparationType,
       crossWhereCriticity,
+      crossWhereTypeOfMaintenance,
       crossWhereLmb,
       crossWhereClosedBy,
     ] = await Promise.all([
@@ -628,11 +659,12 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
       crossWhere('vehicle'),
       crossWhere('reparation_type'),
       crossWhere('criticity'),
+      crossWhere('type_of_maintenance'),
       crossWhere('last_modified_by'),
       crossWhere('closed_by'),
     ]);
 
-    const [stateCounts, vehicleCounts, repairTypeCounts, criticityCounts] = await Promise.all([
+    const [stateCounts, vehicleCounts, repairTypeCounts, criticityCounts, typeOfMaintenanceCounts] = await Promise.all([
       prisma.repair_solicitudes.groupBy({
         by: ['state'],
         where: crossWhereState,
@@ -663,6 +695,21 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
           distinct: ['criticity'],
         })
         .then((rows) => rows.map((r) => ({ key: r.criticity, count: r._count.repair_solicitudes }))),
+      // type_of_maintenance viene de types_of_repairs — mismo patrón que criticity
+      prisma.types_of_repairs
+        .findMany({
+          where: {
+            repair_solicitudes: {
+              some: crossWhereTypeOfMaintenance,
+            },
+          },
+          select: {
+            type_of_maintenance: true,
+            _count: { select: { repair_solicitudes: true } },
+          },
+          distinct: ['type_of_maintenance'],
+        })
+        .then((rows) => rows.map((r) => ({ key: r.type_of_maintenance, count: r._count.repair_solicitudes }))),
     ]);
 
     // Resolver nombres de vehiculos para el filtro
@@ -797,6 +844,7 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
       reparation_type: toFacetMap(repairTypeCounts.map((r) => ({ key: r.reparation_type, count: r._count }))),
       repairTypeOptions: repairTypes,
       criticity: toFacetMap(criticityCounts),
+      type_of_maintenance: toFacetMap(typeOfMaintenanceCounts),
       last_modified_by: lastModifiedByCountMap,
       lastModifiedByOptions: lastModifiedByProfiles,
       closed_by: closedByCountMap,
