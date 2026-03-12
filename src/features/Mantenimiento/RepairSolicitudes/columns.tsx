@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import { repairCriticityLabels, repairStateLabels } from '@/shared/utils/mappers';
+import { repairCriticityLabels, repairStateLabels, typeOfMaintenanceLabels } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
 import type { RepairSolicitudListItem } from './actions.server';
@@ -97,6 +97,29 @@ export const columns: ColumnDef<RepairSolicitudListItem>[] = [
       return value.includes(id);
     },
     enableSorting: true,
+  },
+
+  // ─── Tipo de mantenimiento (Correctivo / Preventivo / Otro) ──────────────
+  {
+    id: 'type_of_maintenance',
+    accessorFn: (row) => row.types_of_repairs?.type_of_maintenance ?? '',
+    meta: { title: 'Tipo de mantenimiento' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de mtto." />,
+    cell: ({ row }) => {
+      const value = row.original.types_of_repairs?.type_of_maintenance;
+      if (!value) return <span className="text-muted-foreground">-</span>;
+      return (
+        <Badge variant={value === 'Correctivo' ? 'warning' : value === 'Preventivo' ? 'success' : 'default'}>
+          {typeOfMaintenanceLabels[value] ?? value}
+        </Badge>
+      );
+    },
+    filterFn: (row, _id, value: string[]) => {
+      const val = row.original.types_of_repairs?.type_of_maintenance;
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val);
+    },
+    enableSorting: false, // computed from relation, not sortable directly
   },
 
   // ─── Descripción ──────────────────────────────────────────────────────────
