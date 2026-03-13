@@ -37,6 +37,7 @@ const VALID_SORT_FIELDS = new Set([
   'created_at',
   'equipment_type',
   'applies',
+  'is_active',
 ]);
 
 /** Params de URL que NO son filtros de la tabla */
@@ -57,6 +58,7 @@ const BOOLEAN_FILTER_COLUMNS = [
   'is_it_montlhy',
   'private',
   'down_document',
+  'is_active',
 ] as const;
 
 type BooleanFilterColumn = (typeof BOOLEAN_FILTER_COLUMNS)[number];
@@ -122,7 +124,6 @@ function buildWhereClause(companyId: string, applies: document_applies, state: R
 
   return {
     company_id: companyId,
-    is_active: true,
     applies,
     ...searchWhere,
     ...filtersWhere,
@@ -155,7 +156,8 @@ async function getDocTypesPaginated(applies: document_applies, searchParams: Dat
         resolvedSorts.push({ [s.id]: s.desc ? 'desc' : 'asc' });
       }
     }
-    const safeOrderBy = [...resolvedSorts, { name: 'asc' as const }];
+    // Inactivos siempre al final, luego por nombre
+    const safeOrderBy = [{ is_active: 'desc' as const }, ...resolvedSorts, { name: 'asc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.document_types.findMany({
@@ -815,7 +817,7 @@ export async function getDocTypeSingleFacet(
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
   const companyId = await getServerCompanyId();
-  const baseWhere = { company_id: companyId, is_active: true, applies };
+  const baseWhere = { company_id: companyId, applies };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -863,6 +865,23 @@ export async function getDocTypeSingleFacet(
         counts: toFacetMap(
           rows.map((r) => ({
             key: String((r as Record<string, unknown>)[field]),
+            count: r._count,
+          }))
+        ),
+      };
+    }
+
+    // ── is_active (boolean facet) ──
+    if (columnId === 'is_active') {
+      const rows = await prisma.document_types.groupBy({
+        by: ['is_active'],
+        where,
+        _count: true,
+      });
+      return {
+        counts: toFacetMap(
+          rows.map((r) => ({
+            key: String(r.is_active),
             count: r._count,
           }))
         ),

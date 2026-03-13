@@ -1,10 +1,11 @@
-import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { _CreateDocumentTypeButton } from '@/features/Documentacion/TiposDocumentos/components/_CreateDocumentTypeButton';
 import CompanyDocsList from '@/features/Empresa/General/Documentacion/components/CompanyDocsList';
 import { CompanyDocsTableSkeleton } from '@/features/Empresa/General/Documentacion/fallback/CompanyDocsTableSkeleton';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import { document_applies } from '@/generated/prisma/enums';
 import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -135,7 +136,7 @@ export default async function GeneralTabContent({
             content: (
               <div className="">
                 <PermissionGuardServer module="empresa" tab="documentacion" action="create">
-                  <TypesDocumentAction optionChildrenProp="Empresa" />
+                  <_CreateDocumentTypeButton defaultApplies={document_applies.Empresa} />
                 </PermissionGuardServer>
                 <Card className="mt-4">
                   <CardContent className="pt-6">
