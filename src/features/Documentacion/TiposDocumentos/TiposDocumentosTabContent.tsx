@@ -1,10 +1,31 @@
-import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
-import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PermissionGuardServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, Truck, User } from 'lucide-react';
 import { Suspense } from 'react';
+
+import { PermissionGuardServer } from '@/features/Permissions';
+import { TabsManagerServer } from '@/features/TabsManager';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+
+import { EmpresaList } from './EmpresaList/EmpresaList';
+import { EquiposList } from './EquiposList/EquiposList';
+import { PersonasList } from './PersonasList/PersonasList';
+import { _CreateDocumentTypeButton } from './components/_CreateDocumentTypeButton';
+import { TiposDocumentosSkeleton } from './fallback/TiposDocumentosSkeleton';
+
+// ============================================
+// TIPOS
+// ============================================
+
+interface TiposDocumentosTabContentProps {
+  searchParams: DataTableSearchParams;
+  showOnlyPersonas?: boolean;
+  showOnlyEquipos?: boolean;
+  showOnlyEmpresa?: boolean;
+  permissions: Record<string, boolean>;
+}
+
+// ============================================
+// COMPONENTE
+// ============================================
 
 export default async function TiposDocumentosTabContent({
   searchParams,
@@ -12,16 +33,9 @@ export default async function TiposDocumentosTabContent({
   showOnlyEquipos = false,
   showOnlyEmpresa = false,
   permissions,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-  showOnlyPersonas?: boolean;
-  showOnlyEquipos?: boolean;
-  showOnlyEmpresa?: boolean;
-  permissions: Record<string, boolean>;
-}) {
+}: TiposDocumentosTabContentProps) {
   const allTabs = [];
 
-  // Solo agregar tab de Personas si corresponde
   if (!showOnlyEquipos && !showOnlyEmpresa) {
     allTabs.push({
       value: 'Personas',
@@ -34,14 +48,13 @@ export default async function TiposDocumentosTabContent({
       moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-personas' as const,
       content: (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-          <TypesDocumentsViewWrapper optionChildrenProp="Persona" personas={true} equipos={false} hideTabs={true} />
+        <Suspense fallback={<TiposDocumentosSkeleton />}>
+          <PersonasList searchParams={searchParams} permissionsMap={permissions} />
         </Suspense>
       ),
     });
   }
 
-  // Solo agregar tab de Equipos si corresponde
   if (!showOnlyPersonas && !showOnlyEmpresa) {
     allTabs.push({
       value: 'Equipos',
@@ -54,14 +67,13 @@ export default async function TiposDocumentosTabContent({
       moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-equipos' as const,
       content: (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-          <TypesDocumentsViewWrapper optionChildrenProp="Equipo" equipos={true} personas={false} hideTabs={true} />
+        <Suspense fallback={<TiposDocumentosSkeleton />}>
+          <EquiposList searchParams={searchParams} permissionsMap={permissions} />
         </Suspense>
       ),
     });
   }
 
-  // Solo agregar tab de Empresa si corresponde
   if (!showOnlyPersonas && !showOnlyEquipos) {
     allTabs.push({
       value: 'Empresa',
@@ -74,14 +86,8 @@ export default async function TiposDocumentosTabContent({
       moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-empresa' as const,
       content: (
-        <Suspense fallback={<div>Cargando tipos de documentos de empresa...</div>}>
-          <TypesDocumentsViewWrapper
-            optionChildrenProp="Empresa"
-            empresa={true}
-            personas={false}
-            equipos={false}
-            hideTabs={true}
-          />
+        <Suspense fallback={<TiposDocumentosSkeleton />}>
+          <EmpresaList searchParams={searchParams} />
         </Suspense>
       ),
     });
@@ -97,12 +103,12 @@ export default async function TiposDocumentosTabContent({
 
   return (
     <div>
-      {/* Botón crear está en la tab principal, no en subtabs */}
       <PermissionGuardServer module="documentacion" tab="tipos-de-documentos" action="create">
-        <div className="flex gap-4 flex-wrap mb-4">
-          <TypesDocumentAction optionChildrenProp={showOnlyPersonas ? 'Persona' : showOnlyEquipos ? 'Equipo' : 'all'} />
+        <div className="mb-4 flex flex-wrap gap-4">
+          <_CreateDocumentTypeButton />
         </div>
       </PermissionGuardServer>
+
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}

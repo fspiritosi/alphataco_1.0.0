@@ -101,7 +101,9 @@ nueva_tab: {
 }
 ```
 
-### 3. Insertar en Base de Datos (usar MCP de Supabase)
+### 3. Insertar Datos en Base de Datos (MCP de Supabase o migracion Prisma)
+
+Para inserts de datos (tabs, permisos) se puede usar el **MCP de Supabase** (execute_sql) o crear una **migracion Prisma** con SQL custom (`npx prisma migrate dev --create-only`). El MCP es mas rapido para datos seed; la migracion queda versionada en git.
 
 ```sql
 -- 1. Insertar la tab
@@ -116,6 +118,8 @@ FROM roles r, actions a
 WHERE r.slug = 'admin' AND a.slug IN ('view', 'create', 'update')
 ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 ```
+
+> **Nota**: Para cambios de **estructura** (CREATE TABLE, ALTER TABLE, funciones, triggers), usar siempre **migraciones Prisma** (ver CLAUDE.md seccion "REGLA DE MIGRACIONES").
 
 ### 4. Documentar SQL del Sistema de Permisos
 

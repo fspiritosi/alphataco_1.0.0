@@ -37,6 +37,7 @@ const VALID_SORT_FIELDS = new Set([
   'created_at',
   'equipment_type',
   'applies',
+  'is_active',
 ]);
 
 /** Params de URL que NO son filtros de la tabla */
@@ -57,6 +58,7 @@ const BOOLEAN_FILTER_COLUMNS = [
   'is_it_montlhy',
   'private',
   'down_document',
+  'is_active',
 ] as const;
 
 type BooleanFilterColumn = (typeof BOOLEAN_FILTER_COLUMNS)[number];
@@ -122,7 +124,6 @@ function buildWhereClause(companyId: string, applies: document_applies, state: R
 
   return {
     company_id: companyId,
-    is_active: true,
     applies,
     ...searchWhere,
     ...filtersWhere,
@@ -155,7 +156,8 @@ async function getDocTypesPaginated(applies: document_applies, searchParams: Dat
         resolvedSorts.push({ [s.id]: s.desc ? 'desc' : 'asc' });
       }
     }
-    const safeOrderBy = [...resolvedSorts, { name: 'asc' as const }];
+    // Inactivos siempre al final, luego por nombre
+    const safeOrderBy = [{ is_active: 'desc' as const }, ...resolvedSorts, { name: 'asc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.document_types.findMany({
@@ -374,40 +376,6 @@ export async function updateDocumentType(id: string, data: UpdateDocumentTypeInp
     return updated;
   } catch (error) {
     logger.error('Error al actualizar tipo de documento', { data: { error, id } });
-    throw error;
-  }
-}
-
-/**
- * Activa o desactiva (soft delete) un tipo de documento.
- */
-export async function toggleDocumentTypeActive(id: string, isActive: boolean) {
-  const companyId = await getServerCompanyId();
-
-  logger.debug('Cambiando estado de tipo de documento', { data: { id, isActive } });
-
-  try {
-    const existing = await prisma.document_types.findFirst({
-      where: { id, company_id: companyId },
-      select: { id: true },
-    });
-
-    if (!existing) {
-      throw new Error('Tipo de documento no encontrado');
-    }
-
-    const updated = await prisma.document_types.update({
-      where: { id },
-      data: { is_active: isActive },
-      select: { id: true },
-    });
-
-    logger.info('Estado de tipo de documento actualizado', {
-      data: { id: updated.id, isActive },
-    });
-    return updated;
-  } catch (error) {
-    logger.error('Error al cambiar estado de tipo de documento', { data: { error, id } });
     throw error;
   }
 }
@@ -815,7 +783,7 @@ export async function getDocTypeSingleFacet(
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
   const companyId = await getServerCompanyId();
-  const baseWhere = { company_id: companyId, is_active: true, applies };
+  const baseWhere = { company_id: companyId, applies };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -863,6 +831,23 @@ export async function getDocTypeSingleFacet(
         counts: toFacetMap(
           rows.map((r) => ({
             key: String((r as Record<string, unknown>)[field]),
+            count: r._count,
+          }))
+        ),
+      };
+    }
+
+    // ── is_active (boolean facet) ──
+    if (columnId === 'is_active') {
+      const rows = await prisma.document_types.groupBy({
+        by: ['is_active'],
+        where,
+        _count: true,
+      });
+      return {
+        counts: toFacetMap(
+          rows.map((r) => ({
+            key: String(r.is_active),
             count: r._count,
           }))
         ),
@@ -1263,6 +1248,434 @@ export async function fixDocumentTypeConsistency(
     logger.error('Error al corregir inconsistencias', {
       data: { error, documentTypeId },
     });
+    throw error;
+  }
+}
+
+// ============================================================================
+// IS_ACTIVE FLOW — deactivate / hard-delete / reactivate
+// ============================================================================
+
+/**
+ * Recalcula el status de un conjunto de recursos (empleados o equipos) dentro de una transacción.
+ * Helper interno — no exportado.
+ */
+async function recalculateResourceStatus(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  resourceIds: string[],
+  resourceType: 'Persona' | 'Equipos'
+) {
+  if (resourceIds.length === 0) return;
+
+  if (resourceType === 'Persona') {
+    await tx.$executeRawUnsafe(
+      `
+      UPDATE employees SET status = CASE
+        WHEN EXISTS (
+          SELECT 1 FROM documents_employees de
+          WHERE de.applies = employees.id AND de.state = 'vencido'
+        ) THEN 'Completo con doc vencida'::status_type
+        WHEN EXISTS (
+          SELECT 1 FROM document_types dt
+          WHERE dt.mandatory = true AND dt.applies = 'Persona' AND dt.is_active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM documents_employees de2
+              WHERE de2.id_document_types = dt.id AND de2.applies = employees.id
+            )
+        ) THEN 'Incompleto'::status_type
+        ELSE 'Completo'::status_type
+      END
+      WHERE employees.id = ANY($1::uuid[])
+    `,
+      resourceIds
+    );
+  } else {
+    await tx.$executeRawUnsafe(
+      `
+      UPDATE vehicles SET status = CASE
+        WHEN EXISTS (
+          SELECT 1 FROM documents_equipment de
+          WHERE de.applies = vehicles.id AND de.state = 'vencido'
+        ) THEN 'Completo con doc vencida'::status_type
+        WHEN EXISTS (
+          SELECT 1 FROM document_types dt
+          WHERE dt.mandatory = true AND dt.applies = 'Equipos' AND dt.is_active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM documents_equipment de2
+              WHERE de2.id_document_types = dt.id AND de2.applies = vehicles.id
+            )
+        ) THEN 'Incompleto'::status_type
+        ELSE 'Completo'::status_type
+      END
+      WHERE vehicles.id = ANY($1::uuid[])
+    `,
+      resourceIds
+    );
+  }
+}
+
+/**
+ * Analiza el impacto de activar/desactivar/eliminar un tipo de documento.
+ * Retorna conteos de documentos subidos, alertas vacías y recursos sin alerta.
+ */
+export async function analyzeDocumentTypeImpact(docTypeId: string) {
+  const companyId = await getServerCompanyId();
+
+  logger.debug('Analizando impacto de tipo de documento', { data: { docTypeId } });
+
+  try {
+    const docType = await prisma.document_types.findFirst({
+      where: { id: docTypeId, company_id: companyId },
+      select: {
+        id: true,
+        name: true,
+        applies: true,
+        is_active: true,
+        mandatory: true,
+        special: true,
+        company_id: true,
+      },
+    });
+
+    if (!docType) throw new Error('Tipo de documento no encontrado');
+
+    let uploadedCount = 0;
+    let emptyAlertCount = 0;
+    let missingAlertCount = 0;
+
+    if (docType.applies === document_applies.Persona) {
+      const [uploaded, empty, totalActive] = await Promise.all([
+        prisma.documents_employees.count({
+          where: { id_document_types: docTypeId, document_path: { not: null } },
+        }),
+        prisma.documents_employees.count({
+          where: { id_document_types: docTypeId, document_path: null },
+        }),
+        prisma.employees.count({
+          where: { company_id: companyId },
+        }),
+      ]);
+      uploadedCount = uploaded;
+      emptyAlertCount = empty;
+      const withAlert = await prisma.documents_employees.count({
+        where: { id_document_types: docTypeId },
+      });
+      missingAlertCount = Math.max(0, totalActive - withAlert);
+    } else if (docType.applies === document_applies.Equipos) {
+      const [uploaded, empty, totalActive] = await Promise.all([
+        prisma.documents_equipment.count({
+          where: { id_document_types: docTypeId, document_path: { not: null } },
+        }),
+        prisma.documents_equipment.count({
+          where: { id_document_types: docTypeId, document_path: null },
+        }),
+        prisma.vehicles.count({
+          where: { company_id: companyId },
+        }),
+      ]);
+      uploadedCount = uploaded;
+      emptyAlertCount = empty;
+      const withAlert = await prisma.documents_equipment.count({
+        where: { id_document_types: docTypeId },
+      });
+      missingAlertCount = Math.max(0, totalActive - withAlert);
+    } else {
+      // Empresa: max 1 registro
+      const doc = await prisma.documents_company.findFirst({
+        where: { id_document_types: docTypeId },
+        select: { document_path: true },
+      });
+      if (doc) {
+        if (doc.document_path) {
+          uploadedCount = 1;
+        } else {
+          emptyAlertCount = 1;
+        }
+      } else {
+        missingAlertCount = 1;
+      }
+    }
+
+    return {
+      docType: {
+        id: docType.id,
+        name: docType.name,
+        applies: docType.applies,
+        is_active: docType.is_active,
+        mandatory: docType.mandatory,
+        special: docType.special,
+      },
+      uploadedCount,
+      emptyAlertCount,
+      totalResources: uploadedCount + emptyAlertCount,
+      missingAlertCount,
+      canHardDelete: uploadedCount === 0,
+    };
+  } catch (error) {
+    logger.error('Error al analizar impacto de tipo de documento', { data: { error, docTypeId } });
+    throw error;
+  }
+}
+
+export type DocumentTypeImpact = Awaited<ReturnType<typeof analyzeDocumentTypeImpact>>;
+
+/**
+ * Desactiva un tipo de documento (soft delete via is_active = false).
+ * Opcionalmente elimina las alertas vacías (sin documento subido) del tipo.
+ */
+export async function deactivateDocumentType(docTypeId: string, options: { deleteEmptyAlerts: boolean }) {
+  const companyId = await getServerCompanyId();
+
+  logger.info('Desactivando tipo de documento', { data: { docTypeId, options } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const docType = await tx.document_types.findFirst({
+        where: { id: docTypeId, company_id: companyId, is_active: true },
+        select: { id: true, applies: true, mandatory: true },
+      });
+
+      if (!docType) throw new Error('Tipo de documento no encontrado o ya esta inactivo');
+
+      await tx.document_types.update({
+        where: { id: docTypeId },
+        data: { is_active: false },
+      });
+
+      let affectedResourceIds: string[] = [];
+
+      if (options.deleteEmptyAlerts && docType.mandatory) {
+        if (docType.applies === document_applies.Persona) {
+          const affected = await tx.documents_employees.findMany({
+            where: { id_document_types: docTypeId, document_path: null },
+            select: { applies: true },
+          });
+          affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+
+          await tx.documents_employees.deleteMany({
+            where: { id_document_types: docTypeId, document_path: null },
+          });
+        } else if (docType.applies === document_applies.Equipos) {
+          const affected = await tx.documents_equipment.findMany({
+            where: { id_document_types: docTypeId, document_path: null },
+            select: { applies: true },
+          });
+          affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+
+          await tx.documents_equipment.deleteMany({
+            where: { id_document_types: docTypeId, document_path: null },
+          });
+        } else {
+          await tx.documents_company.deleteMany({
+            where: { id_document_types: docTypeId, document_path: null },
+          });
+        }
+      }
+
+      if (docType.applies !== document_applies.Empresa) {
+        if (!options.deleteEmptyAlerts || affectedResourceIds.length === 0) {
+          const resourceTable =
+            docType.applies === document_applies.Persona ? 'documents_employees' : 'documents_equipment';
+          const resources = await tx.$queryRawUnsafe<{ applies: string }[]>(
+            `SELECT DISTINCT applies FROM ${resourceTable} WHERE id_document_types = $1`,
+            docTypeId
+          );
+          affectedResourceIds = resources.map((r) => r.applies);
+        }
+
+        await recalculateResourceStatus(tx, affectedResourceIds, docType.applies as 'Persona' | 'Equipos');
+      }
+
+      return { success: true };
+    });
+  } catch (error) {
+    logger.error('Error al desactivar tipo de documento', { data: { error, docTypeId } });
+    throw error;
+  }
+}
+
+/**
+ * Elimina permanentemente un tipo de documento.
+ * Solo permitido si NO hay documentos subidos (document_path IS NOT NULL) asociados.
+ * Elimina todas las alertas vacías y recalcula el status de los recursos afectados.
+ */
+export async function hardDeleteDocumentType(docTypeId: string) {
+  const companyId = await getServerCompanyId();
+
+  logger.info('Eliminando permanentemente tipo de documento', { data: { docTypeId } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const docType = await tx.document_types.findFirst({
+        where: { id: docTypeId, company_id: companyId },
+        select: { id: true, applies: true, mandatory: true },
+      });
+
+      if (!docType) throw new Error('Tipo de documento no encontrado');
+
+      let uploadedCount = 0;
+      if (docType.applies === document_applies.Persona) {
+        uploadedCount = await tx.documents_employees.count({
+          where: { id_document_types: docTypeId, document_path: { not: null } },
+        });
+      } else if (docType.applies === document_applies.Equipos) {
+        uploadedCount = await tx.documents_equipment.count({
+          where: { id_document_types: docTypeId, document_path: { not: null } },
+        });
+      } else {
+        uploadedCount = await tx.documents_company.count({
+          where: { id_document_types: docTypeId, document_path: { not: null } },
+        });
+      }
+
+      if (uploadedCount > 0) {
+        throw new Error(
+          `No se puede eliminar: hay ${uploadedCount} documento(s) subido(s). Desactive el tipo en su lugar.`
+        );
+      }
+
+      let affectedResourceIds: string[] = [];
+
+      if (docType.applies === document_applies.Persona) {
+        const affected = await tx.documents_employees.findMany({
+          where: { id_document_types: docTypeId },
+          select: { applies: true },
+        });
+        affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+        await tx.documents_employees.deleteMany({ where: { id_document_types: docTypeId } });
+      } else if (docType.applies === document_applies.Equipos) {
+        const affected = await tx.documents_equipment.findMany({
+          where: { id_document_types: docTypeId },
+          select: { applies: true },
+        });
+        affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+        await tx.documents_equipment.deleteMany({ where: { id_document_types: docTypeId } });
+      } else {
+        await tx.documents_company.deleteMany({ where: { id_document_types: docTypeId } });
+      }
+
+      await tx.document_types.delete({ where: { id: docTypeId } });
+
+      if (docType.applies !== document_applies.Empresa && affectedResourceIds.length > 0) {
+        await recalculateResourceStatus(tx, affectedResourceIds, docType.applies as 'Persona' | 'Equipos');
+      }
+
+      return { success: true };
+    });
+  } catch (error) {
+    logger.error('Error al eliminar tipo de documento', { data: { error, docTypeId } });
+    throw error;
+  }
+}
+
+/**
+ * Reactiva un tipo de documento (is_active = true).
+ * Opcionalmente recrea alertas pendientes para los recursos que no las tienen.
+ */
+export async function reactivateDocumentType(docTypeId: string, options: { recreateAlerts: boolean }) {
+  const companyId = await getServerCompanyId();
+
+  logger.info('Reactivando tipo de documento', { data: { docTypeId, options } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const docType = await tx.document_types.findFirst({
+        where: { id: docTypeId, company_id: companyId, is_active: false },
+        select: {
+          id: true,
+          applies: true,
+          mandatory: true,
+          special: true,
+          conditions: true,
+          company_id: true,
+        },
+      });
+
+      if (!docType) throw new Error('Tipo de documento no encontrado o ya esta activo');
+
+      await tx.document_types.update({
+        where: { id: docTypeId },
+        data: { is_active: true },
+      });
+
+      const newAlertResourceIds: string[] = [];
+
+      if (options.recreateAlerts && docType.mandatory) {
+        if (docType.applies === document_applies.Persona) {
+          const missing = await tx.$queryRawUnsafe<{ id: string }[]>(
+            `
+            SELECT e.id FROM employees e
+            WHERE e.company_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM documents_employees de
+                WHERE de.id_document_types = $2 AND de.applies = e.id
+              )
+          `,
+            docType.company_id,
+            docTypeId
+          );
+
+          for (const emp of missing) {
+            await tx.documents_employees.create({
+              data: {
+                id_document_types: docTypeId,
+                applies: emp.id,
+                state: 'pendiente',
+                is_active: true,
+              },
+            });
+            newAlertResourceIds.push(emp.id);
+          }
+        } else if (docType.applies === document_applies.Equipos) {
+          const missing = await tx.$queryRawUnsafe<{ id: string }[]>(
+            `
+            SELECT v.id FROM vehicles v
+            WHERE v.company_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM documents_equipment de
+                WHERE de.id_document_types = $2 AND de.applies = v.id
+              )
+          `,
+            docType.company_id,
+            docTypeId
+          );
+
+          for (const veh of missing) {
+            await tx.documents_equipment.create({
+              data: {
+                id_document_types: docTypeId,
+                applies: veh.id,
+                state: 'pendiente',
+                is_active: true,
+              },
+            });
+            newAlertResourceIds.push(veh.id);
+          }
+        } else {
+          const existing = await tx.documents_company.findFirst({
+            where: { id_document_types: docTypeId },
+          });
+          if (!existing && docType.company_id) {
+            await tx.documents_company.create({
+              data: {
+                id_document_types: docTypeId,
+                applies: docType.company_id,
+                state: 'pendiente',
+                is_active: true,
+              },
+            });
+          }
+        }
+      }
+
+      if (docType.applies !== document_applies.Empresa && newAlertResourceIds.length > 0) {
+        await recalculateResourceStatus(tx, newAlertResourceIds, docType.applies as 'Persona' | 'Equipos');
+      }
+
+      return { success: true };
+    });
+  } catch (error) {
+    logger.error('Error al reactivar tipo de documento', { data: { error, docTypeId } });
     throw error;
   }
 }
