@@ -1,11 +1,15 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import type { CreateKPIInput, KPI, KPIRevision, UpdateKPIInput, UpdateKPINumberInput } from '../types';
+
 type KPIRow = Database['public']['Tables']['kpis']['Row'];
 type KPIRevisionRow = Database['public']['Tables']['kpi_revisions']['Row'];
+
+const logger = new Logger('KPIs/actions');
 
 // Helper para mapear datos de la BD a tipos TypeScript
 function mapKPIRowToKPI(row: KPIRow): KPI {
@@ -19,7 +23,7 @@ function mapKPIRowToKPI(row: KPIRow): KPI {
     calculation_formula: row.calculation_formula,
     technical_support: row.technical_support ?? true,
     improvement_opportunities: row.improvement_opportunities,
-    filters: row.filters as Record<string, any> | null,
+    filters: row.filters as Record<string, unknown> | null,
     is_active: row.is_active ?? true,
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || new Date().toISOString(),
@@ -58,7 +62,7 @@ export async function fetchAllKPIs(): Promise<KPI[]> {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching KPIs:', error);
+    logger.error('Error fetching KPIs', { data: { error } });
     return [];
   }
 
@@ -70,7 +74,7 @@ export async function fetchKPIById(id: string): Promise<KPI | null> {
   const { data, error } = await supabase.from('kpis').select('*').eq('id', id).single();
 
   if (error) {
-    console.error('Error fetching KPI:', error);
+    logger.error('Error fetching KPI by id', { data: { error, id } });
     return null;
   }
 
@@ -87,14 +91,14 @@ export async function fetchKPIRevisions(kpi_id: string): Promise<KPIRevision[]> 
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching KPI revisions:', error);
+    logger.error('Error fetching KPI revisions', { data: { error, kpi_id } });
     return [];
   }
 
   return (data || []).map(mapKPIRevisionRowToKPIRevision);
 }
 
-export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | null; error: any }> {
+export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | null; error: unknown }> {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
@@ -109,7 +113,7 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
   });
 
   if (codeError) {
-    console.error('Error generating KPI code:', codeError);
+    logger.error('Error generating KPI code', { data: { codeError } });
     return { data: null, error: codeError };
   }
 
@@ -121,12 +125,12 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
     .insert({
       company_id,
       name: input.name,
-      code: generatedCode || `KPI-0001`, // Fallback si falla la función
+      code: generatedCode || `KPI-0001`,
       number: input.number || null,
       validity_date: input.validity_date,
       calculation_formula: input.calculation_formula,
       technical_support: input.technical_support ?? true,
-      improvement_opportunities: null, // No se puede crear con oportunidades de mejora
+      improvement_opportunities: null,
       filters: input.filters || null,
       is_active: input.is_active ?? true,
     })
@@ -134,7 +138,7 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
     .single();
 
   if (error) {
-    console.error('Error creating KPI:', error);
+    logger.error('Error creating KPI', { data: { error } });
     return { data: null, error };
   }
 
@@ -142,7 +146,7 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
-export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | null; error: any }> {
+export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | null; error: unknown }> {
   const supabase = await supabaseServer();
 
   // Construir objeto de actualización solo con campos definidos
@@ -162,14 +166,14 @@ export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | nu
   // Solo agregar campos que están definidos en el input
   updatableFields.forEach((field) => {
     if (input[field] !== undefined) {
-      updateData[field] = input[field] as any;
+      (updateData as Record<string, unknown>)[field] = input[field];
     }
   });
 
   const { data, error } = await supabase.from('kpis').update(updateData).eq('id', input.id).select().single();
 
   if (error) {
-    console.error('Error updating KPI:', error);
+    logger.error('Error updating KPI', { data: { error, id: input.id } });
     return { data: null, error };
   }
 
@@ -177,7 +181,7 @@ export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | nu
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
-export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ data: KPI | null; error: any }> {
+export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ data: KPI | null; error: unknown }> {
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -210,7 +214,7 @@ export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ da
     .single();
 
   if (updateError) {
-    console.error('Error updating KPI number:', updateError);
+    logger.error('Error updating KPI number', { data: { updateError, kpi_id: input.kpi_id } });
     return { data: null, error: updateError };
   }
 
@@ -226,7 +230,7 @@ export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ da
   });
 
   if (revisionError) {
-    console.error('Error creating revision:', revisionError);
+    logger.warn('Error creating revision (KPI already updated)', { data: { revisionError, kpi_id: input.kpi_id } });
     // No retornamos error aquí porque el KPI ya se actualizó
   }
 
@@ -234,13 +238,13 @@ export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ da
   return { data: updatedKPI ? mapKPIRowToKPI(updatedKPI) : null, error: null };
 }
 
-export async function deleteKPI(id: string): Promise<{ error: any }> {
+export async function deleteKPI(id: string): Promise<{ error: unknown }> {
   const supabase = await supabaseServer();
 
   const { error } = await supabase.from('kpis').update({ is_active: false }).eq('id', id);
 
   if (error) {
-    console.error('Error deleting KPI:', error);
+    logger.error('Error deleting KPI', { data: { error, id } });
     return { error };
   }
 

@@ -3,10 +3,9 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
 import type { Metadata } from 'next';
-import { Inter, Poppins } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 
 import './globals.css';
-const inter = Inter({ subsets: ['latin'] });
 const popinsFont = Poppins({
   subsets: ['latin'],
   weight: ['400', '600', '700'],

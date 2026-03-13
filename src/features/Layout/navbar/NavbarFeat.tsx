@@ -1,22 +1,23 @@
 import { fetchCurrentCompany, fetchUserCompanies } from '@/shared/actions/company.actions';
-import { getCurrentUserProfile, getUserNotifications } from './actions/actions.navbar';
+import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCurrentUserProfile } from './actions/actions.navbar';
 import { Navbar } from './components/Navbar';
 
 async function NavbarFeat() {
-  // Ejecutar todas las consultas en paralelo
-  const [user, notifications, currentCompany] = await Promise.all([
+  // Get userId from cached session (0 network calls — reads JWT cookie)
+  const session = await getCachedSession();
+  const userId = session?.user?.id || '';
+
+  // Run ALL queries in parallel — no waterfall
+  const [user, currentCompany, { sharedCompanies, allCompanies }] = await Promise.all([
     getCurrentUserProfile(),
-    getUserNotifications(),
     fetchCurrentCompany(),
+    fetchUserCompanies(userId),
   ]);
 
-  // Una vez tenemos el usuario, obtenemos sus compañías
-  // (esta consulta depende del ID de usuario, por eso no la ponemos en el Promise.all inicial) comentario de prueba
-  const { sharedCompanies, allCompanies } = await fetchUserCompanies(user?.id || '');
   return (
     <Navbar
       user={user}
-      notifications={notifications}
       companies={{
         sharedCompanies,
         allCompanies,

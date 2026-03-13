@@ -180,6 +180,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | Date pickers con escritura directa          | Integrado en CLAUDE.md              | Todo date picker individual (no date range)       |
 | Forms con shadcn + zod (OBLIGATORIO)        | @.claude/rules/forms.md             | Todo formulario que recolecte datos del usuario   |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
+| Auth optimizada (getCachedSession)          | Integrado en CLAUDE.md              | Todo Server Component que necesite datos del user |
 | Revision Diferencial pre-commit             | Plugin superpowers (skills)         | Al commitear, pushear o crear PR                  |
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
@@ -320,6 +321,55 @@ const data = await prisma.preparte.findMany({
 // ⚠️ LEGACY - Forma con Supabase (solo en código no migrado aún)
 // const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
 ```
+
+### 9. Autenticacion Optimizada — `getCachedSession()`
+
+**SIEMPRE** usar `getCachedSession()` de `@/shared/lib/cached-session` para obtener datos del usuario en Server Components. **NUNCA** usar `supabase.auth.getUser()` ni `supabase.auth.getSession()` directamente en componentes.
+
+`getCachedSession()` usa `React.cache()` para deduplicar la lectura del JWT — multiples Server Components en el mismo request comparten el resultado sin llamadas de red adicionales.
+
+```typescript
+// ✅ CORRECTO — getCachedSession() en cualquier Server Component
+import { getCachedSession } from '@/shared/lib/cached-session';
+
+export default async function MyServerComponent() {
+  const session = await getCachedSession();
+  const user = session?.user;
+  const userId = user?.id;
+  const email = user?.email;
+  const appMetadata = user?.app_metadata; // company, has_company, etc.
+}
+
+// ❌ INCORRECTO — llamadas directas a Supabase Auth
+const supabase = await supabaseServer();
+const {
+  data: { user },
+} = await supabase.auth.getUser(); // ❌ Llamada de red al Auth server
+const {
+  data: { session },
+} = await supabase.auth.getSession(); // ❌ No deduplicado
+```
+
+#### Datos disponibles en la session (JWT)
+
+| Campo         | Acceso                                  | Descripcion                             |
+| ------------- | --------------------------------------- | --------------------------------------- |
+| User ID       | `session.user.id`                       | UUID del usuario                        |
+| Email         | `session.user.email`                    | Email del usuario                       |
+| Role          | `session.user.role`                     | `authenticated` o `anon`                |
+| Is Anonymous  | `session.user.is_anonymous`             | `true` si es usuario anonimo            |
+| Company ID    | `session.user.app_metadata.company`     | UUID de la compania actual              |
+| Has Company   | `session.user.app_metadata.has_company` | `true`/`false` (requiere SQL Hook)      |
+| User Metadata | `session.user.user_metadata`            | Datos del perfil (email_verified, etc.) |
+
+#### Donde NO usar getCachedSession
+
+- **Middleware (`proxy.ts`)**: El middleware usa `updateSession()` que ya valida con `getUser()`. No reemplazar.
+- **Client Components**: No aplica — `getCachedSession()` es solo server-side.
+
+#### Deteccion automatica y correccion incremental
+
+Al leer cualquier Server Component o server action que use `supabase.auth.getUser()` o `supabase.auth.getSession()`: **PREGUNTAR al usuario si desea migrar a `getCachedSession()`**.
 
 ### 5. Numero de Legajo en Listas de Empleados
 
@@ -509,6 +559,7 @@ src/
 - `src/features/Permissions/permissions-map.ts` - Mapa completo de permisos
 - `src/features/Permissions/components/PermissionGuard.tsx` - Componente para proteger elementos
 - `src/features/Permissions/hooks/usePermissions.ts` - Hook para verificar permisos
+- `src/shared/lib/cached-session.ts` - Helper de auth deduplicado (getCachedSession)
 - `src/lib/logger.ts` - Implementacion del logger
 - `src/shared/components/common/DataTable/DataTable.tsx` - Componente DataTable actual (Prisma)
 - `src/shared/components/common/DataTable/DOCS.md` - Documentacion completa del DataTable

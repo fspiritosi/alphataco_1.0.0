@@ -9,7 +9,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
-import { revalidatePath } from 'next/cache';
+
 import CityInput from './components/CityInput';
 import CreateCompanyButton from './components/CreateCompanyButton';
 export default async function companyRegister() {
@@ -32,7 +32,6 @@ export default async function companyRegister() {
     .from('share_company_users')
     .select(`*`)
     .eq('profile_id', data?.[0]?.id || '');
-  revalidatePath('/dashboard/company/new');
 
   const showAlert = !Companies?.[0] && !share_company_users?.[0];
 

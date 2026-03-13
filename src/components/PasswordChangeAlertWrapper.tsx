@@ -1,12 +1,9 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { getCachedSession } from '@/shared/lib/cached-session';
 import { PasswordChangeAlert } from './PasswordChangeAlert';
 
 export async function PasswordChangeAlertWrapper() {
-  const supabase = await supabaseServer();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getCachedSession();
+  const user = session?.user;
 
   if (!user) {
     return null;

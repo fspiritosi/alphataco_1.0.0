@@ -1,17 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Cookies from 'js-cookie';
-import { getDepartmentAbsenceSummary } from '../actions/actions';
-import { DepartmentSummaryTableComponent } from './charts/department-summary-table';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getDepartmentAbsenceSummary } from '../actions.server';
+import { _DepartmentSummaryDataTable } from './DepartmentSummaryTable/_DepartmentSummaryDataTable';
 
 export async function DepartmentSummaryTable() {
-  const data = await getDepartmentAbsenceSummary({});
-
-  const tableId = 'departmentSummaryTable';
-  const visibilityCookie = Cookies.get(tableId);
-  const filtersCookie = Cookies.get(`${tableId}-filters`);
-
-  const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
-  const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : [];
+  const companyId = await getServerCompanyId();
+  const data = await getDepartmentAbsenceSummary(companyId);
 
   return (
     <Card>
@@ -22,11 +16,7 @@ export async function DepartmentSummaryTable() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <DepartmentSummaryTableComponent
-          data={data as any}
-          savedVisibility={savedVisibility}
-          savedFiltersFromCookie={savedFiltersFromCookie}
-        />
+        <_DepartmentSummaryDataTable data={data} />
       </CardContent>
     </Card>
   );

@@ -1,3 +1,4 @@
+import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { AbsenteeismTrendChart } from './components/AbsenteeismTrendChart';
 import { DepartmentAbsenceCharts } from './components/DepartmentAbsenceCharts';
 import { DepartmentSummaryTable } from './components/DepartmentSummaryTable';
@@ -7,7 +8,9 @@ import { SummaryCards } from './components/SummaryCards';
 import { EmployeeAbsenceTable } from './components/employee-absence-table';
 import EmployeeDistributionCharts from './components/employee-distribution-charts';
 
-export function AbsenteeismDashboard() {
+export async function AbsenteeismDashboard() {
+  const companyId = await getServerCompanyId();
+
   return (
     <div className="space-y-8">
       {/* Summary Cards */}
@@ -16,14 +19,14 @@ export function AbsenteeismDashboard() {
       {/* Charts Section */}
       <div className="flex flex-wrap gap-8">
         <div className="w-full lg:w-[calc(50%-1rem)] space-y-8">
-          <AbsenteeismTrendChart />
+          <AbsenteeismTrendChart companyId={companyId} />
           <DepartmentSummaryTable />
           <EmployeeDistributionCharts />
         </div>
         <div className="w-full lg:w-[calc(50%-1rem)] space-y-8">
           <DepartmentAbsenceCharts />
           <DetailedAbsenceTable />
-          <HeadcountTrendChart />
+          <HeadcountTrendChart companyId={companyId} />
         </div>
       </div>
 

@@ -1,40 +1,38 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig } from '@/components/ui/chart';
-import { getDepartmentAbsenceReasons } from '../actions/actions';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { DepartmentAbsenceReasonEntry, getDepartmentAbsenceReasons } from '../actions.server';
 import { DepartmentAbsenceChartsComponent } from './charts/department-absence-charts';
 
+const sanitizeKey = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
 export async function DepartmentAbsenceCharts() {
-  const data: any = await getDepartmentAbsenceReasons({});
+  const companyId = await getServerCompanyId();
+  const data = await getDepartmentAbsenceReasons(companyId);
 
   // Filtrar solo departamentos que tengan algún ausente (algún motivo con valor > 0)
-  const filteredData = Array.isArray(data)
-    ? data.filter((dept: any) => Array.isArray(dept?.data) && dept.data.some((r: any) => (Number(r?.value) || 0) > 0))
+  const filteredData: DepartmentAbsenceReasonEntry[] = Array.isArray(data)
+    ? data.filter((dept) => Array.isArray(dept?.data) && dept.data.some((r) => (Number(r?.value) || 0) > 0))
     : [];
-
-  const sanitizeKey = (s: string) =>
-    s
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
 
   // Razones presentes solo en los departamentos visibles (con ausentes)
   const reasonNames = Array.from(
-    new Set(
-      filteredData?.flatMap((d: any) =>
-        (d?.data || []).filter((r: any) => (Number(r?.value) || 0) > 0).map((r: any) => r.name)
-      )
-    )
+    new Set(filteredData.flatMap((d) => (d?.data || []).filter((r) => (Number(r?.value) || 0) > 0).map((r) => r.name)))
   );
 
   const chartConfig: ChartConfig = {
     value: { label: 'Porcentaje' },
   };
 
-  reasonNames.forEach((name: any, idx) => {
+  reasonNames.forEach((name, idx) => {
     const key = sanitizeKey(name);
-    (chartConfig as any)[key] = {
+    chartConfig[key] = {
       label: name,
       color: `var(--chart-${(idx % 5) + 1})`,
     };
@@ -55,8 +53,8 @@ export async function DepartmentAbsenceCharts() {
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredData.map((dept: any, index: number) => {
-              const deptChartData = dept.data.map((r: any) => {
+            {filteredData.map((dept, index) => {
+              const deptChartData = dept.data.map((r) => {
                 const key = sanitizeKey(r.name);
                 return {
                   reason: key,

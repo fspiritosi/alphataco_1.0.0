@@ -1,8 +1,12 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { getCachedSession } from '@/shared/lib/cached-session';
 import { cache } from 'react';
 import { PERMISSIONS, type ModuleSlug } from './permissions-map';
+
+const logger = new Logger('features/Permissions');
 
 /**
  * Server Actions para verificación de permisos
@@ -24,8 +28,8 @@ import { PERMISSIONS, type ModuleSlug } from './permissions-map';
  *     { moduleSlug: 'empleados', tabSlug: 'employees', actionSlug: 'create' },
  *   ]);
  *
- *   const canView = permissions.get('empleados:employees:view');
- *   const canCreate = permissions.get('empleados:employees:create');
+ *   const canView = permissions.get('dashboard:principal:view');
+ *   const canCreate = permissions.get('dashboard:estadisticas:create');
  * }
  * ```
  */
@@ -42,15 +46,11 @@ import { PERMISSIONS, type ModuleSlug } from './permissions-map';
  */
 const getCachedUserPermissions = cache(async () => {
   const supabase = await supabaseServer();
+  const session = await getCachedSession();
+  const user = session?.user;
 
-  // Obtener usuario desde auth
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error('Error getting user from auth:', authError);
+  if (!user) {
+    logger.error('No authenticated session for permissions');
     return [];
   }
 
@@ -60,7 +60,7 @@ const getCachedUserPermissions = cache(async () => {
   });
 
   if (error) {
-    console.error('Error fetching user permissions:', error);
+    logger.error('Error fetching user permissions', { data: { error } });
     return [];
   }
 
@@ -93,7 +93,7 @@ export async function getUserPermissionsMapServer(): Promise<Record<string, bool
 
     // Asegurar que permissions sea un array válido
     if (!Array.isArray(permissions)) {
-      console.warn('getUserPermissionsMapServer: permissions is not an array, returning empty object');
+      logger.warn('getUserPermissionsMapServer: permissions is not an array, returning empty object');
       return {};
     }
 
@@ -107,7 +107,7 @@ export async function getUserPermissionsMapServer(): Promise<Record<string, bool
 
     return permissionMap;
   } catch (error) {
-    console.error('Error in getUserPermissionsMapServer:', error);
+    logger.error('Error in getUserPermissionsMapServer', { data: { error } });
     // Siempre retornar un objeto válido, incluso si hay un error
     return {};
   }
@@ -141,15 +141,11 @@ export async function checkMultiplePermissionsServer(
   permissions: Array<{ moduleSlug: string; tabSlug: string; actionSlug: string }>
 ): Promise<Map<string, boolean>> {
   const supabase = await supabaseServer();
+  const session = await getCachedSession();
+  const user = session?.user;
 
-  // Obtener usuario UNA SOLA VEZ
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error('Error getting user from auth:', authError);
+  if (!user) {
+    logger.error('No authenticated session for multiple permissions check');
     return new Map();
   }
 
@@ -167,7 +163,7 @@ export async function checkMultiplePermissionsServer(
   });
 
   if (error) {
-    console.error('Error checking multiple permissions:', error);
+    logger.error('Error checking multiple permissions', { data: { error } });
     return new Map();
   }
 
@@ -202,15 +198,11 @@ export async function checkMultiplePermissionsServer(
  */
 export async function checkPermissionServer(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<boolean> {
   const supabase = await supabaseServer();
+  const session = await getCachedSession();
+  const user = session?.user;
 
-  // Obtener usuario desde auth
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error('Error getting user from auth:', authError);
+  if (!user) {
+    logger.error('No authenticated session for permission check');
     return false;
   }
 
@@ -223,7 +215,7 @@ export async function checkPermissionServer(moduleSlug: string, tabSlug: string,
   });
 
   if (error) {
-    console.error('Error checking user permission:', error);
+    logger.error('Error checking user permission', { data: { error } });
     return false;
   }
 
@@ -314,25 +306,20 @@ export async function canViewServer(moduleSlug: string, tabSlug: string): Promis
  */
 export async function getUserAccessibleModulesServer() {
   const supabase = await supabaseServer();
+  const session = await getCachedSession();
 
-  // Obtener usuario desde auth
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error('Error getting user from auth:', authError);
+  if (!session?.user) {
+    logger.error('No authenticated session for accessible modules');
     return [];
   }
 
   // Obtener módulos accesibles usando la función SQL
   const { data, error } = await supabase.rpc('get_user_accessible_modules', {
-    p_user_id: user.id,
+    p_user_id: session.user.id,
   });
 
   if (error) {
-    console.error('Error fetching accessible modules:', error);
+    logger.error('Error fetching accessible modules', { data: { error } });
     return [];
   }
 

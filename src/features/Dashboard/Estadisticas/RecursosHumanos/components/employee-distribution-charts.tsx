@@ -1,14 +1,20 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getEmployeesByContractType, getEmployeesByGenderAndPosition } from '../actions/actions';
+import { Logger } from '@/lib/logger';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getEmployeesByContractType, getEmployeesByGenderAndPosition } from '../actions.server';
 import { EmployeeContractTypeChartComponent } from './charts/employee-contract-type-chart';
 import { EmployeeGenderPositionChartComponent } from './charts/employee-gender-position-chart';
 
+const logger = new Logger('features/Dashboard/RRHH/EmployeeDistributionCharts');
+
 export default async function EmployeeDistributionCharts() {
   try {
+    const companyId = await getServerCompanyId();
+
     // Obtener datos de ambos gráficos en paralelo
     const [genderPositionData, contractTypeData] = await Promise.all([
-      getEmployeesByGenderAndPosition(),
-      getEmployeesByContractType(),
+      getEmployeesByGenderAndPosition(companyId),
+      getEmployeesByContractType(companyId),
     ]);
 
     return (
@@ -31,13 +37,13 @@ export default async function EmployeeDistributionCharts() {
             <CardDescription>Distribución de empleados según su tipo de contrato</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmployeeContractTypeChartComponent data={contractTypeData || []} />
+            <EmployeeContractTypeChartComponent data={contractTypeData} />
           </CardContent>
         </Card>
       </div>
     );
   } catch (error) {
-    console.error('Error loading employee distribution charts:', error);
+    logger.error('Error al cargar gráficos de distribución de empleados', { data: { error } });
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

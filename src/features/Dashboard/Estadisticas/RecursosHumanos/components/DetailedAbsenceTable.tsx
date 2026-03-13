@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Cookies from 'js-cookie';
-import { getDailyAbsenceTimeseries } from '../actions/actions';
-import { DetailedAbsenceTableComponent } from './charts/detailed-absence-table';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getDailyAbsenceTimeseries } from '../actions.server';
+import { _DailyAbsenceDataTable } from './DailyAbsenceTable/_DailyAbsenceDataTable';
 
 function getCurrentMonthYearLabel(date = new Date()) {
   const month = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(date);
@@ -10,13 +10,8 @@ function getCurrentMonthYearLabel(date = new Date()) {
 }
 
 export async function DetailedAbsenceTable() {
-  const data = await getDailyAbsenceTimeseries({});
-  const tableId = 'detailedAbsenceTable';
-  const visibilityCookie = Cookies.get(tableId);
-  const filtersCookie = Cookies.get(`${tableId}-filters`);
-
-  const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
-  const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : [];
+  const companyId = await getServerCompanyId();
+  const data = await getDailyAbsenceTimeseries(companyId);
 
   return (
     <Card>
@@ -28,11 +23,7 @@ export async function DetailedAbsenceTable() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <DetailedAbsenceTableComponent
-          data={data as any}
-          savedVisibility={savedVisibility}
-          savedFiltersFromCookie={savedFiltersFromCookie}
-        />
+        <_DailyAbsenceDataTable data={data} companyId={companyId} />
       </CardContent>
     </Card>
   );

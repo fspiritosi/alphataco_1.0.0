@@ -1,17 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Cookies from 'js-cookie';
-import { getCurrentAbsentEmployees } from '../actions/actions';
-import { EmployeeAbsenceTableComponent } from './charts/employee-absence-table';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getCurrentAbsentEmployees } from '../actions.server';
+import { _EmployeeAbsenceDataTable } from './EmployeeAbsenceTable/_EmployeeAbsenceDataTable';
 
 export async function EmployeeAbsenceTable() {
-  const data = await getCurrentAbsentEmployees({});
-
-  const tableId = 'employeeAbsenceTable';
-  const visibilityCookie = Cookies.get(tableId);
-  const filtersCookie = Cookies.get(`${tableId}-filters`);
-
-  const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
-  const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : [];
+  const companyId = await getServerCompanyId();
+  const result = await getCurrentAbsentEmployees(companyId);
 
   return (
     <Card>
@@ -23,11 +17,7 @@ export async function EmployeeAbsenceTable() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <EmployeeAbsenceTableComponent
-          data={(data as any)?.data}
-          savedVisibility={savedVisibility}
-          savedFiltersFromCookie={savedFiltersFromCookie}
-        />
+        <_EmployeeAbsenceDataTable data={result?.data ?? []} />
       </CardContent>
     </Card>
   );

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import cookie from 'js-cookie';
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
@@ -22,6 +23,8 @@ import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { updateProfileAvatar } from '../../actions/actions.navbar';
 import { UserMenuProps } from '../../types/navbar.types';
+
+const logger = new Logger('UserMenu');
 
 export function _UserMenu({ user }: UserMenuProps) {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
@@ -42,7 +45,7 @@ export function _UserMenu({ user }: UserMenuProps) {
       await updateProfileAvatar(user.id, imageUrl);
       form.setValue('profile', imageUrl);
     } catch (error) {
-      console.error('Error al actualizar avatar:', error);
+      logger.error('Error al actualizar avatar', { data: { error } });
     }
   };
 

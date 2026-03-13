@@ -14,13 +14,12 @@ import {
 } from '@/components/ui/command';
 import { Dialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { DEFAULT_COMPANY_ID, DEFAULT_COMPANY_NAME } from '@/lib/company-config';
 import { cn } from '@/lib/utils';
 import { CaretSortIcon, CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons';
 import Cookies from 'js-cookie';
 import { Building2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CompanySelectorProps } from '../../types/navbar.types';
 
 export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany }: CompanySelectorProps) {
@@ -29,20 +28,6 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(
     currentCompany?.[0] || allCompanies[0] || null
   );
-
-  // Inicializar la cookie con la empresa por defecto si no existe
-  useEffect(() => {
-    const actualCompany = Cookies.get('actualComp');
-
-    // Si no hay cookie o es inválida, usar la empresa por defecto
-    if (!actualCompany || actualCompany === 'undefined' || actualCompany.trim() === '') {
-      Cookies.set('actualComp', DEFAULT_COMPANY_ID);
-      Cookies.set('actualCompName', DEFAULT_COMPANY_NAME);
-      setNewCompanyUserMetadata(DEFAULT_COMPANY_ID);
-    } else {
-      setNewCompanyUserMetadata(actualCompany);
-    }
-  }, [allCompanies, sharedCompanies, currentCompany]);
 
   const totalCompanies = [...sharedCompanies, ...allCompanies];
 
