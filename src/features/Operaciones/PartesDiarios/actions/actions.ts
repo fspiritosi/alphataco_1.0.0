@@ -503,8 +503,8 @@ export async function getDailyReportByIdOnlyDate(id: string) {
     .from('dailyreport')
     .select(
       `
-      date
-    
+      date,
+      status
     `
     )
     .eq('id', id)

@@ -996,21 +996,22 @@ export default function DayliReportDetailTableServer({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DeleteConfirmationModal
-                    refetchData={refetchDailyReport}
-                    date={reportDate}
-                    dailyReportId={row.original.id}
-                    preparteInfo={row.original.preparte}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Eliminar</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {(isToday || moment(reportDate).isAfter(moment()) || row.original.status === 'sin_recursos_asignados') && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DeleteConfirmationModal
+                      refetchData={refetchDailyReport}
+                      dailyReportId={row.original.id}
+                      preparteInfo={row.original.preparte}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Eliminar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         );
       },

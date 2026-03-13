@@ -6,11 +6,14 @@ import BackButton from '@/components/BackButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { PermissionGuard } from '@/features/Permissions';
-import { Edit, Truck } from 'lucide-react';
+import { CheckCircle2, Edit, Truck } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import React from 'react';
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+import { updateEquipmentCondition } from '../lib/actions/vehicle-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
 import { VehicleQuickActions } from './vehicle-quick-actions';
 
@@ -25,6 +28,24 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { triggerReset } = useVehicleFormReset();
+  const [isChangingCondition, setIsChangingCondition] = useState(false);
+
+  // El valor de condition viene de Supabase con espacios ("en preparacion")
+  const isEnPreparacion = vehicle?.condition === 'en preparacion';
+
+  const handleConditionChange = async (newCondition: string) => {
+    if (!vehicle?.id || newCondition !== 'operativo') return;
+    setIsChangingCondition(true);
+    try {
+      await updateEquipmentCondition(vehicle.id, 'operativo', 'vehicles');
+      toast.success('Equipo actualizado a Operativo');
+      router.refresh();
+    } catch {
+      toast.error('Error al actualizar la condición');
+    } finally {
+      setIsChangingCondition(false);
+    }
+  };
 
   const handleEdit = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -63,10 +84,44 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
               <div className="flex items-center">
                 <div>
                   <h1 className="text-2xl font-bold">{vehicle?.domain || 'Nuevo Equipo'}</h1>
-                  <Badge variant={variants[vehicle?.condition ?? 'default'] as 'default'}>
-                    {React.createElement(conditionConfig[vehicle?.condition!]?.icon, { className: 'mr-2 size-4' })}{' '}
-                    {vehicle?.condition}
-                  </Badge>
+                  {isEnPreparacion ? (
+                    <PermissionGuard module="equipos" tab="detalle-equipo" action="update">
+                      <Select
+                        value="en preparacion"
+                        onValueChange={handleConditionChange}
+                        disabled={isChangingCondition}
+                      >
+                        <SelectTrigger className="h-7 w-auto gap-1 text-xs font-semibold border-dashed">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en preparacion" disabled>
+                            <div className="flex items-center gap-1.5">
+                              {React.createElement(conditionConfig['en preparacion']?.icon, {
+                                className: 'size-3.5',
+                              })}
+                              En preparación
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="operativo">
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle2 className="size-3.5 text-green-600" />
+                              Operativo
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </PermissionGuard>
+                  ) : (
+                    <Badge variant={variants[vehicle?.condition ?? 'default'] as 'default'}>
+                      {vehicle?.condition &&
+                        conditionConfig[vehicle.condition] &&
+                        React.createElement(conditionConfig[vehicle.condition].icon, {
+                          className: 'mr-2 size-4',
+                        })}
+                      {vehicle?.condition}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
