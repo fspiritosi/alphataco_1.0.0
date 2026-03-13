@@ -1,26 +1,5 @@
 import { Building2, Globe, Hash, Mail, MapPin, Phone, Tag } from 'lucide-react';
-import { getCompany } from '../../actions/actions';
-
-interface Company {
-  id: string;
-  company_name: string;
-  description: string;
-  website?: string | null;
-  contact_email: string;
-  contact_phone: string;
-  address: string;
-  city: number;
-  country: string;
-  industry: string;
-  company_logo: string | null;
-  is_active: boolean;
-  company_cuit: string;
-  province_id: number | null;
-  owner_id: string | null;
-  by_defect: boolean | null;
-  cities: { name: string };
-}
-[];
+import { getCompanyBySession } from '../../actions/actions.server';
 
 interface InfoItemProps {
   icon: React.ReactNode;
@@ -41,7 +20,7 @@ function InfoItem({ icon, label, value }: InfoItemProps) {
 }
 
 export default async function CompanyComponent() {
-  const company = await getCompany();
+  const company = await getCompanyBySession();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

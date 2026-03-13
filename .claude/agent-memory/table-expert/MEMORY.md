@@ -94,6 +94,18 @@ Usa el sistema LEGACY basado en `BaseDataTable` de `src/shared/components/data-t
 - city (BigInt nullable) → cities (id: BigInt)
 - En Prisma groupBy y filter: usar String(id) y map(Number)
 
+### Empresa/General — CostCenter migrada (2026-03):
+
+- **Nuevo sistema**: `src/features/Empresa/General/CostCenter/`
+- cost_center NO tiene company_id — usa RLS Supabase, pero Prisma bypasea RLS. La tabla es global por diseño (sin filtro de empresa en las queries Prisma — el schema confirma que no hay campo company_id).
+- Zustand store (`costCenter.store.ts`) ahora usa `CostCenterListItem` de Prisma en vez del tipo global `CostCenter` de Supabase.
+- Tipo global `CostCenter` (colections.ts): `created_at: string` (Supabase). Tipo nuevo `CostCenterListItem` (Prisma): `created_at: Date`. Incompatibles — NO hacer cast entre ambos.
+- DataTableSearchParams NO está en `helpers.ts` — importar desde `@/shared/components/common/DataTable` (index) o `types.ts`.
+- `buildFiltersWhere` no apto para booleanos nullable — manejar `is_active` manualmente extrayendo `state.filters['is_active']`.
+- Archivos eliminados: `CostCenterTab.tsx`, `CostCenterTabClient.tsx`, `CostCenterTable.tsx`.
+- Form (`CostCenterForm.tsx`): `useEffect` para sincronizar con Zustand store externo es VÁLIDO (sincronización con fuente de datos externa al componente), no un anti-pattern.
+- Mutaciones migradas a Prisma: `createCostCenterPrisma`, `updateCostCenterPrisma` en `CostCenter/actions.server.ts`. Invalidan `['cost-centers']` via React Query.
+
 ### Mantenimiento — Tablas migradas al nuevo sistema:
 
 - **MaintenanceOrders**: `src/features/Mantenimiento/MaintenanceOrders/table/`
