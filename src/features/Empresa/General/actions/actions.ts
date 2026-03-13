@@ -1,9 +1,12 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 import { revalidatePath } from 'next/cache';
+
+const logger = new Logger('features/Empresa/General');
 
 // General Actions
 
@@ -29,7 +32,7 @@ export async function getCompany() {
       .eq('id', company_id);
 
     if (error) {
-      console.error('Error fetching cost centers:', error);
+      logger.error('Error fetching company data', { data: { error } });
       return null;
     }
     return data[0];
@@ -46,7 +49,7 @@ export async function getCompanyName() {
     const { data, error } = await supabase.from('company').select(`company_name`).eq('id', company_id);
 
     if (error) {
-      console.error('Error fetching cost centers:', error);
+      logger.error('Error fetching company data', { data: { error } });
       return null;
     }
     return data[0];
@@ -156,7 +159,7 @@ export async function fetchAllCostCenters() {
     .returns<CostCenter[]>();
 
   if (error) {
-    console.error('Error fetching cost centers:', error);
+    logger.error('Error fetching company data', { data: { error } });
     return [];
   }
   return data;
@@ -174,7 +177,7 @@ export const createCostCenter = async (costCenter: { name: string; is_active: bo
     .returns<CostCenter[]>();
 
   if (error) {
-    console.error('Error creating cost center:', error);
+    logger.error('Error creating cost center', { data: { error } });
     throw new Error('Error creating cost center');
   }
   return data;
@@ -193,7 +196,7 @@ export const updateCostCenter = async (costCenter: { id: string; name: string; i
     .returns<CostCenter[]>();
 
   if (error) {
-    console.error('Error updating cost center:', error);
+    logger.error('Error updating cost center', { data: { error } });
     throw new Error('Error updating cost center');
   }
   return data;
@@ -210,7 +213,7 @@ export async function fetchAllSectors() {
   const { data, error } = await supabase.from('hierarchy').select('*').order('name', { ascending: true }).returns<[]>();
 
   if (error) {
-    console.error('Error fetching sectors:', error);
+    logger.error('Error fetching sectors', { data: { error } });
     return [];
   }
   return data;
@@ -228,7 +231,7 @@ export const createSector = async (sector: { name: string; is_active: boolean })
     .returns<[]>();
 
   if (error) {
-    console.error('Error creating sector:', error);
+    logger.error('Error creating sector', { data: { error } });
     throw new Error('Error creating sector');
   }
   return data;
@@ -247,7 +250,7 @@ export const updateSector = async (sector: { id: string; name: string; is_active
     .returns<[]>();
 
   if (error) {
-    console.error('Error updating sector:', error);
+    logger.error('Error updating sector', { data: { error } });
     throw new Error('Error updating sector');
   }
   return data;
@@ -259,7 +262,7 @@ export const getRoles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   const { data: roles, error } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
   if (error) {
-    console.error('Error updating sector:', error);
+    logger.error('Error updating sector', { data: { error } });
     throw new Error('Error updating sector');
   }
   return roles;
@@ -275,7 +278,7 @@ export const fetchCustomers = async () => {
     .eq('is_active', true)
     .eq('company_id', company_id!);
   if (error) {
-    console.error('Error fetching customers:', error);
+    logger.error('Error fetching customers', { data: { error } });
   }
   return data;
 };
@@ -286,7 +289,7 @@ export const getProfile = async (email: string) => {
   const company_id = cookiesStore.get('actualComp')?.value;
   const { data: profile, error } = await supabase.from('profile').select('*').eq('email', email);
   if (error) {
-    console.error('Error fetching profile:', error);
+    logger.error('Error fetching profile', { data: { error } });
   }
   return profile;
 };

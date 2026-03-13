@@ -15,6 +15,8 @@ import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
 import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
 import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
+import { CompanySkeleton } from './fallback/CompanySkeleton';
+import { MantenimientoSubtabSkeleton, TableSubtabSkeleton } from './fallback/SubtabSkeletons';
 
 export default async function GeneralTabContent({
   searchParams,
@@ -51,7 +53,6 @@ export default async function GeneralTabContent({
                     <CardTitle>Empresa</CardTitle>
                     <CardDescription>Información de la empresa</CardDescription>
                   </div>
-                  {/* <EditCompanyButton companyId={company_id?.toString() ?? ''} /> */}
                   <PermissionGuardServer module="empresa" tab="general" action="update">
                     <Link
                       href={`/dashboard/company/${company_id?.toString()}`}
@@ -62,7 +63,9 @@ export default async function GeneralTabContent({
                   </PermissionGuardServer>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <CompanyComponent />
+                  <Suspense fallback={<CompanySkeleton />}>
+                    <CompanyComponent />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -84,7 +87,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Gestión de centros de costos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <CostCenterTab />
+                  <Suspense fallback={<TableSubtabSkeleton />}>
+                    <CostCenterTab />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -106,7 +111,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Estructura organizacional</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <OrganigramTabWrapper />
+                  <Suspense fallback={<TableSubtabSkeleton />}>
+                    <OrganigramTabWrapper />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -121,7 +128,11 @@ export default async function GeneralTabContent({
             ),
             moduleSlug: 'empresa',
             tabSlug: 'users',
-            content: <UsersTabComponent searchParams={searchParams} permissions={permissions} />,
+            content: (
+              <Suspense fallback={<TableSubtabSkeleton />}>
+                <UsersTabComponent searchParams={searchParams} permissions={permissions} />
+              </Suspense>
+            ),
           },
           {
             value: 'documentacion',
@@ -165,7 +176,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Gestión de talleres y sectores</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <MantenimientoTab />
+                  <Suspense fallback={<MantenimientoSubtabSkeleton />}>
+                    <MantenimientoTab />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),

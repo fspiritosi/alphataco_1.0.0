@@ -25,7 +25,7 @@ export function KpiChartSkeleton() {
         </CardAction>
       </CardHeader>
       <CardContent className="px-4">
-        <div className="h-[250px] w-full flex flex-col justify-between py-4">
+        <div className="relative h-[250px] w-full flex flex-col justify-between py-4">
           {/* Simular lineas de grid del grafico */}
           <Skeleton className="h-px w-full opacity-40" />
           <Skeleton className="h-px w-full opacity-40" />
