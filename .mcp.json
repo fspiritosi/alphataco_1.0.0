@@ -10,7 +10,7 @@
     },
     "supabase-DEV": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=xgiagugeighnfrmnkeuu&read_only=true"
+      "url": "https://mcp.supabase.com/mcp?project_ref=pdrylqbztmpgawsfdsbr&read_only=true"
     },
     "shadcn": {
       "command": "cmd",

@@ -2,6 +2,7 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { BarChart3, ClipboardList } from 'lucide-react';
 import { Suspense } from 'react';
 import GraficosTabContent from './Graficos/GraficosTabContent';
+import { GraficosGridSkeleton } from './Graficos/fallback/KpiChartSkeleton';
 import { KpisIndicadoresSkeleton } from './Indicadores/fallback/KpisIndicadoresSkeleton';
 import KpisIndicadoresContent from './KpisIndicadoresContent';
 
@@ -46,7 +47,7 @@ export default async function KpisTabContent({
           moduleSlug: 'dashboard',
           tabSlug: 'graficos',
           content: (
-            <Suspense fallback={<div className="h-[300px] w-full animate-pulse bg-muted rounded-md" />}>
+            <Suspense fallback={<GraficosGridSkeleton />}>
               <GraficosTabContent />
             </Suspense>
           ),
