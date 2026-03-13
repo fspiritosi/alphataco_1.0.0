@@ -10,49 +10,49 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createCostCenterPrisma, updateCostCenterPrisma } from '../../CostCenter/actions.server';
-import { useCostCenterStore } from './store/costCenter.store';
+import { createHierarchyPrisma, updateHierarchyPrisma } from './actions.server';
+import { useHierarchyStore } from './store/hierarchy.store';
 
 // ============================================================================
 // SCHEMA
 // ============================================================================
 
-const CostCenterSchema = z.object({
+const HierarchySchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, { message: 'Debe ingresar el nombre del centro de costo' }),
+  name: z.string().min(1, { message: 'Debe ingresar el nombre del sector' }),
   is_active: z.boolean().default(true),
 });
 
-type CostCenterFormValues = z.infer<typeof CostCenterSchema>;
+type HierarchyFormValues = z.infer<typeof HierarchySchema>;
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-function CostCenterForm() {
-  const editingCostCenter = useCostCenterStore((state) => state.costCenter);
-  const setCostCenter = useCostCenterStore((state) => state.setCostCenter);
+function HierarchyForm() {
+  const editingHierarchy = useHierarchyStore((state) => state.hierarchy);
+  const setHierarchy = useHierarchyStore((state) => state.setHierarchy);
   const queryClient = useQueryClient();
 
-  const isEditing = !!editingCostCenter;
+  const isEditing = !!editingHierarchy;
 
-  const form = useForm<CostCenterFormValues>({
-    resolver: zodResolver(CostCenterSchema),
+  const form = useForm<HierarchyFormValues>({
+    resolver: zodResolver(HierarchySchema),
     defaultValues: {
       name: '',
       is_active: true,
     },
   });
 
-  // Sincronizar form cuando cambia el item a editar
-  // useEffect aquí es válido: estamos sincronizando con un store externo (Zustand)
-  // que puede cambiar desde fuera (click en botón "Editar" de la tabla)
+  // Sincronizar form cuando cambia el item a editar.
+  // useEffect es válido aquí: estamos sincronizando con un store externo (Zustand)
+  // que puede cambiar desde fuera (click en botón "Editar" de la tabla).
   useEffect(() => {
-    if (editingCostCenter) {
+    if (editingHierarchy) {
       form.reset({
-        id: editingCostCenter.id,
-        name: editingCostCenter.name,
-        is_active: editingCostCenter.is_active ?? true,
+        id: editingHierarchy.id,
+        name: editingHierarchy.name,
+        is_active: editingHierarchy.is_active ?? true,
       });
     } else {
       form.reset({
@@ -61,47 +61,47 @@ function CostCenterForm() {
         is_active: true,
       });
     }
-  }, [editingCostCenter, form]);
+  }, [editingHierarchy, form]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const resetForm = () => {
-    setCostCenter(null);
+    setHierarchy(null);
     form.reset({ id: undefined, name: '', is_active: true });
   };
 
   const invalidateTable = () => {
-    queryClient.invalidateQueries({ queryKey: ['cost-centers'] });
+    queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
   };
 
   // ── Submit handlers ────────────────────────────────────────────────────────
 
-  const handleCreate = async (values: CostCenterFormValues) => {
-    toast.promise(createCostCenterPrisma({ name: values.name, is_active: values.is_active }), {
-      loading: 'Creando centro de costo...',
+  const handleCreate = async (values: HierarchyFormValues) => {
+    toast.promise(createHierarchyPrisma({ name: values.name, is_active: values.is_active }), {
+      loading: 'Creando sector...',
       success: () => {
         invalidateTable();
         resetForm();
-        return 'Centro de costo creado correctamente';
+        return 'Sector creado correctamente';
       },
-      error: 'Error al crear el centro de costo',
+      error: 'Error al crear el sector',
     });
   };
 
-  const handleUpdate = async (values: CostCenterFormValues) => {
+  const handleUpdate = async (values: HierarchyFormValues) => {
     if (!values.id) return;
-    toast.promise(updateCostCenterPrisma({ id: values.id, name: values.name, is_active: values.is_active }), {
-      loading: 'Actualizando centro de costo...',
+    toast.promise(updateHierarchyPrisma({ id: values.id, name: values.name, is_active: values.is_active }), {
+      loading: 'Actualizando sector...',
       success: () => {
         invalidateTable();
         resetForm();
-        return 'Centro de costo actualizado correctamente';
+        return 'Sector actualizado correctamente';
       },
-      error: 'Error al actualizar el centro de costo',
+      error: 'Error al actualizar el sector',
     });
   };
 
-  const handleSubmit = (values: CostCenterFormValues) => {
+  const handleSubmit = (values: HierarchyFormValues) => {
     if (isEditing) {
       handleUpdate(values);
     } else {
@@ -114,21 +114,16 @@ function CostCenterForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4 px-2">
-        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Centro de Costo' : 'Crear Centro de Costo'}</h2>
+        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Sector' : 'Crear Sector'}</h2>
 
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre del Centro de Costo</FormLabel>
+              <FormLabel>Nombre del Sector</FormLabel>
               <FormControl>
-                <Input
-                  type="text"
-                  {...field}
-                  className="input w-full max-w-[400px]"
-                  placeholder="Nombre del centro de costo"
-                />
+                <Input type="text" {...field} className="input w-full max-w-[400px]" placeholder="Nombre del sector" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -187,4 +182,4 @@ function CostCenterForm() {
   );
 }
 
-export default CostCenterForm;
+export default HierarchyForm;

@@ -16,7 +16,7 @@ import { prisma } from '@/shared/lib/prisma';
 // LOGGER
 // ============================================================================
 
-const logger = new Logger('features/Empresa/General/CostCenter');
+const logger = new Logger('features/Empresa/General/Hierarchy');
 
 // ============================================================================
 // VALID SORT FIELDS — solo campos reales de BD
@@ -70,7 +70,7 @@ function buildWhereClause(state: ReturnType<typeof parseSearchParams>) {
 // QUERY PAGINADA
 // ============================================================================
 
-export async function getCostCentersPaginated(searchParams: DataTableSearchParams) {
+export async function getHierarchiesPaginated(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
@@ -88,7 +88,7 @@ export async function getCostCentersPaginated(searchParams: DataTableSearchParam
     const safeOrderBy = [{ is_active: 'desc' as const }, ...resolvedSorts, { name: 'asc' as const }];
 
     const [data, total] = await Promise.all([
-      prisma.cost_center.findMany({
+      prisma.hierarchy.findMany({
         skip,
         take,
         orderBy: safeOrderBy,
@@ -100,12 +100,12 @@ export async function getCostCentersPaginated(searchParams: DataTableSearchParam
           created_at: true,
         },
       }),
-      prisma.cost_center.count({ where }),
+      prisma.hierarchy.count({ where }),
     ]);
 
     return { data, total };
   } catch (error) {
-    logger.error('Error al obtener centros de costo', { data: { error } });
+    logger.error('Error al obtener sectores del organigrama', { data: { error } });
     throw new Error('No se pudo obtener la lista. Intente nuevamente.');
   }
 }
@@ -114,7 +114,7 @@ export async function getCostCentersPaginated(searchParams: DataTableSearchParam
 // EXPORT COMPLETO — sin skip/take, mismos filtros
 // ============================================================================
 
-export async function getAllCostCentersForExport(searchParams: DataTableSearchParams) {
+export async function getAllHierarchiesForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
     const where = buildWhereClause(state);
@@ -127,7 +127,7 @@ export async function getAllCostCentersForExport(searchParams: DataTableSearchPa
     }
     const safeOrderBy = [{ is_active: 'desc' as const }, ...resolvedSorts, { name: 'asc' as const }];
 
-    return await prisma.cost_center.findMany({
+    return await prisma.hierarchy.findMany({
       where,
       orderBy: safeOrderBy,
       select: {
@@ -138,7 +138,7 @@ export async function getAllCostCentersForExport(searchParams: DataTableSearchPa
       },
     });
   } catch (error) {
-    logger.error('Error al exportar centros de costo', { data: { error } });
+    logger.error('Error al exportar sectores del organigrama', { data: { error } });
     throw new Error('No se pudo exportar la lista. Intente nuevamente.');
   }
 }
@@ -151,7 +151,7 @@ export async function getAllCostCentersForExport(searchParams: DataTableSearchPa
  * Retorna counts + opciones para UNA sola columna.
  * Aplica TODOS los filtros activos EXCEPTO el de la propia columna (cross-filter).
  */
-export async function getCostCenterSingleFacet(
+export async function getHierarchySingleFacet(
   columnId: string,
   searchParams?: DataTableSearchParams
 ): Promise<FacetResult | null> {
@@ -169,7 +169,7 @@ export async function getCostCenterSingleFacet(
 
     switch (columnId) {
       case 'is_active': {
-        const rows = await prisma.cost_center.groupBy({
+        const rows = await prisma.hierarchy.groupBy({
           by: ['is_active'],
           where: crossWhere,
           _count: true,
@@ -199,7 +199,7 @@ export async function getCostCenterSingleFacet(
         return null;
     }
   } catch (error) {
-    logger.error('Error al obtener faceta de centro de costo', { data: { error, columnId } });
+    logger.error('Error al obtener faceta del organigrama', { data: { error, columnId } });
     return null;
   }
 }
@@ -208,9 +208,9 @@ export async function getCostCenterSingleFacet(
 // MUTACIONES — crear y actualizar con Prisma
 // ============================================================================
 
-export async function createCostCenterPrisma(data: { name: string; is_active: boolean }) {
+export async function createHierarchyPrisma(data: { name: string; is_active: boolean }) {
   try {
-    const result = await prisma.cost_center.create({
+    const result = await prisma.hierarchy.create({
       data: {
         name: data.name,
         is_active: data.is_active,
@@ -219,14 +219,14 @@ export async function createCostCenterPrisma(data: { name: string; is_active: bo
     });
     return result;
   } catch (error) {
-    logger.error('Error al crear centro de costo', { data: { error } });
-    throw new Error('No se pudo crear el centro de costo. Intente nuevamente.');
+    logger.error('Error al crear sector del organigrama', { data: { error } });
+    throw new Error('No se pudo crear el sector. Intente nuevamente.');
   }
 }
 
-export async function updateCostCenterPrisma(data: { id: string; name: string; is_active: boolean }) {
+export async function updateHierarchyPrisma(data: { id: string; name: string; is_active: boolean }) {
   try {
-    const result = await prisma.cost_center.update({
+    const result = await prisma.hierarchy.update({
       where: { id: data.id },
       data: {
         name: data.name,
@@ -236,8 +236,8 @@ export async function updateCostCenterPrisma(data: { id: string; name: string; i
     });
     return result;
   } catch (error) {
-    logger.error('Error al actualizar centro de costo', { data: { error } });
-    throw new Error('No se pudo actualizar el centro de costo. Intente nuevamente.');
+    logger.error('Error al actualizar sector del organigrama', { data: { error } });
+    throw new Error('No se pudo actualizar el sector. Intente nuevamente.');
   }
 }
 
@@ -245,4 +245,4 @@ export async function updateCostCenterPrisma(data: { id: string; name: string; i
 // TIPOS EXPORTADOS
 // ============================================================================
 
-export type CostCenterListItem = Awaited<ReturnType<typeof getCostCentersPaginated>>['data'][number];
+export type HierarchyListItem = Awaited<ReturnType<typeof getHierarchiesPaginated>>['data'][number];

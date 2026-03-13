@@ -6,7 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
-import type { CostCenterListItem } from './actions.server';
+import type { HierarchyListItem } from './actions.server';
 
 // ============================================================================
 // HIDDEN COLUMNS BY DEFAULT
@@ -28,9 +28,9 @@ type Permissions = {
 
 export function getColumns(
   permissions: Permissions,
-  onEdit: (item: CostCenterListItem) => void
-): ColumnDef<CostCenterListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'cost-center', 'update');
+  onEdit: (item: HierarchyListItem) => void
+): ColumnDef<HierarchyListItem>[] {
+  const canUpdate = permissions.hasPermission('empresa', 'organigrama', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export function getColumns(
               </Button>
             ),
           },
-        ] as ColumnDef<CostCenterListItem>[])
+        ] as ColumnDef<HierarchyListItem>[])
       : []),
   ];
 }

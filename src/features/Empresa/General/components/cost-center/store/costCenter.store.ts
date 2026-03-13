@@ -1,5 +1,5 @@
-import type { CostCenterListItem } from '../../../CostCenter/actions.server';
 import { create } from 'zustand';
+import type { CostCenterListItem } from '../../../CostCenter/actions.server';
 
 interface CostCenterState {
   costCenter: CostCenterListItem | null;

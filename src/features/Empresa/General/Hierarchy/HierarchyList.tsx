@@ -1,20 +1,20 @@
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import _CostCenterDataTable from './_CostCenterDataTable';
-import { getCostCentersPaginated } from './actions.server';
+import _HierarchyDataTable from './_HierarchyDataTable';
+import { getHierarchiesPaginated } from './actions.server';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-export const COST_CENTER_TABLE_ID = 'cost-centers';
+export const HIERARCHY_TABLE_ID = 'hierarchy';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface CostCenterListProps {
+interface HierarchyListProps {
   searchParams: Record<string, string | string[] | undefined>;
   permissions: Record<string, boolean>;
 }
@@ -23,22 +23,22 @@ interface CostCenterListProps {
 // SERVER COMPONENT
 // ============================================================================
 
-export default async function CostCenterList({ searchParams, permissions }: CostCenterListProps) {
+export default async function HierarchyList({ searchParams, permissions }: HierarchyListProps) {
   // Strip namespace prefix para aislar los params de esta tabla
-  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, COST_CENTER_TABLE_ID);
+  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, HIERARCHY_TABLE_ID);
 
   // NO cargar facets en SSR — se cargan lazy (on-demand) en el cliente
   const [{ data, total }, preferences] = await Promise.all([
-    getCostCentersPaginated(tableParams),
-    getTablePreferences(COST_CENTER_TABLE_ID),
+    getHierarchiesPaginated(tableParams),
+    getTablePreferences(HIERARCHY_TABLE_ID),
   ]);
 
   return (
-    <_CostCenterDataTable
+    <_HierarchyDataTable
       data={data}
       totalRows={total}
       searchParams={tableParams}
-      tableId={COST_CENTER_TABLE_ID}
+      tableId={HIERARCHY_TABLE_ID}
       permissionsMap={permissions}
       initialColumnVisibility={preferences.columnVisibility ?? {}}
       initialFilterVisibility={preferences.filterVisibility ?? {}}

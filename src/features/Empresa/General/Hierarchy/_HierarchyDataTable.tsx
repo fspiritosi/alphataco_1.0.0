@@ -11,22 +11,22 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import CostCenterForm from '../components/cost-center/CostCenterForm';
-import { useCostCenterStore } from '../components/cost-center/store/costCenter.store';
+import HierarchyForm from './HierarchyForm';
 import {
-  getAllCostCentersForExport,
-  getCostCenterSingleFacet,
-  getCostCentersPaginated,
-  type CostCenterListItem,
+  getAllHierarchiesForExport,
+  getHierarchiesPaginated,
+  getHierarchySingleFacet,
+  type HierarchyListItem,
 } from './actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns } from './columns';
+import { useHierarchyStore } from './store/hierarchy.store';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface CostCenterDataTableProps {
-  data: CostCenterListItem[];
+interface HierarchyDataTableProps {
+  data: HierarchyListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
@@ -40,7 +40,7 @@ interface CostCenterDataTableProps {
 // COMPONENT
 // ============================================================================
 
-export default function _CostCenterDataTable({
+export default function _HierarchyDataTable({
   data,
   totalRows,
   searchParams,
@@ -48,7 +48,7 @@ export default function _CostCenterDataTable({
   permissionsMap,
   initialColumnVisibility,
   initialFilterVisibility,
-}: CostCenterDataTableProps) {
+}: HierarchyDataTableProps) {
   // ── Permisos: construir helper desde el map serializable del servidor ────────
   const permissions = useMemo(
     () => ({
@@ -59,16 +59,16 @@ export default function _CostCenterDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'cost-center', 'create') ||
-    permissions.hasPermission('empresa', 'cost-center', 'update');
+    permissions.hasPermission('empresa', 'organigrama', 'create') ||
+    permissions.hasPermission('empresa', 'organigrama', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
-  const setCostCenter = useCostCenterStore((state) => state.setCostCenter);
+  const setHierarchy = useHierarchyStore((state) => state.setHierarchy);
   const handleEdit = useCallback(
-    (item: CostCenterListItem) => {
-      setCostCenter(item);
+    (item: HierarchyListItem) => {
+      setHierarchy(item);
     },
-    [setCostCenter]
+    [setHierarchy]
   );
 
   // ── Client-side navigation mode ──────────────────────────────────────────
@@ -78,7 +78,7 @@ export default function _CostCenterDataTable({
     setCurrentParams(params);
   }, []);
 
-  const tableQueryFn = useCallback((params: DataTableSearchParams) => getCostCentersPaginated(params), []);
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getHierarchiesPaginated(params), []);
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getColumns(permissions, handleEdit), [permissions, handleEdit]);
@@ -104,7 +104,7 @@ export default function _CostCenterDataTable({
 
   // ── Lazy-load facet: is_active ─────────────────────────────────────────────
   const fetchIsActiveFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
-    const result = await getCostCenterSingleFacet('is_active', params);
+    const result = await getHierarchySingleFacet('is_active', params);
     if (!result) return { options: [], counts: new Map() };
     // Enriquecer las opciones con iconos semánticos
     const options = [
@@ -153,7 +153,7 @@ export default function _CostCenterDataTable({
       totalRows={totalRows}
       searchParams={searchParams}
       queryFn={tableQueryFn}
-      queryKey={['cost-centers']}
+      queryKey={['hierarchy']}
       onStateChange={handleStateChange}
       tableId={tableId}
       paramNamespace={tableId}
@@ -161,14 +161,14 @@ export default function _CostCenterDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       showFilterToggle
-      searchPlaceholder="Buscar centros de costo..."
-      emptyMessage="No se encontraron centros de costo"
+      searchPlaceholder="Buscar sectores..."
+      emptyMessage="No se encontraron sectores"
       exportConfig={{
-        fetchAllData: () => getAllCostCentersForExport(currentParams),
+        fetchAllData: () => getAllHierarchiesForExport(currentParams),
         options: {
-          filename: 'centros-de-costo',
-          sheetName: 'Centros de Costo',
-          title: 'Centros de Costo',
+          filename: 'organigrama-sectores',
+          sheetName: 'Organigrama',
+          title: 'Organigrama — Sectores',
         },
         formatters: {
           is_active: (value) => {
@@ -190,7 +190,7 @@ export default function _CostCenterDataTable({
   return (
     <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
       <ResizablePanel defaultSize={38} minSize={25} maxSize={55}>
-        <CostCenterForm />
+        <HierarchyForm />
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={62} minSize={40}>

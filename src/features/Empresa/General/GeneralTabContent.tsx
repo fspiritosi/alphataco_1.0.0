@@ -11,11 +11,12 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
-import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterList from './CostCenter/CostCenterList';
 import { CostCenterTableSkeleton } from './CostCenter/fallback/CostCenterTableSkeleton';
+import HierarchyList from './Hierarchy/HierarchyList';
+import { HierarchyTableSkeleton } from './Hierarchy/fallback/HierarchyTableSkeleton';
+import CompanyComponent from './components/company/CompanyComponent';
 import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
-import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
 import { CompanySkeleton } from './fallback/CompanySkeleton';
 import { MantenimientoSubtabSkeleton, TableSubtabSkeleton } from './fallback/SubtabSkeletons';
 
@@ -112,8 +113,8 @@ export default async function GeneralTabContent({
                   <CardDescription>Estructura organizacional</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <Suspense fallback={<TableSubtabSkeleton />}>
-                    <OrganigramTabWrapper />
+                  <Suspense fallback={<HierarchyTableSkeleton />}>
+                    <HierarchyList searchParams={searchParams} permissions={permissions} />
                   </Suspense>
                 </CardContent>
               </Card>
