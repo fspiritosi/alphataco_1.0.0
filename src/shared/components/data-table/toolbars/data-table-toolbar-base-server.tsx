@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
@@ -46,6 +47,8 @@ export interface BulkActionProps<TData> {
   label?: string;
   icon?: React.ReactNode;
   onClick: (rows: TData[]) => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 // Componente SearchInput con debounce
@@ -189,21 +192,39 @@ export function DataTableToolbar<
   return (
     <div className="flex items-center justify-between z-50">
       <div className="flex flex-1 items-center gap-2 flex-wrap">
-        {bulkAction?.enabled && hasSelectedRows && (
-          <Button
-            variant="default"
-            size="sm"
-            className="h-8 gap-1"
-            onClick={() => {
-              const selectedData = selectedRows.map((row) => row.original);
-              bulkAction.onClick(selectedData);
-            }}
-            disabled={isLoading}
-          >
-            {bulkAction.icon}
-            {bulkAction.label || `Acción (${selectedRows.length})`}
-          </Button>
-        )}
+        {bulkAction?.enabled &&
+          hasSelectedRows &&
+          (bulkAction.disabled && bulkAction.disabledReason ? (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Button variant="default" size="sm" className="h-8 gap-1" disabled>
+                      {bulkAction.icon}
+                      {bulkAction.label || `Acción (${selectedRows.length})`}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{bulkAction.disabledReason}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => {
+                const selectedData = selectedRows.map((row) => row.original);
+                bulkAction.onClick(selectedData);
+              }}
+              disabled={isLoading || bulkAction.disabled}
+            >
+              {bulkAction.icon}
+              {bulkAction.label || `Acción (${selectedRows.length})`}
+            </Button>
+          ))}
         {searchableColumns.length > 0 &&
           searchableColumns.map((column) => {
             const tableColumn = table.getColumn(column.columnId);
