@@ -1,121 +1,125 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createCostCenter, updateCostCenter } from '../../actions/actions';
+import { createCostCenterPrisma, updateCostCenterPrisma } from '../../CostCenter/actions.server';
 import { useCostCenterStore } from './store/costCenter.store';
+
+// ============================================================================
+// SCHEMA
+// ============================================================================
+
 const CostCenterSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: 'Debe ingresar el nombre del centro de costo' }),
-  is_active: z.boolean().optional(),
+  is_active: z.boolean().default(true),
 });
+
+type CostCenterFormValues = z.infer<typeof CostCenterSchema>;
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 function CostCenterForm() {
   const editingCostCenter = useCostCenterStore((state) => state.costCenter);
-  const form = useForm<z.infer<typeof CostCenterSchema>>({
+  const setCostCenter = useCostCenterStore((state) => state.setCostCenter);
+  const queryClient = useQueryClient();
+
+  const isEditing = !!editingCostCenter;
+
+  const form = useForm<CostCenterFormValues>({
     resolver: zodResolver(CostCenterSchema),
     defaultValues: {
       name: '',
-      is_active: false,
+      is_active: true,
     },
   });
 
-  const { reset } = form;
-  const router = useRouter();
-  const [isEditing, setIsEditing] = useState(!!editingCostCenter);
-
+  // Sincronizar form cuando cambia el item a editar
+  // useEffect aquí es válido: estamos sincronizando con un store externo (Zustand)
+  // que puede cambiar desde fuera (click en botón "Editar" de la tabla)
   useEffect(() => {
     if (editingCostCenter) {
-      reset({
+      form.reset({
         id: editingCostCenter.id,
         name: editingCostCenter.name,
-        is_active: editingCostCenter.is_active ? true : false,
+        is_active: editingCostCenter.is_active ?? true,
       });
-      setIsEditing(true);
     } else {
-      reset({
-        id: '',
+      form.reset({
+        id: undefined,
         name: '',
-        is_active: false,
+        is_active: true,
       });
-      setIsEditing(false);
     }
-  }, [editingCostCenter, reset]);
+  }, [editingCostCenter, form]);
 
-  const onSubmit = async (values: z.infer<typeof CostCenterSchema>) => {
-    toast.promise(
-      async () => {
-        await createCostCenter({ name: values.name, is_active: values.is_active! });
-      },
-      {
-        loading: 'Creando centro de costo...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Centro de costo creado correctamente';
-        },
-        error: (error) => {
-          return 'Error al crear el centro de costo';
-        },
-      }
-    );
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const resetForm = () => {
+    setCostCenter(null);
+    form.reset({ id: undefined, name: '', is_active: true });
   };
 
-  const onUpdate = async (values: z.infer<typeof CostCenterSchema>) => {
-    toast.promise(
-      async () => {
-        await updateCostCenter({
-          id: values.id!,
-          name: values.name,
-          is_active: values.is_active! ? true : false,
-        });
+  const invalidateTable = () => {
+    queryClient.invalidateQueries({ queryKey: ['cost-centers'] });
+  };
+
+  // ── Submit handlers ────────────────────────────────────────────────────────
+
+  const handleCreate = async (values: CostCenterFormValues) => {
+    toast.promise(createCostCenterPrisma({ name: values.name, is_active: values.is_active }), {
+      loading: 'Creando centro de costo...',
+      success: () => {
+        invalidateTable();
+        resetForm();
+        return 'Centro de costo creado correctamente';
       },
+      error: 'Error al crear el centro de costo',
+    });
+  };
+
+  const handleUpdate = async (values: CostCenterFormValues) => {
+    if (!values.id) return;
+    toast.promise(
+      updateCostCenterPrisma({ id: values.id, name: values.name, is_active: values.is_active }),
       {
         loading: 'Actualizando centro de costo...',
         success: () => {
-          router.refresh();
+          invalidateTable();
           resetForm();
           return 'Centro de costo actualizado correctamente';
         },
-        error: (error) => {
-          return 'Error al actualizar el centro de costo';
-        },
+        error: 'Error al actualizar el centro de costo',
       }
     );
   };
 
-  const handleSubmit = (values: z.infer<typeof CostCenterSchema>) => {
+  const handleSubmit = (values: CostCenterFormValues) => {
     if (isEditing) {
-      onUpdate(values);
+      handleUpdate(values);
     } else {
-      onSubmit(values);
+      handleCreate(values);
     }
   };
 
-  const resetForm = () => {
-    reset({
-      id: '',
-      name: '',
-      is_active: false,
-    });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    resetForm();
-  };
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
-        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Centro de Costo' : 'Crear Centro de Costo'}</h2>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4 px-2">
+        <h2 className="text-xl font-bold mb-4">
+          {isEditing ? 'Editar Centro de Costo' : 'Crear Centro de Costo'}
+        </h2>
 
         <FormField
           control={form.control}
@@ -124,7 +128,12 @@ function CostCenterForm() {
             <FormItem>
               <FormLabel>Nombre del Centro de Costo</FormLabel>
               <FormControl>
-                <Input type="text" {...field} className="input w-[400px]" placeholder="Nombre del centro de costo" />
+                <Input
+                  type="text"
+                  {...field}
+                  className="input w-full max-w-[400px]"
+                  placeholder="Nombre del centro de costo"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -136,12 +145,12 @@ function CostCenterForm() {
           name="is_active"
           render={({ field }) => (
             <FormItem className="space-y-3">
-              <FormLabel>Activo</FormLabel>
+              <FormLabel>Estado</FormLabel>
               <FormControl>
                 <RadioGroup
                   onValueChange={(value) => field.onChange(value === 'true')}
                   value={field.value ? 'true' : 'false'}
-                  className="flex  space-x-1"
+                  className="flex space-x-1"
                 >
                   <FormItem className="flex items-center space-x-3 space-y-0">
                     <FormControl>
@@ -163,11 +172,17 @@ function CostCenterForm() {
         />
 
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant={'gh_orange'}>
-            {isEditing ? 'Actualizar' : 'Crear'}
+          <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting
+              ? isEditing
+                ? 'Actualizando...'
+                : 'Creando...'
+              : isEditing
+                ? 'Actualizar'
+                : 'Crear'}
           </Button>
           {isEditing && (
-            <Button type="button" onClick={handleCancel} variant="outline">
+            <Button type="button" onClick={resetForm} variant="outline">
               Cancelar
             </Button>
           )}

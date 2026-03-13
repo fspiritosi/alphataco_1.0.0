@@ -12,7 +12,8 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
 import CompanyComponent from './components/company/CompanyComponent';
-import CostCenterTab from './components/cost-center/CostCenterTab';
+import CostCenterList from './CostCenter/CostCenterList';
+import { CostCenterTableSkeleton } from './CostCenter/fallback/CostCenterTableSkeleton';
 import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
 import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
 import { CompanySkeleton } from './fallback/CompanySkeleton';
@@ -87,8 +88,8 @@ export default async function GeneralTabContent({
                   <CardDescription>Gestión de centros de costos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <Suspense fallback={<TableSubtabSkeleton />}>
-                    <CostCenterTab />
+                  <Suspense fallback={<CostCenterTableSkeleton />}>
+                    <CostCenterList searchParams={searchParams} permissions={permissions} />
                   </Suspense>
                 </CardContent>
               </Card>
