@@ -4,12 +4,16 @@ import BackButton from '@/components/BackButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { updateEquipmentCondition } from '@/features/Equipos/EquipoID/lib/actions/vehicle-actions';
 import type { OtherEquipmentDetail } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
 import { PermissionGuard } from '@/features/Permissions';
-import { Edit, Package } from 'lucide-react';
+import { CheckCircle2, Clock, Edit, Package } from 'lucide-react';
 import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { OtherEquipmentQuickActions } from './OtherEquipmentQuickActions';
 
 interface OtherEquipmentHeaderProps {
@@ -21,6 +25,24 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isChangingCondition, setIsChangingCondition] = useState(false);
+
+  // El valor de condition viene de Supabase con espacios ("en preparacion")
+  const isEnPreparacion = equipment?.condition === 'en preparacion';
+
+  const handleConditionChange = async (newCondition: string) => {
+    if (!equipment?.id || newCondition !== 'operativo') return;
+    setIsChangingCondition(true);
+    try {
+      await updateEquipmentCondition(equipment.id, 'operativo', 'other_equipment');
+      toast.success('Equipo actualizado a Operativo');
+      router.refresh();
+    } catch {
+      toast.error('Error al actualizar la condición');
+    } finally {
+      setIsChangingCondition(false);
+    }
+  };
 
   const handleEdit = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -104,7 +126,35 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Condición</p>
-                <p className="font-medium capitalize">{equipment?.condition || '-'}</p>
+                {isEnPreparacion ? (
+                  <PermissionGuard module="equipos" tab="detalle-otro-equipo" action="update">
+                    <Select
+                      value="en preparacion"
+                      onValueChange={handleConditionChange}
+                      disabled={isChangingCondition}
+                    >
+                      <SelectTrigger className="h-7 w-auto gap-1 text-xs font-semibold border-dashed mt-0.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en preparacion" disabled>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="size-3.5" />
+                            En preparación
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="operativo">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-green-600" />
+                            Operativo
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </PermissionGuard>
+                ) : (
+                  <p className="font-medium capitalize">{equipment?.condition || '-'}</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Estado</p>

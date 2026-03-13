@@ -769,20 +769,23 @@ export function getDailyReportColumns(
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DeleteConfirmationModal
-                    date={row.original.date}
-                    dailyReportId={row.original.id}
-                    preparteInfo={row.original.preparte}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Eliminar</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {(isToday ||
+              moment.utc(row.original.date).isAfter(moment()) ||
+              row.original.status === 'sin_recursos_asignados') && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DeleteConfirmationModal
+                      dailyReportId={row.original.id}
+                      preparteInfo={row.original.preparte}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Eliminar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         );
       },

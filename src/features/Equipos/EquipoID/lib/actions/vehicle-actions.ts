@@ -1,8 +1,13 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
+import { condition_enum } from '@/generated/prisma/enums';
 import moment from 'moment';
 import { revalidatePath } from 'next/cache';
+
+const logger = new Logger('features/Equipos/vehicle-actions');
 import { cookies } from 'next/headers';
 
 export async function getVehicleById(id: string) {
@@ -25,7 +30,7 @@ export async function getVehicleById(id: string) {
     .single();
 
   if (error) {
-    console.error('Error fetching vehicle:', error);
+    logger.error('Error fetching vehicle', { data: { error } });
     throw new Error('Failed to fetch vehicle');
   }
 
@@ -55,7 +60,7 @@ export async function toggleVehicleStatus(
     .eq('id', id);
 
   if (error) {
-    console.error('Error toggling vehicle status:', error);
+    logger.error('Error toggling vehicle status', { data: { error } });
     throw new Error('Failed to toggle vehicle status');
   }
 
@@ -90,7 +95,7 @@ export async function createVehicle(vehicleData: any) {
         .single();
 
       if (typeOfVehicleError) {
-        console.error('Error fetching type_of_vehicle for vehicle:', typeOfVehicleError);
+        logger.error('Error fetching type_of_vehicle for vehicle', { data: { typeOfVehicleError } });
       } else if (typeOfVehicleRow?.name === 'Vehículos') {
         condition = 'en preparacion';
       }
@@ -110,7 +115,7 @@ export async function createVehicle(vehicleData: any) {
     .single();
 
   if (error) {
-    console.error('Error creating vehicle:', error);
+    logger.error('Error creating vehicle', { data: { error } });
     throw new Error('Failed to create vehicle');
   }
 
@@ -151,7 +156,7 @@ export async function updateVehicle(id: string, vehicleData: any) {
     .single();
 
   if (error) {
-    console.error('Error updating vehicle:', error);
+    logger.error('Error updating vehicle', { data: { error } });
     throw new Error('Failed to update vehicle');
   }
 
@@ -176,7 +181,7 @@ export async function deleteVehicle(id: string) {
   const { error } = await supabase.from('vehicles').delete().eq('id', id).eq('company_id', company_id);
 
   if (error) {
-    console.error('Error deleting vehicle:', error);
+    logger.error('Error deleting vehicle', { data: { error } });
     throw new Error('Failed to delete vehicle');
   }
 
@@ -243,5 +248,41 @@ async function updateContractorRelationships(vehicleId: string, newContractorIds
     }));
 
     await supabase.from('contractor_equipment').insert(newRelations);
+  }
+}
+
+/**
+ * Actualiza solo la condición de un vehículo (vehicles) o equipo (other_equipment).
+ * Usado para pasar de "en preparación" a "operativo" desde el header.
+ */
+export async function updateEquipmentCondition(
+  equipmentId: string,
+  newCondition: condition_enum,
+  table: 'vehicles' | 'other_equipment' = 'vehicles'
+) {
+  logger.info('Actualizando condición de equipo', {
+    data: { equipmentId, newCondition, table },
+  });
+
+  try {
+    if (table === 'vehicles') {
+      await prisma.vehicles.update({
+        where: { id: equipmentId },
+        data: { condition: newCondition },
+      });
+    } else {
+      await prisma.other_equipment.update({
+        where: { id: equipmentId },
+        data: { condition: newCondition },
+      });
+    }
+
+    revalidatePath('/dashboard/equipment');
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al actualizar condición de equipo', {
+      data: { error, equipmentId, newCondition, table },
+    });
+    throw error;
   }
 }

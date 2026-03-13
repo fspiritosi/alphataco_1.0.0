@@ -12,9 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 import { AlertTriangle, Trash2 } from 'lucide-react';
-import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -22,14 +20,12 @@ import { deleteDailyReportRow } from '../actions/actions';
 
 interface DeleteConfirmationModalProps {
   dailyReportId: string;
-  date: string;
   refetchData?: () => void;
   preparteInfo?: { numero_pedido: string | null } | null;
 }
 
 export function DeleteConfirmationModal({
   dailyReportId,
-  date,
   refetchData,
   preparteInfo,
 }: DeleteConfirmationModalProps) {
@@ -71,10 +67,7 @@ export function DeleteConfirmationModal({
           size="icon"
           variant="ghost"
           data-testid={`delete-button-${dailyReportId}`}
-          className={cn(
-            'h-8 w-8 p-0 hover:text-red-500',
-            moment(date).isSame(moment(), 'day') || moment(date).isAfter(moment()) ? '' : 'hidden'
-          )}
+          className="h-8 w-8 p-0 hover:text-red-500"
         >
           <Trash2 className="h-4 w-4 text-red-500" />
         </Button>
