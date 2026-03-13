@@ -49,23 +49,53 @@ Los siguientes MCPs estan a tu disposicion:
 
 1. **MCP de Supabase (LOCAL, DEV y PROD)**:
 
-   - **supabase-LOCAL**: Base de datos LOCAL (desarrollo local con Docker). Tiene permisos completos de lectura y escritura.
-   - **supabase-DEV**: Base de datos de DESARROLLO remoto. Tiene permisos de lectura y escritura (ejecutar queries, aplicar migraciones, modificar datos).
+   - **supabase-LOCAL**: Base de datos LOCAL (desarrollo local con Docker). Para consultas, inserts de datos seed/permisos, y verificaciones.
+   - **supabase-DEV**: Base de datos de DESARROLLO remoto. Para consultas, inserts de datos, y verificaciones.
    - **supabase-PROD**: Base de datos de PRODUCCION. Solo tiene permisos de LECTURA (consultas, verificaciones).
 
-   **REGLA CRITICA - USAR LOCAL POR DEFECTO**: SIEMPRE usar `supabase-LOCAL` por defecto para cualquier operacion (queries, migraciones, modificaciones de datos). Solo usar otro MCP cuando el usuario explicitamente lo indique:
+   **REGLA CRITICA - USAR LOCAL POR DEFECTO**: SIEMPRE usar `supabase-LOCAL` por defecto para cualquier operacion de consulta o insercion de datos. Solo usar otro MCP cuando el usuario explicitamente lo indique:
 
    - Usar `supabase-DEV` cuando el usuario diga: "usa dev", "en desarrollo", "en DEV", etc.
    - Usar `supabase-PROD` cuando el usuario diga: "revisa en produccion", "consulta en prod", "verifica en la base de produccion", etc.
 
    **Si tienes dudas sobre cual usar, PREGUNTA al usuario antes de ejecutar.**
 
-   **REGLA DE MIGRACIONES**: Los cambios en la base de datos (crear tablas, modificar columnas, etc.) se deben aplicar **DIRECTAMENTE usando el MCP de Supabase** con `apply_migration`. **NO crear archivos SQL manualmente en `/supabase/migrations/`**. Supabase tiene comandos para generar migraciones diferenciando bases de datos, por lo que no es necesario crear archivos locales.
+   **USO DEL MCP DE SUPABASE**: El MCP se usa para **consultar datos** (SELECT), **insertar datos seed/permisos** (INSERT INTO tabs, role_permissions, etc.), **verificar estado** de la BD, y **generar informes**. **NO usar el MCP para aplicar migraciones de estructura** (DDL: CREATE TABLE, ALTER TABLE, CREATE/ALTER FUNCTION, etc.) — esas se hacen con Prisma (ver seccion siguiente).
 
-   **REGLA DE TIPOS**: Despues de aplicar una migracion con el MCP:
+   **REGLA DE MIGRACIONES — PRISMA OBLIGATORIO**: Todos los cambios de estructura en la base de datos se realizan con **migraciones de Prisma**. Hay 2 casos:
+
+   **Caso 1 — Cambios en modelos (tablas, columnas, relaciones):**
+
+   ```bash
+   # 1. Editar prisma/schema.prisma con el cambio
+   # 2. Generar migracion (SOLO genera, NO aplica)
+   npx prisma migrate dev --create-only --name descripcion_del_cambio
+   # 3. REVISAR el archivo SQL generado en prisma/migrations/ — verificar que SOLO contenga el cambio esperado
+   # 4. Si esta correcto, aplicar:
+   npx prisma migrate dev
+   # 5. Regenerar tipos:
+   npm run genlocaltypes
+   ```
+
+   **Caso 2 — SQL custom (triggers, funciones, DROP, permisos RLS):**
+
+   ```bash
+   # 1. Crear migracion vacia
+   npx prisma migrate dev --create-only --name descripcion_del_cambio
+   # 2. Editar el archivo SQL generado con el codigo custom
+   # 3. REVISAR que el SQL sea correcto
+   # 4. Aplicar:
+   npx prisma migrate dev
+   ```
+
+   **REGLA DE SEGURIDAD**: SIEMPRE usar `--create-only` primero para revisar el SQL generado antes de aplicar. NUNCA aplicar una migracion sin verificar su contenido. Si el SQL tiene cambios inesperados, borrar el archivo y reintentar.
+
+   **REGLA DE TIPOS**: Despues de aplicar una migracion:
 
    - Usar `npm run genlocaltypes` para regenerar tipos (ya que el cambio se aplico en LOCAL)
    - `npm run gentypes` es para obtener tipos de PRODUCCION (no reflejara cambios recientes en LOCAL/DEV)
+
+   **Deploy a otros entornos**: `npx prisma migrate deploy` aplica migraciones pendientes en la BD de destino (usa la tabla `_prisma_migrations` para trackear cuales ya se aplicaron).
 
 2. **MCP de chrome-devtools**: Para revisar logs de debug y verificaciones generales de la aplicacion
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados

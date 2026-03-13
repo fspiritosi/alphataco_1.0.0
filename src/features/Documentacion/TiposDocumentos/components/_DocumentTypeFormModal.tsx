@@ -26,20 +26,9 @@ import { document_applies } from '@/generated/prisma/enums';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   countMatchingResources,
   createDocumentType,
   getDocumentTypeForEdit,
-  toggleDocumentTypeActive,
   updateDocumentType,
   type DocumentTypeListItem,
 } from '../actions/actions.server';
@@ -51,6 +40,7 @@ import {
   selectionsToConditionsJson,
 } from '../utils/conditionsMapper';
 import { _ConditionsSection } from './_ConditionsSection';
+import { _ToggleDocTypeDialog } from './_ToggleDocTypeDialog';
 import { _VerifyDocumentsDialog } from './_VerifyDocumentsDialog';
 
 // ============================================
@@ -116,7 +106,7 @@ export function _DocumentTypeFormModal({
   // --- Estado de verificación ---
   const [verifyOpen, setVerifyOpen] = useState(false);
   // --- Estado de confirmación activar/desactivar ---
-  const [toggleConfirmOpen, setToggleConfirmOpen] = useState(false);
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false);
 
   // --- Estado de condiciones (fuera del form, paralelo) ---
   const [isSpecial, setIsSpecial] = useState(false);
@@ -231,19 +221,7 @@ export function _DocumentTypeFormModal({
     },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => toggleDocumentTypeActive(id, isActive),
-    onSuccess: (_data, variables) => {
-      toast.success(variables.isActive ? 'Tipo de documento activado' : 'Tipo de documento desactivado');
-      queryClient.invalidateQueries({ queryKey: ['doc-types'] });
-      handleClose();
-    },
-    onError: () => {
-      toast.error('Error al cambiar el estado del tipo de documento');
-    },
-  });
-
-  const isPending = createMutation.isPending || updateMutation.isPending || toggleMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   // --- Verificar documentos (visibilidad del botón) ---
   const mandatory = form.watch('mandatory');
@@ -570,7 +548,7 @@ export function _DocumentTypeFormModal({
                       type="button"
                       variant={documentType.is_active ? 'destructive' : 'default'}
                       size="sm"
-                      onClick={() => setToggleConfirmOpen(true)}
+                      onClick={() => setToggleDialogOpen(true)}
                       disabled={isPending}
                     >
                       <Power className="mr-1 h-3.5 w-3.5" />
@@ -594,6 +572,14 @@ export function _DocumentTypeFormModal({
               </DialogFooter>
             </form>
           </Form>
+          {isEditing && documentType ? (
+            <_ToggleDocTypeDialog
+              open={toggleDialogOpen}
+              onOpenChange={setToggleDialogOpen}
+              documentType={documentType}
+              onSuccess={handleClose}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -606,36 +592,6 @@ export function _DocumentTypeFormModal({
           applies={applies as 'Persona' | 'Equipos'}
           isSpecial={isSpecial}
         />
-      )}
-
-      {/* Confirmación de activar/desactivar */}
-      {isEditing && documentType && (
-        <AlertDialog open={toggleConfirmOpen} onOpenChange={setToggleConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{documentType.is_active ? 'Desactivar' : 'Activar'} tipo de documento</AlertDialogTitle>
-              <AlertDialogDescription>
-                {documentType.is_active
-                  ? `¿Está seguro que desea desactivar "${documentType.name}"? Los documentos existentes no se eliminarán, pero no se podrán crear nuevos documentos de este tipo.`
-                  : `¿Está seguro que desea activar "${documentType.name}"? Se podrán volver a crear documentos de este tipo.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={toggleMutation.isPending}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() =>
-                  toggleMutation.mutate({
-                    id: documentType.id,
-                    isActive: !documentType.is_active,
-                  })
-                }
-                disabled={toggleMutation.isPending}
-              >
-                {toggleMutation.isPending ? 'Procesando...' : documentType.is_active ? 'Desactivar' : 'Activar'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       )}
     </>
   );
