@@ -775,10 +775,7 @@ export function getDailyReportColumns(
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <DeleteConfirmationModal
-                      dailyReportId={row.original.id}
-                      preparteInfo={row.original.preparte}
-                    />
+                    <DeleteConfirmationModal dailyReportId={row.original.id} preparteInfo={row.original.preparte} />
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p>Eliminar</p>

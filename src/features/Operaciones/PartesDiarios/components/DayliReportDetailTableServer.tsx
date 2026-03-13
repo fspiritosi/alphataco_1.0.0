@@ -996,9 +996,7 @@ export default function DayliReportDetailTableServer({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            {(isToday ||
-              moment(reportDate).isAfter(moment()) ||
-              row.original.status === 'sin_recursos_asignados') && (
+            {(isToday || moment(reportDate).isAfter(moment()) || row.original.status === 'sin_recursos_asignados') && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

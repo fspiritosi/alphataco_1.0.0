@@ -128,11 +128,7 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
                 <p className="text-sm text-muted-foreground">Condición</p>
                 {isEnPreparacion ? (
                   <PermissionGuard module="equipos" tab="detalle-otro-equipo" action="update">
-                    <Select
-                      value="en preparacion"
-                      onValueChange={handleConditionChange}
-                      disabled={isChangingCondition}
-                    >
+                    <Select value="en preparacion" onValueChange={handleConditionChange} disabled={isChangingCondition}>
                       <SelectTrigger className="h-7 w-auto gap-1 text-xs font-semibold border-dashed mt-0.5">
                         <SelectValue />
                       </SelectTrigger>

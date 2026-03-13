@@ -24,11 +24,7 @@ interface DeleteConfirmationModalProps {
   preparteInfo?: { numero_pedido: string | null } | null;
 }
 
-export function DeleteConfirmationModal({
-  dailyReportId,
-  refetchData,
-  preparteInfo,
-}: DeleteConfirmationModalProps) {
+export function DeleteConfirmationModal({ dailyReportId, refetchData, preparteInfo }: DeleteConfirmationModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
