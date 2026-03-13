@@ -1044,6 +1044,7 @@ export default function DayliReportDetailTableServer({
             formattedData={formattedData}
             selectedRows={formattedData.filter((row) => selectedRows.some((sr) => sr.id === row.id))}
             fetchAllFormattedData={fetchAllFormattedData}
+            onSuccess={refetchDailyReport}
           />
         </PermissionGuard>
       </div>
@@ -1073,10 +1074,7 @@ export default function DayliReportDetailTableServer({
           tableId="dailyReportServerTable"
           enableRowSelection={
             canEdit
-              ? (row) =>
-                  row.original.status !== 'ejecutado' &&
-                  row.original.status !== 'sin_recursos_asignados' &&
-                  row.original.status !== 'reprogramado'
+              ? (row) => row.original.status !== 'sin_recursos_asignados' && row.original.status !== 'reprogramado'
               : false
           }
           onRowSelectionChange={(rows) => {
@@ -1381,6 +1379,8 @@ export default function DayliReportDetailTableServer({
                   enabled: true,
                   label: 'Editar',
                   icon: <Edit className="h-4 w-4" />,
+                  disabled: selectedRows.some((row) => row.status === 'ejecutado'),
+                  disabledReason: 'No se pueden editar registros ejecutados. Deseleccioná las filas ejecutadas',
                   onClick: (rows) => {
                     setSelectedRows(rows);
                     setIsBulkEditModalOpen(true);

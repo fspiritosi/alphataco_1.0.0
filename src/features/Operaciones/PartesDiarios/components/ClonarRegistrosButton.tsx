@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import {
   checkDailyReportExists,
   createDailyReport,
+  createDailyReportCustomerEquipmentRelations,
   createDailyReportEmployeeRelations,
   createDailyReportEmployeeRelationsWithRoles,
   createDailyReportEquipmentRelations,
@@ -28,13 +29,15 @@ import { transformDailyReports } from './DayliReportDetailTable';
 interface ClonarRegistrosButtonProps {
   formattedData: ReturnType<typeof transformDailyReports>;
   selectedRows: ReturnType<typeof transformDailyReports>;
-  fetchAllFormattedData?: () => Promise<any[]>; // 🔥 NUEVA PROP - usar any[] para evitar conflictos de tipos
+  fetchAllFormattedData?: () => Promise<any[]>;
+  onSuccess?: () => void;
 }
 
 export function ClonarRegistrosButton({
   formattedData,
   selectedRows,
   fetchAllFormattedData,
+  onSuccess,
 }: ClonarRegistrosButtonProps) {
   const [open, setOpen] = useState(false);
   const [fechasSeleccionadas, setFechasSeleccionadas] = useState<Date[]>([]);
@@ -218,15 +221,15 @@ export function ClonarRegistrosButton({
                 }
               }
 
-              // TODO: Descomentar cuando se requiera copiar equipos del cliente
-              // if (trasladarEquiposCliente && originalRow.customer_equipment?.length > 0) {
-              //   const customerEquipmentIds = originalRow.customer_equipment
-              //     .map((eq) => eq.id)
-              //     .filter((id): id is string => !!id);
-              //   if (customerEquipmentIds.length > 0) {
-              //     await createDailyReportCustomerEquipmentRelations(newRow.id, customerEquipmentIds);
-              //   }
-              // }
+              // Copiar equipos del cliente siempre por defecto
+              if (originalRow.customer_equipment?.length > 0) {
+                const customerEquipmentIds = originalRow.customer_equipment
+                  .map((eq) => eq.id)
+                  .filter((id): id is string => !!id);
+                if (customerEquipmentIds.length > 0) {
+                  await createDailyReportCustomerEquipmentRelations(newRow.id, customerEquipmentIds);
+                }
+              }
             }
           }
         }
@@ -248,13 +251,14 @@ export function ClonarRegistrosButton({
           setFechasSeleccionadas([]);
           setLoading(false);
 
+          // Invalidar datos de la tabla actual
+          onSuccess?.();
+
           // Navegar al reporte clonado después de que el toast se muestre
           if (navigateToReportId) {
             setTimeout(() => {
               router.push(`/dashboard/operations/${navigateToReportId}`);
             }, 300);
-          } else {
-            router.refresh();
           }
 
           return 'Registros clonados exitosamente!';
