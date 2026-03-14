@@ -1,7 +1,10 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/Equipos/titulares');
 
 export async function createEquipmentOwner({
   name,
@@ -32,7 +35,7 @@ export async function createEquipmentOwner({
     .single();
 
   if (ownerError) {
-    console.error('Error creating equipment owner:', ownerError);
+    logger.error('Error al crear titular de equipo', { data: { ownerError } });
     throw new Error(`Error creating equipment owner: ${ownerError.message}`);
   }
 
@@ -46,7 +49,7 @@ export async function createEquipmentOwner({
     const { error: contractError } = await supabase.from('equipment_owner_contract_types').insert(contractTypeRecords);
 
     if (contractError) {
-      console.error('Error creating contract types:', contractError);
+      logger.error('Error al crear tipos de contrato', { data: { contractError } });
       throw new Error(`Error creating contract types: ${contractError.message}`);
     }
   }
@@ -82,7 +85,7 @@ export async function updateEquipmentOwner({
     .select();
 
   if (error) {
-    console.error('Error updating equipment owner:', error);
+    logger.error('Error al actualizar titular de equipo', { data: { error } });
     throw new Error(`Error updating equipment owner: ${error.message}`);
   }
 
@@ -93,7 +96,7 @@ export async function updateEquipmentOwner({
     .eq('equipment_owner_id', id);
 
   if (deleteError) {
-    console.error('Error deleting contract types:', deleteError);
+    logger.error('Error al eliminar tipos de contrato', { data: { deleteError } });
     throw new Error(`Error deleting contract types: ${deleteError.message}`);
   }
 
@@ -107,7 +110,7 @@ export async function updateEquipmentOwner({
     const { error: insertError } = await supabase.from('equipment_owner_contract_types').insert(contractTypeRecords);
 
     if (insertError) {
-      console.error('Error inserting contract types:', insertError);
+      logger.error('Error al insertar tipos de contrato', { data: { insertError } });
       throw new Error(`Error inserting contract types: ${insertError.message}`);
     }
   }
@@ -122,7 +125,7 @@ export async function FetchEquipmentOwners() {
     .select('*, equipment_owner_contract_types(contract_type)');
 
   if (error) {
-    console.error('Error fetching equipment owners:', error);
+    logger.error('Error al obtener titulares de equipos', { data: { error } });
     throw new Error(`Error fetching equipment owners: ${error.message}`);
   }
   return data;
@@ -141,7 +144,7 @@ export async function fetchEquipmentByOwnerId(owner_id: string) {
     .eq('owner_id', owner_id);
 
   if (error) {
-    console.error('Error fetching equipment by owner ID:', error);
+    logger.error('Error al obtener equipos por titular', { data: { error, owner_id } });
     throw new Error(`Error fetching equipment by owner ID: ${error.message}`);
   }
   return data;

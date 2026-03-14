@@ -1,18 +1,26 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePermissions } from '@/features/Permissions';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { FetchBrandOfVehicles, FetchModelOfVehicles } from '../actions/actions';
 import EquipmentModelForm from './equipmentModelForm';
 import EquipmentModelTable from './equipmentModelTable';
 
-function EquipmentsModel({ vehicleBrands, vehicleModels }: { vehicleBrands: any[]; vehicleModels: any[] }) {
-  // Estado para el tipo de equipo que se está editando
-  const [editingType, setEditingType] = useState<any | null>(null);
-  const queryClient = new QueryClient();
+type VehicleBrand = NonNullable<Awaited<ReturnType<typeof FetchBrandOfVehicles>>>[number];
+type VehicleModel = NonNullable<Awaited<ReturnType<typeof FetchModelOfVehicles>>>[number];
+
+function EquipmentsModel({
+  vehicleBrands,
+  vehicleModels,
+}: {
+  vehicleBrands: VehicleBrand[];
+  vehicleModels: VehicleModel[];
+}) {
+  const [editingType, setEditingType] = useState<VehicleModel | null>(null);
+  const queryClient = useQueryClient();
 
   const handleSuccess = () => {
-    // Invalidate the query to refetch the data
     queryClient.invalidateQueries({ queryKey: ['equipment-models-table'] });
     setEditingType(null);
   };
@@ -23,39 +31,41 @@ function EquipmentsModel({ vehicleBrands, vehicleModels }: { vehicleBrands: any[
   const showForm = canCreate || canUpdate;
 
   return (
-    <div>
+    <div className="w-full">
       {showForm ? (
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
           <ResizablePanel defaultSize={30}>
-            <EquipmentModelForm
-              brands={vehicleBrands}
-              initialData={editingType}
-              onReset={() => setEditingType(null)}
-              isEditing={!!editingType}
-              onSuccess={handleSuccess}
-            />
+            <div className="overflow-auto h-full pr-2">
+              <EquipmentModelForm
+                brands={vehicleBrands}
+                initialData={editingType}
+                onReset={() => setEditingType(null)}
+                isEditing={!!editingType}
+                onSuccess={handleSuccess}
+              />
+            </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={70} className="ml-4">
-            <QueryClientProvider client={queryClient}>
+          <ResizablePanel defaultSize={70}>
+            <div className="overflow-auto h-full pl-2">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               <EquipmentModelTable
-                brands={vehicleBrands}
-                onEdit={setEditingType}
-                models={vehicleModels}
+                brands={vehicleBrands as any[]}
+                onEdit={setEditingType as any}
+                models={vehicleModels as any[]}
                 canEdit={canUpdate}
               />
-            </QueryClientProvider>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <QueryClientProvider client={queryClient}>
-          <EquipmentModelTable
-            brands={vehicleBrands}
-            onEdit={setEditingType}
-            models={vehicleModels}
-            canEdit={canUpdate}
-          />
-        </QueryClientProvider>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        <EquipmentModelTable
+          brands={vehicleBrands as any[]}
+          onEdit={setEditingType as any}
+          models={vehicleModels as any[]}
+          canEdit={canUpdate}
+        />
       )}
     </div>
   );

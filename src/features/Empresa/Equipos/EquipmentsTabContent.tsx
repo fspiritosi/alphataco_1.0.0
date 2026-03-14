@@ -2,13 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Box, Layers, Tag, Truck, User } from 'lucide-react';
 import { Suspense } from 'react';
-import EquipmentBrandsWrapper from './brand/EquipmentBrandsWrapper';
 import EquipmentModelList from './EquipmentModels/EquipmentModelList';
 import { EquipmentModelTableSkeleton } from './EquipmentModels/fallback/EquipmentModelTableSkeleton';
+import EquipmentOwnersTabContent from './EquipmentOwners/EquipmentOwnersTabContent';
+import EquipmentTypeList from './EquipmentTypes/EquipmentTypeList';
+import { EquipmentTypeTableSkeleton } from './EquipmentTypes/fallback/EquipmentTypeTableSkeleton';
+import EquipmentBrandsWrapper from './brand/EquipmentBrandsWrapper';
 import { EquiposSubtabSkeleton } from './fallback/EquiposSubtabSkeleton';
 import EquipmentSubTypesWrapper from './sub_types/EquipmentSubTypesWrapper';
-import TitularesWrapper from './titulares/TitularesWrapper';
-import EquipmentTypesWrapper from './types/EquipmentTypesWrapper';
 
 export default function EquipmentsTabContent({
   searchParams,
@@ -42,8 +43,8 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de tipos de unidades</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <Suspense fallback={<EquiposSubtabSkeleton />}>
-                    <EquipmentTypesWrapper />
+                  <Suspense fallback={<EquipmentTypeTableSkeleton />}>
+                    <EquipmentTypeList searchParams={searchParams} permissions={permissions} />
                   </Suspense>
                 </CardContent>
               </Card>
@@ -137,7 +138,7 @@ export default function EquipmentsTabContent({
                 </CardHeader>
                 <CardContent className="pt-6">
                   <Suspense fallback={<EquiposSubtabSkeleton />}>
-                    <TitularesWrapper />
+                    <EquipmentOwnersTabContent searchParams={searchParams} />
                   </Suspense>
                 </CardContent>
               </Card>

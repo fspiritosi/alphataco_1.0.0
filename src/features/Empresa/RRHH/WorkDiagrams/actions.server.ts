@@ -151,7 +151,14 @@ export async function getWorkDiagramsPaginated(searchParams: DataTableSearchPara
       prisma.work_diagram.count({ where }),
     ]);
 
-    return { data, total };
+    // Serializar Decimal → number para que sea compatible con Server→Client props
+    const serializedData = data.map((item) => ({
+      ...item,
+      active_working_days: item.active_working_days !== null ? Number(item.active_working_days) : null,
+      inactive_working_days: item.inactive_working_days !== null ? Number(item.inactive_working_days) : null,
+    }));
+
+    return { data: serializedData, total };
   } catch (error) {
     logger.error('Error al obtener diagramas de trabajo', { data: { error } });
     throw new Error('No se pudo obtener la lista. Intente nuevamente.');
@@ -175,7 +182,7 @@ export async function getAllWorkDiagramsForExport(searchParams: DataTableSearchP
     }
     const safeOrderBy = [{ is_active: 'desc' as const }, ...resolvedSorts, { name: 'asc' as const }];
 
-    return await prisma.work_diagram.findMany({
+    const rawData = await prisma.work_diagram.findMany({
       where,
       orderBy: safeOrderBy,
       select: {
@@ -199,6 +206,12 @@ export async function getAllWorkDiagramsForExport(searchParams: DataTableSearchP
         },
       },
     });
+
+    return rawData.map((item) => ({
+      ...item,
+      active_working_days: item.active_working_days !== null ? Number(item.active_working_days) : null,
+      inactive_working_days: item.inactive_working_days !== null ? Number(item.inactive_working_days) : null,
+    }));
   } catch (error) {
     logger.error('Error al exportar diagramas de trabajo', { data: { error } });
     throw new Error('No se pudo exportar la lista. Intente nuevamente.');

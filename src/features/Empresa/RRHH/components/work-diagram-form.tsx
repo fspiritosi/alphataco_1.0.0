@@ -156,7 +156,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         inactive_novelty: diagram.inactive_novelty?.id || '',
       });
     }
-  }, [diagram, form]);
+  }, [diagram]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (values: z.infer<typeof WorkDiagramSchema>) => {
     toast.promise(

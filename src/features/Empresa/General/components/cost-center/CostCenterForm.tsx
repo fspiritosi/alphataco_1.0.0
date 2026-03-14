@@ -61,7 +61,7 @@ function CostCenterForm() {
         is_active: true,
       });
     }
-  }, [editingCostCenter, form]);
+  }, [editingCostCenter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -92,7 +92,7 @@ export default function DiagramTypeForm() {
         computes_absenteeism: false,
       });
     }
-  }, [editingDiagramType, form]);
+  }, [editingDiagramType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 

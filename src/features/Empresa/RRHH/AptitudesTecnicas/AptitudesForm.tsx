@@ -69,7 +69,7 @@ export function AptitudesForm({ positions, queryKey }: AptitudesFormProps) {
     } else {
       form.reset({ id: undefined, nombre: '', puestos: [], is_active: true });
     }
-  }, [editingAptitud, form]);
+  }, [editingAptitud]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 

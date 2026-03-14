@@ -93,7 +93,7 @@ export default function PositionsFormNew({ selectedPosition, onDone }: Positions
         aptitudes_tecnicas_id: [],
       });
     }
-  }, [selectedPosition, form]);
+  }, [selectedPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dependency modal config ───────────────────────────────────────────────
   const dependencyConfigs = useMemo<DependencyConfig[]>(

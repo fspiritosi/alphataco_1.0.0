@@ -78,7 +78,7 @@ export default function ContractTypeForm() {
         is_active: '',
       });
     }
-  }, [editingContractType, form]);
+  }, [editingContractType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dependency config ────────────────────────────────────────────────────
   const dependencyConfigs = useMemo<DependencyConfig[]>(

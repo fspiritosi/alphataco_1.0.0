@@ -84,24 +84,30 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
           )}
         </Card>
       ) : showForm ? (
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={30}>
-            <EquipmentOwnerForm
-              initialData={editingOwner}
-              onReset={() => setEditingOwner(null)}
-              isEditing={!!editingOwner}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={70} className="ml-4">
-            <EquipmentOwnerTable
-              onViewEquipment={handleViewEquipment}
-              equipmentOwners={equipmentOwners}
-              onEdit={setEditingOwner}
-              canEdit={canUpdate}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="w-full">
+          <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
+            <ResizablePanel defaultSize={30}>
+              <div className="overflow-auto h-full pr-2">
+                <EquipmentOwnerForm
+                  initialData={editingOwner}
+                  onReset={() => setEditingOwner(null)}
+                  isEditing={!!editingOwner}
+                />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={70}>
+              <div className="overflow-auto h-full pl-2">
+                <EquipmentOwnerTable
+                  onViewEquipment={handleViewEquipment}
+                  equipmentOwners={equipmentOwners}
+                  onEdit={setEditingOwner}
+                  canEdit={canUpdate}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       ) : (
         <EquipmentOwnerTable
           onViewEquipment={handleViewEquipment}

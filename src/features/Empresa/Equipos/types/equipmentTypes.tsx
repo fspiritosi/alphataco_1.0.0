@@ -1,27 +1,26 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePermissions } from '@/features/Permissions';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useState } from 'react';
 import { FetchTypeOfVehicles } from '../actions/actions';
 import EquipmentTypesForm from './equipmentTypesForm';
 import EquipmentTypesTable from './equipmentTypesTable';
 import { useTypeChecklists } from './hooks/useTypeChecklists';
 
+const logger = new Logger('EquipmentTypes');
+
 function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typeof FetchTypeOfVehicles>> }) {
-  // Estado para el tipo de equipo que se está editando
   const [editingType, setEditingType] = useState<Awaited<ReturnType<typeof FetchTypeOfVehicles>>[0] | null>(null);
   const [hitchTypeIds, setHitchTypeIds] = useState<string[]>([]);
-  const queryClient = React.useMemo(() => new QueryClient(), []);
+  const queryClient = useQueryClient();
 
-  // Hook para obtener checklists asignados al type
   const { data: checklistIds = [], isLoading: isLoadingChecklists } = useTypeChecklists(editingType?.id || null);
 
-  // Handler para editar que convierte el tipo de EquipmentType a FetchTypeOfVehicles[0]
   const handleEdit = React.useCallback(
     (equipmentType: { id: string; name: string; is_active: boolean; created_at?: string; updated_at?: string }) => {
-      // Buscar el tipo completo en vehicleTypes
       const fullType = vehicleTypes.find((type) => type.id === equipmentType.id);
       if (fullType) {
         setEditingType(fullType);
@@ -30,13 +29,12 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
     [vehicleTypes]
   );
 
-  // Cargar los tipos de enganche cuando se edita un tipo
   const loadHitchTypes = useCallback(async (typeId: string) => {
     const supabase = supabaseBrowser();
     const { data, error } = await supabase.from('type_hitch_types').select('compatible_type_id').eq('type_id', typeId);
 
     if (error) {
-      console.error('Error loading hitch types:', error);
+      logger.error('Error al cargar tipos de enganche', { data: { error } });
       setHitchTypeIds([]);
       return;
     }
@@ -44,7 +42,6 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
     setHitchTypeIds(data?.map((item) => item.compatible_type_id) || []);
   }, []);
 
-  // Cuando cambia el tipo en edición, cargar sus tipos de enganche
   useEffect(() => {
     if (editingType?.id) {
       loadHitchTypes(editingType.id);
@@ -68,31 +65,31 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
   const showForm = canCreate || canUpdate;
 
   return (
-    <div>
+    <div className="w-full">
       {showForm ? (
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
           <ResizablePanel defaultSize={30}>
-            <EquipmentTypesForm
-              initialData={editingType}
-              onReset={handleReset}
-              isEditing={!!editingType}
-              onSuccess={handleSuccess}
-              allTypes={vehicleTypes}
-              initialHitchTypeIds={hitchTypeIds}
-              initialChecklistIds={checklistIds}
-            />
+            <div className="overflow-auto h-full pr-2">
+              <EquipmentTypesForm
+                initialData={editingType}
+                onReset={handleReset}
+                isEditing={!!editingType}
+                onSuccess={handleSuccess}
+                allTypes={vehicleTypes}
+                initialHitchTypeIds={hitchTypeIds}
+                initialChecklistIds={checklistIds}
+              />
+            </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={70} className="ml-4">
-            <QueryClientProvider client={queryClient}>
+          <ResizablePanel defaultSize={70}>
+            <div className="overflow-auto h-full pl-2">
               <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
-            </QueryClientProvider>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <QueryClientProvider client={queryClient}>
-          <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
-        </QueryClientProvider>
+        <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
       )}
     </div>
   );

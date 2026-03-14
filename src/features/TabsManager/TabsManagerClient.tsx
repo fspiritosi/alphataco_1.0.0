@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Activity, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TabsManagerClientProps } from './types';
 
 /**
@@ -115,11 +115,9 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
         </div>
 
         {tabs.map((tab) => (
-          <Activity key={tab.value} mode={activeTab === tab.value ? 'visible' : 'hidden'}>
-            <TabsContent value={tab.value} className={contentClassName} forceMount>
-              {tab.content}
-            </TabsContent>
-          </Activity>
+          <TabsContent key={tab.value} value={tab.value} className={contentClassName}>
+            {tab.content}
+          </TabsContent>
         ))}
       </Tabs>
     </div>
