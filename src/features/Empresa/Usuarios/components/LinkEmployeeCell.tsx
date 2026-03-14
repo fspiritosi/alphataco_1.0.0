@@ -17,7 +17,6 @@ import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Loader2, Search, Unlink, UserCheck, UserPlus, UserX } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { linkEmployeeToProfile, searchEmployeesForLink } from '../actions.server';
@@ -54,7 +53,6 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
   const [isLinking, setIsLinking] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   const handleSearch = useCallback(async () => {
     if (searchQuery.length < 2) return;
@@ -80,7 +78,6 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
       setResults([]);
       setHasSearched(false);
       queryClient.invalidateQueries({ queryKey: [...COMPANY_USERS_QUERY_KEY] });
-      router.refresh();
     } catch (error) {
       logger.error('Error linking employee', { data: { error } });
       toast.error('Error al vincular empleado');
@@ -95,7 +92,6 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
       await linkEmployeeToProfile(profileId, null);
       toast.success('Empleado desvinculado');
       queryClient.invalidateQueries({ queryKey: [...COMPANY_USERS_QUERY_KEY] });
-      router.refresh();
     } catch (error) {
       logger.error('Error unlinking employee', { data: { error } });
       toast.error('Error al desvincular empleado');

@@ -520,6 +520,47 @@ const handleSelectItem = (item) => {
 };
 ```
 
+### 8. ResizablePanelGroup — Patron Correcto
+
+**SIEMPRE** usar este patron al combinar un formulario con una tabla en un layout resizable:
+
+```typescript
+// ✅ CORRECTO — form y tabla se respetan mutuamente
+<div className="w-full">
+  <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
+    <ResizablePanel defaultSize={40}>
+      <div className="overflow-auto h-full pr-2">
+        <MyForm />
+      </div>
+    </ResizablePanel>
+    <ResizableHandle withHandle />
+    <ResizablePanel defaultSize={60}>
+      <div className="overflow-auto h-full pl-2">
+        {table}
+      </div>
+    </ResizablePanel>
+  </ResizablePanelGroup>
+</div>
+
+// ❌ INCORRECTO — el contenido de la tabla aplasta el form
+<ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
+  <ResizablePanel defaultSize={38} minSize={25} maxSize={55}>
+    <MyForm />
+  </ResizablePanel>
+  <ResizableHandle withHandle />
+  <ResizablePanel defaultSize={62} minSize={40}>
+    <div className="p-2">{table}</div>
+  </ResizablePanel>
+</ResizablePanelGroup>
+```
+
+**Reglas clave:**
+
+- **`<div className="w-full">`** wrapper obligatorio — sin esto el PanelGroup no calcula anchos correctamente
+- **`overflow-auto h-full`** en cada panel — sin esto el contenido de la DataTable desborda y aplasta al panel vecino
+- **NO usar `minSize`/`maxSize`** — restringen demasiado y causan comportamiento errático. Usar solo `defaultSize`
+- **`defaultSize={40}` form / `defaultSize={60}` tabla** — proporción estándar del proyecto
+
 ---
 
 ## Estructura del Proyecto
