@@ -72,7 +72,7 @@ function customerEquipmentTab({ customers, equipments, key }: CustomerEquipmentT
       <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <CustomerEquipmentForm
                 customers={companyCustomers}
                 equipments={companyEquipments}
@@ -85,7 +85,7 @@ function customerEquipmentTab({ customers, equipments, key }: CustomerEquipmentT
             <ResizableHandle withHandle />
           </>
         )}
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <CustomerEquipmentTable
             customers={companyCustomers as any}
             customerEquipments={companyEquipments}

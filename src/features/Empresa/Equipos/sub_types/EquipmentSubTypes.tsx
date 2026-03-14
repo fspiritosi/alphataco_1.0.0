@@ -78,7 +78,7 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
     <div>
       {showForm ? (
         <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={35}>
+          <ResizablePanel defaultSize={30}>
             <EquipmentSubTypesForm
               initialData={editingType}
               onReset={handleReset}
@@ -91,7 +91,7 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={65} className="ml-4">
+          <ResizablePanel defaultSize={70} className="ml-4">
             <EquipmentSubTypesTable
               vehicleTypes={vehicleTypes}
               vehicleSubTypes={vehicleSubTypes}

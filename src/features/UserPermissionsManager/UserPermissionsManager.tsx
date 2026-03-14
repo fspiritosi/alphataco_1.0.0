@@ -2,9 +2,20 @@
 
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useUserPermissions } from '@/features/Permissions/hooks/useUserPermissions';
+import {
+  getUserPermissionsServer,
+  getUserRolesServer,
+  getAllRolesWithCounts,
+  getAllRolePermissions,
+  getModulesWithTabsServer,
+  type UserPermissionsData,
+  type UserRolesData,
+  type ModulesWithTabsData,
+  type AllRolePermissionsMap,
+  type RoleWithCount,
+} from '@/features/UserPermissionsManager/actions.server';
+import { useQuery } from '@tanstack/react-query';
 import { Shield, User } from 'lucide-react';
 import { useState } from 'react';
 import { ModulePermissions, RoleSelector } from './components';
@@ -14,22 +25,33 @@ interface UserPermissionsManagerProps {
   userName?: string;
   userEmail?: string;
   canEdit?: boolean;
+  initialUserPermissions: UserPermissionsData;
+  initialUserRoles: UserRolesData;
+  initialRoles: RoleWithCount[];
+  initialRolePermissions: AllRolePermissionsMap;
+  initialModules: ModulesWithTabsData;
 }
 
-export function UserPermissionsManager({ userId, userName, userEmail, canEdit = true }: UserPermissionsManagerProps) {
-  const { permissions, isLoading } = useUserPermissions(userId);
+export function UserPermissionsManager({
+  userId,
+  userName,
+  userEmail,
+  canEdit = true,
+  initialUserPermissions,
+  initialUserRoles,
+  initialRoles,
+  initialRolePermissions,
+  initialModules,
+}: UserPermissionsManagerProps) {
   const [activeTab, setActiveTab] = useState('user-permissions');
 
-  if (isLoading) {
-    return (
-      <Card className="p-6">
-        <Skeleton className="h-8 w-64 mb-4" />
-        <Skeleton className="h-4 w-96 mb-6" />
-        <Skeleton className="h-32 w-full mb-4" />
-        <Skeleton className="h-64 w-full" />
-      </Card>
-    );
-  }
+  // useQuery con initialData — no hay loading en el primer render
+  const { data: permissions = initialUserPermissions } = useQuery({
+    queryKey: ['user-permissions', userId],
+    queryFn: () => getUserPermissionsServer(userId),
+    initialData: initialUserPermissions,
+    staleTime: 0,
+  });
 
   return (
     <div>
@@ -39,10 +61,6 @@ export function UserPermissionsManager({ userId, userName, userEmail, canEdit = 
             <User className="h-4 w-4 mr-2" />
             Permisos de Usuario
           </TabsTrigger>
-          {/* <TabsTrigger value="role-management">
-            <Shield className="h-4 w-4 mr-2" />
-            Gestión de Roles
-          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="user-permissions">
@@ -73,14 +91,23 @@ export function UserPermissionsManager({ userId, userName, userEmail, canEdit = 
               </div>
             </Card>
 
-            <RoleSelector userId={userId} disabled={!canEdit} />
+            <RoleSelector
+              userId={userId}
+              disabled={!canEdit}
+              initialRoles={initialRoles}
+              initialUserRoles={initialUserRoles}
+              initialRolePermissions={initialRolePermissions}
+            />
 
-            <ModulePermissions userId={userId} permissions={permissions} disabled={!canEdit} />
+            <ModulePermissions
+              userId={userId}
+              permissions={permissions}
+              disabled={!canEdit}
+              initialModules={initialModules}
+              initialUserRoles={initialUserRoles}
+            />
           </Card>
         </TabsContent>
-        {/* <TabsContent value="role-management">
-          <RoleManager />
-        </TabsContent> */}
       </Tabs>
     </div>
   );

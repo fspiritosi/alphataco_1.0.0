@@ -5,6 +5,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,6 +13,8 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 import { AptitudTecnica, createAptitudTecnica, updateAptitudTecnica } from '../../actions/rrhh/aptitudesTecnicas';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 const formSchema = z.object({
   nombre: z.string().min(2, {
@@ -113,7 +116,7 @@ export function AptitudesForm({ onSuccess, positions, initialData }: AptitudesFo
       onSuccess(savedAptitud);
       router.refresh();
     } catch (error) {
-      console.error('Error al guardar la aptitud:', error);
+      logger.error('Error al guardar la aptitud', { data: { error } });
       toast.error('Error al guardar la aptitud');
     } finally {
       setIsLoading(false);

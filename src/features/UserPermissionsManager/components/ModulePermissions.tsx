@@ -21,12 +21,16 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/use-toast';
 import {
-  getModulesWithTabs,
-  getUserRoles,
-  removeRoleFromUser,
-  removeUserPermission,
-  setUserPermission,
-} from '@/features/Permissions/actions';
+  cleanAllUserPermissionsAndRoles,
+  cleanUserCustomPermissions,
+  getModulesWithTabsServer,
+  getUserRolesServer,
+  removeUserPermissionServer,
+  setUserPermissionServer,
+  type ModulesWithTabsData,
+  type UserPermissionsData,
+  type UserRolesData,
+} from '@/features/UserPermissionsManager/actions.server';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -44,36 +48,44 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
+import { Logger } from '@/lib/logger';
 import { useMemo, useState } from 'react';
+
+const logger = new Logger('ModulePermissions');
+
+type ModuleItem = ModulesWithTabsData[number];
+type TabItem = ModuleItem['tabs'][number];
 
 interface ModulePermissionsProps {
   userId: string;
-  permissions: any[];
+  permissions: UserPermissionsData;
   disabled?: boolean;
+  initialModules: ModulesWithTabsData;
+  initialUserRoles: UserRolesData;
 }
 
-const ACTION_ICONS = {
+const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   view: Eye,
   create: Plus,
   update: Pencil,
   delete: Trash2,
 };
 
-const ACTION_LABELS = {
+const ACTION_LABELS: Record<string, string> = {
   view: 'Ver',
   create: 'Crear',
   update: 'Editar',
   delete: 'Eliminar',
 };
 
-const ACTION_COLORS = {
+const ACTION_COLORS: Record<string, string> = {
   view: 'text-blue-600',
   create: 'text-green-600',
   update: 'text-yellow-600',
   delete: 'text-red-600',
 };
 
-const MODULE_ICONS: Record<string, any> = {
+const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   dashboard: LayoutDashboard,
   empresa: Building2,
   empleados: Users,
@@ -86,29 +98,38 @@ const MODULE_ICONS: Record<string, any> = {
   ayuda: HelpCircle,
 };
 
-export function ModulePermissions({ userId, permissions, disabled = false }: ModulePermissionsProps) {
+export function ModulePermissions({
+  userId,
+  permissions,
+  disabled = false,
+  initialModules,
+  initialUserRoles,
+}: ModulePermissionsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCleanDialogOpen, setIsCleanDialogOpen] = useState(false);
 
-  const { data: modules = [], isLoading } = useQuery({
+  const { data: modules = initialModules, isLoading } = useQuery({
     queryKey: ['modules-with-tabs'],
-    queryFn: getModulesWithTabs,
+    queryFn: getModulesWithTabsServer,
+    initialData: initialModules,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: userRoles = [] } = useQuery({
+  const { data: userRoles = initialUserRoles } = useQuery({
     queryKey: ['user-roles', userId],
-    queryFn: () => getUserRoles(userId),
+    queryFn: () => getUserRolesServer(userId),
+    initialData: initialUserRoles,
     enabled: !!userId,
   });
 
   const permissionMap = useMemo(() => {
     const map = new Map<
       string,
-      { source: string; isGranted: boolean; roleId?: number; roleName?: string; roleColor?: string }
+      { source: string; isGranted: boolean; roleId?: number | null; roleName?: string | null; roleColor?: string | null }
     >();
     if (Array.isArray(permissions)) {
-      permissions.forEach((perm: any) => {
+      permissions.forEach((perm) => {
         const key = `${perm.tab_id}:${perm.action_id}`;
         map.set(key, {
           source: perm.source,
@@ -121,12 +142,13 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
     }
     return map;
   }, [permissions]);
+
   const setPermissionMutation = useMutation({
     mutationFn: ({ tabId, actionId, isGranted }: { tabId: string; actionId: string; isGranted: boolean }) =>
-      setUserPermission(userId, tabId, actionId, isGranted),
+      setUserPermissionServer(userId, tabId, actionId, isGranted),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
     },
     onError: () => {
       toast({
@@ -139,10 +161,10 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
 
   const removePermissionMutation = useMutation({
     mutationFn: ({ tabId, actionId }: { tabId: string; actionId: string }) =>
-      removeUserPermission(userId, tabId, actionId),
+      removeUserPermissionServer(userId, tabId, actionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
     },
     onError: () => {
       toast({
@@ -154,11 +176,7 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
   });
 
   const cleanCustomPermissionsMutation = useMutation({
-    mutationFn: async () => {
-      const supabase = (await import('@/lib/supabase/browser')).supabaseBrowser();
-      const { error } = await supabase.from('user_permissions').delete().eq('user_id', userId);
-      if (error) throw error;
-    },
+    mutationFn: () => cleanUserCustomPermissions(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
@@ -179,15 +197,7 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
   });
 
   const cleanAllPermissionsMutation = useMutation({
-    mutationFn: async () => {
-      const supabase = (await import('@/lib/supabase/browser')).supabaseBrowser();
-
-      // Eliminar permisos personalizados
-      await supabase.from('user_permissions').delete().eq('user_id', userId);
-
-      // Eliminar todos los roles del usuario
-      await Promise.all(userRoles.map((ur: any) => removeRoleFromUser(userId, ur.role_id)));
-    },
+    mutationFn: () => cleanAllUserPermissionsAndRoles(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
@@ -214,12 +224,12 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
     return permission?.isGranted || false;
   };
 
-  const countTabActions = (tab: any): { total: number; selected: number } => {
+  const countTabActions = (tab: TabItem): { total: number; selected: number } => {
     let total = tab.actions?.length || 0;
-    let selected = tab.actions?.filter((action: any) => isPermissionActive(tab.id, action.id)).length || 0;
+    let selected = tab.actions?.filter((action) => isPermissionActive(tab.id, action.id)).length || 0;
 
     if (tab.subtabs && tab.subtabs.length > 0) {
-      tab.subtabs.forEach((subtab: any) => {
+      (tab.subtabs as TabItem[]).forEach((subtab) => {
         const subtabCounts = countTabActions(subtab);
         total += subtabCounts.total;
         selected += subtabCounts.selected;
@@ -229,25 +239,25 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
     return { total, selected };
   };
 
-  const isTabFullySelected = (tab: any): boolean => {
+  const isTabFullySelected = (tab: TabItem): boolean => {
     const counts = countTabActions(tab);
     return counts.total > 0 && counts.selected === counts.total;
   };
 
-  const isModuleFullySelected = (module: any): boolean => {
+  const isModuleFullySelected = (module: ModuleItem): boolean => {
     if (!module.tabs || module.tabs.length === 0) return false;
-    return module.tabs.every((tab: any) => isTabFullySelected(tab));
+    return (module.tabs as TabItem[]).every((tab) => isTabFullySelected(tab));
   };
 
-  const toggleModule = async (module: any) => {
-    if (disabled) return; // No permitir cambios si está deshabilitado
+  const toggleModule = async (module: ModuleItem) => {
+    if (disabled) return;
 
     const isFullySelected = isModuleFullySelected(module);
     const toAdd: Array<{ tabId: string; actionId: string }> = [];
     const toRemove: Array<{ tabId: string; actionId: string }> = [];
 
-    const collectChanges = (tab: any) => {
-      tab.actions?.forEach((action: any) => {
+    const collectChanges = (tab: TabItem) => {
+      tab.actions?.forEach((action) => {
         const isActive = isPermissionActive(tab.id, action.id);
         if (isFullySelected && isActive) {
           toRemove.push({ tabId: tab.id, actionId: action.id });
@@ -257,13 +267,12 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
       });
 
       if (tab.subtabs && tab.subtabs.length > 0) {
-        tab.subtabs.forEach((subtab: any) => collectChanges(subtab));
+        (tab.subtabs as TabItem[]).forEach((subtab) => collectChanges(subtab));
       }
     };
 
-    module.tabs?.forEach((tab: any) => collectChanges(tab));
+    (module.tabs as TabItem[])?.forEach((tab) => collectChanges(tab));
 
-    // Ejecutar todas las mutaciones
     try {
       if (toAdd.length > 0) {
         await Promise.all(
@@ -281,20 +290,19 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
           toRemove.map((perm) => removePermissionMutation.mutateAsync({ tabId: perm.tabId, actionId: perm.actionId }))
         );
       }
-      // Refrescar una sola vez al final
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
     } catch (error) {
-      console.error('Error toggling module:', error);
+      logger.error('Error toggling module', { data: { error } });
     }
   };
 
-  const toggleTab = (tab: any) => {
-    if (disabled) return; // No permitir cambios si está deshabilitado
+  const toggleTab = (tab: TabItem) => {
+    if (disabled) return;
 
     const isFullySelected = isTabFullySelected(tab);
 
-    const toggleTabRecursive = (t: any) => {
-      t.actions?.forEach((action: any) => {
+    const toggleTabRecursive = (t: TabItem) => {
+      t.actions?.forEach((action) => {
         const isActive = isPermissionActive(t.id, action.id);
         if (isFullySelected && isActive) {
           removePermissionMutation.mutate({ tabId: t.id, actionId: action.id });
@@ -304,46 +312,39 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
       });
 
       if (t.subtabs && t.subtabs.length > 0) {
-        t.subtabs.forEach((subtab: any) => toggleTabRecursive(subtab));
+        (t.subtabs as TabItem[]).forEach((subtab) => toggleTabRecursive(subtab));
       }
     };
 
     toggleTabRecursive(tab);
   };
 
-  const handlePermissionToggle = async (tabId: string, actionId: string, tab?: any) => {
-    if (disabled) return; // No permitir cambios si está deshabilitado
+  const handlePermissionToggle = async (tabId: string, actionId: string, tab?: TabItem) => {
+    if (disabled) return;
 
     const isActive = isPermissionActive(tabId, actionId);
     const permKey = `${tabId}:${actionId}`;
     const permission = permissionMap.get(permKey);
 
-    // Encontrar el action slug
-    const action = tab?.actions?.find((a: any) => a.id === actionId);
+    const action = tab?.actions?.find((a) => a.id === actionId);
     const actionSlug = action?.slug;
 
-    // Si estamos intentando REMOVER el permiso de 'view', verificar si hay otros permisos activos
     if (isActive && actionSlug === 'view') {
-      const hasOtherPermissions = tab?.actions?.some((a: any) => {
-        if (a.slug === 'view') return false; // Ignorar el permiso de view
+      const hasOtherPermissions = tab?.actions?.some((a) => {
+        if (a.slug === 'view') return false;
         const otherKey = `${tabId}:${a.id}`;
         const otherPerm = permissionMap.get(otherKey);
         return otherPerm?.isGranted;
       });
 
-      if (hasOtherPermissions) {
-        // No permitir remover 'view' si hay otros permisos activos
-        return;
-      }
+      if (hasOtherPermissions) return;
     }
 
-    // Si el tab tiene subtabs, aplicar el cambio recursivamente
     if (tab && tab.subtabs && tab.subtabs.length > 0) {
       const toAdd: Array<{ tabId: string; actionId: string }> = [];
       const toRemove: Array<{ tabId: string; actionId: string }> = [];
 
-      // Función recursiva para recolectar todos los tabs hijos
-      const collectAllTabs = (t: any) => {
+      const collectAllTabs = (t: TabItem) => {
         if (isActive) {
           toRemove.push({ tabId: t.id, actionId });
         } else {
@@ -351,16 +352,14 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
         }
 
         if (t.subtabs && t.subtabs.length > 0) {
-          t.subtabs.forEach((subtab: any) => collectAllTabs(subtab));
+          (t.subtabs as TabItem[]).forEach((subtab) => collectAllTabs(subtab));
         }
       };
 
-      // Incluir el tab actual y todos sus hijos
       collectAllTabs(tab);
 
-      // AUTO-ASSIGN VIEW: Si estamos agregando create/update/delete, también agregar 'view'
       if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
-        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        const viewAction = tab?.actions?.find((a) => a.slug === 'view');
         if (viewAction) {
           const viewKey = `${tabId}:${viewAction.id}`;
           const viewPerm = permissionMap.get(viewKey);
@@ -368,10 +367,9 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
             toAdd.push({ tabId, actionId: viewAction.id });
           }
 
-          // También agregar 'view' a los subtabs
-          const addViewToSubtabs = (subtabs: any[]) => {
+          const addViewToSubtabs = (subtabs: TabItem[]) => {
             subtabs.forEach((subtab) => {
-              const subtabViewAction = subtab.actions?.find((a: any) => a.slug === 'view');
+              const subtabViewAction = subtab.actions?.find((a) => a.slug === 'view');
               if (subtabViewAction) {
                 const subtabViewKey = `${subtab.id}:${subtabViewAction.id}`;
                 const subtabViewPerm = permissionMap.get(subtabViewKey);
@@ -380,17 +378,16 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                 }
               }
               if (subtab.subtabs) {
-                addViewToSubtabs(subtab.subtabs);
+                addViewToSubtabs(subtab.subtabs as TabItem[]);
               }
             });
           };
           if (tab.subtabs && tab.subtabs.length > 0) {
-            addViewToSubtabs(tab.subtabs);
+            addViewToSubtabs(tab.subtabs as TabItem[]);
           }
         }
       }
 
-      // Ejecutar batch mutations
       try {
         if (toAdd.length > 0) {
           await Promise.all(
@@ -408,26 +405,22 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
             toRemove.map((perm) => removePermissionMutation.mutateAsync({ tabId: perm.tabId, actionId: perm.actionId }))
           );
         }
-        // Refrescar una sola vez al final
         queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
       } catch (error) {
-        console.error('Error toggling permission with children:', error);
+        logger.error('Error toggling permission with children', { data: { error } });
       }
     } else {
-      // Si no tiene hijos, verificar auto-assign view
       if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
-        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        const viewAction = tab?.actions?.find((a) => a.slug === 'view');
         if (viewAction) {
           const viewKey = `${tabId}:${viewAction.id}`;
           const viewPerm = permissionMap.get(viewKey);
           if (!viewPerm?.isGranted) {
-            // Agregar view primero
             await setPermissionMutation.mutateAsync({ tabId, actionId: viewAction.id, isGranted: true });
           }
         }
       }
 
-      // Cambiar el permiso actual
       if (isActive) {
         if (permission?.source === 'role') {
           setPermissionMutation.mutate({ tabId, actionId, isGranted: false });
@@ -440,12 +433,12 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
     }
   };
 
-  const renderActions = (tab: any) => {
+  const renderActions = (tab: TabItem) => {
     if (!tab.actions || tab.actions.length === 0) return null;
 
     return (
       <div className="flex items-center gap-3 flex-wrap">
-        {tab.actions.map((action: any) => {
+        {tab.actions.map((action) => {
           const ActionIcon = ACTION_ICONS[action.slug as keyof typeof ACTION_ICONS];
           const isActive = isPermissionActive(tab.id, action.id);
           const permKey = `${tab.id}:${action.id}`;
@@ -455,11 +448,10 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
           const roleName = permission?.roleName;
           const isFromRole = source === 'role';
 
-          // Verificar si 'view' está bloqueado por otros permisos activos
           const isViewLocked =
             action.slug === 'view' &&
             isActive &&
-            tab.actions?.some((a: any) => {
+            tab.actions?.some((a) => {
               if (a.slug === 'view') return false;
               const otherKey = `${tab.id}:${a.id}`;
               const otherPerm = permissionMap.get(otherKey);
@@ -513,7 +505,6 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
             </div>
           );
 
-          // Envolver en tooltip si está deshabilitado
           if (isDisabled) {
             return (
               <Tooltip key={action.id}>
@@ -535,7 +526,7 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
     );
   };
 
-  const renderSubtab = (tab: any, level: number, moduleSlug?: string) => {
+  const renderSubtab = (tab: TabItem, level: number, moduleSlug?: string) => {
     const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
     const counts = countTabActions(tab);
     const tabSelected = isTabFullySelected(tab);
@@ -546,10 +537,8 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
         <div className="flex items-start gap-3 py-2">
           <Checkbox
             checked={tabSelected}
-            ref={(el: any) => {
-              if (el) {
-                el.indeterminate = tabPartiallySelected;
-              }
+            ref={(el: HTMLButtonElement | null) => {
+              if (el) (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate = tabPartiallySelected;
             }}
             onCheckedChange={() => toggleTab(tab)}
             disabled={disabled}
@@ -570,11 +559,10 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
 
         {hasSubtabs && (
           <div className="space-y-2">
-            {tab.subtabs.map((subtab: any) => renderSubtab(subtab, level + 1, moduleSlug))}
+            {(tab.subtabs as TabItem[]).map((subtab) => renderSubtab(subtab, level + 1, moduleSlug))}
           </div>
         )}
 
-        {/* Aviso de herencia para contratos-cliente */}
         {moduleSlug === 'comercial' && tab.slug === 'customers' && (
           <>
             <Separator className="my-3" />
@@ -641,9 +629,9 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                             ⚠️ Este usuario tiene {userRoles.length} rol(es) asignado(s):
                           </p>
                           <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
-                            {userRoles.map((ur: any) => {
+                            {userRoles.map((ur) => {
                               const role = ur.roles;
-                              const roleName = Array.isArray(role) ? role[0]?.name : role?.name;
+                              const roleName = role?.name;
                               return <li key={ur.id}>• {roleName}</li>;
                             })}
                           </ul>
@@ -688,9 +676,9 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
           </div>
 
           <Accordion type="multiple" className="space-y-3">
-            {modules.map((module: any) => {
-              const moduleCounts = module.tabs?.reduce(
-                (acc: { total: number; selected: number }, tab: any) => {
+            {modules.map((module) => {
+              const moduleCounts = (module.tabs as TabItem[])?.reduce(
+                (acc, tab) => {
                   const tabCounts = countTabActions(tab);
                   return {
                     total: acc.total + tabCounts.total,
@@ -702,38 +690,39 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
 
               const moduleSelected = isModuleFullySelected(module);
               const modulePartiallySelected = moduleCounts.selected > 0 && !moduleSelected;
-              const ModuleIcon = MODULE_ICONS[module.slug] || Building2;
+              const ModuleIcon = MODULE_ICONS[module.slug ?? ''] || Building2;
 
               return (
                 <AccordionItem
                   key={module.id}
                   value={module.id}
-                  className="border border-border/50 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  className="last:border-b-0 border border-border/50 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/30">
-                    <div className="flex items-center gap-4 flex-1">
-                      <Checkbox
-                        checked={moduleSelected}
-                        ref={(el: any) => {
-                          if (el) {
-                            el.indeterminate = modulePartiallySelected;
-                          }
-                        }}
-                        onCheckedChange={() => toggleModule(module)}
-                        disabled={disabled}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <ModuleIcon className="h-5 w-5 text-primary" />
-                      <span className="font-semibold text-base">{module.name}</span>
-                      <Badge variant="secondary" className="ml-auto mr-2 text-xs">
-                        {moduleCounts.selected} / {moduleCounts.total}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
+                  <div className="flex items-center gap-4 px-5 py-4 hover:bg-muted/30">
+                    <Checkbox
+                      checked={moduleSelected}
+                      ref={(el: HTMLButtonElement | null) => {
+                        if (el)
+                          (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate =
+                            modulePartiallySelected;
+                      }}
+                      onCheckedChange={() => toggleModule(module)}
+                      disabled={disabled}
+                    />
+                    <AccordionTrigger className="flex-1 hover:no-underline p-0">
+                      <div className="flex items-center gap-4 flex-1">
+                        <ModuleIcon className="h-5 w-5 text-primary" />
+                        <span className="font-semibold text-base">{module.name}</span>
+                        <Badge variant="secondary" className="ml-auto mr-2 text-xs">
+                          {moduleCounts.selected} / {moduleCounts.total}
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                  </div>
                   <AccordionContent className="px-5 pb-5 pt-2">
                     {module.tabs && module.tabs.length > 0 ? (
                       <Accordion type="multiple" className="space-y-3">
-                        {module.tabs.map((tab: any) => {
+                        {(module.tabs as TabItem[]).map((tab) => {
                           const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
                           const counts = countTabActions(tab);
                           const tabSelected = isTabFullySelected(tab);
@@ -748,10 +737,10 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                               <div className="flex items-center gap-3 py-2">
                                 <Checkbox
                                   checked={tabSelected}
-                                  ref={(el: any) => {
-                                    if (el) {
-                                      el.indeterminate = tabPartiallySelected;
-                                    }
+                                  ref={(el: HTMLButtonElement | null) => {
+                                    if (el)
+                                      (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate =
+                                        tabPartiallySelected;
                                   }}
                                   onCheckedChange={() => toggleTab(tab)}
                                   disabled={disabled}
@@ -775,12 +764,13 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                                     <>
                                       <Separator className="my-3" />
                                       <div className="space-y-2">
-                                        {tab.subtabs.map((subtab: any) => renderSubtab(subtab, 1, module.slug))}
+                                        {(tab.subtabs as TabItem[]).map((subtab) =>
+                                          renderSubtab(subtab, 1, module.slug ?? undefined)
+                                        )}
                                       </div>
                                     </>
                                   )}
 
-                                  {/* Aviso de herencia para documentacion-empleado */}
                                   {module.slug === 'empleados' && tab.slug === 'detalle-empleado' && (
                                     <>
                                       <Separator className="my-3" />
@@ -821,7 +811,6 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                                     </>
                                   )}
 
-                                  {/* Aviso de herencia para documentacion-equipo */}
                                   {module.slug === 'equipos' && tab.slug === 'detalle-equipo' && (
                                     <>
                                       <Separator className="my-3" />
@@ -866,7 +855,6 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                           );
                         })}
 
-                        {/* Aviso de herencia para tipos-de-documentos en empleados */}
                         {module.slug === 'empleados' && (
                           <>
                             <Separator className="my-3" />
@@ -888,7 +876,6 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
                           </>
                         )}
 
-                        {/* Aviso de herencia para tipos-de-documentos en equipos */}
                         {module.slug === 'equipos' && (
                           <>
                             <Separator className="my-3" />

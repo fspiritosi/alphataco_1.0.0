@@ -85,7 +85,7 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
         </Card>
       ) : showForm ? (
         <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={35}>
+          <ResizablePanel defaultSize={30}>
             <EquipmentOwnerForm
               initialData={editingOwner}
               onReset={() => setEditingOwner(null)}
@@ -93,7 +93,7 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={65} className="ml-4">
+          <ResizablePanel defaultSize={70} className="ml-4">
             <EquipmentOwnerTable
               onViewEquipment={handleViewEquipment}
               equipmentOwners={equipmentOwners}

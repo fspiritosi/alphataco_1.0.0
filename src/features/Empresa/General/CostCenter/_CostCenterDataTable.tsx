@@ -190,13 +190,13 @@ export default function _CostCenterDataTable({
   return (
     <div className="w-full">
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-        <ResizablePanel defaultSize={40}>
+        <ResizablePanel defaultSize={30}>
           <div className="overflow-auto h-full pr-2">
             <CostCenterForm />
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={60}>
+        <ResizablePanel defaultSize={70}>
           <div className="overflow-auto h-full pl-2">{table}</div>
         </ResizablePanel>
       </ResizablePanelGroup>

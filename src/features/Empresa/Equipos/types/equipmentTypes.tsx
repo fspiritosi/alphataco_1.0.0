@@ -71,7 +71,7 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
     <div>
       {showForm ? (
         <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={35}>
+          <ResizablePanel defaultSize={30}>
             <EquipmentTypesForm
               initialData={editingType}
               onReset={handleReset}
@@ -83,7 +83,7 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={65} className="ml-4">
+          <ResizablePanel defaultSize={70} className="ml-4">
             <QueryClientProvider client={queryClient}>
               <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
             </QueryClientProvider>

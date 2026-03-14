@@ -752,7 +752,7 @@ export default function RepairNewEntry({
   return (
     <Card className="p-6">
       <ResizablePanelGroup direction="horizontal" className="pt-6 w-full">
-        <ResizablePanel defaultSize={40} minSize={25} className="min-w-[260px]">
+        <ResizablePanel defaultSize={30} className="min-w-[260px]">
           <div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -1023,7 +1023,7 @@ export default function RepairNewEntry({
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel className="pl-6 min-w-0 overflow-hidden" defaultSize={60} minSize={30}>
+        <ResizablePanel className="pl-6 min-w-0 overflow-hidden" defaultSize={70}>
           <div className="flex flex-col gap-4 w-full ">
             <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
 

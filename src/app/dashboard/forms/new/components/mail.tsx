@@ -54,7 +54,7 @@ export function Mail() {
         }}
         className="h-full max-h-[800px] items-stretch p-0 m-0"
       >
-        <ResizablePanel defaultSize={50} minSize={30}>
+        <ResizablePanel defaultSize={30}>
           <CardHeader>
             <div>
               <h2 className="text-2xl font-bold">Crear formulario</h2>
@@ -81,7 +81,7 @@ export function Mail() {
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel className="relative" defaultSize={50} minSize={30}>
+        <ResizablePanel className="relative" defaultSize={70}>
           <div className="absolute inset-0 h-full w-full bg-white dark:bg-slate-950/70 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:16px_16px] rounded-e-xl rounded "></div>
           <FormDisplay campos={campos} />
         </ResizablePanel>

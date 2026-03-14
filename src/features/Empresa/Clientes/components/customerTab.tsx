@@ -36,7 +36,7 @@ function CustomerTab({
       <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <AreaForm
                 customers={customers}
                 provinces={provinces}
@@ -49,7 +49,7 @@ function CustomerTab({
             <ResizableHandle withHandle />
           </>
         )}
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <AreaTable
             areas={areas}
             savedFilters={savedFilters}

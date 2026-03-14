@@ -1,14 +1,13 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 export async function fetchAllWorkDiagrams() {
   try {
-    const cookiesStore = await cookies();
     const supabase = await supabaseServer();
-    const company_id = cookiesStore.get('actualComp')?.value;
-    if (!company_id) return [];
 
     const { data, error } = await supabase
       .from('work_diagram')
@@ -23,17 +22,16 @@ export async function fetchAllWorkDiagrams() {
         inactive_novelty:diagram_type!work-diagram_inactive_novelty_fkey(*)
       `
       )
-      // .eq('company_id', company_id)
       .order('name', { ascending: true })
       .returns<WorkDiagramWithRelations[]>();
 
     if (error) {
-      console.error('Error fetching work diagrams:', error);
+      logger.error('Error fetching work diagrams', { data: { error } });
       return [];
     }
     return data || [];
   } catch (error) {
-    console.error('Error fetching work diagrams:', error);
+    logger.error('Error fetching work diagrams', { data: { error } });
     return [];
   }
 }

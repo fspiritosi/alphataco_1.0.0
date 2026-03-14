@@ -132,7 +132,7 @@ function DiagramTypeComponent({
     <div>
       {showForm ? (
         <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={40}>
+          <ResizablePanel defaultSize={30}>
             <DiagramNewTypeForm
               selectedDiagram={selectDiagramType}
               diagramToEdit={diagramToEdit}
@@ -140,7 +140,7 @@ function DiagramTypeComponent({
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel className="pl-6 min-w-[600px]" defaultSize={60}>
+          <ResizablePanel className="pl-6 min-w-[600px]" defaultSize={70}>
             <div className="flex justify-between">
               <h2 className="text-xl font-bold">Tipos de Novedades</h2>
               <VerActivosButton data={diagrams_types} filterKey="is_active" onFilteredChange={setFilteredData} />

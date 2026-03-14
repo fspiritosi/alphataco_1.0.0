@@ -2,7 +2,7 @@
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePermissions } from '@/features/Permissions';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AptitudTecnica } from '../../actions/rrhh/aptitudesTecnicas';
 import { AptitudesForm } from './aptitudesForm';
@@ -14,54 +14,25 @@ interface AptitudesClientProps {
 }
 
 export function AptitudesClient({ initialAptitudes = [], initialPositions = [] }: AptitudesClientProps) {
-  const [aptitudes, setAptitudes] = useState<AptitudTecnica[]>([]);
-  const [positions, setPositions] = useState<any[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [aptitudes, setAptitudes] = useState<AptitudTecnica[]>(initialAptitudes);
   const [editingAptitud, setEditingAptitud] = useState<AptitudTecnica | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Inicializar estados con los valores iniciales
-  useEffect(() => {
-    setAptitudes(initialAptitudes);
-    setPositions(initialPositions);
-    setIsLoading(false);
-  }, [initialAptitudes, initialPositions]);
-
-  // Sincronizar con los props iniciales
-  useEffect(() => {
-    setAptitudes(initialAptitudes);
-  }, [initialAptitudes]);
-
-  useEffect(() => {
-    setPositions(initialPositions);
-  }, [initialPositions]);
-
-  const handleCreate = () => {
-    setEditingAptitud(null);
-    setIsFormOpen(true);
-  };
 
   const handleEdit = (aptitud: AptitudTecnica) => {
     setEditingAptitud(aptitud);
-    setIsFormOpen(true);
   };
 
   const handleSuccess = (aptitud: AptitudTecnica) => {
     if (editingAptitud) {
-      // Actualizar aptitud existente
       setAptitudes(aptitudes.map((a) => (a.id === aptitud.id ? aptitud : a)));
       toast.success('Aptitud actualizada correctamente');
     } else {
-      // Agregar nueva aptitud
       setAptitudes([aptitud, ...aptitudes]);
       toast.success('Aptitud creada correctamente');
     }
-    setIsFormOpen(false);
+    setEditingAptitud(null);
   };
 
   const handleDelete = async (id: string) => {
-    // Aquí iría la lógica para eliminar la aptitud
-    // Por ahora, solo la quitamos del estado local
     setAptitudes(aptitudes.filter((a) => a.id !== id));
     toast.success('Aptitud eliminada correctamente');
   };
@@ -74,15 +45,21 @@ export function AptitudesClient({ initialAptitudes = [], initialPositions = [] }
   return (
     <div className="w-full">
       {showForm ? (
-        <ResizablePanelGroup direction="horizontal" className="w-full">
-          <ResizablePanel defaultSize={35}>
-            <AptitudesForm onSuccess={handleSuccess} positions={positions} initialData={editingAptitud} />
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={65}>
-            <AptitudesTable aptitudes={aptitudes} onEdit={handleEdit} />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="w-full">
+          <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
+            <ResizablePanel defaultSize={30}>
+              <div className="overflow-auto h-full pr-2">
+                <AptitudesForm onSuccess={handleSuccess} positions={initialPositions} initialData={editingAptitud} />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={70}>
+              <div className="overflow-auto h-full pl-2">
+                <AptitudesTable aptitudes={aptitudes} onEdit={handleEdit} />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       ) : (
         <AptitudesTable aptitudes={aptitudes} onEdit={handleEdit} />
       )}

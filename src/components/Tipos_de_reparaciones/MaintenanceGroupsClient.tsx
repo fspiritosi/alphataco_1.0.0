@@ -35,13 +35,13 @@ export default function MaintenanceGroupsClient({
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <MaintenanceGroupForm group={selectedGroup} mode={mode} setMode={setMode} types={types} />
             </ResizablePanel>
             <ResizableHandle withHandle />
           </>
         )}
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <MaintenanceGroupsTable
             savedFilter={savedFilter}
             savedVisibility={savedVisibility}

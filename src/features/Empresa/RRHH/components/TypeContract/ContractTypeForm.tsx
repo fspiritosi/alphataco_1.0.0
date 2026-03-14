@@ -5,6 +5,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
@@ -15,6 +16,8 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { createContractType, updateContractType } from '../../actions/actions';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 const ContractTypeSchema = z.object({
   id: z.string().optional(),
@@ -199,7 +202,7 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
         const values = form.getValues();
         await onUpdate(values);
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { error: err } });
         toast.error('No se pudieron reemplazar las referencias');
       }
     }

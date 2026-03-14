@@ -105,17 +105,20 @@ Los siguientes MCPs estan a tu disposicion:
 
 **REGLA CRITICA**: Antes de ejecutar cualquier tarea, verificar si hay un agente o skill que la cubra. Si existe, DEBE usarse — no actuar directamente sin invocar el recurso apropiado.
 
-### Agentes Personalizados (3)
+### Agentes Personalizados (4)
 
-| Agente         | Cuando usarlo                                                                  |
-| -------------- | ------------------------------------------------------------------------------ |
-| `git-guardian` | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
-| `table-expert` | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
-| `linear-sync`  | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
+| Agente                | Cuando usarlo                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `git-guardian`        | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios            |
+| `table-expert`        | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)              |
+| `performance-auditor` | Auditar y optimizar pages/tabs: renderizado, waterfalls, codigo muerto, estructura, UI |
+| `linear-sync`         | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado         |
 
 **REGLA GIT — OBLIGATORIA SIN EXCEPCIONES**: TODA operacion git (commit, push, crear PR, merge, subir cambios) DEBE delegarse al agente `git-guardian`. **NUNCA ejecutar `git commit`, `git push`, `gh pr create` o similares directamente.** El agente analiza el diff, verifica calidad del codigo (types, patrones del proyecto, seguridad), y solo entonces ejecuta la operacion. Si encuentra problemas criticos, NO commitea y devuelve un informe con los problemas y sus soluciones propuestas. Operaciones simples (crear rama, checkout, pull, stash) tambien van por el agente pero sin analisis de diff.
 
 **REGLA DataTables**: TODA tarea que involucre DataTables (crear tabla, agregar columna, agregar filtro, auditar tabla, modificar export, corregir filtros, etc.) DEBE delegarse al agente `table-expert`. Si la peticion del usuario incluye trabajo de tabla Y otro trabajo, separar la parte de tabla y delegarla al agente, ejecutando el resto normalmente.
+
+**REGLA AUDITORIA**: Cuando el usuario pida auditar, optimizar o revisar performance de una page, tab o conjunto de archivos, DELEGAR al agente `performance-auditor`. El agente analiza renderizado (Suspense, SSR, waterfalls), codigo (console.\*, :any, Supabase→Prisma, useEffect), estructura (feature folders, codigo muerto), y delega a `table-expert` cuando encuentra DataTables.
 
 ### Skills de Superpowers (invocacion automatica via plugin)
 
@@ -528,13 +531,13 @@ const handleSelectItem = (item) => {
 // ✅ CORRECTO — form y tabla se respetan mutuamente
 <div className="w-full">
   <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-    <ResizablePanel defaultSize={40}>
+    <ResizablePanel defaultSize={30}>
       <div className="overflow-auto h-full pr-2">
         <MyForm />
       </div>
     </ResizablePanel>
     <ResizableHandle withHandle />
-    <ResizablePanel defaultSize={60}>
+    <ResizablePanel defaultSize={70}>
       <div className="overflow-auto h-full pl-2">
         {table}
       </div>
@@ -559,7 +562,8 @@ const handleSelectItem = (item) => {
 - **`<div className="w-full">`** wrapper obligatorio — sin esto el PanelGroup no calcula anchos correctamente
 - **`overflow-auto h-full`** en cada panel — sin esto el contenido de la DataTable desborda y aplasta al panel vecino
 - **NO usar `minSize`/`maxSize`** — restringen demasiado y causan comportamiento errático. Usar solo `defaultSize`
-- **`defaultSize={40}` form / `defaultSize={60}` tabla** — proporción estándar del proyecto
+- **`defaultSize={30}` form / `defaultSize={70}` tabla** — proporción estándar del proyecto
+- **`max-w-md`** en el `<form>` — evita que el formulario crezca sin limite al expandir el panel. Los inputs heredan `w-full` del form, que a su vez está limitado por `max-w-md` (448px)
 
 ---
 

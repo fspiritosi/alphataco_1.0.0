@@ -1,5 +1,4 @@
 import { PasswordChangeAlertWrapper } from '@/components/PasswordChangeAlertWrapper';
-import { Skeleton } from '@/components/ui/skeleton';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
 import { Suspense } from 'react';
@@ -8,25 +7,18 @@ import TanstackQueryInicializador from './TanstackQueryInicializador';
 /**
  * DashboardLayout - Layout principal del dashboard
  *
- * Sidebar and Navbar are wrapped in Suspense because they access cookies()
- * for auth/permissions, which is incompatible with Next.js 16 prerendering
- * outside of Suspense boundaries when cacheComponents is enabled.
- *
- * Permissions are fetched by individual pages/components that need them.
- * React cache() deduplicates calls within the same request automatically.
+ * Sidebar y Navbar renderizan su shell estático INSTANTÁNEAMENTE.
+ * Las partes dinámicas (links, company selector, user menu) se cargan
+ * por streaming independiente con Suspense granular DENTRO de cada componente.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-rows-[auto_1fr] grid-cols-[auto_1fr]" suppressHydrationWarning>
       <div className="row-span-2">
-        <Suspense fallback={<Skeleton className="h-screen w-16" />}>
-          <SidebarFeat />
-        </Suspense>
+        <SidebarFeat />
       </div>
       <div className="border-r border-b border-muted/50 dark:bg-slate-950 mb-2">
-        <Suspense fallback={<Skeleton className="h-14 w-full" />}>
-          <NavbarFeat />
-        </Suspense>
+        <NavbarFeat />
       </div>
       <div className="min-h-0 overflow-y-auto">
         <TanstackQueryInicializador>

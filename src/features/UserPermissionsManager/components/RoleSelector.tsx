@@ -5,13 +5,15 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
-  assignRoleToUser,
-  getRolePermissions,
-  getRoles,
-  getRolesType,
-  getUserRoles,
-  removeRoleFromUser,
-} from '@/features/Permissions/actions';
+  getAllRolesWithCounts,
+  getAllRolePermissions,
+  assignRoleToUserServer,
+  removeRoleFromUserServer,
+  getUserRolesServer,
+  type RoleWithCount,
+  type AllRolePermissionsMap,
+  type UserRolesData,
+} from '@/features/UserPermissionsManager/actions.server';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield } from 'lucide-react';
 import { useMemo } from 'react';
@@ -20,36 +22,38 @@ import { toast } from 'sonner';
 interface RoleSelectorProps {
   userId: string;
   disabled?: boolean;
+  initialRoles: RoleWithCount[];
+  initialUserRoles: UserRolesData;
+  initialRolePermissions: AllRolePermissionsMap;
 }
 
-export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
+export function RoleSelector({
+  userId,
+  disabled = false,
+  initialRoles,
+  initialUserRoles,
+  initialRolePermissions,
+}: RoleSelectorProps) {
   const queryClient = useQueryClient();
 
-  const { data: roles = [], isLoading: rolesLoading } = useQuery<getRolesType>({
+  const { data: roles = initialRoles, isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: getRoles,
+    queryFn: getAllRolesWithCounts,
+    initialData: initialRoles,
   });
 
-  const { data: userRoles = [], isLoading: userRolesLoading } = useQuery({
+  const { data: userRoles = initialUserRoles, isLoading: userRolesLoading } = useQuery({
     queryKey: ['user-roles', userId],
-    queryFn: () => getUserRoles(userId),
+    queryFn: () => getUserRolesServer(userId),
+    initialData: initialUserRoles,
     enabled: !!userId,
   });
 
-  // Obtener permisos de cada rol
-  const rolePermissionsQueries = useQuery({
-    queryKey: ['all-role-permissions', roles.map((r) => r.id)],
-    queryFn: async () => {
-      const permissionsMap = new Map<number, Awaited<ReturnType<typeof getRolePermissions>>>();
-      await Promise.all(
-        roles.map(async (role) => {
-          const perms = await getRolePermissions(role.id);
-          permissionsMap.set(role.id, perms);
-        })
-      );
-      return permissionsMap;
-    },
-    enabled: roles.length > 0,
+  const { data: rolePermissionsMap = initialRolePermissions } = useQuery({
+    queryKey: ['all-role-permissions'],
+    queryFn: getAllRolePermissions,
+    initialData: initialRolePermissions,
+    staleTime: 5 * 60 * 1000,
   });
 
   const selectedRoleIds = useMemo(() => {
@@ -57,12 +61,12 @@ export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
   }, [userRoles]);
 
   const assignMutation = useMutation({
-    mutationFn: (roleId: number) => assignRoleToUser(userId, roleId),
+    mutationFn: (roleId: number) => assignRoleToUserServer(userId, roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
-      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] }); // Actualizar contadores
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
       toast.success('El rol ha sido asignado correctamente');
     },
     onError: () => {
@@ -71,12 +75,12 @@ export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (roleId: number) => removeRoleFromUser(userId, roleId),
+    mutationFn: (roleId: number) => removeRoleFromUserServer(userId, roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
-      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] }); // Actualizar contadores
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
       toast.success('El rol ha sido removido correctamente');
     },
     onError: () => {
@@ -100,8 +104,6 @@ export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
     );
   }
 
-  const rolePermissionsMap = rolePermissionsQueries.data || new Map();
-
   return (
     <Card className="p-6">
       <div className="space-y-4">
@@ -115,7 +117,7 @@ export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
           {roles.map((role) => {
             const isSelected = selectedRoleIds.includes(role.id);
             const isPending = assignMutation.isPending || removeMutation.isPending;
-            const rolePermissions = rolePermissionsMap.get(role.id) || [];
+            const rolePermissions = rolePermissionsMap.get(role.id) ?? [];
             const permissionCount = rolePermissions.length;
 
             return (
@@ -153,7 +155,9 @@ export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
                       </Badge>
                     )}
                   </div>
-                  {role.description && <p className="text-xs text-muted-foreground line-clamp-2">{role.description}</p>}
+                  {role.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{role.description}</p>
+                  )}
                 </div>
               </div>
             );
