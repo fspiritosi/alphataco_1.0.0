@@ -85,8 +85,7 @@ export default function _WorkDiagramDataTable({
 
   const handleSetMode: Dispatch<SetStateAction<'create' | 'edit'>> = useCallback(
     (valueOrUpdater: SetStateAction<'create' | 'edit'>) => {
-      const newMode =
-        typeof valueOrUpdater === 'function' ? valueOrUpdater(effectiveMode) : valueOrUpdater;
+      const newMode = typeof valueOrUpdater === 'function' ? valueOrUpdater(effectiveMode) : valueOrUpdater;
       setMode(newMode);
       if (newMode === 'create') {
         setWorkDiagram(null);
@@ -106,10 +105,7 @@ export default function _WorkDiagramDataTable({
     setCurrentParams(params);
   }, []);
 
-  const tableQueryFn = useCallback(
-    (params: DataTableSearchParams) => getWorkDiagramsPaginated(params),
-    []
-  );
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getWorkDiagramsPaginated(params), []);
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getColumns(permissions, handleEdit), [permissions, handleEdit]);
@@ -125,7 +121,15 @@ export default function _WorkDiagramDataTable({
 
   // ── Filter visibility — 3 visibles por defecto ────────────────────────────
   const DEFAULT_VISIBLE_FILTERS = ['is_active', 'name', 'active_novelties'];
-  const allFilterIds = ['name', 'is_active', 'active_novelties', 'inactive_novelty', 'active_working_days', 'inactive_working_days', 'created_at'];
+  const allFilterIds = [
+    'name',
+    'is_active',
+    'active_novelties',
+    'inactive_novelty',
+    'active_working_days',
+    'inactive_working_days',
+    'created_at',
+  ];
   const mergedFilterVisibility = useMemo(() => {
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;

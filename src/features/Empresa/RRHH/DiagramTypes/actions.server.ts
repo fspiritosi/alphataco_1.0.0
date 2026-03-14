@@ -241,9 +241,7 @@ export async function getDiagramTypeSingleFacet(
           options: [
             { value: 'true', label: 'Laboralmente activo' },
             { value: 'false', label: 'No laboralmente activo' },
-            ...(counts.has(NULL_FILTER_VALUE)
-              ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar' }]
-              : []),
+            ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar' }] : []),
           ],
           counts,
         };

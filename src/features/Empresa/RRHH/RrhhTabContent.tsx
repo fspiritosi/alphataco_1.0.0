@@ -1,18 +1,18 @@
 import CovenantTreeFileWrapper from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFileWrapper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ContractTypeList from '@/features/Empresa/RRHH/ContractTypes/ContractTypeList';
+import { ContractTypeTableSkeleton } from '@/features/Empresa/RRHH/ContractTypes/fallback/ContractTypeTableSkeleton';
 import DiagramTypeList from '@/features/Empresa/RRHH/DiagramTypes/DiagramTypeList';
 import { DiagramTypeTableSkeleton } from '@/features/Empresa/RRHH/DiagramTypes/fallback/DiagramTypeTableSkeleton';
-import { ContractTypeTableSkeleton } from '@/features/Empresa/RRHH/ContractTypes/fallback/ContractTypeTableSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Award, Briefcase, Calendar, FileText, Layers, ScrollText } from 'lucide-react';
 import { Suspense } from 'react';
 import AptitudesList from './AptitudesTecnicas/AptitudesList';
 import { AptitudesTableSkeleton } from './AptitudesTecnicas/fallback/AptitudesTableSkeleton';
+import PositionsList from './Positions/PositionsList';
+import { PositionsTableSkeleton } from './Positions/fallback/PositionsTableSkeleton';
 import WorkDiagramList from './WorkDiagrams/WorkDiagramList';
 import { WorkDiagramTableSkeleton } from './WorkDiagrams/fallback/WorkDiagramTableSkeleton';
-import { PositionsTableSkeleton } from './Positions/fallback/PositionsTableSkeleton';
-import PositionsList from './Positions/PositionsList';
 import { CctSubtabSkeleton } from './fallback/RrhhSubtabSkeleton';
 
 export default function RrhhTabContent({

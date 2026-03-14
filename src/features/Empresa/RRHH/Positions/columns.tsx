@@ -101,15 +101,13 @@ export function getColumns(
     // ── Aptitudes Técnicas (M:M) ─────────────────────────────────────────────
     {
       id: 'aptitudes',
-      accessorFn: (row) =>
-        row.aptitudes_tecnicas_puestos?.map((rel) => rel.aptitudes_tecnicas.nombre).join(', ') ?? '',
+      accessorFn: (row) => row.aptitudes_tecnicas_puestos?.map((rel) => rel.aptitudes_tecnicas.nombre).join(', ') ?? '',
       meta: { title: 'Aptitudes Técnicas' },
       enableSorting: false, // campo M:M, no ordenable directamente
       header: ({ column }) => <DataTableColumnHeader column={column} title="Aptitudes Técnicas" />,
       cell: ({ row }) => {
         const aptitudes = row.original.aptitudes_tecnicas_puestos ?? [];
-        if (aptitudes.length === 0)
-          return <span className="text-muted-foreground text-sm">Sin aptitudes</span>;
+        if (aptitudes.length === 0) return <span className="text-muted-foreground text-sm">Sin aptitudes</span>;
 
         const names = aptitudes.map((rel) => rel.aptitudes_tecnicas.nombre);
         const [first, ...rest] = names;

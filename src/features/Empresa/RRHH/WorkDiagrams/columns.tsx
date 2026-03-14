@@ -40,9 +40,7 @@ export function getColumns(
       meta: { title: 'Nombre' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
       cell: ({ row }) => (
-        <span className={`font-medium ${!row.original.is_active ? 'opacity-50' : ''}`}>
-          {row.original.name}
-        </span>
+        <span className={`font-medium ${!row.original.is_active ? 'opacity-50' : ''}`}>{row.original.name}</span>
       ),
       // filterFn no necesario — usa filtro tipo text
     },
@@ -101,7 +99,10 @@ export function getColumns(
       id: 'active_novelties',
       accessorFn: (row) => {
         const novelties = row.work_diagram_active_novelties ?? [];
-        return novelties.map((n) => n.diagram_type?.name ?? '').filter(Boolean).join(', ');
+        return novelties
+          .map((n) => n.diagram_type?.name ?? '')
+          .filter(Boolean)
+          .join(', ');
       },
       meta: { title: 'Novedades activas' },
       enableSorting: false,

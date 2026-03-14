@@ -658,12 +658,7 @@ export async function getUserDetailById(shareUserId: string) {
  * Establece (upsert) un permiso custom de usuario.
  * Reemplaza setUserPermission de Permissions/actions.ts (supabaseBrowser).
  */
-export async function setUserPermissionServer(
-  userId: string,
-  tabId: string,
-  actionId: string,
-  isGranted: boolean
-) {
+export async function setUserPermissionServer(userId: string, tabId: string, actionId: string, isGranted: boolean) {
   logger.debug('Seteando permiso de usuario', { data: { userId, tabId, actionId, isGranted } });
 
   const session = await getCachedSession();

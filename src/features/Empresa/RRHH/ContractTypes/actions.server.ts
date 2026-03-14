@@ -209,10 +209,7 @@ export async function getContractTypeSingleFacet(
 // MUTACIONES — crear y actualizar con Prisma
 // ============================================================================
 
-export async function createContractTypePrisma(data: {
-  name: string;
-  description: string | null;
-}) {
+export async function createContractTypePrisma(data: { name: string; description: string | null }) {
   try {
     const result = await prisma.types_of_contract.create({
       data: {

@@ -272,7 +272,10 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   return (
     <div className="w-full">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(mode === 'edit' ? onUpdate : onSubmit)} className="space-y-4 py-4 px-2 max-w-md">
+        <form
+          onSubmit={form.handleSubmit(mode === 'edit' ? onUpdate : onSubmit)}
+          className="space-y-4 py-4 px-2 max-w-md"
+        >
           <h2 className="text-xl font-bold mb-4">{mode === 'edit' ? 'Editar Diagrama' : 'Crear Diagrama'}</h2>
 
           {/* Nombre */}

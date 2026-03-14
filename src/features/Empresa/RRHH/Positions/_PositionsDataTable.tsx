@@ -79,10 +79,7 @@ export default function _PositionsDataTable({
     setCurrentParams(params);
   }, []);
 
-  const tableQueryFn = useCallback(
-    (params: DataTableSearchParams) => getPositionsPaginated(params),
-    []
-  );
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getPositionsPaginated(params), []);
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getColumns(permissions, handleEdit), [permissions, handleEdit]);
@@ -103,44 +100,36 @@ export default function _PositionsDataTable({
       return initialFilterVisibility;
     }
     const allFilterIds = ['name', 'is_active', 'aptitudes', 'created_at'];
-    return Object.fromEntries(
-      allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)])
-    );
+    return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
   // ── Lazy-load facet: is_active ─────────────────────────────────────────────
-  const fetchIsActiveFacet = useCallback(
-    async (params: DataTableSearchParams): Promise<FacetResult> => {
-      const result = await getPositionSingleFacet('is_active', params);
-      if (!result) return { options: [], counts: new Map() };
-      const options = [
-        { value: 'true', label: 'Activo', icon: Check },
-        { value: 'false', label: 'Inactivo', icon: X },
-        ...(result.counts.has(NULL_FILTER_VALUE)
-          ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-          : []),
-      ];
-      return { options, counts: result.counts };
-    },
-    []
-  );
+  const fetchIsActiveFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getPositionSingleFacet('is_active', params);
+    if (!result) return { options: [], counts: new Map() };
+    const options = [
+      { value: 'true', label: 'Activo', icon: Check },
+      { value: 'false', label: 'Inactivo', icon: X },
+      ...(result.counts.has(NULL_FILTER_VALUE)
+        ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+        : []),
+    ];
+    return { options, counts: result.counts };
+  }, []);
 
   // ── Lazy-load facet: aptitudes (M:M) ──────────────────────────────────────
-  const fetchAptitudesFacet = useCallback(
-    async (params: DataTableSearchParams): Promise<FacetResult> => {
-      const result = await getPositionSingleFacet('aptitudes', params);
-      if (!result) return { options: [], counts: new Map() };
-      // Agregar opción "Sin aptitudes" si existen puestos sin aptitudes
-      const options = [
-        ...result.options,
-        ...(result.counts.has(NULL_FILTER_VALUE)
-          ? [{ value: NULL_FILTER_VALUE, label: 'Sin aptitudes', icon: CircleOff }]
-          : []),
-      ];
-      return { options, counts: result.counts };
-    },
-    []
-  );
+  const fetchAptitudesFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getPositionSingleFacet('aptitudes', params);
+    if (!result) return { options: [], counts: new Map() };
+    // Agregar opción "Sin aptitudes" si existen puestos sin aptitudes
+    const options = [
+      ...result.options,
+      ...(result.counts.has(NULL_FILTER_VALUE)
+        ? [{ value: NULL_FILTER_VALUE, label: 'Sin aptitudes', icon: CircleOff }]
+        : []),
+    ];
+    return { options, counts: result.counts };
+  }, []);
 
   // ── Faceted filters ───────────────────────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
@@ -207,10 +196,8 @@ export default function _PositionsDataTable({
             if (value === null || value === undefined) return 'Sin asignar';
             return value ? 'Activo' : 'Inactivo';
           },
-          created_at: (value) =>
-            value ? moment(value as string | Date).format('DD/MM/YYYY') : '-',
-          hierarchyNames: (value) =>
-            Array.isArray(value) ? value.join(', ') : String(value ?? '-'),
+          created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
+          hierarchyNames: (value) => (Array.isArray(value) ? value.join(', ') : String(value ?? '-')),
           aptitudes: (value) => {
             // accessorFn retorna string con nombres separados por coma
             return value ? String(value) : 'Sin aptitudes';
@@ -231,10 +218,7 @@ export default function _PositionsDataTable({
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
         <ResizablePanel defaultSize={30}>
           <div className="overflow-auto h-full pr-2">
-            <PositionsFormNew
-              selectedPosition={selectedPosition}
-              onDone={handleFormDone}
-            />
+            <PositionsFormNew selectedPosition={selectedPosition} onDone={handleFormDone} />
           </div>
         </ResizablePanel>
         <ResizableHandle withHandle />

@@ -11,8 +11,6 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import DiagramTypeForm from './components/DiagramTypeForm';
-import { useDiagramTypeStore } from './store/diagramType.store';
 import {
   getAllDiagramTypesForExport,
   getDiagramTypeSingleFacet,
@@ -20,6 +18,8 @@ import {
   type DiagramTypeListItem,
 } from './actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns } from './columns';
+import DiagramTypeForm from './components/DiagramTypeForm';
+import { useDiagramTypeStore } from './store/diagramType.store';
 
 // ============================================================================
 // TYPES
@@ -78,10 +78,7 @@ export default function _DiagramTypeDataTable({
     setCurrentParams(params);
   }, []);
 
-  const tableQueryFn = useCallback(
-    (params: DataTableSearchParams) => getDiagramTypesPaginated(params),
-    []
-  );
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getDiagramTypesPaginated(params), []);
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getColumns(permissions, handleEdit), [permissions, handleEdit]);
@@ -101,7 +98,14 @@ export default function _DiagramTypeDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    const allFilterIds = ['name', 'short_description', 'work_active', 'is_active', 'computes_absenteeism', 'created_at'];
+    const allFilterIds = [
+      'name',
+      'short_description',
+      'work_active',
+      'is_active',
+      'computes_absenteeism',
+      'created_at',
+    ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
@@ -222,8 +226,7 @@ export default function _DiagramTypeDataTable({
           },
           is_active: (value) => (value ? 'Activo' : 'Inactivo'),
           computes_absenteeism: (value) => (value ? 'Sí' : 'No'),
-          created_at: (value) =>
-            value ? moment(value as string | Date).format('DD/MM/YYYY') : '-',
+          created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
         },
       }}
     />

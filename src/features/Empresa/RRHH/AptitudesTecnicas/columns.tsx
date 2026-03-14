@@ -50,7 +50,10 @@ export function getColumns(
       accessorFn: (row) => {
         // Para export: concatenar nombres de puestos
         const puestos = row.aptitudes_tecnicas_puestos ?? [];
-        return puestos.map((p) => p.company_positions?.name ?? '').filter(Boolean).join(', ');
+        return puestos
+          .map((p) => p.company_positions?.name ?? '')
+          .filter(Boolean)
+          .join(', ');
       },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Puestos" />,
       cell: ({ row }) => {

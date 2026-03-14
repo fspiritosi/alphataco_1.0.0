@@ -117,7 +117,7 @@ export default function DiagramTypeForm() {
 
   const onSubmit = async (values: DiagramTypeFormValues) => {
     const isActiveBoolean = values.is_active === 'true';
-    const computesAbsenteeism = values.work_active ? false : (values.computes_absenteeism ?? false);
+    const computesAbsenteeism = values.work_active ? false : values.computes_absenteeism ?? false;
 
     if (isEditing && editingDiagramType) {
       toast.promise(
@@ -168,9 +168,7 @@ export default function DiagramTypeForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 px-2">
-        <h2 className="text-xl font-bold mb-4">
-          {isEditing ? 'Editar Novedad' : 'Crear Novedad'}
-        </h2>
+        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Novedad' : 'Crear Novedad'}</h2>
 
         <FormField
           control={form.control}
@@ -233,11 +231,7 @@ export default function DiagramTypeForm() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center space-x-2">
-                    <Switch
-                      id="work-active-switch"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch id="work-active-switch" checked={field.value} onCheckedChange={field.onChange} />
                     <Label htmlFor="work-active-switch">Laboralmente Activo</Label>
                   </div>
                   <FormMessage />
@@ -282,11 +276,7 @@ export default function DiagramTypeForm() {
             <FormItem className="space-y-3">
               <FormLabel>Estado</FormLabel>
               <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value ?? 'true'}
-                  className="flex space-x-4"
-                >
+                <RadioGroup onValueChange={field.onChange} value={field.value ?? 'true'} className="flex space-x-4">
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="true" />

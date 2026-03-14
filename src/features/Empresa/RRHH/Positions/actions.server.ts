@@ -258,9 +258,7 @@ export async function getPositionSingleFacet(
           options: [
             { value: 'true', label: 'Activo' },
             { value: 'false', label: 'Inactivo' },
-            ...(counts.has(NULL_FILTER_VALUE)
-              ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar' }]
-              : []),
+            ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar' }] : []),
           ],
           counts,
         };

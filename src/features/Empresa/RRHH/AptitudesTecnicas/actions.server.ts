@@ -219,11 +219,7 @@ export async function getActiveCompanyPositions() {
 // MUTACIONES — crear y actualizar con Prisma
 // ============================================================================
 
-export async function createAptitudTecnicaPrisma(data: {
-  nombre: string;
-  puestos: string[];
-  is_active: boolean;
-}) {
+export async function createAptitudTecnicaPrisma(data: { nombre: string; puestos: string[]; is_active: boolean }) {
   try {
     const result = await prisma.aptitudes_tecnicas.create({
       data: {
@@ -281,8 +277,6 @@ export async function updateAptitudTecnicaPrisma(data: {
 // TIPOS EXPORTADOS
 // ============================================================================
 
-export type AptitudTecnicaListItem = Awaited<
-  ReturnType<typeof getAptitudesTecnicasPaginated>
->['data'][number];
+export type AptitudTecnicaListItem = Awaited<ReturnType<typeof getAptitudesTecnicasPaginated>>['data'][number];
 
 export type CompanyPositionOption = Awaited<ReturnType<typeof getActiveCompanyPositions>>[number];

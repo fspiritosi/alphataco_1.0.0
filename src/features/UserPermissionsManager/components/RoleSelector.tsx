@@ -5,13 +5,13 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
-  getAllRolesWithCounts,
-  getAllRolePermissions,
   assignRoleToUserServer,
-  removeRoleFromUserServer,
+  getAllRolePermissions,
+  getAllRolesWithCounts,
   getUserRolesServer,
-  type RoleWithCount,
+  removeRoleFromUserServer,
   type AllRolePermissionsMap,
+  type RoleWithCount,
   type UserRolesData,
 } from '@/features/UserPermissionsManager/actions.server';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -155,9 +155,7 @@ export function RoleSelector({
                       </Badge>
                     )}
                   </div>
-                  {role.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{role.description}</p>
-                  )}
+                  {role.description && <p className="text-xs text-muted-foreground line-clamp-2">{role.description}</p>}
                 </div>
               </div>
             );

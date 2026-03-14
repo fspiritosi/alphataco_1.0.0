@@ -25,10 +25,7 @@ interface WorkDiagramListProps {
 
 export default async function WorkDiagramList({ searchParams, permissions }: WorkDiagramListProps) {
   // Strip namespace prefix para aislar los params de esta tabla
-  const tableParams = stripPrefixFromSearchParams(
-    searchParams as DataTableSearchParams,
-    WORK_DIAGRAM_TABLE_ID
-  );
+  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, WORK_DIAGRAM_TABLE_ID);
 
   // NO cargar facets en SSR — se cargan lazy (on-demand) en el cliente
   // diagram_types se carga aquí para poblar los selects del formulario

@@ -48,9 +48,7 @@ export function getColumns(
       meta: { title: 'Descripción corta' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción corta" />,
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm font-mono">
-          {row.original.short_description || '-'}
-        </span>
+        <span className="text-muted-foreground text-sm font-mono">{row.original.short_description || '-'}</span>
       ),
     },
 
@@ -66,9 +64,7 @@ export function getColumns(
           style={{ backgroundColor: row.original.color || '#94a3b8' }}
           title={row.original.short_description ?? row.original.name ?? undefined}
         >
-          <span className="text-white drop-shadow-md">
-            {row.original.short_description || '—'}
-          </span>
+          <span className="text-white drop-shadow-md">{row.original.short_description || '—'}</span>
         </div>
       ),
     },

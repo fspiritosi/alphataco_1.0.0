@@ -47,11 +47,7 @@ export function getColumns(
       accessorKey: 'description',
       meta: { title: 'Descripción' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción" />,
-      cell: ({ row }) => (
-        <span className="text-muted-foreground text-sm">
-          {row.original.description || '-'}
-        </span>
-      ),
+      cell: ({ row }) => <span className="text-muted-foreground text-sm">{row.original.description || '-'}</span>,
       // filterFn no necesario para filtros text
     },
 

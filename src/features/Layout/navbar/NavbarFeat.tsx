@@ -1,9 +1,9 @@
 import { ModeToggle } from '@/components/ui/ToogleDarkButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
-import { _SidebarToggle } from './components/ui/_SidebarToggle';
 import { CompanySelectorAsync } from './components/async/CompanySelectorAsync';
 import { UserMenuAsync } from './components/async/UserMenuAsync';
+import { _SidebarToggle } from './components/ui/_SidebarToggle';
 
 /**
  * NavbarFeat — Shell estático + partes dinámicas en Suspense individual.

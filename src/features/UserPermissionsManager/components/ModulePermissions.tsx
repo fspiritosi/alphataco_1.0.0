@@ -31,6 +31,7 @@ import {
   type UserPermissionsData,
   type UserRolesData,
 } from '@/features/UserPermissionsManager/actions.server';
+import { Logger } from '@/lib/logger';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -48,7 +49,6 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import { Logger } from '@/lib/logger';
 import { useMemo, useState } from 'react';
 
 const logger = new Logger('ModulePermissions');
@@ -126,7 +126,13 @@ export function ModulePermissions({
   const permissionMap = useMemo(() => {
     const map = new Map<
       string,
-      { source: string; isGranted: boolean; roleId?: number | null; roleName?: string | null; roleColor?: string | null }
+      {
+        source: string;
+        isGranted: boolean;
+        roleId?: number | null;
+        roleName?: string | null;
+        roleColor?: string | null;
+      }
     >();
     if (Array.isArray(permissions)) {
       permissions.forEach((perm) => {

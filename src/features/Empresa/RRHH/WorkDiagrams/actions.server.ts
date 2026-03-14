@@ -81,7 +81,11 @@ function buildWhereClause(state: ReturnType<typeof parseSearchParams>) {
   }
 
   // Filtros de texto libre por columna individual
-  const textFiltersWhere = buildTextFiltersWhere(state.filters, ['name', 'active_working_days', 'inactive_working_days']);
+  const textFiltersWhere = buildTextFiltersWhere(state.filters, [
+    'name',
+    'active_working_days',
+    'inactive_working_days',
+  ]);
 
   // Filtros de rango de fecha
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, ['created_at']);

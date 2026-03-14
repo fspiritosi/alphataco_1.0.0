@@ -5,8 +5,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Logger } from '@/lib/logger';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,7 +67,8 @@ export default function ContractTypeForm() {
         id: editingContractType.id,
         name: editingContractType.name,
         description: editingContractType.description ?? null,
-        is_active: editingContractType.is_active === true ? 'true' : editingContractType.is_active === false ? 'false' : '',
+        is_active:
+          editingContractType.is_active === true ? 'true' : editingContractType.is_active === false ? 'false' : '',
       });
     } else {
       form.reset({
@@ -223,9 +224,7 @@ export default function ContractTypeForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4 px-2">
-        <h2 className="text-xl font-bold mb-4">
-          {isEditing ? 'Editar Tipo de Contrato' : 'Crear Tipo de Contrato'}
-        </h2>
+        <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Tipo de Contrato' : 'Crear Tipo de Contrato'}</h2>
 
         <FormField
           control={form.control}
@@ -274,11 +273,7 @@ export default function ContractTypeForm() {
             <FormItem className="space-y-3">
               <FormLabel>Activo</FormLabel>
               <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value ?? ''}
-                  className="flex space-x-1"
-                >
+                <RadioGroup onValueChange={field.onChange} value={field.value ?? ''} className="flex space-x-1">
                   <FormItem className="flex items-center space-x-3 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="true" />

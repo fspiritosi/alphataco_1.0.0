@@ -5,13 +5,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import DependencyValidationModal, {
-  type DependencyConfig,
-} from '@/shared/components/modal/DependencyValidationModal';
-import {
-  fetchDependenciesForValue,
-  fetchReplacementOptions,
-} from '@/shared/components/modal/dependency-utils';
+import DependencyValidationModal, { type DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -88,9 +83,7 @@ export default function PositionsFormNew({ selectedPosition, onDone }: Positions
         name: selectedPosition.name ?? '',
         is_active: selectedPosition.is_active ?? true,
         hierarchical_position_id: selectedPosition.hierarchical_position_id ?? [],
-        aptitudes_tecnicas_id: selectedPosition.aptitudes_tecnicas_puestos.map(
-          (rel) => rel.aptitudes_tecnicas.id
-        ),
+        aptitudes_tecnicas_id: selectedPosition.aptitudes_tecnicas_puestos.map((rel) => rel.aptitudes_tecnicas.id),
       });
     } else {
       form.reset({
@@ -191,23 +184,15 @@ export default function PositionsFormNew({ selectedPosition, onDone }: Positions
   };
 
   // ── Formatted options ─────────────────────────────────────────────────────
-  const hierarchyOptions = useMemo(
-    () => hierarchies.map((h) => ({ label: h.name, value: h.id })),
-    [hierarchies]
-  );
+  const hierarchyOptions = useMemo(() => hierarchies.map((h) => ({ label: h.name, value: h.id })), [hierarchies]);
 
-  const aptitudeOptions = useMemo(
-    () => aptitudes.map((apt) => ({ label: apt.nombre, value: apt.id })),
-    [aptitudes]
-  );
+  const aptitudeOptions = useMemo(() => aptitudes.map((apt) => ({ label: apt.nombre, value: apt.id })), [aptitudes]);
 
   return (
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 w-[300px]">
-          <h2 className="text-xl font-bold mb-4">
-            {isEditing ? 'Editar Posición' : 'Crear Posición'}
-          </h2>
+          <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar Posición' : 'Crear Posición'}</h2>
 
           <FormField
             control={form.control}

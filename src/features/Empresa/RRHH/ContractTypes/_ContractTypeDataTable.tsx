@@ -11,8 +11,6 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import ContractTypeForm from './components/ContractTypeForm';
-import { useContractTypeStore } from './store/contractType.store';
 import {
   getAllContractTypesForExport,
   getContractTypeSingleFacet,
@@ -20,6 +18,8 @@ import {
   type ContractTypeListItem,
 } from './actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns } from './columns';
+import ContractTypeForm from './components/ContractTypeForm';
+import { useContractTypeStore } from './store/contractType.store';
 
 // ============================================================================
 // TYPES
@@ -78,10 +78,7 @@ export default function _ContractTypeDataTable({
     setCurrentParams(params);
   }, []);
 
-  const tableQueryFn = useCallback(
-    (params: DataTableSearchParams) => getContractTypesPaginated(params),
-    []
-  );
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getContractTypesPaginated(params), []);
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getColumns(permissions, handleEdit), [permissions, handleEdit]);
@@ -186,8 +183,7 @@ export default function _ContractTypeDataTable({
             if (value === null || value === undefined) return 'Sin asignar';
             return value ? 'Activo' : 'Inactivo';
           },
-          created_at: (value) =>
-            value ? moment(value as string | Date).format('DD/MM/YYYY') : '-',
+          created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
         },
       }}
     />
