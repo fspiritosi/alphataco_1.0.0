@@ -5,18 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { assignRoleToUser, getUsersWithRoleStatus, removeRoleFromUser } from '@/features/Permissions/actions';
+import {
+  assignRoleToUserServer,
+  getUsersForRoleAssignment,
+  removeRoleFromUserServer,
+} from '@/features/UserPermissionsManager/actions.server';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import type { RoleWithCount, UsersForRoleData } from '../actions.server';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type UserForRole = UsersForRoleData[number];
 
 interface ManageRoleUsersDialogProps {
-  role: any;
+  role: RoleWithCount | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// ─── ManageRoleUsersDialog ────────────────────────────────────────────────────
 
 export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUsersDialogProps) {
   const queryClient = useQueryClient();
@@ -24,16 +35,15 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-with-role-status', role?.id],
-    queryFn: () => getUsersWithRoleStatus(role.id),
+    queryFn: () => getUsersForRoleAssignment(role!.id),
     enabled: open && !!role?.id,
   });
 
   const assignMutation = useMutation({
-    mutationFn: (userId: string) => assignRoleToUser(userId, role.id),
+    mutationFn: (credentialId: string) => assignRoleToUserServer(credentialId, role!.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-with-role-status', role.id] });
-      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['user-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['users-with-role-status', role?.id] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('Rol asignado correctamente');
     },
     onError: () => {
@@ -42,11 +52,10 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
   });
 
   const removeMutation = useMutation({
-    mutationFn: (userId: string) => removeRoleFromUser(userId, role.id),
+    mutationFn: (credentialId: string) => removeRoleFromUserServer(credentialId, role!.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-with-role-status', role.id] });
-      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['user-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['users-with-role-status', role?.id] });
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('Rol removido correctamente');
     },
     onError: () => {
@@ -54,7 +63,7 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
     },
   });
 
-  const handleToggleRole = (userId: string, credentialId: string, hasRole: boolean) => {
+  const handleToggleRole = (credentialId: string, hasRole: boolean) => {
     if (hasRole) {
       removeMutation.mutate(credentialId);
     } else {
@@ -70,6 +79,7 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
 
   const usersWithRole = filteredUsers.filter((u) => u.hasRole);
   const usersWithoutRole = filteredUsers.filter((u) => !u.hasRole);
+  const isPending = assignMutation.isPending || removeMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,12 +121,7 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
                     </div>
                     <div className="space-y-1">
                       {usersWithRole.map((user) => (
-                        <UserRow
-                          key={user.userId}
-                          user={user}
-                          onToggle={handleToggleRole}
-                          isPending={assignMutation.isPending || removeMutation.isPending}
-                        />
+                        <UserRow key={user.userId} user={user} onToggle={handleToggleRole} isPending={isPending} />
                       ))}
                     </div>
                   </div>
@@ -133,12 +138,7 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
                     </div>
                     <div className="space-y-1">
                       {usersWithoutRole.map((user) => (
-                        <UserRow
-                          key={user.userId}
-                          user={user}
-                          onToggle={handleToggleRole}
-                          isPending={assignMutation.isPending || removeMutation.isPending}
-                        />
+                        <UserRow key={user.userId} user={user} onToggle={handleToggleRole} isPending={isPending} />
                       ))}
                     </div>
                   </div>
@@ -156,13 +156,15 @@ export function ManageRoleUsersDialog({ role, open, onOpenChange }: ManageRoleUs
   );
 }
 
+// ─── UserRow ──────────────────────────────────────────────────────────────────
+
 function UserRow({
   user,
   onToggle,
   isPending,
 }: {
-  user: any;
-  onToggle: (userId: string, credentialId: string, hasRole: boolean) => void;
+  user: UserForRole;
+  onToggle: (credentialId: string, hasRole: boolean) => void;
   isPending: boolean;
 }) {
   return (
@@ -173,7 +175,7 @@ function UserRow({
     >
       <Checkbox
         checked={user.hasRole}
-        onCheckedChange={() => onToggle(user.userId, user.credentialId, user.hasRole)}
+        onCheckedChange={() => onToggle(user.credentialId, user.hasRole)}
         disabled={isPending}
       />
       <div className="flex-1 min-w-0">
