@@ -2,8 +2,8 @@ import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEmployeeDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/fallback/MonthlyEmployeeDocumentsSkeleton';
 import { MonthlyEmployeeDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/MonthlyEmployeeDocumentsList';
-import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
 import { EmployeePermanentDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/EmployeePermanentDocumentsList';
+import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
@@ -173,7 +173,11 @@ export default async function EmployeePage({
           ),
           moduleSlug: 'empleados' as const,
           tabSlug: 'diagrams' as const,
-          content: <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />,
+          content: (
+            <Suspense fallback={<DataTableSkeleton columns={4} />}>
+              <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />
+            </Suspense>
+          ),
         },
         {
           value: 'tipos-de-documentos',

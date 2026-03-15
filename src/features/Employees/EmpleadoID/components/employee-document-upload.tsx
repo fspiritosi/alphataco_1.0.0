@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { fetchDocumentTypes, uploadEmployeeDocument } from '../lib/actions/document-actions';
 
+type DocumentType = Awaited<ReturnType<typeof fetchDocumentTypes>>[number];
+
 const documentUploadSchema = z.object({
   document_name: z.string().min(1, 'El nombre del documento es requerido'),
   document_type_id: z.string().min(1, 'El tipo de documento es requerido'),
@@ -46,7 +48,7 @@ interface EmployeeDocumentUploadProps {
 
 export function EmployeeDocumentUpload({ employeeId, onClose, onSuccess }: EmployeeDocumentUploadProps) {
   const [isPending, startTransition] = useTransition();
-  const [documentTypes, setDocumentTypes] = useState<any>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [dragActive, setDragActive] = useState(false);
 
   const form = useForm<DocumentUploadFormData>({
@@ -157,12 +159,7 @@ export function EmployeeDocumentUpload({ employeeId, onClose, onSuccess }: Emplo
                     <span className="font-medium">{selectedFile.name}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => form.setValue('file', undefined as any)}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => form.resetField('file')}>
                     Cambiar archivo
                   </Button>
                 </div>
@@ -225,7 +222,7 @@ export function EmployeeDocumentUpload({ employeeId, onClose, onSuccess }: Emplo
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {documentTypes.map((type: any) => (
+                        {documentTypes.map((type) => (
                           <SelectItem key={type.id} value={type.id}>
                             {type.name}
                           </SelectItem>

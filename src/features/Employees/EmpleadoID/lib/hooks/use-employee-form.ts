@@ -3,14 +3,19 @@
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-interface UseEmployeeFormProps<T> {
+interface UseEmployeeFormProps<T, R = unknown> {
   initialData?: T;
-  onSubmit: (data: T) => Promise<any>;
-  onSuccess?: (data: any) => void;
+  onSubmit: (data: T) => Promise<R>;
+  onSuccess?: (data: R) => void;
   onError?: (error: Error) => void;
 }
 
-export function useEmployeeForm<T>({ initialData, onSubmit, onSuccess, onError }: UseEmployeeFormProps<T>) {
+export function useEmployeeForm<T, R = unknown>({
+  initialData,
+  onSubmit,
+  onSuccess,
+  onError,
+}: UseEmployeeFormProps<T, R>) {
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
 
