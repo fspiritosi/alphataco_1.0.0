@@ -5,67 +5,124 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { use, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 import type { UseFormReturn } from 'react-hook-form';
-import type { EmployeeFormData, Options } from './employee-form';
+import {
+  getAllAptitudeOptions,
+  getAllCategoryOptions,
+  getAllCompanyPositionOptions,
+  getAllContractTypeOptions,
+  getAllContractorOptions,
+  getAllCostCenterOptions,
+  getAllCovenantOptions,
+  getAllGuildOptions,
+  getAllHierarchyOptions,
+  getAllWorkDiagramOptions,
+  getAllWorkshopSectorOptions,
+} from '../../actions.server';
+import type { EmployeeFormData } from './employee-form';
 
 interface EmployeeWorkDataFormProps {
   form: UseFormReturn<EmployeeFormData>;
-  readOnly: boolean;
-  options: Options['workData']; // siempre viene
 }
 
-export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDataFormProps) {
-  const hierarchicalPositions = use(options.hierarchicalPositionsPromise);
-  const companyPositions = use(options.companyPositionsPromise);
-  const costCenters = use(options.costCentersPromise);
-  const workflowDiagrams = use(options.workflowDiagramsPromise);
-  const guilds = use(options.guildsPromise);
-  const covenants = use(options.covenantsPromise);
-  const categories = use(options.categoriesPromise);
-  const contractorCompanies = use(options.contractorCompaniesPromise).filter((c: any) => c.is_active);
-  const typeOfContracts = use(options.typeOfContractsPromise);
-  const aptitudes = use(options.aptitudesPromise);
-  const workshopSectors = use(options.workshopSectorsPromise);
+export function EmployeeWorkDataForm({ form }: EmployeeWorkDataFormProps) {
+  // ─── Catálogos base (siempre cargados) ─────────────────────────────────────
+  const { data: hierarchicalPositions = [], isLoading: loadingHierarchy } = useQuery({
+    queryKey: ['catalog', 'hierarchy'],
+    queryFn: () => getAllHierarchyOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
 
+  const { data: companyPositions = [], isLoading: loadingCompanyPositions } = useQuery({
+    queryKey: ['catalog', 'company-positions'],
+    queryFn: () => getAllCompanyPositionOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: workDiagrams = [], isLoading: loadingWorkDiagrams } = useQuery({
+    queryKey: ['catalog', 'work-diagrams'],
+    queryFn: () => getAllWorkDiagramOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: guilds = [], isLoading: loadingGuilds } = useQuery({
+    queryKey: ['catalog', 'guilds'],
+    queryFn: () => getAllGuildOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: covenants = [], isLoading: loadingCovenants } = useQuery({
+    queryKey: ['catalog', 'covenants'],
+    queryFn: () => getAllCovenantOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['catalog', 'categories'],
+    queryFn: () => getAllCategoryOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: costCenters = [], isLoading: loadingCostCenters } = useQuery({
+    queryKey: ['catalog', 'cost-centers'],
+    queryFn: () => getAllCostCenterOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: contractorCompanies = [], isLoading: loadingContractors } = useQuery({
+    queryKey: ['catalog', 'contractors'],
+    queryFn: () => getAllContractorOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: contractTypes = [], isLoading: loadingContractTypes } = useQuery({
+    queryKey: ['catalog', 'contract-types'],
+    queryFn: () => getAllContractTypeOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: aptitudes = [], isLoading: loadingAptitudes } = useQuery({
+    queryKey: ['catalog', 'aptitudes'],
+    queryFn: () => getAllAptitudeOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: workshopSectors = [], isLoading: loadingWorkshopSectors } = useQuery({
+    queryKey: ['catalog', 'workshop-sectors'],
+    queryFn: () => getAllWorkshopSectorOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // ─── Watchers para cascada ──────────────────────────────────────────────────
   const allocatedTo = form.watch('allocated_to') || [];
   const selectedAptitudes = form.watch('aptitudes') || [];
-
-  // Observar cambios en los campos para habilitar/deshabilitar
   const selectedHierarchicalPosition = form.watch('hierarchical_position');
   const selectedCompanyPosition = form.watch('company_position');
   const selectedGuildId = form.watch('guild_id');
   const selectedCovenantId = form.watch('covenants_id');
 
-  // Obtener valores iniciales del form y configurar filtrado
-  const initialHierarchicalPosition = form.getValues('hierarchical_position');
-  const initialCompanyPosition = form.getValues('company_position');
-  const initialGuildId = form.getValues('guild_id');
-  const initialCovenantId = form.getValues('covenants_id');
+  // ─── Listas filtradas (cascada derivada del state del form) ─────────────────
+  const filteredCompanyPositions = selectedHierarchicalPosition
+    ? companyPositions.filter((position) => position.hierarchical_position_id?.includes(selectedHierarchicalPosition))
+    : [];
 
-  // Estados para filtrado dinámico con valores iniciales
-  const [filteredCompanyPositions, setFilteredCompanyPositions] = useState(() => {
-    return initialHierarchicalPosition
-      ? companyPositions.filter((position) => position.hierarchical_position_id?.includes(initialHierarchicalPosition))
-      : [];
-  });
+  const filteredAptitudes = selectedCompanyPosition
+    ? aptitudes.filter((aptitude) =>
+        aptitude.aptitudes_tecnicas_puestos.some((puesto) => puesto.puesto_id === selectedCompanyPosition)
+      )
+    : [];
 
-  const [filteredAptitudes, setFilteredAptitudes] = useState(() => {
-    return initialCompanyPosition
-      ? aptitudes.filter((aptitude) =>
-          aptitude.aptitudes_tecnicas_puestos.some((puesto) => puesto.puesto_id === initialCompanyPosition)
-        )
-      : [];
-  });
+  const filteredCovenants = selectedGuildId
+    ? covenants.filter((covenant) => covenant.guild_id === selectedGuildId)
+    : [];
 
-  const [filteredCovenants, setFilteredCovenants] = useState(() => {
-    return initialGuildId ? covenants.filter((covenant) => covenant.guild_id === initialGuildId) : [];
-  });
+  const filteredCategories = selectedCovenantId
+    ? categories.filter((category) => category.covenant_id === selectedCovenantId)
+    : [];
 
-  const [filteredCategories, setFilteredCategories] = useState(() => {
-    return initialCovenantId ? categories.filter((category) => category.covenant_id === initialCovenantId) : [];
-  });
-
+  // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleContractorChange = (contractorId: string, checked: boolean) => {
     const currentAllocated = form.getValues('allocated_to') || [];
     if (checked) {
@@ -94,29 +151,16 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
     const currentHierarchicalPosition = form.getValues('hierarchical_position');
     form.setValue('hierarchical_position', hierarchicalPositionId);
 
-    // Filtrar puestos de empresa por hierarchical_position_id
-    const newFilteredCompanyPositions = companyPositions.filter((position) =>
-      position.hierarchical_position_id?.includes(hierarchicalPositionId)
-    );
-    setFilteredCompanyPositions(newFilteredCompanyPositions);
-
     // Si se selecciona una posición jerárquica diferente, restablecer puesto de empresa y aptitudes
     if (currentHierarchicalPosition !== hierarchicalPositionId) {
       form.resetField('company_position');
       form.setValue('aptitudes', []);
-      setFilteredAptitudes([]);
     }
   };
 
   const handleCompanyPositionChange = (companyPositionId: string) => {
     const currentCompanyPosition = form.getValues('company_position');
     form.setValue('company_position', companyPositionId);
-
-    // Filtrar aptitudes por puesto_id
-    const newFilteredAptitudes = aptitudes.filter((aptitude) =>
-      aptitude.aptitudes_tecnicas_puestos.some((puesto) => puesto.puesto_id === companyPositionId)
-    );
-    setFilteredAptitudes(newFilteredAptitudes);
 
     // Si se selecciona un puesto diferente, restablecer aptitudes seleccionadas
     if (currentCompanyPosition !== companyPositionId) {
@@ -128,25 +172,16 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
     const currentGuildId = form.getValues('guild_id');
     form.setValue('guild_id', guildId);
 
-    // Filtrar convenios por guild_id
-    const newFilteredCovenants = covenants.filter((covenant) => covenant.guild_id === guildId);
-    setFilteredCovenants(newFilteredCovenants);
-
     // Si se selecciona un gremio diferente al actual, restablecer convenio y categoría
     if (currentGuildId !== guildId) {
       form.resetField('covenants_id');
       form.resetField('category_id');
-      setFilteredCategories([]);
     }
   };
 
   const handleCovenantChange = (covenantId: string) => {
     const currentCovenantId = form.getValues('covenants_id');
     form.setValue('covenants_id', covenantId);
-
-    // Filtrar categorías por covenant_id
-    const newFilteredCategories = categories.filter((category) => category.covenant_id === covenantId);
-    setFilteredCategories(newFilteredCategories);
 
     // Si se selecciona un convenio diferente al actual, restablecer categoría
     if (currentCovenantId !== covenantId) {
@@ -165,7 +200,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <FormItem>
               <FormLabel>Legajo *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el legajo" />
+                <Input {...field} placeholder="Ingrese el legajo" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -179,20 +214,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sector *</FormLabel>
-              <Select onValueChange={handleHierarchicalPositionChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el sector" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {hierarchicalPositions.map((position) => (
-                    <SelectItem key={position.id} value={position.id}>
-                      {position.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingHierarchy ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={handleHierarchicalPositionChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione el sector" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {hierarchicalPositions.map((position) => (
+                      <SelectItem key={position.id} value={position.id}>
+                        {position.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -205,28 +244,32 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Puesto en la empresa *</FormLabel>
-              <Select
-                onValueChange={handleCompanyPositionChange}
-                defaultValue={field.value}
-                disabled={readOnly || !selectedHierarchicalPosition}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        !selectedHierarchicalPosition ? 'Primero seleccione un sector' : 'Seleccione el puesto'
-                      }
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {filteredCompanyPositions.map((position) => (
-                    <SelectItem key={position.id} value={position.id}>
-                      {position.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingCompanyPositions ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select
+                  onValueChange={handleCompanyPositionChange}
+                  defaultValue={field.value}
+                  disabled={!selectedHierarchicalPosition}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          !selectedHierarchicalPosition ? 'Primero seleccione un sector' : 'Seleccione el puesto'
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filteredCompanyPositions.map((position) => (
+                      <SelectItem key={position.id} value={position.id}>
+                        {position.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -239,20 +282,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Diagrama de trabajo *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el diagrama" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {workflowDiagrams.map((diagram) => (
-                    <SelectItem key={diagram.id} value={diagram.id}>
-                      {diagram.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingWorkDiagrams ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione el diagrama" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {workDiagrams.map((diagram) => (
+                      <SelectItem key={diagram.id} value={diagram.id}>
+                        {diagram.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -266,7 +313,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <FormItem>
               <FormLabel>Horas normales</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese las horas normales" />
+                <Input {...field} placeholder="Ingrese las horas normales" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -280,20 +327,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de contrato</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione tipo de contrato" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {typeOfContracts.map((contract) => (
-                    <SelectItem key={contract.id} value={contract.id}>
-                      {contract.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingContractTypes ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione tipo de contrato" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {contractTypes.map((contract) => (
+                      <SelectItem key={contract.id} value={contract.id}>
+                        {contract.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -307,7 +358,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <FormItem>
               <FormLabel>Fecha de ingreso</FormLabel>
               <FormControl>
-                <Input {...field} type="date" readOnly={readOnly} />
+                <Input {...field} type="date" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -321,20 +372,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Gremio</FormLabel>
-              <Select onValueChange={handleGuildChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el gremio" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {guilds.map((guild) => (
-                    <SelectItem key={guild.id} value={guild.id}>
-                      {guild.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingGuilds ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={handleGuildChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione el gremio" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {guilds.map((guild) => (
+                      <SelectItem key={guild.id} value={guild.id}>
+                        {guild.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -347,26 +402,26 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Convenio</FormLabel>
-              <Select
-                onValueChange={handleCovenantChange}
-                defaultValue={field.value}
-                disabled={readOnly || !selectedGuildId}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={!selectedGuildId ? 'Primero seleccione un gremio' : 'Seleccione el convenio'}
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {filteredCovenants.map((covenant) => (
-                    <SelectItem key={covenant.id} value={covenant.id}>
-                      {covenant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingCovenants ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={handleCovenantChange} defaultValue={field.value} disabled={!selectedGuildId}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={!selectedGuildId ? 'Primero seleccione un gremio' : 'Seleccione el convenio'}
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filteredCovenants.map((covenant) => (
+                      <SelectItem key={covenant.id} value={covenant.id}>
+                        {covenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -379,26 +434,26 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Categoría</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-                disabled={readOnly || !selectedCovenantId}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={!selectedCovenantId ? 'Primero seleccione un convenio' : 'Seleccione la categoría'}
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {filteredCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingCategories ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedCovenantId}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={!selectedCovenantId ? 'Primero seleccione un convenio' : 'Seleccione la categoría'}
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filteredCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -411,20 +466,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Centro de costo</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el centro de costo" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {costCenters.map((center) => (
-                    <SelectItem key={center.id} value={center.id}>
-                      {center.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingCostCenters ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione el centro de costo" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {costCenters.map((center) => (
+                      <SelectItem key={center.id} value={center.id}>
+                        {center.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -437,7 +496,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de costo</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione tipo de costo" />
@@ -460,20 +519,24 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sector de Taller</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el sector de taller" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {workshopSectors.map((sector) => (
-                    <SelectItem key={sector.id} value={sector.id}>
-                      {sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingWorkshopSectors ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione el sector de taller" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {workshopSectors.map((sector) => (
+                      <SelectItem key={sector.id} value={sector.id}>
+                        {sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -487,7 +550,13 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <CardTitle>Asignado a contratistas</CardTitle>
           </CardHeader>
           <CardContent>
-            {!readOnly && contractorCompanies.length > 0 ? (
+            {loadingContractors ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-3/4" />
+              </div>
+            ) : contractorCompanies.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {contractorCompanies.map((contractor) => (
                   <div key={contractor.id} className="flex items-center space-x-2">
@@ -505,20 +574,6 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                   </div>
                 ))}
               </div>
-            ) : readOnly && allocatedTo.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {allocatedTo.map((contractorId: string) => {
-                  const contractor = contractorCompanies.find((c) => c.id === contractorId);
-                  return contractor ? (
-                    <span
-                      key={contractorId}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                    >
-                      {contractor.name}
-                    </span>
-                  ) : null;
-                })}
-              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No hay contratistas asignados</p>
             )}
@@ -530,7 +585,17 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <CardTitle>Aptitudes Técnicas</CardTitle>
           </CardHeader>
           <CardContent>
-            {!readOnly && filteredAptitudes.length > 0 ? (
+            {loadingAptitudes ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-3/4" />
+              </div>
+            ) : !selectedCompanyPosition ? (
+              <p className="text-sm text-muted-foreground">
+                Primero seleccione un puesto para ver las aptitudes disponibles
+              </p>
+            ) : filteredAptitudes.filter((a) => a.is_active).length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {filteredAptitudes
                   .filter((aptitude) => aptitude.is_active)
@@ -540,7 +605,6 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                         id={aptitude.id}
                         checked={selectedAptitudes.includes(aptitude.id)}
                         onCheckedChange={(checked) => handleAptitudeChange(aptitude.id, checked as boolean)}
-                        disabled={!selectedCompanyPosition}
                       />
                       <label
                         htmlFor={aptitude.id}
@@ -551,26 +615,8 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                     </div>
                   ))}
               </div>
-            ) : !readOnly && !selectedCompanyPosition ? (
-              <p className="text-sm text-muted-foreground">
-                Primero seleccione un puesto para ver las aptitudes disponibles
-              </p>
-            ) : readOnly && selectedAptitudes.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedAptitudes.map((aptitudeId: string) => {
-                  const aptitude = aptitudes.find((a) => a.id === aptitudeId);
-                  return aptitude ? (
-                    <span
-                      key={aptitudeId}
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                    >
-                      {aptitude.nombre}
-                    </span>
-                  ) : null;
-                })}
-              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No hay aptitudes asignadas</p>
+              <p className="text-sm text-muted-foreground">No hay aptitudes disponibles para el puesto seleccionado</p>
             )}
           </CardContent>
         </Card>

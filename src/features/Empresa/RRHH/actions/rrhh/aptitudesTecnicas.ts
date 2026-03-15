@@ -1,7 +1,9 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 // Interfaz para los puestos
 interface Position {
@@ -60,20 +62,7 @@ interface PuestoResult {
  */
 export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
   try {
-    const cookiesStore = await cookies();
     const supabase = await supabaseServer();
-
-    if (!supabase) {
-      console.error('No se pudo inicializar el cliente de Supabase');
-      return [];
-    }
-
-    const company_id = cookiesStore.get('actualComp')?.value;
-
-    if (!company_id) {
-      console.error('No se encontró el ID de la compañía en las cookies');
-      return [];
-    }
 
     // Primero obtenemos las aptitudes técnicas
     const { data: aptitudesData, error: aptitudesError } = await supabase
@@ -81,7 +70,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
       .select('*, aptitudes_tecnicas_puestos(*, puesto_id(*))');
 
     if (aptitudesError) {
-      console.error('Error al obtener aptitudes técnicas:', aptitudesError);
+      logger.error('Error al obtener aptitudes técnicas', { data: { error: aptitudesError } });
       return [];
     }
 
@@ -99,7 +88,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
       .in('aptitud_id', aptitudesIds);
 
     if (puestosError) {
-      console.error('Error al obtener relaciones con puestos:', puestosError);
+      logger.error('Error al obtener relaciones con puestos', { data: { error: puestosError } });
     }
 
     // Obtenemos todos los puestos para asegurarnos de tener sus nombres
@@ -109,7 +98,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
       .eq('is_active', true);
 
     if (errorPuestos) {
-      console.error('Error al obtener la lista completa de puestos:', errorPuestos);
+      logger.error('Error al obtener la lista completa de puestos', { data: { error: errorPuestos } });
     }
 
     // Mapear los datos al formato esperado
@@ -144,7 +133,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
 
     return aptitudes;
   } catch (error) {
-    console.error('Error inesperado al obtener aptitudes técnicas:', error);
+    logger.error('Error inesperado al obtener aptitudes técnicas', { data: { error } });
     return [];
   }
 }
@@ -154,21 +143,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
  */
 export async function getPositions(): Promise<Position[]> {
   try {
-    const cookiesStore = await cookies();
     const supabase = await supabaseServer();
-
-    // Verificar que tengamos una instancia de Supabase
-    if (!supabase) {
-      console.error('No se pudo inicializar el cliente de Supabase');
-      return [];
-    }
-
-    const company_id = cookiesStore.get('actualComp')?.value;
-
-    if (!company_id) {
-      console.error('No se encontró el ID de la compañía en las cookies');
-      return [];
-    }
 
     // Obtener los puestos activos
     const { data, error } = await supabase
@@ -178,7 +153,7 @@ export async function getPositions(): Promise<Position[]> {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error al obtener los puestos:', error);
+      logger.error('Error al obtener los puestos', { data: { error } });
       return [];
     }
 
@@ -191,7 +166,7 @@ export async function getPositions(): Promise<Position[]> {
 
     return positions;
   } catch (error) {
-    console.error('Error inesperado al obtener los puestos:', error);
+    logger.error('Error inesperado al obtener los puestos', { data: { error } });
     return [];
   }
 }
@@ -209,16 +184,13 @@ export async function getAptitudesData() {
       positions: Array.isArray(positions) ? positions : [],
     };
   } catch (error) {
-    console.error('Error al obtener los datos de aptitudes y puestos:', error);
+    logger.error('Error al obtener los datos de aptitudes y puestos', { data: { error } });
     return { aptitudes: [], positions: [] };
   }
 }
 
 export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): Promise<AptitudTecnica> {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   // Crear la aptitud
   const { data: aptitudData, error: aptitudError } = await supabase
@@ -231,7 +203,7 @@ export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): P
     .single();
 
   if (aptitudError) {
-    console.error('Error al crear la aptitud técnica:', aptitudError);
+    logger.error('Error al crear la aptitud técnica', { data: { error: aptitudError } });
     throw aptitudError;
   }
 
@@ -247,7 +219,7 @@ export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): P
     const { error: puestosError } = await supabase.from('aptitudes_tecnicas_puestos' as any).insert(relaciones as any);
 
     if (puestosError) {
-      console.error('Error al crear relaciones con puestos:', puestosError);
+      logger.error('Error al crear relaciones con puestos', { data: { error: puestosError } });
       throw puestosError;
     }
   }
@@ -259,10 +231,7 @@ export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): P
 }
 
 export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): Promise<AptitudTecnica> {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   const { id, puestos } = aptitud;
   // Actualizar datos básicos de la aptitud
@@ -278,7 +247,7 @@ export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): P
     .single();
 
   if (updateError) {
-    console.error('Error al actualizar la aptitud técnica:', updateError);
+    logger.error('Error al actualizar la aptitud técnica', { data: { error: updateError } });
     throw updateError;
   }
 
@@ -293,7 +262,7 @@ export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): P
       .eq('aptitud_id', String(id));
 
     if (deleteError) {
-      console.error('Error al eliminar relaciones de puestos existentes:', deleteError);
+      logger.error('Error al eliminar relaciones de puestos existentes', { data: { error: deleteError } });
       throw deleteError;
     }
 
@@ -307,7 +276,7 @@ export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): P
       const { error: insertError } = await supabase.from('aptitudes_tecnicas_puestos' as any).insert(relaciones as any);
 
       if (insertError) {
-        console.error('Error al insertar nuevas relaciones de puestos:', insertError);
+        logger.error('Error al insertar nuevas relaciones de puestos', { data: { error: insertError } });
         throw insertError;
       }
     }
@@ -332,7 +301,7 @@ async function getAptitudTecnicaById(id: string | number): Promise<AptitudTecnic
       .single();
 
     if (aptitudError || !aptitud) {
-      console.error('Error al obtener la aptitud:', aptitudError);
+      logger.error('Error al obtener la aptitud', { data: { error: aptitudError } });
       return null;
     }
 
@@ -343,7 +312,7 @@ async function getAptitudTecnicaById(id: string | number): Promise<AptitudTecnic
       .eq('aptitud_id', id);
 
     if (puestosError) {
-      console.error('Error al obtener los puestos de la aptitud:', puestosError);
+      logger.error('Error al obtener los puestos de la aptitud', { data: { error: puestosError } });
       return null;
     }
 
@@ -353,7 +322,7 @@ async function getAptitudTecnicaById(id: string | number): Promise<AptitudTecnic
       puestos: (puestos as Array<{ puesto_id: string }>).map((p) => p.puesto_id),
     } as AptitudTecnica;
   } catch (error) {
-    console.error('Error inesperado al obtener la aptitud:', error);
+    logger.error('Error inesperado al obtener la aptitud', { data: { error } });
     return null;
   }
 }

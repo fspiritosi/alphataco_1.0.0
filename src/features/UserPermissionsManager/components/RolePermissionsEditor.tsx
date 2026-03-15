@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { getModulesWithTabs } from '@/features/Permissions/actions';
+import type { ModulesWithTabsData } from '@/features/UserPermissionsManager/actions.server';
+import { getModulesWithTabsServer } from '@/features/UserPermissionsManager/actions.server';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
@@ -26,12 +27,21 @@ import {
 } from 'lucide-react';
 import { useMemo } from 'react';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ModuleItem = ModulesWithTabsData[number];
+type TabItem = ModuleItem['tabs'][number];
+type ActionItem = TabItem['actions'][number];
+
 interface RolePermissionsEditorProps {
   permissions: Array<{ tabId: string; actionId: string }>;
   onPermissionsChange: (permissions: Array<{ tabId: string; actionId: string }>) => void;
+  initialModules: ModulesWithTabsData;
 }
 
-const ACTION_ICONS = {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   view: Eye,
   create: Plus,
   update: Pencil,
@@ -39,7 +49,7 @@ const ACTION_ICONS = {
   view_all_requests: UsersRound,
 };
 
-const ACTION_LABELS = {
+const ACTION_LABELS: Record<string, string> = {
   view: 'Ver',
   create: 'Crear',
   update: 'Editar',
@@ -47,7 +57,7 @@ const ACTION_LABELS = {
   view_all_requests: 'Ver Todas',
 };
 
-const ACTION_COLORS = {
+const ACTION_COLORS: Record<string, string> = {
   view: 'text-blue-600',
   create: 'text-green-600',
   update: 'text-yellow-600',
@@ -55,7 +65,7 @@ const ACTION_COLORS = {
   view_all_requests: 'text-purple-600',
 };
 
-const MODULE_ICONS: Record<string, any> = {
+const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   dashboard: LayoutDashboard,
   empresa: Building2,
   empleados: Users,
@@ -68,10 +78,19 @@ const MODULE_ICONS: Record<string, any> = {
   ayuda: HelpCircle,
 };
 
-export function RolePermissionsEditor({ permissions, onPermissionsChange }: RolePermissionsEditorProps) {
-  const { data: modules = [], isLoading } = useQuery({
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function RolePermissionsEditor({
+  permissions,
+  onPermissionsChange,
+  initialModules,
+}: RolePermissionsEditorProps) {
+  // Usa initialModules como SSR data; re-fetch transparente en background
+  const { data: modules = initialModules } = useQuery({
     queryKey: ['modules-with-tabs'],
-    queryFn: getModulesWithTabs,
+    queryFn: getModulesWithTabsServer,
+    initialData: initialModules,
+    staleTime: 5 * 60 * 1000, // 5 minutos — los módulos/tabs cambian raramente
   });
 
   const permissionSet = useMemo(() => {
@@ -82,107 +101,80 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
     return permissionSet.has(`${tabId}:${actionId}`);
   };
 
+  const findTab = (items: TabItem[], tabId: string): TabItem | null => {
+    for (const item of items) {
+      if (item.id === tabId) return item;
+      const found = findTab(item.subtabs as TabItem[], tabId);
+      if (found) return found;
+    }
+    return null;
+  };
+
   const togglePermission = (tabId: string, actionId: string) => {
     const key = `${tabId}:${actionId}`;
     const isAdding = !permissionSet.has(key);
 
-    // Encontrar el tab actual y sus subtabs para aplicar lógica masiva
-    const findTab = (items: any[]): any => {
-      for (const item of items) {
-        if (item.id === tabId) return item;
-        if (item.tabs) {
-          const found = findTab(item.tabs);
-          if (found) return found;
-        }
-        if (item.subtabs) {
-          const found = findTab(item.subtabs);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
+    const allTabs = modules.flatMap((m) => m.tabs as TabItem[]);
+    const targetTab = findTab(allTabs, tabId);
 
-    const targetTab = findTab(modules);
-
-    // Encontrar el action slug para saber si es view, create, update o delete
-    const action = targetTab?.actions?.find((a: any) => a.id === actionId);
+    const action = targetTab?.actions?.find((a) => a.id === actionId);
     const actionSlug = action?.slug;
 
     // Si estamos intentando REMOVER el permiso de 'view', verificar si hay otros permisos activos
     if (!isAdding && actionSlug === 'view') {
-      const hasOtherPermissions = targetTab?.actions?.some((a: any) => {
-        if (a.slug === 'view') return false; // Ignorar el permiso de view
-        const otherKey = `${tabId}:${a.id}`;
-        return permissionSet.has(otherKey);
+      const hasOtherPermissions = targetTab?.actions?.some((a) => {
+        if (a.slug === 'view') return false;
+        return permissionSet.has(`${tabId}:${a.id}`);
       });
-
-      if (hasOtherPermissions) {
-        // No permitir remover 'view' si hay otros permisos activos
-        return;
-      }
+      if (hasOtherPermissions) return;
     }
 
     const permissionsToToggle: Array<{ tabId: string; actionId: string }> = [{ tabId, actionId }];
 
     // Si es un tab padre, propagar a los hijos
-    if (targetTab && targetTab.subtabs && targetTab.subtabs.length > 0) {
-      const collectSubtabPermissions = (subtabs: any[]) => {
+    if (targetTab?.subtabs && targetTab.subtabs.length > 0) {
+      const collectSubtabPermissions = (subtabs: TabItem[]) => {
         subtabs.forEach((subtab) => {
-          // Verificar si el subtab soporta esta acción
-          const supportsAction = subtab.actions?.some((a: any) => a.id === actionId);
-          if (supportsAction) {
-            permissionsToToggle.push({ tabId: subtab.id, actionId });
-          }
-          if (subtab.subtabs) {
-            collectSubtabPermissions(subtab.subtabs);
-          }
+          const supportsAction = subtab.actions?.some((a) => a.id === actionId);
+          if (supportsAction) permissionsToToggle.push({ tabId: subtab.id, actionId });
+          if (subtab.subtabs) collectSubtabPermissions(subtab.subtabs as TabItem[]);
         });
       };
-      collectSubtabPermissions(targetTab.subtabs);
+      collectSubtabPermissions(targetTab.subtabs as TabItem[]);
     }
 
     let newPermissions = [...permissions];
 
     if (isAdding) {
-      // Agregar permisos que no estén ya
       permissionsToToggle.forEach((perm) => {
-        const permKey = `${perm.tabId}:${perm.actionId}`;
-        if (!permissionSet.has(permKey)) {
-          newPermissions.push(perm);
-        }
+        if (!permissionSet.has(`${perm.tabId}:${perm.actionId}`)) newPermissions.push(perm);
       });
 
-      // AUTO-ASSIGN VIEW: Si estamos agregando create/update/delete, también agregar 'view'
+      // AUTO-ASSIGN VIEW: Si agregamos create/update/delete, también agregar 'view'
       if (actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
-        const viewAction = targetTab?.actions?.find((a: any) => a.slug === 'view');
+        const viewAction = targetTab?.actions?.find((a) => a.slug === 'view');
         if (viewAction) {
           const viewKey = `${tabId}:${viewAction.id}`;
-          if (!permissionSet.has(viewKey)) {
-            newPermissions.push({ tabId, actionId: viewAction.id });
-          }
+          if (!permissionSet.has(viewKey)) newPermissions.push({ tabId, actionId: viewAction.id });
 
-          // También agregar 'view' a los subtabs si estamos propagando
-          if (targetTab.subtabs && targetTab.subtabs.length > 0) {
-            const addViewToSubtabs = (subtabs: any[]) => {
+          if (targetTab?.subtabs && targetTab.subtabs.length > 0) {
+            const addViewToSubtabs = (subtabs: TabItem[]) => {
               subtabs.forEach((subtab) => {
-                const subtabViewAction = subtab.actions?.find((a: any) => a.slug === 'view');
+                const subtabViewAction = subtab.actions?.find((a) => a.slug === 'view');
                 if (subtabViewAction) {
                   const subtabViewKey = `${subtab.id}:${subtabViewAction.id}`;
                   if (!permissionSet.has(subtabViewKey)) {
                     newPermissions.push({ tabId: subtab.id, actionId: subtabViewAction.id });
                   }
                 }
-                if (subtab.subtabs) {
-                  addViewToSubtabs(subtab.subtabs);
-                }
+                if (subtab.subtabs) addViewToSubtabs(subtab.subtabs as TabItem[]);
               });
             };
-            addViewToSubtabs(targetTab.subtabs);
+            addViewToSubtabs(targetTab.subtabs as TabItem[]);
           }
         }
       }
     } else {
-      // Remover permisos
       const keysToRemove = new Set(permissionsToToggle.map((p) => `${p.tabId}:${p.actionId}`));
       newPermissions = newPermissions.filter((p) => !keysToRemove.has(`${p.tabId}:${p.actionId}`));
     }
@@ -190,12 +182,12 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
     onPermissionsChange(newPermissions);
   };
 
-  const countTabActions = (tab: any): { total: number; selected: number } => {
-    let total = tab.actions?.length || 0;
-    let selected = tab.actions?.filter((action: any) => isPermissionActive(tab.id, action.id)).length || 0;
+  const countTabActions = (tab: TabItem): { total: number; selected: number } => {
+    let total = tab.actions?.length ?? 0;
+    let selected = tab.actions?.filter((action) => isPermissionActive(tab.id, action.id)).length ?? 0;
 
-    if (tab.subtabs && tab.subtabs.length > 0) {
-      tab.subtabs.forEach((subtab: any) => {
+    if (tab.subtabs?.length) {
+      (tab.subtabs as TabItem[]).forEach((subtab) => {
         const subtabCounts = countTabActions(subtab);
         total += subtabCounts.total;
         selected += subtabCounts.selected;
@@ -205,51 +197,41 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
     return { total, selected };
   };
 
-  const isTabFullySelected = (tab: any): boolean => {
+  const isTabFullySelected = (tab: TabItem): boolean => {
     const counts = countTabActions(tab);
     return counts.total > 0 && counts.selected === counts.total;
   };
 
-  const toggleTab = (tab: any) => {
+  const toggleTab = (tab: TabItem) => {
     const isFullySelected = isTabFullySelected(tab);
     const toToggle: Array<{ tabId: string; actionId: string }> = [];
 
-    const collectActions = (t: any) => {
-      t.actions?.forEach((action: any) => {
-        toToggle.push({ tabId: t.id, actionId: action.id });
-      });
-
-      if (t.subtabs && t.subtabs.length > 0) {
-        t.subtabs.forEach((subtab: any) => collectActions(subtab));
-      }
+    const collectActions = (t: TabItem) => {
+      t.actions?.forEach((action) => toToggle.push({ tabId: t.id, actionId: action.id }));
+      if (t.subtabs?.length) (t.subtabs as TabItem[]).forEach(collectActions);
     };
 
     collectActions(tab);
 
     if (isFullySelected) {
-      // Remover todos
       const keysToRemove = new Set(toToggle.map((p) => `${p.tabId}:${p.actionId}`));
       onPermissionsChange(permissions.filter((p) => !keysToRemove.has(`${p.tabId}:${p.actionId}`)));
     } else {
-      // Agregar los que faltan
       const newPermissions = [...permissions];
       toToggle.forEach((perm) => {
-        const key = `${perm.tabId}:${perm.actionId}`;
-        if (!permissionSet.has(key)) {
-          newPermissions.push(perm);
-        }
+        if (!permissionSet.has(`${perm.tabId}:${perm.actionId}`)) newPermissions.push(perm);
       });
       onPermissionsChange(newPermissions);
     }
   };
 
-  const renderActions = (tab: any) => {
-    if (!tab.actions || tab.actions.length === 0) return null;
+  const renderActions = (tab: TabItem) => {
+    if (!tab.actions?.length) return null;
 
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        {tab.actions.map((action: any) => {
-          const ActionIcon = ACTION_ICONS[action.slug as keyof typeof ACTION_ICONS];
+        {tab.actions.map((action: ActionItem) => {
+          const ActionIcon = ACTION_ICONS[action.slug];
           const isActive = isPermissionActive(tab.id, action.id);
 
           return (
@@ -267,15 +249,9 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
                 className="h-3 w-3"
               />
               {ActionIcon && (
-                <ActionIcon
-                  className={`h-3 w-3 ${
-                    ACTION_COLORS[action.slug as keyof typeof ACTION_COLORS] || 'text-muted-foreground'
-                  }`}
-                />
+                <ActionIcon className={`h-3 w-3 ${ACTION_COLORS[action.slug] ?? 'text-muted-foreground'}`} />
               )}
-              <span className="text-xs font-medium">
-                {ACTION_LABELS[action.slug as keyof typeof ACTION_LABELS] || action.name}
-              </span>
+              <span className="text-xs font-medium">{ACTION_LABELS[action.slug] ?? action.name}</span>
             </div>
           );
         })}
@@ -283,7 +259,7 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
     );
   };
 
-  const renderSubtab = (tab: any) => {
+  const renderSubtab = (tab: TabItem) => {
     const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
     const counts = countTabActions(tab);
     const tabSelected = isTabFullySelected(tab);
@@ -294,10 +270,8 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
         <div className="flex items-start gap-2 py-1">
           <Checkbox
             checked={tabSelected}
-            ref={(el: any) => {
-              if (el) {
-                el.indeterminate = tabPartiallySelected;
-              }
+            ref={(el: HTMLButtonElement | null) => {
+              if (el) (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate = tabPartiallySelected;
             }}
             onCheckedChange={() => toggleTab(tab)}
             className="mt-0.5 h-3 w-3"
@@ -315,32 +289,27 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
           </div>
         </div>
 
-        {hasSubtabs && <div className="space-y-1.5">{tab.subtabs.map((subtab: any) => renderSubtab(subtab))}</div>}
+        {hasSubtabs && (
+          <div className="space-y-1.5">{(tab.subtabs as TabItem[]).map((subtab) => renderSubtab(subtab))}</div>
+        )}
       </div>
     );
   };
-
-  if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Cargando módulos...</div>;
-  }
 
   return (
     <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
       <Label className="text-sm font-semibold">Permisos del Rol</Label>
       <Accordion type="multiple" className="space-y-2">
-        {modules.map((module: any) => {
-          const moduleCounts = module.tabs?.reduce(
-            (acc: { total: number; selected: number }, tab: any) => {
+        {modules.map((module: ModuleItem) => {
+          const moduleCounts = (module.tabs as TabItem[]).reduce(
+            (acc, tab) => {
               const tabCounts = countTabActions(tab);
-              return {
-                total: acc.total + tabCounts.total,
-                selected: acc.selected + tabCounts.selected,
-              };
+              return { total: acc.total + tabCounts.total, selected: acc.selected + tabCounts.selected };
             },
             { total: 0, selected: 0 }
-          ) || { total: 0, selected: 0 };
+          );
 
-          const ModuleIcon = MODULE_ICONS[module.slug] || Building2;
+          const ModuleIcon = MODULE_ICONS[module.slug ?? ''] ?? Building2;
 
           return (
             <AccordionItem
@@ -360,7 +329,7 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
               <AccordionContent className="px-3 pb-3 pt-1">
                 {module.tabs && module.tabs.length > 0 ? (
                   <Accordion type="multiple" className="space-y-2">
-                    {module.tabs.map((tab: any) => {
+                    {(module.tabs as TabItem[]).map((tab) => {
                       const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
                       const counts = countTabActions(tab);
                       const tabSelected = isTabFullySelected(tab);
@@ -375,10 +344,10 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
                           <div className="flex items-center gap-2 py-1.5">
                             <Checkbox
                               checked={tabSelected}
-                              ref={(el: any) => {
-                                if (el) {
-                                  el.indeterminate = tabPartiallySelected;
-                                }
+                              ref={(el: HTMLButtonElement | null) => {
+                                if (el)
+                                  (el as HTMLButtonElement & { indeterminate?: boolean }).indeterminate =
+                                    tabPartiallySelected;
                               }}
                               onCheckedChange={() => toggleTab(tab)}
                               className="h-3 w-3"
@@ -402,7 +371,7 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
                                 <>
                                   <Separator className="my-2" />
                                   <div className="space-y-1.5">
-                                    {tab.subtabs.map((subtab: any) => renderSubtab(subtab))}
+                                    {(tab.subtabs as TabItem[]).map((subtab) => renderSubtab(subtab))}
                                   </div>
                                 </>
                               )}

@@ -32,14 +32,14 @@ export function SectoresTabClient({
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <SectoresForm internalWorkshops={internalWorkshops} />
             </ResizablePanel>
             <ResizableHandle withHandle />
           </>
         )}
 
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
             <SectoresTable
               savedVisibility={savedVisibility}

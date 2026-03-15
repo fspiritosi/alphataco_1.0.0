@@ -1,11 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Box, Layers, Tag, Truck, User } from 'lucide-react';
+import { Suspense } from 'react';
+import EquipmentModelList from './EquipmentModels/EquipmentModelList';
+import { EquipmentModelTableSkeleton } from './EquipmentModels/fallback/EquipmentModelTableSkeleton';
+import EquipmentOwnersTabContent from './EquipmentOwners/EquipmentOwnersTabContent';
+import EquipmentTypeList from './EquipmentTypes/EquipmentTypeList';
+import { EquipmentTypeTableSkeleton } from './EquipmentTypes/fallback/EquipmentTypeTableSkeleton';
 import EquipmentBrandsWrapper from './brand/EquipmentBrandsWrapper';
-import EquipmentsModelWrapper from './model/EquipmentsModelWrapper';
+import { EquiposSubtabSkeleton } from './fallback/EquiposSubtabSkeleton';
 import EquipmentSubTypesWrapper from './sub_types/EquipmentSubTypesWrapper';
-import TitularesWrapper from './titulares/TitularesWrapper';
-import EquipmentTypesWrapper from './types/EquipmentTypesWrapper';
 
 export default function EquipmentsTabContent({
   searchParams,
@@ -39,7 +43,9 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de tipos de unidades</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <EquipmentTypesWrapper />
+                  <Suspense fallback={<EquipmentTypeTableSkeleton />}>
+                    <EquipmentTypeList searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -61,7 +67,7 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de marcas de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <EquipmentBrandsWrapper />
+                  <EquipmentBrandsWrapper searchParams={searchParams} permissions={permissions} />
                 </CardContent>
               </Card>
             ),
@@ -83,7 +89,9 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de modelos de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <EquipmentsModelWrapper />
+                  <Suspense fallback={<EquipmentModelTableSkeleton />}>
+                    <EquipmentModelList searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -105,7 +113,9 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de subtipos de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <EquipmentSubTypesWrapper />
+                  <Suspense fallback={<EquiposSubtabSkeleton />}>
+                    <EquipmentSubTypesWrapper searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -127,7 +137,9 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de titulares de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <TitularesWrapper />
+                  <Suspense fallback={<EquiposSubtabSkeleton />}>
+                    <EquipmentOwnersTabContent searchParams={searchParams} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),

@@ -16,7 +16,9 @@
 | Booleano (isActive)                     | `faceted`      | `value.includes(String(row.getValue(id)))`                                              | Manual `=== 'true'` conversion                           |
 | Fecha (createdAt, hireDate)             | `dateRange`    | NO necesario                                                                            | `buildDateRangeFiltersWhere`                             |
 | Texto (name, phone, email, address)     | `text`         | NO necesario                                                                            | `buildTextFiltersWhere` + `exclude` en buildFiltersWhere |
-| Virtual/computada (\_count, avatar)     | SIN filtro     | —                                                                                       | —                                                        |
+| M:M (pivot table con relacion)          | `faceted`      | `filterValue.some(v => row.original.pivot?.some(p => p.related?.id === v))`             | Manual con subquery o `some` en Prisma                   |
+| Numero (days, amount, quantity)         | `text`         | NO necesario                                                                            | `buildTextFiltersWhere` (busqueda como string)           |
+| Virtual SOLO visual (avatar, color hex) | SIN filtro     | —                                                                                       | —                                                        |
 | select / actions                        | SIN filtro     | —                                                                                       | —                                                        |
 
 ## Reglas Criticas
@@ -32,6 +34,12 @@
 5. **TODO booleano** DEBE tener filtro `faceted` con opciones `"Activo"/"Inactivo"` o `"Si"/"No"`.
 
 6. **IDs externos enriquecidos** (ej: userId de auth que se muestra como nombre) DEBEN tener filtro `faceted`. El campo raw ES una columna real de BD, filtrable server-side. Las facetas enriquecen los IDs para labels legibles.
+
+7. **TODA relacion M:M** (pivot table) DEBE tener filtro `faceted`. Las opciones se cargan desde la tabla relacionada. El filterFn client-side verifica si alguno de los items del array coincide con el filtro. Server-side usa `some` de Prisma: `{ pivot: { some: { related_id: { in: values } } } }`.
+
+8. **TODA columna numerica** (days, amount, quantity, Decimal) DEBE tener filtro `text` para busqueda libre. NO se excluyen columnas numéricas — si el dato se muestra, se debe poder filtrar.
+
+9. **Las UNICAS columnas sin filtro** son: `select` (checkbox de seleccion), `actions` (botones), y columnas puramente visuales que NO representan datos (como `avatar` o `color` que solo muestran un circulo de color). Si una columna muestra un DATO legible (texto, numero, fecha, estado), DEBE tener filtro. Sin excepciones.
 
 ## Lazy-Load Facets — fetchFacet Obligatorio
 

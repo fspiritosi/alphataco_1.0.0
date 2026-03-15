@@ -7,17 +7,15 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
-import { FetchTypeOfVehicles, createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
+import { createEquipmentType, updateEquipmentType } from '../EquipmentTypes/actions.server';
 import { useActiveChecklists } from '../sub_types/hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentTypesForm');
@@ -25,7 +23,7 @@ const logger = new Logger('EquipmentTypesForm');
 type VehicleType = Database['public']['Tables']['type']['Row'];
 
 interface EquipmentTypesFormProps {
-  initialData?: Awaited<ReturnType<typeof FetchTypeOfVehicles>>[0] | null;
+  initialData?: VehicleType | null;
   onReset: () => void;
   isEditing?: boolean;
   onSuccess?: () => void;
@@ -60,7 +58,6 @@ function EquipmentTypesForm({
 }: EquipmentTypesFormProps) {
   const [showDependencyModal, setShowDependencyModal] = useState(false);
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   // Hook para obtener checklists activos
   const { data: checklists = [], isLoading: isLoadingChecklists, error: checklistsError } = useActiveChecklists();
@@ -95,6 +92,8 @@ function EquipmentTypesForm({
   }, [allTypes, initialData?.id]);
 
   // Resetear el formulario cuando cambia initialData
+  // NOTA: El wrapper usa key={initialData?.id} para forzar remount limpio,
+  // pero mantenemos este reset para el caso de edición → crear (null)
   useEffect(() => {
     if (initialData) {
       reset({
@@ -120,22 +119,24 @@ function EquipmentTypesForm({
         checklist_ids: [],
       });
     }
-  }, [initialData, initialHitchTypeIds, initialChecklistIds, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id]);
 
-  // Si se desactiva is_tractor_unit, resetear has_hitch y hitch_type_ids
-  useEffect(() => {
-    if (!isTractorUnit) {
+  // Handlers derivados — lógica movida de useEffect a handlers directos
+  const handleTractorUnitChange = (checked: boolean) => {
+    form.setValue('is_tractor_unit', checked);
+    if (!checked) {
       form.setValue('has_hitch', false);
       form.setValue('hitch_type_ids', []);
     }
-  }, [isTractorUnit, form]);
+  };
 
-  // Si se desactiva has_hitch, resetear hitch_type_ids
-  useEffect(() => {
-    if (!hasHitch) {
+  const handleHitchChange = (checked: boolean) => {
+    form.setValue('has_hitch', checked);
+    if (!checked) {
       form.setValue('hitch_type_ids', []);
     }
-  }, [hasHitch, form]);
+  };
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -153,7 +154,7 @@ function EquipmentTypesForm({
             return; // No ejecutar update aún, el modal decidirá
           }
         }
-        await updateTypeOfVehicle({
+        await updateEquipmentType({
           id: data.id!,
           name: data.name,
           applies_to: data.applies_to,
@@ -167,9 +168,9 @@ function EquipmentTypesForm({
         // Invalidar queries de React Query para refrescar los datos
         queryClient.invalidateQueries({ queryKey: ['type-checklists', data.id] });
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
-        router.refresh();
+        queryClient.invalidateQueries({ queryKey: ['equipment-types'] });
       } else {
-        const createdType = await createTypeOfVehicle({
+        const result = await createEquipmentType({
           name: data.name,
           applies_to: data.applies_to,
           is_active: data.is_active,
@@ -180,11 +181,11 @@ function EquipmentTypesForm({
           checklist_ids: data.checklist_ids,
         });
         // Invalidar queries de React Query para refrescar los datos
-        if (createdType && 'id' in createdType) {
-          queryClient.invalidateQueries({ queryKey: ['type-checklists', createdType.id] });
+        if (result && 'id' in result) {
+          queryClient.invalidateQueries({ queryKey: ['type-checklists', result.id] });
         }
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
-        router.refresh();
+        queryClient.invalidateQueries({ queryKey: ['equipment-types'] });
       }
 
       if (onSuccess) onSuccess();
@@ -195,8 +196,6 @@ function EquipmentTypesForm({
       });
 
       onReset();
-
-      router.refresh();
     } catch (error: unknown) {
       logger.error('Error al guardar el tipo de equipo', { data: { error } });
 
@@ -275,21 +274,9 @@ function EquipmentTypesForm({
     // Reemplazo masivo y luego desactivar
     if (action === 'replace') {
       try {
-        const supabase = supabaseBrowser();
-        const { error } = await supabase
-          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
-          .update({
-            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as any)
-          .eq(dependencyConfigs[0].targetColumn, initialData.id);
-
-        if (error) {
-          logger.error('Error al reemplazar referencias en tabla vehicles', { data: { error } });
-        }
-
-        // Ahora sí, desactivar el registro actual
+        // Ahora sí, desactivar el registro actual (el modal ya manejó el reemplazo)
         const values = form.getValues();
-        await updateTypeOfVehicle({
+        await updateEquipmentType({
           id: values.id!,
           name: values.name,
           applies_to: values.applies_to,
@@ -303,7 +290,7 @@ function EquipmentTypesForm({
         // Invalidar queries de React Query para refrescar los datos
         queryClient.invalidateQueries({ queryKey: ['type-checklists', values.id] });
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
-        router.refresh();
+        queryClient.invalidateQueries({ queryKey: ['equipment-types'] });
         if (onSuccess) onSuccess();
       } catch (err) {
         logger.error('Error al reemplazar referencias', { data: { err } });
@@ -449,7 +436,7 @@ function EquipmentTypesForm({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => handleTractorUnitChange(!!checked)} />
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>Unidad Tractora</FormLabel>
@@ -467,7 +454,7 @@ function EquipmentTypesForm({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 ml-6">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => handleHitchChange(!!checked)} />
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>Lleva Enganche</FormLabel>

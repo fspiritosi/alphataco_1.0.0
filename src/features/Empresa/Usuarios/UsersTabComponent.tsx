@@ -1,5 +1,6 @@
 import { TabsManagerServer } from '@/features/TabsManager';
-import { RoleManager } from '@/features/UserPermissionsManager/components';
+import { RoleManagerContent } from '@/features/UserPermissionsManager/components';
+import { RoleManagerSkeleton } from '@/features/UserPermissionsManager/fallback/RoleManagerSkeleton';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
 import { Shield, Users } from 'lucide-react';
 import { Suspense } from 'react';
@@ -46,7 +47,11 @@ export default function UsersTabComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'gestion-roles',
-          content: <RoleManager />,
+          content: (
+            <Suspense fallback={<RoleManagerSkeleton />}>
+              <RoleManagerContent />
+            </Suspense>
+          ),
         },
       ]}
     />

@@ -3,10 +3,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { createNestedFilterOptions } from '@/shared/utils/table-helpers';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { AlertTriangle, Building, CheckCircle, XCircle } from 'lucide-react';

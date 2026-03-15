@@ -30,14 +30,14 @@ export default async function KpisIndicadoresContent({ searchParams }: KpisIndic
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <KpiForm />
             </ResizablePanel>
             <ResizableHandle withHandle />
           </>
         )}
 
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <Suspense fallback={<KpisIndicadoresSkeleton />}>
             <KpisIndicadoresList searchParams={searchParams} permissionsMap={permissionsMap} />
           </Suspense>

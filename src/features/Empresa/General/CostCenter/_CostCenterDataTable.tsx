@@ -188,14 +188,18 @@ export default function _CostCenterDataTable({
 
   // Con permisos: layout resizable con formulario a la izquierda y tabla a la derecha
   return (
-    <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-      <ResizablePanel defaultSize={38} minSize={25} maxSize={55}>
-        <CostCenterForm />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={62} minSize={40}>
-        <div className="p-2">{table}</div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+    <div className="w-full">
+      <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
+        <ResizablePanel defaultSize={30}>
+          <div className="overflow-auto h-full pr-2">
+            <CostCenterForm />
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={70}>
+          <div className="overflow-auto h-full pl-2">{table}</div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   );
 }

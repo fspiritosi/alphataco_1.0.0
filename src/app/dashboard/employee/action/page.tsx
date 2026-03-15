@@ -1,176 +1,106 @@
-import {
-  fetchDiagramsByEmployeeId,
-  fetchDiagramsHistoryByEmployeeId,
-  fetchDiagramsTypes,
-  getEmployeeById,
-  getEmployeeNameById,
-} from '@/app/server/GET/actions';
-import BackButton from '@/components/BackButton';
-import { DiagramDetailEmployeeView } from '@/components/Diagrams/DiagramDetailEmployeeView';
 import { Card } from '@/components/ui/card';
+import { getEmployeeByIdCached } from '@/features/Employees/EmpleadoID/actions.server';
+import { EmployeeDetailClient } from '@/features/Employees/EmpleadoID/components/EmployeeDetailClient';
+import { EmployeeDiagramsSection } from '@/features/Employees/EmpleadoID/components/EmployeeDiagramsSection';
+import { EmployeeHeaderContent } from '@/features/Employees/EmpleadoID/components/EmployeeHeaderContent';
 import { EmployeeDocumentDetail } from '@/features/Employees/EmpleadoID/components/employee-document-detail';
-import { EmployeeHeader } from '@/features/Employees/EmpleadoID/components/employee-header';
-import { EmployeeTabs } from '@/features/Employees/EmpleadoID/components/employee-tabs';
-import { EmployeeHeaderSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-header-skeleton';
-import {
-  fetchActiveWorkshopSectors,
-  fetchAllCostCenters,
-  fetchCategories,
-  fetchCitiesByProvinceId,
-  fetchCompanyPositions,
-  fetchContractorCompanies,
-  fetchCovenants,
-  fetchGuilds,
-  fetchHierarchicalPositions,
-  fetchProvinces,
-  fetchWorkflowDiagrams,
-} from '@/features/Employees/EmpleadoID/lib/actions/catalog-actions';
-import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
-import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
-import { fetchCountrys } from '@/shared/actions/employees.actions';
+import { EmployeeDiagramsSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-diagrams-skeleton';
 import { Logger } from '@/lib/logger';
-import moment from 'moment';
-import { cookies } from 'next/headers';
+import { getCachedSession } from '@/shared/lib/cached-session';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 const logger = new Logger('EmployeePage');
 
 interface EmployeePageProps {
-  params: {
-    employee_id: string;
-  };
   searchParams: Promise<{
     action?: 'view' | 'edit' | 'new';
     employee_id?: string;
+    [key: string]: string | string[] | undefined;
   }>;
 }
 
 export default async function EmployeePage({ searchParams }: EmployeePageProps) {
   const resolvedSearchParams = await searchParams;
-  const mode = resolvedSearchParams.action || 'view';
-  const employee_id = resolvedSearchParams.employee_id || 'view';
-  const showEditButton = mode === 'view' || mode === 'new';
-  const exitEditMode = mode === 'edit';
-  if (!employee_id) {
-    notFound();
-  }
+  const mode = (resolvedSearchParams.action as 'view' | 'edit' | 'new') || 'view';
+  const employeeId = resolvedSearchParams.employee_id ?? '';
 
-  let employee: Awaited<ReturnType<typeof getEmployeeById>> = null;
+  // Obtener sesión y companyId
+  const session = await getCachedSession();
+  const companyId: string = (session?.user?.app_metadata?.company as string) ?? '';
+
+  // Cargar empleado: única query bloqueante (cached con React.cache)
+  let employee: Awaited<ReturnType<typeof getEmployeeByIdCached>> = null;
 
   if (mode !== 'new') {
+    if (!employeeId) {
+      notFound();
+    }
+
     try {
-      employee = await getEmployeeById(employee_id);
+      employee = await getEmployeeByIdCached(employeeId);
       if (!employee) {
         notFound();
       }
     } catch (error) {
-      logger.error('Error al obtener empleado', { data: { error, employee_id } });
+      logger.error('Error al obtener empleado', { data: { error, employeeId } });
       notFound();
     }
   }
 
-  const countries = fetchCountrys();
-  const costCenters = fetchAllCostCenters();
-  const hierarchicalPositions = fetchHierarchicalPositions();
-  const companyPositions = fetchCompanyPositions();
-  const workflowDiagrams = fetchWorkflowDiagrams();
-  const guilds = fetchGuilds();
-  const covenants = fetchCovenants();
-  const categories = fetchCategories();
-  const contractorCompanies = fetchContractorCompanies();
-  const provinces = fetchProvinces();
-  const cities = fetchCitiesByProvinceId(employee?.provinces?.id!);
-  const typeOfContracts = fetchAllContractTypes();
-  const aptitudes = fetchAllAptitudesTecnicas();
-  const workshopSectors = fetchActiveWorkshopSectors();
+  // Normalizar searchParams para los slots (Record<string, string | undefined>)
+  const searchParamsForSlots: Record<string, string | undefined> = Object.fromEntries(
+    Object.entries(resolvedSearchParams).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])
+  );
 
-  const historyData = (await fetchDiagramsHistoryByEmployeeId(employee_id)).map((item) => ({
-    date: moment.utc(item.prev_date).format('DD/MM/YYYY'),
-    description: item.description,
-    status: item.state,
-    previousStatus: item.prev_state,
-    modifiedBy: (item.modified_by as any)?.fullname
-      ?.split(' ')
-      .map((name: any) => name.charAt(0).toUpperCase() + name.slice(1))
-      .join(' '), // Mapear las iniciales a mayúsculas
-    modifiedAt: moment(item.created_at).local().format('DD/MM/YYYY HH:mm'), // Formatear a la hora local
-    type: item.prev_state ? 'modified' : 'created',
-  }));
-  const diagrams2 = await fetchDiagramsByEmployeeId(employee_id);
-  const diagrams_types2 = await fetchDiagramsTypes();
   return (
-    <div className=" p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <Card>
-        {/* Employee Header */}
-        {mode !== 'new' ? (
-          <Suspense fallback={<EmployeeHeaderSkeleton />}>
-            <EmployeeHeader
-              employee={employee}
-              isEditable={true}
-              showEditButton={showEditButton}
-              exitEditMode={exitEditMode}
-            />
-          </Suspense>
-        ) : (
-          <div className="flex justify-end p-4 pb-0">
-            <BackButton />
-          </div>
-        )}
-        {/* Employee Tabs */}
-        <div className="p-6">
-          <EmployeeTabs
-            employeeId={employee_id}
-            mode={mode}
-            employee={employee}
-            //Componentes
-            documentsComponent={<EmployeeDocumentDetail employeeId={employee_id} searchParams={resolvedSearchParams} />}
-            diagramsComponent={
-              <DiagramDetailEmployeeView
-                historyData={historyData}
-                diagrams={diagrams2 as any}
-                diagrams_types={diagrams_types2}
-                activeEmploees={[employee]}
-                searchParams={resolvedSearchParams}
-              />
-            }
-            // Promises para las opciones
-            countriesPromise={countries}
-            costCentersPromise={costCenters}
-            hierarchicalPositionsPromise={hierarchicalPositions}
-            companyPositionsPromise={companyPositions}
-            workflowDiagramsPromise={workflowDiagrams}
-            guildsPromise={guilds}
-            covenantsPromise={covenants}
-            categoriesPromise={categories}
-            contractorCompaniesPromise={contractorCompanies}
-            provincesPromise={provinces}
-            citiesPromise={cities}
-            typeOfContractsPromise={typeOfContracts}
-            aptitudesPromise={aptitudes}
-            workshopSectorsPromise={workshopSectors}
-          />
-        </div>
+        <EmployeeDetailClient
+          employee={employee}
+          employeeId={employeeId}
+          initialMode={mode}
+          companyId={companyId}
+          header={employee ? <EmployeeHeaderContent employee={employee} /> : null}
+          documentsSlot={
+            employeeId ? <EmployeeDocumentDetail employeeId={employeeId} searchParams={resolvedSearchParams} /> : null
+          }
+          diagramsSlot={
+            employeeId && employee ? (
+              <Suspense fallback={<EmployeeDiagramsSkeleton />}>
+                <EmployeeDiagramsSection
+                  employeeId={employeeId}
+                  companyId={companyId}
+                  employee={employee}
+                  searchParams={searchParamsForSlots}
+                />
+              </Suspense>
+            ) : null
+          }
+        />
       </Card>
     </div>
   );
 }
 
-// Generate metadata for the page
+// ─── Metadata ────────────────────────────────────────────────────────────────
+
 export async function generateMetadata({ searchParams }: EmployeePageProps) {
   const resolvedSearchParams = await searchParams;
   const { employee_id } = resolvedSearchParams;
+
   if (!employee_id) {
-    const cookiesStore = await cookies();
-    const companyName = cookiesStore.get('actualCompName')?.value;
     return {
-      title: `Registrar Nuevo Empleado | ${companyName}`,
+      title: 'Registrar Nuevo Empleado',
       description: 'Crear y registrar un nuevo perfil de empleado en el sistema',
     };
   }
-  const employee = await getEmployeeNameById(employee_id);
+
+  // getEmployeeByIdCached está wrapped con React.cache — reutiliza el resultado
+  // ya obtenido en el render principal sin hacer una query adicional
+  const employee = await getEmployeeByIdCached(employee_id);
   return {
-    title: `Empleado - ${employee?.firstname} ${employee?.lastname}`,
+    title: employee ? `Empleado - ${employee.firstname} ${employee.lastname}` : 'Empleado no encontrado',
     description: 'Información detallada del empleado',
   };
 }

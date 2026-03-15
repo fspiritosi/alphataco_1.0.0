@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createWorkDiagram, updateWorkDiagram } from '@/features/Empresa/RRHH/actions/actions';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
@@ -22,6 +23,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
+
+const logger = new Logger('features/Empresa/RRHH');
 // Actualizar el esquema para eliminar el campo days
 const WorkDiagramSchema = z.object({
   name: z.string().min(2, {
@@ -89,8 +92,6 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         label: opt.name ?? 'Sin nombre',
       })) || [];
 
-  const isViewMode = false;
-
   // Función de fetch que usará el Modal (tipado genérico reutilizable basado en la utilidad)
   const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
     // Solicitamos solo las columnas que se van a mostrar
@@ -135,7 +136,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         const values = form.getValues();
         await onUpdate(values);
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { error: err } });
         toast.error('No se pudieron reemplazar las referencias');
       }
     }
@@ -155,7 +156,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         inactive_novelty: diagram.inactive_novelty?.id || '',
       });
     }
-  }, [diagram, form]);
+  }, [diagram]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (values: z.infer<typeof WorkDiagramSchema>) => {
     toast.promise(
@@ -269,159 +270,159 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   };
 
   return (
-    <div className="w-full ">
+    <div className="w-full">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(mode === 'edit' ? onUpdate : onSubmit)} className="space-y-8 w-[400px]">
+        <form
+          onSubmit={form.handleSubmit(mode === 'edit' ? onUpdate : onSubmit)}
+          className="space-y-4 py-4 px-2 max-w-md"
+        >
           <h2 className="text-xl font-bold mb-4">{mode === 'edit' ? 'Editar Diagrama' : 'Crear Diagrama'}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Nombre */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
+
+          {/* Nombre */}
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del diagrama</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nombre del diagrama" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Estado */}
+          <FormField
+            control={form.control}
+            name="is_active"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Estado</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(value === 'true')}
+                  value={field.value ? 'true' : 'false'}
+                >
                   <FormControl>
-                    <Input placeholder="Enter diagram name" {...field} disabled={isViewMode} className="w-[180px]" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  <SelectContent>
+                    <SelectItem value="true">Activo</SelectItem>
+                    <SelectItem value="false">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            {/* Estado */}
-            <FormField
-              control={form.control}
-              name="is_active"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estado</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(value === 'true')}
-                    value={field.value ? 'true' : 'false'}
-                    disabled={isViewMode}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="true">Activo</SelectItem>
-                      <SelectItem value="false">Inactivo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Días activos */}
+          {/* Días activos + inactivos en grid */}
+          <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
               name="active_working_days"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Días activos continuos</FormLabel>
+                  <FormLabel>Días activos</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       placeholder="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
-                      disabled={isViewMode}
-                      className="w-[180px]"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="active_novelty"
-              render={({ field }) => (
-                <FormItem className="w-[215px]">
-                  <FormLabel>Novedad Activa</FormLabel>
-                  <FormControl>
-                    <MultiSelectCombobox
-                      options={fixedOptions}
-                      selectedValues={Array.isArray(field.value) ? field.value : []}
-                      onChange={(selected) => {
-                        field.onChange(selected);
-                      }}
-                      placeholder="Tipo de Novedades"
-                      disabled={isViewMode}
-                      emptyMessage="No hay novedades disponibles"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Días inactivos */}
             <FormField
               control={form.control}
               name="inactive_working_days"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Días inactivos continuos</FormLabel>
+                  <FormLabel>Días inactivos</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       placeholder="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
-                      disabled={isViewMode}
-                      className="w-[180px]"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="inactive_novelty"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Novedad Inactiva</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={isViewMode}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Tipo de Novedad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Novedad</SelectLabel>
-                          {diagramsTypes
-                            ?.filter((diagramType) => !diagramType.work_active)
-                            .map((diagramType) => (
-                              <SelectItem key={diagramType.id} value={diagramType.id}>
-                                {diagramType.name}
-                              </SelectItem>
-                            ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* <Button type="button" variant="outline" className="w-[180px]" onClick={onCancel}>
-              {isViewMode ? 'Cerrar' : 'Cancelar'}
-            </Button> */}
           </div>
-          <div className="flex justify-start mt-4 space-x-4">
-            {!isViewMode && (
-              <Button type="submit" variant="gh_orange">
-                {mode === 'edit' ? 'Actualizar' : 'Crear'}
-              </Button>
+
+          {/* Novedad activa (multi-select) */}
+          <FormField
+            control={form.control}
+            name="active_novelty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Novedad activa</FormLabel>
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={fixedOptions}
+                    selectedValues={Array.isArray(field.value) ? field.value : []}
+                    onChange={(selected) => field.onChange(selected)}
+                    placeholder="Seleccionar novedades"
+                    emptyMessage="No hay novedades disponibles"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
+          />
+
+          {/* Novedad inactiva (select simple) */}
+          <FormField
+            control={form.control}
+            name="inactive_novelty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Novedad inactiva</FormLabel>
+                <FormControl>
+                  <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar novedad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Novedad</SelectLabel>
+                        {diagramsTypes
+                          ?.filter((diagramType) => !diagramType.work_active)
+                          .map((diagramType) => (
+                            <SelectItem key={diagramType.id} value={diagramType.id}>
+                              {diagramType.name}
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex gap-2 mt-6">
+            <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting
+                ? mode === 'edit'
+                  ? 'Actualizando...'
+                  : 'Creando...'
+                : mode === 'edit'
+                  ? 'Actualizar'
+                  : 'Crear'}
+            </Button>
             {mode === 'edit' && (
-              <Button type="button" variant="outline" className="flex space-x-2" onClick={onCancel}>
+              <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
             )}

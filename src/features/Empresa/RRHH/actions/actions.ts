@@ -1,20 +1,18 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { WorkDiagram } from '@/types/types';
-// import { AptitudTecnica } from '../types/aptitudesTecnicas';
-import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 export async function createContractType(contractType: { name: string; description: string | null }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   const { data, error } = await supabase.from('types_of_contract').insert(contractType).returns<ContractType[]>();
 
   if (error) {
-    console.error('Error creating contract type:', error);
+    logger.error('Error creating contract type', { data: { error } });
     throw new Error('Error creating contract type');
   }
   return data;
@@ -26,10 +24,7 @@ export async function updateContractType(contractType: {
   description: string | null;
   is_active: boolean;
 }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   const { id, ...rest } = contractType;
 
@@ -40,17 +35,14 @@ export async function updateContractType(contractType: {
     .returns<ContractType[]>();
 
   if (error) {
-    console.error('Error updating contract type:', error);
+    logger.error('Error updating contract type', { data: { error } });
     throw new Error('Error updating contract type');
   }
   return data;
 }
 
 export async function deleteContractType(contractType: { id: string }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   const { data, error } = await supabase
     .from('types_of_contract')
@@ -59,7 +51,7 @@ export async function deleteContractType(contractType: { id: string }) {
     .returns<ContractType[]>();
 
   if (error) {
-    console.error('Error deleting contract type:', error);
+    logger.error('Error deleting contract type', { data: { error } });
     throw new Error('Error deleting contract type');
   }
   return data;
@@ -73,10 +65,7 @@ export async function createWorkDiagram(workDiagram: {
   active_novelty: string[]; // Cambiado a array de strings
   inactive_novelty: string;
 }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   // 1. Crear el work_diagram
   const { data: workDiagramData, error: workDiagramError } = await supabase
@@ -92,7 +81,7 @@ export async function createWorkDiagram(workDiagram: {
     .single();
 
   if (workDiagramError) {
-    console.error('Error creating work diagram:', workDiagramError);
+    logger.error('Error creating work diagram', { data: { error: workDiagramError } });
     throw new Error('Error creating work diagram');
   }
 
@@ -106,13 +95,12 @@ export async function createWorkDiagram(workDiagram: {
     );
 
     if (noveltiesError) {
-      console.error('Error creating work diagram novelties:', noveltiesError);
-      // Opcional: Podrías querer eliminar el work_diagram creado si falla esto
+      logger.error('Error creating work diagram novelties', { data: { error: noveltiesError } });
       throw new Error('Error creating work diagram novelties');
     }
   }
 
-  // 3. Obtener el work_diagram con sus relaciones si es necesario
+  // 3. Obtener el work_diagram con sus relaciones
   const { data: fullWorkDiagram, error: fetchError } = await supabase
     .from('work_diagram')
     .select(
@@ -129,8 +117,7 @@ export async function createWorkDiagram(workDiagram: {
     .single();
 
   if (fetchError) {
-    console.error('Error fetching work diagram with relations:', fetchError);
-    // Aún así retornamos el work_diagram aunque falle cargar las relaciones
+    logger.error('Error fetching work diagram with relations', { data: { error: fetchError } });
     return workDiagramData;
   }
 
@@ -157,14 +144,13 @@ export async function updateWorkDiagram(workDiagram: {
       active_working_days: workDiagram.active_working_days,
       inactive_working_days: workDiagram.inactive_working_days,
       inactive_novelty: workDiagram.inactive_novelty,
-      // updated_at: new Date().toISOString()
     })
     .eq('id', workDiagram.id)
     .select()
     .single();
 
   if (updateError) {
-    console.error('Error updating work diagram:', updateError);
+    logger.error('Error updating work diagram', { data: { error: updateError } });
     throw new Error('Error updating work diagram');
   }
 
@@ -175,7 +161,7 @@ export async function updateWorkDiagram(workDiagram: {
     .eq('work_diagram_id', workDiagram.id);
 
   if (deleteError) {
-    console.error('Error deleting work diagram novelties:', deleteError);
+    logger.error('Error deleting work diagram novelties', { data: { error: deleteError } });
     throw new Error('Error updating work diagram novelties');
   }
 
@@ -189,7 +175,7 @@ export async function updateWorkDiagram(workDiagram: {
     );
 
     if (insertError) {
-      console.error('Error creating work diagram novelties:', insertError);
+      logger.error('Error creating work diagram novelties', { data: { error: insertError } });
       throw new Error('Error creating work diagram novelties');
     }
   }
@@ -211,7 +197,7 @@ export async function updateWorkDiagram(workDiagram: {
     .single();
 
   if (fetchError) {
-    console.error('Error fetching updated work diagram:', fetchError);
+    logger.error('Error fetching updated work diagram', { data: { error: fetchError } });
     return updatedWorkDiagram;
   }
 
@@ -219,10 +205,7 @@ export async function updateWorkDiagram(workDiagram: {
 }
 
 export async function deleteWorkDiagram(workDiagram: { id: string }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   const { data, error } = await supabase
     .from('work_diagram')
@@ -231,22 +214,19 @@ export async function deleteWorkDiagram(workDiagram: { id: string }) {
     .returns<WorkDiagram[]>();
 
   if (error) {
-    console.error('Error deleting work diagram:', error);
+    logger.error('Error deleting work diagram', { data: { error } });
     throw new Error('Error deleting work diagram');
   }
   return data;
 }
 
 export async function fetchAllPositions() {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
 
   const { data, error } = await supabase.from('company_positions').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching positions:', error);
+    logger.error('Error fetching positions', { data: { error } });
     return [];
   }
   return data;
@@ -258,10 +238,7 @@ export async function createPosition(position: {
   hierarchical_position_id: string[];
   aptitudes_tecnicas_id: string[];
 }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   try {
     // Primero creamos el puesto
@@ -276,12 +253,12 @@ export async function createPosition(position: {
       .single();
 
     if (positionError) {
-      console.error('Error creating position:', positionError);
+      logger.error('Error creating position', { data: { error: positionError } });
       throw new Error('Error creating position');
     }
 
     if (!positionData?.id) {
-      console.error('Position ID not found after creation');
+      logger.error('Position ID not found after creation');
       throw new Error('Position ID not found');
     }
 
@@ -297,14 +274,14 @@ export async function createPosition(position: {
         .insert(aptitudesRelations);
 
       if (relationError) {
-        console.error('Error creating aptitudes relations:', relationError);
+        logger.error('Error creating aptitudes relations', { data: { error: relationError } });
         throw new Error('Error creating aptitudes relations');
       }
     }
 
     return positionData;
   } catch (error) {
-    console.error('Error in createPosition:', error);
+    logger.error('Error in createPosition', { data: { error } });
     throw error;
   }
 }
@@ -316,10 +293,7 @@ export async function updatePosition(position: {
   hierarchical_position_id: string[];
   aptitudes_tecnicas_id: string[];
 }) {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
   try {
     // Primero actualizamos el puesto
@@ -333,7 +307,7 @@ export async function updatePosition(position: {
       .eq('id', position.id);
 
     if (positionError) {
-      console.error('Error updating position:', positionError);
+      logger.error('Error updating position', { data: { error: positionError } });
       throw new Error('Error updating position');
     }
 
@@ -346,7 +320,7 @@ export async function updatePosition(position: {
         .eq('puesto_id', position.id);
 
       if (deleteError) {
-        console.error('Error deleting aptitudes relations:', deleteError);
+        logger.error('Error deleting aptitudes relations', { data: { error: deleteError } });
         throw new Error('Error deleting aptitudes relations');
       }
 
@@ -359,23 +333,20 @@ export async function updatePosition(position: {
       const { error: insertError } = await supabase.from('aptitudes_tecnicas_puestos').insert(aptitudesRelations);
 
       if (insertError) {
-        console.error('Error creating new aptitudes relations:', insertError);
+        logger.error('Error creating new aptitudes relations', { data: { error: insertError } });
         throw new Error('Error creating new aptitudes relations');
       }
     }
 
     return position;
   } catch (error) {
-    console.error('Error in updatePosition:', error);
+    logger.error('Error in updatePosition', { data: { error } });
     throw error;
   }
 }
 
 export async function fetchAllHierarchicalPositions() {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
 
   const { data, error } = await supabase
     .from('hierarchy')
@@ -384,7 +355,7 @@ export async function fetchAllHierarchicalPositions() {
     .returns<any[]>();
 
   if (error) {
-    console.error('Error fetching hierarchical positions:', error);
+    logger.error('Error fetching hierarchical positions', { data: { error } });
     return [];
   }
   return data;
@@ -398,7 +369,7 @@ export async function fetchAllAptitudesTecnicas() {
     .order('nombre', { ascending: true });
 
   if (error) {
-    console.error('Error fetching aptitudes tecnicas:', error);
+    logger.error('Error fetching aptitudes tecnicas', { data: { error } });
     return [];
   }
   return data;
@@ -412,7 +383,7 @@ export async function fetchPositionAptitudes(positionId: string) {
     .eq('puesto_id', positionId);
 
   if (error) {
-    console.error('Error fetching position aptitudes:', error);
+    logger.error('Error fetching position aptitudes', { data: { error } });
     return [];
   }
   return data?.map((item: any) => item.aptitudes_tecnicas) || [];

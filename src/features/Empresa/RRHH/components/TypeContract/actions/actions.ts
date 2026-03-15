@@ -1,14 +1,12 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-// import { AptitudTecnica } from '../types/aptitudesTecnicas';
-import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/RRHH');
 
 export async function fetchAllContractTypes() {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
 
   const { data, error } = await supabase
     .from('types_of_contract')
@@ -18,16 +16,14 @@ export async function fetchAllContractTypes() {
     .returns<ContractType[]>();
 
   if (error) {
-    console.error('Error fetching contract types:', error);
+    logger.error('Error fetching contract types', { data: { error } });
     return [];
   }
   return data;
 }
+
 export async function fetchAllContractTypesIncludesInactive() {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
 
   const { data, error } = await supabase
     .from('types_of_contract')
@@ -36,7 +32,7 @@ export async function fetchAllContractTypesIncludesInactive() {
     .returns<ContractType[]>();
 
   if (error) {
-    console.error('Error fetching contract types:', error);
+    logger.error('Error fetching contract types (including inactive)', { data: { error } });
     return [];
   }
   return data;

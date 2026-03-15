@@ -2,9 +2,9 @@
 
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 
-import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { createNestedFilterOptions } from '@/shared/utils/table-helpers';
 import { Building } from 'lucide-react';
 import { SetStateAction } from 'react';
 import { getActiveEquipmentsForDailyReport } from '../actions/actions';

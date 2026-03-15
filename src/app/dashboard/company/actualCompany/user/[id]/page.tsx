@@ -1,20 +1,24 @@
-import { getUsersbyId } from '@/app/server/GET/actions';
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
+import {
+  getAllRolePermissions,
+  getAllRolesWithCounts,
+  getModulesWithTabsServer,
+  getUserDetailById,
+  getUserPermissionsServer,
+  getUserRolesServer,
+} from '@/features/UserPermissionsManager/actions.server';
 import { UserPermissionsManager } from '@/features/UserPermissionsManager/UserPermissionsManager';
 
 async function User({ params }: { params: Promise<{ id: string }> }) {
-  // En Next.js 15+, params es una Promise, necesitamos hacer await
   const resolvedParams = await params;
-  const data: any = await getUsersbyId({ id: resolvedParams.id });
 
-  // El ID del usuario en auth.users es el credential_id del profile
-  const authUserId = data[0]?.profile_id?.credential_id || resolvedParams.id;
+  // Verificar permisos de view y update en paralelo con la carga de datos
+  const [canView, canUpdate, shareUser] = await Promise.all([
+    checkPermissionServer('empresa', 'detalle-usuario', 'view'),
+    checkPermissionServer('empresa', 'detalle-usuario', 'update'),
+    getUserDetailById(resolvedParams.id),
+  ]);
 
-  // Verificar permisos de view y update
-  const canView = await checkPermissionServer('empresa', 'detalle-usuario', 'view');
-  const canUpdate = await checkPermissionServer('empresa', 'detalle-usuario', 'update');
-
-  // Si no tiene permiso de view, mostrar placeholder de sin acceso
   if (!canView) {
     return (
       <section className="md:mx-7 py-4">
@@ -28,13 +32,48 @@ async function User({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
+  if (!shareUser) {
+    return (
+      <section className="md:mx-7 py-4">
+        <div className="flex items-center justify-center p-8 text-center">
+          <div className="space-y-2">
+            <p className="text-muted-foreground font-medium">Usuario no encontrado</p>
+            <p className="text-sm text-muted-foreground">
+              El usuario solicitado no existe o no pertenece a esta empresa.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // El ID que se usa en user_roles y user_permissions es el credential_id (UUID de auth)
+  const authUserId = shareUser.profile?.credential_id ?? shareUser.profile?.id ?? resolvedParams.id;
+  const userName = shareUser.profile?.fullname ?? '';
+  const userEmail = shareUser.profile?.email ?? '';
+
+  // Cargar datos iniciales en paralelo para SSR
+  const [initialUserPermissions, initialUserRoles, initialRoles, initialRolePermissions, initialModules] =
+    await Promise.all([
+      getUserPermissionsServer(authUserId),
+      getUserRolesServer(authUserId),
+      getAllRolesWithCounts(),
+      getAllRolePermissions(),
+      getModulesWithTabsServer(),
+    ]);
+
   return (
     <section className="md:mx-7 py-4">
       <UserPermissionsManager
         userId={authUserId}
-        userName={data[0]?.profile_id?.fullname || ''}
-        userEmail={data[0]?.profile_id?.email || ''}
+        userName={userName}
+        userEmail={userEmail}
         canEdit={canUpdate}
+        initialUserPermissions={initialUserPermissions}
+        initialUserRoles={initialUserRoles}
+        initialRoles={initialRoles}
+        initialRolePermissions={initialRolePermissions}
+        initialModules={initialModules}
       />
     </section>
   );

@@ -26,22 +26,28 @@ export default function ContractTypesTab({
   return (
     <div className="w-full">
       {showForm ? (
-        <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-          <ResizablePanel defaultSize={40}>
-            <ContractTypeForm editingContractType={editingContractType} />
-          </ResizablePanel>
+        <div className="w-full">
+          <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
+            <ResizablePanel defaultSize={30}>
+              <div className="overflow-auto h-full pr-2">
+                <ContractTypeForm editingContractType={editingContractType} />
+              </div>
+            </ResizablePanel>
 
-          <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize={60}>
-            <ContractTypeTable
-              savedFilter={savedFilter}
-              contractTypes={allContractTypes}
-              onEdit={setEditingContractType}
-              savedVisibility={savedVisibility}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel defaultSize={70}>
+              <div className="overflow-auto h-full pl-2">
+                <ContractTypeTable
+                  savedFilter={savedFilter}
+                  contractTypes={allContractTypes}
+                  onEdit={setEditingContractType}
+                  savedVisibility={savedVisibility}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       ) : (
         <ContractTypeTable
           savedFilter={savedFilter}

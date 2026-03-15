@@ -1,8 +1,11 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { Employee } from '@/types/types';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Employees/employee-actions');
 
 export async function fetchEmployeeById(employeeId: string) {
   const cookiesStore = await cookies();
@@ -49,7 +52,7 @@ export async function fetchEmployeeById(employeeId: string) {
     .single();
 
   if (error) {
-    console.error('Error fetching employee:', error);
+    logger.error('Error fetching employee', { data: { error } });
     return null;
   }
 
@@ -84,7 +87,7 @@ export async function fetchEmployeeBasicInfo(employeeId: string) {
     .single();
 
   if (error) {
-    console.error('Error fetching employee basic info:', error);
+    logger.error('Error fetching employee basic info', { data: { error } });
     return null;
   }
 
@@ -112,7 +115,7 @@ export async function fetchEmployeeDocuments(employeeId: string) {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching employee documents:', error);
+    logger.error('Error fetching employee documents', { data: { error } });
     return [];
   }
 
@@ -135,7 +138,7 @@ export async function updateEmployeePersonalInfo(employeeId: string, personalDat
     .single();
 
   if (error) {
-    console.error('Error updating employee personal info:', error);
+    logger.error('Error updating employee personal info', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -177,7 +180,7 @@ export async function updateEmployeeWorkInfo(employeeId: string, workData: Parti
     .single();
 
   if (error) {
-    console.error('Error updating employee work info:', error);
+    logger.error('Error updating employee work info', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -205,7 +208,7 @@ export async function createEmployee(employeeData: Partial<Employee>) {
     .single();
 
   if (error) {
-    console.error('Error creating employee:', error);
+    logger.error('Error creating employee', { data: { error } });
     throw new Error(error.message);
   }
   if (employeeData.allocated_to && Array.isArray(employeeData.allocated_to)) {
@@ -246,7 +249,7 @@ export async function updateEmployee(employeeId: string, employeeData: Partial<E
     .single();
 
   if (error) {
-    console.error('Error updating employee:', error);
+    logger.error('Error updating employee', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -263,7 +266,7 @@ async function updateContractorRelationships(employeeId: string, newContractorId
     .eq('employee_id', employeeId);
 
   if (fetchError) {
-    console.error('Error fetching current contractor relationships:', fetchError);
+    logger.error('Error fetching current contractor relationships', { data: { error: fetchError } });
     throw new Error(fetchError.message);
   }
 
@@ -282,7 +285,7 @@ async function updateContractorRelationships(employeeId: string, newContractorId
       .in('contractor_id', toRemove);
 
     if (deleteError) {
-      console.error('Error deleting contractor relationships:', deleteError);
+      logger.error('Error deleting contractor relationships', { data: { error: deleteError } });
       throw new Error(deleteError.message);
     }
   }
@@ -297,7 +300,7 @@ async function updateContractorRelationships(employeeId: string, newContractorId
     const { error: insertError } = await supabase.from('contractor_employee').insert(newRelationships);
 
     if (insertError) {
-      console.error('Error inserting contractor relationships:', insertError);
+      logger.error('Error inserting contractor relationships', { data: { error: insertError } });
       throw new Error(insertError.message);
     }
   }
@@ -312,7 +315,7 @@ async function updateAptitudeRelationships(employeeId: string, newAptitudeIds: s
     .eq('empleado_id', employeeId);
 
   if (fetchError) {
-    console.error('Error fetching current aptitude relationships:', fetchError);
+    logger.error('Error fetching current aptitude relationships', { data: { error: fetchError } });
     throw new Error(fetchError.message);
   }
 
@@ -331,7 +334,7 @@ async function updateAptitudeRelationships(employeeId: string, newAptitudeIds: s
       .in('aptitud_id', toRemove);
 
     if (deleteError) {
-      console.error('Error deleting aptitude relationships:', deleteError);
+      logger.error('Error deleting aptitude relationships', { data: { error: deleteError } });
       throw new Error(deleteError.message);
     }
   }
@@ -346,7 +349,7 @@ async function updateAptitudeRelationships(employeeId: string, newAptitudeIds: s
     const { error: insertError } = await supabase.from('empleado_aptitudes').insert(newRelationships);
 
     if (insertError) {
-      console.error('Error inserting aptitude relationships:', insertError);
+      logger.error('Error inserting aptitude relationships', { data: { error: insertError } });
       throw new Error(insertError.message);
     }
   }
@@ -373,7 +376,7 @@ export async function getDiagramsByEmployee(employeeId: string) {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching employee diagrams:', error);
+    logger.error('Error fetching employee diagrams', { data: { error } });
     return [];
   }
 

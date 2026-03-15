@@ -200,6 +200,29 @@ Para CADA columna en `columns.tsx`, preguntar:
   - `condition`: agregado íconos semánticos (CheckCircle2, XCircle, Wrench, AlertCircle, Settings2) en opciones del filtro facetado
   - `SOURCE_ICONS` en columns.tsx tipado como `Record<string, LucideIcon>` para compatibilidad con `DataTableFilterOption.icon`
 
+- **CompanyPositions (Puestos)**: `src/features/Empresa/RRHH/Positions/`
+  - Migrado 2026-03. Schema: `company_positions` (id, name, is_active?, created_at, hierarchical_position_id String[]) + M:M via `aptitudes_tecnicas_puestos`
+  - `hierarchical_position_id` es un ARRAY de UUIDs guardado directamente en la columna (no FK relacional). Se resuelve en batch: `prisma.hierarchy.findMany({ where: { id: { in: allIds } } })` + Map para nombre.
+  - Columnas `hierarchyNames` y `aptitudes` son virtuales (`enableSorting: false`) — `accessorFn` retorna string para export.
+  - Filtro `aptitudes` (M:M): server-side usa `{ some: { aptitud_id: { in: ids } } }` / `{ none: {} }` para NULL_FILTER_VALUE.
+  - `$transaction` en `updatePositionPrisma`: deleteMany M:M + update con recreación de relaciones en una transacción.
+  - Formulario `PositionsFormNew.tsx`: catálogos (hierarchies, aptitudes) cargados con `useQuery` (staleTime 5min).
+  - Mutaciones invalidan `['positions']` via `queryClient.invalidateQueries`.
+  - `RrhhTabContent.tsx` actualizado: usa `PositionsList` con `<Suspense fallback={<PositionsTableSkeleton />}>`.
+  - Sin filtro de company_id (tabla global por diseño — confirmado en schema Prisma).
+  - Archivos LEGACY desconectados (sin referencias activas): `positionsTab.tsx`, `positionsClient.tsx`, `positionsTable.tsx`, `positionsData.tsx`, `positionsForm.tsx`.
+
+- **AptitudesTecnicas**: `src/features/Empresa/RRHH/AptitudesTecnicas/`
+  - Migrado de BaseDataTable+Supabase (3 roundtrips) a nuevo sistema (1 query Prisma con include)
+  - Schema: `aptitudes_tecnicas` (id, nombre, is_active?) + M:M via `aptitudes_tecnicas_puestos` → `company_positions`
+  - Columna `puestos` es M:M virtual (`enableSorting: false`) — `accessorFn` concatena nombres para export
+  - Formulario en `AptitudesForm.tsx` (nuevo): usa Zustand store `useAptitudesStore`, invalida `['aptitudes-tecnicas']`
+  - Mutaciones: `createAptitudTecnicaPrisma` / `updateAptitudTecnicaPrisma` con `$transaction` para replace M:M
+  - Puestos activos (`getActiveCompanyPositions`) se cargan en SSR junto con datos paginados (catálogo pequeño)
+  - `aptitudes_tecnicas` NO tiene company_id — global por diseño (igual que cost_center)
+  - Archivos LEGACY a eliminar: `aptitudesTab.tsx`, `aptitudesClient.tsx`, `aptitudesData.tsx`, `aptitudesTable.tsx`, `aptitudesTecnicas.ts`
+  - `RrhhTabContent.tsx` ya actualizado: usa `AptitudesList` con `<Suspense fallback={<AptitudesTableSkeleton />}>`
+
 - **DocumentosEmpleadosMensuales**: `src/features/Documentacion/DocumentosEmpleados/Mensuales/`
   - Fix 2026-03: migrado de bulk facets a lazy-load + client-side navigation mode
   - `period` es `String?` en DB (no DateTime) — filtro `text` NO `dateRange`. Eliminado de DATE_RANGE_COLUMNS

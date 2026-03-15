@@ -32,7 +32,7 @@ function MensureUnitsTab({
       <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <MensureUnitsForm
                 selectedUnit={selectedUnit}
                 setSelectedUnit={setSelectedUnit}
@@ -43,7 +43,7 @@ function MensureUnitsTab({
             <ResizableHandle withHandle />
           </>
         )}
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <MensureUnitsTable
             units={units}
             savedVisibility={savedVisibility}

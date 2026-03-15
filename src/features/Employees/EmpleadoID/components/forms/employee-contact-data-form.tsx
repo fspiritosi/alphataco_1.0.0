@@ -5,40 +5,37 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { fetchCitiesByProvinceId } from '../../lib/actions/catalog-actions';
-import { EmployeeFormData, Options } from './employee-form';
+import { getAllProvinceOptions, getCitiesByProvince } from '../../actions.server';
+import type { EmployeeFormData } from './employee-form';
 
 interface EmployeeContactDataFormProps {
   form: UseFormReturn<EmployeeFormData>;
-  readOnly: boolean;
-  options: Options['contactData']; // siempre viene
 }
 
-export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeContactDataFormProps) {
-  const citiesAwaited = use(options.citiesPromise);
-  const [cities, setCities] = useState<typeof citiesAwaited>(citiesAwaited);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const provinces = use(options.provincesPromise);
+export function EmployeeContactDataForm({ form }: EmployeeContactDataFormProps) {
+  const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
+    queryKey: ['catalog', 'provinces'],
+    queryFn: () => getAllProvinceOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
 
   const selectedProvince = form.watch('province');
 
-  const handleProvinceSelect = async (provinceId: number) => {
-    form.setValue('province', provinceId);
-    form.setValue('city', '' as any); // Limpiar el campo city
+  const { data: cities = [], isLoading: loadingCities } = useQuery({
+    queryKey: ['catalog', 'cities', selectedProvince],
+    queryFn: () => getCitiesByProvince(BigInt(selectedProvince!)),
+    staleTime: 10 * 60 * 1000,
+    enabled: !!selectedProvince,
+  });
 
-    setLoadingCities(true);
-    try {
-      const newCities = await fetchCitiesByProvinceId(provinceId);
-      setCities(newCities);
-    } catch (error) {
-      console.error('Error fetching cities:', error);
-    } finally {
-      setLoadingCities(false);
-    }
+  const handleProvinceSelect = (provinceId: bigint) => {
+    form.setValue('province', Number(provinceId));
+    form.setValue('city', '' as unknown as number); // Limpiar ciudad al cambiar provincia
   };
 
   return (
@@ -52,7 +49,7 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
             <FormItem>
               <FormLabel>Calle *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese la calle" />
+                <Input {...field} placeholder="Ingrese la calle" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -67,7 +64,7 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
             <FormItem>
               <FormLabel>Altura *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese la altura" />
+                <Input {...field} placeholder="Ingrese la altura" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -81,50 +78,54 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
           render={({ field }) => (
             <FormItem>
               <FormLabel>Provincia *</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      disabled={readOnly || loadingCities}
-                      className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                    >
-                      {field.value
-                        ? provinces.find((province) => province.id.toString() === field.value?.toString())?.name
-                        : 'Seleccione una provincia'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command className="max-w-[300px]">
-                    <CommandInput placeholder="Buscar provincia..." className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>No se encontraron provincias.</CommandEmpty>
-                      <CommandGroup>
-                        {provinces.map((province) => (
-                          <CommandItem
-                            value={province.name}
-                            key={province.id}
-                            onSelect={() => {
-                              handleProvinceSelect(province.id);
-                            }}
-                          >
-                            {province.name}
-                            <Check
-                              className={cn(
-                                'ml-auto h-4 w-4',
-                                province.id.toString() === field.value?.toString() ? 'opacity-100' : 'opacity-0'
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              {loadingProvinces ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        disabled={loadingCities}
+                        className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                      >
+                        {field.value
+                          ? provinces.find((province) => province.id.toString() === field.value?.toString())?.name
+                          : 'Seleccione una provincia'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command className="max-w-[300px]">
+                      <CommandInput placeholder="Buscar provincia..." className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron provincias.</CommandEmpty>
+                        <CommandGroup>
+                          {provinces.map((province) => (
+                            <CommandItem
+                              value={province.name}
+                              key={province.id}
+                              onSelect={() => {
+                                handleProvinceSelect(province.id as bigint);
+                              }}
+                            >
+                              {province.name}
+                              <Check
+                                className={cn(
+                                  'ml-auto h-4 w-4',
+                                  province.id.toString() === field.value?.toString() ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -137,37 +138,39 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
           render={({ field }) => (
             <FormItem>
               <FormLabel>Ciudad *</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      disabled={readOnly || !selectedProvince || loadingCities}
-                      className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                    >
-                      {loadingCities
-                        ? 'Cargando ciudades...'
-                        : field.value
+              {loadingCities ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        disabled={!selectedProvince}
+                        className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                      >
+                        {field.value
                           ? cities.find((city) => city.id.toString() === field.value?.toString())?.name
-                          : 'Seleccione una ciudad'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0 ">
-                  <Command className="max-w-[300px]">
-                    <CommandInput placeholder="Buscar ciudad..." className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>{loadingCities ? 'Cargando...' : 'No se encontraron ciudades.'}</CommandEmpty>
-                      <CommandGroup>
-                        {!loadingCities &&
-                          cities.map((city) => (
+                          : !selectedProvince
+                            ? 'Primero seleccione una provincia'
+                            : 'Seleccione una ciudad'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0 ">
+                    <Command className="max-w-[300px]">
+                      <CommandInput placeholder="Buscar ciudad..." className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron ciudades.</CommandEmpty>
+                        <CommandGroup>
+                          {cities.map((city) => (
                             <CommandItem
                               value={city.name}
                               key={city.id}
                               onSelect={() => {
-                                form.setValue('city', city.id);
+                                form.setValue('city', Number(city.id));
                               }}
                             >
                               {city.name}
@@ -179,11 +182,12 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
                               />
                             </CommandItem>
                           ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -197,7 +201,7 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
             <FormItem>
               <FormLabel>Código postal *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el código postal" />
+                <Input {...field} placeholder="Ingrese el código postal" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -212,7 +216,7 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
             <FormItem>
               <FormLabel>Teléfono *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el teléfono" />
+                <Input {...field} placeholder="Ingrese el teléfono" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -228,7 +232,7 @@ export function EmployeeContactDataForm({ form, readOnly, options }: EmployeeCon
           <FormItem>
             <FormLabel>Email *</FormLabel>
             <FormControl>
-              <Input {...field} type="email" readOnly={readOnly} placeholder="Ingrese el email" />
+              <Input {...field} type="email" placeholder="Ingrese el email" />
             </FormControl>
             <FormMessage />
           </FormItem>

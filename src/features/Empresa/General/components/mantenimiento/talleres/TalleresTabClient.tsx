@@ -26,14 +26,14 @@ export function TalleresTabClient({ workshops, savedVisibility, savedFilter }: T
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <TalleresForm />
             </ResizablePanel>
             <ResizableHandle withHandle />
           </>
         )}
 
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
             <TalleresTable savedVisibility={savedVisibility} workshops={workshops} savedFilter={savedFilter} />
           </Suspense>

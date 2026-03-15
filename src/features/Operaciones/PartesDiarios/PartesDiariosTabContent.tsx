@@ -31,7 +31,7 @@ export default async function PartesDiariosTabContent({ searchParams = {} }: Pro
         <ResizablePanelGroup direction="horizontal">
           {canCreate && (
             <>
-              <ResizablePanel id="daily-report-form" defaultSize="25%" minSize="15%" maxSize="40%">
+              <ResizablePanel id="daily-report-form" defaultSize={30}>
                 <div className="p-4">
                   <DayliReportForm />
                 </div>
@@ -39,7 +39,7 @@ export default async function PartesDiariosTabContent({ searchParams = {} }: Pro
               <ResizableHandle withHandle />
             </>
           )}
-          <ResizablePanel id="daily-report-table" defaultSize="75%">
+          <ResizablePanel id="daily-report-table" defaultSize={70}>
             <div className="p-4">
               <Suspense fallback={<DailyReportTableSkeleton />}>
                 <DailyReportList searchParams={searchParams} permissionsMap={permissionsMap} />

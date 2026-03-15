@@ -3,6 +3,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
@@ -14,6 +15,8 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { createPosition, updatePosition } from '../../actions/actions';
+
+const logger = new Logger('features/Empresa/RRHH');
 const PositionSchema = z.object({
   name: z.string().min(1, { message: 'El nombre es requerido' }),
   is_active: z.boolean(),
@@ -114,7 +117,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
       }
     } catch (error) {
       toast.error('Error al crear o actualizar la posición');
-      console.error(error);
+      logger.error('Error al crear o actualizar la posición', { data: { error } });
     }
   };
 
@@ -189,7 +192,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
           .eq(dependencyConfigs[0].targetColumn, initialData.id);
 
         if (error) {
-          console.error(error);
+          logger.error('Error al reemplazar referencias en positions', { data: { error } });
         }
 
         // Ahora sí, desactivar el registro actual
@@ -197,7 +200,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         await handleSubmit(values);
         // if (onSuccess) onSuccess();
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { error: err } });
       }
     }
   };

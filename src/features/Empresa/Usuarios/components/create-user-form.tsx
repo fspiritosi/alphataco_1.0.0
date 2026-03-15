@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
+import { Logger } from '@/lib/logger';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
@@ -68,6 +69,8 @@ const createUserSchema = (isInvite: boolean) =>
       path: ['confirmPassword'],
     });
 
+const logger = new Logger('CreateUserForm');
+
 interface CreateUserFormProps {
   onSuccess?: () => void;
   onCancel: () => void;
@@ -127,7 +130,7 @@ export function CreateUserForm({ onSuccess, onCancel }: CreateUserFormProps) {
         });
       }
     } catch (error) {
-      console.error('Error inesperado:', error);
+      logger.error('Error inesperado al crear usuario', { data: { error } });
       toast.error('Ocurrió un error inesperado', { id: toastId });
     } finally {
       setIsSubmitting(false);

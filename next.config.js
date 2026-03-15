@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  cacheComponents: true,
   experimental: {
-    cacheComponents: true,
     staleTimes: {
       dynamic: 60
     }

@@ -61,7 +61,7 @@ function HierarchyForm() {
         is_active: true,
       });
     }
-  }, [editingHierarchy, form]);
+  }, [editingHierarchy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 

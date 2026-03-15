@@ -3,38 +3,47 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { AlertTriangle, Download, Eye, FileText, Plus, Trash2 } from 'lucide-react';
-import { Suspense, useState } from 'react';
+import moment from 'moment';
+import { useState } from 'react';
 import { getDocumentStatusColor } from '../lib/utils/employee-utils';
 import { EmployeeDocumentUpload } from './employee-document-upload';
-import { EmployeeDocumentsSkeleton } from './skeletons/employee-documents-skeleton';
+
+interface DocumentItem {
+  id: string;
+  document_name: string;
+  document_url: string;
+  expiration_date?: string | null;
+  is_required?: boolean | null;
+  status?: string | null;
+  created_at: string;
+  document_type?: { id: string; name: string } | null;
+}
 
 interface EmployeeDocumentsProps {
   employeeId: string;
   isEditable?: boolean;
+  documents?: DocumentItem[];
 }
 
-async function EmployeeDocumentsContent({ employeeId, isEditable = true }: EmployeeDocumentsProps) {
-  const documents: any = [];
+export function EmployeeDocuments({ employeeId, isEditable = true, documents = [] }: EmployeeDocumentsProps) {
   const [showUpload, setShowUpload] = useState(false);
 
   const handleDownload = (documentUrl: string, documentName: string) => {
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = documentUrl;
     link.download = documentName;
     link.target = '_blank';
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
   };
 
   const handleView = (documentUrl: string) => {
     window.open(documentUrl, '_blank');
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | null | undefined) => {
     switch (status?.toLowerCase()) {
       case 'expired':
       case 'vencido':
@@ -44,7 +53,7 @@ async function EmployeeDocumentsContent({ employeeId, isEditable = true }: Emplo
     }
   };
 
-  const isExpiringSoon = (expirationDate: string) => {
+  const isExpiringSoon = (expirationDate: string | null | undefined) => {
     if (!expirationDate) return false;
     const expDate = new Date(expirationDate);
     const today = new Date();
@@ -81,38 +90,38 @@ async function EmployeeDocumentsContent({ employeeId, isEditable = true }: Emplo
           </div>
         ) : (
           <div className="space-y-4">
-            {documents.map((document: any) => (
+            {documents.map((doc) => (
               <div
-                key={document.id}
+                key={doc.id}
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {getStatusIcon(document.status)}
+                  {getStatusIcon(doc.status)}
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{document.document_name}</h4>
-                      {document.is_required && <Badge variant="secondary">Requerido</Badge>}
+                      <h4 className="font-medium">{doc.document_name}</h4>
+                      {doc.is_required && <Badge variant="secondary">Requerido</Badge>}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{document.document_type?.name || 'Sin tipo'}</span>
-                      {document.expiration_date && (
-                        <span className={isExpiringSoon(document.expiration_date) ? 'text-orange-600' : ''}>
-                          Vence: {format(new Date(document.expiration_date), 'dd/MM/yyyy', { locale: es })}
+                      <span>{doc.document_type?.name || 'Sin tipo'}</span>
+                      {doc.expiration_date && (
+                        <span className={isExpiringSoon(doc.expiration_date) ? 'text-orange-600' : ''}>
+                          Vence: {moment(doc.expiration_date).format('DD/MM/YYYY')}
                         </span>
                       )}
-                      <span>Subido: {format(new Date(document.created_at), 'dd/MM/yyyy', { locale: es })}</span>
+                      <span>Subido: {moment(doc.created_at).format('DD/MM/YYYY')}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Badge className={getDocumentStatusColor(document.status)}>{document.status}</Badge>
+                  <Badge className={getDocumentStatusColor(doc.status ?? '')}>{doc.status}</Badge>
 
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleView(document.document_url)}
+                      onClick={() => handleView(doc.document_url)}
                       title="Ver documento"
                     >
                       <Eye className="h-4 w-4" />
@@ -120,7 +129,7 @@ async function EmployeeDocumentsContent({ employeeId, isEditable = true }: Emplo
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDownload(document.document_url, document.document_name)}
+                      onClick={() => handleDownload(doc.document_url, doc.document_name)}
                       title="Descargar documento"
                     >
                       <Download className="h-4 w-4" />
@@ -151,13 +160,5 @@ async function EmployeeDocumentsContent({ employeeId, isEditable = true }: Emplo
         )}
       </CardContent>
     </Card>
-  );
-}
-
-export function EmployeeDocuments(props: EmployeeDocumentsProps) {
-  return (
-    <Suspense fallback={<EmployeeDocumentsSkeleton />}>
-      <EmployeeDocumentsContent {...props} />
-    </Suspense>
   );
 }

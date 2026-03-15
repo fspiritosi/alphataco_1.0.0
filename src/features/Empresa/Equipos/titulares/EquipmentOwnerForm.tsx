@@ -4,15 +4,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { Database } from '../../../../../database.types';
 import { FetchEquipmentOwnersType, createEquipmentOwner, updateEquipmentOwner } from './actions/actions';
+
+const logger = new Logger('EquipmentOwnerForm');
 
 interface EquipmentOwnerFormProps {
   initialData?: FetchEquipmentOwnersType[0] | null;
@@ -45,7 +49,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
     },
   });
 
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     handleSubmit,
     reset,
@@ -53,7 +57,6 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
   } = form;
 
   const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
-    // Solicitamos solo las columnas que se van a mostrar
     const select = config.displayColumns.join(',') as '*';
 
     const data = await fetchDependenciesForValue<'vehicles', 'owner_id'>({
@@ -70,7 +73,6 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
     if (initialData) {
-      // Extraer los tipos de contrato de la relación
       const contractTypes = initialData.equipment_owner_contract_types?.map((ct) => ct.contract_type) || [];
 
       reset({
@@ -98,10 +100,9 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
 
         // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
         if (prevActive && !nextActive) {
-          //Awaite del fetch de dependencias
-          const data = await fetchDependencies(dependencyConfigs[0], initialData?.id!);
+          const depResult = await fetchDependencies(dependencyConfigs[0], initialData?.id!);
 
-          if (data.data.length) {
+          if (depResult.data.length) {
             setShowDependencyModal(true);
             return; // No ejecutar update aún, el modal decidirá
           }
@@ -114,7 +115,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           contract_types: data.contract_types,
         });
 
-        router.refresh();
+        queryClient.invalidateQueries({ queryKey: ['equipment-owners'] });
       } else {
         await createEquipmentOwner({
           name: data.name,
@@ -122,6 +123,8 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           cuit: data.cuit,
           contract_types: data.contract_types,
         });
+
+        queryClient.invalidateQueries({ queryKey: ['equipment-owners'] });
       }
 
       toast({
@@ -131,9 +134,8 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
       });
 
       onReset();
-      router.refresh();
     } catch (error: unknown) {
-      console.error('Error al guardar el titular:', error);
+      logger.error('Error al guardar el titular', { data: { error } });
 
       toast({
         title: 'Error',
@@ -178,16 +180,15 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
           .update({
             [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as any)
+          } as Parameters<ReturnType<typeof supabase.from>['update']>[0] as any)
           .eq(dependencyConfigs[0].targetColumn, initialData.id);
 
         if (error) {
-          console.error(error);
+          logger.error('Error al actualizar referencias en Supabase', { data: { error } });
         }
 
         // Ahora sí, desactivar el registro actual
         const values = form.getValues();
-        toast;
         await updateEquipmentOwner({
           id: values.id!,
           name: values.name,
@@ -196,27 +197,28 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           contract_types: values.contract_types,
         });
 
+        queryClient.invalidateQueries({ queryKey: ['equipment-owners'] });
+
         toast({
           title: 'Titular actualizado correctamente',
           description: 'El titular ha sido actualizado exitosamente.',
           variant: 'default',
         });
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { error: err } });
         toast({
           title: 'Error',
           description: 'No se pudieron reemplazar las referencias',
           variant: 'destructive',
         });
       }
-
-      router.refresh();
     }
   };
+
   return (
-    <div className="flex space-y-8 max-w-[400px]">
+    <div className="max-w-md">
       <Form {...form}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
           <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar' : 'Crear'} Titular</h2>
           <FormField
             name="name"
@@ -227,7 +229,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
                   <Input
                     placeholder="Ingrese el nombre del titular"
                     {...form.register('name')}
-                    className={`w-[400px] ${form.formState.errors.name ? 'border-red-500' : ''}`}
+                    className={form.formState.errors.name ? 'border-red-500' : ''}
                   />
                 </FormControl>
                 <FormMessage />
@@ -278,7 +280,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
                   <Input
                     placeholder="Ingrese el CUIT"
                     {...form.register('cuit')}
-                    className={`w-[400px] ${form.formState.errors.cuit ? 'border-red-500' : ''}`}
+                    className={form.formState.errors.cuit ? 'border-red-500' : ''}
                   />
                 </FormControl>
                 <FormMessage />
@@ -336,7 +338,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
             recordName={initialData.name || ''}
             dependencies={dependencyConfigs}
             title="Confirmar desactivación"
-            description="Este subtipo de equipo está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+            description="Este titular está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
             fetchDependencies={fetchDependencies}
             fetchReplacementOptions={fetchReplacementOptions}
           />

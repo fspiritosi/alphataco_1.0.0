@@ -25,47 +25,52 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  createRole,
-  deleteRole,
-  getRolePermissions,
-  getRoleUserCounts,
-  getRoles,
-  updateRole,
-} from '@/features/Permissions/actions';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import {
+  createRoleWithPermissions,
+  deleteRoleServer,
+  getAllRolesWithCounts,
+  getRolePermissionsServer,
+  updateRoleWithPermissions,
+} from '@/features/UserPermissionsManager/actions.server';
+import { Logger } from '@/lib/logger';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Pencil, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import type { ModulesWithTabsData, RoleWithCount } from '../actions.server';
 import { ManageRoleUsersDialog } from './ManageRoleUsersDialog';
 import { RolePermissionsEditor } from './RolePermissionsEditor';
 import { RoleTemplateSelector } from './RoleTemplateSelector';
 
-// Componente separado para cada card de rol (evita el error de hooks en map)
+const logger = new Logger('RoleManager');
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RoleManagerProps {
+  initialRoles: RoleWithCount[];
+  initialRolePermissions: Record<number, Array<{ tabId: string; actionId: string }>>;
+  initialModules: ModulesWithTabsData;
+}
+
+// ─── RoleCard ─────────────────────────────────────────────────────────────────
+
 function RoleCard({
   role,
-  userCount,
+  permissionsCount,
   onEdit,
   onManageUsers,
   onDelete,
   isDeleting,
 }: {
-  role: any;
-  userCount: number;
-  onEdit: (role: any) => void;
-  onManageUsers: (role: any) => void;
+  role: RoleWithCount;
+  permissionsCount: number;
+  onEdit: (role: RoleWithCount) => void;
+  onManageUsers: (role: RoleWithCount) => void;
   onDelete: (roleId: number, roleName: string) => void;
   isDeleting: boolean;
 }) {
-  const { data: permissions = [] } = useQuery({
-    queryKey: ['role-permissions', role.id],
-    queryFn: () => getRolePermissions(role.id),
-    enabled: !!role.id && role.slug !== 'owner',
-  });
-
-  const hasUsers = userCount > 0;
+  const hasUsers = role.userCount > 0;
   const canDelete = !role.is_system && !hasUsers;
 
   return (
@@ -78,11 +83,11 @@ function RoleCard({
         <div className="flex gap-1">
           <Badge variant="outline" className="text-xs flex items-center gap-1">
             <Users className="h-3 w-3" />
-            {userCount}
+            {role.userCount}
           </Badge>
           <Badge variant="outline" className="text-xs flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            {role.slug === 'owner' ? 'ALL' : permissions.length}
+            {role.slug === 'owner' ? 'ALL' : permissionsCount}
           </Badge>
           {role.color && (
             <Badge
@@ -131,7 +136,7 @@ function RoleCard({
                 size="sm"
                 onClick={() => onDelete(role.id, role.name)}
                 disabled={!canDelete || isDeleting}
-                title={hasUsers ? `No se puede eliminar: ${userCount} usuario(s) asignado(s)` : 'Eliminar rol'}
+                title={hasUsers ? `No se puede eliminar: ${role.userCount} usuario(s) asignado(s)` : 'Eliminar rol'}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -143,10 +148,12 @@ function RoleCard({
   );
 }
 
-export function RoleManager() {
+// ─── RoleManager ──────────────────────────────────────────────────────────────
+
+export function RoleManager({ initialRoles, initialRolePermissions, initialModules }: RoleManagerProps) {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<any | null>(null);
+  const [editingRole, setEditingRole] = useState<RoleWithCount | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<{ id: number; name: string } | null>(null);
   const [roleName, setRoleName] = useState('');
@@ -154,110 +161,83 @@ export function RoleManager() {
   const [roleColor, setRoleColor] = useState('#3b82f6');
   const [rolePermissions, setRolePermissions] = useState<Array<{ tabId: string; actionId: string }>>([]);
   const [templateRoleIds, setTemplateRoleIds] = useState<number[]>([]);
-  const [manageUsersRole, setManageUsersRole] = useState<any | null>(null);
+  const [manageUsersRole, setManageUsersRole] = useState<RoleWithCount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: roles = [], isLoading } = useQuery({
+  // Roles con SSR initial data
+  const { data: roles = initialRoles } = useQuery({
     queryKey: ['roles'],
-    queryFn: getRoles,
+    queryFn: getAllRolesWithCounts,
+    initialData: initialRoles,
+    staleTime: 30 * 1000,
   });
 
-  const { data: roleUserCounts = {} } = useQuery<Record<number, number>>({
-    queryKey: ['role-user-counts'],
-    queryFn: getRoleUserCounts,
-    staleTime: 2 * 60 * 1000, // 2 minutos
-  });
+  // Counts de permisos por rol (derivado de la query inicial o local)
+  const [localRolePermissions, setLocalRolePermissions] =
+    useState<Record<number, Array<{ tabId: string; actionId: string }>>>(initialRolePermissions);
 
+  const getPermissionsCountForRole = (roleId: number): number => {
+    return (localRolePermissions[roleId] ?? []).length;
+  };
+
+  // Mutación: crear rol
   const createRoleMutation = useMutation({
-    mutationFn: async (data: {
-      name: string;
-      description?: string;
-      color?: string;
-      permissions: Array<{ tabId: string; actionId: string }>;
-    }) => {
-      const newRole = await createRole(data.name, data.description, data.color);
-      // Guardar permisos del rol
-      if (data.permissions.length > 0) {
-        const supabase = supabaseBrowser();
-        await supabase.from('role_permissions').delete().eq('role_id', newRole.id);
-
-        const records = data.permissions.map((perm) => ({
-          role_id: newRole.id,
-          tab_id: perm.tabId,
-          action_id: perm.actionId,
-        }));
-
-        await supabase.from('role_permissions').insert(records);
-      }
-      return newRole;
-    },
+    mutationFn: createRoleWithPermissions,
     onSuccess: (newRole) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
+      // Actualizar cache local de permisos
+      setLocalRolePermissions((prev) => ({ ...prev, [newRole.id]: rolePermissions }));
       toast.success('Rol creado', {
         description: `El rol "${newRole.name}" ha sido creado exitosamente`,
       });
       setIsDialogOpen(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
+      logger.error('Error al crear rol', { data: { error } });
       toast.error('Error', {
         description: error.message || 'No se pudo crear el rol',
       });
     },
   });
 
+  // Mutación: actualizar rol
   const updateRoleMutation = useMutation({
-    mutationFn: async (data: {
-      id: number;
-      name: string;
-      description?: string;
-      color?: string;
-      permissions: Array<{ tabId: string; actionId: string }>;
-    }) => {
-      const updatedRole = await updateRole(data.id, data.name, data.description, data.color);
-      // Actualizar permisos del rol
-      const supabase = supabaseBrowser();
-      await supabase.from('role_permissions').delete().eq('role_id', updatedRole.id);
-
-      if (data.permissions.length > 0) {
-        const records = data.permissions.map((perm) => ({
-          role_id: updatedRole.id,
-          tab_id: perm.tabId,
-          action_id: perm.actionId,
-        }));
-
-        await supabase.from('role_permissions').insert(records);
-      }
-      return updatedRole;
-    },
+    mutationFn: updateRoleWithPermissions,
     onSuccess: (updatedRole) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      queryClient.invalidateQueries({ queryKey: ['role-permissions', updatedRole.id] });
+      // Actualizar cache local de permisos
+      setLocalRolePermissions((prev) => ({ ...prev, [updatedRole.id]: rolePermissions }));
       toast.success('Rol actualizado', {
         description: `El rol "${updatedRole.name}" ha sido actualizado exitosamente`,
       });
       setIsDialogOpen(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
+      logger.error('Error al actualizar rol', { data: { error } });
       toast.error('Error', {
         description: error.message || 'No se pudo actualizar el rol',
       });
     },
   });
 
+  // Mutación: eliminar rol
   const deleteRoleMutation = useMutation({
-    mutationFn: deleteRole,
+    mutationFn: deleteRoleServer,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('Rol eliminado', {
         description: 'El rol ha sido eliminado exitosamente',
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
+      logger.error('Error al eliminar rol', { data: { error } });
       toast.error('Error', {
         description: error.message || 'No se pudo eliminar el rol',
       });
     },
   });
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleCreateRole = () => {
     setEditingRole(null);
@@ -269,25 +249,26 @@ export function RoleManager() {
     setIsDialogOpen(true);
   };
 
-  const handleEditRole = async (role: any) => {
+  const handleEditRole = async (role: RoleWithCount) => {
     setEditingRole(role);
     setRoleName(role.name);
     setRoleDescription(role.description || '');
     setRoleColor(role.color || '#3b82f6');
     setTemplateRoleIds([]);
 
-    // Cargar permisos del rol
-    try {
-      const permissions = await getRolePermissions(role.id);
-      setRolePermissions(
-        permissions.map((p) => ({
-          tabId: p.tab_id,
-          actionId: p.action_id,
-        }))
-      );
-    } catch (error) {
-      console.error('Error loading role permissions:', error);
-      setRolePermissions([]);
+    // Usar permisos del cache local o cargar desde server
+    const cached = localRolePermissions[role.id];
+    if (cached !== undefined) {
+      setRolePermissions(cached);
+    } else {
+      try {
+        const permissions = await getRolePermissionsServer(role.id);
+        setRolePermissions(permissions);
+        setLocalRolePermissions((prev) => ({ ...prev, [role.id]: permissions }));
+      } catch (error) {
+        logger.error('Error al cargar permisos del rol', { data: { error } });
+        setRolePermissions([]);
+      }
     }
 
     setIsDialogOpen(true);
@@ -295,9 +276,7 @@ export function RoleManager() {
 
   const handleSaveRole = () => {
     if (!roleName.trim()) {
-      toast.error('Error', {
-        description: 'El nombre del rol es requerido',
-      });
+      toast.error('Error', { description: 'El nombre del rol es requerido' });
       return;
     }
 
@@ -321,33 +300,32 @@ export function RoleManager() {
 
   const handleImportPermissions = async () => {
     if (templateRoleIds.length === 0) {
-      toast.error('Error', {
-        description: 'Selecciona al menos un rol para importar permisos',
-      });
+      toast.error('Error', { description: 'Selecciona al menos un rol para importar permisos' });
       return;
     }
 
     try {
-      // Obtener permisos de todos los roles seleccionados
-      const allPermissions = await Promise.all(templateRoleIds.map((roleId) => getRolePermissions(roleId)));
+      // Cargar permisos de los roles seleccionados (desde cache local o server)
+      const allPermissions = await Promise.all(
+        templateRoleIds.map(async (roleId) => {
+          if (localRolePermissions[roleId] !== undefined) {
+            return localRolePermissions[roleId];
+          }
+          const perms = await getRolePermissionsServer(roleId);
+          setLocalRolePermissions((prev) => ({ ...prev, [roleId]: perms }));
+          return perms;
+        })
+      );
 
-      // Combinar permisos (eliminar duplicados)
+      // Combinar eliminando duplicados
       const uniquePermissions = new Map<string, { tabId: string; actionId: string }>();
-
       allPermissions.flat().forEach((perm) => {
-        const key = `${perm.tab_id}:${perm.action_id}`;
-        uniquePermissions.set(key, {
-          tabId: perm.tab_id,
-          actionId: perm.action_id,
-        });
+        uniquePermissions.set(`${perm.tabId}:${perm.actionId}`, perm);
       });
 
       // Combinar con permisos ya seleccionados
       const existingPermissions = new Map(rolePermissions.map((p) => [`${p.tabId}:${p.actionId}`, p]));
-
-      uniquePermissions.forEach((perm, key) => {
-        existingPermissions.set(key, perm);
-      });
+      uniquePermissions.forEach((perm, key) => existingPermissions.set(key, perm));
 
       setRolePermissions(Array.from(existingPermissions.values()));
 
@@ -355,14 +333,12 @@ export function RoleManager() {
         description: `Se importaron ${uniquePermissions.size} permisos únicos de ${templateRoleIds.length} rol(es)`,
       });
     } catch (error) {
-      console.error('Error importing permissions:', error);
-      toast.error('Error', {
-        description: 'No se pudieron importar los permisos',
-      });
+      logger.error('Error al importar permisos', { data: { error } });
+      toast.error('Error', { description: 'No se pudieron importar los permisos' });
     }
   };
 
-  const handleManageUsers = (role: any) => {
+  const handleManageUsers = (role: RoleWithCount) => {
     setManageUsersRole(role);
   };
 
@@ -379,13 +355,23 @@ export function RoleManager() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Card className="p-6">
-        <div className="text-sm text-muted-foreground">Cargando roles...</div>
-      </Card>
+  // ─── Derived state ─────────────────────────────────────────────────────────
+
+  const { systemRoles, customRoles } = useMemo(() => {
+    const filtered = roles.filter(
+      (role) =>
+        role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        role.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }
+    return {
+      systemRoles: filtered.filter((r) => r.is_system),
+      customRoles: filtered.filter((r) => !r.is_system),
+    };
+  }, [roles, searchQuery]);
+
+  const filteredCount = systemRoles.length + customRoles.length;
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
@@ -465,6 +451,7 @@ export function RoleManager() {
                       roles={roles.filter((r) => !editingRole || r.id !== editingRole.id)}
                       selectedRoleIds={templateRoleIds}
                       onSelectionChange={setTemplateRoleIds}
+                      rolePermissionsCache={localRolePermissions}
                     />
 
                     {templateRoleIds.length > 0 && (
@@ -476,7 +463,11 @@ export function RoleManager() {
                   </div>
 
                   <div className="space-y-2">
-                    <RolePermissionsEditor permissions={rolePermissions} onPermissionsChange={setRolePermissions} />
+                    <RolePermissionsEditor
+                      permissions={rolePermissions}
+                      onPermissionsChange={setRolePermissions}
+                      initialModules={initialModules}
+                    />
                     <p className="text-xs text-muted-foreground">
                       Total de permisos seleccionados: {rolePermissions.length}
                     </p>
@@ -514,75 +505,60 @@ export function RoleManager() {
           </div>
         </div>
 
-        {/* Agrupar roles por tipo */}
-        {(() => {
-          const filteredRoles = roles.filter(
-            (role: any) =>
-              role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              role.description?.toLowerCase().includes(searchQuery.toLowerCase())
-          );
-
-          const systemRoles = filteredRoles.filter((role: any) => role.is_system);
-          const customRoles = filteredRoles.filter((role: any) => !role.is_system);
-
-          if (filteredRoles.length === 0) {
-            return (
-              <div className="text-center py-8 text-sm text-muted-foreground">
-                No se encontraron roles que coincidan con {searchQuery}
+        {/* Lista agrupada */}
+        {filteredCount === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            No se encontraron roles que coincidan con {searchQuery}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Roles Personalizados */}
+            {customRoles.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Roles Personalizados ({customRoles.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {customRoles.map((role) => (
+                    <RoleCard
+                      key={role.id}
+                      role={role}
+                      permissionsCount={getPermissionsCountForRole(role.id)}
+                      onEdit={handleEditRole}
+                      onManageUsers={handleManageUsers}
+                      onDelete={handleDeleteRole}
+                      isDeleting={deleteRoleMutation.isPending}
+                    />
+                  ))}
+                </div>
               </div>
-            );
-          }
+            )}
 
-          return (
-            <div className="space-y-6">
-              {/* Roles Personalizados */}
-              {customRoles.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Roles Personalizados ({customRoles.length})
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {customRoles.map((role) => (
-                      <RoleCard
-                        key={role.id}
-                        role={role}
-                        userCount={roleUserCounts[role.id] || 0}
-                        onEdit={handleEditRole}
-                        onManageUsers={handleManageUsers}
-                        onDelete={handleDeleteRole}
-                        isDeleting={deleteRoleMutation.isPending}
-                      />
-                    ))}
-                  </div>
+            {/* Roles de Sistema */}
+            {systemRoles.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Roles de Sistema ({systemRoles.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {systemRoles.map((role) => (
+                    <RoleCard
+                      key={role.id}
+                      role={role}
+                      permissionsCount={getPermissionsCountForRole(role.id)}
+                      onEdit={handleEditRole}
+                      onManageUsers={handleManageUsers}
+                      onDelete={handleDeleteRole}
+                      isDeleting={deleteRoleMutation.isPending}
+                    />
+                  ))}
                 </div>
-              )}
-
-              {/* Roles de Sistema */}
-              {systemRoles.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Roles de Sistema ({systemRoles.length})
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {systemRoles.map((role: any) => (
-                      <RoleCard
-                        key={role.id}
-                        role={role}
-                        userCount={roleUserCounts[role.id] || 0}
-                        onEdit={handleEditRole}
-                        onManageUsers={handleManageUsers}
-                        onDelete={handleDeleteRole}
-                        isDeleting={deleteRoleMutation.isPending}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

@@ -12,17 +12,15 @@ import type { TabsManagerClientProps } from './types';
  * OPTIMIZACIÓN:
  * - Usa estado local (useState) para navegación instantánea.
  * - Usa window.history.replaceState para actualizar la URL sin disparar una navegación de Next.js.
- * - Esto evita que se muestren fallbacks de Suspense o estados de carga al cambiar de pestaña.
+ * - Usa React 19 `<Activity>` para renderizado priorizado:
+ *   - La tab activa se renderiza con prioridad normal (inmediata).
+ *   - Las tabs inactivas se renderizan en segundo plano con menor prioridad.
+ *   - Al cambiar de tab, el contenido ya está pre-renderizado → transición instantánea.
+ *   - El estado del DOM se preserva (formularios, scroll, inputs).
  *
  * PERMISOS:
  * - Las tabs ya vienen filtradas desde TabsManagerServer según permisos del usuario.
  * - Este componente solo renderiza las tabs que el usuario tiene permiso de ver.
- *
- * @example
- * ```tsx
- * // Este componente normalmente se usa internamente por TabsManagerServer
- * // No necesitas usarlo directamente en la mayoría de casos
- * ```
  */
 export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
   paramName,
