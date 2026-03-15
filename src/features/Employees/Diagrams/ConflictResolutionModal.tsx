@@ -1,14 +1,17 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+
+const logger = new Logger('Diagrams/ConflictResolutionModal');
 
 interface ConflictRecord {
   employee_id: string;
@@ -69,7 +72,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
         !formData.dateRange?.from ||
         !formData.dateRange?.to
       ) {
-        console.error('Error: formData is null or missing required properties:', formData);
+        logger.error('Error: formData is null or missing required properties', { data: { formData } });
         toast.error('Error: Datos del formulario no disponibles');
         setProcessing(false);
         return;
@@ -86,7 +89,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
       });
 
       if (error) {
-        console.error('Error creating diagrams:', error);
+        logger.error('Error creating diagrams', { data: { error } });
         toast.error('Error al crear los diagramas');
         return;
       }
@@ -94,7 +97,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
       onProcessingComplete(result);
       toast.success('Diagramas procesados correctamente');
     } catch (error) {
-      console.error('Error in creation:', error);
+      logger.error('Error in creation', { data: { error } });
       toast.error('Error en la creación');
     } finally {
       setProcessing(false);

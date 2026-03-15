@@ -1,6 +1,9 @@
 'use server';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
+
+const logger = new Logger('Diagrams/actions');
 
 export async function fetchDiagramReportsData(options: {
   pageIndex: number;
@@ -28,7 +31,7 @@ export async function fetchDiagramReportsData(options: {
       .filter('cuil', 'ilike', `%${employeeSearchValue}%`);
 
     if (employeesError) {
-      console.error('❌ Error buscando empleados:', employeesError);
+      logger.error('Error buscando empleados', { data: { error: employeesError } });
       throw employeesError;
     }
 
@@ -118,7 +121,7 @@ export async function fetchDiagramReportsData(options: {
             };
           }
         } else {
-          console.error('❌ Error buscando tipos de novedad:', noveltyError);
+          logger.error('Error buscando tipos de novedad', { data: { error: noveltyError } });
         }
       }
 
@@ -143,7 +146,7 @@ export async function fetchDiagramReportsData(options: {
             };
           }
         } else {
-          console.error('❌ Error buscando posiciones:', positionError);
+          logger.error('Error buscando posiciones', { data: { error: positionError } });
         }
       }
 

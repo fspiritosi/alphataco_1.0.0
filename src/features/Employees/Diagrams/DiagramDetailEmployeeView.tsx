@@ -1,6 +1,8 @@
 'use client';
 
+import InfoComponent from '@/components/InfoComponent';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsManagerClientSide } from '@/features/TabsManager';
 import { cn } from '@/lib/utils';
@@ -10,8 +12,6 @@ import { es } from 'date-fns/locale';
 import { FolderOpen, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { DateRange } from 'react-day-picker';
-import InfoComponent from '../InfoComponent';
-import { Calendar } from '../ui/calendar';
 import DiagramFormUpdated from './DiagramFormUpdated';
 import { DiagramDetailTable } from './table/DiagramDetailTable';
 import { DetailDiagramColums } from './table/diagram-detail-colums';
@@ -263,13 +263,7 @@ export function DiagramDetailEmployeeView({
       ),
       moduleSlug: 'empleados' as const,
       tabSlug: 'new' as const, // Hereda de empleados/diagrams/new
-      content: (
-        <DiagramFormUpdated
-          employees={activeEmploees}
-          diagrams_types={diagrams_types}
-          defaultId={activeEmploees[0].id}
-        />
-      ),
+      content: <DiagramFormUpdated diagrams_types={diagrams_types} defaultId={activeEmploees[0].id} />,
     },
   ] as const;
 

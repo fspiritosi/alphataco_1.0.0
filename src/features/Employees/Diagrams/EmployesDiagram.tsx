@@ -81,7 +81,7 @@ export default async function EmployesDiagram({
           tabSlug: 'reports',
           content: (
             <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
-              <DiagramReportsWrapper />
+              <DiagramReportsWrapper searchParams={searchParams} />
             </Suspense>
           ),
         },

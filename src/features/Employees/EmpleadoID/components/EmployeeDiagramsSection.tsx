@@ -1,5 +1,5 @@
 // Server Component async — se envuelve en <Suspense> desde el padre
-import { DiagramDetailEmployeeView } from '@/components/Diagrams/DiagramDetailEmployeeView';
+import { DiagramDetailEmployeeView } from '@/features/Employees/Diagrams/DiagramDetailEmployeeView';
 import moment from 'moment';
 import type { EmployeeDetailData } from '../actions.server';
 import { getDiagramTypes, getEmployeeDiagramHistory, getEmployeeDiagrams } from '../actions.server';

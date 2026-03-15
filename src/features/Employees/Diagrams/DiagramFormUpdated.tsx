@@ -1,24 +1,24 @@
 'use client';
 
 import { CreateDiagrams, UpdateDiagramsById } from '@/app/server/UPDATE/actions';
-import { FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormItemDatePicker } from '@/components/ui/FormItemDatePicker';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   getEmployeeDiagramByIdandDate,
   getEmployeesName,
 } from '@/features/Employees/Empleados/lib/actions/employeesActions';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import moment from 'moment';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { FormItemDatePicker } from '../ui/FormItemDatePicker';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card';
-import { Form } from '../ui/form';
-import { MultiSelectCombobox } from '../ui/multi-select-combobox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
 interface ErrorToCreate {
   employee_name: string;
@@ -45,17 +45,16 @@ type ExistingDiagramEntry = DiagramQueryResult & {
   prev_diagram_type: string | null;
 };
 
-function DiagramFormUpdated({
-  employees,
-  diagrams_types,
-  defaultId,
-}: {
-  employees: Awaited<ReturnType<typeof getEmployeesName>>;
-  diagrams_types: DiagramType[];
-  defaultId?: string;
-}) {
+function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: DiagramType[]; defaultId?: string }) {
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
+
+  // Cargar empleados on-demand via React Query (no SSR bulk)
+  const { data: employees = [], isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ['employees-names-for-diagrams'],
+    queryFn: () => getEmployeesName(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Incluir legajo en el label para que sea visible y buscable por legajo o nombre
   const employeesOptions = employees.map((employee) => ({
@@ -290,11 +289,11 @@ function DiagramFormUpdated({
                     <FormLabel>Empleado</FormLabel>
                     <MultiSelectCombobox
                       options={employeesOptions}
-                      placeholder="Selecciona un empleado"
-                      emptyMessage="No hay empleados"
+                      placeholder={isLoadingEmployees ? 'Cargando empleados...' : 'Selecciona un empleado'}
+                      emptyMessage={isLoadingEmployees ? 'Cargando...' : 'No hay empleados'}
                       selectedValues={field.value as string[]}
                       onChange={field.onChange}
-                      disabled={defaultId ? true : false}
+                      disabled={!!defaultId || isLoadingEmployees}
                       maxSelections={1}
                     />
                     <FormMessage />

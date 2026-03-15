@@ -1,13 +1,16 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Logger } from '@/lib/logger';
 import { CheckCircle2, Download, RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+
+const logger = new Logger('Diagrams/DiagramMassiveResults');
 
 export interface ProcessingResult {
   success: boolean;
@@ -206,7 +209,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
 
       toast.success('Reporte descargado correctamente');
     } catch (error) {
-      console.error('Error downloading report:', error);
+      logger.error('Error downloading report', { data: { error } });
       toast.error('Error al descargar el reporte');
     } finally {
       setDownloading(false);

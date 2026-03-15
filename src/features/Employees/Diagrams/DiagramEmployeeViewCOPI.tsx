@@ -10,6 +10,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 
+import InfoComponent from '@/components/InfoComponent';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Form, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDownIcon, ArrowUpIcon, FileDown } from 'lucide-react';
@@ -18,11 +23,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { z } from 'zod';
-import InfoComponent from '../InfoComponent';
-import { Button } from '../ui/button';
-import { Card } from '../ui/card';
-import { Form, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
-import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 
 // Tipo para un diagrama
 type DiagramType = {

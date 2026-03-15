@@ -1,15 +1,23 @@
 'use client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Logger } from '@/lib/logger';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
+
+const logger = new Logger('Diagrams/DiagramEmployeeView');
 
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 
+import InfoComponent from '@/components/InfoComponent';
+import { Button } from '@/components/ui/button';
+import { CardDescription } from '@/components/ui/card';
+import { Form, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FileDown, RefreshCcwIcon } from 'lucide-react';
@@ -18,11 +26,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { z } from 'zod';
-import InfoComponent from '../InfoComponent';
-import { Button } from '../ui/button';
-import { CardDescription } from '../ui/card';
-import { Form, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
-import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 
 function DiagramEmployeeView({
   diagrams,
@@ -391,9 +394,12 @@ function DiagramEmployeeView({
 
                         // Debug: Mostrar información cuando no se encuentra un diagrama
                         if (!diagram) {
-                          console.error(
-                            `No se encontró diagrama para ${employee.firstname} ${employee.lastname} en ${dayNum}/${monthNum}/${yearNum}`
-                          );
+                          logger.error('No se encontro diagrama para empleado', {
+                            data: {
+                              employee: `${employee.firstname} ${employee.lastname}`,
+                              date: `${dayNum}/${monthNum}/${yearNum}`,
+                            },
+                          });
                         }
 
                         return (

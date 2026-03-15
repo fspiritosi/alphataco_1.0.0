@@ -1,7 +1,7 @@
 'use client';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ConflictResolutionModal } from './ConflictResolutionModal';
 import { DiagramMassiveForm } from './DiagramMassiveForm';
 import { DiagramMassiveResults, ProcessingResult } from './DiagramMassiveResults';

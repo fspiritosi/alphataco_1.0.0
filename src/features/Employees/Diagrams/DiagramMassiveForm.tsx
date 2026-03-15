@@ -1,6 +1,16 @@
 'use client';
 
 import { Filter, query, queryPaginated } from '@/app/server/GET/probando';
+import { FormItemDatePicker } from '@/components/ui/FormItemDatePicker';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Cookies from 'js-cookie';
@@ -9,15 +19,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { FormItemDatePicker } from '../ui/FormItemDatePicker';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { MultiSelectCombobox } from '../ui/multi-select-combobox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+
+const logger = new Logger('Diagrams/DiagramMassiveForm');
 
 // Configuración de límites (fácil de ajustar)
 const DATE_RESTRICTIONS = {
@@ -161,7 +164,7 @@ async function fetchWorkDiagrams(company_id: string) {
     .order('name');
 
   if (error) {
-    console.error('Error fetching work diagrams:', error);
+    logger.error('Error fetching work diagrams', { data: { error } });
     return [];
   }
 
@@ -179,7 +182,7 @@ async function fetchNovelties(workDiagramId: string) {
     .single();
 
   if (workDiagramError) {
-    console.error('Error fetching work diagram:', workDiagramError);
+    logger.error('Error fetching work diagram', { data: { error: workDiagramError } });
     return { inactiveNovelty: null, activeNovelties: [] };
   }
 
@@ -190,7 +193,7 @@ async function fetchNovelties(workDiagramId: string) {
     .eq('work_diagram_id', workDiagramId);
 
   if (activeNoveltiesError) {
-    console.error('Error fetching active novelties:', activeNoveltiesError);
+    logger.error('Error fetching active novelties', { data: { error: activeNoveltiesError } });
     return { inactiveNovelty: workDiagram, activeNovelties: [] };
   }
 
@@ -416,8 +419,8 @@ export function DiagramMassiveForm({
         setEmployees(formattedEmployees);
       }
     } catch (error) {
-      console.error('🚫 [DEBUG] ERROR en loadData:', error);
-      console.error('🚫 [DEBUG] Error stack:', error instanceof Error ? error.stack : 'No stack available');
+      logger.error('Error en loadData', { data: { error } });
+      logger.error('Error stack', { data: { stack: error instanceof Error ? error.stack : 'No stack available' } });
       toast.error('Error al cargar empleados');
     } finally {
       setIsLoading(false);
@@ -435,7 +438,7 @@ export function DiagramMassiveForm({
         // Cargar opciones de filtros
         await loadFilterOptions();
       } catch (error) {
-        console.error('Error loading initial data:', error);
+        logger.error('Error loading initial data', { data: { error } });
         toast.error('Error al cargar los datos iniciales');
       }
     };
@@ -513,7 +516,7 @@ export function DiagramMassiveForm({
         diagramTypes: diagramTypesData || [],
       });
     } catch (error) {
-      console.error('Error al cargar opciones de filtros:', error);
+      logger.error('Error al cargar opciones de filtros', { data: { error } });
     }
   };
 
@@ -644,7 +647,7 @@ export function DiagramMassiveForm({
         setActiveFilters((prev) => [...prev, 'workflow']);
       }
     } catch (error) {
-      console.error('🚫 [DEBUG] Error cargando novelties:', error);
+      logger.error('Error cargando novelties', { data: { error } });
       toast.error('Error al cargar las configuraciones del diagrama de trabajo');
     }
   };
@@ -693,7 +696,7 @@ export function DiagramMassiveForm({
       });
 
       if (error) {
-        console.error('Error checking conflicts:', error);
+        logger.error('Error checking conflicts', { data: { error } });
         toast.error('Error al verificar conflictos');
         return;
       }
@@ -711,7 +714,7 @@ export function DiagramMassiveForm({
         onConflictsFound({ operationConflicts: [], simpleConflicts: [] }, data);
       }
     } catch (error) {
-      console.error('Error in verification:', error);
+      logger.error('Error in verification', { data: { error } });
       toast.error('Error en la verificación');
     } finally {
       setLoading(false);
@@ -732,7 +735,7 @@ export function DiagramMassiveForm({
       });
 
       if (error) {
-        console.error('Error creating diagrams:', error);
+        logger.error('Error creating diagrams', { data: { error } });
         toast.error('Error al crear los diagramas');
         return;
       }
@@ -740,7 +743,7 @@ export function DiagramMassiveForm({
       onProcessingComplete(result);
       toast.success('Diagramas procesados correctamente');
     } catch (error) {
-      console.error('Error in creation:', error);
+      logger.error('Error in creation', { data: { error } });
       toast.error('Error en la creación');
     } finally {
       setLoading(false);

@@ -6,11 +6,11 @@ import { usePermissions } from '@/features/Permissions';
 import { useEffect, useState } from 'react';
 import { DiagramNewTypeForm } from './DiagramNewTypeForm';
 
+import { Badge } from '@/components/ui/badge';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Badge } from '../ui/badge';
 
 export function getDiagramColumns(onEdit: (diagram: DiagramType) => void, canEdit: boolean): ColumnDef<DiagramType>[] {
   return [

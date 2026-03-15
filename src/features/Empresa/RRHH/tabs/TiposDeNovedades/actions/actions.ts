@@ -1,6 +1,6 @@
 'use server';
 
-import { NewDiagramType } from '@/components/Diagrams/DiagramNewTypeForm';
+import { NewDiagramType } from '@/features/Employees/Diagrams/DiagramNewTypeForm';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
