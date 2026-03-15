@@ -102,20 +102,17 @@ export default async function TiposDocumentosTabContent({
         : 'Personas';
 
   return (
-    <div>
-      <PermissionGuardServer module="documentacion" tab="tipos-de-documentos" action="create">
-        <div className="mb-4 flex flex-wrap gap-4">
+    <TabsManagerServer
+      paramName="subtab"
+      searchParams={searchParams}
+      defaultTab={defaultTab}
+      permissions={permissions}
+      actions={
+        <PermissionGuardServer module="documentacion" tab="tipos-de-documentos" action="create">
           <_CreateDocumentTypeButton />
-        </div>
-      </PermissionGuardServer>
-
-      <TabsManagerServer
-        paramName="subtab"
-        searchParams={searchParams}
-        defaultTab={defaultTab}
-        permissions={permissions}
-        tabs={allTabs}
-      />
-    </div>
+        </PermissionGuardServer>
+      }
+      tabs={allTabs}
+    />
   );
 }

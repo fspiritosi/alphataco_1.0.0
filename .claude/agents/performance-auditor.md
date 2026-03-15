@@ -178,6 +178,70 @@ Verificar que botones de Crear/Editar/Eliminar tengan:
 
 Si la pagina muestra empleados en cualquier superficie (tabla, selector, filtro, badge), verificar que `file_number` este visible.
 
+### 3.5 Botones de Accion en Tabs — Ubicacion Correcta
+
+Verificar que los botones de accion (Crear, Agregar, etc.) esten ubicados correctamente segun su alcance. Hay 2 patrones validos y 1 incorrecto:
+
+**Patron A — Accion de UNA sola subtab** (boton dentro de la tabla):
+El boton se usa solo en una subtab → colocarlo dentro del `DataTable` como `toolbarAction` o en el toolbar del componente interno. Ejemplo: "Agregar empleado" en la tabla de empleados activos.
+
+```tsx
+// ✅ CORRECTO — accion dentro de la tabla (solo aplica a esta subtab)
+<DataTable
+  toolbarAction={
+    <PermissionGuard module="x" tab="y" action="create">
+      <Button>Agregar empleado</Button>
+    </PermissionGuard>
+  }
+/>
+```
+
+**Patron B — Accion compartida entre subtabs** (boton alineado con tabs):
+El boton se comparte entre 2+ subtabs → colocarlo en la prop `actions` del `TabsManagerServer`. Queda alineado a la derecha de los headers de las subtabs. Ejemplo: "Documento Multirecurso" compartido entre docs permanentes y mensuales.
+
+```tsx
+// ✅ CORRECTO — accion compartida, alineada con las tabs
+<TabsManagerServer
+  actions={
+    <PermissionGuard module="x" tab="y" action="create">
+      <Button>Documento Multirecurso</Button>
+    </PermissionGuard>
+  }
+  tabs={[
+    { value: 'permanentes', content: <PermanentesList /> },
+    { value: 'mensuales', content: <MensualesList /> },
+  ]}
+/>
+```
+
+**Patron C — INCORRECTO: Boton flotante encima de la subtab**:
+El boton esta renderizado FUERA del TabsManagerServer (encima de las subtabs) como un elemento suelto. Queda mal esteticamente — parece desconectado de la UI, ni en la tabla ni alineado con las tabs.
+
+```tsx
+// ❌ INCORRECTO — boton flotante entre tabs y contenido
+<div>
+  <PermissionGuard module="x" tab="y" action="create">
+    <Button>Crear tipo de documento</Button>  {/* flotando suelto */}
+  </PermissionGuard>
+  <TabsManagerServer tabs={[...]} />  {/* tabs debajo del boton */}
+</div>
+```
+
+**Como detectar Patron C:**
+
+1. Buscar botones/componentes de accion renderizados FUERA del `<TabsManagerServer>` pero DENTRO del mismo componente padre que renderiza las tabs
+2. El boton suele estar en un `<div>` hermano del `<TabsManagerServer>`, o renderizado antes/despues en el JSX
+3. Tipicamente tienen `PermissionGuard` con action "create"
+
+**Como corregir Patron C:**
+
+1. Determinar si el boton aplica a UNA subtab o a TODAS:
+   - Si a UNA → moverlo dentro del `DataTable` de esa subtab (Patron A)
+   - Si a TODAS → moverlo a la prop `actions` del `TabsManagerServer` (Patron B)
+2. Verificar que el `PermissionGuard` tenga el modulo/tab correcto
+
+Reportar como **MEDIUM** con categoria `UI`.
+
 ---
 
 ## PASO 4: DataTables — DELEGAR a table-expert
