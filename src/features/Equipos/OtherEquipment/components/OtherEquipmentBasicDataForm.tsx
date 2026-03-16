@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -19,7 +18,6 @@ import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import moment from 'moment';
-import 'moment/locale/es';
 import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { OtherEquipmentFormData } from './OtherEquipmentForm';
@@ -59,16 +57,32 @@ export function OtherEquipmentBasicDataForm({
   const modelsInitial = use(modelsPromise);
   const types = use(typesPromise);
   const subTypesInitial = use(subTypesPromise);
-  const owners = use(ownersPromise);
+  const ownersInitial = use(ownersPromise);
   const vehicles = use(vehiclesPromise);
 
   const [models, setModels] = useState<typeof modelsInitial>(modelsInitial);
   const [subTypes, setSubTypes] = useState<typeof subTypesInitial>(subTypesInitial);
+  const [owners, setOwners] = useState<typeof ownersInitial>(ownersInitial);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingSubTypes, setLoadingSubTypes] = useState(false);
 
-  // Watch currency a nivel de componente para evitar setState durante render del Controller
+  // Watch currency y tipo de contrato
   const watchedCurrency = form.watch('currency');
+  const typeOfContract = form.watch('type_of_contract');
+
+  const handleTypeOfContractChange = (type: string) => {
+    form.setValue('type_of_contract', type as OtherEquipmentFormData['type_of_contract']);
+    form.setValue('owner_id', null);
+
+    if (type === 'Leasing' || type === 'Alquiler' || type === 'Prendado') {
+      const filtered = ownersInitial.filter((owner) =>
+        owner.equipment_owner_contract_types?.some((ct: { contract_type: string }) => ct.contract_type === type)
+      );
+      setOwners(filtered);
+    } else {
+      setOwners(ownersInitial);
+    }
+  };
 
   const handleBrandChange = async (brandId: string) => {
     form.setValue('brand_id', brandId);
@@ -496,46 +510,33 @@ export function OtherEquipmentBasicDataForm({
         control={form.control}
         name="purchase_date"
         render={({ field }) => (
-          <FormItem className="flex flex-col">
+          <FormItem>
             <FormLabel>Fecha de Compra</FormLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    disabled={readOnly}
-                    variant="outline"
-                    className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                  >
-                    {field.value ? moment(field.value).locale('es').format('LL') : <span>Seleccionar fecha</span>}
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={field.value ?? undefined}
-                  onSelect={field.onChange}
-                  captionLayout="dropdown"
-                  fromYear={1900}
-                  toYear={new Date().getFullYear()}
-                  disabled={(date) => date > new Date()}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <FormControl>
+              <Input
+                type="date"
+                disabled={readOnly}
+                max={moment().format('YYYY-MM-DD')}
+                value={field.value ? moment(field.value).format('YYYY-MM-DD') : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  field.onChange(val ? moment(val, 'YYYY-MM-DD').toDate() : null);
+                }}
+              />
+            </FormControl>
             <FormDescription>Fecha de adquisición del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
       />
 
-      {/* Propietario */}
+      {/* Tipo de Contrato */}
       <FormField
         control={form.control}
-        name="owner_id"
+        name="type_of_contract"
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>Propietario</FormLabel>
+            <FormLabel>Tipo de Contrato</FormLabel>
             <Popover>
               <PopoverTrigger asChild>
                 <FormControl>
@@ -545,30 +546,21 @@ export function OtherEquipmentBasicDataForm({
                     role="combobox"
                     className={cn('justify-between', !field.value && 'text-muted-foreground')}
                   >
-                    {owners.find((o) => o.id.toString() === field.value)?.name || 'Seleccionar propietario'}
+                    {field.value || 'Seleccionar tipo de contrato'}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
                 <Command>
-                  <CommandInput placeholder="Buscar propietario..." />
+                  <CommandInput placeholder="Buscar tipo..." />
                   <CommandList>
-                    <CommandEmpty>No se encontró ningún propietario</CommandEmpty>
+                    <CommandEmpty>No se encontró</CommandEmpty>
                     <CommandGroup>
-                      {owners.map((owner) => (
-                        <CommandItem
-                          key={owner.id}
-                          value={owner.name || ''}
-                          onSelect={() => form.setValue('owner_id', owner.id.toString())}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              owner.id.toString() === field.value ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          {owner.name}
+                      {['Leasing', 'Alquiler', 'Prendado', 'Propio'].map((type) => (
+                        <CommandItem key={type} value={type} onSelect={() => handleTypeOfContractChange(type)}>
+                          <Check className={cn('mr-2 h-4 w-4', type === field.value ? 'opacity-100' : 'opacity-0')} />
+                          {type}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -576,11 +568,141 @@ export function OtherEquipmentBasicDataForm({
                 </Command>
               </PopoverContent>
             </Popover>
-            <FormDescription>Selecciona el propietario del equipo</FormDescription>
+            <FormDescription>Tipo de contrato del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
       />
+
+      {/* Propietario — solo visible si tipo de contrato NO es "Propio" */}
+      {typeOfContract && typeOfContract !== 'Propio' && (
+        <FormField
+          control={form.control}
+          name="owner_id"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Propietario</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      disabled={readOnly}
+                      variant="outline"
+                      role="combobox"
+                      className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                    >
+                      {owners.find((o) => o.id.toString() === field.value)?.name || 'Seleccionar propietario'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar propietario..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontró ningún propietario</CommandEmpty>
+                      <CommandGroup>
+                        {owners.map((owner) => (
+                          <CommandItem
+                            key={owner.id}
+                            value={owner.name || ''}
+                            onSelect={() => form.setValue('owner_id', owner.id.toString())}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                owner.id.toString() === field.value ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {owner.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <FormDescription>Propietario del equipo según tipo de contrato</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Fecha de inicio del contrato — solo si NO es "Propio" y hay tipo seleccionado */}
+      {typeOfContract && typeOfContract !== 'Propio' && (
+        <FormField
+          control={form.control}
+          name="contract_start_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fecha de Inicio del Contrato</FormLabel>
+              <FormControl>
+                <Input
+                  type="date"
+                  disabled={readOnly}
+                  value={field.value ? moment(field.value).format('YYYY-MM-DD') : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    field.onChange(val ? moment(val, 'YYYY-MM-DD').toDate() : null);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>Fecha de inicio del contrato</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Fecha de vencimiento del contrato */}
+      {typeOfContract && typeOfContract !== 'Propio' && (
+        <FormField
+          control={form.control}
+          name="contract_expiration_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fecha de Vencimiento del Contrato</FormLabel>
+              <FormControl>
+                <Input
+                  type="date"
+                  disabled={readOnly}
+                  value={field.value ? moment(field.value).format('YYYY-MM-DD') : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    field.onChange(val ? moment(val, 'YYYY-MM-DD').toDate() : null);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>Fecha de vencimiento del contrato</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Número de Contrato */}
+      {typeOfContract && typeOfContract !== 'Propio' && (
+        <FormField
+          control={form.control}
+          name="contract_number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Número de Contrato</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ''}
+                  disabled={readOnly}
+                  placeholder="Ingrese el número de contrato"
+                />
+              </FormControl>
+              <FormDescription>Número identificador del contrato</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
 
       {/* Vehículo vinculado */}
       <FormField
