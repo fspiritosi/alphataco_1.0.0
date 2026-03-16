@@ -51,6 +51,10 @@ const otherEquipmentSchema = z.object({
   currency: z.enum(['USD', 'ARS']).nullable().optional(),
   purchase_date: z.date().nullable().optional(),
   owner_id: z.string().nullable().optional(),
+  type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio', 'Prendado']).nullable().optional(),
+  contract_start_date: z.date().nullable().optional(),
+  contract_expiration_date: z.date().nullable().optional(),
+  contract_number: z.string().nullable().optional(),
   linked_vehicle_id: z.string().nullable().optional(),
   // Campos de asignación
   cost_center_id: z.string().nullable().optional(),
@@ -108,6 +112,12 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
       currency: (equipment?.currency as OtherEquipmentFormData['currency']) ?? 'ARS',
       purchase_date: equipment?.purchase_date ? moment(equipment.purchase_date).toDate() : null,
       owner_id: equipment?.equipment_owners?.id?.toString() ?? null,
+      type_of_contract: (equipment?.type_of_contract as OtherEquipmentFormData['type_of_contract']) ?? null,
+      contract_start_date: equipment?.contract_start_date ? moment(equipment.contract_start_date).toDate() : null,
+      contract_expiration_date: equipment?.contract_expiration_date
+        ? moment(equipment.contract_expiration_date).toDate()
+        : null,
+      contract_number: equipment?.contract_number ?? null,
       linked_vehicle_id: equipment?.vehicles?.id ?? null,
       cost_center_id: equipment?.cost_center?.id ?? null,
       cost_type: (equipment?.cost_type as OtherEquipmentFormData['cost_type']) ?? null,
@@ -139,6 +149,12 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
           currency: data.currency ?? null,
           purchase_date: data.purchase_date ? moment(data.purchase_date).format('YYYY-MM-DD') : null,
           owner_id: data.owner_id ?? null,
+          type_of_contract: data.type_of_contract ?? null,
+          contract_start_date: data.contract_start_date ? moment(data.contract_start_date).format('YYYY-MM-DD') : null,
+          contract_expiration_date: data.contract_expiration_date
+            ? moment(data.contract_expiration_date).format('YYYY-MM-DD')
+            : null,
+          contract_number: data.contract_number ?? null,
           linked_vehicle_id: data.linked_vehicle_id ?? null,
           cost_center_id: data.cost_center_id ?? null,
           cost_type: data.cost_type ?? null,
@@ -165,6 +181,12 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
           currency: data.currency ?? null,
           purchase_date: data.purchase_date ? moment(data.purchase_date).format('YYYY-MM-DD') : null,
           owner_id: data.owner_id ?? null,
+          type_of_contract: data.type_of_contract ?? null,
+          contract_start_date: data.contract_start_date ? moment(data.contract_start_date).format('YYYY-MM-DD') : null,
+          contract_expiration_date: data.contract_expiration_date
+            ? moment(data.contract_expiration_date).format('YYYY-MM-DD')
+            : null,
+          contract_number: data.contract_number ?? null,
           linked_vehicle_id: data.linked_vehicle_id ?? null,
           cost_center_id: data.cost_center_id ?? null,
           cost_type: data.cost_type ?? null,

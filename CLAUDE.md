@@ -47,25 +47,27 @@ git worktree remove ../gh_gestion-<nombre>              # Eliminar worktree
 
 Los siguientes MCPs estan a tu disposicion:
 
-1. **MCP de Supabase (LOCAL, DEV y PROD)**:
+1. **MCP de Supabase (LOCAL, DEV y PROD)** — SOLO LECTURA:
 
-   - **supabase-LOCAL**: Base de datos LOCAL (desarrollo local con Docker). Tiene permisos completos de lectura y escritura.
-   - **supabase-DEV**: Base de datos de DESARROLLO remoto. Tiene permisos de lectura y escritura (ejecutar queries, aplicar migraciones, modificar datos).
-   - **supabase-PROD**: Base de datos de PRODUCCION. Solo tiene permisos de LECTURA (consultas, verificaciones).
+   - **supabase-LOCAL**: Base de datos LOCAL (desarrollo local con Docker). **Solo lectura** — para consultas y verificaciones.
+   - **supabase-DEV**: Base de datos de DESARROLLO remoto. **Solo lectura** — para consultas y verificaciones.
+   - **supabase-PROD**: Base de datos de PRODUCCION. **Solo lectura** — para consultas y verificaciones.
 
-   **REGLA CRITICA - USAR LOCAL POR DEFECTO**: SIEMPRE usar `supabase-LOCAL` por defecto para cualquier operacion (queries, migraciones, modificaciones de datos). Solo usar otro MCP cuando el usuario explicitamente lo indique:
+   Los 3 MCPs son **readonly**. Se usan para consultar datos, verificar que migraciones se aplicaron correctamente, y comprobar estado de tablas/funciones. **NUNCA para aplicar cambios.**
+
+   **REGLA CRITICA - USAR LOCAL POR DEFECTO**: SIEMPRE usar `supabase-LOCAL` por defecto para consultas. Solo usar otro MCP cuando el usuario explicitamente lo indique:
 
    - Usar `supabase-DEV` cuando el usuario diga: "usa dev", "en desarrollo", "en DEV", etc.
    - Usar `supabase-PROD` cuando el usuario diga: "revisa en produccion", "consulta en prod", "verifica en la base de produccion", etc.
 
    **Si tienes dudas sobre cual usar, PREGUNTA al usuario antes de ejecutar.**
 
-   **REGLA DE MIGRACIONES**: Los cambios en la base de datos (crear tablas, modificar columnas, etc.) se deben aplicar **DIRECTAMENTE usando el MCP de Supabase** con `apply_migration`. **NO crear archivos SQL manualmente en `/supabase/migrations/`**. Supabase tiene comandos para generar migraciones diferenciando bases de datos, por lo que no es necesario crear archivos locales.
+   **REGLA DE MIGRACIONES — Prisma**: Ver regla detallada en `.claude/rules/migrations.md`. Resumen:
 
-   **REGLA DE TIPOS**: Despues de aplicar una migracion con el MCP:
-
-   - Usar `npm run genlocaltypes` para regenerar tipos (ya que el cambio se aplico en LOCAL)
-   - `npm run gentypes` es para obtener tipos de PRODUCCION (no reflejara cambios recientes en LOCAL/DEV)
+   - **NUNCA** usar `npx prisma migrate dev` (el shadow database falla con nuestro baseline de Supabase)
+   - **Flujo unico**: `prisma migrate diff` → crear carpeta manualmente → escribir SQL → `prisma db execute` → `prisma migrate resolve --applied` → `prisma generate`
+   - **NUNCA** usar MCP de Supabase para aplicar migraciones (los MCPs son readonly)
+   - **Verificacion post-migracion**: usar MCP `supabase-LOCAL` (readonly) para confirmar que los cambios se aplicaron correctamente
 
 2. **MCP de chrome-devtools**: Para revisar logs de debug y verificaciones generales de la aplicacion
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
@@ -136,6 +138,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 
 | Regla                                       | Archivo                             | Aplicacion                                        |
 | ------------------------------------------- | ----------------------------------- | ------------------------------------------------- |
+| Migraciones con Prisma                      | @.claude/rules/migrations.md        | Todo cambio de BD (estructura, funciones, datos)  |
 | NO `:any ni as any` - Inferir tipos         | @.claude/rules/typescript-types.md  | Siempre al escribir codigo TypeScript             |
 | Server Actions (ubicacion, formato)         | @.claude/rules/server-actions.md    | Al crear/modificar server actions                 |
 | Logger vs console.\* (REEMPLAZO AUTOMATICO) | @.claude/rules/logger.md            | Siempre - reemplazar console.\* cuando se detecte |

@@ -101,7 +101,20 @@ nueva_tab: {
 }
 ```
 
-### 3. Insertar en Base de Datos (usar MCP de Supabase)
+### 3. Insertar Datos en Base de Datos (migracion Prisma con SQL custom)
+
+Los inserts de datos (tabs, permisos) se hacen con una **migracion Prisma vacia** que contiene el SQL:
+
+```bash
+# 1. Crear migracion vacia
+npx prisma migrate dev --create-only --name add_nueva_tab_permissions
+# 2. Escribir el SQL en el archivo generado en prisma/migrations/
+# 3. Aplicar la migracion
+npx prisma migrate dev
+# 4. Verificar con MCP supabase-LOCAL (readonly) que los datos se insertaron
+```
+
+**SQL de ejemplo para el archivo de migracion:**
 
 ```sql
 -- 1. Insertar la tab
