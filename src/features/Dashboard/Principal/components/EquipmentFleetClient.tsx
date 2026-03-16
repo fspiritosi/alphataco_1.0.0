@@ -86,7 +86,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
   const availabilityConfig = React.useMemo<ChartConfig>(
     () => ({
-      disponibles: { label: 'Disponibles', color: 'var(--chart-2)' },
+      disponibles: { label: 'Operativos', color: 'var(--chart-2)' },
       noDisponibles: { label: 'No disponibles', color: 'var(--chart-1)' },
     }),
     []
@@ -94,7 +94,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
   const availabilityData = React.useMemo(
     () => [
-      { name: 'Disponibles', value: totalActive, fill: 'var(--chart-2)' },
+      { name: 'Operativos', value: totalActive, fill: 'var(--chart-2)' },
       { name: 'No disponibles', value: totalNotAvailable, fill: 'var(--chart-1)' },
     ],
     [totalActive, totalNotAvailable]
@@ -102,16 +102,16 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
   const usageConfig = React.useMemo<ChartConfig>(
     () => ({
-      enUso: { label: 'En uso', color: 'var(--chart-5)' },
-      sinUsar: { label: 'Sin usar', color: 'var(--chart-4)' },
+      enUso: { label: 'En Operaciones', color: 'var(--chart-5)' },
+      sinUsar: { label: 'Disponible / Sin asignar', color: 'var(--chart-4)' },
     }),
     []
   );
 
   const usageData = React.useMemo(
     () => [
-      { name: 'En uso', value: totalInUse, fill: 'var(--chart-5)' },
-      { name: 'Sin usar', value: totalActive - totalInUse, fill: 'var(--chart-4)' },
+      { name: 'En Operaciones', value: totalInUse, fill: 'var(--chart-5)' },
+      { name: 'Disponible / Sin asignar', value: totalActive - totalInUse, fill: 'var(--chart-4)' },
     ],
     [totalInUse, totalActive]
   );
@@ -119,7 +119,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
   // Motor units donut data
   const motorAvailabilityConfig = React.useMemo<ChartConfig>(
     () => ({
-      disponibles: { label: 'Disponibles', color: '#34C759' },
+      disponibles: { label: 'Operativos', color: '#34C759' },
       noDisponibles: { label: 'No disponibles', color: '#e74c3c' },
     }),
     []
@@ -127,7 +127,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
   const motorAvailabilityData = React.useMemo(
     () => [
-      { name: 'Disponibles', value: motorActive, fill: '#34C759' },
+      { name: 'Operativos', value: motorActive, fill: '#34C759' },
       { name: 'No disponibles', value: motorNotAvailable, fill: '#e74c3c' },
     ],
     [motorActive, motorNotAvailable]
@@ -135,16 +135,16 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
   const motorUsageConfig = React.useMemo<ChartConfig>(
     () => ({
-      enUso: { label: 'En uso', color: '#3a86ff' },
-      disponibles: { label: 'Disponibles', color: '#06d6a0' },
+      enUso: { label: 'En Operaciones', color: '#3a86ff' },
+      disponibles: { label: 'Disponible / Sin asignar', color: '#06d6a0' },
     }),
     []
   );
 
   const motorUsageData = React.useMemo(
     () => [
-      { name: 'En uso', value: motorInUse, fill: '#3a86ff' },
-      { name: 'Disponibles', value: motorActive - motorInUse, fill: '#06d6a0' },
+      { name: 'En Operaciones', value: motorInUse, fill: '#3a86ff' },
+      { name: 'Disponible / Sin asignar', value: motorActive - motorInUse, fill: '#06d6a0' },
     ],
     [motorInUse, motorActive]
   );
@@ -185,7 +185,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                   <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">{motorActive.toLocaleString('es-AR')}</p>
-                      <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                      <p className="text-[10px] text-muted-foreground">Operativos</p>
                     </div>
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">{motorNotAvailable.toLocaleString('es-AR')}</p>
@@ -205,7 +205,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                     data={motorUsageData}
                     config={motorUsageConfig}
                     centerValue={motorActive}
-                    centerLabel="Disponibles"
+                    centerLabel="Operativos"
                   />
                   <div className="flex gap-3 justify-center flex-wrap">
                     {motorUsageData.map((d) => (
@@ -218,17 +218,17 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                   <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">{motorInUse.toLocaleString('es-AR')}</p>
-                      <p className="text-[10px] text-muted-foreground">En uso</p>
+                      <p className="text-[10px] text-muted-foreground">En Operaciones</p>
                     </div>
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">
                         {(motorActive - motorInUse).toLocaleString('es-AR')}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                      <p className="text-[10px] text-muted-foreground">Disponible / Sin asignar</p>
                     </div>
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">{motorActive.toLocaleString('es-AR')}</p>
-                      <p className="text-[10px] text-muted-foreground">Total disponibles</p>
+                      <p className="text-[10px] text-muted-foreground">Total operativos</p>
                     </div>
                   </div>
                   <RadialGauge value={motorUsagePercent} label="Eficiencia de uso" accentColor="#3a86ff" />
@@ -260,7 +260,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
               <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
                 <div className="rounded-lg border p-2">
                   <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                  <p className="text-[10px] text-muted-foreground">Operativos</p>
                 </div>
                 <button
                   type="button"
@@ -285,7 +285,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                 data={usageData}
                 config={usageConfig}
                 centerValue={totalActive}
-                centerLabel="Disponibles"
+                centerLabel="Operativos"
               />
               <div className="flex gap-3 justify-center flex-wrap">
                 {usageData.map((d) => (
@@ -299,15 +299,15 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
               <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
                 <div className="rounded-lg border p-2">
                   <p className="text-lg font-bold tabular-nums">{totalInUse.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">En uso</p>
+                  <p className="text-[10px] text-muted-foreground">En Operaciones</p>
                 </div>
                 <div className="rounded-lg border p-2">
                   <p className="text-lg font-bold tabular-nums">{(totalActive - totalInUse).toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Sin usar</p>
+                  <p className="text-[10px] text-muted-foreground">Disponible / Sin asignar</p>
                 </div>
                 <div className="rounded-lg border p-2">
                   <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                  <p className="text-[10px] text-muted-foreground">Operativos</p>
                 </div>
               </div>
               <RadialGauge value={usagePercent} label="Uso" accentColor="var(--chart-5)" />
@@ -318,7 +318,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
               <span className="font-semibold">Disponibilidad</span> = Total de flota − Equipos en reparacion
             </p>
             <p className="text-[11px] text-muted-foreground text-center">
-              <span className="font-semibold">Uso</span> = Equipos disponibles − Equipos en uso
+              <span className="font-semibold">Uso</span> = Equipos operativos − Equipos en operaciones
             </p>
           </div>
         </CardContent>

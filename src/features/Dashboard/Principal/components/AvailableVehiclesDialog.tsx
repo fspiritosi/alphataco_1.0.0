@@ -215,9 +215,9 @@ export default function AvailableVehiclesDialog({ open, onOpenChange, count, typ
     () => ({
       fetchAllData: () => getAvailableVehiclesForExport(currentParams, typeIds),
       options: {
-        filename: 'vehiculos-disponibles',
-        sheetName: 'Vehiculos Disponibles',
-        title: 'Vehiculos Disponibles',
+        filename: 'vehiculos-disponibles-sin-asignar',
+        sheetName: 'Disponible - Sin asignar',
+        title: 'Disponible - Sin asignar',
       },
       formatters: {
         vehicleType: (_val: unknown, row: AvailableVehicleItem) => row.type_vehicles_typeTotype?.name ?? '-',
@@ -236,7 +236,7 @@ export default function AvailableVehiclesDialog({ open, onOpenChange, count, typ
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Vehiculos Disponibles ({count})</DialogTitle>
+          <DialogTitle>Disponible / Sin asignar ({count})</DialogTitle>
           <DialogDescription>Vehiculos operativos que no estan en el parte diario de hoy.</DialogDescription>
         </DialogHeader>
 
