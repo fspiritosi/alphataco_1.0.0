@@ -22,7 +22,7 @@ const AvailableVehiclesDialog = dynamic(() => import('./AvailableVehiclesDialog'
 
 const chartConfig = {
   disponibles: {
-    label: 'Disponibles',
+    label: 'Operativos',
     color: 'var(--chart-2)',
   },
   fueraDeServicio: {
@@ -70,9 +70,9 @@ export function EquipmentOperationClient({
 
   const stats = React.useMemo(
     () => [
-      { label: 'Disponibles', value: totalActive },
-      { label: 'En Uso', value: totalInUse },
-      { label: 'Disponibles', value: totalAvailable, onClick: () => setDialogOpen(true) },
+      { label: 'Operativos', value: totalActive },
+      { label: 'En Operaciones', value: totalInUse },
+      { label: 'Disponible / Sin asignar', value: totalAvailable, onClick: () => setDialogOpen(true) },
     ],
     [totalActive, totalInUse, totalAvailable]
   );
@@ -91,7 +91,7 @@ export function EquipmentOperationClient({
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <CardTitle className="text-base">Estado de Equipos</CardTitle>
-              <CardDescription>Disponibles, Fuera de Servicio y Trabajando por Tipo</CardDescription>
+              <CardDescription>Operativos, Fuera de Servicio y En Operaciones por Tipo</CardDescription>
             </div>
             <CookieFilter
               cookieName="type-filter"
@@ -160,7 +160,7 @@ export function EquipmentOperationClient({
           </div>
           <RadialGauge value={usagePercentage} label="Operatividad" accentColor="var(--chart-2)" />
           <p className="text-[11px] text-muted-foreground mt-4 pt-3 border-t text-center">
-            <span className="font-semibold">Indicador</span> = Equipos disponibles − Equipos en uso
+            <span className="font-semibold">Indicador</span> = Equipos operativos − Equipos en operaciones
           </p>
         </CardContent>
       </Card>
