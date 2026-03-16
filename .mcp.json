@@ -2,7 +2,7 @@
   "mcpServers": {
     "supabase-LOCAL": {
       "type": "http",
-      "url": "http://127.0.0.1:54321/mcp"
+      "url": "http://127.0.0.1:54321/mcp?read_only=true"
     },
     "supabase-PROD": {
       "type": "http",
@@ -10,7 +10,7 @@
     },
     "supabase-DEV": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=xgiagugeighnfrmnkeuu"
+      "url": "https://mcp.supabase.com/mcp?project_ref=pdrylqbztmpgawsfdsbr&read_only=true"
     },
     "shadcn": {
       "command": "cmd",
