@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { pdf } from '@react-pdf/renderer';
 import moment from 'moment';
 import dynamic from 'next/dynamic';

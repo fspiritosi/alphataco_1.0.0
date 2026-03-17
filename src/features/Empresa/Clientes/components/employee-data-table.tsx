@@ -30,7 +30,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ColumnVisibilityToggle } from '@/shared/components/common/ColumnVisibilityToggle';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[] | any;

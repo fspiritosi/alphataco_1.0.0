@@ -1,9 +1,9 @@
 'use client';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 // import { supabase } from '../../supabase/supabase';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { company } from './../types/types';
-import { useEdgeFunctions } from './useEdgeFunctions';
+import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
+import { company } from '@/shared/types/legacy';
 //import { industry } from './../types/types';
 
 export const useCompanyData = () => {

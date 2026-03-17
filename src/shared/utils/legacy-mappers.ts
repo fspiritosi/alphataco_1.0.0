@@ -1,10 +1,10 @@
+import { supabaseServer } from '@/lib/supabase/server';
 import {
   CompaniesTableOptions,
   DocumentsTableOptions,
   EmployeesTableOptions,
   VehiclesTableOptions,
-} from '@/types/types';
-import { supabaseServer } from '../supabase/server';
+} from '@/shared/types/legacy';
 export const formatDate = (dateString: string) => {
   if (!dateString) return 'No vence';
   const [day, month, year] = dateString.split('/');

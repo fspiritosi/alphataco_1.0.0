@@ -16,7 +16,7 @@ import {
   TextField,
   TitleField,
 } from '@/features/Formularios/components/forms/Inputs';
-import { FormField } from '@/types/types';
+import { FormField } from '@/shared/types/legacy';
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
 

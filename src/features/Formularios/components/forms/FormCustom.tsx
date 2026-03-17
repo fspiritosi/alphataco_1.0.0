@@ -18,8 +18,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { COMPANIES_TABLE, DOCUMENTS_TABLE, EMPLOYEES_TABLE, VEHICLES_TABLE } from '@/lib/utils/utils';
-import { Campo, types } from '@/types/types';
+import { Campo, types } from '@/shared/types/legacy';
+import { COMPANIES_TABLE, DOCUMENTS_TABLE, EMPLOYEES_TABLE, VEHICLES_TABLE } from '@/shared/utils/legacy-mappers';
 import { InfoCircledIcon, PlusCircledIcon, TrashIcon } from '@radix-ui/react-icons';
 import { AnimatePresence, Reorder, motion } from 'framer-motion';
 import { ChangeEvent, Dispatch, SetStateAction, useState } from 'react';

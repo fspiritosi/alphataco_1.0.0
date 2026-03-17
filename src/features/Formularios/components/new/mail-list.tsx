@@ -21,7 +21,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { InfoCircledIcon, PlusCircledIcon, TrashIcon } from '@radix-ui/react-icons';
 import { Reorder } from 'framer-motion';
 import { useState } from 'react';

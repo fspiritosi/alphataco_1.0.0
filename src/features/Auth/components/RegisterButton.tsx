@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { signup } from '@/features/Auth/actions/register-actions';
 import { handleSupabaseError } from '@/lib/errorHandler';
-import { registerSchema } from '@/zodSchemas/schemas';
+import { registerSchema } from '@/shared/schemas/schemas';
 import { Loader2Icon } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';

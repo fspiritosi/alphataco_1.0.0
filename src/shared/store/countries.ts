@@ -1,9 +1,9 @@
-import { Equipo } from '@/zodSchemas/schemas';
+import { Equipo } from '@/shared/schemas/schemas';
 import cookies from 'js-cookie';
 import { create } from 'zustand';
 // import { supabase } from '../../supabase/supabase';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { MandatoryDocuments } from './../zodSchemas/schemas';
+import { MandatoryDocuments } from '@/shared/schemas/schemas';
 import { useLoggedUserStore } from './loggedUser';
 
 type Province = {

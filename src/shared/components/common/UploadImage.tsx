@@ -1,11 +1,11 @@
 'use client';
-import { Input } from '@/components/ui/input';
-import { useImageUpload } from '@/hooks/useUploadImage';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import React, { ChangeEvent, useState } from 'react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FormDescription, FormLabel } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { handleSupabaseError } from '@/lib/errorHandler';
+import { useImageUpload } from '@/shared/hooks/useUploadImage';
+import React, { ChangeEvent, useState } from 'react';
+import { toast } from 'sonner';
 require('dotenv').config();
 interface UploadImageProps {
   onImageChange: (imageUrl: string) => void;

@@ -46,7 +46,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useDailyReportFormStore } from '@/store/dailyReportFormStore';
+import { useDailyReportFormStore } from '@/features/Operaciones/PartesDiarios/store/dailyReportFormStore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import moment from 'moment';

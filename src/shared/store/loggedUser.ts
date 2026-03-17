@@ -1,6 +1,6 @@
 import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
-import { Notifications, SharedUser, VehiclesAPI, profileUser } from '@/types/types';
-import { Company, SharedCompanies, Vehicle } from '@/zodSchemas/schemas';
+import { Company, SharedCompanies, Vehicle } from '@/shared/schemas/schemas';
+import { Notifications, SharedUser, VehiclesAPI, profileUser } from '@/shared/types/legacy';
 import { User } from '@supabase/supabase-js';
 import cookies from 'js-cookie';
 import moment from 'moment';

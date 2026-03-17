@@ -20,7 +20,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
-import { TypeOfRepair } from '@/types/types';
+import { TypeOfRepair } from '@/shared/types/legacy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';

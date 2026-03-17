@@ -1,10 +1,10 @@
 'use strict';
+import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { clsx, type ClassValue } from 'clsx';
 import moment from 'moment';
 import { twMerge } from 'tailwind-merge';
 import { supabaseBrowser } from './supabase/browser';
 import { supabaseServer } from './supabase/server';
-import { formatDocumentTypeName } from './utils/utils';
 // eslint-disable-next-line react-hooks/rules-of-hooks
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

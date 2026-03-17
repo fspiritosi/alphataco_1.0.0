@@ -1,5 +1,5 @@
 'use client';
-import { company } from '@/types/types';
+import { company } from '@/shared/types/legacy';
 interface CompanyRegisterProps {
   company?: company | null;
   formEnabled?: boolean;

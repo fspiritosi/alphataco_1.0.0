@@ -7,7 +7,7 @@ import { EyeIcon } from '@/components/ui/icons/openEye';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { updatePasswordAction } from '@/features/Auth/actions/auth-actions';
-import { changePassSchema } from '@/zodSchemas/schemas';
+import { changePassSchema } from '@/shared/schemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

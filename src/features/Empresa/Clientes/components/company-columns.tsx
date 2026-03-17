@@ -17,8 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { SharedUser } from '@/zodSchemas/schemas';
+import { SharedUser } from '@/shared/schemas/schemas';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';

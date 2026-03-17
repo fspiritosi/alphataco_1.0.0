@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
-import type { TypeOfRepair } from '@/types/types';
+import type { TypeOfRepair } from '@/shared/types/legacy';
 import { AlertTriangle, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CriticalDeviationsRepairModal } from './critical-deviations-repair-modal';

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { getCompanyDetails } from '@/features/Ayuda/actions/company-details';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import Cookies from 'js-cookie';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';

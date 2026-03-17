@@ -1,7 +1,7 @@
 'use client';
-import { useEditButton } from '@/store/editState';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useEditButton } from '@/shared/store/editState';
+import { useRouter } from 'next/navigation';
 
 function BackButton({ size }: { size?: any }) {
   const router = useRouter();

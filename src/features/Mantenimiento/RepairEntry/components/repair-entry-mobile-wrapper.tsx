@@ -13,7 +13,7 @@
 // import { Badge } from '@/components/ui/badge';
 // import { Button } from '@/components/ui/button';
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import type { TypeOfRepair } from '@/types/types';
+// import type { TypeOfRepair } from '@/shared/types/legacy';
 // import type { VisibilityState } from '@tanstack/react-table';
 // import Image from 'next/image';
 // import { FiTool } from 'react-icons/fi';

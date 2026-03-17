@@ -4,7 +4,7 @@ import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equ
 import { fetchMaintenanceChecklists } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
-import { TypeOfRepair } from '@/types/types';
+import { TypeOfRepair } from '@/shared/types/legacy';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 

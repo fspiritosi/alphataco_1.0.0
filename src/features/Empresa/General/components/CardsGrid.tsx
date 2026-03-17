@@ -1,5 +1,5 @@
 import { formatCompanyName } from '@/lib/utils';
-import { Company } from '@/zodSchemas/schemas';
+import { Company } from '@/shared/schemas/schemas';
 import React from 'react';
 
 interface CardsGridProps {

@@ -5,7 +5,7 @@ import { Form } from '@/components/ui/form';
 import FieldRenderer from '@/features/Formularios/utils/fieldRenderer';
 import { buildFormData, buildFormSchema } from '@/features/Formularios/utils/formUtils';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { FormField } from '@/types/types';
+import { FormField } from '@/shared/types/legacy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';

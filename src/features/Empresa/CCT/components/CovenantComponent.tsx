@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createdContact, updateContact } from '@/features/Empresa/Contactos/components/create';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { covenantSchema } from '@/zodSchemas/schemas';
+import { covenantSchema } from '@/shared/schemas/schemas';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';

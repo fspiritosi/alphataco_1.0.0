@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { resetPasswordAction } from '@/features/Auth/actions/auth-actions';
-import { recoveryPassSchema } from '@/zodSchemas/schemas';
+import { recoveryPassSchema } from '@/shared/schemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';

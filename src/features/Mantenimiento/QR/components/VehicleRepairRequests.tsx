@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RepairsSolicituds } from '@/types/types';
+import { RepairsSolicituds } from '@/shared/types/legacy';
 import moment from 'moment';
 import Image from 'next/image';
 import { useState } from 'react';

@@ -1,4 +1,4 @@
-import { FormField } from '@/types/types';
+import { FormField } from '@/shared/types/legacy';
 import { z } from 'zod';
 
 export const buildFormData = (campos: any[] | null, isPreview: boolean): FormField[] => {

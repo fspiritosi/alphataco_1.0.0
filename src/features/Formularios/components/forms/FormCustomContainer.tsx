@@ -1,5 +1,5 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { FormData } from '@/types/types';
+import { FormData } from '@/shared/types/legacy';
 import { cookies } from 'next/headers';
 import FormCardContainer from './FormCardContainer';
 

@@ -10,7 +10,7 @@
 
 // import RepairNewEntry from '@/features/Mantenimiento/TiposReparaciones/RepairEntry';
 // import type { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
-// import type { TypeOfRepair } from '@/types/types';
+// import type { TypeOfRepair } from '@/shared/types/legacy';
 // import type { VisibilityState } from '@tanstack/react-table';
 // import { useRouter } from 'next/navigation';
 

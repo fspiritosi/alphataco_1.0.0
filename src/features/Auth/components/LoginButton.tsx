@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { login } from '@/features/Auth/actions/login-actions';
 import { Logger } from '@/lib/logger';
-import { loginSchema } from '@/zodSchemas/schemas';
+import { loginSchema } from '@/shared/schemas/schemas';
 import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';

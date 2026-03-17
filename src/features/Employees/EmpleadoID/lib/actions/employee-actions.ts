@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import type { Employee } from '@/types/types';
+import type { Employee } from '@/shared/types/legacy';
 import { cookies } from 'next/headers';
 
 const logger = new Logger('features/Employees/employee-actions');

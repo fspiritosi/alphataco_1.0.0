@@ -14,7 +14,7 @@ import { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/Tipos
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { TypeOfRepair } from '@/types/types';
+import { TypeOfRepair } from '@/shared/types/legacy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown, Package, Plus, Trash2, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';

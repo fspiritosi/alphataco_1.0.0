@@ -4,7 +4,7 @@ import { fetchMaintenanceGroupsAction } from '@/features/Mantenimiento/TiposRepa
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
-import { TypeOfRepair } from '@/types/types';
+import { TypeOfRepair } from '@/shared/types/legacy';
 import { redirect } from 'next/navigation';
 
 export default async function RequestMaintenancePage({

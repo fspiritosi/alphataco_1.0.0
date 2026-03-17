@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { formatCompanyName } from '@/lib/utils';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { company } from '@/types/types';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { company } from '@/shared/types/legacy';
 import React, { useState } from 'react';
 import Modal from 'react-modal';
 import { CompanyRegister } from './CompanyRegister'; // Importa tu formulario de registro de compañía

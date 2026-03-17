@@ -5,7 +5,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCaption, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { FormData } from '@/types/types';
+import { FormData } from '@/shared/types/legacy';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import FormCard from './FormCard';

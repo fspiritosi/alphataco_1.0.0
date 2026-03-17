@@ -2,7 +2,7 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/toaster';
 import { usePermissions } from '@/features/Permissions';
-import { Position } from '@/types/types';
+import { Position } from '@/shared/types/legacy';
 import { VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import PositionsForm from './positionsForm';

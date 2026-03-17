@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { RepairsSolicituds, TypeOfRepair } from '@/types/types';
+import { RepairsSolicituds, TypeOfRepair } from '@/shared/types/legacy';
 import { LapTimerIcon } from '@radix-ui/react-icons';
 import { User } from '@supabase/supabase-js';
 import { VisibilityState } from '@tanstack/react-table';

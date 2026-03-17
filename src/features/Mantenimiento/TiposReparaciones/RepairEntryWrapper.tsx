@@ -14,7 +14,7 @@ import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equ
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import InfoComponent from '@/shared/components/common/InfoComponent';
-import { TypeOfRepair } from '@/types/types';
+import { TypeOfRepair } from '@/shared/types/legacy';
 import { FileText, Files } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';

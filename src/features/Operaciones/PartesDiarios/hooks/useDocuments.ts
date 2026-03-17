@@ -1,9 +1,9 @@
 'use client';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { Documents, DocumentsTable } from '@/types/types';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { Documents, DocumentsTable } from '@/shared/types/legacy';
 // import { supabase } from '../../supabase/supabase';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useEdgeFunctions } from './useEdgeFunctions';
+import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
 require('dotenv').config();
 export const useDocument = () => {
   const { errorTranslate } = useEdgeFunctions();

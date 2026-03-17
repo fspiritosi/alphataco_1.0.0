@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
-import { formatDocumentTypeName } from '@/lib/utils/utils';
+import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonIcon } from '@radix-ui/react-icons';
 import type { Row } from '@tanstack/react-table';

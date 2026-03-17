@@ -14,12 +14,12 @@ import {
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Table, TableBody, TableCaption, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { Campo } from '@/types/types';
+import { Campo } from '@/shared/types/legacy';
 import { useEffect, useState } from 'react';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { types } from '@/types/types';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { types } from '@/shared/types/legacy';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import cookie from 'js-cookie';

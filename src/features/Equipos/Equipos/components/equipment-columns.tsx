@@ -36,13 +36,13 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
+import { termination_reason_enum } from '@/features/Equipos/types/enums';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useCountriesStore } from '@/store/countries';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { termination_reason_enum } from '@/types/enums';
+import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
+import { useCountriesStore } from '@/shared/store/countries';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DotsVerticalIcon } from '@radix-ui/react-icons';
 import { ColumnDef, FilterFn, Row } from '@tanstack/react-table';

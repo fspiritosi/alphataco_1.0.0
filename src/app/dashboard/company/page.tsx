@@ -1,10 +1,10 @@
 'use client';
 import { CardsGrid } from '@/features/Empresa/General/components/CardsGrid';
 import ModalCompany from '@/features/Empresa/General/components/ModalCompany';
-import { useCompanyData } from '@/hooks/useCompanyData';
+import { useCompanyData } from '@/features/Empresa/General/hooks/useCompanyData';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useLoggedUserStore } from '@/store/loggedUser';
-import { company } from '@/types/types';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { company } from '@/shared/types/legacy';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Modal from 'react-modal';

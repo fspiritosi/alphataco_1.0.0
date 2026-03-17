@@ -1,7 +1,7 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Campo, types } from '@/types/types';
+import { Campo, types } from '@/shared/types/legacy';
 import { useState } from 'react';
 import { FormCustom } from './FormCustom';
 import { FormDisplay } from './FormDisplay';

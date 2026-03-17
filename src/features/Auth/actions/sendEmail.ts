@@ -1,6 +1,6 @@
 'use server';
 
-import { renderDocumentEmailTemplate, renderHelpEmailTemplate } from '@/lib/emailTemplates';
+import { renderDocumentEmailTemplate, renderHelpEmailTemplate } from '@/features/Auth/utils/emailTemplates';
 import nodemailer from 'nodemailer';
 
 // Validar variables de entorno requeridas
