@@ -1,5 +1,4 @@
 'use client';
-import SimpleDocument from '@/components/SimpleDocument';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDocument';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';

@@ -1,7 +1,7 @@
-import { UpdateUserPasswordForm } from '@/components/UpdateUserPasswordForm';
+import { UpdateUserPasswordForm } from '@/features/Auth/components/UpdateUserPasswordForm';
 
-import RenderBanner from '@/components/RenderBanner';
 import { CardDescription, CardTitle } from '@/components/ui/card';
+import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 

@@ -1,12 +1,12 @@
-import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
-import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
-import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
 import { RepairSolicitudesTabContent } from '@/features/Mantenimiento/RepairSolicitudes/RepairSolicitudesTabContent';
 import { RepairSolicitudesSkeleton } from '@/features/Mantenimiento/RepairSolicitudes/fallback/RepairSolicitudesSkeleton';
+import MaintenanceGroupsWrapper from '@/features/Mantenimiento/TiposReparaciones/MaintenanceGroupsWrapper';
+import RepairEntryWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairEntryWrapper';
+import RepairTypeFormWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairTypeFormWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { AlertTriangle, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';

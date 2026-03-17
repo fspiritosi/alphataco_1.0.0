@@ -9,8 +9,8 @@
 // 'use client';
 
 // import type { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-// import RepairNewEntry from '@/components/Tipos_de_reparaciones/RepairEntry';
-// import type { fetchMaintenanceGroupsActionType } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
+// import RepairNewEntry from '@/features/Mantenimiento/TiposReparaciones/RepairEntry';
+// import type { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
 // import type { TypeOfRepair } from '@/types/types';
 // import type { VisibilityState } from '@tanstack/react-table';
 // import { useRouter } from 'next/navigation';

@@ -9,8 +9,8 @@
 // 'use client';
 
 // import type { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-// import RepairNewEntry from '@/components/Tipos_de_reparaciones/RepairEntry';
-// import type { fetchMaintenanceGroupsActionType } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
+// import RepairNewEntry from '@/features/Mantenimiento/TiposReparaciones/RepairEntry';
+// import type { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
 // import { Badge } from '@/components/ui/badge';
 // import { Button } from '@/components/ui/button';
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

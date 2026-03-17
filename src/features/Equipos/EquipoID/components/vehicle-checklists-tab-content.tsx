@@ -2,11 +2,11 @@
 
 import { getPendingDeviations } from '@/app/maintenance/actions';
 import { getChecklistAnswersByEquipment } from '@/app/server/GET/actions';
-import { PendingDeviationsAlert } from '@/components/maintenance/pending-deviations-alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PendingDeviationsAlert } from '@/features/Mantenimiento/shared/components/pending-deviations-alert';
 import { Calendar, CheckCircle, ClipboardList, Link as LinkIcon, User, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';

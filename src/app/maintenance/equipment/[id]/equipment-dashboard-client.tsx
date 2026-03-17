@@ -1,11 +1,11 @@
 'use client';
 
-import { ActionButton } from '@/components/maintenance/action-button';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
-import { PendingDeviationsAlert } from '@/components/maintenance/pending-deviations-alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ActionButton } from '@/features/Mantenimiento/shared/components/action-button';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
+import { PendingDeviationsAlert } from '@/features/Mantenimiento/shared/components/pending-deviations-alert';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import {
   AlertCircle,

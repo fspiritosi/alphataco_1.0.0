@@ -1,7 +1,7 @@
-import { RecoveryPasswordForm } from '@/components/RecoveryPasswordForm';
+import { RecoveryPasswordForm } from '@/features/Auth/components/RecoveryPasswordForm';
 
-import RenderBanner from '@/components/RenderBanner';
 import { CardTitle } from '@/components/ui/card';
+import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 export default function PasswordRecovery() {

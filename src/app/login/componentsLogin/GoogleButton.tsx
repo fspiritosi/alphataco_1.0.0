@@ -1,6 +1,6 @@
 'use client';
-import { GoogleIcon } from '@/components/svg/google';
 import { Button } from '@/components/ui/button';
+import { GoogleIcon } from '@/components/ui/icons/google';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import { googleLogin } from '../actions';

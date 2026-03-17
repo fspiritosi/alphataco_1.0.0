@@ -1,6 +1,6 @@
 'use client';
-import { DataTableViewOptions } from '@/components/CheckList/tables/data-table-view-options';
 import { Button } from '@/components/ui/button';
+import { DataTableViewOptions } from '@/features/Formularios/Checklists/tables/data-table-view-options';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import { Table } from '@tanstack/react-table';
 import { LampDesk } from 'lucide-react';

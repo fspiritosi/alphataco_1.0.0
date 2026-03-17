@@ -1,4 +1,4 @@
-import DocumentNav from '@/components/DocumentNav';
+import DocumentNav from '@/features/Documentacion/shared/components/DocumentNav';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';

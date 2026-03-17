@@ -10,7 +10,7 @@ import { PermissionGuard } from '@/features/Permissions/components/PermissionGua
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
-import { useDailyReportFormStore } from '@/stores/dailyReportFormStore';
+import { useDailyReportFormStore } from '@/store/dailyReportFormStore';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info, Loader2 } from 'lucide-react';
 import moment from 'moment';

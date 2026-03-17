@@ -1,6 +1,5 @@
 'use client';
 
-import SimpleDocument from '@/components/SimpleDocument';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDocument';
 import { saveAs } from 'file-saver';
 
 import { Badge } from '@/components/ui/badge';

@@ -1,10 +1,10 @@
-import BackButton from '@/components/BackButton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { getDailyReportByIdOnlyDate } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportDetailTableServerWrapper from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableServerWrapper';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import BackButton from '@/shared/components/common/BackButton';
 import { dailyReportStatusBadges, dailyReportStatusLabels } from '@/shared/utils/mappers';
 import { FileText } from 'lucide-react';
 import moment from 'moment';

@@ -1,6 +1,5 @@
 'use client';
 
-import BackButton from '@/components/BackButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { updateEquipmentCondition } from '@/features/Equipos/EquipoID/lib/actions/vehicle-actions';
 import type { OtherEquipmentDetail } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
 import { PermissionGuard } from '@/features/Permissions';
+import BackButton from '@/shared/components/common/BackButton';
 import { CheckCircle2, Clock, Edit, Package } from 'lucide-react';
 import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';

@@ -1,8 +1,8 @@
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
-import { fetchMaintenanceGroupsAction } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
 import { NuevoPedidoForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import { fetchMaintenanceGroupsAction } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
 import { TypeOfRepair } from '@/types/types';
 import { redirect } from 'next/navigation';

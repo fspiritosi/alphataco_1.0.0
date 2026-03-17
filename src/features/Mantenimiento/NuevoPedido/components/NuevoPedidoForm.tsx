@@ -1,7 +1,6 @@
 'use client';
 
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-import { fetchMaintenanceGroupsActionType } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { TypeOfRepair } from '@/types/types';

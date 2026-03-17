@@ -1,9 +1,9 @@
 'use client';
 
-import { EmptyState } from '@/components/maintenance/empty-state';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/features/Mantenimiento/shared/components/empty-state';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { Calendar, ChevronRight, ClipboardList } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';

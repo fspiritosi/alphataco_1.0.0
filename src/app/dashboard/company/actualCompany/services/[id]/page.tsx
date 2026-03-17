@@ -1,6 +1,4 @@
 'use client';
-import BackButton from '@/components/BackButton';
-import EditModal from '@/components/EditModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { supabaseBrowser } from '@/lib/supabase/browser'; // Asegúrate de tener configurado tu cliente de Supabase
+import BackButton from '@/shared/components/common/BackButton';
+import EditModal from '@/shared/components/common/EditModal';
 import cookies from 'js-cookie';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';

@@ -1,8 +1,8 @@
 import { fetchAllEquipment, fetchChecklistAnswerById, getCurrentProfile } from '@/app/server/GET/actions';
-import BackButton from '@/components/BackButton';
-import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
-import { ChecklistPDFDownloadButton } from '@/components/ChecklistPDFDownloadButton';
 import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklist';
+import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { ChecklistPDFDownloadButton } from '@/features/Formularios/components/ChecklistPDFDownloadButton';
+import BackButton from '@/shared/components/common/BackButton';
 import { notFound } from 'next/navigation';
 
 export default async function ChecklistAnswerViewPage({

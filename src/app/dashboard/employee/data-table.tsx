@@ -17,7 +17,6 @@ import {
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
 // import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
-import { ColumnVisibilityToggle } from '@/components/ColumnVisibilityToggle';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -30,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { ColumnVisibilityToggle } from '@/shared/components/common/ColumnVisibilityToggle';
 import { useLoggedUserStore } from '@/store/loggedUser';
 
 interface DataTableProps<TData, TValue> {

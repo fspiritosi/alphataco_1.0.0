@@ -15,7 +15,7 @@ import {
 import { getCustomers } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
-import { useDailyReportFormStore } from '@/stores/useDailyReportFormStore';
+import { useDailyReportFormStore } from '@/store/useDailyReportFormStore';
 import { useQuery } from '@tanstack/react-query';
 import { Filter, Search, X } from 'lucide-react';
 import moment from 'moment';

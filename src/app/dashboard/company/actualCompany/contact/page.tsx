@@ -1,8 +1,8 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import ContactComponent from '@/features/Empresa/Contactos/components/ContactComponent';
 import { cn } from '@/lib/utils';
+import BackButton from '@/shared/components/common/BackButton';
 import { Suspense } from 'react';
-import BackButton from '../../../../../components/BackButton';
-import ContactComponent from '../../../../../components/ContactComponent';
 
 export default async function ContactFormAction({ searchParams, params }: { searchParams: any; params: any }) {
   // const { data } = await supabase

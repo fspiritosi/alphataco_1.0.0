@@ -1,6 +1,6 @@
 // src/app/reset_password/confirm/page.tsx
-import RenderBanner from '@/components/RenderBanner';
 import { CardTitle } from '@/components/ui/card';
+import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
 

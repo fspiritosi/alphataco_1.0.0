@@ -1,13 +1,13 @@
 'use client';
 
-import { CriticalityBadge } from '@/components/maintenance/criticality-badge';
-import { EmptyState } from '@/components/maintenance/empty-state';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
-import { StatusBadge } from '@/components/maintenance/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CriticalityBadge } from '@/features/Mantenimiento/shared/components/criticality-badge';
+import { EmptyState } from '@/features/Mantenimiento/shared/components/empty-state';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
+import { StatusBadge } from '@/features/Mantenimiento/shared/components/status-badge';
 import { Calendar, Car, ChevronRight, ClipboardList, Clock } from 'lucide-react';
 import moment from 'moment';
 import Image from 'next/image';

@@ -1,4 +1,4 @@
-import { HandshakeIcon } from '@/components/Icons';
+import { HandshakeIcon } from '@/shared/components/common/Icons';
 import {
   Building2,
   Calendar,

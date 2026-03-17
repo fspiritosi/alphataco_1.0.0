@@ -1,5 +1,6 @@
 'use client';
-import ModalCompany from '@/components/ModalCompany';
+import { CardsGrid } from '@/features/Empresa/General/components/CardsGrid';
+import ModalCompany from '@/features/Empresa/General/components/ModalCompany';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useLoggedUserStore } from '@/store/loggedUser';
@@ -7,7 +8,6 @@ import { company } from '@/types/types';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Modal from 'react-modal';
-import { CardsGrid } from '../../../components/CardsGrid';
 
 function setupModalAppElement() {
   if (window.document) {

@@ -1,7 +1,7 @@
 'use client';
-import AddCategoryModal from '@/components/AddCategoryModal';
-import AddCovenantModal from '@/components/AddCovenantModal';
-import AddGuildModal from '@/components/AddGuildModal';
+import AddCategoryModal from '@/features/Empresa/CCT/components/AddCategoryModal';
+import AddCovenantModal from '@/features/Empresa/CCT/components/AddCovenantModal';
+import AddGuildModal from '@/features/Empresa/CCT/components/AddGuildModal';
 import { PermissionGuard } from '@/features/Permissions';
 import { ChevronDown, ChevronRight, FileText, FolderClosed, FolderOpen } from 'lucide-react';
 import React, { useState } from 'react';

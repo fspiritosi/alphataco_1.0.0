@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useDailyReportFormStore } from '@/stores/useDailyReportFormStore';
+import { useDailyReportFormStore } from '@/store/useDailyReportFormStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';

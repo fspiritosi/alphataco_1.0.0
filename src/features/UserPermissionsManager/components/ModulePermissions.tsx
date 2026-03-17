@@ -1,6 +1,6 @@
 'use client';
 
-import { HandshakeIcon } from '@/components/Icons';
+import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   AlertDialog,

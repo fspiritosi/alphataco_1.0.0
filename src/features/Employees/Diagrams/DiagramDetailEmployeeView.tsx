@@ -1,11 +1,11 @@
 'use client';
 
-import InfoComponent from '@/components/InfoComponent';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsManagerClientSide } from '@/features/TabsManager';
 import { cn } from '@/lib/utils';
+import InfoComponent from '@/shared/components/common/InfoComponent';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';

@@ -1,7 +1,7 @@
 import { fetchAllEquipment, fetchChecklistTemplateById, getCurrentProfile } from '@/app/server/GET/actions';
-import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
 import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
+import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 

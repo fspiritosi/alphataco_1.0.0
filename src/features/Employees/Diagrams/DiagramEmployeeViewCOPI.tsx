@@ -10,12 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
 
-import InfoComponent from '@/components/InfoComponent';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Form, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import InfoComponent from '@/shared/components/common/InfoComponent';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDownIcon, ArrowUpIcon, FileDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';

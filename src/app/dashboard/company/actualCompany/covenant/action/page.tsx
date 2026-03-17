@@ -1,7 +1,7 @@
-import BackButton from '@/components/BackButton';
-import ConvenantComponent from '@/components/CovenantComponent';
 import { Skeleton } from '@/components/ui/skeleton';
+import ConvenantComponent from '@/features/Empresa/CCT/components/CovenantComponent';
 import { cn } from '@/lib/utils';
+import BackButton from '@/shared/components/common/BackButton';
 import { Suspense } from 'react';
 
 export default async function CovenantFormAction({ searchParams, params }: { searchParams: any; params: any }) {
