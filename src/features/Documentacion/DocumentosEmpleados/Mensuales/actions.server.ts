@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -88,6 +89,7 @@ const MONTHLY_DOCS_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
   // Logs para fecha de última actualización
@@ -104,7 +106,8 @@ const MONTHLY_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -212,7 +215,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     // Filtro base: compañía del empleado
     { employees: { company_id: companyId } },
     // Filtro base: solo tipos de documento mensuales y activos
-    { document_types: { is_it_montlhy: true, is_active: true } },
+    { document_types: { is_it_montlhy: true, is_active: true, ...(!canViewPrivate && { private: { not: true } }) } },
     // Filtro opcional por empleado específico (para vista de detalle)
     ...(employeeId ? [{ applies: employeeId }] : []),
   ];
@@ -299,7 +302,7 @@ export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTab
 
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -347,7 +350,7 @@ export async function getAllMonthlyEmployeeDocumentsForExport(
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -384,13 +387,14 @@ export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTable
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       // Sin filtros activos: solo condiciones base
       return {
         AND: [
           { employees: { company_id: companyId } },
-          { document_types: baseDocumentTypesWhere },
+          { document_types: { ...baseDocumentTypesWhere, ...(!canViewPrivate && { private: { not: true } }) } },
           ...(employeeId ? [{ applies: employeeId }] : []),
         ],
       };
@@ -639,12 +643,19 @@ export async function getMonthlyEmployeeDocumentsSingleFacet(
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       return {
         AND: [
           { employees: { company_id: companyId } },
-          { document_types: { is_it_montlhy: true, is_active: true } },
+          {
+            document_types: {
+              is_it_montlhy: true,
+              is_active: true,
+              ...(!canViewPrivate && { private: { not: true } }),
+            },
+          },
           ...(employeeId ? [{ applies: employeeId }] : []),
         ],
       };
@@ -669,7 +680,7 @@ export async function getMonthlyEmployeeDocumentsSingleFacet(
   }
 
   try {
-    const where = crossWhere(columnId);
+    const where = await crossWhere(columnId);
 
     // ── state (enum directo) ──────────────────────────────────────────────────
     if (columnId === 'state') {

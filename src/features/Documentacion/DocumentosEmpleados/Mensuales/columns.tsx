@@ -298,10 +298,15 @@ export const columns: ColumnDef<MonthlyEmployeeDocumentListItem>[] = [
 function ActionsCell({ row }: { row: MonthlyEmployeeDocumentListItem }) {
   const isPending = row.state === 'pendiente';
   const [open, setOpen] = useState(false);
+  const isPrivateDocType = row.document_types?.private === true;
 
   if (isPending) {
+    // Para tipos privados, verificar permiso upload_private en la tab padre
+    const guardTab = isPrivateDocType ? 'documentos-de-empleados' : 'docs-empleados-mensuales';
+    const guardAction = isPrivateDocType ? 'upload_private' : 'update';
+
     return (
-      <PermissionGuard module="documentacion" tab="docs-empleados-mensuales" action="update">
+      <PermissionGuard module="documentacion" tab={guardTab} action={guardAction}>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">

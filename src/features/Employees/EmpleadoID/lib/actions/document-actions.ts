@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
@@ -14,9 +15,16 @@ type ReasonForTermination = Database['public']['Enums']['reason_for_termination_
 type DocumentState = Database['public']['Enums']['state'];
 
 export async function fetchDocumentTypes() {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase.from('document_types').select('*').order('name', { ascending: true });
+  let query = supabase.from('document_types').select('*').order('name', { ascending: true });
+
+  if (!canViewPrivate) {
+    query = query.eq('private', false);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     logger.error('Error fetching document types', { data: { error } });

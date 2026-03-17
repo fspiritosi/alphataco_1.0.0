@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -68,6 +69,7 @@ const COMPANY_DOC_SELECT = {
       mandatory: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
   profile: {
@@ -87,12 +89,14 @@ const COMPANY_DOC_SELECT = {
  * Construye el WHERE clause compartido entre paginated, export y facets.
  * El parámetro `excludeColumn` permite el cross-filtering en facets.
  */
-function buildWhereClause(
+async function buildWhereClause(
   companyId: string,
   isMonthly: boolean,
   state: ReturnType<typeof parseSearchParams>,
   excludeColumn?: string
 ) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empresa', 'view_private');
+
   // Filtros activos, sin la columna excluida (para cross-filtering)
   const activeFilters = excludeColumn
     ? (() => {
@@ -201,7 +205,7 @@ function buildWhereClause(
     applies: companyId,
     document_types: {
       is_it_montlhy: isMonthly,
-      private: false,
+      ...(!canViewPrivate && { private: { not: true } }),
       ...(mandatoryValues?.length ? { mandatory: mandatoryValues[0] === 'true' } : {}),
     },
     ...facetedWhereWithoutAnd,
@@ -225,7 +229,7 @@ export async function getCompanyDocsPaginated(searchParams: DataTableSearchParam
     delete state.filters['subtab'];
 
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildWhereClause(companyId, isMonthly, state);
+    const where = await buildWhereClause(companyId, isMonthly, state);
 
     // Safe multi-sort: only valid fields, FK via FK_SORT_MAP
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -268,7 +272,7 @@ export async function getAllCompanyDocsForExport(searchParams: DataTableSearchPa
     delete state.filters['tab'];
     delete state.filters['subtab'];
 
-    const where = buildWhereClause(companyId, isMonthly, state);
+    const where = await buildWhereClause(companyId, isMonthly, state);
 
     const data = await prisma.documents_company.findMany({
       orderBy: [{ document_types: { name: 'asc' } }],
@@ -316,48 +320,55 @@ export async function getCompanyDocsFacets(isMonthly: boolean, searchParams?: Da
   }
 
   // Helper: WHERE con todos los filtros excepto el de la columna indicada
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState) return buildWhereClause(companyId, isMonthly, parseSearchParams({}));
     return buildWhereClause(companyId, isMonthly, parsedState, excludeColumn);
   }
 
   try {
+    const [stateWhere, uploadedByWhere, docTypeWhere, mandatoryWhere] = await Promise.all([
+      crossWhere('state'),
+      crossWhere('uploadedBy'),
+      crossWhere('documentType'),
+      crossWhere('mandatory'),
+    ]);
+
     // State counts
     const stateCounts = await prisma.documents_company.groupBy({
       by: ['state'],
-      where: crossWhere('state'),
+      where: stateWhere,
       _count: true,
     });
 
     // User_id counts (uploadedBy)
     const uploadedByCounts = await prisma.documents_company.groupBy({
       by: ['user_id'],
-      where: crossWhere('uploadedBy'),
+      where: uploadedByWhere,
       _count: true,
     });
 
     // document_type counts — need to count by id_document_types
     const docTypeCounts = await prisma.documents_company.groupBy({
       by: ['id_document_types'],
-      where: crossWhere('documentType'),
+      where: docTypeWhere,
       _count: true,
     });
 
     // Mandatory — count per boolean value (from document_types)
     const mandatoryTrueCount = await prisma.documents_company.count({
       where: {
-        ...crossWhere('mandatory'),
+        ...mandatoryWhere,
         document_types: {
-          ...(crossWhere('mandatory') as { document_types?: Record<string, unknown> }).document_types,
+          ...(mandatoryWhere as { document_types?: Record<string, unknown> }).document_types,
           mandatory: true,
         },
       },
     });
     const mandatoryFalseCount = await prisma.documents_company.count({
       where: {
-        ...crossWhere('mandatory'),
+        ...mandatoryWhere,
         document_types: {
-          ...(crossWhere('mandatory') as { document_types?: Record<string, unknown> }).document_types,
+          ...(mandatoryWhere as { document_types?: Record<string, unknown> }).document_types,
           mandatory: false,
         },
       },
