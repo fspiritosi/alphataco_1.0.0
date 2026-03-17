@@ -1,5 +1,5 @@
-import { fetchAllProvinces } from '@/app/server/GET/actions';
 import { Card } from '@/components/ui/card';
+import { fetchAllProvinces } from '@/features/Comercial/actions/location-actions';
 import { cookies } from 'next/headers';
 import { fechAllCustomers, fetchAreasWithProvinces } from '../../../Empresa/Clientes/actions/create';
 import CustomerTab from '../../../Empresa/Clientes/components/customerTab';

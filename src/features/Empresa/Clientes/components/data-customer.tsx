@@ -2,9 +2,6 @@
 
 import React from 'react';
 
-import { EquipmentColums } from '@/app/dashboard/equipment/columns';
-import { EquipmentTable } from '@/app/dashboard/equipment/data-equipment';
-import { fetchAllEquipment } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -12,7 +9,10 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { EquipmentTable } from '@/features/Equipos/Equipos/components/data-equipment';
+import { EquipmentColums } from '@/features/Equipos/Equipos/components/equipment-columns';
 import { PermissionGuard } from '@/features/Permissions';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 // import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { fetchAllEmployees2 } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';

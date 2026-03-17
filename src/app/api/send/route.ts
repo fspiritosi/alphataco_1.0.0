@@ -1,6 +1,6 @@
 'use server';
 
-import { renderDocumentEmailTemplate, renderHelpEmailTemplate } from '@/lib/emailTemplates';
+import { renderDocumentEmailTemplate, renderHelpEmailTemplate } from '@/features/Auth/utils/emailTemplates';
 import { supabaseServer } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';

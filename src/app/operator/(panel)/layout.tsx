@@ -1,7 +1,7 @@
 import { getOperatorContext } from '@/features/OperatorPanel/actions/actionsServer';
 import { OperatorHeader } from '@/features/OperatorPanel/components/OperatorHeader';
+import { OperatorLayoutProvider } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { redirect } from 'next/navigation';
-import { OperatorLayoutProvider } from '../operator-layout-provider';
 
 export const metadata = {
   title: 'Panel de Operario - Taller',

@@ -1,6 +1,6 @@
 // 'use client'
 // import { Skeleton } from '@/components/ui/skeleton'
-// import { useEdgeFunctions } from '@/hooks/useEdgeFunctions'
+// import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions'
 // import { useRouter } from 'next/navigation'
 // import { useEffect } from 'react'
 // import { supabase } from '../../../../../supabase/supabase'

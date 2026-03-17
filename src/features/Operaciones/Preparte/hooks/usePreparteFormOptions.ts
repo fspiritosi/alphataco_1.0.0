@@ -1,7 +1,7 @@
 'use client';
 
-import { fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
 import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
+import { fetchContractsByClientId } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import {
   fetchAreasByContract,
   fetchEquipmentsByCustomer,

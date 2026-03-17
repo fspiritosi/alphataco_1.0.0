@@ -1,6 +1,5 @@
 'use client';
 
-import { CreateDiagrams, UpdateDiagramsById } from '@/app/server/UPDATE/actions';
 import { FormItemDatePicker } from '@/components/ui/FormItemDatePicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CreateDiagrams, UpdateDiagramsById } from '@/features/Employees/Diagrams/actions/diagram-mutations';
 import {
   getEmployeeDiagramByIdandDate,
   getEmployeesName,

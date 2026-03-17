@@ -1,4 +1,4 @@
-import { fetchAllContracts } from '@/app/dashboard/employee/action/actions/actions';
+import { fetchAllContracts } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { fetchCustomersWithRelations } from '@/features/Operaciones/Preparte/actions/actions';
 import { PrepartePageWrapper } from './PrepartePageWrapper';
 import { StatusCardsServerContainer } from './StatusCardsServerContainer';

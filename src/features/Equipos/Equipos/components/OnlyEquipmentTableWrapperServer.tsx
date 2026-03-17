@@ -1,5 +1,5 @@
-import OtrosTablaEquipmentServer from '@/app/dashboard/equipment/only-data-equipment-server';
 import { Card } from '@/components/ui/card';
+import OtrosTablaEquipmentServer from '@/features/Equipos/Equipos/components/only-data-equipment-server';
 import { fetchOtherEquipmentData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
 import { cookies } from 'next/headers';
 

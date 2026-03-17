@@ -1,6 +1,6 @@
+import { SubmitCustomForm } from '@/features/Formularios/components/forms/SubmitCustomForm';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { SubmitCustomForm } from '../../components/SubmitCustomForm';
 
 async function page({ searchParams }: { searchParams: { formid: string } }) {
   const supabase = await supabaseServer();

@@ -1,6 +1,6 @@
 'use client';
 
-import { HandshakeIcon } from '@/components/Icons';
+import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,6 +14,7 @@ import {
   Calendar,
   ClipboardList,
   Eye,
+  EyeOff,
   FileText,
   HelpCircle,
   LayoutDashboard,
@@ -21,6 +22,7 @@ import {
   Plus,
   Trash2,
   Truck,
+  Upload,
   Users,
   UsersRound,
   Wrench,
@@ -47,6 +49,8 @@ const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   update: Pencil,
   delete: Trash2,
   view_all_requests: UsersRound,
+  view_private: EyeOff,
+  upload_private: Upload,
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -55,6 +59,8 @@ const ACTION_LABELS: Record<string, string> = {
   update: 'Editar',
   delete: 'Eliminar',
   view_all_requests: 'Ver Todas',
+  view_private: 'Ver Privados',
+  upload_private: 'Subir Privados',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -63,6 +69,8 @@ const ACTION_COLORS: Record<string, string> = {
   update: 'text-yellow-600',
   delete: 'text-red-600',
   view_all_requests: 'text-purple-600',
+  view_private: 'text-indigo-600',
+  upload_private: 'text-teal-600',
 };
 
 const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -129,6 +137,14 @@ export function RolePermissionsEditor({
       if (hasOtherPermissions) return;
     }
 
+    // No permitir remover view_private si upload_private está activo
+    if (!isAdding && actionSlug === 'view_private') {
+      const hasUploadPrivate = targetTab?.actions?.some(
+        (a) => a.slug === 'upload_private' && permissionSet.has(`${tabId}:${a.id}`)
+      );
+      if (hasUploadPrivate) return;
+    }
+
     const permissionsToToggle: Array<{ tabId: string; actionId: string }> = [{ tabId, actionId }];
 
     // Si es un tab padre, propagar a los hijos
@@ -149,6 +165,15 @@ export function RolePermissionsEditor({
       permissionsToToggle.forEach((perm) => {
         if (!permissionSet.has(`${perm.tabId}:${perm.actionId}`)) newPermissions.push(perm);
       });
+
+      // AUTO-ASSIGN view_private: Si agregamos upload_private, también agregar view_private
+      if (actionSlug === 'upload_private') {
+        const viewPrivateAction = targetTab?.actions?.find((a) => a.slug === 'view_private');
+        if (viewPrivateAction) {
+          const vpKey = `${tabId}:${viewPrivateAction.id}`;
+          if (!permissionSet.has(vpKey)) newPermissions.push({ tabId, actionId: viewPrivateAction.id });
+        }
+      }
 
       // AUTO-ASSIGN VIEW: Si agregamos create/update/delete, también agregar 'view'
       if (actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {

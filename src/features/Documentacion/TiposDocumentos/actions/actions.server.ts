@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import type { Prisma } from '@/generated/prisma/client';
 import { document_applies } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
@@ -89,11 +90,24 @@ const DOC_TYPE_SELECT = {
 // INTERNAL HELPERS
 // ============================================================================
 
+const PRIVATE_PERMISSION_TAB: Record<string, string> = {
+  Persona: 'tipos-docs-personas',
+  Equipos: 'tipos-docs-equipos',
+  Empresa: 'tipos-docs-empresa',
+};
+
 /**
  * Construye el WHERE clause compartido entre paginated, export y facets.
  * El parámetro `applies` se aplica como filtro fijo (scope de tab).
+ * Filtra tipos de documento privados si el usuario no tiene permiso `view_private`.
  */
-function buildWhereClause(companyId: string, applies: document_applies, state: ReturnType<typeof parseSearchParams>) {
+async function buildWhereClause(
+  companyId: string,
+  applies: document_applies,
+  state: ReturnType<typeof parseSearchParams>
+) {
+  const tabSlug = PRIVATE_PERMISSION_TAB[applies];
+  const canViewPrivate = tabSlug ? await checkPermissionServer('documentacion', tabSlug, 'view_private') : true;
   const searchWhere = buildSearchWhere(state.search, ['name', 'description']);
 
   const filtersWhere = buildFiltersWhere(
@@ -130,6 +144,7 @@ function buildWhereClause(companyId: string, applies: document_applies, state: R
     ...textFiltersWhere,
     ...dateFiltersWhere,
     ...boolFilters,
+    ...(!canViewPrivate && { private: { not: true } }),
   };
 }
 
@@ -147,7 +162,7 @@ async function getDocTypesPaginated(applies: document_applies, searchParams: Dat
     }
 
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildWhereClause(companyId, applies, state);
+    const where = await buildWhereClause(companyId, applies, state);
 
     // Safe multi-sort, only whitelisted fields
     const resolvedSorts: Record<string, 'asc' | 'desc'>[] = [];
@@ -208,7 +223,7 @@ async function getDocTypesForExport(applies: document_applies, searchParams: Dat
       delete state.filters[key];
     }
 
-    const where = buildWhereClause(companyId, applies, state);
+    const where = await buildWhereClause(companyId, applies, state);
 
     return await prisma.document_types.findMany({
       orderBy: [{ name: 'asc' }],
@@ -795,13 +810,13 @@ export async function getDocTypeSingleFacet(
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) return baseWhere;
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, applies, modified);
+    return await buildWhereClause(companyId, applies, modified);
   }
 
   function toFacetMap(rows: { key: string | boolean | null | undefined; count: number }[]): Map<string, number> {
@@ -817,7 +832,7 @@ export async function getDocTypeSingleFacet(
   }
 
   try {
-    const where = crossWhere(columnId);
+    const where = await crossWhere(columnId);
 
     // ── Boolean columns ──
     if (BOOLEAN_FILTER_COLUMNS.includes(columnId as BooleanFilterColumn)) {

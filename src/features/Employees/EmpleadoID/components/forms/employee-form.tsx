@@ -1,6 +1,5 @@
 'use client';
 
-import { getEmployeeById } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -10,7 +9,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
-import { createEmployee, updateEmployee } from '../../actions.server';
+import { createEmployee, getEmployeeByIdCached, updateEmployee } from '../../actions.server';
 import { EmployeeContactDataForm } from './employee-contact-data-form';
 import { EmployeePersonalDataForm } from './employee-personal-data-form';
 import { EmployeeWorkDataForm } from './employee-work-data-form';
@@ -62,7 +61,7 @@ export const employeeFormSchema = z.object({
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
 
 interface EmployeeFormProps {
-  employee: Awaited<ReturnType<typeof getEmployeeById>> | null;
+  employee: Awaited<ReturnType<typeof getEmployeeByIdCached>> | null;
   activeTab: 'personalData' | 'contactData' | 'workData';
   mode: 'new' | 'edit' | 'view';
   form: UseFormReturn<EmployeeFormData>;

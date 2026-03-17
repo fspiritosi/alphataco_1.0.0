@@ -1,10 +1,10 @@
 'use client';
 
-import SimpleDocument from '@/components/SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDocument';
 import { PermissionGuard } from '@/features/Permissions';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
@@ -63,10 +63,15 @@ export const stateLabels: Record<string, string> = {
 function ActionsCell({ row }: { row: { original: EmployeePermanentDocumentListItem } }) {
   const [open, setOpen] = useState(false);
   const isNoPresented = row.original.state === 'pendiente';
+  const isPrivateDocType = row.original.document_types?.private === true;
 
   if (isNoPresented) {
+    // Para tipos privados, verificar permiso upload_private en la tab padre
+    const guardTab = isPrivateDocType ? 'documentos-de-empleados' : 'docs-empleados-permanentes';
+    const guardAction = isPrivateDocType ? 'upload_private' : 'update';
+
     return (
-      <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="update">
+      <PermissionGuard module="documentacion" tab={guardTab} action={guardAction}>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">

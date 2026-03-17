@@ -1,10 +1,10 @@
 'use client';
-import { fetchAllContractorForVehicles } from '@/app/dashboard/employee/action/actions/actions';
 import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';

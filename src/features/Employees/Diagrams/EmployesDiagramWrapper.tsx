@@ -1,12 +1,12 @@
 'use client';
 
-import InfoComponent from '@/components/InfoComponent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Logger } from '@/lib/logger';
+import InfoComponent from '@/shared/components/common/InfoComponent';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';

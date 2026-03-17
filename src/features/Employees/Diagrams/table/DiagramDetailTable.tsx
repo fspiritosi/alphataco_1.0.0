@@ -1,13 +1,13 @@
 'use client';
 
-import { DataTablePagination } from '@/components/CheckList/tables/data-table-pagination';
-import { DatePicker } from '@/components/DailyReport/DatePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DataTablePagination } from '@/features/Formularios/Checklists/tables/data-table-pagination';
+import { DatePicker } from '@/features/Operaciones/PartesDiarios/components/DatePicker';
 import {
   ColumnDef,
   ColumnFiltersState,

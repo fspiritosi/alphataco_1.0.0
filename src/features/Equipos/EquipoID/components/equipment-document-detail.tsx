@@ -1,10 +1,10 @@
-import DocumentNav from '@/components/DocumentNav';
+import { MonthlyEquipmentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Mensuales/MonthlyEquipmentDocumentsList';
+import { MonthlyEquipmentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Mensuales/fallback/MonthlyEquipmentDocumentsSkeleton';
+import { EquipmentPermanentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Permanentes/EquipmentPermanentDocumentsList';
+import { EquipmentPermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Permanentes/fallback/EquipmentPermanentDocumentsSkeleton';
+import DocumentNav from '@/features/Documentacion/shared/components/DocumentNav';
 import { PermissionGuardServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { EquipmentPermanentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Permanentes/EquipmentPermanentDocumentsList';
-import { MonthlyEquipmentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Mensuales/MonthlyEquipmentDocumentsList';
-import { EquipmentPermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Permanentes/fallback/EquipmentPermanentDocumentsSkeleton';
-import { MonthlyEquipmentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Mensuales/fallback/MonthlyEquipmentDocumentsSkeleton';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
@@ -50,10 +50,7 @@ export async function EquipmentDocumentDetail({ equipmentId, searchParams }: Equ
                 </div>
               </PermissionGuardServer>
               <Suspense fallback={<EquipmentPermanentDocumentsSkeleton />}>
-                <EquipmentPermanentDocumentsList
-                  searchParams={searchParams}
-                  equipmentId={equipmentId}
-                />
+                <EquipmentPermanentDocumentsList searchParams={searchParams} equipmentId={equipmentId} />
               </Suspense>
             </div>
           ),
@@ -76,10 +73,7 @@ export async function EquipmentDocumentDetail({ equipmentId, searchParams }: Equ
                 </div>
               </PermissionGuardServer>
               <Suspense fallback={<MonthlyEquipmentDocumentsSkeleton />}>
-                <MonthlyEquipmentDocumentsList
-                  searchParams={searchParams}
-                  equipmentId={equipmentId}
-                />
+                <MonthlyEquipmentDocumentsList searchParams={searchParams} equipmentId={equipmentId} />
               </Suspense>
             </div>
           ),

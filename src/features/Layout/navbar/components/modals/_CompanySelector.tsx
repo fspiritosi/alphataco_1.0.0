@@ -1,6 +1,5 @@
 'use client';
 
-import { setNewCompanyUserMetadata } from '@/app/server/GET/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -15,6 +14,7 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
 import { CaretSortIcon, CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons';
 import Cookies from 'js-cookie';
 import { Building2 } from 'lucide-react';

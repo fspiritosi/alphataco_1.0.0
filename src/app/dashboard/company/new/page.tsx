@@ -10,8 +10,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 
-import CityInput from './components/CityInput';
-import CreateCompanyButton from './components/CreateCompanyButton';
+import CityInput from '@/features/Empresa/General/components/CityInput';
+import CreateCompanyButton from '@/features/Empresa/General/components/CreateCompanyButton';
 export default async function companyRegister() {
   const supabase = await supabaseServer();
   const {

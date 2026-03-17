@@ -1,9 +1,9 @@
 'use client';
 
-import { useOperatorContext } from '@/app/operator/operator-layout-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getWorkOrdersForOperator, operatorLogout } from '@/features/OperatorPanel/actions/actionsServer';
+import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { LogOut, Wrench } from 'lucide-react';

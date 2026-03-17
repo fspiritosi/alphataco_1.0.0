@@ -1,15 +1,15 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchAllActivesEmployees,
-  fetchAllEmployees,
-  fetchAllEquipment,
-  fetchServiceItems,
-} from '@/app/server/GET/actions';
-import { Skeleton } from '@/components/ui/skeleton';
+  fetchServiceItemsLegacy as fetchServiceItems,
+} from '@/features/Empresa/Clientes/actions/employee-queries';
+import CustomerComponent from '@/features/Empresa/Clientes/components/CustomerComponent';
 import { cn } from '@/lib/utils';
+import { fetchAllEmployees } from '@/shared/actions/employees.actions';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
+import BackButton from '@/shared/components/common/BackButton';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-import BackButton from '../../../../../../components/BackButton';
-import CustomerComponent from '../../../../../../components/CustomerComponent';
 
 export default async function CustomerFormAction({ searchParams, params }: { searchParams: any; params: any }) {
   const equipment = await fetchAllEquipment();

@@ -6,6 +6,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  completeMaintenanceEmployeeAnonymousSession,
+  getCompanyIdForEquipment,
+  searchEquipmentByDomain,
+} from '@/features/Mantenimiento/actions/maintenance-actions';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn, validarCUIL } from '@/lib/utils';
@@ -18,11 +23,6 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import {
-  completeMaintenanceEmployeeAnonymousSession,
-  getCompanyIdForEquipment,
-  searchEquipmentByDomain,
-} from './actions';
 
 function GHLoginContent() {
   const [step, setStep] = useState<'equipment-selection' | 'selection' | 'login'>('equipment-selection');

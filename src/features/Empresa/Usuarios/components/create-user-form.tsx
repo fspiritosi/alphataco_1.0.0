@@ -1,14 +1,14 @@
 'use client';
 
-import { registerUserWithRole } from '@/app/actions/register-user';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
+import { registerUserWithRole } from '@/features/Auth/actions/register-user';
 import { Logger } from '@/lib/logger';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
 import cookies from 'js-cookie';

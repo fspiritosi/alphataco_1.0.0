@@ -1,10 +1,10 @@
-import RenderBanner from '@/components/RenderBanner';
 import { CardDescription, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RegisterButton } from '@/features/Auth/components/RegisterButton';
+import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
-import { RegisterButton } from './componentsRegister/RegisterButton';
 // import { RegisterForm } from '@/components/RegisterForm'
 
 export default function Register() {

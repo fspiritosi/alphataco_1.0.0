@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
@@ -49,10 +50,11 @@ const COLUMN_MAP: Record<string, string> = {
  * Construye la cláusula WHERE compartida entre paginated, export y facets.
  * Incluye el filtro permanente de documentos por vencer (validity <= nextMonth).
  */
-function buildWhereClause(
+async function buildWhereClause(
   companyId: string,
   state: ReturnType<typeof parseSearchParams>
-): Prisma.documents_equipmentWhereInput {
+): Promise<Prisma.documents_equipmentWhereInput> {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const nextMonth = moment().add(EXPIRY_WINDOW_DAYS, 'days').endOf('day').toDate();
 
   // Filtros facetados
@@ -79,6 +81,7 @@ function buildWhereClause(
     document_types: {
       is_it_montlhy: false,
       is_active: true,
+      ...(!canViewPrivate && { private: { not: true } }),
     },
     validity: userValidityFilter !== undefined ? (userValidityFilter as Prisma.DateTimeNullableFilter) : validityFilter,
     ...(userCreatedAtFilter !== undefined ? { created_at: userCreatedAtFilter as Prisma.DateTimeFilter } : {}),
@@ -110,7 +113,7 @@ export async function getVehicleExpiringDocsPaginated(searchParams: DataTableSea
     const safeOrderBy: Prisma.documents_equipmentOrderByWithRelationInput[] =
       resolvedSorts.length > 0 ? resolvedSorts : [{ validity: 'asc' }];
 
-    const where = buildWhereClause(companyId, state);
+    const where = await buildWhereClause(companyId, state);
 
     const [data, total] = await Promise.all([
       prisma.documents_equipment.findMany({
@@ -163,7 +166,7 @@ export async function getAllVehicleExpiringDocsForExport(searchParams: DataTable
   try {
     const companyId = await getServerCompanyId();
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state);
+    const where = await buildWhereClause(companyId, state);
 
     return await prisma.documents_equipment.findMany({
       where,

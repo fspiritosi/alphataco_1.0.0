@@ -1,7 +1,7 @@
 import DashboardComponent from '@/features/Dashboard/DashboardComponent';
+import { query } from '@/features/Employees/Diagrams/actions/supabase-query';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
-import { query } from '../server/GET/probando';
 
 export default async function Home({
   searchParams,

@@ -1,7 +1,7 @@
-import { PostHogProvider } from '@/components/PostHogProvider';
-import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
+import { PostHogProvider } from '@/shared/providers/PostHogProvider';
+import { ThemeProvider } from '@/shared/providers/theme-provider';
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 

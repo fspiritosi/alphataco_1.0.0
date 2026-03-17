@@ -1,6 +1,5 @@
 'use client';
 
-import { Filter, query, queryPaginated } from '@/app/server/GET/probando';
 import { FormItemDatePicker } from '@/components/ui/FormItemDatePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import { Filter } from '@/shared/actions/supabase-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Cookies from 'js-cookie';
 import { Search, X } from 'lucide-react';
@@ -19,6 +19,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { query, queryPaginated } from './actions/supabase-query';
 
 const logger = new Logger('Diagrams/DiagramMassiveForm');
 

@@ -27,6 +27,8 @@ export const ACTIONS = {
   update: { slug: 'update', name: 'Editar' },
   delete: { slug: 'delete', name: 'Eliminar' },
   view_all_requests: { slug: 'view_all_requests', name: 'Ver todas las solicitudes' },
+  view_private: { slug: 'view_private', name: 'Ver privados' },
+  upload_private: { slug: 'upload_private', name: 'Subir privados' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -757,21 +759,21 @@ export const PERMISSIONS = {
         name: 'Documentos de Empleados',
         tabId: '50000000-0000-0000-0000-000000000001',
         parent: null,
-        allowedActions: ['view', 'create'], // view y create en la tab principal
+        allowedActions: ['view', 'create', 'view_private', 'upload_private'],
         subtabs: {
           'docs-empleados-permanentes': {
             slug: 'docs-empleados-permanentes',
             name: 'Permanentes',
             tabId: '60000000-0000-0000-0000-000000000003',
             parent: 'documentos-de-empleados',
-            allowedActions: ['view', 'update'], // Solo view y update, sin create
+            allowedActions: ['view', 'update'],
           },
           'docs-empleados-mensuales': {
             slug: 'docs-empleados-mensuales',
             name: 'Mensuales',
             tabId: '60000000-0000-0000-0000-000000000002',
             parent: 'documentos-de-empleados',
-            allowedActions: ['view', 'update'], // Solo view y update, sin create
+            allowedActions: ['view', 'update'],
           },
         },
       },
@@ -780,21 +782,21 @@ export const PERMISSIONS = {
         name: 'Documentos de Equipos',
         tabId: '50000000-0000-0000-0000-000000000002',
         parent: null,
-        allowedActions: ['view', 'create'], // view y create en la tab principal
+        allowedActions: ['view', 'create', 'view_private', 'upload_private'],
         subtabs: {
           'docs-equipos-permanentes': {
             slug: 'docs-equipos-permanentes',
             name: 'Permanentes',
             tabId: '60000000-0000-0000-0000-000000000004',
             parent: 'documentos-de-equipos',
-            allowedActions: ['view', 'update'], // Solo view y update, sin create
+            allowedActions: ['view', 'update'],
           },
           'docs-equipos-mensuales': {
             slug: 'docs-equipos-mensuales',
             name: 'Mensuales',
             tabId: '60000000-0000-0000-0000-000000000005',
             parent: 'documentos-de-equipos',
-            allowedActions: ['view', 'update'], // Solo view y update, sin create
+            allowedActions: ['view', 'update'],
           },
         },
       },
@@ -803,7 +805,7 @@ export const PERMISSIONS = {
         name: 'Documentos de Empresa',
         tabId: '50000000-0000-0000-0000-000000000003',
         parent: null,
-        allowedActions: ['view', 'create'],
+        allowedActions: ['view', 'create', 'view_private', 'upload_private'],
         subtabs: {
           'docs-empresa-permanentes': {
             slug: 'docs-empresa-permanentes',
@@ -833,21 +835,21 @@ export const PERMISSIONS = {
             name: 'Personas',
             tabId: '60000000-0000-0000-0000-000000000006',
             parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create'], // view, update y create para crear tipos de documentos de personas
+            allowedActions: ['view', 'update', 'create', 'view_private'],
           },
           'tipos-docs-equipos': {
             slug: 'tipos-docs-equipos',
             name: 'Equipos',
             tabId: '60000000-0000-0000-0000-000000000007',
             parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create'], // view, update y create para crear tipos de documentos de equipos
+            allowedActions: ['view', 'update', 'create', 'view_private'],
           },
           'tipos-docs-empresa': {
             slug: 'tipos-docs-empresa',
             name: 'Empresa',
             tabId: '60000000-0000-0000-0000-000000000018',
             parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create'],
+            allowedActions: ['view', 'update', 'create', 'view_private'],
           },
         },
       },

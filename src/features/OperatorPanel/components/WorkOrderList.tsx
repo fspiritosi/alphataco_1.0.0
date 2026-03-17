@@ -1,6 +1,5 @@
 'use client';
 
-import { useOperatorContext } from '@/app/operator/operator-layout-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +10,7 @@ import {
   getCompletedWorkOrdersForOperator,
   getWorkOrdersForOperator,
 } from '@/features/OperatorPanel/actions/actionsServer';
+import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Lock, Search, Zap } from 'lucide-react';

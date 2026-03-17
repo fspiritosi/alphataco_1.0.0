@@ -1,4 +1,4 @@
-import { fetchDiagramsTypes } from '@/app/server/GET/actions';
+import { fetchDiagramsTypes } from '@/features/Employees/Diagrams/actions/diagram-queries';
 import { cookies } from 'next/headers';
 import DiagramTypeComponent from './DiagramTypeComponent';
 

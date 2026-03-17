@@ -1,12 +1,12 @@
 'use client';
 
-import SimpleDocument from '@/components/SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDocument';
 import { PermissionGuard } from '@/features/Permissions';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
 import Link from 'next/link';

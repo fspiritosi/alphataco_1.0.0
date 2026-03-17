@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { PreparteForm, type PreparteFormData } from './PreparteForm';
 import { PreparteTable } from './PreparteTable';
 
-import { fetchAllContracts } from '@/app/dashboard/employee/action/actions/actions';
+import { fetchAllContracts } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { fetchCustomersWithRelations } from '../actions/actions';
 import type { Status } from './StatusCardServer';
 

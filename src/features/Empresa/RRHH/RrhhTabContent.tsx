@@ -1,5 +1,5 @@
-import CovenantTreeFileWrapper from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFileWrapper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
 import ContractTypeList from '@/features/Empresa/RRHH/ContractTypes/ContractTypeList';
 import { ContractTypeTableSkeleton } from '@/features/Empresa/RRHH/ContractTypes/fallback/ContractTypeTableSkeleton';
 import DiagramTypeList from '@/features/Empresa/RRHH/DiagramTypes/DiagramTypeList';

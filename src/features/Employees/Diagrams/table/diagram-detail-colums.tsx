@@ -1,7 +1,7 @@
 'use client';
 
-import { DataTableColumnHeader } from '@/components/CheckList/tables/data-table-column-header';
 import { Badge } from '@/components/ui/badge';
+import { DataTableColumnHeader } from '@/features/Formularios/Checklists/tables/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
 

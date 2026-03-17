@@ -1,11 +1,10 @@
 'use strict';
-import { fetchEmployeePermanentDocuments, fetchSimplePermanentDocumentsEquipment } from '@/app/server/GET/actions';
+import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { clsx, type ClassValue } from 'clsx';
 import moment from 'moment';
 import { twMerge } from 'tailwind-merge';
 import { supabaseBrowser } from './supabase/browser';
 import { supabaseServer } from './supabase/server';
-import { formatDocumentTypeName } from './utils/utils';
 // eslint-disable-next-line react-hooks/rules-of-hooks
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -326,36 +325,6 @@ export const formatEmployeeDocuments = (doc: EmployeeDocumentWithContractors) =>
     intern_number: null,
   };
 };
-export const formatEmployeeDocumentsSimple = (
-  doc: Awaited<ReturnType<typeof fetchEmployeePermanentDocuments>>[number]
-) => {
-  const latestLog = doc.documents_employees_logs?.sort(
-    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  )[0];
-  return {
-    date: moment(latestLog?.updated_at || doc.created_at).format('DD/MM/YYYY'),
-    allocated_to: doc.employees?.contractor_employee.map((doc) => doc.customers?.name),
-    allocated_to_names: doc.employees?.contractor_employee.map((doc) => doc.customers?.name || '').filter(Boolean),
-    documentName: doc.document_types?.name,
-    state: doc.state,
-    multiresource: doc.document_types?.multiresource ? 'Si' : 'No',
-    isItMonthly: doc.document_types?.is_it_montlhy,
-    validity: doc.validity,
-    mandatory: doc.document_types?.mandatory ? 'Si' : 'No',
-    id: doc.id,
-    resource: `${doc.employees?.lastname?.charAt(0)?.toUpperCase()}${doc?.employees?.lastname.slice(
-      1
-    )} ${doc.employees?.firstname?.charAt(0)?.toUpperCase()}${doc?.employees?.firstname.slice(1)}`,
-    document_number: doc.employees?.document_number,
-    employee_id: doc.employees?.id,
-    document_url: doc.document_path,
-    is_active: doc.employees?.is_active,
-    period: doc.period,
-    applies: doc.document_types?.applies,
-    id_document_types: doc.document_types?.id,
-    intern_number: null,
-  };
-};
 
 export const formatVehiculesDocuments = (doc: EquipmentDocumentDetailed) => {
   return {
@@ -379,40 +348,12 @@ export const formatVehiculesDocuments = (doc: EquipmentDocumentDetailed) => {
     serie: doc.applies?.serie,
   };
 };
-export const formatSimpleVehiculesDocuments = (
-  doc: Awaited<ReturnType<typeof fetchSimplePermanentDocumentsEquipment>>[number]
-) => {
-  const latestLog = doc.documents_equipment_logs?.sort(
-    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  )[0];
-  return {
-    date: moment(latestLog?.updated_at).format('DD/MM/YYYY'),
-    allocated_to: doc.vehicles?.contractor_equipment.map((doc) => doc.customers),
-    allocated_to_names: doc.vehicles?.contractor_equipment.map((doc) => doc.customers?.name || '').filter(Boolean),
-    documentName: doc.document_types?.name,
-    state: doc.state,
-    multiresource: doc.document_types?.multiresource ? 'Si' : 'No',
-    isItMonthly: doc.document_types?.is_it_montlhy,
-    validity: doc.validity,
-    mandatory: doc.document_types?.mandatory ? 'Si' : 'No',
-    id: doc.id,
-    resource: `${doc.vehicles?.domain}`,
-    vehicle_id: doc.vehicles?.id,
-    is_active: doc.vehicles?.is_active,
-    period: doc.period,
-    applies: doc.document_types?.applies,
-    resource_id: doc.vehicles?.id,
-    id_document_types: doc.document_types?.id,
-    intern_number: `${doc.vehicles?.intern_number}`,
-    serie: doc.vehicles?.serie,
-  };
-};
 
 /**
  * Mapea un equipo al formato esperado por NormalizedChecklistForm
  */
 export const mapEquipmentToChecklistFormat = (
-  equipment: Awaited<ReturnType<typeof import('@/app/server/GET/actions').fetchAllEquipment>>[number]
+  equipment: Awaited<ReturnType<typeof import('@/shared/actions/equipment.actions').fetchAllEquipment>>[number]
 ) => {
   // Manejar subType que puede ser un objeto expandido o null
   let subTypeId: string | null = null;

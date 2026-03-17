@@ -1,7 +1,7 @@
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { contactColumns } from '@/features/Empresa/Contactos/components/columns';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { cookies } from 'next/headers';
-import { contactColumns } from '../../../../../app/dashboard/company/actualCompany/contact/columns';
 import { fetchContacts } from '../../actions/contacts';
 
 // This matches the Colum type from columns.tsx

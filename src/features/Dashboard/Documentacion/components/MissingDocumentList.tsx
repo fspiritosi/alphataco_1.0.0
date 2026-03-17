@@ -1,7 +1,7 @@
 'use client';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoggedUserStore } from '@/store/loggedUser';
+import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { DotFilledIcon, ExclamationTriangleIcon, FileTextIcon, PersonIcon } from '@radix-ui/react-icons';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';

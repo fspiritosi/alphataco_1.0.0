@@ -1,7 +1,7 @@
 'use client';
 
-import AddCompanyDocumentForm from '@/app/dashboard/company/actualCompany/components/AddCompanyDocumentForm';
 import { Badge } from '@/components/ui/badge';
+import AddCompanyDocumentForm from '@/features/Empresa/General/Documentacion/components/AddCompanyDocumentForm';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { documentStateBadges, documentStateLabels } from '@/shared/utils/mappers';

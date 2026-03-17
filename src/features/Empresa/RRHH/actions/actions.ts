@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { WorkDiagram } from '@/types/types';
+import { WorkDiagram } from '@/shared/types/legacy';
 
 const logger = new Logger('features/Empresa/RRHH');
 

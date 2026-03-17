@@ -9,7 +9,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 
-import { Position } from '@/types/types';
+import { Position } from '@/shared/types/legacy';
 interface PositionsTableProps {
   positions: (Position & { aptitudes?: any[] })[];
   hierarchicalPositions: any[];

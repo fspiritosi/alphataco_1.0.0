@@ -1,5 +1,5 @@
-import { TreeNodeData } from '@/app/dashboard/company/actualCompany/covenant/TreeFile';
-import { Guild } from '@/types/types';
+import { TreeNodeData } from '@/features/Empresa/CCT/components/TreeFile';
+import { Guild } from '@/shared/types/legacy';
 
 export function formatGuildsData(guilds: Guild[] | null): TreeNodeData[] {
   if (!guilds) return [];

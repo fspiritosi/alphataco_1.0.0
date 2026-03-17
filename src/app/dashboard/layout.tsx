@@ -1,8 +1,8 @@
-import { PasswordChangeAlertWrapper } from '@/components/PasswordChangeAlertWrapper';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
+import { PasswordChangeAlertWrapper } from '@/shared/components/auth/PasswordChangeAlertWrapper';
+import TanstackQueryInicializador from '@/shared/providers/TanstackQueryInicializador';
 import { Suspense } from 'react';
-import TanstackQueryInicializador from './TanstackQueryInicializador';
 
 /**
  * DashboardLayout - Layout principal del dashboard
