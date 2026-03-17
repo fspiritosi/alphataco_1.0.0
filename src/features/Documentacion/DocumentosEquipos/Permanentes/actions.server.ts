@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -85,6 +86,7 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
   documents_equipment_logs: {
@@ -100,7 +102,8 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -117,6 +120,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   const documentTypesConditions: Record<string, unknown> = {
     is_it_montlhy: false,
     is_active: true,
+    ...(!canViewPrivate && { private: { not: true } }),
   };
 
   const mandatoryValues = state.filters['mandatory'];
@@ -266,7 +270,7 @@ export async function getEquipmentPermanentDocumentsPaginated(
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state, equipmentId);
+    const where = await buildWhereClause(companyId, state, equipmentId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -314,7 +318,7 @@ export async function getAllEquipmentPermanentDocumentsForExport(
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, equipmentId);
+    const where = await buildWhereClause(companyId, state, equipmentId);
 
     const data = await prisma.documents_equipment.findMany({
       orderBy: [{ vehicles: { domain: 'asc' } }],
@@ -352,12 +356,13 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
     parsedState = parseSearchParams(searchParams);
   }
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       return {
         ...(equipmentId ? { applies: equipmentId } : {}),
         vehicles: { company_id: companyId, is_active: true },
-        document_types: { is_it_montlhy: false, is_active: true },
+        document_types: { is_it_montlhy: false, is_active: true, ...(!canViewPrivate && { private: { not: true } }) },
       };
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
@@ -382,9 +387,10 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
   try {
     switch (columnId) {
       case 'state': {
+        const where = await crossWhere('state');
         const rows = await prisma.documents_equipment.groupBy({
           by: ['state'],
-          where: crossWhere('state'),
+          where,
           _count: { state: true },
         });
         return {
@@ -393,9 +399,10 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
       }
 
       case 'document_type': {
+        const where = await crossWhere('document_type');
         const rows = await prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('document_type'),
+          where,
           _count: { id_document_types: true },
         });
         const counts = toFacetMap(rows.map((r) => ({ key: r.id_document_types, count: r._count.id_document_types })));
@@ -408,9 +415,10 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
       }
 
       case 'mandatory': {
+        const where = await crossWhere('mandatory');
         const rows = await prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('mandatory'),
+          where,
           _count: { id_document_types: true },
         });
         const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
@@ -438,9 +446,10 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
       }
 
       case 'multiresource': {
+        const where = await crossWhere('multiresource');
         const rows = await prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('multiresource'),
+          where,
           _count: { id_document_types: true },
         });
         const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
@@ -468,8 +477,9 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
       }
 
       case 'contractor': {
+        const where = await crossWhere('contractor');
         const rowsData = await prisma.documents_equipment.findMany({
-          where: crossWhere('contractor'),
+          where,
           select: {
             vehicles: {
               select: {
@@ -528,12 +538,13 @@ export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTa
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       return {
         ...(equipmentId ? { applies: equipmentId } : {}),
         vehicles: { company_id: companyId, is_active: true },
-        document_types: { is_it_montlhy: false, is_active: true },
+        document_types: { is_it_montlhy: false, is_active: true, ...(!canViewPrivate && { private: { not: true } }) },
       };
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
@@ -557,38 +568,54 @@ export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTa
   }
 
   try {
+    const [
+      crossWhereState,
+      crossWhereVehicle,
+      crossWhereDocType,
+      crossWhereMandatory,
+      crossWhereMultiresource,
+      crossWhereContractor,
+    ] = await Promise.all([
+      crossWhere('state'),
+      crossWhere('vehicle'),
+      crossWhere('document_type'),
+      crossWhere('mandatory'),
+      crossWhere('multiresource'),
+      crossWhere('contractor'),
+    ]);
+
     const [stateCounts, vehicleCounts, documentTypeCounts, mandatoryCounts, multiresourceCounts, contractorGroups] =
       await Promise.all([
         prisma.documents_equipment.groupBy({
           by: ['state'],
-          where: crossWhere('state'),
+          where: crossWhereState,
           _count: { state: true },
         }),
         prisma.documents_equipment.groupBy({
           by: ['applies'],
-          where: crossWhere('vehicle'),
+          where: crossWhereVehicle,
           _count: { applies: true },
         }),
         prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('document_type'),
+          where: crossWhereDocType,
           _count: { id_document_types: true },
         }),
         // Mandatory — agrupamos por id_document_types para cruzar con document_types
         prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('mandatory'),
+          where: crossWhereMandatory,
           _count: { id_document_types: true },
         }),
         // Multiresource — agrupamos por id_document_types para cruzar con document_types
         prisma.documents_equipment.groupBy({
           by: ['id_document_types'],
-          where: crossWhere('multiresource'),
+          where: crossWhereMultiresource,
           _count: { id_document_types: true },
         }),
         // Contractor / Afectación (M:M a través de vehicles)
         prisma.documents_equipment.findMany({
-          where: crossWhere('contractor'),
+          where: crossWhereContractor,
           select: {
             vehicles: {
               select: {

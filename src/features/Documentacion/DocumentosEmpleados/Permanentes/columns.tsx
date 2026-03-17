@@ -63,10 +63,15 @@ export const stateLabels: Record<string, string> = {
 function ActionsCell({ row }: { row: { original: EmployeePermanentDocumentListItem } }) {
   const [open, setOpen] = useState(false);
   const isNoPresented = row.original.state === 'pendiente';
+  const isPrivateDocType = row.original.document_types?.private === true;
 
   if (isNoPresented) {
+    // Para tipos privados, verificar permiso upload_private en la tab padre
+    const guardTab = isPrivateDocType ? 'documentos-de-empleados' : 'docs-empleados-permanentes';
+    const guardAction = isPrivateDocType ? 'upload_private' : 'update';
+
     return (
-      <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="update">
+      <PermissionGuard module="documentacion" tab={guardTab} action={guardAction}>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">

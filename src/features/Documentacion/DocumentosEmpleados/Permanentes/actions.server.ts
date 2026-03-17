@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -81,6 +82,7 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
 } as const;
@@ -89,7 +91,8 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -135,6 +138,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   // Construir el objeto document_types combinando is_it_montlhy + filtros opcionales.
   const documentTypesConditions: Record<string, unknown> = {
     is_it_montlhy: false,
+    ...(!canViewPrivate && { private: { not: true } }),
   };
 
   const mandatoryValues = state.filters['mandatory'];
@@ -192,7 +196,7 @@ export async function getEmployeePermanentDocumentsPaginated(searchParams: DataT
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -240,7 +244,7 @@ export async function getAllEmployeePermanentDocumentsForExport(
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -280,12 +284,13 @@ export async function getEmployeePermanentDocumentsSingleFacet(
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       return {
         ...(employeeId ? { applies: employeeId } : {}),
         employees: { company_id: companyId, is_active: true },
-        document_types: { is_it_montlhy: false },
+        document_types: { is_it_montlhy: false, ...(!canViewPrivate && { private: { not: true } }) },
       };
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
@@ -308,7 +313,7 @@ export async function getEmployeePermanentDocumentsSingleFacet(
   }
 
   try {
-    const where = crossWhere(columnId);
+    const where = await crossWhere(columnId);
 
     // ── Estado (enum directo en documents_employees) ──────────────────────
     if (columnId === 'state') {

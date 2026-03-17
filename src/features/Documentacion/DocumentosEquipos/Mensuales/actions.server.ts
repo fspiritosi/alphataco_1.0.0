@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -88,6 +89,7 @@ const MONTHLY_EQUIPMENT_DOCS_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
   // Logs para fecha de última actualización
@@ -104,7 +106,8 @@ const MONTHLY_EQUIPMENT_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -219,7 +222,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     // Filtro base: equipos de la compañía (a través de vehicles)
     { vehicles: { company_id: companyId } },
     // Filtro base: solo tipos de documento mensuales y activos
-    { document_types: { is_it_montlhy: true, is_active: true } },
+    { document_types: { is_it_montlhy: true, is_active: true, ...(!canViewPrivate && { private: { not: true } }) } },
     // Filtro base: solo vehículos activos
     { vehicles: { is_active: true } },
     // Filtro opcional por equipo específico (para vista de detalle)
@@ -295,7 +298,7 @@ export async function getMonthlyEquipmentDocumentsPaginated(searchParams: DataTa
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildWhereClause(companyId, state, equipmentId);
+    const where = await buildWhereClause(companyId, state, equipmentId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -343,7 +346,7 @@ export async function getAllMonthlyEquipmentDocumentsForExport(
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, equipmentId);
+    const where = await buildWhereClause(companyId, state, equipmentId);
 
     const data = await prisma.documents_equipment.findMany({
       orderBy: [{ vehicles: { domain: 'asc' } }],
@@ -375,13 +378,20 @@ export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTabl
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       // Sin filtros activos: solo condiciones base
       return {
         AND: [
           { vehicles: { company_id: companyId } },
-          { document_types: { is_it_montlhy: true, is_active: true } },
+          {
+            document_types: {
+              is_it_montlhy: true,
+              is_active: true,
+              ...(!canViewPrivate && { private: { not: true } }),
+            },
+          },
           { vehicles: { is_active: true } },
           ...(equipmentId ? [{ applies: equipmentId }] : []),
         ],
@@ -415,14 +425,14 @@ export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTabl
       crossWhereMandatory,
       crossWhereMultiresource,
       crossWhereContractor,
-    ] = [
+    ] = await Promise.all([
       crossWhere('state'),
       crossWhere('vehicle'),
       crossWhere('documentType'),
       crossWhere('mandatory'),
       crossWhere('multiresource'),
       crossWhere('contractor'),
-    ];
+    ]);
 
     const [stateCounts, vehicleGroups, docTypeGroups, mandatoryGroups, multiresourceGroups, contractorGroups] =
       await Promise.all([
@@ -632,12 +642,19 @@ export async function getMonthlyEquipmentDocumentsSingleFacet(
     parsedState = parseSearchParams(searchParams);
   }
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       return {
         AND: [
           { vehicles: { company_id: companyId } },
-          { document_types: { is_it_montlhy: true, is_active: true } },
+          {
+            document_types: {
+              is_it_montlhy: true,
+              is_active: true,
+              ...(!canViewPrivate && { private: { not: true } }),
+            },
+          },
           { vehicles: { is_active: true } },
           ...(equipmentId ? [{ applies: equipmentId }] : []),
         ],
@@ -663,7 +680,7 @@ export async function getMonthlyEquipmentDocumentsSingleFacet(
   }
 
   try {
-    const where = crossWhere(columnId);
+    const where = await crossWhere(columnId);
 
     // ── Estado (enum directo en documents_equipment) ──────────────────────────
     if (columnId === 'state') {
