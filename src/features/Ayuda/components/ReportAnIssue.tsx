@@ -1,10 +1,10 @@
 'use client';
-import { getCompanyDetails } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { getCompanyDetails } from '@/features/Ayuda/actions/company-details';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import Cookies from 'js-cookie';
 import { useEffect, useState } from 'react';

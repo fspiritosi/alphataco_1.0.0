@@ -1,13 +1,13 @@
-import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { Button } from '@/components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NuevoPedidoForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm';
+import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { TypeOfRepair } from '@/types/types';
 import { User } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FiArrowLeft } from 'react-icons/fi';
 import { fetchMaintenanceGroupsActionType } from '../../TiposReparaciones/actions/maintenanceGroupActions';
-import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 function SolicitarMantenimiento({
   onReturn,

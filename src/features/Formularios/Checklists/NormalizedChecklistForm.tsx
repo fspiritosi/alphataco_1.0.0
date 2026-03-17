@@ -1,6 +1,5 @@
 'use client';
 
-import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/app/server/GET/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklist';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Formularios/actions/checklist-actions';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { CriticalDeviationsRepairModal } from '@/features/Mantenimiento/shared/components/critical-deviations-repair-modal';
 import { logger } from '@/lib/logger';
@@ -29,7 +29,9 @@ import { useForm, type Control, type FieldValues, type UseFormReturn } from 'rea
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
-type ChecklistTemplate = Awaited<ReturnType<typeof import('@/app/server/GET/actions').fetchChecklistTemplateById>>;
+type ChecklistTemplate = Awaited<
+  ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').fetchChecklistTemplateById>
+>;
 
 type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_template_sections'][number];
 type ChecklistTemplateItem = ChecklistTemplateSection['checklist_template_items'][number];
@@ -77,7 +79,9 @@ type NormalizedChecklistFormProps = {
   equipments: Equipment[];
   customers?: Customer[];
   employees?: Employee[];
-  currentUser: Awaited<ReturnType<typeof import('@/app/server/GET/actions').getCurrentProfile>>[number] | null;
+  currentUser:
+    | Awaited<ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').getCurrentProfile>>[number]
+    | null;
   defaultEquipmentId?: string;
   defaultAnswers?: any;
   readOnly?: boolean; // Modo solo lectura

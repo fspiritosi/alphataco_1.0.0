@@ -1,4 +1,4 @@
-import { setNewCompanyUserMetadata } from '@/app/server/GET/actions';
+import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
 import { Notifications, SharedUser, VehiclesAPI, profileUser } from '@/types/types';
 import { Company, SharedCompanies, Vehicle } from '@/zodSchemas/schemas';
 import { User } from '@supabase/supabase-js';

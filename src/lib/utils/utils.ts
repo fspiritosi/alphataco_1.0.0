@@ -1,4 +1,3 @@
-import { fetchAllEquipmentWithBrand } from '@/app/server/GET/actions';
 import {
   CompaniesTableOptions,
   DocumentsTableOptions,
@@ -210,15 +209,6 @@ export const DOCUMENTS_TABLE: DocumentsTableOptions = {
   name: 'Nombre',
   private: 'Privados',
   special: 'Especiales',
-};
-export const setVehiclesToShow = (vehicles: Awaited<ReturnType<typeof fetchAllEquipmentWithBrand>>) => {
-  return vehicles?.map((item) => ({
-    ...item,
-    types_of_vehicles: item.types_of_vehicles?.name,
-    brand: item.brand_vehicles?.name,
-    model: item.model_vehicles?.name,
-    type: item.type?.name,
-  }));
 };
 // export const stylesPDF = StyleSheet.create({
 //   page: {

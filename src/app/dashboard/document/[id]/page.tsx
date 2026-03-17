@@ -1,9 +1,13 @@
-import { getDocumentCompanyById, getDocumentEmployeesById, getDocumentEquipmentById } from '@/app/server/GET/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  getDocumentCompanyById,
+  getDocumentEmployeesById,
+  getDocumentEquipmentById,
+} from '@/features/Documentacion/shared/actions/document-actions';
 import DeleteDocument from '@/features/Documentacion/shared/components/DeleteDocument';
 import DownloadButton from '@/features/Documentacion/shared/components/DownloadButton';
 import ReplaceDocument from '@/features/Documentacion/shared/components/ReplaceDocument';

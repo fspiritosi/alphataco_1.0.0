@@ -1,4 +1,3 @@
-import { fetchAllDocumentTypes, fetchCurrentUser } from '@/app/server/GET/actions';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -8,7 +7,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { fetchAllDocumentTypes } from '@/features/Documentacion/shared/actions/document-actions';
 import { cn } from '@/lib/utils';
+import { fetchCurrentUser } from '@/shared/actions/company-user.actions';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { fetchSimpleDataEmployee } from '@/shared/actions/employees.actions';
 import { fetchSimpleDataEquipment } from '@/shared/actions/equipment.actions';

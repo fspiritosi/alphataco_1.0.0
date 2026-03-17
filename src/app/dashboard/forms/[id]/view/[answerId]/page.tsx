@@ -1,7 +1,8 @@
-import { fetchAllEquipment, fetchChecklistAnswerById, getCurrentProfile } from '@/app/server/GET/actions';
 import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklist';
 import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { fetchChecklistAnswerById, getCurrentProfile } from '@/features/Formularios/actions/checklist-actions';
 import { ChecklistPDFDownloadButton } from '@/features/Formularios/components/ChecklistPDFDownloadButton';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import BackButton from '@/shared/components/common/BackButton';
 import { notFound } from 'next/navigation';
 

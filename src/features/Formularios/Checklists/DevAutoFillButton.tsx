@@ -5,7 +5,9 @@ import { Zap } from 'lucide-react';
 import moment from 'moment';
 import { UseFormReturn } from 'react-hook-form';
 
-type ChecklistTemplate = Awaited<ReturnType<typeof import('@/app/server/GET/actions').fetchChecklistTemplateById>>;
+type ChecklistTemplate = Awaited<
+  ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').fetchChecklistTemplateById>
+>;
 type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_template_sections'][number];
 type ChecklistTemplateItem = ChecklistTemplateSection['checklist_template_items'][number];
 

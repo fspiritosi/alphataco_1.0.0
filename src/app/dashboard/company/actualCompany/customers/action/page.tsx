@@ -1,5 +1,8 @@
-import { fetchAllActivesEmployees, fetchServiceItems } from '@/app/server/GET/actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  fetchAllActivesEmployees,
+  fetchServiceItemsLegacy as fetchServiceItems,
+} from '@/features/Empresa/Clientes/actions/employee-queries';
 import CustomerComponent from '@/features/Empresa/Clientes/components/CustomerComponent';
 import { cn } from '@/lib/utils';
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';

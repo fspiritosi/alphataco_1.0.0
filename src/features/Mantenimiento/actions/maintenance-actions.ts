@@ -817,7 +817,7 @@ export async function createRepairRequestsFromDeviations(
 
     if (utChecklistAnswerId) {
       try {
-        const { findRelatedHitchEquipmentId } = await import('@/app/server/GET/actions');
+        const { findRelatedHitchEquipmentId } = await import('@/features/Mantenimiento/actions/equipment-basic');
         hitchEquipmentInfo = await findRelatedHitchEquipmentId(utChecklistAnswerId);
 
         // Si hay un equipo enganchado relacionado, buscar los desvíos idénticos (mismo item_code y section_code)

@@ -1,6 +1,8 @@
 'use client';
-import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { RepairsSolicituds, TypeOfRepair } from '@/types/types';
 import { LapTimerIcon } from '@radix-ui/react-icons';
@@ -13,8 +15,6 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiTool } from 'react-icons/fi';
 import { fetchMaintenanceGroupsActionType } from '../../TiposReparaciones/actions/maintenanceGroupActions';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import CompletarChecklist from './CompletarChecklist';
 import SolicitarMantenimiento from './SolicitarMantenimiento';
 import VehicleRepairRequests from './VehicleRepairRequests';

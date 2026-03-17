@@ -1,8 +1,9 @@
-import { fetchAllEquipment, fetchChecklistTemplateById, getCurrentProfile } from '@/app/server/GET/actions';
 import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
 import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { fetchChecklistTemplateById, getCurrentProfile } from '@/features/Formularios/actions/checklist-actions';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import { redirect } from 'next/navigation';
 
 export default async function ChecklistFormPage({

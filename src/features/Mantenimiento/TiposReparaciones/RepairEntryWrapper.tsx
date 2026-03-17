@@ -8,16 +8,16 @@
  *
  * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
  */
-import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
+import InfoComponent from '@/shared/components/common/InfoComponent';
 import { TypeOfRepair } from '@/types/types';
 import { FileText, Files } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-import InfoComponent from '@/shared/components/common/InfoComponent';
-import { Card } from '@/components/ui/card';
 import RepairNewEntry from './RepairEntry';
 import RepairNewEntryMultiple from './RepairEntryMultiple';
 import { fetchAllTypesOfRepairs } from './actions/actions';
