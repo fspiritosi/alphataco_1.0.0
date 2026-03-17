@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
 import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
@@ -25,7 +26,6 @@ import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes'
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import BackButton from '@/shared/components/common/BackButton';
-import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
 
 // Componentes de Otros Equipos
 import {

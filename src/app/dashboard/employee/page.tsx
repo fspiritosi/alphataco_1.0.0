@@ -9,14 +9,14 @@ import EmployesDiagram from '@/features/Employees/Diagrams/EmployesDiagram';
 import { DiagramsSkeleton } from '@/features/Employees/Diagrams/fallback/DiagramsSkeleton';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
+import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
+import { CovenantTreeSkeleton } from '@/features/Empresa/CCT/fallback/CovenantTreeSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
-import { CovenantTreeSkeleton } from '../company/actualCompany/covenant/fallback/CovenantTreeSkeleton';
 
 export async function generateMetadata() {
   const cookiesStore = await cookies();

@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { fetchAllContractorForVehicles } from '@/app/dashboard/employee/action/actions/actions';
 import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { toast } from 'sonner';
 import { createVehicle, updateVehicle } from '../lib/actions/vehicle-actions';
 

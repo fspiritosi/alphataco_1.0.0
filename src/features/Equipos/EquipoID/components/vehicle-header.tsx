@@ -1,12 +1,12 @@
 'use client';
 
 import { VehicleById } from '@/app/dashboard/equipment/action/page';
-import { conditionConfig, variants } from '@/app/dashboard/equipment/data-equipment-server';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { conditionConfig, variants } from '@/features/Equipos/Equipos/components/data-equipment-server';
 import { PermissionGuard } from '@/features/Permissions';
 import BackButton from '@/shared/components/common/BackButton';
 import { CheckCircle2, Edit, Truck } from 'lucide-react';

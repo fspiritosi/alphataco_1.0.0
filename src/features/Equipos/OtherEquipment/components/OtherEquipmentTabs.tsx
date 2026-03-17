@@ -1,8 +1,8 @@
 'use client';
 
-import { fetchAllContractorForVehicles } from '@/app/dashboard/employee/action/actions/actions';
 import { Badge } from '@/components/ui/badge';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import {
   getModelsByBrand,
   getSubTypesByType,

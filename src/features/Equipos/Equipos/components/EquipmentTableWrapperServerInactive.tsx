@@ -1,5 +1,5 @@
-import TablaEquipmentServerInactive from '@/app/dashboard/equipment/data-equipment-server-inactive';
 import { Card } from '@/components/ui/card';
+import TablaEquipmentServerInactive from '@/features/Equipos/Equipos/components/data-equipment-server-inactive';
 import { fetchInactiveEquipmentData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
 import { cookies } from 'next/headers';
 

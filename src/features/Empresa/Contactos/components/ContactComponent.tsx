@@ -1,10 +1,10 @@
 'use client';
-import { createdContact, updateContact } from '@/app/dashboard/company/actualCompany/contact/action/create';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createdContact, updateContact } from '@/features/Empresa/Contactos/components/create';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { useLoggedUserStore } from '@/store/loggedUser';

@@ -1,5 +1,5 @@
-import TablaEquipmentServer from '@/app/dashboard/equipment/data-equipment-server';
 import { Card } from '@/components/ui/card';
+import TablaEquipmentServer from '@/features/Equipos/Equipos/components/data-equipment-server';
 import { fetchVehiclesData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
 import { cookies } from 'next/headers';
 

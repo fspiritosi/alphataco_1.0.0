@@ -1,12 +1,12 @@
 'use client';
 
-import { fetchAllContractorForVehicles } from '@/app/dashboard/employee/action/actions/actions';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { use } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { OtherEquipmentFormData } from './OtherEquipmentForm';
