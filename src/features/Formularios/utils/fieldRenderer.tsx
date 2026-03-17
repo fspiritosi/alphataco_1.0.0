@@ -1,6 +1,3 @@
-import { FormField } from '@/types/types';
-import React from 'react';
-import { UseFormReturn } from 'react-hook-form';
 import {
   DateField,
   FileField,
@@ -18,7 +15,10 @@ import {
   TextAreaField,
   TextField,
   TitleField,
-} from '../components/Inputs';
+} from '@/features/Formularios/components/forms/Inputs';
+import { FormField } from '@/types/types';
+import React from 'react';
+import { UseFormReturn } from 'react-hook-form';
 
 interface FieldRendererProps {
   campo: FormField;

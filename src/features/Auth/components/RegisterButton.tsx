@@ -1,21 +1,24 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { Logger } from '@/lib/logger';
-import { loginSchema } from '@/zodSchemas/schemas';
-import { useRouter } from 'next/navigation';
+import { signup } from '@/features/Auth/actions/register-actions';
+import { handleSupabaseError } from '@/lib/errorHandler';
+import { registerSchema } from '@/zodSchemas/schemas';
+import { Loader2Icon } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
-import { login } from '../actions';
 
-const logger = new Logger('LoginButton');
-
-export const LoginButton = () => {
+export const RegisterButton = () => {
   const { pending } = useFormStatus();
-  const router = useRouter();
+
+  let url = '';
+
+  if (typeof window !== 'undefined') {
+    url = window.location.origin;
+  }
 
   const clientAccion = async (formData: FormData) => {
     const values = Object.fromEntries(formData.entries());
-    const result = await loginSchema.safeParseAsync(values);
+    const result = registerSchema.safeParse(values);
 
     Object.keys(values).forEach((key) => {
       const element = document.getElementById(`${key}_error`);
@@ -28,7 +31,7 @@ export const LoginButton = () => {
       result.error.issues.forEach((issue) => {
         const element = document.getElementById(`${issue.path}_error`);
         if (element) {
-          element.innerText = issue.message;
+          element.innerText = issue.message; //->mensaje de error
           element.style.color = 'red';
         }
       });
@@ -43,39 +46,33 @@ export const LoginButton = () => {
       });
       return;
     }
+
     toast.promise(
       async () => {
-        const data = await login(formData);
-        if ('error' in data) {
-          logger.error('Login error', { data: { error: data.error } });
-          throw new Error(data.error);
+        const error = await signup(formData, url);
+        if (error) {
+          throw new Error(handleSupabaseError(error));
         }
-        return 'success';
       },
       {
-        loading: 'Iniciando Sesion...',
-        success: () => {
-          router.push('/dashboard');
-          return '¡Bienvenido!';
-        },
+        loading: 'Registrando...',
+        success: '¡Revisa tu correo para confirmar tu cuenta!',
         error: (error) => {
-          logger.error('Login failed', { data: { error } });
-          if (error?.message?.includes('banned')) {
-            return 'Tu acceso ha sido revocado. Contacta al administrador de tu empresa.';
-          }
-          return error?.message || 'Error desconocido';
+          return error;
         },
       }
     );
   };
+
   return (
     <Button
       className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg"
-      formAction={(formData) => clientAccion(formData)}
+      formAction={(e) => {
+        clientAccion(e);
+      }}
       disabled={pending}
-      data-testid="login-submit-button"
     >
-      {pending ? 'Cargando...' : 'Iniciar Sesion'}
+      {pending ? <Loader2Icon className="animate-spin" /> : 'Registrarse'}
     </Button>
   );
 };

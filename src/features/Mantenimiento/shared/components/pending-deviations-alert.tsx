@@ -1,10 +1,10 @@
 'use client';
 
-import { getPendingDeviations } from '@/app/maintenance/actions';
-import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import type { TypeOfRepair } from '@/types/types';
 import { AlertTriangle, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';

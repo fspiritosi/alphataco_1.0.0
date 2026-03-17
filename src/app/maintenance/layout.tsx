@@ -1,5 +1,5 @@
-import TanstackQueryInicializador from '../dashboard/TanstackQueryInicializador';
-import { MaintenanceLayoutProvider } from './maintenance-layout-provider';
+import { MaintenanceLayoutProvider } from '@/features/Mantenimiento/shared/components/maintenance-layout-provider';
+import TanstackQueryInicializador from '@/shared/providers/TanstackQueryInicializador';
 
 export default function MaintenanceLayout({ children }: { children: React.ReactNode }) {
   // Employee data is resolved client-side by MaintenanceHeader via useEmployeeDataMaintenance() hook.

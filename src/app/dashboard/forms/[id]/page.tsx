@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { ChecklistAnswersList } from '@/features/Formularios/ChecklistAnswers/ChecklistAnswersList';
 import { ChecklistAnswersTableSkeleton } from '@/features/Formularios/ChecklistAnswers/fallback/ChecklistAnswersTableSkeleton';
 import { ChecklistPDFButton } from '@/features/Formularios/components/ChecklistPDFButton';
+import CheckListAnwersTable from '@/features/Formularios/components/forms/CheckListAnwersTable';
 import { PDFPreviewDialog } from '@/features/Formularios/components/pdf-preview-dialog';
 import { TransporteSPANAYCHKHYS01 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS01';
 import { TransporteSPANAYCHKHYS03 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS03';
@@ -12,7 +13,6 @@ import BackButton from '@/shared/components/common/BackButton';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import CheckListAnwersTable from '../components/CheckListAnwersTable';
 
 const renderForm = (activeFormType: string) => {
   switch (activeFormType) {

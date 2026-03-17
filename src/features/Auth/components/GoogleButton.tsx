@@ -1,9 +1,9 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { GoogleIcon } from '@/components/ui/icons/google';
+import { googleLogin } from '@/features/Auth/actions/login-actions';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
-import { googleLogin } from '../actions';
 
 function GoogleButton() {
   const { pending } = useFormStatus();

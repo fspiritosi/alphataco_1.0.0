@@ -1,8 +1,11 @@
 'use client';
 
-import { getEquipmentsWithPendingDeviations, getPendingDeviations } from '@/app/maintenance/actions';
 import { Button } from '@/components/ui/button';
 import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import {
+  getEquipmentsWithPendingDeviations,
+  getPendingDeviations,
+} from '@/features/Mantenimiento/actions/maintenance-actions';
 import { CriticalDeviationsRepairModal } from '@/features/Mantenimiento/shared/components/critical-deviations-repair-modal';
 import { Logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';

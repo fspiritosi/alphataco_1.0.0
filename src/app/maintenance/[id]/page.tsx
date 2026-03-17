@@ -1,7 +1,7 @@
-import { fetchMaintenanceChecklists } from '@/app/maintenance/actions';
 import { fetchAllEquipment, fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import QrActionSelector from '@/features/Mantenimiento/QR/components/AcctionSelector';
 import { fetchMaintenanceGroupsAction } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
+import { fetchMaintenanceChecklists } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { TypeOfRepair } from '@/types/types';
 import { cookies } from 'next/headers';

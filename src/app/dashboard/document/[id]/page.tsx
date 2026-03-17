@@ -5,6 +5,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import DeleteDocument from '@/features/Documentacion/shared/components/DeleteDocument';
+import DownloadButton from '@/features/Documentacion/shared/components/DownloadButton';
 import ReplaceDocument from '@/features/Documentacion/shared/components/ReplaceDocument';
 import UpdateDocuments from '@/features/Documentacion/shared/components/UpdateDocuments';
 import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
@@ -15,7 +16,6 @@ import BackButton from '@/shared/components/common/BackButton';
 import { Building2, FileText, User, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { Suspense } from 'react';
-import DownloadButton from '../documentComponents/DownloadButton';
 
 // Tipo auxiliar para los datos del documento (las 3 tablas tienen forma similar)
 type DocumentRecord = {

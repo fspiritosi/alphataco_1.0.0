@@ -1,5 +1,5 @@
 // app/api/auth/resend-reset-email/route.ts
-import { sendEmail } from '@/app/actions/sendEmail';
+import { sendEmail } from '@/features/Auth/actions/sendEmail';
 import { supabaseServer } from '@/lib/supabase/server';
 import { generateExpirationDate, generateSecureToken } from '@/lib/utils/tokens';
 import { NextRequest, NextResponse } from 'next/server';

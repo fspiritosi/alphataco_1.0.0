@@ -7,11 +7,11 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import CityInput from '@/features/Empresa/General/components/CityInput';
 import EditCompanyButton from '@/features/Empresa/General/components/EditCompanyButton';
 import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { revalidatePath } from 'next/cache';
-import CityInput from '../new/components/CityInput';
 export default async function companyRegister({ params }: { params: Promise<{ id: string }> }) {
   // En Next.js 15+, params es una Promise, necesitamos hacer await
   const resolvedParams = await params;

@@ -1,6 +1,5 @@
 'use client';
 
-import { getPendingDeviations } from '@/app/maintenance/actions';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/app/server/GET/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklist';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { CriticalDeviationsRepairModal } from '@/features/Mantenimiento/shared/components/critical-deviations-repair-modal';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -1417,7 +1417,7 @@ export function NormalizedChecklistForm({
                                   </Button>
                                 </FormControl>
                               </PopoverTrigger>
-                              <PopoverContent className="w-[400px] p-0" align="start">
+                              <PopoverContent className="w-100 p-0" align="start">
                                 <Command>
                                   <CommandInput placeholder="Buscar por nombre o documento..." />
                                   <CommandList>

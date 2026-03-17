@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
+import FieldRenderer from '@/features/Formularios/utils/fieldRenderer';
+import { buildFormData, buildFormSchema } from '@/features/Formularios/utils/formUtils';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { FormField } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,8 +11,6 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import FieldRenderer from '../formUtils/fieldRenderer';
-import { buildFormData, buildFormSchema } from '../formUtils/formUtils';
 
 interface Props {
   campos: any[] | null;

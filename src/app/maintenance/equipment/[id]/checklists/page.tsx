@@ -1,8 +1,8 @@
-import { fetchMaintenanceChecklists } from '@/app/maintenance/actions';
 import { fetchAllEquipment } from '@/app/server/GET/actions';
+import ChecklistsListClient from '@/features/Mantenimiento/Checklists/components/checklists-list-client';
+import { fetchMaintenanceChecklists } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import ChecklistsListClient from './checklists-list-client';
 
 export default async function ChecklistsListPage({
   params,

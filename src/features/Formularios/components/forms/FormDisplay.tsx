@@ -20,6 +20,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import FieldRenderer from '@/features/Formularios/utils/fieldRenderer';
+import { buildFormData } from '@/features/Formularios/utils/formUtils';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { COMPANIES_TABLE, DOCUMENTS_TABLE, EMPLOYEES_TABLE, VEHICLES_TABLE } from '@/lib/utils/utils';
 import { useCountriesStore } from '@/store/countries';
@@ -28,8 +30,6 @@ import { Campo, FormField, types } from '@/types/types';
 import { useRouter } from 'next/navigation';
 import { Dispatch, SetStateAction, useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import FieldRenderer from '../formUtils/fieldRenderer';
-import { buildFormData } from '../formUtils/formUtils';
 
 interface FormDisplayProps {
   campos: Campo[];

@@ -1,8 +1,8 @@
 'use client';
 
-import { useMaintenanceLayout } from '@/app/maintenance/maintenance-layout-provider';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMaintenanceLayout } from '@/features/Mantenimiento/shared/components/maintenance-layout-provider';
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
