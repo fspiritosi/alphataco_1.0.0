@@ -1,8 +1,8 @@
 'use server';
 
-import { Filter, queryWithPagination } from '@/app/server/GET/probando';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { Filter, queryWithPagination } from '@/shared/actions/supabase-query';
 import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 

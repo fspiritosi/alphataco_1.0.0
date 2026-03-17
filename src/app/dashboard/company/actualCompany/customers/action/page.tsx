@@ -1,12 +1,9 @@
-import {
-  fetchAllActivesEmployees,
-  fetchAllEmployees,
-  fetchAllEquipment,
-  fetchServiceItems,
-} from '@/app/server/GET/actions';
+import { fetchAllActivesEmployees, fetchServiceItems } from '@/app/server/GET/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import CustomerComponent from '@/features/Empresa/Clientes/components/CustomerComponent';
 import { cn } from '@/lib/utils';
+import { fetchAllEmployees } from '@/shared/actions/employees.actions';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import BackButton from '@/shared/components/common/BackButton';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';

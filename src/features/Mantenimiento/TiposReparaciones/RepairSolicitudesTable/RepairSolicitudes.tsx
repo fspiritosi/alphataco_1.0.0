@@ -1,5 +1,5 @@
 'use client';
-import { querySelectDistinct } from '@/app/server/GET/probando';
+import { querySelectDistinct } from '@/shared/actions/supabase-query';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';

@@ -1,10 +1,4 @@
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployees,
-  fetchAllEquipment,
-  fetchCurrentCompany,
-  fetchCurrentUser,
-} from '@/app/server/GET/actions';
+import { fetchAllDocumentTypes, fetchCurrentUser } from '@/app/server/GET/actions';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,6 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { fetchCurrentCompany } from '@/shared/actions/company.actions';
+import { fetchAllEmployees } from '@/shared/actions/employees.actions';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import InfoComponent from '@/shared/components/common/InfoComponent';
 import UploadDocumentEmployee from './UploadDocumentEmployee';
 import UploadDocumentEquipment from './UploadDocumentEquipment';
@@ -72,14 +69,14 @@ async function NewDocumentNoMulti({
               allDocumentTypes={allDocumentTypes?.filter(
                 (document) => document.applies === 'Persona' && !document.multiresource
               )}
-              currentCompany={currentCompany}
+              currentCompany={(currentCompany ?? []) as Company[]}
               user_id={user?.id}
             />
           </TabsContent>
           <TabsContent value="equipment">
             <UploadDocumentEquipment
               default_id={id_user}
-              currentCompany={currentCompany}
+              currentCompany={(currentCompany ?? []) as Company[]}
               allDocumentTypes={allDocumentTypes?.filter(
                 (document) => document.applies === 'Equipos' && !document.multiresource
               )}

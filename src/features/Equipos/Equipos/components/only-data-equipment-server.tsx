@@ -1,6 +1,5 @@
 'use client';
 
-import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber } from '@/components/ui/price-currency-input';
@@ -9,6 +8,7 @@ import {
   fetchAllOtherEquipmentData,
   fetchOtherEquipmentData,
 } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
+import { querySelectDistinct } from '@/shared/actions/supabase-query';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table';

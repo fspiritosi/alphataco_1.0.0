@@ -1,6 +1,5 @@
 'use client';
 
-import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { cn } from '@/lib/utils';
+import { querySelectDistinct } from '@/shared/actions/supabase-query';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { useDailyReportFormStore } from '@/store/dailyReportFormStore';

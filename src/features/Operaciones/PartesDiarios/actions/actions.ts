@@ -1,5 +1,8 @@
 'use server';
-import { DailyReportRowHistoryRecord, ProcessedHistoryEntry } from '@/app/server/colections';
+import {
+  DailyReportRowHistoryRecord,
+  ProcessedHistoryEntry,
+} from '@/features/Operaciones/PartesDiarios/types/daily-report-history';
 import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import moment from 'moment';
