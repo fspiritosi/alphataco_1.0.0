@@ -60,6 +60,7 @@ interface NuevoPedidoChecklistFormProps {
   onSuccess?: () => void;
   driverEmployeeId?: string;
   driverName?: string;
+  driverFileNumber?: string;
   skipSupervisorQuestion?: boolean;
   successRedirectUrl?: string;
 }
@@ -70,6 +71,7 @@ export function NuevoPedidoChecklistForm({
   onSuccess,
   driverEmployeeId,
   driverName,
+  driverFileNumber,
   skipSupervisorQuestion = false,
   successRedirectUrl,
 }: NuevoPedidoChecklistFormProps) {
@@ -84,8 +86,11 @@ export function NuevoPedidoChecklistForm({
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(default_equipment_id || '');
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [kilometer, setKilometer] = useState('');
-  const [engineHours, setEngineHours] = useState('');
+
+  // Pre-fill km/hours from default equipment if provided
+  const defaultEquip = default_equipment_id ? equipment?.find((e) => e.id === default_equipment_id) : null;
+  const [kilometer, setKilometer] = useState(defaultEquip?.kilometer || '');
+  const [engineHours, setEngineHours] = useState(defaultEquip?.engine_hours || '');
 
   // Paso 2: Selección de checklist
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -816,6 +821,9 @@ export function NuevoPedidoChecklistForm({
               <div className="flex items-center gap-2 mt-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Chofer:</span>
+                {driverFileNumber && (
+                  <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{driverFileNumber}</span>
+                )}
                 <span className="font-medium">{driverName}</span>
               </div>
             )}

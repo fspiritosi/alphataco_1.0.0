@@ -49,16 +49,17 @@ export default async function MaintenanceEquipmentRequestPage({ params }: { para
   // 4. Filter equipment by company
   const equipment = allEquipment.filter((e) => e.company_id === equipmentData.company_id);
 
-  // 5. Build driver display name with file number
-  const driverName = employeeData
-    ? `[${employeeData.file || ''}] ${employeeData.lastname} ${employeeData.firstname}`.trim()
-    : undefined;
+  // 5. Build driver display name (name only — legajo shown separately in UI)
+  const driverName = employeeData ? `${employeeData.lastname} ${employeeData.firstname}`.trim() : undefined;
+  const driverFileNumber = employeeData?.file ?? undefined;
 
   return (
     <div className="flex min-h-screen flex-col">
       <MaintenanceHeader
         employeeName={employeeData ? `${employeeData.firstname} ${employeeData.lastname}` : undefined}
         employeeCuil={employeeData?.cuil ?? undefined}
+        showBack={true}
+        backHref={`/maintenance/equipment/${resolvedParams.id}`}
       />
       <main className="flex-1 p-4">
         <NuevoPedidoChecklistForm
@@ -66,6 +67,7 @@ export default async function MaintenanceEquipmentRequestPage({ params }: { para
           default_equipment_id={resolvedParams.id}
           driverEmployeeId={employeeData?.id}
           driverName={driverName}
+          driverFileNumber={driverFileNumber}
           skipSupervisorQuestion={true}
           successRedirectUrl={`/maintenance/equipment/${resolvedParams.id}`}
         />

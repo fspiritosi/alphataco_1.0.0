@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
-import { resolveDriverName } from '@/features/Mantenimiento/utils/driverInfo';
+import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface SolicitudDetailDialogProps {
@@ -70,7 +70,17 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Chofer:</span>
-                  <p className="font-medium">{resolveDriverName(request)}</p>
+                  {(() => {
+                    const driver = resolveDriverInfo(request);
+                    return (
+                      <div className="flex items-center gap-2">
+                        {driver.fileNumber && (
+                          <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{driver.fileNumber}</span>
+                        )}
+                        <p className="font-medium">{driver.name}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Creado por:</span>

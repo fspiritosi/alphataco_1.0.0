@@ -9,34 +9,47 @@
  * Incluye nombre del autor y rol para cada comentario.
  */
 
-/**
- * Resolve driver display name from a maintenance request.
- * Priority: driver_employee (new FK) → answer_data.chofer (legacy) → employees (old FK) → fallback
- */
-export function resolveDriverName(request: {
+type DriverRequestInput = {
   driver_employee?: { firstname: string; lastname: string; file?: string | null } | null;
   checklist_answers?: { answer_data: unknown } | null;
   employees?: { firstname: string; lastname: string; file?: string | null } | null;
-}): string {
+};
+
+/**
+ * Resolve driver display name from a maintenance request (compact format for tables/lists).
+ * Returns name only (no legajo) for consistency — legacy records don't have driver_employee FK.
+ * Priority: driver_employee (new FK) → answer_data.chofer (legacy) → employees (old FK) → fallback
+ */
+export function resolveDriverName(request: DriverRequestInput): string {
+  return resolveDriverInfo(request).name;
+}
+
+/**
+ * Resolve driver info as structured data from a maintenance request.
+ * Use this in UIs with enough space to show legajo and name separately.
+ * Priority: driver_employee (new FK) → answer_data.chofer (legacy) → employees (old FK) → fallback
+ */
+export function resolveDriverInfo(request: DriverRequestInput): {
+  name: string;
+  fileNumber: string | null;
+} {
   // Priority 1: New FK — driver_employee
   if (request.driver_employee) {
     const { firstname, lastname, file } = request.driver_employee;
-    const name = `${lastname} ${firstname}`.trim();
-    return file ? `[${file}] ${name}` : name;
+    return { name: `${firstname} ${lastname}`.trim(), fileNumber: file ?? null };
   }
 
   // Priority 2: Legacy JSON — checklist_answers.answer_data.chofer
   const answerData = request.checklist_answers?.answer_data as { chofer?: string } | null;
-  if (answerData?.chofer) return answerData.chofer;
+  if (answerData?.chofer) return { name: answerData.chofer, fileNumber: null };
 
   // Priority 3: Old FK — employees (employee_id)
   if (request.employees) {
     const { firstname, lastname, file } = request.employees;
-    const name = `${lastname} ${firstname}`.trim();
-    return file ? `[${file}] ${name}` : name;
+    return { name: `${firstname} ${lastname}`.trim(), fileNumber: file ?? null };
   }
 
-  return 'No especificado';
+  return { name: 'No especificado', fileNumber: null };
 }
 
 /**
@@ -156,11 +169,9 @@ export function getItemComments(
   const itemObj = item as Record<string, unknown>;
   const requestItems = itemObj?.maintenance_request_items as Record<string, unknown> | undefined;
 
-  const isManual = source === 'manual';
-
-  // 1. driver_comment - "Comentario del chofer" (solo para source=checklist)
+  // 1. driver_comment — siempre "Comentario del chofer" si existe
   const driverComment = getDriverComment(item);
-  if (driverComment && !isManual) {
+  if (driverComment) {
     const driverProfileName = getProfileName(requestItems?.driver_comment_profile);
     const driverName = driverProfileName || getDriverName(item);
 
@@ -174,7 +185,7 @@ export function getItemComments(
     seenTexts.add(driverComment.trim().toLowerCase());
   }
 
-  // 2. supervisor_comment - "Comentario del supervisor" (campo nuevo, para source=manual)
+  // 2. supervisor_comment — siempre "Comentario del supervisor" si existe
   const supervisorComment = requestItems?.supervisor_comment;
   if (typeof supervisorComment === 'string' && supervisorComment) {
     const normalized = supervisorComment.trim().toLowerCase();
@@ -190,21 +201,6 @@ export function getItemComments(
       });
       seenTexts.add(normalized);
     }
-  }
-
-  // 2b. Fallback: si es manual y no hay supervisor_comment, usar driver_comment como supervisor
-  if (isManual && driverComment && !supervisorComment) {
-    const supervisorProfileName = getProfileName(requestItems?.driver_comment_profile);
-    const driverName = supervisorProfileName || getDriverName(item);
-
-    comments.push({
-      label: 'Comentario del supervisor',
-      text: driverComment,
-      style: 'validator',
-      authorName: driverName || fallbackAuthorName || undefined,
-      role: 'Supervisor',
-    });
-    seenTexts.add(driverComment.trim().toLowerCase());
   }
 
   // 3. validator_comment - "Comentario del validador" (solo si es diferente)

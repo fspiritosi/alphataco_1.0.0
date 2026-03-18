@@ -333,19 +333,30 @@ export async function createMaintenanceOrderFromDeviations(input: {
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'approved',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Crear maintenance_order con source='manual'
@@ -516,19 +527,30 @@ export async function createMaintenanceRequestPendingApproval(input: {
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'pending',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Registrar actividad en maintenance_activity_log
