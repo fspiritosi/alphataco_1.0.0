@@ -322,10 +322,13 @@ function OriginItem({ origin, hasMoreItems }: { origin: MaintenanceRequestOrigin
 
         {isChecklist && origin.checklist ? (
           <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm space-y-1">
-            {origin.checklist.chofer && (
+            {(origin.driverEmployee || origin.checklist?.chofer) && (
               <p className="flex items-center gap-1 text-blue-800 dark:text-blue-200">
                 <User className="h-3 w-3" />
-                <span className="font-medium">Chofer:</span> {origin.checklist.chofer}
+                <span className="font-medium">Chofer:</span>{' '}
+                {origin.driverEmployee
+                  ? `${origin.driverEmployee.file ? `[${origin.driverEmployee.file}] ` : ''}${origin.driverEmployee.lastname} ${origin.driverEmployee.firstname}`.trim()
+                  : origin.checklist?.chofer}
               </p>
             )}
             {origin.checklist.fecha && (

@@ -46,7 +46,15 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
     },
   },
   employees: {
-    select: { id: true, firstname: true, lastname: true },
+    select: { id: true, firstname: true, lastname: true, file: true },
+  },
+  driver_employee: {
+    select: {
+      id: true,
+      firstname: true,
+      lastname: true,
+      file: true,
+    },
   },
   checklist_answers: {
     select: { id: true, created_at: true, answer_data: true },
@@ -528,6 +536,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
   employeeId?: string;
   userId?: string;
   kilometer?: string;
+  driverEmployeeId?: string;
 }): Promise<{ ok: true; requestId?: string; created: boolean } | { ok: false; error: string }> {
   serverLogger.info('createOrUpdateMaintenanceRequest - Iniciando', {
     data: {
@@ -616,6 +625,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
           kilometer: input.kilometer ?? null,
           supervisor_id: input.supervisorId,
           status: 'pending_approval',
+          driver_employee_id: input.driverEmployeeId ?? null,
         },
       });
 

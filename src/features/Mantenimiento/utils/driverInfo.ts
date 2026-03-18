@@ -10,10 +10,48 @@
  */
 
 /**
- * Extrae el nombre del chofer desde los datos de checklist_deviations
- * Prioriza: employee firstname+lastname > user.fullname > user.email
+ * Resolve driver display name from a maintenance request.
+ * Priority: driver_employee (new FK) → answer_data.chofer (legacy) → employees (old FK) → fallback
  */
-export function getDriverName(item: unknown): string | null {
+export function resolveDriverName(request: {
+  driver_employee?: { firstname: string; lastname: string; file?: string | null } | null;
+  checklist_answers?: { answer_data: unknown } | null;
+  employees?: { firstname: string; lastname: string; file?: string | null } | null;
+}): string {
+  // Priority 1: New FK — driver_employee
+  if (request.driver_employee) {
+    const { firstname, lastname, file } = request.driver_employee;
+    const name = `${lastname} ${firstname}`.trim();
+    return file ? `[${file}] ${name}` : name;
+  }
+
+  // Priority 2: Legacy JSON — checklist_answers.answer_data.chofer
+  const answerData = request.checklist_answers?.answer_data as { chofer?: string } | null;
+  if (answerData?.chofer) return answerData.chofer;
+
+  // Priority 3: Old FK — employees (employee_id)
+  if (request.employees) {
+    const { firstname, lastname, file } = request.employees;
+    const name = `${lastname} ${firstname}`.trim();
+    return file ? `[${file}] ${name}` : name;
+  }
+
+  return 'No especificado';
+}
+
+/**
+ * Extrae el nombre del chofer desde los datos de checklist_deviations
+ * Prioriza: driverEmployee (explicit param) > employee firstname+lastname > user.fullname > user.email
+ */
+export function getDriverName(
+  item: unknown,
+  driverEmployee?: { firstname: string; lastname: string } | null
+): string | null {
+  // Priority 0: Explicit driver_employee from parent request
+  if (driverEmployee) {
+    return `${driverEmployee.firstname} ${driverEmployee.lastname}`.trim() || null;
+  }
+
   const checklistAnswers = (item as Record<string, unknown>)?.maintenance_request_items as
     | Record<string, unknown>
     | undefined;

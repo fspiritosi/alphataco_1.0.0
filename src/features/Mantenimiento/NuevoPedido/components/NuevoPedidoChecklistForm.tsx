@@ -58,12 +58,20 @@ interface NuevoPedidoChecklistFormProps {
   equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
   default_equipment_id?: string;
   onSuccess?: () => void;
+  driverEmployeeId?: string;
+  driverName?: string;
+  skipSupervisorQuestion?: boolean;
+  successRedirectUrl?: string;
 }
 
 export function NuevoPedidoChecklistForm({
   equipment,
   default_equipment_id,
   onSuccess,
+  driverEmployeeId,
+  driverName,
+  skipSupervisorQuestion = false,
+  successRedirectUrl,
 }: NuevoPedidoChecklistFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -90,7 +98,9 @@ export function NuevoPedidoChecklistForm({
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
   const [supervisorOpen, setSupervisorOpen] = useState(false);
   // Nuevo: Estado para indicar si el usuario actual es el supervisor
-  const [isCurrentUserSupervisor, setIsCurrentUserSupervisor] = useState<boolean | null>(null);
+  const [isCurrentUserSupervisor, setIsCurrentUserSupervisor] = useState<boolean | null>(
+    skipSupervisorQuestion ? false : null
+  );
 
   // Equipo seleccionado
   const selectedEquipment = useMemo(
@@ -259,6 +269,7 @@ export function NuevoPedidoChecklistForm({
           kilometer: kilometer || undefined,
           engine_hours: engineHours || undefined,
           deviations: deviationsToSend,
+          driverEmployeeId: driverEmployeeId || undefined,
         });
 
         toast.success('Pedido de mantenimiento creado exitosamente');
@@ -273,6 +284,7 @@ export function NuevoPedidoChecklistForm({
           kilometer: kilometer || undefined,
           engine_hours: engineHours || undefined,
           deviations: deviationsToSend,
+          driverEmployeeId: driverEmployeeId || undefined,
         });
 
         toast.success('Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos.');
@@ -290,12 +302,16 @@ export function NuevoPedidoChecklistForm({
       setSelectedDeviations([]);
       setDeviationComments({});
       setSelectedSupervisorId('');
-      setIsCurrentUserSupervisor(null);
+      setIsCurrentUserSupervisor(skipSupervisorQuestion ? false : null);
 
       router.refresh();
 
       if (onSuccess) {
         onSuccess();
+      }
+
+      if (successRedirectUrl) {
+        router.push(successRedirectUrl);
       }
     } catch (error) {
       logger.error('Error al crear pedido', { data: { error } });
@@ -589,43 +605,51 @@ export function NuevoPedidoChecklistForm({
 
   const renderStep3Supervisor = () => (
     <div className="space-y-4">
-      {/* Pregunta inicial: ¿Eres el supervisor? */}
+      {/* Pregunta inicial: ¿Eres el supervisor? (omitir si skipSupervisorQuestion) */}
       {isLoadingCurrentUser ? (
         <Skeleton className="h-24 w-full" />
       ) : (
         <>
-          <div className="space-y-3">
-            <Label className="text-base font-medium">¿Eres el supervisor de este pedido?</Label>
-            <p className="text-sm text-muted-foreground">
-              Si eres el supervisor, el pedido se creará directamente. Si no lo eres, el pedido deberá ser aprobado por
-              el supervisor que selecciones.
-            </p>
-            <div className="flex gap-3 mt-4">
-              <Button
-                type="button"
-                variant={isCurrentUserSupervisor === true ? 'default' : 'outline'}
-                className={cn('flex-1', isCurrentUserSupervisor === true && 'bg-green-600 hover:bg-green-700')}
-                onClick={() => {
-                  setIsCurrentUserSupervisor(true);
-                  setSelectedSupervisorId('');
-                }}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Sí, soy el supervisor
-              </Button>
-              <Button
-                type="button"
-                variant={isCurrentUserSupervisor === false ? 'default' : 'outline'}
-                className={cn('flex-1', isCurrentUserSupervisor === false && 'bg-blue-600 hover:bg-blue-700')}
-                onClick={() => {
-                  setIsCurrentUserSupervisor(false);
-                }}
-              >
-                <User className="mr-2 h-4 w-4" />
-                No, seleccionaré uno
-              </Button>
+          {!skipSupervisorQuestion && (
+            <div className="space-y-3">
+              <Label className="text-base font-medium">¿Eres el supervisor de este pedido?</Label>
+              <p className="text-sm text-muted-foreground">
+                Si eres el supervisor, el pedido se creará directamente. Si no lo eres, el pedido deberá ser aprobado
+                por el supervisor que selecciones.
+              </p>
+              <div className="flex gap-3 mt-4">
+                <Button
+                  type="button"
+                  variant={isCurrentUserSupervisor === true ? 'default' : 'outline'}
+                  className={cn('flex-1', isCurrentUserSupervisor === true && 'bg-green-600 hover:bg-green-700')}
+                  onClick={() => {
+                    setIsCurrentUserSupervisor(true);
+                    setSelectedSupervisorId('');
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Sí, soy el supervisor
+                </Button>
+                <Button
+                  type="button"
+                  variant={isCurrentUserSupervisor === false ? 'default' : 'outline'}
+                  className={cn('flex-1', isCurrentUserSupervisor === false && 'bg-blue-600 hover:bg-blue-700')}
+                  onClick={() => {
+                    setIsCurrentUserSupervisor(false);
+                  }}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  No, seleccionaré uno
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {skipSupervisorQuestion && (
+            <div className="space-y-3">
+              <Label className="text-base font-medium">Seleccionar Supervisor</Label>
+            </div>
+          )}
 
           {/* Si ES supervisor: mostrar información del usuario actual */}
           {isCurrentUserSupervisor === true && currentUser && (
@@ -788,6 +812,13 @@ export function NuevoPedidoChecklistForm({
             <p className="text-sm text-muted-foreground">{selectedEquipment?.types_of_vehicles?.name}</p>
             {kilometer && <p className="text-sm">Kilometraje: {kilometer} km</p>}
             {engineHours && <p className="text-sm">Horómetro: {engineHours} hs</p>}
+            {driverName && (
+              <div className="flex items-center gap-2 mt-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Chofer:</span>
+                <span className="font-medium">{driverName}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

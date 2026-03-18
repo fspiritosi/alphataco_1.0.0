@@ -286,6 +286,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
   kilometer?: string;
   engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
+  driverEmployeeId?: string;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
@@ -327,6 +328,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
       },
     });
 
@@ -468,6 +470,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   kilometer?: string;
   engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
+  driverEmployeeId?: string;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
@@ -507,6 +510,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
         // Sin approved_by ni approved_at ya que está pendiente
       },
     });
