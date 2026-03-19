@@ -16,6 +16,7 @@ import { createClothingItem, updateClothingItem } from '@/features/Clothing/acti
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -62,22 +63,30 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: item?.name ?? '',
-      code: item?.code ?? '',
-      description: item?.description ?? '',
+      name: '',
+      code: '',
+      description: '',
     },
   });
 
-  // Reset form when item changes (switching between create/edit)
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      form.reset({ name: '', code: '', description: '' });
-    } else if (item) {
+  // Sync form values when dialog opens or item changes
+  // useEffect is correct here: we're synchronizing with an external prop (item)
+  // that changes outside of user interaction within this component
+  useEffect(() => {
+    if (open && item) {
       form.reset({
         name: item.name,
         code: item.code ?? '',
         description: item.description ?? '',
       });
+    } else if (open && !item) {
+      form.reset({ name: '', code: '', description: '' });
+    }
+  }, [open, item, form]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      form.reset({ name: '', code: '', description: '' });
     }
     onOpenChange(nextOpen);
   };
@@ -119,7 +128,10 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar artículo' : 'Nuevo artículo'}</DialogTitle>
           <DialogDescription>

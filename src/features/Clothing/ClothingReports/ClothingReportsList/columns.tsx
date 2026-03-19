@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { DeliveryReceiptButton } from '@/features/Clothing/pdf/DeliveryReceiptButton';
 import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -182,6 +183,15 @@ export function getColumns(): ColumnDef<ClothingReportListItem>[] {
       meta: { title: 'Fecha de registro' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de registro" />,
       cell: ({ row }) => (row.original.created_at ? moment(row.original.created_at).format('DD/MM/YYYY') : '-'),
+    },
+
+    // ── actions — PDF download ──────────────────────────────────────────────────
+    {
+      id: 'actions',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => <DeliveryReceiptButton deliveryId={row.original.id} compact />,
     },
   ];
 }

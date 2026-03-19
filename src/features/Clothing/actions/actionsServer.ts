@@ -412,6 +412,85 @@ export async function getActiveClothingSizes() {
 }
 
 // ============================================================================
+// PDF — DELIVERY RECEIPT DATA
+// ============================================================================
+
+/**
+ * Fetches all data needed to generate the delivery receipt PDF.
+ * Includes: delivery, items with brand/size, employee (receptor), delivered_by,
+ * company with city/province names.
+ */
+export async function getDeliveryForPdf(deliveryId: string) {
+  logger.debug('Fetching delivery for PDF', { data: { deliveryId } });
+
+  try {
+    const delivery = await prisma.clothing_deliveries.findUniqueOrThrow({
+      where: { id: deliveryId },
+      select: {
+        id: true,
+        delivery_type: true,
+        delivered_at: true,
+        signature_url: true,
+        notes: true,
+        clothing_delivery_items: {
+          select: {
+            quantity: true,
+            clothing_items: {
+              select: { name: true, code: true, description: true },
+            },
+            clothing_brands: {
+              select: { name: true },
+            },
+            clothing_sizes: {
+              select: { name: true },
+            },
+          },
+        },
+        employees_clothing_deliveries_employee_idToemployees: {
+          select: {
+            firstname: true,
+            lastname: true,
+            document_number: true,
+            file: true,
+            cuil: true,
+            postal_code: true,
+            company_positions: {
+              select: { name: true },
+            },
+          },
+        },
+        employees_clothing_deliveries_delivered_by_idToemployees: {
+          select: {
+            firstname: true,
+            lastname: true,
+            file: true,
+          },
+        },
+        company: {
+          select: {
+            company_name: true,
+            company_cuit: true,
+            address: true,
+            company_logo: true,
+            cities: {
+              select: { name: true },
+            },
+            provinces: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return delivery;
+  } catch (error) {
+    logger.error('Error fetching delivery for PDF', { data: { error, deliveryId } });
+    throw error;
+  }
+}
+
+// ============================================================================
 // EXPORTED TYPES
 // ============================================================================
 
@@ -423,3 +502,5 @@ export type ItemBrandSizeEntry = Awaited<ReturnType<typeof getItemBrandSizes>>[n
 
 export type ActiveClothingBrand = Awaited<ReturnType<typeof getActiveClothingBrands>>[number];
 export type ActiveClothingSize = Awaited<ReturnType<typeof getActiveClothingSizes>>[number];
+
+export type DeliveryPdfData = Awaited<ReturnType<typeof getDeliveryForPdf>>;

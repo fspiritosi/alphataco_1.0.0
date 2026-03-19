@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeliveryReceiptButton } from '@/features/Clothing/pdf/DeliveryReceiptButton';
 import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
@@ -165,6 +166,15 @@ export function getColumns(): ColumnDef<EmployeeDeliveryListItem>[] {
       meta: { title: 'Notas' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Notas" />,
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.notes ?? '-'}</span>,
+    },
+
+    // ── actions — PDF download ──────────────────────────────────────────────────
+    {
+      id: 'actions',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => <DeliveryReceiptButton deliveryId={row.original.id} compact />,
     },
   ];
 }
