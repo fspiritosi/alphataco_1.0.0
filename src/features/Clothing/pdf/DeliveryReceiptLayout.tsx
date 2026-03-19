@@ -272,7 +272,7 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
           <View style={styles.headerMiddle} />
           <View style={styles.metaCell}>
             <Text style={styles.metaText}>RG 12-4</Text>
-            <Text style={styles.metaText}>12/1/2022</Text>
+            <Text style={styles.metaText}>{moment().format('DD/MM/YYYY')}</Text>
             <Text style={styles.metaText}>Rev. 4</Text>
           </View>
         </View>
