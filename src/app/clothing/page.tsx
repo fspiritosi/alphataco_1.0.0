@@ -1,7 +1,20 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { getClothingOperatorContext } from '@/features/Clothing/actions/actionsServer';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default async function ClothingRootPage() {
+function RedirectSkeleton() {
+  return (
+    <div className="min-h-dvh flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+    </div>
+  );
+}
+
+async function ClothingRootContent() {
   const context = await getClothingOperatorContext();
 
   if (context) {
@@ -9,4 +22,13 @@ export default async function ClothingRootPage() {
   }
 
   redirect('/clothing/login');
+  return null;
+}
+
+export default function ClothingRootPage() {
+  return (
+    <Suspense fallback={<RedirectSkeleton />}>
+      <ClothingRootContent />
+    </Suspense>
+  );
 }
