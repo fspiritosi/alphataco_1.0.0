@@ -125,7 +125,13 @@ Todas obligatorias. Guias completas en `.claude/rules/`:
 
 ## Self-Improvement
 
-After every correction or mistake, update this CLAUDE.md with a rule to prevent repeating it.
+**OBLIGATORIO — NO OMITIR:** Después de TODA corrección del usuario, INMEDIATAMENTE actualizar la sección "Learned Corrections" de este archivo con la regla aprendida. Esto NO es opcional y NO se reemplaza con guardar en memoria (`memory/`). Ambos deben hacerse: memoria Y CLAUDE.md.
+
+Checklist post-corrección:
+
+1. Aplicar el fix solicitado
+2. Agregar la regla a "Learned Corrections" en este CLAUDE.md
+3. Guardar en memoria si aplica para futuras conversaciones
 
 End corrections with: "Now update CLAUDE.md so you don't make that mistake again."
 
@@ -157,6 +163,7 @@ Keep iterating until the mistake rate measurably drops.
 - Don't commit without running check-types first
 - Don't add Co-Authored-By to commits
 - Don't commit automatically — only when the user asks
+- Don't skip updating CLAUDE.md "Learned Corrections" after a user correction — SIEMPRE actualizar
 - Don't create .md files unless explicitly requested
 - Don't skip error handling
 
@@ -186,6 +193,20 @@ src/
 - `src/shared/components/common/DataTable/DataTable.tsx` — DataTable component
 - `src/shared/components/common/DataTable/DOCS.md` — DataTable docs
 - Module IDs: see `.claude/rules/permissions.md`
+
+## Learned Corrections
+
+### Permisos: 3 roles de acceso completo
+
+Al insertar nuevas tabs o `role_permissions`, SIEMPRE incluir los 3 roles: `admin`, `administrador`, y `full-access-provisional`. No solo `admin`.
+
+```sql
+WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
+```
+
+### Legajo: columna separada en DataTables
+
+El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
 
 ---
 
