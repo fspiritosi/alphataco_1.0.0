@@ -435,6 +435,7 @@ export async function getDeliveryForPdf(deliveryId: string) {
         clothing_delivery_items: {
           select: {
             quantity: true,
+            has_certificate: true,
             clothing_items: {
               select: { name: true, code: true, description: true },
             },

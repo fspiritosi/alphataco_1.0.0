@@ -823,6 +823,7 @@ model clothing_delivery_items {
   clothing_brand_id     String?              @db.Uuid
   clothing_size_id      String?              @db.Uuid
   quantity              Int                  @default(1)
+  has_certificate       Boolean              @default(false)
   clothing_deliveries   clothing_deliveries  @relation(fields: [clothing_delivery_id], references: [id], onDelete: Cascade)
   clothing_items        clothing_items       @relation(fields: [clothing_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   clothing_brands       clothing_brands?     @relation(fields: [clothing_brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

@@ -31,7 +31,7 @@ type WizardData = {
 const INITIAL_DATA: WizardData = {
   employee: null,
   deliveryType: null,
-  items: [{ clothingItemId: '', itemName: '', quantity: 1 }],
+  items: [{ clothingItemId: '', itemName: '', quantity: 1, hasCertificate: false }],
   signatureUrl: null,
   notes: '',
 };
@@ -192,6 +192,12 @@ export function DeliveryWizard() {
     setData((prev) => ({ ...prev, notes }));
   }, []);
 
+  const handleReset = useCallback(() => {
+    setData(INITIAL_DATA);
+    setCurrentStep(0);
+    setValidationError(null);
+  }, []);
+
   const handleNext = useCallback(() => {
     const error = validateStep(currentStep, data);
     if (error) {
@@ -234,6 +240,7 @@ export function DeliveryWizard() {
             signatureUrl={data.signatureUrl}
             notes={data.notes}
             onNotesChange={updateNotes}
+            onReset={handleReset}
             employeeId={employeeId}
             companyId={companyId}
           />

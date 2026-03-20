@@ -17,7 +17,6 @@ import { Logger } from '@/lib/logger';
 import { useMutation } from '@tanstack/react-query';
 import { Briefcase, CreditCard, Download, Loader2, Package, Pen, User } from 'lucide-react';
 import moment from 'moment';
-import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
@@ -30,6 +29,7 @@ interface StepConfirmProps {
   signatureUrl: string | null;
   notes: string;
   onNotesChange: (notes: string) => void;
+  onReset: () => void;
   employeeId: string;
   companyId: string;
 }
@@ -41,17 +41,16 @@ export function StepConfirm({
   signatureUrl,
   notes,
   onNotesChange,
+  onReset,
   employeeId,
   companyId,
 }: StepConfirmProps) {
-  const router = useRouter();
-
   const { mutate, isPending } = useMutation({
     mutationFn: (data: CreateDeliveryInput) => createClothingDelivery(data),
     onSuccess: () => {
-      logger.info('Delivery created successfully — redirecting to thanks page');
+      logger.info('Delivery created successfully — resetting wizard');
       toast.success('Entrega registrada correctamente');
-      router.push('/clothing/thanks');
+      onReset();
     },
     onError: (err) => {
       logger.error('Error creating delivery', { data: { err } });
@@ -81,6 +80,7 @@ export function StepConfirm({
         clothingBrandId: item.clothingBrandId,
         clothingSizeId: item.clothingSizeId,
         quantity: item.quantity,
+        hasCertificate: item.hasCertificate,
       })),
     });
   }, [employee.id, deliveryType, items, signatureUrl, notes, employeeId, companyId, mutate]);
@@ -148,6 +148,9 @@ export function StepConfirm({
                 <div className="flex flex-wrap gap-1 mt-0.5">
                   {item.brandName && <span className="text-xs text-muted-foreground">Marca: {item.brandName}</span>}
                   {item.sizeName && <span className="text-xs text-muted-foreground">· Talle: {item.sizeName}</span>}
+                  <span className="text-xs text-muted-foreground">
+                    · Certificado: {item.hasCertificate ? 'Sí' : 'No'}
+                  </span>
                 </div>
               </div>
               <Badge variant="outline" className="text-xs flex-shrink-0">

@@ -243,7 +243,7 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
   const comp = data.company;
   const items = data.clothing_delivery_items;
   const isReplacement = data.delivery_type === 'REPLACEMENT';
-  const deliveredAtFormatted = moment(data.delivered_at).format('M/D/YYYY');
+  const deliveredAtFormatted = moment(data.delivered_at).format('DD/MM/YYYY');
 
   // Build 15 rows (empty rows for unfilled space)
   const rows = Array.from({ length: TOTAL_ROWS }, (_, i) => {
@@ -256,6 +256,7 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
       codigo: item.clothing_items?.code ?? '',
       marca: item.clothing_brands?.name ?? '',
       cantidad: item.quantity,
+      hasCertificate: item.has_certificate ?? false,
     };
   });
 
@@ -445,10 +446,10 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
             </View>
             {/* Certificado */}
             <View style={styles.colCertSi}>
-              <Text style={styles.cellText}>{row ? 'X' : ''}</Text>
+              <Text style={styles.cellText}>{row?.hasCertificate ? 'X' : ''}</Text>
             </View>
             <View style={styles.colCertNo}>
-              <Text style={styles.cellText}></Text>
+              <Text style={styles.cellText}>{row && !row.hasCertificate ? 'X' : ''}</Text>
             </View>
             <View style={styles.colCant}>
               <Text style={styles.cellText}>{row ? row.cantidad : ''}</Text>
@@ -457,9 +458,7 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
               <Text style={styles.cellText}>{row ? deliveredAtFormatted : ''}</Text>
             </View>
             <View style={styles.colFirma}>
-              {row && i === 0 && data.signature_url ? (
-                <Image style={styles.signatureImage} src={data.signature_url} />
-              ) : null}
+              {row && data.signature_url ? <Image style={styles.signatureImage} src={data.signature_url} /> : null}
             </View>
             {/* Reposicion */}
             <View style={styles.colRepSi}>

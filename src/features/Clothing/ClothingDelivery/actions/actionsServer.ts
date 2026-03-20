@@ -154,6 +154,7 @@ export type CreateDeliveryInput = {
     clothingBrandId?: string;
     clothingSizeId?: string;
     quantity: number;
+    hasCertificate?: boolean;
   }[];
 };
 
@@ -183,6 +184,7 @@ export async function createClothingDelivery(data: CreateDeliveryInput) {
                 clothing_brand_id: item.clothingBrandId ?? null,
                 clothing_size_id: item.clothingSizeId ?? null,
                 quantity: item.quantity,
+                has_certificate: item.hasCertificate ?? false,
               })),
             },
           },

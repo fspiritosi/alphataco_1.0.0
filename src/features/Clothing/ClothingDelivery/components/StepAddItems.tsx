@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,6 +25,7 @@ export type WizardItem = {
   clothingSizeId?: string;
   sizeName?: string;
   quantity: number;
+  hasCertificate: boolean;
 };
 
 interface ItemRowProps {
@@ -130,14 +132,14 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {/* Article */}
-        <div className="space-y-1.5">
+      {/* Row 1: Artículo | Cantidad */}
+      <div className="grid gap-3 grid-cols-2">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor={`${idPrefix}-item`} className="text-xs">
             Artículo <span className="text-destructive">*</span>
           </Label>
           <Select value={item.clothingItemId || undefined} onValueChange={handleItemChange}>
-            <SelectTrigger id={`${idPrefix}-item`} className="h-9">
+            <SelectTrigger id={`${idPrefix}-item`} className="h-9 w-full">
               <SelectValue placeholder={loadingItems ? 'Cargando...' : 'Seleccionar artículo'} />
             </SelectTrigger>
             <SelectContent>
@@ -150,7 +152,6 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
           </Select>
         </div>
 
-        {/* Quantity */}
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-qty`} className="text-xs">
             Cantidad <span className="text-destructive">*</span>
@@ -164,9 +165,11 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
             className="h-9"
           />
         </div>
+      </div>
 
-        {/* Brand */}
-        <div className="space-y-1.5">
+      {/* Row 2: Marca | Talle */}
+      <div className="grid gap-3 grid-cols-2">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor={`${idPrefix}-brand`} className="text-xs">
             Marca
           </Label>
@@ -175,15 +178,15 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
             onValueChange={handleBrandChange}
             disabled={!item.clothingItemId || loadingBrands}
           >
-            <SelectTrigger id={`${idPrefix}-brand`} className="h-9">
+            <SelectTrigger id={`${idPrefix}-brand`} className="h-9 w-full">
               <SelectValue
                 placeholder={
                   !item.clothingItemId
-                    ? 'Seleccione artículo primero'
+                    ? 'Seleccione artículo'
                     : loadingBrands
                       ? 'Cargando...'
                       : brands.length === 0
-                        ? 'Sin marcas disponibles'
+                        ? 'Sin marcas'
                         : 'Seleccionar marca'
                 }
               />
@@ -200,8 +203,7 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
           </Select>
         </div>
 
-        {/* Size */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <Label htmlFor={`${idPrefix}-size`} className="text-xs">
             Talle
           </Label>
@@ -210,15 +212,15 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
             onValueChange={handleSizeChange}
             disabled={!item.clothingBrandId || loadingSizes}
           >
-            <SelectTrigger id={`${idPrefix}-size`} className="h-9">
+            <SelectTrigger id={`${idPrefix}-size`} className="h-9 w-full">
               <SelectValue
                 placeholder={
                   !item.clothingBrandId
-                    ? 'Seleccione marca primero'
+                    ? 'Seleccione marca'
                     : loadingSizes
                       ? 'Cargando...'
                       : sizes.length === 0
-                        ? 'Sin talles disponibles'
+                        ? 'Sin talles'
                         : 'Seleccionar talle'
                 }
               />
@@ -234,6 +236,18 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Row 3: Posee certificado */}
+      <div className="flex items-center gap-2 pt-1">
+        <Checkbox
+          id={`${idPrefix}-certificate`}
+          checked={item.hasCertificate}
+          onCheckedChange={(checked) => onUpdate(index, { hasCertificate: checked === true })}
+        />
+        <Label htmlFor={`${idPrefix}-certificate`} className="text-xs cursor-pointer">
+          Posee certificado
+        </Label>
       </div>
     </div>
   );
@@ -253,6 +267,7 @@ const emptyItem = (): WizardItem => ({
   clothingSizeId: undefined,
   sizeName: undefined,
   quantity: 1,
+  hasCertificate: false,
 });
 
 export function StepAddItems({ companyId, items, onChange }: StepAddItemsProps) {
