@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
 import {
   createClothingDelivery,
@@ -15,7 +14,7 @@ import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/featur
 import type { clothing_delivery_type } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { useMutation } from '@tanstack/react-query';
-import { Briefcase, CreditCard, Download, Loader2, Package, Pen, User } from 'lucide-react';
+import { Briefcase, CreditCard, Loader2, Package, Pen, User } from 'lucide-react';
 import moment from 'moment';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -195,26 +194,9 @@ export function StepConfirm({
         Fecha de entrega: {moment().format('DD/MM/YYYY HH:mm')}
       </div>
 
-      {/* Action buttons */}
-      <div className="flex gap-2 pt-1">
-        {/* Disabled PDF button with tooltip */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex-1">
-                <Button type="button" variant="outline" disabled className="w-full gap-2 opacity-50 cursor-not-allowed">
-                  <Download className="h-4 w-4" />
-                  Descargar Comprobante PDF
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Próximamente</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <Button type="button" onClick={handleConfirm} disabled={isPending} size="lg" className="flex-1 gap-2">
+      {/* Action button */}
+      <div className="pt-1">
+        <Button type="button" onClick={handleConfirm} disabled={isPending} size="lg" className="w-full gap-2">
           {isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
