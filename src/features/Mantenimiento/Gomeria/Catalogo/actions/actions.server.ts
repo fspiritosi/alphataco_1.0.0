@@ -1,6 +1,6 @@
 'use server';
 
-import type { TireRetreadLevel, TireStatus, TireTreadType } from '@/generated/prisma/enums';
+import type { TireRetreadLevel, TireStatus } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import {
   NULL_FILTER_VALUE,
@@ -17,72 +17,6 @@ import { prisma } from '@/shared/lib/prisma';
 const logger = new Logger('features/Mantenimiento/Gomeria/Catalogo');
 
 // ============================================================================
-// TIRE BRANDS
-// ============================================================================
-
-export async function getAllTireBrands() {
-  logger.debug('Fetching tire brands');
-  try {
-    const data = await prisma.tire_brands.findMany({
-      where: { is_active: true },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, is_active: true, created_at: true },
-    });
-    return data;
-  } catch (error) {
-    logger.error('Error fetching tire brands', { data: { error } });
-    throw error;
-  }
-}
-
-export async function createTireBrand(data: { name: string; company_id: string }) {
-  logger.debug('Creating tire brand', { data });
-  try {
-    const existing = await prisma.tire_brands.findFirst({
-      where: { name: data.name, company_id: data.company_id },
-    });
-    if (existing) {
-      throw new Error(`Ya existe una marca con el nombre "${data.name}"`);
-    }
-    const brand = await prisma.tire_brands.create({ data });
-    return brand;
-  } catch (error) {
-    logger.error('Error creating tire brand', { data: { error } });
-    throw error;
-  }
-}
-
-export async function updateTireBrand(id: string, data: { name: string }) {
-  logger.debug('Updating tire brand', { data: { id, ...data } });
-  try {
-    const brand = await prisma.tire_brands.update({
-      where: { id },
-      data: { name: data.name },
-    });
-    return brand;
-  } catch (error) {
-    logger.error('Error updating tire brand', { data: { error, id } });
-    throw error;
-  }
-}
-
-export async function toggleTireBrandActive(id: string, isActive: boolean) {
-  logger.debug('Toggling tire brand active', { data: { id, isActive } });
-  try {
-    const brand = await prisma.tire_brands.update({
-      where: { id },
-      data: { is_active: isActive },
-    });
-    return brand;
-  } catch (error) {
-    logger.error('Error toggling tire brand', { data: { error, id } });
-    throw error;
-  }
-}
-
-export type TireBrandItem = Awaited<ReturnType<typeof getAllTireBrands>>[number];
-
-// ============================================================================
 // TIRES CATALOG — CONSTANTS
 // ============================================================================
 
@@ -90,10 +24,9 @@ const TIRE_SELECT = {
   id: true,
   serial_number: true,
   brand_id: true,
-  size: true,
+  tire_type_id: true,
   is_new: true,
   retread_level: true,
-  tread_type: true,
   tread_depth: true,
   status: true,
   is_active: true,
@@ -103,6 +36,7 @@ const TIRE_SELECT = {
   discard_comment: true,
   discarded_at: true,
   brand: { select: { id: true, name: true } },
+  tire_type: { select: { id: true, name: true, size: true, tread_type: true } },
   vehicle_tire_positions: {
     select: { vehicle: { select: { id: true, domain: true } } },
     take: 1,
@@ -112,23 +46,23 @@ const TIRE_SELECT = {
 /** Sortable direct fields */
 const VALID_SORT_FIELDS = new Set([
   'serial_number',
-  'size',
   'status',
   'is_new',
-  'tread_type',
   'retread_level',
   'tread_depth',
   'created_at',
   'brand_id',
+  'tire_type_id',
 ]);
 
 /** FK columns mapped to nested Prisma orderBy */
 const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
   brand_id: (dir) => ({ brand: { name: dir } }),
+  tire_type_id: (dir) => ({ tire_type: { name: dir } }),
 };
 
 /** Text filter columns */
-const TEXT_FILTER_COLUMNS = ['serial_number', 'size'];
+const TEXT_FILTER_COLUMNS = ['serial_number'];
 
 /** Date range columns */
 const DATE_RANGE_COLUMNS = ['created_at'];
@@ -138,7 +72,7 @@ const DATE_RANGE_COLUMNS = ['created_at'];
 // ============================================================================
 
 function buildTiresWhereClause(state: ReturnType<typeof parseSearchParams>) {
-  const searchWhere = buildSearchWhere(state.search, ['serial_number', 'size']);
+  const searchWhere = buildSearchWhere(state.search, ['serial_number']);
 
   const filtersWhere = buildFiltersWhere(
     state.filters,
@@ -278,25 +212,80 @@ export async function getTireSingleFacet(
   try {
     const where = crossWhere(columnId);
 
-    // ── Enum columns ──
-    const ENUM_COLUMN_TO_FIELD: Record<string, string> = {
-      status: 'status',
-      retread_level: 'retread_level',
-      tread_type: 'tread_type',
-    };
-
-    if (columnId in ENUM_COLUMN_TO_FIELD) {
-      const field = ENUM_COLUMN_TO_FIELD[columnId]!;
+    // ── Status enum (direct field on tires) ──
+    if (columnId === 'status') {
       const rows = await prisma.tires.groupBy({
-        by: [field as 'status'],
+        by: ['status'],
         where,
         _count: true,
       });
       return {
-        counts: toFacetMap(
-          rows.map((r) => ({ key: (r as Record<string, unknown>)[field] as string | null, count: r._count }))
-        ),
+        counts: toFacetMap(rows.map((r) => ({ key: r.status as string | null, count: r._count }))),
       };
+    }
+
+    // ── Retread level enum (direct field on tires, nullable) ──
+    if (columnId === 'retread_level') {
+      const rows = await prisma.tires.groupBy({
+        by: ['retread_level'],
+        where,
+        _count: true,
+      });
+      return {
+        counts: toFacetMap(rows.map((r) => ({ key: r.retread_level as string | null, count: r._count }))),
+      };
+    }
+
+    // ── Tread type — via tire_type relation ──
+    if (columnId === 'tread_type') {
+      const grouped = await prisma.tires.groupBy({
+        by: ['tire_type_id'],
+        where,
+        _count: true,
+      });
+      const typeIds = grouped.map((g) => g.tire_type_id).filter(Boolean) as string[];
+      const types =
+        typeIds.length > 0
+          ? await prisma.tire_types.findMany({
+              where: { id: { in: typeIds } },
+              select: { id: true, tread_type: true },
+            })
+          : [];
+      const typeMap = new Map(types.map((t) => [t.id, t.tread_type as string]));
+      const finalCounts = new Map<string, number>();
+      for (const g of grouped) {
+        const tt = typeMap.get(g.tire_type_id);
+        if (tt) {
+          finalCounts.set(tt, (finalCounts.get(tt) ?? 0) + g._count);
+        }
+      }
+      return { counts: finalCounts };
+    }
+
+    // ── Size — via tire_type relation ──
+    if (columnId === 'size') {
+      const grouped = await prisma.tires.groupBy({
+        by: ['tire_type_id'],
+        where,
+        _count: true,
+      });
+      const typeIds = grouped.map((g) => g.tire_type_id).filter(Boolean) as string[];
+      const types =
+        typeIds.length > 0
+          ? await prisma.tire_types.findMany({
+              where: { id: { in: typeIds } },
+              select: { id: true, size: true },
+            })
+          : [];
+      const typeMap = new Map(types.map((t) => [t.id, t.size]));
+      const finalCounts = new Map<string, number>();
+      for (const g of grouped) {
+        const sz = typeMap.get(g.tire_type_id);
+        if (sz) {
+          finalCounts.set(sz, (finalCounts.get(sz) ?? 0) + g._count);
+        }
+      }
+      return { counts: finalCounts };
     }
 
     // ── Boolean: is_new ──
@@ -323,9 +312,24 @@ export async function getTireSingleFacet(
       return { counts, resolvedOptions };
     }
 
+    // ── FK UUID: tire_type_id ──
+    if (columnId === 'tire_type_id') {
+      const rows = await prisma.tires.groupBy({ by: ['tire_type_id'], where, _count: true });
+      const counts = toFacetMap(rows.map((r) => ({ key: r.tire_type_id, count: r._count })));
+      const ids = rows.map((r) => r.tire_type_id).filter(Boolean) as string[];
+      const resolvedOptions =
+        ids.length > 0
+          ? await prisma.tire_types.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+              orderBy: { name: 'asc' },
+            })
+          : [];
+      return { counts, resolvedOptions };
+    }
+
     // ── Vehicle (current installation) — derived via vehicle_tire_positions ──
     if (columnId === 'vehicle') {
-      // Get all tires in the cross-where context that are currently installed
       const tiresWithVehicles = await prisma.tires.findMany({
         where,
         select: {
@@ -348,7 +352,6 @@ export async function getTireSingleFacet(
         }
       }
 
-      // Resolve vehicle names
       const vehicleIds = [...countMap.keys()].filter((k) => k !== NULL_FILTER_VALUE);
       const resolvedOptions =
         vehicleIds.length > 0
@@ -378,10 +381,9 @@ export async function getTireSingleFacet(
 export async function createTire(data: {
   serial_number: string;
   brand_id: string;
-  size: string;
+  tire_type_id: string;
   is_new: boolean;
   retread_level?: TireRetreadLevel | null;
-  tread_type: TireTreadType;
   tread_depth?: number | null;
   company_id: string;
 }) {
@@ -391,10 +393,9 @@ export async function createTire(data: {
       data: {
         serial_number: data.serial_number,
         brand_id: data.brand_id,
-        size: data.size,
+        tire_type_id: data.tire_type_id,
         is_new: data.is_new,
         retread_level: data.retread_level ?? null,
-        tread_type: data.tread_type,
         tread_depth: data.tread_depth ?? null,
         company_id: data.company_id,
       },
@@ -411,10 +412,9 @@ export async function createTiresBulk(data: {
   rangeFrom: number;
   rangeTo: number;
   brand_id: string;
-  size: string;
+  tire_type_id: string;
   is_new: boolean;
   retread_level?: TireRetreadLevel | null;
-  tread_type: TireTreadType;
   tread_depth?: number | null;
   company_id: string;
 }) {
@@ -449,10 +449,9 @@ export async function createTiresBulk(data: {
       data: serials.map((serial_number) => ({
         serial_number,
         brand_id: data.brand_id,
-        size: data.size,
+        tire_type_id: data.tire_type_id,
         is_new: data.is_new,
         retread_level: data.retread_level ?? null,
-        tread_type: data.tread_type,
         tread_depth: data.tread_depth ?? null,
         company_id: data.company_id,
       })),
@@ -469,10 +468,9 @@ export async function updateTire(
   data: {
     serial_number?: string;
     brand_id?: string;
-    size?: string;
+    tire_type_id?: string;
     is_new?: boolean;
     retread_level?: TireRetreadLevel | null;
-    tread_type?: TireTreadType;
     tread_depth?: number | null;
   }
 ) {
@@ -535,6 +533,24 @@ export async function getTireBrandsForSelect() {
     });
   } catch (error) {
     logger.error('Error fetching tire brands for select', { data: { error } });
+    throw error;
+  }
+}
+
+// ============================================================================
+// HELPER: Get tire types for forms (client-side selects)
+// ============================================================================
+
+export async function getTireTypesForSelect(companyId: string) {
+  logger.debug('Fetching tire types for select');
+  try {
+    return prisma.tire_types.findMany({
+      where: { is_active: true, company_id: companyId },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, size: true, tread_type: true },
+    });
+  } catch (error) {
+    logger.error('Error fetching tire types for select', { data: { error } });
     throw error;
   }
 }

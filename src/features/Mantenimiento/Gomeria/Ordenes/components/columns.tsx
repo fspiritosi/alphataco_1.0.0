@@ -3,13 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   tireServiceOrderStatusBadges,
   tireServiceOrderStatusLabels,
@@ -17,7 +11,7 @@ import {
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { CircleOff, Eye, MoreHorizontal, X } from 'lucide-react';
+import { Ban, CircleOff, Eye, Lock } from 'lucide-react';
 import moment from 'moment';
 import type { ServiceOrderListItem } from '../actions/actions.server';
 
@@ -198,36 +192,45 @@ export function getColumns(
       cell: ({ row }: { row: import('@tanstack/react-table').Row<ServiceOrderListItem> }) => {
         const isOpen = row.original.status === 'OPEN';
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Abrir menú</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1">
               {onViewDetail && (
-                <DropdownMenuItem onClick={() => onViewDetail(row.original)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Ver detalle
-                </DropdownMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onViewDetail(row.original)}>
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver detalle</TooltipContent>
+                </Tooltip>
               )}
               {isOpen && canUpdate && (
                 <>
-                  {onViewDetail && <DropdownMenuSeparator />}
-                  <DropdownMenuItem onClick={() => onClose(row.original)}>Cerrar orden</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onCancel(row.original)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Cancelar orden
-                  </DropdownMenuItem>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onClose(row.original)}>
+                        <Lock className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cerrar orden</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => onCancel(row.original)}
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cancelar orden</TooltipContent>
+                  </Tooltip>
                 </>
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
+          </TooltipProvider>
         );
       },
       enableSorting: false,

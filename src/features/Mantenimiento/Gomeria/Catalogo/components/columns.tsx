@@ -39,8 +39,8 @@ export function getColumns(
   onEdit: (tire: TireListItem) => void,
   onDelete: (tire: TireListItem) => void
 ): ColumnDef<TireListItem>[] {
-  const canUpdate = permissions.hasPermission('mantenimiento', 'tire_catalog', 'update');
-  const canDelete = permissions.hasPermission('mantenimiento', 'tire_catalog', 'delete');
+  const canUpdate = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'update');
+  const canDelete = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'delete');
 
   return [
     // --- Select ---
@@ -91,9 +91,9 @@ export function getColumns(
     // --- Size ---
     {
       id: 'size',
-      accessorKey: 'size',
+      accessorFn: (row) => row.tire_type?.size ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Medida" />,
-      cell: ({ row }) => <div className="font-mono text-sm">{row.original.size}</div>,
+      cell: ({ row }) => <div className="font-mono text-sm">{row.original.tire_type?.size ?? '-'}</div>,
       meta: { title: 'Medida' },
     },
 
@@ -132,14 +132,14 @@ export function getColumns(
     // --- Tread Type ---
     {
       id: 'tread_type',
-      accessorKey: 'tread_type',
+      accessorFn: (row) => row.tire_type?.tread_type ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de banda" />,
       cell: ({ row }) => {
-        const val = row.original.tread_type;
-        return <div>{tireTreadTypeLabels[val] ?? val}</div>;
+        const val = row.original.tire_type?.tread_type;
+        return <div>{val ? tireTreadTypeLabels[val] ?? val : '-'}</div>;
       },
-      filterFn: (row, id, value: string[]) => {
-        const val = row.getValue(id) as string | null;
+      filterFn: (row, _id, value: string[]) => {
+        const val = row.original.tire_type?.tread_type;
         if (val == null) return value.includes(NULL_FILTER_VALUE);
         return value.includes(val);
       },

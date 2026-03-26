@@ -88,7 +88,8 @@ interface TirePickerRowProps {
 }
 
 function TirePickerRow({ tire, selected, onSelect }: TirePickerRowProps) {
-  const treadLabel = tireTreadTypeLabels[tire.tread_type] ?? tire.tread_type;
+  const treadType = tire.tire_type?.tread_type;
+  const treadLabel = treadType ? tireTreadTypeLabels[treadType] ?? treadType : '—';
   const retreadLabel = tire.retread_level ? tireRetreadLabels[tire.retread_level] : null;
 
   return (
@@ -120,7 +121,7 @@ function TirePickerRow({ tire, selected, onSelect }: TirePickerRowProps) {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{tire.brand?.name ?? '—'}</span>
           <span>·</span>
-          <span>{tire.size}</span>
+          <span>{tire.tire_type?.size ?? '—'}</span>
           <span>·</span>
           <span>{treadLabel}</span>
           {tire.tread_depth != null && (

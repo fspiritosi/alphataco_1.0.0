@@ -7,14 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { tireRetreadLabels, tireTreadTypeLabels } from '@/features/Mantenimiento/Gomeria/shared/tire-mappers';
-import { TireRetreadLevel, TireTreadType } from '@/generated/prisma/enums';
+import { TireRetreadLevel } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createTire, getTireBrandsForSelect, updateTire, type TireListItem } from '../actions/actions.server';
+import {
+  createTire,
+  getTireBrandsForSelect,
+  getTireTypesForSelect,
+  updateTire,
+  type TireListItem,
+} from '../actions/actions.server';
 
 const logger = new Logger('TireForm');
 
@@ -25,10 +31,9 @@ const logger = new Logger('TireForm');
 const tireFormSchema = z.object({
   serial_number: z.string().min(1, 'El número de serie es requerido'),
   brand_id: z.string().uuid('Seleccione una marca válida'),
-  size: z.string().min(1, 'La medida es requerida'),
+  tire_type_id: z.string().uuid('Seleccione un tipo de cubierta'),
   is_new: z.boolean().default(true),
   retread_level: z.nativeEnum(TireRetreadLevel).nullable().optional(),
-  tread_type: z.nativeEnum(TireTreadType, { required_error: 'Seleccione el tipo de banda' }),
   tread_depth: z.coerce.number().positive('Debe ser positivo').nullable().optional(),
 });
 
@@ -62,15 +67,22 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
     enabled: open,
   });
 
+  // Load tire types
+  const { data: tireTypes = [] } = useQuery({
+    queryKey: ['tire-types-select', companyId],
+    queryFn: () => getTireTypesForSelect(companyId),
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  });
+
   const form = useForm<TireFormValues>({
     resolver: zodResolver(tireFormSchema),
     defaultValues: {
       serial_number: '',
       brand_id: '',
-      size: '',
+      tire_type_id: '',
       is_new: true,
       retread_level: null,
-      tread_type: undefined,
       tread_depth: null,
     },
   });
@@ -81,20 +93,18 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
         return updateTire(tire.id, {
           serial_number: values.serial_number,
           brand_id: values.brand_id,
-          size: values.size,
+          tire_type_id: values.tire_type_id,
           is_new: values.is_new,
           retread_level: values.retread_level ?? null,
-          tread_type: values.tread_type,
           tread_depth: values.tread_depth ?? null,
         });
       } else {
         return createTire({
           serial_number: values.serial_number,
           brand_id: values.brand_id,
-          size: values.size,
+          tire_type_id: values.tire_type_id,
           is_new: values.is_new,
           retread_level: values.retread_level ?? null,
-          tread_type: values.tread_type,
           tread_depth: values.tread_depth ?? null,
           company_id: companyId,
         });
@@ -121,20 +131,18 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
         form.reset({
           serial_number: tire.serial_number,
           brand_id: tire.brand_id,
-          size: tire.size,
+          tire_type_id: tire.tire_type_id,
           is_new: tire.is_new,
           retread_level: (tire.retread_level as TireRetreadLevel | null) ?? null,
-          tread_type: tire.tread_type as TireTreadType,
           tread_depth: tire.tread_depth != null ? Number(tire.tread_depth) : null,
         });
       } else {
         form.reset({
           serial_number: '',
           brand_id: '',
-          size: '',
+          tire_type_id: '',
           is_new: true,
           retread_level: null,
-          tread_type: undefined,
           tread_depth: null,
         });
       }
@@ -192,48 +200,33 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
               )}
             />
 
-            {/* Size */}
+            {/* Tire Type */}
             <FormField
               control={form.control}
-              name="size"
+              name="tire_type_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Medida</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: 295/80R22.5" {...field} />
-                  </FormControl>
+                  <FormLabel>Tipo de cubierta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {tireTypes.map((tt) => (
+                        <SelectItem key={tt.id} value={tt.id}>
+                          {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Tread Type */}
-              <FormField
-                control={form.control}
-                name="tread_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de banda</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.values(TireTreadType).map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {tireTreadTypeLabels[type] ?? type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Tread Depth */}
               <FormField
                 control={form.control}
@@ -255,9 +248,7 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               {/* Is New */}
               <FormField
                 control={form.control}
@@ -271,7 +262,9 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
                   </FormItem>
                 )}
               />
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               {/* Retread Level (optional) */}
               <FormField
                 control={form.control}

@@ -1,10 +1,10 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { Suspense } from 'react';
-import TiresList from './TiresList';
-import { CatalogoSkeleton } from './fallback/CatalogoSkeleton';
+import MarcasList from './components/MarcasList';
+import { MarcasSkeleton } from './fallback/MarcasSkeleton';
 
-export default async function CatalogoTabContent({
+export default async function MarcasTabContent({
   searchParams,
 }: {
   searchParams: Record<string, string | string[] | undefined>;
@@ -12,8 +12,8 @@ export default async function CatalogoTabContent({
   const [companyId, permissionsMap] = await Promise.all([getServerCompanyId(), getUserPermissionsMapServer()]);
 
   return (
-    <Suspense fallback={<CatalogoSkeleton />}>
-      <TiresList searchParams={searchParams} companyId={companyId} permissionsMap={permissionsMap} />
+    <Suspense fallback={<MarcasSkeleton />}>
+      <MarcasList searchParams={searchParams} companyId={companyId} permissionsMap={permissionsMap} />
     </Suspense>
   );
 }

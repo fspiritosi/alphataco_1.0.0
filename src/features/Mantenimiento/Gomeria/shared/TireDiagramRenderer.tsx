@@ -128,15 +128,15 @@ function mergePositions(computed: ComputedPosition[], positions: DiagramPosition
 }
 
 // ─── TireDrum ──────────────────────────────────────────────────────────────
-// Renders a single tire as a 3D cylinder/drum (bird's-eye schematic view).
-// Mimics the paper diagram: rounded cap on top and bottom with a body.
+// Renders a single tire as a horizontal drum (bird's-eye schematic view).
+// Oriented horizontally: left-cap → body → right-cap (wider than tall).
 
 interface TireDrumProps {
   position: MergedPosition;
   interactive: boolean;
   highlighted: boolean;
   onClick?: () => void;
-  /** Slightly narrower for dual axles */
+  /** Slightly shorter for dual axles */
   compact?: boolean;
   /** Circular shape for spare tires */
   circular?: boolean;
@@ -161,10 +161,10 @@ function TireDrum({ position, interactive, highlighted, onClick, compact = false
   const capBorder = highlighted ? 'border-amber-600' : hasTire ? 'border-gray-600' : 'border-gray-400';
   const textColor = highlighted ? 'text-white' : hasTire ? 'text-white' : 'text-gray-400';
 
-  // Sizing
-  const drumWidth = circular ? 'w-10' : compact ? 'w-7' : 'w-9';
-  const drumBodyHeight = circular ? 'h-10' : 'h-10';
-  const capHeight = circular ? 'h-2.5' : 'h-2.5';
+  // Sizing — horizontal orientation (wider than tall)
+  const drumHeight = compact ? 'h-5' : 'h-7';
+  const drumBodyWidth = 'w-10';
+  const capWidth = 'w-2';
   const fontSize = compact ? 'text-[9px]' : 'text-xs';
 
   if (circular) {
@@ -182,29 +182,18 @@ function TireDrum({ position, interactive, highlighted, onClick, compact = false
             : undefined
         }
         className={cn(
-          'flex flex-col items-center justify-center rounded-full border-2 font-mono select-none w-12 h-12',
+          'flex flex-col items-center justify-center rounded-full border-2 font-mono select-none w-10 h-10',
           bodyBorder,
           bodyBg,
           textColor,
           interactiveClass
         )}
       >
-        <span className="font-bold text-sm leading-none">{position.position_number}</span>
+        <span className="font-bold text-xs leading-none">{position.position_number}</span>
       </div>
     );
 
-    const serialLabel = position.tire_serial ? (
-      <span className="text-[9px] leading-none text-muted-foreground mt-1 font-mono">
-        {position.tire_serial.slice(-4)}
-      </span>
-    ) : null;
-
-    const wrapped = (
-      <div className="flex flex-col items-center">
-        {circleEl}
-        {serialLabel}
-      </div>
-    );
+    const wrapped = circleEl;
 
     if (tooltipLines.length === 0) return wrapped;
     return (
@@ -224,7 +213,9 @@ function TireDrum({ position, interactive, highlighted, onClick, compact = false
     );
   }
 
-  // Drum: 3 sections — top cap, body, bottom cap (simulates 3D cylinder)
+  // Drum: 3 sections — left cap, body, right cap (horizontal orientation)
+  const serialSuffix = position.tire_serial ? position.tire_serial.slice(-4) : null;
+
   const drumEl = (
     <div
       role={interactive ? 'button' : undefined}
@@ -237,46 +228,36 @@ function TireDrum({ position, interactive, highlighted, onClick, compact = false
             }
           : undefined
       }
-      className={cn('flex flex-col items-center select-none', drumWidth, interactiveClass)}
+      className={cn('flex flex-row items-center select-none', drumHeight, interactiveClass)}
     >
-      {/* Top cap — rounded top, straight bottom */}
-      <div className={cn('w-full rounded-t-lg border-2 border-b-0', capHeight, capBg, capBorder)} />
-      {/* Body — center section with position number */}
+      {/* Left cap — rounded left, straight right */}
+      <div className={cn('h-full rounded-l-lg border-2 border-r-0', capWidth, capBg, capBorder)} />
+      {/* Body — center section with position number + optional serial */}
       <div
         className={cn(
-          'w-full border-x-2 flex items-center justify-center font-mono',
-          drumBodyHeight,
+          'h-full border-y-2 flex flex-col items-center justify-center font-mono gap-0',
+          drumBodyWidth,
           bodyBg,
           bodyBorder,
-          'border-y-0',
+          'border-x-0',
           textColor
         )}
       >
         <span className={cn('font-bold leading-none', fontSize)}>{position.position_number}</span>
+        {serialSuffix && (
+          <span className={cn('leading-none opacity-70', compact ? 'text-[5px]' : 'text-[6px]')}>{serialSuffix}</span>
+        )}
       </div>
-      {/* Bottom cap — straight top, rounded bottom */}
-      <div className={cn('w-full rounded-b-lg border-2 border-t-0', capHeight, capBg, capBorder)} />
+      {/* Right cap — straight left, rounded right */}
+      <div className={cn('h-full rounded-r-lg border-2 border-l-0', capWidth, capBg, capBorder)} />
     </div>
   );
 
-  const serialLabel = position.tire_serial ? (
-    <span className="text-[9px] leading-none text-muted-foreground mt-0.5 font-mono">
-      {position.tire_serial.slice(-4)}
-    </span>
-  ) : null;
-
-  const wrappedDrum = (
-    <div className="flex flex-col items-center">
-      {drumEl}
-      {serialLabel}
-    </div>
-  );
-
-  if (tooltipLines.length === 0) return wrappedDrum;
+  if (tooltipLines.length === 0) return drumEl;
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{wrappedDrum}</TooltipTrigger>
+      <TooltipTrigger asChild>{drumEl}</TooltipTrigger>
       <TooltipContent side="top">
         <div className="space-y-0.5">
           <p className="font-semibold text-xs">Posición {position.position_number}</p>
@@ -323,7 +304,7 @@ function AxleColumn({
       </span>
 
       {/* TOP row (LEFT side) */}
-      <div className={cn('flex flex-row items-end', isDual ? 'gap-px' : '')}>
+      <div className={cn('flex flex-col items-center', isDual ? 'gap-0.5' : '')}>
         {leftPositions.map((pos) => (
           <TireDrum
             key={pos.position_number}
@@ -337,10 +318,10 @@ function AxleColumn({
       </div>
 
       {/* Axle bar connecting top and bottom tires */}
-      <div className="w-1 bg-gray-500 flex-1 min-h-[6px] rounded-full" />
+      <div className="w-1 bg-gray-500 flex-1 min-h-[12px] rounded-full" />
 
       {/* BOTTOM row (RIGHT side) */}
-      <div className={cn('flex flex-row items-start', isDual ? 'gap-px' : '')}>
+      <div className={cn('flex flex-col items-center', isDual ? 'gap-0.5' : '')}>
         {rightPositions.map((pos) => (
           <TireDrum
             key={pos.position_number}
@@ -435,22 +416,22 @@ export function TireDiagramRenderer({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 max-w-3xl mx-auto">
         {label && <div className="text-sm font-medium text-muted-foreground">{label}</div>}
 
         {/* Legend */}
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-3 h-4 rounded-sm border-2 bg-gray-600 border-gray-700" />
+            <span className="inline-block w-4 h-3 rounded-sm border-2 bg-gray-600 border-gray-700" />
             Con cubierta
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-3 h-4 rounded-sm border-2 border-dashed bg-white border-gray-400" />
+            <span className="inline-block w-4 h-3 rounded-sm border-2 border-dashed bg-white border-gray-400" />
             Vacío
           </span>
           {highlightedPositions.length > 0 && (
             <span className="flex items-center gap-1">
-              <span className="inline-block w-3 h-4 rounded-sm border-2 bg-amber-500 border-amber-600" />
+              <span className="inline-block w-4 h-3 rounded-sm border-2 bg-amber-500 border-amber-600" />
               Intervenido
             </span>
           )}
@@ -474,7 +455,7 @@ export function TireDiagramRenderer({
 
           {/* Vehicle chassis frame — ALL axles sorted by axle_number, spare inline */}
           {sortedAxles.length > 0 && (
-            <div className="relative flex flex-row items-stretch border-2 border-slate-300 rounded-xl bg-slate-50 px-3 py-3 flex-1 min-w-0 justify-around">
+            <div className="relative flex flex-row items-stretch border-2 border-slate-300 rounded-xl bg-slate-50 px-3 py-5 flex-1 min-w-0 min-h-[11rem] justify-around">
               {/* Chassis top rail */}
               <div className="absolute top-0 left-4 right-4 h-0.5 bg-slate-300 rounded-full" />
               {/* Chassis bottom rail */}

@@ -317,7 +317,7 @@ export async function getServiceOrderById(id: string) {
                 serial_number: true,
                 status: true,
                 brand: { select: { id: true, name: true } },
-                size: true,
+                tire_type: { select: { id: true, size: true, tread_type: true } },
               },
             },
             new_tire: {
@@ -325,7 +325,7 @@ export async function getServiceOrderById(id: string) {
                 id: true,
                 serial_number: true,
                 brand: { select: { id: true, name: true } },
-                size: true,
+                tire_type: { select: { id: true, size: true, tread_type: true } },
               },
             },
           },
@@ -529,13 +529,12 @@ export async function getVehicleTirePositions(vehicleId: string) {
           select: {
             id: true,
             serial_number: true,
-            size: true,
             is_new: true,
             retread_level: true,
-            tread_type: true,
             tread_depth: true,
             status: true,
             brand: { select: { id: true, name: true } },
+            tire_type: { select: { id: true, size: true, tread_type: true } },
           },
         },
         template_axle: {
@@ -570,17 +569,16 @@ export async function getAvailableTiresForAxle(tireSize: string) {
       where: {
         status: 'AVAILABLE',
         is_active: true,
-        size: tireSize,
+        tire_type: { size: tireSize },
       },
       select: {
         id: true,
         serial_number: true,
-        size: true,
         is_new: true,
         retread_level: true,
-        tread_type: true,
         tread_depth: true,
         brand: { select: { id: true, name: true } },
+        tire_type: { select: { id: true, size: true, tread_type: true } },
       },
       orderBy: { serial_number: 'asc' },
     });
@@ -901,13 +899,12 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
           select: {
             id: true,
             serial_number: true,
-            size: true,
             is_new: true,
             retread_level: true,
-            tread_type: true,
             tread_depth: true,
             status: true,
             brand: { select: { id: true, name: true } },
+            tire_type: { select: { id: true, size: true, tread_type: true } },
           },
         },
         template_axle: {
@@ -994,13 +991,12 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
           select: {
             id: true,
             serial_number: true,
-            size: true,
             is_new: true,
             retread_level: true,
-            tread_type: true,
             tread_depth: true,
             status: true,
             brand: { select: { id: true, name: true } },
+            tire_type: { select: { id: true, size: true, tread_type: true } },
           },
         },
         template_axle: {

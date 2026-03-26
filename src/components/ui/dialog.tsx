@@ -7,8 +7,11 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+function Dialog({ open, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
+  // Uncontrolled usage (open === undefined) is unaffected.
+  if (open === false) return null;
+  return <DialogPrimitive.Root data-slot="dialog" open={open} {...props} />;
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {

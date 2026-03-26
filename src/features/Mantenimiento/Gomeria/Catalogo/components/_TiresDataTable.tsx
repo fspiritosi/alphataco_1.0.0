@@ -96,7 +96,7 @@ export default function _TiresDataTable({
     [permissionsMap]
   );
 
-  const canCreate = permissions.hasPermission('mantenimiento', 'tire_catalog', 'create');
+  const canCreate = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'create');
 
   // ─── Dialog state ─────────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -283,7 +283,11 @@ export default function _TiresDataTable({
           formatters: {
             status: (value) => tireStatusLabels[value as string] ?? String(value),
             retread_level: (value) => (value ? tireRetreadLabels[value as string] ?? String(value) : '-'),
-            tread_type: (value) => tireTreadTypeLabels[value as string] ?? String(value),
+            tread_type: (_value, row) =>
+              row.tire_type?.tread_type
+                ? tireTreadTypeLabels[row.tire_type.tread_type] ?? row.tire_type.tread_type
+                : '-',
+            size: (_value, row) => row.tire_type?.size ?? '-',
             is_new: (value) => (value ? 'Nueva' : 'Usada'),
             tread_depth: (value) => (value != null ? `${value} mm` : '-'),
             created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),

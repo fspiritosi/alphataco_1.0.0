@@ -52,7 +52,7 @@ export function TirePositionCard({
   const tireSize = position.template_axle?.tire_size ?? '';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Posición {position.position_number}</SheetTitle>
@@ -100,18 +100,18 @@ export function TirePositionCard({
 
 interface TireInfo {
   serial_number: string;
-  size: string;
   is_new: boolean;
   retread_level?: string | null;
-  tread_type: string;
   // Prisma returns Decimal which has a valueOf()/toString() similar to number
   tread_depth?: { valueOf(): number | string } | string | number | null;
   status: string;
   brand?: { name: string } | null;
+  tire_type?: { size: string; tread_type: string } | null;
 }
 
 function TireInfoBadge({ tire }: { tire: TireInfo }) {
-  const treadLabel = tireTreadTypeLabels[tire.tread_type] ?? tire.tread_type;
+  const treadType = tire.tire_type?.tread_type;
+  const treadLabel = treadType ? tireTreadTypeLabels[treadType] ?? treadType : '—';
   const retreadLabel = tire.retread_level ? tireRetreadLabels[tire.retread_level] : null;
   const statusLabel = tireStatusLabels[tire.status] ?? tire.status;
   const statusVariant = tireStatusBadges[tire.status] ?? 'default';
@@ -125,7 +125,7 @@ function TireInfoBadge({ tire }: { tire: TireInfo }) {
       <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
         <span>{tire.brand?.name ?? '—'}</span>
         <span>·</span>
-        <span>{tire.size}</span>
+        <span>{tire.tire_type?.size ?? '—'}</span>
         <span>·</span>
         <span>{treadLabel}</span>
         {tire.tread_depth != null && (

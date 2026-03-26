@@ -843,6 +843,7 @@ model company {
   tire_brands         tire_brands[]
   tires               tires[]
   tire_templates      tire_templates[]
+  tire_types          tire_types[]
   tire_service_orders tire_service_orders[]
 
   @@schema("public")
@@ -2615,14 +2616,30 @@ model tire_brands {
   @@schema("public")
 }
 
+model tire_types {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  size       String
+  tread_type TireTreadType
+  company_id String        @db.Uuid
+  is_active  Boolean       @default(true)
+  created_at DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at DateTime      @updatedAt @db.Timestamptz(6)
+
+  company company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tires   tires[]
+
+  @@unique([size, tread_type, company_id])
+  @@schema("public")
+}
+
 model tires {
   id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   serial_number   String
   brand_id        String            @db.Uuid
-  size            String
+  tire_type_id    String            @db.Uuid
   is_new          Boolean           @default(true)
   retread_level   TireRetreadLevel?
-  tread_type      TireTreadType
   tread_depth     Decimal?          @db.Decimal(5, 2)
   status          TireStatus        @default(AVAILABLE)
   discard_photo   String?
@@ -2634,6 +2651,7 @@ model tires {
   updated_at      DateTime          @updatedAt @db.Timestamptz(6)
 
   brand                      tire_brands              @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tire_type                  tire_types               @relation(fields: [tire_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                    company                  @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicle_tire_positions     vehicle_tire_positions[]
   tire_service_items_current tire_service_items[]     @relation("tire_at_position")

@@ -1062,6 +1062,20 @@ export const PERMISSIONS = {
             parent: 'gomeria',
             allowedActions: ['view', 'create', 'update'],
           },
+          marcas_cubiertas: {
+            slug: 'marcas_cubiertas',
+            name: 'Marcas de Cubiertas',
+            tabId: '60000000-0000-0000-0000-000000000064',
+            parent: 'gomeria',
+            allowedActions: ['view', 'create', 'update'],
+          },
+          tipos_cubiertas: {
+            slug: 'tipos_cubiertas',
+            name: 'Tipos de Cubierta',
+            tabId: '60000000-0000-0000-0000-000000000065',
+            parent: 'gomeria',
+            allowedActions: ['view', 'create', 'update'],
+          },
         },
       },
       // Tab 3: Configuración

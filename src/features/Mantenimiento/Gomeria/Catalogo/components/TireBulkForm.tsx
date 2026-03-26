@@ -7,14 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { tireRetreadLabels, tireTreadTypeLabels } from '@/features/Mantenimiento/Gomeria/shared/tire-mappers';
-import { TireRetreadLevel, TireTreadType } from '@/generated/prisma/enums';
+import { TireRetreadLevel } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createTiresBulk, getTireBrandsForSelect } from '../actions/actions.server';
+import { createTiresBulk, getTireBrandsForSelect, getTireTypesForSelect } from '../actions/actions.server';
 
 const logger = new Logger('TireBulkForm');
 
@@ -28,10 +28,9 @@ const tireBulkFormSchema = z
     rangeFrom: z.coerce.number().int('Debe ser un número entero').positive('Debe ser positivo'),
     rangeTo: z.coerce.number().int('Debe ser un número entero').positive('Debe ser positivo'),
     brand_id: z.string().uuid('Seleccione una marca válida'),
-    size: z.string().min(1, 'La medida es requerida'),
+    tire_type_id: z.string().uuid('Seleccione un tipo de cubierta'),
     is_new: z.boolean().default(true),
     retread_level: z.nativeEnum(TireRetreadLevel).nullable().optional(),
-    tread_type: z.nativeEnum(TireTreadType, { required_error: 'Seleccione el tipo de banda' }),
     tread_depth: z.coerce.number().positive('Debe ser positivo').nullable().optional(),
   })
   .refine((data) => data.rangeTo >= data.rangeFrom, {
@@ -70,6 +69,13 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
     enabled: open,
   });
 
+  const { data: tireTypes = [] } = useQuery({
+    queryKey: ['tire-types-select', companyId],
+    queryFn: () => getTireTypesForSelect(companyId),
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  });
+
   const form = useForm<TireBulkFormValues>({
     resolver: zodResolver(tireBulkFormSchema),
     defaultValues: {
@@ -77,10 +83,9 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
       rangeFrom: 1,
       rangeTo: 10,
       brand_id: '',
-      size: '',
+      tire_type_id: '',
       is_new: true,
       retread_level: null,
-      tread_type: undefined,
       tread_depth: null,
     },
   });
@@ -101,10 +106,9 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
         rangeFrom: values.rangeFrom,
         rangeTo: values.rangeTo,
         brand_id: values.brand_id,
-        size: values.size,
+        tire_type_id: values.tire_type_id,
         is_new: values.is_new,
         retread_level: values.retread_level ?? null,
-        tread_type: values.tread_type,
         tread_depth: values.tread_depth ?? null,
         company_id: companyId,
       });
@@ -218,48 +222,33 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
               )}
             />
 
-            {/* Size */}
+            {/* Tire Type */}
             <FormField
               control={form.control}
-              name="size"
+              name="tire_type_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Medida</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: 295/80R22.5" {...field} />
-                  </FormControl>
+                  <FormLabel>Tipo de cubierta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {tireTypes.map((tt) => (
+                        <SelectItem key={tt.id} value={tt.id}>
+                          {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Tread Type */}
-              <FormField
-                control={form.control}
-                name="tread_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de banda</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.values(TireTreadType).map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {tireTreadTypeLabels[type] ?? type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Tread Depth */}
               <FormField
                 control={form.control}
@@ -281,9 +270,7 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               {/* Is New */}
               <FormField
                 control={form.control}
@@ -297,7 +284,9 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
                   </FormItem>
                 )}
               />
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               {/* Retread Level */}
               <FormField
                 control={form.control}

@@ -150,7 +150,7 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Diagrama — {order.vehicle?.domain}
                 </p>
-                <VehicleDiagramReadonly positions={vehiclePositions} label={order.vehicle?.domain} />
+                <VehicleDiagramReadonly positions={vehiclePositions} />
               </div>
             ) : null}
 
@@ -162,7 +162,7 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
                   <p className="text-xs text-muted-foreground whitespace-nowrap">Enganche: {order.trailer?.domain}</p>
                   <div className="flex-1 border-t border-dashed" />
                 </div>
-                <VehicleDiagramReadonly positions={trailerPositions} label={order.trailer?.domain} />
+                <VehicleDiagramReadonly positions={trailerPositions} />
               </div>
             )}
           </div>
@@ -210,7 +210,7 @@ function VehicleDiagramReadonly({ positions, label }: { positions: PositionWithA
     tire_id: p.tire_id,
     tire_serial: p.tire?.serial_number,
     tire_brand: p.tire?.brand?.name,
-    tire_size: p.tire?.size,
+    tire_size: p.tire?.tire_type?.size,
   }));
 
   return (

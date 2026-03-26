@@ -233,17 +233,15 @@ export default function _TemplatesDataTable({
       </AlertDialog>
 
       {/* ─── Assign template to vehicle dialog ───────────────────────────── */}
-      {assigningTemplate !== null && (
-        <TemplateAssignDialog
-          templateId={assigningTemplate.id}
-          templateName={assigningTemplate.name}
-          companyId={companyId}
-          open={assigningTemplate !== null}
-          onOpenChange={(open) => {
-            if (!open) setAssigningTemplate(null);
-          }}
-        />
-      )}
+      <TemplateAssignDialog
+        templateId={assigningTemplate?.id ?? ''}
+        templateName={assigningTemplate?.name ?? ''}
+        companyId={companyId}
+        open={assigningTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setAssigningTemplate(null);
+        }}
+      />
     </>
   );
 }

@@ -6,8 +6,11 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+function AlertDialog({ open, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
+  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
+  // Uncontrolled usage (open === undefined) is unaffected.
+  if (open === false) return null;
+  return <AlertDialogPrimitive.Root data-slot="alert-dialog" open={open} {...props} />;
 }
 
 function AlertDialogTrigger({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {

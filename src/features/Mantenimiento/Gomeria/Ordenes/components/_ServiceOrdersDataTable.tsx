@@ -333,7 +333,10 @@ export default function _ServiceOrdersDataTable({
 
       {/* ─── New Order Wizard ──────────────────────────────────────────── */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="p-0 gap-0 sm:max-w-[90vw] h-[90vh] flex flex-col overflow-hidden">
+        <DialogContent
+          showCloseButton={false}
+          className="p-0 gap-0 sm:max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
+        >
           <ServiceOrderWizard companyId={companyId} mode="dashboard" onClose={() => setShowWizard(false)} />
         </DialogContent>
       </Dialog>
