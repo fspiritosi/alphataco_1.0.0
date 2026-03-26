@@ -1033,6 +1033,37 @@ export const PERMISSIONS = {
           },
         },
       },
+      // Tab 4: Gomería
+      gomeria: {
+        slug: 'gomeria',
+        name: 'Gomería',
+        tabId: '60000000-0000-0000-0000-000000000070',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
+          catalogo_cubiertas: {
+            slug: 'catalogo_cubiertas',
+            name: 'Catálogo de Cubiertas',
+            tabId: '60000000-0000-0000-0000-000000000061',
+            parent: 'gomeria',
+            allowedActions: ['view', 'create', 'update', 'delete'],
+          },
+          plantillas_cubiertas: {
+            slug: 'plantillas_cubiertas',
+            name: 'Plantillas de Cubiertas',
+            tabId: '60000000-0000-0000-0000-000000000062',
+            parent: 'gomeria',
+            allowedActions: ['view', 'create', 'update'],
+          },
+          ordenes_gomeria: {
+            slug: 'ordenes_gomeria',
+            name: 'Órdenes de Gomería',
+            tabId: '60000000-0000-0000-0000-000000000063',
+            parent: 'gomeria',
+            allowedActions: ['view', 'create', 'update'],
+          },
+        },
+      },
       // Tab 3: Configuración
       maint_configuracion: {
         slug: 'maint_configuracion',

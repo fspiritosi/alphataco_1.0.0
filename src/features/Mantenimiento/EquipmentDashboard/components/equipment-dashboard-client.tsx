@@ -10,6 +10,7 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import {
   AlertCircle,
   CheckCircle,
+  CircleDot,
   ClipboardList,
   Clock,
   LogOut,
@@ -37,6 +38,7 @@ interface EquipmentDashboardClientProps {
     type: string;
     sub_type: string;
     is_active: boolean;
+    tire_template_id: string | null;
   };
   equipmentId: string;
   isGuest: boolean;
@@ -186,6 +188,15 @@ export default function EquipmentDashboardClient({
               description="Realizar inspección de mantenimiento"
               onClick={() => router.push(`/maintenance/equipment/${equipmentId}/checklists`)}
             />
+
+            {equipment.tire_template_id && (
+              <ActionButton
+                icon={CircleDot}
+                label="Operación de Gomería"
+                description="Gestionar cubiertas del equipo"
+                onClick={() => router.push(`/maintenance/equipment/${equipmentId}/tire-service`)}
+              />
+            )}
           </div>
         </div>
 

@@ -1,0 +1,73 @@
+import { TabsManagerServer } from '@/features/TabsManager';
+import { LayoutTemplate, Package, Wrench } from 'lucide-react';
+import { Suspense } from 'react';
+import CatalogoTabContent from './Catalogo/CatalogoTabContent';
+import { CatalogoSkeleton } from './Catalogo/fallback/CatalogoSkeleton';
+import OrdenesTabContent from './Ordenes/OrdenesTabContent';
+import { OrdenesSkeleton } from './Ordenes/fallback/OrdenesSkeleton';
+import PlantillasTabContent from './Plantillas/PlantillasTabContent';
+import { PlantillasSkeleton } from './Plantillas/fallback/PlantillasSkeleton';
+
+interface Props {
+  searchParams: Record<string, string | string[] | undefined>;
+  permissions: Record<string, boolean>;
+}
+
+export default async function GomeriaTabContent({ searchParams, permissions }: Props) {
+  return (
+    <TabsManagerServer
+      paramName="gomeria_tab"
+      searchParams={searchParams}
+      defaultTab="catalogo_cubiertas"
+      permissions={permissions}
+      dependentParams={['gomeria_tab']}
+      tabs={[
+        {
+          value: 'catalogo_cubiertas',
+          label: (
+            <span className="flex items-center gap-2">
+              <Package className="h-4 w-4" /> Catálogo
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'catalogo_cubiertas',
+          content: (
+            <Suspense fallback={<CatalogoSkeleton />}>
+              <CatalogoTabContent searchParams={searchParams} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'plantillas_cubiertas',
+          label: (
+            <span className="flex items-center gap-2">
+              <LayoutTemplate className="h-4 w-4" /> Plantillas
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'plantillas_cubiertas',
+          content: (
+            <Suspense fallback={<PlantillasSkeleton />}>
+              <PlantillasTabContent searchParams={searchParams} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'ordenes_gomeria',
+          label: (
+            <span className="flex items-center gap-2">
+              <Wrench className="h-4 w-4" /> Órdenes
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'ordenes_gomeria',
+          content: (
+            <Suspense fallback={<OrdenesSkeleton />}>
+              <OrdenesTabContent searchParams={searchParams} />
+            </Suspense>
+          ),
+        },
+      ]}
+    />
+  );
+}
