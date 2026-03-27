@@ -20,6 +20,11 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
+import {
+  PREVENTIVE_TYPES,
+  PREVENTIVE_TYPE_ICONS,
+  type PreventiveType,
+} from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { getItemComments, getTechnicianComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -1004,6 +1009,22 @@ export function OrderDetailDialog({
                           ? 'Preventivo'
                           : 'Manual'}
                     </span>
+                    {order.source === 'preventive' &&
+                      (() => {
+                        const ptKey = (
+                          !Array.isArray(order.maintenance_requests)
+                            ? order.maintenance_requests?.preventive_type
+                            : undefined
+                        ) as PreventiveType | undefined;
+                        const PtIcon = ptKey ? PREVENTIVE_TYPE_ICONS[ptKey] : undefined;
+                        const ptLabel = ptKey ? PREVENTIVE_TYPES[ptKey] : undefined;
+                        return ptLabel ? (
+                          <Badge variant="secondary" className="mt-1 gap-1 text-xs">
+                            {PtIcon && <PtIcon className="h-3 w-3" />}
+                            {ptLabel}
+                          </Badge>
+                        ) : null;
+                      })()}
                   </div>
                 )}
               </div>

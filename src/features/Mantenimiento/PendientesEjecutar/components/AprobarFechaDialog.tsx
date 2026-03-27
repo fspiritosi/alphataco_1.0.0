@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -92,55 +93,65 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
 
           {/* Lista de Items */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Items a Reparar</span>
-              <Badge variant="secondary">{items.length} items</Badge>
-            </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              <div className="space-y-2 pr-2">
-                {items.map((item, index) => {
-                  const deviation = item.maintenance_request_items?.checklist_deviations;
-                  const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
+            {order.maintenance_requests?.source === 'preventive' && (
+              <PreventiveInfoCard preventiveType={order.maintenance_requests?.preventive_type ?? ''} className="mb-3" />
+            )}
+            {items.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Items a Reparar</span>
+                  <Badge variant="secondary">{items.length} items</Badge>
+                </div>
+                <div className="max-h-[200px] overflow-y-auto">
+                  <div className="space-y-2 pr-2">
+                    {items.map((item, index) => {
+                      const deviation = item.maintenance_request_items?.checklist_deviations;
+                      const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
-                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
-                  const repairTypeNames: string[] =
-                    pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
-                      : item.types_of_repairs?.name
-                        ? [item.types_of_repairs.name]
-                        : [];
+                      // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                      const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
+                      const repairTypeNames: string[] =
+                        pivotRepairTypes.length > 0
+                          ? pivotRepairTypes
+                              .map((rt) => rt.types_of_repairs?.name)
+                              .filter((n): n is string => Boolean(n))
+                          : item.types_of_repairs?.name
+                            ? [item.types_of_repairs.name]
+                            : [];
 
-                  return (
-                    <div key={item.id || index} className="p-2 border rounded-md bg-background">
-                      <p className="text-sm font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {formattedCode && (
-                          <span className="text-xs text-muted-foreground">Código: {formattedCode}</span>
-                        )}
-                        {repairTypeNames.map((name, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="mt-1">
-                        <ItemComments
-                          item={item}
-                          source={order.maintenance_requests?.source}
-                          fallbackAuthorName={
-                            order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
-                          }
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                {items.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>
-                )}
-              </div>
-            </div>
+                      return (
+                        <div key={item.id || index} className="p-2 border rounded-md bg-background">
+                          <p className="text-sm font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {formattedCode && (
+                              <span className="text-xs text-muted-foreground">Código: {formattedCode}</span>
+                            )}
+                            {repairTypeNames.map((name, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="mt-1">
+                            <ItemComments
+                              item={item}
+                              source={order.maintenance_requests?.source}
+                              fallbackAuthorName={
+                                order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
+                                  ?.fullname
+                              }
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+            {items.length === 0 && order.maintenance_requests?.source !== 'preventive' && (
+              <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>
+            )}
           </div>
 
           <div className="text-sm text-muted-foreground">

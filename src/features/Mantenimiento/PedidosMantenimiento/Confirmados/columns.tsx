@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
@@ -149,10 +150,9 @@ export function getConfirmedOrderColumns({
         const items = row.original.maintenance_order_items ?? [];
         if (items.length === 0 && row.original.maintenance_requests?.source === 'preventive') {
           return (
-            <Badge variant="outline" className="gap-1">
-              <Shield className="h-3 w-3" />
-              Preventivo
-            </Badge>
+            <PreventiveItemsBadge
+              preventiveType={row.original.preventive_type ?? row.original.maintenance_requests?.preventive_type ?? ''}
+            />
           );
         }
         return (

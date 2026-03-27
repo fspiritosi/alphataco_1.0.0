@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench } from 'lucide-react';
@@ -167,12 +168,7 @@ export function getPendingOrderColumns(callbacks: PendingOrdersColumnCallbacks):
       cell: ({ row }) => {
         const count = row.original._count.maintenance_order_items;
         if (count === 0 && row.original.source === 'preventive') {
-          return (
-            <Badge variant="outline" className="gap-1">
-              <Shield className="h-3 w-3" />
-              Preventivo
-            </Badge>
-          );
+          return <PreventiveItemsBadge preventiveType={row.original.preventive_type ?? ''} />;
         }
         return (
           <Badge variant="secondary">
