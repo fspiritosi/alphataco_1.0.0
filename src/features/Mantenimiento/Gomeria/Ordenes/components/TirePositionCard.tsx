@@ -19,7 +19,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { AvailableTire, EnsuredTirePosition } from '../actions/actions.server';
-import { performCalibration, performRepair, performReplace } from '../actions/actions.server';
+import { performCalibration, performMissingReport, performRepair, performReplace } from '../actions/actions.server';
 import { uploadDiscardPhoto } from '../utils/uploadDiscardPhoto';
 import { TireReplacePicker } from './TireReplacePicker';
 
@@ -246,12 +246,12 @@ function TireActionsWithTire({
   const replaceMutation = useMutation({
     mutationFn: async () => {
       if (!replaceNewTire) throw new Error('Seleccione una cubierta de reemplazo');
-      if (oldDest === 'DISCARD' && !discardComment) {
-        throw new Error('El comentario de descarte es obligatorio');
+      if ((oldDest === 'DISCARD' || oldDest === 'REPAIR') && !discardComment) {
+        throw new Error(`El motivo de ${oldDest === 'DISCARD' ? 'descarte' : 'reparación'} es obligatorio`);
       }
 
       let discardPhotoUrl: string | undefined;
-      if (oldDest === 'DISCARD' && discardFile) {
+      if ((oldDest === 'DISCARD' || oldDest === 'REPAIR') && discardFile) {
         setIsUploading(true);
         try {
           discardPhotoUrl = await uploadDiscardPhoto(discardFile);
@@ -268,7 +268,7 @@ function TireActionsWithTire({
         newTireId: replaceNewTire.id,
         oldDestination: oldDest,
         discardPhotoUrl,
-        discardComment: oldDest === 'DISCARD' ? discardComment : undefined,
+        discardComment: oldDest === 'DISCARD' || oldDest === 'REPAIR' ? discardComment : undefined,
         treadDepth: replaceTread ? Number(replaceTread) : undefined,
         pressureStart: replacePressStart ? Number(replacePressStart) : undefined,
         pressureEnd: replacePressEnd ? Number(replacePressEnd) : undefined,
@@ -282,14 +282,41 @@ function TireActionsWithTire({
     },
   });
 
-  const isPending = calibMutation.isPending || repairMutation.isPending || replaceMutation.isPending || isUploading;
+  // ─── Missing report ────────────────────────────────────────────────────
+  const [missingObs, setMissingObs] = useState('');
+
+  const missingMutation = useMutation({
+    mutationFn: () =>
+      performMissingReport({
+        serviceOrderId,
+        positionNumber: position.position_number,
+        vehicleId,
+        tireId: position.tire_id!,
+        observations: missingObs || undefined,
+      }),
+    onSuccess: () => handleSuccess('Cubierta reportada como extraviada'),
+    onError: (error) => {
+      logger.error('Error reporting missing', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'Error al reportar extravío');
+    },
+  });
+
+  const isPending =
+    calibMutation.isPending ||
+    repairMutation.isPending ||
+    replaceMutation.isPending ||
+    missingMutation.isPending ||
+    isUploading;
 
   return (
     <Tabs defaultValue="calibrate">
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid w-full grid-cols-4">
         <TabsTrigger value="calibrate">Calibrar</TabsTrigger>
         <TabsTrigger value="repair">Reparar</TabsTrigger>
         <TabsTrigger value="replace">Reemplazar</TabsTrigger>
+        <TabsTrigger value="missing" className="text-destructive data-[state=active]:text-destructive">
+          Extravío
+        </TabsTrigger>
       </TabsList>
 
       {/* ─── Calibrate ─────────────────────────────────────────────────── */}
@@ -409,15 +436,22 @@ function TireActionsWithTire({
           </RadioGroup>
         </div>
 
-        {oldDest === 'DISCARD' && (
-          <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+        {(oldDest === 'DISCARD' || oldDest === 'REPAIR') && (
+          <div
+            className={`space-y-2 rounded-md border p-3 ${
+              oldDest === 'DISCARD'
+                ? 'border-destructive/30 bg-destructive/5'
+                : 'border-yellow-500/30 bg-yellow-50/50 dark:bg-yellow-950/20'
+            }`}
+          >
             <div className="space-y-1">
-              <Label className="text-xs">Foto de descarte</Label>
+              <Label className="text-xs">Foto {oldDest === 'DISCARD' ? 'de descarte' : 'de reparación'}</Label>
               <Input type="file" accept="image/*" onChange={(e) => setDiscardFile(e.target.files?.[0] ?? null)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">
-                Motivo de descarte <span className="text-destructive">*</span>
+                Motivo {oldDest === 'DISCARD' ? 'de descarte' : 'de reparación'}{' '}
+                <span className="text-destructive">*</span>
               </Label>
               <Textarea
                 placeholder="Motivo obligatorio..."
@@ -479,9 +513,43 @@ function TireActionsWithTire({
         <Button
           className="w-full"
           onClick={() => replaceMutation.mutate()}
-          disabled={isPending || !replaceNewTire || (oldDest === 'DISCARD' && !discardComment)}
+          disabled={
+            isPending || !replaceNewTire || ((oldDest === 'DISCARD' || oldDest === 'REPAIR') && !discardComment)
+          }
         >
           {isUploading ? 'Subiendo foto...' : replaceMutation.isPending ? 'Registrando...' : 'Registrar reemplazo'}
+        </Button>
+      </TabsContent>
+
+      {/* ─── Missing report ──────────────────────────────────────────── */}
+      <TabsContent value="missing" className="space-y-3 pt-2">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+          <p className="text-sm font-medium text-destructive">Reportar cubierta extraviada</p>
+          <p className="text-xs text-muted-foreground">
+            La cubierta será marcada como extraviada y la posición quedará vacía. Podrá asignar otra cubierta a
+            continuación.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">
+            Observaciones <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            placeholder="Describa por qué se reporta como extraviada..."
+            rows={3}
+            value={missingObs}
+            onChange={(e) => setMissingObs(e.target.value)}
+          />
+        </div>
+
+        <Button
+          variant="destructive"
+          className="w-full"
+          onClick={() => missingMutation.mutate()}
+          disabled={isPending || !missingObs.trim()}
+        >
+          {missingMutation.isPending ? 'Reportando...' : 'Reportar extravío'}
         </Button>
       </TabsContent>
     </Tabs>

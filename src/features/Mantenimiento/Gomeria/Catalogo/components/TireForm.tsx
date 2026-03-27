@@ -1,10 +1,11 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { tireRetreadLabels, tireTreadTypeLabels } from '@/features/Mantenimiento/Gomeria/shared/tire-mappers';
 import { TireRetreadLevel } from '@/generated/prisma/enums';
@@ -60,7 +61,7 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
   const isEditing = !!tire;
 
   // Load brands
-  const { data: brands = [] } = useQuery({
+  const { data: brands = [], isLoading: isLoadingBrands } = useQuery({
     queryKey: ['tire-brands-select', companyId],
     queryFn: () => getTireBrandsForSelect(),
     staleTime: 5 * 60 * 1000,
@@ -68,7 +69,7 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
   });
 
   // Load tire types
-  const { data: tireTypes = [] } = useQuery({
+  const { data: tireTypes = [], isLoading: isLoadingTypes } = useQuery({
     queryKey: ['tire-types-select', companyId],
     queryFn: () => getTireTypesForSelect(companyId),
     staleTime: 5 * 60 * 1000,
@@ -77,14 +78,23 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
 
   const form = useForm<TireFormValues>({
     resolver: zodResolver(tireFormSchema),
-    defaultValues: {
-      serial_number: '',
-      brand_id: '',
-      tire_type_id: '',
-      is_new: true,
-      retread_level: null,
-      tread_depth: null,
-    },
+    defaultValues: tire
+      ? {
+          serial_number: tire.serial_number,
+          brand_id: tire.brand_id,
+          tire_type_id: tire.tire_type_id,
+          is_new: tire.is_new,
+          retread_level: (tire.retread_level as TireRetreadLevel | null) ?? null,
+          tread_depth: tire.tread_depth != null ? Number(tire.tread_depth) : null,
+        }
+      : {
+          serial_number: '',
+          brand_id: '',
+          tire_type_id: '',
+          is_new: true,
+          retread_level: null,
+          tread_depth: null,
+        },
   });
 
   const mutation = useMutation({
@@ -126,29 +136,22 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      if (tire) {
-        form.reset({
-          serial_number: tire.serial_number,
-          brand_id: tire.brand_id,
-          tire_type_id: tire.tire_type_id,
-          is_new: tire.is_new,
-          retread_level: (tire.retread_level as TireRetreadLevel | null) ?? null,
-          tread_depth: tire.tread_depth != null ? Number(tire.tread_depth) : null,
-        });
-      } else {
-        form.reset({
-          serial_number: '',
-          brand_id: '',
-          tire_type_id: '',
-          is_new: true,
-          retread_level: null,
-          tread_depth: null,
-        });
-      }
+    if (nextOpen && !tire) {
+      // Only reset to empty when opening for create (no tire prop).
+      // For edit mode, the component remounts with tire data already in defaultValues.
+      form.reset({
+        serial_number: '',
+        brand_id: '',
+        tire_type_id: '',
+        is_new: true,
+        retread_level: null,
+        tread_depth: null,
+      });
     }
     onOpenChange(nextOpen);
   }
+
+  const isNew = form.watch('is_new');
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -158,8 +161,8 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Serial Number */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+            {/* Serial Number — full width */}
             <FormField
               control={form.control}
               name="serial_number"
@@ -174,71 +177,93 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
               )}
             />
 
-            {/* Brand */}
-            <FormField
-              control={form.control}
-              name="brand_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Marca</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar marca..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {brands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.id}>
-                          {brand.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Brand + Tire Type — 2 columns */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="brand_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Marca</FormLabel>
+                    {isLoadingBrands ? (
+                      <Skeleton className="h-9 w-full rounded-md" />
+                    ) : (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Seleccionar marca..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {brands.map((brand) => (
+                            <SelectItem key={brand.id} value={brand.id}>
+                              {brand.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Tire Type */}
-            <FormField
-              control={form.control}
-              name="tire_type_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de cubierta</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar tipo..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {tireTypes.map((tt) => (
-                        <SelectItem key={tt.id} value={tt.id}>
-                          {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="tire_type_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de cubierta</FormLabel>
+                    {isLoadingTypes ? (
+                      <Skeleton className="h-9 w-full rounded-md" />
+                    ) : (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Seleccionar tipo..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tireTypes.map((tt) => (
+                            <SelectItem key={tt.id} value={tt.id}>
+                              {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Tread Depth */}
+            {/* Condition + Depth — 2 columns */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="is_new"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                    <FormLabel className="text-sm font-normal">{field.value ? 'Nueva' : 'Usada'}</FormLabel>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="tread_depth"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Profundidad (mm)</FormLabel>
+                    <FormLabel>Desgaste (%)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         step="0.1"
-                        placeholder="Ej: 12.5"
+                        placeholder="Ej: 75"
                         {...field}
                         value={field.value ?? ''}
                         onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
@@ -248,24 +273,10 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
                   </FormItem>
                 )}
               />
-
-              {/* Is New */}
-              <FormField
-                control={form.control}
-                name="is_new"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-3 space-y-0 rounded-md border p-3">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="cursor-pointer font-normal">{field.value ? 'Nueva' : 'Usada'}</FormLabel>
-                  </FormItem>
-                )}
-              />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Retread Level (optional) */}
+            {/* Retread — only when used, full width */}
+            {!isNew && (
               <FormField
                 control={form.control}
                 name="retread_level"
@@ -277,7 +288,7 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
                       value={field.value ?? '_none'}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Sin precurado" />
                         </SelectTrigger>
                       </FormControl>
@@ -294,16 +305,16 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
                   </FormItem>
                 )}
               />
-            </div>
+            )}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear cubierta'}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

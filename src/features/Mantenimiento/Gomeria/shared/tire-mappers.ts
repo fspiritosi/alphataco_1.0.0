@@ -8,6 +8,7 @@ export const tireStatusLabels: Record<string, string> = {
   INSTALLED: 'Instalada',
   IN_REPAIR: 'En reparación',
   DISCARDED: 'Descartada',
+  MISSING: 'Extraviada',
 };
 
 export const tireStatusBadges: Record<string, BadgeVariant> = {
@@ -15,6 +16,7 @@ export const tireStatusBadges: Record<string, BadgeVariant> = {
   INSTALLED: 'default',
   IN_REPAIR: 'yellow',
   DISCARDED: 'destructive',
+  MISSING: 'destructive',
 };
 
 // TireRetreadLevel
@@ -36,12 +38,14 @@ export const tireServiceActionLabels: Record<string, string> = {
   REPLACE: 'Reemplazo',
   REPAIR: 'Reparación',
   CALIBRATE: 'Calibración',
+  MISSING_REPORT: 'Extravío',
 };
 
 export const tireServiceActionBadges: Record<string, BadgeVariant> = {
   REPLACE: 'default',
   REPAIR: 'yellow',
   CALIBRATE: 'outline',
+  MISSING_REPORT: 'destructive',
 };
 
 // TireOldDestination

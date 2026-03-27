@@ -40,6 +40,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
       searchParams={searchParams}
       defaultTab="maint_operaciones"
       permissions={permissions}
+      dependentParams={['gomeria_tab', 'config_subtab']}
       tabs={[
         {
           value: 'created_solicitudes',

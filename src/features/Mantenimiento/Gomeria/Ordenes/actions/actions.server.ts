@@ -1,7 +1,7 @@
 'use server';
 
-import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/TireDiagramRenderer';
-import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/TireDiagramRenderer';
+import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
+import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
 import type { TireOldDestination, TireServiceOrderStatus } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -567,20 +567,21 @@ export async function getAvailableTiresForAxle(tireSize: string) {
   try {
     const tires = await prisma.tires.findMany({
       where: {
-        status: 'AVAILABLE',
+        status: { in: ['AVAILABLE', 'MISSING'] },
         is_active: true,
         tire_type: { size: tireSize },
       },
       select: {
         id: true,
         serial_number: true,
+        status: true,
         is_new: true,
         retread_level: true,
         tread_depth: true,
         brand: { select: { id: true, name: true } },
         tire_type: { select: { id: true, size: true, tread_type: true } },
       },
-      orderBy: { serial_number: 'asc' },
+      orderBy: [{ status: 'asc' }, { serial_number: 'asc' }],
     });
     return tires;
   } catch (error) {
@@ -678,10 +679,10 @@ export async function performRepair(data: {
         throw new Error(`La cubierta en la posición ${data.positionNumber} no coincide con la cubierta esperada`);
       }
 
-      // 2. Assert new tire is AVAILABLE
+      // 2. Assert new tire is AVAILABLE or MISSING
       const newTire = await tx.tires.findUnique({ where: { id: data.newTireId } });
       if (!newTire) throw new Error('Cubierta de reemplazo no encontrada');
-      if (newTire.status !== 'AVAILABLE') {
+      if (newTire.status !== 'AVAILABLE' && newTire.status !== 'MISSING') {
         throw new Error(
           `La cubierta de reemplazo (${newTire.serial_number}) no está disponible — estado actual: ${newTire.status}`
         );
@@ -786,10 +787,10 @@ export async function performReplace(data: {
         }
       }
 
-      // 3. Assert new tire is AVAILABLE
+      // 3. Assert new tire is AVAILABLE or MISSING
       const newTire = await tx.tires.findUnique({ where: { id: data.newTireId } });
       if (!newTire) throw new Error('Cubierta de reemplazo no encontrada');
-      if (newTire.status !== 'AVAILABLE') {
+      if (newTire.status !== 'AVAILABLE' && newTire.status !== 'MISSING') {
         throw new Error(
           `La cubierta de reemplazo (${newTire.serial_number}) no está disponible — estado actual: ${newTire.status}`
         );
@@ -837,6 +838,67 @@ export async function performReplace(data: {
 }
 
 // ============================================================================
+// MISSING REPORT (mark tire as missing, clear position)
+// ============================================================================
+
+export async function performMissingReport(data: {
+  serviceOrderId: string;
+  positionNumber: number;
+  vehicleId: string;
+  tireId: string;
+  observations?: string;
+}) {
+  logger.debug('Performing missing report', {
+    data: { serviceOrderId: data.serviceOrderId, positionNumber: data.positionNumber, tireId: data.tireId },
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Assert tire matches the position
+      const position = await tx.vehicle_tire_positions.findFirst({
+        where: { vehicle_id: data.vehicleId, position_number: data.positionNumber },
+      });
+      if (!position) {
+        throw new Error(`Posición ${data.positionNumber} no encontrada`);
+      }
+      if (position.tire_id !== data.tireId) {
+        throw new Error(`La cubierta en la posición ${data.positionNumber} no coincide con la cubierta esperada`);
+      }
+
+      // 2. Mark tire as MISSING
+      await tx.tires.update({
+        where: { id: data.tireId },
+        data: { status: 'MISSING' },
+      });
+
+      // 3. Clear the position (tire_id = null)
+      await tx.vehicle_tire_positions.updateMany({
+        where: { vehicle_id: data.vehicleId, position_number: data.positionNumber },
+        data: { tire_id: null },
+      });
+
+      // 4. Create service item record
+      await tx.tire_service_items.create({
+        data: {
+          service_order_id: data.serviceOrderId,
+          position_number: data.positionNumber,
+          vehicle_id: data.vehicleId,
+          action: 'MISSING_REPORT',
+          tire_id: data.tireId,
+          new_tire_id: null,
+          observations: data.observations ?? null,
+        },
+      });
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error performing missing report', { data: { error } });
+    throw error;
+  }
+}
+
+// ============================================================================
 // SEARCH VEHICLE BY DOMAIN
 // ============================================================================
 
@@ -854,6 +916,7 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
         id: true,
         domain: true,
         intern_number: true,
+        type: true,
         sub_type: {
           select: {
             id: true,
@@ -864,17 +927,124 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
       take: 10,
     });
 
-    // Expose tire_template_id at the top level (from sub_type) for backward compatibility
     return vehicles.map((v) => ({
       id: v.id,
       domain: v.domain,
       intern_number: v.intern_number,
       tire_template_id: v.sub_type?.tire_template_id ?? null,
       sub_type_id: v.sub_type?.id ?? null,
+      type_id: v.type ?? null,
     }));
   } catch (error) {
     logger.error('Error searching vehicle by domain', { data: { error, domain } });
     throw error;
+  }
+}
+
+/**
+ * Get vehicle type info (is_tractor_unit, has_hitch) for hitch UI visibility
+ */
+export async function getVehicleTypeInfo(vehicleId: string) {
+  logger.debug('Getting vehicle type info', { data: { vehicleId } });
+
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: vehicleId },
+      select: {
+        type_vehicles_typeTotype: {
+          select: {
+            id: true,
+            name: true,
+            is_tractor_unit: true,
+            has_hitch: true,
+          },
+        },
+      },
+    });
+
+    if (!vehicle?.type_vehicles_typeTotype) return null;
+
+    const vType = vehicle.type_vehicles_typeTotype;
+    return {
+      id: vType.id,
+      name: vType.name,
+      is_tractor_unit: vType.is_tractor_unit ?? false,
+      has_hitch: vType.has_hitch ?? false,
+    };
+  } catch (error) {
+    logger.error('Error getting vehicle type info', { data: { error, vehicleId } });
+    return null;
+  }
+}
+
+/**
+ * Search compatible hitch vehicles for a given tractor unit.
+ * Uses type_hitch_types junction table to filter by compatible types.
+ */
+export async function searchCompatibleHitchVehicles(tractorId: string, domain: string, companyId: string) {
+  logger.debug('Searching compatible hitch vehicles', { data: { tractorId, domain, companyId } });
+
+  try {
+    // 1. Get the tractor's type
+    const tractor = await prisma.vehicles.findUnique({
+      where: { id: tractorId },
+      select: {
+        type_vehicles_typeTotype: {
+          select: { id: true, is_tractor_unit: true, has_hitch: true },
+        },
+      },
+    });
+
+    if (!tractor?.type_vehicles_typeTotype?.is_tractor_unit || !tractor.type_vehicles_typeTotype.has_hitch) {
+      return [];
+    }
+
+    // 2. Get compatible type IDs from type_hitch_types
+    const hitchTypes = await prisma.type_hitch_types.findMany({
+      where: { type_id: tractor.type_vehicles_typeTotype.id },
+      select: { compatible_type_id: true },
+    });
+
+    if (hitchTypes.length === 0) return [];
+
+    const compatibleTypeIds = hitchTypes.map((ht) => ht.compatible_type_id);
+
+    // 3. Search vehicles of compatible types, filtered by domain
+    const vehicles = await prisma.vehicles.findMany({
+      where: {
+        company_id: companyId,
+        is_active: true,
+        type: { in: compatibleTypeIds },
+        id: { not: tractorId },
+        ...(domain.trim().length > 0 ? { domain: { contains: domain, mode: 'insensitive' as const } } : {}),
+      },
+      select: {
+        id: true,
+        domain: true,
+        intern_number: true,
+        type: true,
+        sub_type: {
+          select: {
+            id: true,
+            tire_template_id: true,
+          },
+        },
+      },
+      take: 10,
+      orderBy: { domain: 'asc' },
+    });
+
+    return vehicles.map((v) => ({
+      id: v.id,
+      domain: v.domain,
+      intern_number: v.intern_number,
+      tire_template_id: v.sub_type?.tire_template_id ?? null,
+      sub_type_id: v.sub_type?.id ?? null,
+      type_id: v.type ?? null,
+    }));
+  } catch (error) {
+    logger.error('Error searching compatible hitch vehicles', { data: { error, tractorId, domain } });
+    return [];
   }
 }
 

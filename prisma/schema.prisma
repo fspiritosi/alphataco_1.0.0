@@ -3518,6 +3518,7 @@ enum TireStatus {
   INSTALLED
   IN_REPAIR
   DISCARDED
+  MISSING
 
   @@schema("public")
 }
@@ -3550,6 +3551,7 @@ enum TireServiceAction {
   REPLACE
   REPAIR
   CALIBRATE
+  MISSING_REPORT
 
   @@schema("public")
 }

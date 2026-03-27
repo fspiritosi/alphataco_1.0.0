@@ -24,6 +24,7 @@ import {
   type DataTableSearchParams,
   type FacetResult,
 } from '@/shared/components/common/DataTable';
+import { useQueryClient } from '@tanstack/react-query';
 import type { LucideIcon } from 'lucide-react';
 import { Layers, Plus } from 'lucide-react';
 import moment from 'moment';
@@ -34,6 +35,7 @@ import {
   getTireSingleFacet,
   getTiresForExport,
   getTiresPaginated,
+  updateTireStatus,
   type TireListItem,
 } from '../actions/actions.server';
 import { TireBulkForm } from './TireBulkForm';
@@ -98,6 +100,9 @@ export default function _TiresDataTable({
 
   const canCreate = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'create');
 
+  // ─── Query client ─────────────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+
   // ─── Dialog state ─────────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -114,13 +119,37 @@ export default function _TiresDataTable({
 
   const tableQueryFn = useCallback((params: DataTableSearchParams) => getTiresPaginated(params), []);
 
+  // ─── Mark as found handler ────────────────────────────────────────────────
+  async function handleMarkFound(tire: TireListItem) {
+    try {
+      await updateTireStatus(tire.id, 'AVAILABLE');
+      toast.success(`Cubierta ${tire.serial_number} marcada como disponible`);
+      queryClient.invalidateQueries({ queryKey: ['tires-catalog'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar estado');
+    }
+  }
+
+  // ─── Mark as repaired handler ─────────────────────────────────────────────
+  async function handleMarkRepaired(tire: TireListItem) {
+    try {
+      await updateTireStatus(tire.id, 'AVAILABLE');
+      toast.success(`Cubierta ${tire.serial_number} marcada como disponible`);
+      queryClient.invalidateQueries({ queryKey: ['tires-catalog'] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar estado');
+    }
+  }
+
   // ─── Columns ──────────────────────────────────────────────────────────────
   const columns = useMemo(
     () =>
       getColumns(
         permissions,
         (tire) => setEditingTire(tire),
-        (tire) => setDeletingTire(tire)
+        (tire) => setDeletingTire(tire),
+        handleMarkFound,
+        handleMarkRepaired
       ),
     [permissions]
   );
@@ -245,6 +274,7 @@ export default function _TiresDataTable({
     try {
       await deleteTire(deletingTire.id);
       toast.success('Cubierta eliminada correctamente');
+      queryClient.invalidateQueries({ queryKey: ['tires-catalog'] });
       setDeletingTire(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al eliminar la cubierta');
@@ -307,16 +337,18 @@ export default function _TiresDataTable({
         queryKey={['tires-catalog']}
       />
 
-      {/* ─── Edit tire form ──────────────────────────────────────────────── */}
-      <TireForm
-        open={editingTire !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditingTire(null);
-        }}
-        companyId={companyId}
-        tire={editingTire ?? undefined}
-        queryKey={['tires-catalog']}
-      />
+      {/* ─── Edit tire form (conditional mount to reset useForm defaults) ── */}
+      {editingTire !== null && (
+        <TireForm
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditingTire(null);
+          }}
+          companyId={companyId}
+          tire={editingTire}
+          queryKey={['tires-catalog']}
+        />
+      )}
 
       {/* ─── Bulk create form ────────────────────────────────────────────── */}
       <TireBulkForm

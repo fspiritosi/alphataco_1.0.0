@@ -11,7 +11,7 @@ import {
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Ban, CircleOff, Eye, Lock } from 'lucide-react';
+import { Ban, CircleOff, Eye, Lock, Play } from 'lucide-react';
 import moment from 'moment';
 import type { ServiceOrderListItem } from '../actions/actions.server';
 
@@ -31,7 +31,8 @@ export function getColumns(
   permissions: Permissions,
   onClose: (order: ServiceOrderListItem) => void,
   onCancel: (order: ServiceOrderListItem) => void,
-  onViewDetail?: (order: ServiceOrderListItem) => void
+  onViewDetail?: (order: ServiceOrderListItem) => void,
+  onContinue?: (order: ServiceOrderListItem) => void
 ): ColumnDef<ServiceOrderListItem>[] {
   const canUpdate = permissions.hasPermission('mantenimiento', 'ordenes_gomeria', 'update');
 
@@ -206,13 +207,28 @@ export function getColumns(
               )}
               {isOpen && canUpdate && (
                 <>
+                  {onContinue && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-green-600 hover:text-green-700"
+                          onClick={() => onContinue(row.original)}
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Continuar intervenciones</TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onClose(row.original)}>
                         <Lock className="h-3.5 w-3.5" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Cerrar orden</TooltipContent>
+                    <TooltipContent>Finalizar orden</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -225,7 +241,7 @@ export function getColumns(
                         <Ban className="h-3.5 w-3.5" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Cancelar orden</TooltipContent>
+                    <TooltipContent>Anular orden</TooltipContent>
                   </Tooltip>
                 </>
               )}

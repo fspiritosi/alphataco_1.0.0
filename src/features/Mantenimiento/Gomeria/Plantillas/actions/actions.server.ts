@@ -362,6 +362,19 @@ export async function assignTemplateToSubType(subTypeId: string, templateId: str
   }
 }
 
+export async function unassignTemplateFromSubType(subTypeId: string) {
+  logger.debug('Unassigning template from sub_type', { data: { subTypeId } });
+  try {
+    await prisma.sub_type.update({
+      where: { id: subTypeId },
+      data: { tire_template_id: null },
+    });
+  } catch (error) {
+    logger.error('Error unassigning template from sub_type', { data: { error, subTypeId } });
+    throw error;
+  }
+}
+
 // ============================================================================
 // SUB_TYPE QUERY (for assignment)
 // ============================================================================

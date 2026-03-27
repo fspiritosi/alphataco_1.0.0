@@ -3,12 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   tireRetreadLabels,
   tireStatusBadges,
@@ -18,7 +13,7 @@ import {
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { CircleOff, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { CircleOff, MapPin, Pencil, Trash2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import type { TireListItem } from '../actions/actions.server';
 
@@ -37,7 +32,9 @@ type Permissions = {
 export function getColumns(
   permissions: Permissions,
   onEdit: (tire: TireListItem) => void,
-  onDelete: (tire: TireListItem) => void
+  onDelete: (tire: TireListItem) => void,
+  onMarkFound?: (tire: TireListItem) => void,
+  onMarkRepaired?: (tire: TireListItem) => void
 ): ColumnDef<TireListItem>[] {
   const canUpdate = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'update');
   const canDelete = permissions.hasPermission('mantenimiento', 'catalogo_cubiertas', 'delete');
@@ -218,31 +215,65 @@ export function getColumns(
           {
             id: 'actions',
             cell: ({ row }: { row: import('@tanstack/react-table').Row<TireListItem> }) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Abrir menú</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-1">
+                  {canUpdate && row.original.status === 'MISSING' && onMarkFound && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-green-600 hover:text-green-700"
+                          onClick={() => onMarkFound(row.original)}
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Marcar como encontrada</TooltipContent>
+                    </Tooltip>
+                  )}
+                  {canUpdate && row.original.status === 'IN_REPAIR' && onMarkRepaired && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-blue-600 hover:text-blue-700"
+                          onClick={() => onMarkRepaired(row.original)}
+                        >
+                          <Wrench className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Marcar como reparada</TooltipContent>
+                    </Tooltip>
+                  )}
                   {canUpdate && (
-                    <DropdownMenuItem onClick={() => onEdit(row.original)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Editar
-                    </DropdownMenuItem>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(row.original)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Editar</TooltipContent>
+                    </Tooltip>
                   )}
                   {canDelete && (
-                    <DropdownMenuItem
-                      onClick={() => onDelete(row.original)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Eliminar
-                    </DropdownMenuItem>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => onDelete(row.original)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Eliminar</TooltipContent>
+                    </Tooltip>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </div>
+              </TooltipProvider>
             ),
             enableSorting: false,
             enableHiding: false,

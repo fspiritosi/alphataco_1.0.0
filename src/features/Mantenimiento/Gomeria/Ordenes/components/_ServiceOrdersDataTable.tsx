@@ -100,6 +100,7 @@ export default function _ServiceOrdersDataTable({
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderListItem | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [continuingOrder, setContinuingOrder] = useState<ServiceOrderListItem | null>(null);
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
 
   // ─── Client-side navigation ───────────────────────────────────────────────
@@ -118,7 +119,8 @@ export default function _ServiceOrdersDataTable({
         permissions,
         (order) => setClosingOrder(order),
         (order) => setCancellingOrder(order),
-        (order) => setDetailOrderId(order.id)
+        (order) => setDetailOrderId(order.id),
+        (order) => setContinuingOrder(order)
       ),
     [permissions]
   );
@@ -217,10 +219,10 @@ export default function _ServiceOrdersDataTable({
     setIsActionPending(true);
     try {
       await closeServiceOrder(closingOrder.id);
-      toast.success('Orden cerrada correctamente');
+      toast.success('Orden finalizada correctamente');
       setClosingOrder(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al cerrar la orden');
+      toast.error(error instanceof Error ? error.message : 'Error al finalizar la orden');
     } finally {
       setIsActionPending(false);
     }
@@ -232,10 +234,10 @@ export default function _ServiceOrdersDataTable({
     setIsActionPending(true);
     try {
       await cancelServiceOrder(cancellingOrder.id);
-      toast.success('Orden cancelada y cubiertas revertidas correctamente');
+      toast.success('Orden anulada y cubiertas revertidas correctamente');
       setCancellingOrder(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al cancelar la orden');
+      toast.error(error instanceof Error ? error.message : 'Error al anular la orden');
     } finally {
       setIsActionPending(false);
     }
@@ -279,7 +281,7 @@ export default function _ServiceOrdersDataTable({
         }}
       />
 
-      {/* ─── Close order confirmation ──────────────────────────────────── */}
+      {/* ─── Finalize order confirmation ───────────────────────────────── */}
       <AlertDialog
         open={closingOrder !== null}
         onOpenChange={(open) => {
@@ -288,22 +290,22 @@ export default function _ServiceOrdersDataTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Cerrar orden de gomería?</AlertDialogTitle>
+            <AlertDialogTitle>¿Finalizar orden de gomería?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se cerrará la orden del vehículo <strong>{closingOrder?.vehicle?.domain}</strong>. Una vez cerrada no se
-              podrán agregar nuevas intervenciones.
+              Se finalizará la orden del vehículo <strong>{closingOrder?.vehicle?.domain}</strong>. Una vez finalizada
+              no se podrán agregar nuevas intervenciones.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleCloseConfirm} disabled={isActionPending}>
-              {isActionPending ? 'Cerrando...' : 'Cerrar orden'}
+              {isActionPending ? 'Finalizando...' : 'Finalizar orden'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Cancel order confirmation ─────────────────────────────────── */}
+      {/* ─── Annul order confirmation ──────────────────────────────────── */}
       <AlertDialog
         open={cancellingOrder !== null}
         onOpenChange={(open) => {
@@ -312,10 +314,10 @@ export default function _ServiceOrdersDataTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar orden de gomería?</AlertDialogTitle>
+            <AlertDialogTitle>¿Anular orden de gomería?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se cancelará la orden del vehículo <strong>{cancellingOrder?.vehicle?.domain}</strong> y se revertirán
-              todos los movimientos de cubiertas realizados en esta orden. Esta acción no se puede deshacer.
+              Se anulará la orden del vehículo <strong>{cancellingOrder?.vehicle?.domain}</strong> y se revertirán todos
+              los movimientos de cubiertas realizados en esta orden. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -325,7 +327,7 @@ export default function _ServiceOrdersDataTable({
               disabled={isActionPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isActionPending ? 'Cancelando...' : 'Cancelar orden'}
+              {isActionPending ? 'Anulando...' : 'Anular orden'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -333,11 +335,29 @@ export default function _ServiceOrdersDataTable({
 
       {/* ─── New Order Wizard ──────────────────────────────────────────── */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent
-          showCloseButton={false}
-          className="p-0 gap-0 sm:max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
-        >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <ServiceOrderWizard companyId={companyId} mode="dashboard" onClose={() => setShowWizard(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Continue Open Order ─────────────────────────────────────── */}
+      <Dialog
+        open={continuingOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setContinuingOrder(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {continuingOrder && (
+            <ServiceOrderWizard
+              companyId={companyId}
+              mode="dashboard"
+              existingOrderId={continuingOrder.id}
+              vehicleId={continuingOrder.vehicle_id}
+              trailerId={continuingOrder.trailer_vehicle_id ?? undefined}
+              onClose={() => setContinuingOrder(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

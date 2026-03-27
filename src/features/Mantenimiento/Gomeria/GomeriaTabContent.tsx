@@ -24,7 +24,6 @@ export default async function GomeriaTabContent({ searchParams, permissions }: P
       searchParams={searchParams}
       defaultTab="catalogo_cubiertas"
       permissions={permissions}
-      dependentParams={['gomeria_tab']}
       tabs={[
         {
           value: 'catalogo_cubiertas',

@@ -56,6 +56,8 @@ export default async function EquipmentDashboardPage({
     ((user?.user_metadata as unknown as Record<string, unknown>)?.fullname as string | undefined) ??
     ((user?.user_metadata as unknown as Record<string, unknown>)?.employeeName as string | undefined);
 
+  const isAnonymous = user?.is_anonymous ?? true;
+
   return (
     <EquipmentDashboardClient
       equipment={{
@@ -78,6 +80,7 @@ export default async function EquipmentDashboardPage({
       }}
       equipmentId={resolvedParams.id}
       isGuest={isGuest}
+      isAnonymous={isAnonymous}
       empleadoName={empleado_name}
     />
   );

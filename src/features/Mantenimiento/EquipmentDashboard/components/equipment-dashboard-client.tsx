@@ -42,6 +42,7 @@ interface EquipmentDashboardClientProps {
   };
   equipmentId: string;
   isGuest: boolean;
+  isAnonymous: boolean;
   empleadoName?: string;
 }
 
@@ -49,6 +50,7 @@ export default function EquipmentDashboardClient({
   equipment,
   equipmentId,
   isGuest,
+  isAnonymous,
   empleadoName,
 }: EquipmentDashboardClientProps) {
   const router = useRouter();
@@ -189,7 +191,7 @@ export default function EquipmentDashboardClient({
               onClick={() => router.push(`/maintenance/equipment/${equipmentId}/checklists`)}
             />
 
-            {equipment.tire_template_id && (
+            {equipment.tire_template_id && !isAnonymous && (
               <ActionButton
                 icon={CircleDot}
                 label="Operación de Gomería"
