@@ -500,7 +500,7 @@ model assing_customer {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model brand_vehicles {
-  id              BigInt            @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   name            String?           @unique
   is_active       Boolean?          @default(true)
@@ -1844,10 +1844,10 @@ model measure_units {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model model_vehicles {
-  id              BigInt            @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   name            String?
-  brand           BigInt?
+  brand           Int?
   is_active       Boolean?          @default(true)
   brand_vehicles  brand_vehicles?   @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_model_vehicles_brand_fkey")
   other_equipment other_equipment[]
@@ -1895,8 +1895,8 @@ model other_equipment {
   company_id                     String                           @db.Uuid
   type_id                        String                           @db.Uuid
   sub_type_id                    String?                          @db.Uuid
-  brand_id                       BigInt?
-  model_id                       BigInt?
+  brand_id                       Int?
+  model_id                       Int?
   serial_number                  String?
   year                           String?
   condition                      condition_enum?
@@ -2540,8 +2540,8 @@ model vehicles {
   serie                         String?
   intern_number                 String?
   year                          String
-  brand                         BigInt?
-  model                         BigInt?
+  brand                         Int?
+  model                         Int?
   is_active                     Boolean?                        @default(true)
   termination_date              DateTime?                       @db.Date
   reason_for_termination        termination_reason_enum?

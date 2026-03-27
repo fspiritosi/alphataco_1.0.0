@@ -18,7 +18,7 @@ import { useEquipmentBrandStore } from './store/equipmentBrand.store';
 // ============================================================================
 
 const EquipmentBrandSchema = z.object({
-  id: z.bigint().optional(),
+  id: z.number().optional(),
   name: z.string().min(1, { message: 'Debe ingresar el nombre de la marca' }),
   is_active: z.boolean().default(true),
 });
