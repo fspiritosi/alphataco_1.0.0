@@ -998,7 +998,11 @@ export function OrderDetailDialog({
                   <div>
                     <span className="text-xs text-muted-foreground block">Origen</span>
                     <span className="font-medium capitalize">
-                      {order.source === 'checklist' ? 'Checklist' : 'Manual'}
+                      {order.source === 'checklist'
+                        ? 'Checklist'
+                        : order.source === 'preventive'
+                          ? 'Preventivo'
+                          : 'Manual'}
                     </span>
                   </div>
                 )}

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 
 /** Tipo mínimo que el dialog necesita — compatible con ambos sistemas (Prisma y Supabase legacy) */
@@ -20,6 +21,7 @@ interface OrderForDialog {
   scheduled_date?: string | Date | null;
   maintenance_requests?: {
     source?: string | null;
+    preventive_type?: string | null;
     profile_maintenance_requests_supervisor_idToprofile?: { fullname?: string | null } | null;
   } | null;
   maintenance_order_items?: Array<{
@@ -112,6 +114,18 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
           </Card>
 
           <Separator />
+
+          {/* Contexto preventivo (solo si el origen es preventivo) */}
+          {order.maintenance_requests?.source === 'preventive' && (
+            <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
+              <Badge variant="secondary">
+                {PREVENTIVE_TYPES[order.maintenance_requests?.preventive_type as PreventiveType] ??
+                  order.maintenance_requests?.preventive_type ??
+                  'Preventivo'}
+              </Badge>
+            </div>
+          )}
 
           {/* Items del pedido */}
           <Card>

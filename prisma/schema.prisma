@@ -1729,6 +1729,7 @@ model maintenance_orders {
   workshop_validated_at                                    DateTime?                  @db.Timestamptz(6)
   workshop_validation_notes                                String?
   engine_hours_at_entry                                    String?
+  preventive_type                                          String?
   maintenance_activity_log                                 maintenance_activity_log[]
   maintenance_order_items                                  maintenance_order_items[]
   profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1812,6 +1813,7 @@ model maintenance_requests {
   supervisor_id                                       String?                     @db.Uuid
   source                                              String?                     @default("checklist")
   engine_hours                                        String?
+  preventive_type                                     String?
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]

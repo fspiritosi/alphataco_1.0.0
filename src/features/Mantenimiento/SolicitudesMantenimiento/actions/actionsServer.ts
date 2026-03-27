@@ -34,6 +34,7 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
   updated_at: true,
   supervisor_id: true,
   source: true,
+  preventive_type: true,
   vehicles: {
     select: {
       id: true,

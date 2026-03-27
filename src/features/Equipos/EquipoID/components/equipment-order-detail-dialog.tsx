@@ -590,7 +590,15 @@ export function EquipmentOrderDetailDialog({ order, open, onClose, onViewHistory
               )}
               <div>
                 <span className="text-muted-foreground">Fuente:</span>{' '}
-                <span className="font-medium capitalize">{order.maintenance_requests?.source || '-'}</span>
+                <span className="font-medium">
+                  {order.maintenance_requests?.source === 'preventive'
+                    ? 'Preventivo'
+                    : order.maintenance_requests?.source === 'checklist'
+                      ? 'Checklist'
+                      : order.maintenance_requests?.source === 'manual'
+                        ? 'Manual'
+                        : order.maintenance_requests?.source || '-'}
+                </span>
               </div>
             </div>
 

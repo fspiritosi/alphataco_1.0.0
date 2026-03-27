@@ -168,6 +168,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
             engine_hours: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
@@ -271,6 +272,7 @@ export async function getMaintenanceOrdersPending() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -364,6 +366,7 @@ export async function getMaintenanceOrdersConfirmed() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -442,6 +445,7 @@ export async function getMaintenanceOrderById(orderId: string) {
             engine_hours: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
