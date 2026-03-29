@@ -24,8 +24,8 @@ export async function KpiCardsRow() {
     },
     {
       icon: Container,
-      value: kpis.totalFleet,
-      subtitle: 'total flota (activos + en reparacion)',
+      value: kpis.fleetMinusRepair,
+      subtitle: 'total flota (activos - en reparacion)',
       label: 'Flota Total',
       colorClass: 'text-[var(--chart-3)] bg-[var(--chart-3)]/10',
     },

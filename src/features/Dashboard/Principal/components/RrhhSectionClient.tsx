@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import * as React from 'react';
 import { Cell, Label, Pie, PieChart } from 'recharts';
 import type { DiagramIndicatorResult } from '../actions/actions.server';
@@ -48,6 +49,7 @@ export function RrhhSectionClient({
         color: d.diagram_type_color,
       };
       return {
+        id: d.diagram_type_id,
         name: d.diagram_type_name,
         value: d.cantidad_empleados,
         fill: d.diagram_type_color,
@@ -66,6 +68,20 @@ export function RrhhSectionClient({
   );
 
   const totalDiagramEmployees = chartData.reduce((sum, d) => sum + d.value, 0);
+
+  const buildDiagramLink = React.useCallback(
+    (diagramTypeId: string) => {
+      const params = new URLSearchParams();
+      params.set('tab', 'diagrams');
+      params.set('subtab', 'old');
+      params.set('diagOld_diagramType', diagramTypeId);
+      if (positionIds?.length) {
+        params.set('diagOld_position', positionIds.join(','));
+      }
+      return `/dashboard/employee?${params.toString()}`;
+    },
+    [positionIds]
+  );
 
   return (
     <>
@@ -131,16 +147,17 @@ export function RrhhSectionClient({
                   <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 justify-center max-h-[80px] overflow-y-auto">
                     {chartData
                       .sort((a, b) => b.value - a.value)
-                      .slice(0, 6)
                       .map((d) => (
-                        <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                        <Link
+                          key={d.name}
+                          href={buildDiagramLink(d.id)}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-xs hover:underline hover:opacity-80 transition-opacity"
+                        >
                           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
                           <span className="truncate max-w-[140px]">{d.name}</span>: {d.value}
-                        </div>
+                        </Link>
                       ))}
-                    {chartData.length > 6 && (
-                      <span className="text-xs text-muted-foreground">+{chartData.length - 6} más</span>
-                    )}
                   </div>
                 </>
               ) : (
