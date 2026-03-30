@@ -1,7 +1,6 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { prisma } from '@/shared/lib/prisma';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -11,6 +10,7 @@ import {
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { prisma } from '@/shared/lib/prisma';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('SolicitudesMantenimiento/actionsTableServer');
@@ -46,7 +46,6 @@ function buildWhereClauseSync(
   state: ReturnType<typeof parseSearchParams>,
   filterInfo: Awaited<ReturnType<typeof getSupervisorFilterInfo>>
 ) {
-
   // Filtros facetados
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [...TEXT_COLUMNS, ...DATE_COLUMNS],
@@ -138,6 +137,14 @@ export async function getMaintenanceRequestsPaginated(searchParams: DataTableSea
               file: true,
             },
           },
+          driver_employee: {
+            select: {
+              id: true,
+              firstname: true,
+              lastname: true,
+              file: true,
+            },
+          },
           profile_maintenance_requests_supervisor_idToprofile: {
             select: {
               id: true,
@@ -212,6 +219,14 @@ export async function getAllMaintenanceRequestsForExport(searchParams: DataTable
           },
         },
         employees: {
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+            file: true,
+          },
+        },
+        driver_employee: {
           select: {
             id: true,
             firstname: true,
@@ -320,30 +335,28 @@ export async function getMaintenanceRequestFacets(searchParams?: DataTableSearch
     ]);
 
     // Resolver nombres de vehículos
-    const vehicleIds = vehicleGroups
-      .map((g) => g.equipment_id)
-      .filter(Boolean) as string[];
+    const vehicleIds = vehicleGroups.map((g) => g.equipment_id).filter(Boolean) as string[];
 
-    const vehicles = vehicleIds.length > 0
-      ? await prisma.vehicles.findMany({
-          where: { id: { in: vehicleIds } },
-          select: { id: true, domain: true, serie: true, intern_number: true },
-        })
-      : [];
+    const vehicles =
+      vehicleIds.length > 0
+        ? await prisma.vehicles.findMany({
+            where: { id: { in: vehicleIds } },
+            select: { id: true, domain: true, serie: true, intern_number: true },
+          })
+        : [];
 
     const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
 
     // Resolver nombres de supervisores
-    const supervisorIds = supervisorGroups
-      .map((g) => g.supervisor_id)
-      .filter(Boolean) as string[];
+    const supervisorIds = supervisorGroups.map((g) => g.supervisor_id).filter(Boolean) as string[];
 
-    const supervisorProfiles = supervisorIds.length > 0
-      ? await prisma.profile.findMany({
-          where: { id: { in: supervisorIds } },
-          select: { id: true, fullname: true },
-        })
-      : [];
+    const supervisorProfiles =
+      supervisorIds.length > 0
+        ? await prisma.profile.findMany({
+            where: { id: { in: supervisorIds } },
+            select: { id: true, fullname: true },
+          })
+        : [];
 
     const supervisorDetailsMap = new Map(supervisorProfiles.map((p) => [p.id, p]));
 

@@ -1829,6 +1829,7 @@ export function NormalizedChecklistForm({
             created_at: d.created_at ?? new Date().toISOString(),
           }))}
           equipmentId={currentEquipmentId}
+          driverEmployeeId={defaultEmployeeId}
         />
       )}
 

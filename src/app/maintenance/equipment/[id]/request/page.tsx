@@ -1,31 +1,27 @@
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
-import { fetchMaintenanceGroupsAction } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
-import { NuevoPedidoForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm';
+import { NuevoPedidoChecklistForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoChecklistForm';
 import { supabaseServer } from '@/lib/supabase/server';
-import { TypeOfRepair } from '@/types/types';
 import { redirect } from 'next/navigation';
 
-export default async function RequestMaintenancePage({
-  params,
-}: {
-  params: Promise<{
-    id: string;
-  }>;
-}) {
+export default async function MaintenanceEquipmentRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   const supabase = await supabaseServer();
 
+  // 1. Auth — same pattern as checklist page
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user?.id) {
+  if (!user) {
     redirect('/maintenance');
   }
 
-  // Obtener company_id del equipo
+  const employeeId =
+    ((user.app_metadata as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user.user_metadata as Record<string, unknown>)?.employee_id as string | undefined);
+
+  // 2. Get equipment company_id
   const { data: equipmentData } = await supabase
     .from('vehicles')
     .select('company_id')
@@ -36,27 +32,44 @@ export default async function RequestMaintenancePage({
     redirect('/maintenance?error=equipment_not_found');
   }
 
-  // Obtener datos necesarios
-  const types_of_repairs = await fetchAllTypesOfRepairs();
-  const equipments = await fetchAllEquipmentBasicData();
-  const { groups: maintenanceGroups } = await fetchMaintenanceGroupsAction();
+  // 3. Parallel fetches: employee data + equipment list
+  const [employeeData, allEquipment] = await Promise.all([
+    employeeId
+      ? supabase
+          .from('employees')
+          .select('id, firstname, lastname, cuil, file')
+          .eq('id', employeeId)
+          .eq('company_id', equipmentData.company_id)
+          .single()
+          .then((res) => res.data)
+      : Promise.resolve(null),
+    fetchAllEquipmentBasicData(),
+  ]);
 
-  // Filtrar equipos por company_id
-  const filteredEquipments = equipments?.filter((e) => e.company_id === equipmentData.company_id) || [];
+  // 4. Filter equipment by company
+  const equipment = allEquipment.filter((e) => e.company_id === equipmentData.company_id);
+
+  // 5. Build driver display name (name only — legajo shown separately in UI)
+  const driverName = employeeData ? `${employeeData.lastname} ${employeeData.firstname}`.trim() : undefined;
+  const driverFileNumber = employeeData?.file ?? undefined;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <MaintenanceHeader
-        title="Crear Pedido de Mantenimiento"
-        showBack
+        employeeName={employeeData ? `${employeeData.firstname} ${employeeData.lastname}` : undefined}
+        employeeCuil={employeeData?.cuil ?? undefined}
+        showBack={true}
         backHref={`/maintenance/equipment/${resolvedParams.id}`}
       />
-      <main className="flex-1 p-4 pb-24">
-        <NuevoPedidoForm
-          equipment={filteredEquipments}
-          types_of_repairs={types_of_repairs as TypeOfRepair}
-          maintenance_groups={maintenanceGroups || []}
+      <main className="flex-1 p-4">
+        <NuevoPedidoChecklistForm
+          equipment={equipment}
           default_equipment_id={resolvedParams.id}
+          driverEmployeeId={employeeData?.id}
+          driverName={driverName}
+          driverFileNumber={driverFileNumber}
+          skipSupervisorQuestion={true}
+          successRedirectUrl={`/maintenance/equipment/${resolvedParams.id}`}
         />
       </main>
     </div>
