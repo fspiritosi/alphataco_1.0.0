@@ -29,7 +29,7 @@ export default async function EquipmentDashboardPage({
   const { data: equipmentData, error: equipmentError } = await supabase
     .from('vehicles')
     .select(
-      'id, domain, serie, intern_number, picture, brand:brand_vehicles(name), model:model_vehicles(name), year, kilometer, engine_hours, condition, company_id, type:type(id, name), sub_type:subType(id, name, tire_template_id), is_active'
+      'id, domain, serie, intern_number, picture, brand:brand_vehicles(name), model:model_vehicles(name), year, kilometer, engine_hours, condition, company_id, type:type(id, name), sub_type:subType(id, name, tire_template_id), tire_template_id, is_active'
     )
     .eq('id', resolvedParams.id)
     .single();
@@ -76,7 +76,9 @@ export default async function EquipmentDashboardPage({
         sub_type: (equipmentData.sub_type as unknown as { name: string } | null)?.name || '',
         is_active: equipmentData.is_active ?? true,
         tire_template_id:
-          (equipmentData.sub_type as unknown as { tire_template_id: string | null } | null)?.tire_template_id ?? null,
+          (equipmentData.tire_template_id as string | null) ??
+          (equipmentData.sub_type as unknown as { tire_template_id: string | null } | null)?.tire_template_id ??
+          null,
       }}
       equipmentId={resolvedParams.id}
       isGuest={isGuest}

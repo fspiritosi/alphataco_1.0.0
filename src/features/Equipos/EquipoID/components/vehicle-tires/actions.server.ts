@@ -1,0 +1,555 @@
+'use server';
+
+import { resolveVehicleTireTemplateId } from '@/features/Mantenimiento/Gomeria/shared/resolve-template';
+import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
+import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
+import { Logger } from '@/lib/logger';
+import {
+  buildDateRangeFiltersWhere,
+  buildFiltersWhere,
+  buildSearchWhere,
+  buildTextFiltersWhere,
+  parseSearchParams,
+  stateToPrismaParams,
+} from '@/shared/components/common/DataTable/helpers';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { prisma } from '@/shared/lib/prisma';
+
+const logger = new Logger('features/Equipos/VehicleTires');
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export type AxleInput = {
+  axle_number: number;
+  tires_per_side: number;
+  tire_size: string;
+  is_drive_axle: boolean;
+  is_spare: boolean;
+};
+
+// ============================================================================
+// POSITIONS & TEMPLATE INFO
+// ============================================================================
+
+export async function getVehicleTirePositionsWithDetails(vehicleId: string) {
+  logger.debug('Getting vehicle tire positions with details', { data: { vehicleId } });
+
+  try {
+    const positions = await prisma.vehicle_tire_positions.findMany({
+      where: { vehicle_id: vehicleId },
+      include: {
+        tire: {
+          select: {
+            id: true,
+            serial_number: true,
+            status: true,
+            tread_depth: true,
+            is_new: true,
+            retread_level: true,
+            brand: { select: { id: true, name: true } },
+            tire_type: { select: { id: true, size: true, tread_type: true } },
+          },
+        },
+        template_axle: {
+          select: {
+            id: true,
+            axle_number: true,
+            tires_per_side: true,
+            tire_size: true,
+            is_drive_axle: true,
+            is_spare: true,
+          },
+        },
+      },
+      orderBy: { position_number: 'asc' },
+    });
+
+    return positions;
+  } catch (error) {
+    logger.error('Error getting vehicle tire positions', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export type VehicleTirePositionWithDetails = Awaited<ReturnType<typeof getVehicleTirePositionsWithDetails>>[number];
+
+export async function getVehicleTemplateInfo(vehicleId: string) {
+  logger.debug('Getting vehicle template info', { data: { vehicleId } });
+
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: vehicleId },
+      select: {
+        tire_template_id: true,
+        tire_template: { select: { id: true, name: true, is_vehicle_override: true, source_template_id: true } },
+        sub_type: {
+          select: {
+            id: true,
+            name: true,
+            tire_template_id: true,
+            tire_template: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!vehicle) throw new Error('Vehículo no encontrado');
+
+    const hasOverride = !!vehicle.tire_template_id;
+    const effectiveTemplateId = resolveVehicleTireTemplateId(vehicle);
+
+    if (!effectiveTemplateId) {
+      return {
+        hasOverride: false,
+        templateId: null,
+        templateName: null,
+        sourceType: 'none' as const,
+        subTypeName: vehicle.sub_type?.name ?? null,
+        subTypeHasTemplate: !!vehicle.sub_type?.tire_template_id,
+      };
+    }
+
+    return {
+      hasOverride,
+      templateId: effectiveTemplateId,
+      templateName: hasOverride
+        ? vehicle.tire_template?.name ?? 'Personalizada'
+        : vehicle.sub_type?.tire_template?.name ?? null,
+      sourceType: hasOverride ? ('vehicle' as const) : ('sub_type' as const),
+      subTypeName: vehicle.sub_type?.name ?? null,
+      subTypeHasTemplate: !!vehicle.sub_type?.tire_template_id,
+    };
+  } catch (error) {
+    logger.error('Error getting vehicle template info', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export type VehicleTemplateInfo = Awaited<ReturnType<typeof getVehicleTemplateInfo>>;
+
+// ============================================================================
+// CUSTOM TEMPLATE CRUD
+// ============================================================================
+
+export async function createVehicleCustomTemplate(vehicleId: string, axles: AxleInput[]) {
+  logger.debug('Creating custom tire template for vehicle', { data: { vehicleId, axleCount: axles.length } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const vehicle = await tx.vehicles.findUnique({
+        where: { id: vehicleId },
+        select: {
+          id: true,
+          domain: true,
+          company_id: true,
+          tire_template_id: true,
+          sub_type: { select: { tire_template_id: true } },
+        },
+      });
+
+      if (!vehicle) throw new Error('Vehículo no encontrado');
+      if (vehicle.tire_template_id) throw new Error('El vehículo ya tiene una plantilla personalizada');
+
+      const sourceTemplateId = vehicle.sub_type?.tire_template_id ?? null;
+
+      const template = await tx.tire_templates.create({
+        data: {
+          name: `Custom - ${vehicle.domain ?? vehicleId}`,
+          company_id: vehicle.company_id!,
+          is_vehicle_override: true,
+          source_template_id: sourceTemplateId,
+        },
+      });
+
+      if (axles.length > 0) {
+        await tx.tire_template_axles.createMany({
+          data: axles.map((axle) => ({
+            template_id: template.id,
+            axle_number: axle.axle_number,
+            tires_per_side: axle.tires_per_side,
+            tire_size: axle.tire_size,
+            is_drive_axle: axle.is_drive_axle,
+            is_spare: axle.is_spare,
+          })),
+        });
+      }
+
+      await tx.vehicles.update({
+        where: { id: vehicleId },
+        data: { tire_template_id: template.id },
+      });
+
+      // Uninstall tires from old positions
+      const oldPositions = await tx.vehicle_tire_positions.findMany({
+        where: { vehicle_id: vehicleId, tire_id: { not: null } },
+        select: { tire_id: true },
+      });
+
+      if (oldPositions.length > 0) {
+        const tireIds = oldPositions.map((p) => p.tire_id!);
+        await tx.tires.updateMany({
+          where: { id: { in: tireIds } },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      await tx.vehicle_tire_positions.deleteMany({
+        where: { vehicle_id: vehicleId },
+      });
+
+      // Generate new positions
+      const newAxles = await tx.tire_template_axles.findMany({
+        where: { template_id: template.id },
+        orderBy: { axle_number: 'asc' },
+      });
+
+      const diagramAxles: DiagramAxle[] = newAxles.map((a) => ({
+        id: a.id,
+        axle_number: a.axle_number,
+        tires_per_side: a.tires_per_side,
+        tire_size: a.tire_size,
+        is_drive_axle: a.is_drive_axle,
+        is_spare: a.is_spare,
+      }));
+
+      const computedPositions = calculatePositions(diagramAxles);
+      const axleIdByNumber = new Map(newAxles.map((a) => [a.axle_number, a.id]));
+
+      if (computedPositions.length > 0) {
+        await tx.vehicle_tire_positions.createMany({
+          data: computedPositions.map((pos) => ({
+            vehicle_id: vehicleId,
+            template_axle_id: axleIdByNumber.get(pos.axle_number)!,
+            position_number: pos.position_number,
+            axle_number: pos.axle_number,
+            side: pos.side,
+            tire_id: null,
+          })),
+        });
+      }
+
+      logger.info('Created custom template for vehicle', {
+        data: { vehicleId, templateId: template.id, positions: computedPositions.length },
+      });
+
+      return template;
+    });
+  } catch (error) {
+    logger.error('Error creating custom template for vehicle', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export async function updateVehicleCustomAxles(vehicleId: string, axles: AxleInput[]) {
+  logger.debug('Updating custom axles for vehicle', { data: { vehicleId, axleCount: axles.length } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const vehicle = await tx.vehicles.findUnique({
+        where: { id: vehicleId },
+        select: { tire_template_id: true, tire_template: { select: { is_vehicle_override: true } } },
+      });
+
+      if (!vehicle?.tire_template_id || !vehicle.tire_template?.is_vehicle_override) {
+        throw new Error('El vehículo no tiene una plantilla personalizada para editar');
+      }
+
+      const templateId = vehicle.tire_template_id;
+
+      const currentPositions = await tx.vehicle_tire_positions.findMany({
+        where: { vehicle_id: vehicleId, tire_id: { not: null } },
+        select: { tire_id: true },
+      });
+
+      if (currentPositions.length > 0) {
+        const tireIds = currentPositions.map((p) => p.tire_id!);
+        await tx.tires.updateMany({
+          where: { id: { in: tireIds } },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      await tx.vehicle_tire_positions.deleteMany({ where: { vehicle_id: vehicleId } });
+      await tx.tire_template_axles.deleteMany({ where: { template_id: templateId } });
+
+      if (axles.length > 0) {
+        await tx.tire_template_axles.createMany({
+          data: axles.map((axle) => ({
+            template_id: templateId,
+            axle_number: axle.axle_number,
+            tires_per_side: axle.tires_per_side,
+            tire_size: axle.tire_size,
+            is_drive_axle: axle.is_drive_axle,
+            is_spare: axle.is_spare,
+          })),
+        });
+      }
+
+      const newAxles = await tx.tire_template_axles.findMany({
+        where: { template_id: templateId },
+        orderBy: { axle_number: 'asc' },
+      });
+
+      const diagramAxles: DiagramAxle[] = newAxles.map((a) => ({
+        id: a.id,
+        axle_number: a.axle_number,
+        tires_per_side: a.tires_per_side,
+        tire_size: a.tire_size,
+        is_drive_axle: a.is_drive_axle,
+        is_spare: a.is_spare,
+      }));
+
+      const computedPositions = calculatePositions(diagramAxles);
+      const axleIdByNumber = new Map(newAxles.map((a) => [a.axle_number, a.id]));
+
+      if (computedPositions.length > 0) {
+        await tx.vehicle_tire_positions.createMany({
+          data: computedPositions.map((pos) => ({
+            vehicle_id: vehicleId,
+            template_axle_id: axleIdByNumber.get(pos.axle_number)!,
+            position_number: pos.position_number,
+            axle_number: pos.axle_number,
+            side: pos.side,
+            tire_id: null,
+          })),
+        });
+      }
+
+      logger.info('Updated custom axles for vehicle', {
+        data: { vehicleId, templateId, positions: computedPositions.length },
+      });
+    });
+  } catch (error) {
+    logger.error('Error updating custom axles', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export async function resetVehicleToSubTypeTemplate(vehicleId: string) {
+  logger.debug('Resetting vehicle to sub-type template', { data: { vehicleId } });
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const vehicle = await tx.vehicles.findUnique({
+        where: { id: vehicleId },
+        select: {
+          tire_template_id: true,
+          tire_template: { select: { is_vehicle_override: true } },
+          sub_type: { select: { tire_template_id: true } },
+        },
+      });
+
+      if (!vehicle?.tire_template_id || !vehicle.tire_template?.is_vehicle_override) {
+        throw new Error('El vehículo no tiene una plantilla personalizada para restablecer');
+      }
+
+      const customTemplateId = vehicle.tire_template_id;
+
+      const positions = await tx.vehicle_tire_positions.findMany({
+        where: { vehicle_id: vehicleId, tire_id: { not: null } },
+        select: { tire_id: true },
+      });
+
+      if (positions.length > 0) {
+        const tireIds = positions.map((p) => p.tire_id!);
+        await tx.tires.updateMany({
+          where: { id: { in: tireIds } },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      await tx.vehicle_tire_positions.deleteMany({ where: { vehicle_id: vehicleId } });
+
+      await tx.vehicles.update({
+        where: { id: vehicleId },
+        data: { tire_template_id: null },
+      });
+
+      const otherVehicles = await tx.vehicles.count({
+        where: { tire_template_id: customTemplateId, id: { not: vehicleId } },
+      });
+
+      if (otherVehicles === 0) {
+        await tx.tire_templates.update({
+          where: { id: customTemplateId },
+          data: { is_active: false },
+        });
+      }
+
+      logger.info('Reset vehicle to sub-type template', { data: { vehicleId } });
+    });
+  } catch (error) {
+    logger.error('Error resetting vehicle template', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+// ============================================================================
+// ORDERS DATATABLE
+// ============================================================================
+
+function buildOrdersWhereClause(
+  vehicleId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  excludeColumn?: string
+) {
+  const baseWhere = {
+    OR: [{ vehicle_id: vehicleId }, { trailer_vehicle_id: vehicleId }],
+  };
+
+  const columnMap = { status: 'status', creator: 'created_by' };
+  const excludeOpts = excludeColumn ? { exclude: [excludeColumn] } : undefined;
+
+  const searchWhere = buildSearchWhere(state.search, ['kilometer']);
+  const filtersWhere = buildFiltersWhere(state.filters, columnMap, excludeOpts);
+  const dateRangeWhere = buildDateRangeFiltersWhere(state.filters, ['service_date', 'closed_at']);
+  const textWhere = buildTextFiltersWhere(state.filters, ['kilometer']);
+
+  return {
+    AND: [baseWhere, searchWhere, filtersWhere, dateRangeWhere, textWhere].filter((w) => Object.keys(w).length > 0),
+  };
+}
+
+export async function getVehicleTireOrdersPaginated(vehicleId: string, searchParams: DataTableSearchParams) {
+  logger.debug('Getting paginated tire orders for vehicle', { data: { vehicleId } });
+
+  try {
+    const state = parseSearchParams(searchParams);
+    const { skip, take } = stateToPrismaParams(state);
+    const where = buildOrdersWhereClause(vehicleId, state);
+
+    const VALID_SORT_FIELDS = ['service_date', 'status', 'kilometer', 'closed_at', 'created_at'];
+    const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
+      creator: (dir) => ({ creator: { lastname: dir } }),
+    };
+
+    let orderBy: Record<string, unknown>[] = [];
+    if (state.sorting && state.sorting.length > 0) {
+      for (const sort of state.sorting) {
+        const fkMapper = FK_SORT_MAP[sort.id];
+        if (fkMapper) {
+          orderBy.push(fkMapper(sort.desc ? 'desc' : 'asc'));
+        } else if (VALID_SORT_FIELDS.includes(sort.id)) {
+          orderBy.push({ [sort.id]: sort.desc ? 'desc' : 'asc' });
+        }
+      }
+    }
+    if (orderBy.length === 0) {
+      orderBy = [{ service_date: 'desc' }];
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.tire_service_orders.findMany({
+        where,
+        skip,
+        take,
+        orderBy,
+        select: {
+          id: true,
+          service_date: true,
+          kilometer: true,
+          status: true,
+          closed_at: true,
+          created_at: true,
+          created_by: true,
+          vehicle_id: true,
+          trailer_vehicle_id: true,
+          creator: { select: { id: true, fullname: true } },
+          _count: { select: { items: true } },
+        },
+      }),
+      prisma.tire_service_orders.count({ where }),
+    ]);
+
+    return { data, total };
+  } catch (error) {
+    logger.error('Error getting tire orders for vehicle', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export type VehicleTireOrderItem = Awaited<ReturnType<typeof getVehicleTireOrdersPaginated>>['data'][number];
+
+export async function getVehicleTireOrdersForExport(vehicleId: string, searchParams: DataTableSearchParams) {
+  logger.debug('Getting tire orders for export', { data: { vehicleId } });
+
+  try {
+    const state = parseSearchParams(searchParams);
+    const where = buildOrdersWhereClause(vehicleId, state);
+
+    const data = await prisma.tire_service_orders.findMany({
+      where,
+      orderBy: { service_date: 'desc' },
+      select: {
+        id: true,
+        service_date: true,
+        kilometer: true,
+        status: true,
+        closed_at: true,
+        created_at: true,
+        created_by: true,
+        creator: { select: { fullname: true } },
+        _count: { select: { items: true } },
+      },
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('Error exporting tire orders', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+export async function getVehicleTireOrderSingleFacet(
+  vehicleId: string,
+  columnId: string,
+  searchParams: DataTableSearchParams
+) {
+  logger.debug('Getting single facet for vehicle tire orders', { data: { vehicleId, columnId } });
+
+  try {
+    const state = parseSearchParams(searchParams);
+    // Cross-filter: apply all filters EXCEPT the column being faceted
+    const where = buildOrdersWhereClause(vehicleId, state, columnId);
+
+    if (columnId === 'status') {
+      const groups = await prisma.tire_service_orders.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+      });
+
+      const counts = new Map(groups.map((g) => [g.status, g._count]));
+      return { counts };
+    }
+
+    if (columnId === 'creator') {
+      const groups = await prisma.tire_service_orders.groupBy({
+        by: ['created_by'],
+        where,
+        _count: true,
+      });
+
+      const creatorIds = groups.map((g) => g.created_by);
+      const creators = await prisma.profile.findMany({
+        where: { id: { in: creatorIds } },
+        select: { id: true, fullname: true },
+      });
+
+      const counts = new Map(groups.map((g) => [g.created_by, g._count]));
+      const resolvedOptions = creators.map((c) => ({
+        value: c.id,
+        label: c.fullname ?? c.id,
+      }));
+
+      return { counts, resolvedOptions };
+    }
+
+    return { counts: new Map<string, number>() };
+  } catch (error) {
+    logger.error('Error getting tire order facet', { data: { error, vehicleId, columnId } });
+    throw error;
+  }
+}

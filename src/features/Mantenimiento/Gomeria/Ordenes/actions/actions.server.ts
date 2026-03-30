@@ -1,5 +1,6 @@
 'use server';
 
+import { resolveVehicleTireTemplateId } from '@/features/Mantenimiento/Gomeria/shared/resolve-template';
 import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
 import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
 import type { TireOldDestination, TireServiceOrderStatus } from '@/generated/prisma/enums';
@@ -917,6 +918,7 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
         domain: true,
         intern_number: true,
         type: true,
+        tire_template_id: true,
         sub_type: {
           select: {
             id: true,
@@ -931,7 +933,7 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
       id: v.id,
       domain: v.domain,
       intern_number: v.intern_number,
-      tire_template_id: v.sub_type?.tire_template_id ?? null,
+      tire_template_id: resolveVehicleTireTemplateId(v),
       sub_type_id: v.sub_type?.id ?? null,
       type_id: v.type ?? null,
     }));
@@ -1023,6 +1025,7 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
         domain: true,
         intern_number: true,
         type: true,
+        tire_template_id: true,
         sub_type: {
           select: {
             id: true,
@@ -1038,7 +1041,7 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
       id: v.id,
       domain: v.domain,
       intern_number: v.intern_number,
-      tire_template_id: v.sub_type?.tire_template_id ?? null,
+      tire_template_id: resolveVehicleTireTemplateId(v),
       sub_type_id: v.sub_type?.id ?? null,
       type_id: v.type ?? null,
     }));
@@ -1095,11 +1098,12 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
       return existingPositions;
     }
 
-    // 2. No positions — need to generate from sub_type's template
+    // 2. No positions — need to generate from vehicle's effective template
     const vehicle = await prisma.vehicles.findUnique({
       where: { id: vehicleId },
       select: {
         id: true,
+        tire_template_id: true,
         sub_type: {
           select: {
             id: true,
@@ -1109,11 +1113,10 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
       },
     });
 
-    if (!vehicle?.sub_type?.tire_template_id) {
-      throw new Error('El subtipo de este equipo no tiene plantilla de cubiertas asignada');
+    const templateId = vehicle ? resolveVehicleTireTemplateId(vehicle) : null;
+    if (!templateId) {
+      throw new Error('Este equipo no tiene configuración de cubiertas asignada');
     }
-
-    const templateId = vehicle.sub_type.tire_template_id;
 
     // 3. Load template axles
     const templateAxles = await prisma.tire_template_axles.findMany({

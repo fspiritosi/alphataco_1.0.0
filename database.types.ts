@@ -5404,6 +5404,7 @@ export type Database = {
           status: Database['public']['Enums']['status_type'] | null;
           subType: string | null;
           termination_date: string | null;
+          tire_template_id: string | null;
           type: string;
           type_of_contract: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
@@ -5441,6 +5442,7 @@ export type Database = {
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
           termination_date?: string | null;
+          tire_template_id?: string | null;
           type: string;
           type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
@@ -5478,6 +5480,7 @@ export type Database = {
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
           termination_date?: string | null;
+          tire_template_id?: string | null;
           type?: string;
           type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle?: number;

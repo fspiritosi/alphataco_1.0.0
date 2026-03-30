@@ -604,6 +604,14 @@ export const PERMISSIONS = {
         parent: 'detalle-equipo',
         allowedActions: ['view'],
       },
+      'cubiertas-equipo': {
+        slug: 'cubiertas-equipo',
+        name: 'Cubiertas',
+        tabId: '30000000-0000-0000-0000-000000000057',
+        parent: 'detalle-equipo',
+        allowedActions: ['view', 'update'],
+        subtabs: {},
+      },
       'detalle-otro-equipo': {
         slug: 'detalle-otro-equipo',
         name: 'Detalle de Otro Equipo',

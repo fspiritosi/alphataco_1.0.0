@@ -336,6 +336,19 @@ export async function deleteTemplate(id: string) {
       throw new Error(`No se puede eliminar la plantilla porque está asignada a los siguientes subtipos: ${names}`);
     }
 
+    // Check if any active vehicle uses this template as override
+    const vehiclesWithTemplate = await prisma.vehicles.findMany({
+      where: { tire_template_id: id, is_active: true },
+      select: { id: true, domain: true },
+    });
+
+    if (vehiclesWithTemplate.length > 0) {
+      const domains = vehiclesWithTemplate.map((v) => v.domain ?? 'Sin dominio').join(', ');
+      throw new Error(
+        `No se puede eliminar la plantilla porque está asignada como personalizada a los siguientes equipos: ${domains}`
+      );
+    }
+
     const template = await prisma.tire_templates.update({
       where: { id },
       data: { is_active: false },

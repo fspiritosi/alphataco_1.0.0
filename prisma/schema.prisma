@@ -2598,6 +2598,8 @@ model vehicles {
   type_operative                type_operative?                 @relation(fields: [type_operative_id], references: [id])
   profile                       profile?                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   work_orders                   work_orders[]
+  tire_template_id              String?                         @db.Uuid
+  tire_template                 tire_templates?                 @relation("vehicle_tire_template", fields: [tire_template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -2662,16 +2664,21 @@ model tires {
 }
 
 model tire_templates {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  company_id  String   @db.Uuid
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  description        String?
+  is_vehicle_override Boolean @default(false)
+  source_template_id String?  @db.Uuid
+  company_id         String   @db.Uuid
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
 
-  company    company               @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  axles      tire_template_axles[]
-  sub_types  sub_type[]
+  company           company               @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  source_template   tire_templates?       @relation("template_source", fields: [source_template_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  derived_templates tire_templates[]      @relation("template_source")
+  vehicles_override vehicles[]            @relation("vehicle_tire_template")
+  axles             tire_template_axles[]
+  sub_types         sub_type[]
 
   @@schema("public")
 }

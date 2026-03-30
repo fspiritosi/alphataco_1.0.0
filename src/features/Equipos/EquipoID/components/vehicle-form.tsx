@@ -43,6 +43,7 @@ interface VehicleFormProps {
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
   operationsComponent?: React.ReactNode;
+  tiresComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;

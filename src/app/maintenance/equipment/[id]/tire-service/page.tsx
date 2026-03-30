@@ -19,10 +19,10 @@ export default async function TireServicePage({ params }: Props) {
     redirect('/maintenance');
   }
 
-  // Obtain company_id and verify that sub_type has a tire_template_id
+  // Obtain company_id and verify that vehicle has an effective tire_template_id
   const { data: equipmentData } = await supabase
     .from('vehicles')
-    .select('company_id, sub_type:subType(tire_template_id)')
+    .select('company_id, tire_template_id, sub_type:subType(tire_template_id)')
     .eq('id', id)
     .single();
 
@@ -30,11 +30,13 @@ export default async function TireServicePage({ params }: Props) {
     redirect('/maintenance?error=equipment_not_found');
   }
 
+  const vehicleTireTemplateId = equipmentData.tire_template_id as string | null;
   const subTypeTireTemplateId = (equipmentData.sub_type as unknown as { tire_template_id: string | null } | null)
     ?.tire_template_id;
+  const effectiveTemplateId = vehicleTireTemplateId ?? subTypeTireTemplateId;
 
-  // If the vehicle's sub_type has no tire template, redirect back to the equipment dashboard
-  if (!subTypeTireTemplateId) {
+  // If the vehicle has no tire template (neither override nor sub-type), redirect back to the equipment dashboard
+  if (!effectiveTemplateId) {
     redirect(`/maintenance/equipment/${id}`);
   }
 

@@ -12,6 +12,7 @@ import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
 import { VehicleOperationsHistory } from '@/features/Equipos/EquipoID/components/vehicle-operations-history';
 import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
+import { VehicleTiresTab } from '@/features/Equipos/EquipoID/components/vehicle-tires/vehicle-tires-tab';
 import {
   getHierarchicalPositions,
   getModelsByBrand,
@@ -201,6 +202,15 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           qrComponent={<VehicleQr vehicle={vehicle} />}
           checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}
           operationsComponent={<VehicleOperationsHistory equipmentId={vehicle?.id || ''} initialData={initialOrders} />}
+          tiresComponent={
+            vehicle?.id ? (
+              <VehicleTiresTab
+                vehicleId={vehicle.id}
+                permissionsMap={permissions}
+                searchParams={resolvedSearchParams}
+              />
+            ) : undefined
+          }
         />
       </Card>
     </div>
