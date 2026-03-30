@@ -1,4 +1,4 @@
-import { ReportAnIssue } from '@/components/ReportAnIssue';
+import { ReportAnIssue } from '@/features/Ayuda/components/ReportAnIssue';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 

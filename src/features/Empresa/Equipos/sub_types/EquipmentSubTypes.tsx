@@ -1,12 +1,15 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePermissions } from '@/features/Permissions';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { Database } from '../../../../../database.types';
 import EquipmentSubTypesForm from './equipmentSubTypesForm';
 import EquipmentSubTypesTable from './equipmentSubTypesTable';
 import { useSubTypeChecklists } from './hooks/useSubTypeChecklists';
+
+const logger = new Logger('EquipmentSubTypes');
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
@@ -22,14 +25,11 @@ interface EquipmentSubTypesProps {
 }
 
 function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesProps) {
-  // Estado para el tipo de equipo que se está editando
   const [editingType, setEditingType] = useState<VehicleSubType | null>(null);
   const [compatibleItems, setCompatibleItems] = useState<CompatibleItem[]>([]);
 
-  // Hook para obtener checklists asignados al subtipo
   const { data: checklistIds = [], isLoading: isLoadingChecklists } = useSubTypeChecklists(editingType?.id || null);
 
-  // Cargar los items compatibles cuando se edita un subtipo
   const loadCompatibleItems = useCallback(async (subTypeId: string) => {
     const supabase = supabaseBrowser();
     const { data, error } = await supabase
@@ -38,7 +38,7 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
       .eq('sub_type_id', subTypeId);
 
     if (error) {
-      console.error('Error loading compatible items:', error);
+      logger.error('Error al cargar items compatibles', { data: { error } });
       setCompatibleItems([]);
       return;
     }
@@ -51,7 +51,6 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
     );
   }, []);
 
-  // Cuando cambia el subtipo en edición, cargar sus items compatibles
   useEffect(() => {
     if (editingType?.id) {
       loadCompatibleItems(editingType.id);
@@ -60,9 +59,7 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
     }
   }, [editingType?.id, loadCompatibleItems]);
 
-  const handleSuccess = () => {
-    // Aquí podrías mostrar un mensaje de éxito o actualizar la lista
-  };
+  const handleSuccess = () => {};
 
   const handleReset = () => {
     setEditingType(null);
@@ -75,29 +72,33 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
   const showForm = canCreate || canUpdate;
 
   return (
-    <div>
+    <div className="w-full">
       {showForm ? (
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={35}>
-            <EquipmentSubTypesForm
-              initialData={editingType}
-              onReset={handleReset}
-              isEditing={!!editingType}
-              onSuccess={handleSuccess}
-              types={vehicleTypes}
-              allSubTypes={vehicleSubTypes}
-              initialCompatibleItems={compatibleItems}
-              initialChecklistIds={checklistIds}
-            />
+        <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
+          <ResizablePanel defaultSize={30}>
+            <div className="overflow-auto h-full pr-2">
+              <EquipmentSubTypesForm
+                initialData={editingType}
+                onReset={handleReset}
+                isEditing={!!editingType}
+                onSuccess={handleSuccess}
+                types={vehicleTypes}
+                allSubTypes={vehicleSubTypes}
+                initialCompatibleItems={compatibleItems}
+                initialChecklistIds={checklistIds}
+              />
+            </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={65} className="ml-4">
-            <EquipmentSubTypesTable
-              vehicleTypes={vehicleTypes}
-              vehicleSubTypes={vehicleSubTypes}
-              onEdit={setEditingType}
-              canEdit={canUpdate}
-            />
+          <ResizablePanel defaultSize={70}>
+            <div className="overflow-auto h-full pl-2">
+              <EquipmentSubTypesTable
+                vehicleTypes={vehicleTypes}
+                vehicleSubTypes={vehicleSubTypes}
+                onEdit={setEditingType}
+                canEdit={canUpdate}
+              />
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (

@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento/utils/kilometerPreload';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
@@ -114,6 +115,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   };
 
   const items = order.maintenance_order_items || [];
+  const isPreventive = order.maintenance_requests?.source === 'preventive';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -170,9 +172,16 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             )}
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Items a reparar:</span>
-              <span className="font-medium">{items.length}</span>
+              <span className="block font-medium">
+                {isPreventive && items.length === 0 ? 'Preventivo' : items.length}
+              </span>
             </div>
           </div>
+
+          {/* Preventive info */}
+          {isPreventive && (
+            <PreventiveInfoCard preventiveType={order.maintenance_requests?.preventive_type ?? ''} className="mb-2" />
+          )}
 
           {/* Lista de items */}
           {items.length > 0 && (

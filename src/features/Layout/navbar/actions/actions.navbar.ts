@@ -1,12 +1,16 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { getCachedSession } from '@/shared/lib/cached-session';
 import { cookies } from 'next/headers';
 import {
   EmployeeDocumentWithDocumentTypes,
   EquipmentDocumentWithDocumentTypes,
   FormattedNotifications,
 } from '../types/navbar.types';
+
+const logger = new Logger('features/Layout/navbar');
 
 export async function updateProfileAvatar(userId: string, imageUrl: string) {
   const supabase = await supabaseServer();
@@ -18,7 +22,7 @@ export async function updateProfileAvatar(userId: string, imageUrl: string) {
 
     return { success: true };
   } catch (error) {
-    console.error('Error al actualizar avatar:', error);
+    logger.error('Error al actualizar avatar', { data: { error } });
     return { success: false, error };
   }
 }
@@ -39,7 +43,7 @@ export async function deleteNotification(notificationId: string) {
 
     return { success: true };
   } catch (error) {
-    console.error('Error al eliminar la notificación:', error);
+    logger.error('Error al eliminar la notificación', { data: { error } });
     return { success: false, error };
   }
 }
@@ -60,30 +64,27 @@ export async function deleteAllNotifications() {
 
     return { success: true };
   } catch (error) {
-    console.error('Error al eliminar notificaciones:', error);
+    logger.error('Error al eliminar notificaciones', { data: { error } });
     return { success: false, error };
   }
 }
 
 export async function getCurrentUserProfile() {
-  const cookieStore = await cookies();
   const supabase = await supabaseServer();
-  const userId = cookieStore.get('userId')?.value;
+  const session = await getCachedSession();
 
-  const { data: user, error } = await supabase.auth.getUser();
-
-  if (!user?.user?.id) {
+  if (!session?.user?.id) {
     return null;
   }
 
   try {
-    const { data, error } = await supabase.from('profile').select('*').eq('id', user.user.id).single();
+    const { data, error } = await supabase.from('profile').select('*').eq('id', session.user.id).single();
 
     if (error) throw error;
 
     return data;
   } catch (error) {
-    console.error('Error al obtener perfil:', error);
+    logger.error('Error al obtener perfil', { data: { error } });
     return null;
   }
 }
@@ -164,7 +165,7 @@ export async function getUserNotifications() {
     // Combinamos la información
     return notificationsFormatted;
   } catch (error) {
-    console.error('Error al obtener notificaciones:', error);
+    logger.error('Error al obtener notificaciones', { data: { error } });
     return [];
   }
 }

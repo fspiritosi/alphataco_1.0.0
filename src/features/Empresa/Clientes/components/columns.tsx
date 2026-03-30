@@ -34,10 +34,10 @@
 // import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 // import { Input } from '@/components/ui/input';
 // import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-// import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
+// import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
 // import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-// import { useLoggedUserStore } from '@/store/loggedUser';
+// import { useLoggedUserStore } from '@/shared/store/loggedUser';
 // import { zodResolver } from '@hookform/resolvers/zod';
 // import { DotsVerticalIcon } from '@radix-ui/react-icons';
 import { Badge } from '@/components/ui/badge';

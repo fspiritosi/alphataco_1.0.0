@@ -197,6 +197,7 @@ export async function getMaintenanceOperations() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -293,6 +294,7 @@ export async function getOrdersForWorkshop() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -421,6 +423,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
         select: {
           id: true,
           source: true,
+          preventive_type: true,
           created_at: true,
           checklist_answer_id: true,
           user_id: true,
@@ -542,6 +545,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
             select: {
               id: true,
               source: true,
+              preventive_type: true,
               created_at: true,
               checklist_answer_id: true,
               user_id: true,

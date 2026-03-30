@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
@@ -76,6 +77,9 @@ export function getForWorkshopColumns({
       header: 'Items',
       cell: ({ row }) => {
         const count = row.original.maintenance_order_items?.length ?? 0;
+        if (count === 0 && row.original.maintenance_requests?.source === 'preventive') {
+          return <PreventiveItemsBadge preventiveType={row.original.maintenance_requests?.preventive_type ?? ''} />;
+        }
         return (
           <Badge variant="secondary">
             {count} {count === 1 ? 'item' : 'items'}

@@ -1,7 +1,7 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
-import { customersSchema } from '@/zodSchemas/schemas';
+import { customersSchema } from '@/shared/schemas/schemas';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';

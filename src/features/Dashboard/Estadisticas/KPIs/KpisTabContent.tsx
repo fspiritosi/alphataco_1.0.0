@@ -1,11 +1,10 @@
-import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { BarChart3, ClipboardList } from 'lucide-react';
-import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 import GraficosTabContent from './Graficos/GraficosTabContent';
-import { KpisTabClient } from './KpisTabClient';
-import { fetchAllKPIs } from './actions/actions';
+import { GraficosGridSkeleton } from './Graficos/fallback/KpiChartSkeleton';
+import { KpisIndicadoresSkeleton } from './Indicadores/fallback/KpisIndicadoresSkeleton';
+import KpisIndicadoresContent from './KpisIndicadoresContent';
 
 export default async function KpisTabContent({
   searchParams,
@@ -14,11 +13,6 @@ export default async function KpisTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  const kpis = fetchAllKPIs();
-  const cookiesStore = await cookies();
-  const savedVisibility = cookiesStore.get('kpis-table')?.value;
-  const savedFilter = cookiesStore.get('kpis-table-filters')?.value;
-
   return (
     <TabsManagerServer
       paramName="kpiview"
@@ -37,12 +31,8 @@ export default async function KpisTabContent({
           moduleSlug: 'dashboard',
           tabSlug: 'indicadores',
           content: (
-            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
-              <KpisTabClient
-                kpis={kpis}
-                savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-                savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
-              />
+            <Suspense fallback={<KpisIndicadoresSkeleton />}>
+              <KpisIndicadoresContent searchParams={searchParams} />
             </Suspense>
           ),
         },
@@ -57,7 +47,7 @@ export default async function KpisTabContent({
           moduleSlug: 'dashboard',
           tabSlug: 'graficos',
           content: (
-            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
+            <Suspense fallback={<GraficosGridSkeleton />}>
               <GraficosTabContent />
             </Suspense>
           ),

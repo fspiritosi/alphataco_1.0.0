@@ -1,7 +1,7 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
-import { Guild } from '@/types/types';
+import { Guild } from '@/shared/types/legacy';
 
 export async function getGuildsWithCovenants() {
   try {

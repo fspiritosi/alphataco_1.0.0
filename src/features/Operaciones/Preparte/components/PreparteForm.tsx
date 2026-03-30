@@ -10,9 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useImageUpload } from '@/hooks/useUploadImage';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import { useImageUpload } from '@/shared/hooks/useUploadImage';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';

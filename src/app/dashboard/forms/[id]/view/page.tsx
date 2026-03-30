@@ -1,13 +1,13 @@
+import { fetchSingEmployee } from '@/features/Employees/Diagrams/actions/diagram-queries';
+import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
 import {
-  fetchAllEquipment,
   fetchAnswerById,
   fetchChecklistAnswerById,
-  fetchSingEmployee,
   findEmployeeByFullName,
   getCurrentProfile,
-} from '@/app/server/GET/actions';
-import BackButton from '@/components/BackButton';
-import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
+} from '@/features/Formularios/actions/checklist-actions';
+import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
+import BackButton from '@/shared/components/common/BackButton';
 
 async function page({ params }: { params: Promise<{ id: string }> }) {
   // En Next.js 15+, params es una Promise, necesitamos hacer await

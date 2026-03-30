@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { AlertTriangle, Ban, MessageSquare, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
@@ -92,7 +94,20 @@ export function Step1Tasks({
       )}
 
       {/* Items list */}
-      {regularItems.length === 0 ? (
+      {regularItems.length === 0 && order.source === 'preventive' ? (
+        <Card className="border-dashed">
+          <CardContent className="p-6 text-center space-y-2">
+            <Wrench className="h-8 w-8 mx-auto text-muted-foreground" />
+            <h4 className="font-medium">Mantenimiento Preventivo</h4>
+            <Badge variant="secondary">
+              {PREVENTIVE_TYPES[order.preventive_type as PreventiveType] ?? order.preventive_type ?? 'Preventivo'}
+            </Badge>
+            <p className="text-sm text-muted-foreground">
+              Este pedido es de mantenimiento preventivo. Puede agregar ítems manualmente si es necesario.
+            </p>
+          </CardContent>
+        </Card>
+      ) : regularItems.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">No hay desvíos en este pedido</p>
       ) : (
         <div className="space-y-2">

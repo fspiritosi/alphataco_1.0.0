@@ -1,19 +1,24 @@
-import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { _CreateDocumentTypeButton } from '@/features/Documentacion/TiposDocumentos/components/_CreateDocumentTypeButton';
 import CompanyDocsList from '@/features/Empresa/General/Documentacion/components/CompanyDocsList';
 import { CompanyDocsTableSkeleton } from '@/features/Empresa/General/Documentacion/fallback/CompanyDocsTableSkeleton';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import { document_applies } from '@/generated/prisma/enums';
 import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
+import CostCenterList from './CostCenter/CostCenterList';
+import { CostCenterTableSkeleton } from './CostCenter/fallback/CostCenterTableSkeleton';
+import HierarchyList from './Hierarchy/HierarchyList';
+import { HierarchyTableSkeleton } from './Hierarchy/fallback/HierarchyTableSkeleton';
 import CompanyComponent from './components/company/CompanyComponent';
-import CostCenterTab from './components/cost-center/CostCenterTab';
 import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
-import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
+import { CompanySkeleton } from './fallback/CompanySkeleton';
+import { MantenimientoSubtabSkeleton, TableSubtabSkeleton } from './fallback/SubtabSkeletons';
 
 export default async function GeneralTabContent({
   searchParams,
@@ -50,7 +55,6 @@ export default async function GeneralTabContent({
                     <CardTitle>Empresa</CardTitle>
                     <CardDescription>Información de la empresa</CardDescription>
                   </div>
-                  {/* <EditCompanyButton companyId={company_id?.toString() ?? ''} /> */}
                   <PermissionGuardServer module="empresa" tab="general" action="update">
                     <Link
                       href={`/dashboard/company/${company_id?.toString()}`}
@@ -61,7 +65,9 @@ export default async function GeneralTabContent({
                   </PermissionGuardServer>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <CompanyComponent />
+                  <Suspense fallback={<CompanySkeleton />}>
+                    <CompanyComponent />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -83,7 +89,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Gestión de centros de costos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <CostCenterTab />
+                  <Suspense fallback={<CostCenterTableSkeleton />}>
+                    <CostCenterList searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -105,7 +113,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Estructura organizacional</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <OrganigramTabWrapper />
+                  <Suspense fallback={<HierarchyTableSkeleton />}>
+                    <HierarchyList searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -120,7 +130,11 @@ export default async function GeneralTabContent({
             ),
             moduleSlug: 'empresa',
             tabSlug: 'users',
-            content: <UsersTabComponent searchParams={searchParams} permissions={permissions} />,
+            content: (
+              <Suspense fallback={<TableSubtabSkeleton />}>
+                <UsersTabComponent searchParams={searchParams} permissions={permissions} />
+              </Suspense>
+            ),
           },
           {
             value: 'documentacion',
@@ -135,7 +149,7 @@ export default async function GeneralTabContent({
             content: (
               <div className="">
                 <PermissionGuardServer module="empresa" tab="documentacion" action="create">
-                  <TypesDocumentAction optionChildrenProp="Empresa" />
+                  <_CreateDocumentTypeButton defaultApplies={document_applies.Empresa} />
                 </PermissionGuardServer>
                 <Card className="mt-4">
                   <CardContent className="pt-6">
@@ -164,7 +178,9 @@ export default async function GeneralTabContent({
                   <CardDescription>Gestión de talleres y sectores</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <MantenimientoTab />
+                  <Suspense fallback={<MantenimientoSubtabSkeleton />}>
+                    <MantenimientoTab />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),

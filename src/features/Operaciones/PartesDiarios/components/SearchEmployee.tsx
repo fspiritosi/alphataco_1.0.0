@@ -12,11 +12,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { createNestedFilterOptions } from '@/shared/utils/table-helpers';
 import { ColumnDef } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileText, Mail, User } from 'lucide-react';

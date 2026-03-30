@@ -2,7 +2,7 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/toaster';
 import { usePermissions } from '@/features/Permissions';
-import { Position } from '@/types/types';
+import { Position } from '@/shared/types/legacy';
 import { VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import PositionsForm from './positionsForm';
@@ -34,30 +34,36 @@ export default function PositionsClient({
   return (
     <div>
       {showForm ? (
-        <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-          <ResizablePanel defaultSize={40}>
-            <PositionsForm
-              position={selectedPosition}
-              hierarchicalData={hierarchicalPositions}
-              aptitudes={aptitudes}
-              mode={mode}
-              setMode={setMode}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={60}>
-            <PositionsTable
-              savedFilter={savedFilter}
-              savedVisibility={savedVisibility}
-              positions={positions}
-              hierarchicalPositions={hierarchicalPositions}
-              selectedPosition={selectedPosition}
-              setSelectedPosition={setSelectedPosition}
-              setMode={setMode}
-              mode={mode}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="w-full">
+          <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
+            <ResizablePanel defaultSize={30}>
+              <div className="overflow-auto h-full pr-2">
+                <PositionsForm
+                  position={selectedPosition}
+                  hierarchicalData={hierarchicalPositions}
+                  aptitudes={aptitudes}
+                  mode={mode}
+                  setMode={setMode}
+                />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={70}>
+              <div className="overflow-auto h-full pl-2">
+                <PositionsTable
+                  savedFilter={savedFilter}
+                  savedVisibility={savedVisibility}
+                  positions={positions}
+                  hierarchicalPositions={hierarchicalPositions}
+                  selectedPosition={selectedPosition}
+                  setSelectedPosition={setSelectedPosition}
+                  setMode={setMode}
+                  mode={mode}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       ) : (
         <PositionsTable
           savedFilter={savedFilter}

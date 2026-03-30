@@ -35,7 +35,7 @@ function SectorTabs({ customers, sectors, contractorSectors }: SectorTabsProps) 
       <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
         {canCreateOrUpdate && (
           <>
-            <ResizablePanel defaultSize={40}>
+            <ResizablePanel defaultSize={30}>
               <SectorForm
                 customers={customers}
                 sectors={sectors}
@@ -48,7 +48,7 @@ function SectorTabs({ customers, sectors, contractorSectors }: SectorTabsProps) 
             <ResizableHandle withHandle />
           </>
         )}
-        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
           <SectorTable
             customers={customers}
             contractorSectors={contractorSectors}

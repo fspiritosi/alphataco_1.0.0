@@ -1,17 +1,17 @@
-import { FetchSubTypeOfVehicles, FetchTypeOfVehicles } from '../actions/actions';
-import EquipmentSubTypes from './EquipmentSubTypes';
+import EquipmentSubTypeList from '../EquipmentSubTypes/EquipmentSubTypeList';
 
-export default async function EquipmentSubTypesWrapper() {
-  const vehicleTypes = await FetchTypeOfVehicles();
-  const vehicleSubTypes = await FetchSubTypeOfVehicles();
-
-  // Asegurarse de que vehicleTypes sea siempre un array
-  const safeVehicleTypes = vehicleTypes || [];
-  const safeVehicleSubTypes = vehicleSubTypes || [];
-
-  return <EquipmentSubTypes vehicleTypes={safeVehicleTypes} vehicleSubTypes={safeVehicleSubTypes} />;
+interface EquipmentSubTypesWrapperProps {
+  searchParams?: Record<string, string | string[] | undefined>;
+  permissions?: Record<string, boolean>;
 }
 
-// export default EquipmentSubTypesWrapper;
-
-//
+/**
+ * Wrapper de Subtipos de Equipos.
+ * Delega al nuevo sistema (Prisma + DataTable) en EquipmentSubTypes/.
+ */
+export default function EquipmentSubTypesWrapper({
+  searchParams = {},
+  permissions = {},
+}: EquipmentSubTypesWrapperProps) {
+  return <EquipmentSubTypeList searchParams={searchParams} permissions={permissions} />;
+}

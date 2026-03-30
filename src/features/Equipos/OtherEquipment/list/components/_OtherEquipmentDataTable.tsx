@@ -13,6 +13,7 @@ import {
   DataTable,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
@@ -22,12 +23,17 @@ import {
   otherEquipmentStatusLabels,
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { CircleOff, Plus } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { getAllOtherEquipmentForExport, getOtherEquipmentFacets, type OtherEquipmentListItem } from '../actions.server';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  getAllOtherEquipmentForExport,
+  getOtherEquipmentPaginated,
+  getOtherEquipmentSingleFacet,
+  type OtherEquipmentListItem,
+} from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
 
 // ============================================================================
@@ -45,6 +51,45 @@ interface Props {
 }
 
 // ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({
+        value,
+        label: labels[value] ?? value,
+        icon: icons[value],
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK/M:M: opciones del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+// ============================================================================
 // CLIENT COMPONENT
 // ============================================================================
 
@@ -53,22 +98,19 @@ export function _OtherEquipmentDataTable({
   totalRows,
   searchParams,
   tableId,
-  permissionsMap,
+  permissionsMap: _permissionsMap,
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
-  // Extraer solo los params relevantes para facets (sin page/sort)
-  const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation: estado reactivo para queries dependientes ──────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['other-equipment-facets', facetParams],
-    queryFn: () => getOtherEquipmentFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getOtherEquipmentPaginated(params), []);
 
   // Columnas ocultas por defecto (unir preferencias guardadas con las del sistema)
   const mergedColumnVisibility = useMemo(() => {
@@ -104,6 +146,10 @@ export function _OtherEquipmentDataTable({
       'intern_number',
       'manufacturer_plate',
       'invoice_number',
+      'composition',
+      'year',
+      'horometer',
+      'initial_value',
       'purchase_date',
       'created_at',
       'termination_date',
@@ -111,217 +157,95 @@ export function _OtherEquipmentDataTable({
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
-  // ─── Filtros facetados ────────────────────────────────────────────────────
+  // ─── fetchFacet factories: cada filtro carga sus opciones al abrirse ────────
+
+  // Factory para enums
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons: Record<string, LucideIcon | undefined>
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getOtherEquipmentSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+      };
+    },
+    []
+  );
+
+  // Factory para FK / M:M
+  const makeFkFetchFacet = useCallback((columnId: string, nullLabel = 'Sin asignar') => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getOtherEquipmentSingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+    };
+  }, []);
+
+  // ─── Filtros facetados con lazy-load ────────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
-      // condition (enum nullable) — con iconos que coinciden con las celdas
+      // ── Enums ───────────────────────────────────────────────────────────────
       {
         columnId: 'condition',
         title: 'Condición',
-        options: [
-          ...Object.values(condition_enum).map((value) => ({
-            value,
-            label: conditionLabels[value] ?? value,
-            icon: conditionIcons[value],
-          })),
-          ...(facets?.condition?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.condition,
+        fetchFacet: makeEnumFetchFacet(
+          'condition',
+          Object.values(condition_enum),
+          conditionLabels,
+          conditionIcons as Record<string, LucideIcon | undefined>
+        ),
       },
-
-      // status (enum nullable)
       {
         columnId: 'status',
         title: 'Estado',
-        options: [
-          ...Object.values(status_type).map((value) => ({
-            value,
-            label: otherEquipmentStatusLabels[value] ?? value,
-          })),
-          ...(facets?.status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet('status', Object.values(status_type), otherEquipmentStatusLabels, {}),
       },
-
-      // type (FK UUID — nullable, incluye "Sin asignar")
-      {
-        columnId: 'type',
-        title: 'Tipo',
-        options: [
-          ...(facets?.typeOptions?.map((t) => ({ value: t.id, label: t.name ?? '' })) ?? []),
-          ...(facets?.type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.type,
-      },
-
-      // sub_type (FK UUID — nullable, incluye "Sin asignar")
-      {
-        columnId: 'sub_type',
-        title: 'Subtipo',
-        options: [
-          ...(facets?.subTypeOptions?.map((t) => ({ value: t.id, label: t.name ?? '' })) ?? []),
-          ...(facets?.sub_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.sub_type,
-      },
-
-      // brand (FK BigInt — nullable, incluye "Sin asignar")
-      {
-        columnId: 'brand',
-        title: 'Marca',
-        options: [
-          ...(facets?.brandOptions?.map((b) => ({ value: String(b.id), label: b.name ?? '' })) ?? []),
-          ...(facets?.brand?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.brand,
-      },
-
-      // model (FK BigInt — nullable, incluye "Sin asignar")
-      {
-        columnId: 'model',
-        title: 'Modelo',
-        options: [
-          ...(facets?.modelOptions?.map((m) => ({ value: String(m.id), label: m.name ?? '' })) ?? []),
-          ...(facets?.model?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.model,
-      },
-
-      // sector (FK UUID → hierarchy — nullable, incluye "Sin asignar")
-      {
-        columnId: 'sector',
-        title: 'Sector',
-        options: [
-          ...(facets?.sectorOptions?.map((s) => ({ value: s.id, label: s.name ?? '' })) ?? []),
-          ...(facets?.sector?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.sector,
-      },
-
-      // owner (FK UUID → equipment_owners — nullable, incluye "Sin asignar")
-      {
-        columnId: 'owner',
-        title: 'Propietario',
-        options: [
-          ...(facets?.ownerOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
-          ...(facets?.owner?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.owner,
-      },
-
-      // cost_center (FK UUID — nullable, incluye "Sin asignar")
-      {
-        columnId: 'cost_center',
-        title: 'Centro de costo',
-        options: [
-          ...(facets?.costCenterOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.cost_center?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_center,
-      },
-
-      // linked_vehicle (FK UUID → vehicles — nullable, incluye "Sin asignar")
-      {
-        columnId: 'linked_vehicle',
-        title: 'Vinculado a',
-        options: [
-          ...(facets?.linkedVehicleOptions?.map((v) => ({
-            value: v.id,
-            label: v.domain ?? v.id,
-          })) ?? []),
-          ...(facets?.linked_vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.linked_vehicle,
-      },
-
-      // contractor_other_equipment (M:M → customers — incluye "Sin afectar")
-      {
-        columnId: 'contractor_other_equipment',
-        title: 'Afectaciones',
-        options: [
-          ...(facets?.contractorOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.contractor_other_equipment?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.contractor_other_equipment,
-      },
-
-      // cost_type (enum nullable)
       {
         columnId: 'cost_type',
         title: 'Tipo de costo',
-        options: [
-          ...Object.values(cost_type_enum).map((value) => ({
-            value,
-            label: costTypeLabels[value] ?? value,
-          })),
-          ...(facets?.cost_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_type,
+        fetchFacet: makeEnumFetchFacet('cost_type', Object.values(cost_type_enum), costTypeLabels, {}),
       },
-
-      // currency (enum nullable) — solo aparece si el usuario activa la columna
       {
         columnId: 'currency',
         title: 'Moneda',
-        options: [
-          ...Object.values(currency_enum).map((value) => ({
-            value,
-            label: currencyLabels[value] ?? value,
-          })),
-          ...(facets?.currency?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.currency,
+        fetchFacet: makeEnumFetchFacet('currency', Object.values(currency_enum), currencyLabels, {}),
       },
-
-      // reason_for_termination (enum nullable)
       {
         columnId: 'reason_for_termination',
         title: 'Motivo de baja',
-        options: [
-          ...Object.values(termination_reason_enum).map((value) => ({
-            value,
-            label: terminationReasonEquipmentLabels[value] ?? value,
-          })),
-          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.reason_for_termination,
+        fetchFacet: makeEnumFetchFacet(
+          'reason_for_termination',
+          Object.values(termination_reason_enum),
+          terminationReasonEquipmentLabels,
+          {}
+        ),
       },
 
-      // Filtros de texto libre por columna
+      // ── FK UUID ─────────────────────────────────────────────────────────────
+      { columnId: 'type', title: 'Tipo', fetchFacet: makeFkFetchFacet('type') },
+      { columnId: 'sub_type', title: 'Subtipo', fetchFacet: makeFkFetchFacet('sub_type') },
+      { columnId: 'sector', title: 'Sector', fetchFacet: makeFkFetchFacet('sector') },
+      { columnId: 'owner', title: 'Propietario', fetchFacet: makeFkFetchFacet('owner') },
+      { columnId: 'cost_center', title: 'Centro de costo', fetchFacet: makeFkFetchFacet('cost_center') },
+      { columnId: 'linked_vehicle', title: 'Vinculado a', fetchFacet: makeFkFetchFacet('linked_vehicle') },
+
+      // ── FK BigInt (brand, model — serializados a string en el server action) ─
+      { columnId: 'brand', title: 'Marca', fetchFacet: makeFkFetchFacet('brand') },
+      { columnId: 'model', title: 'Modelo', fetchFacet: makeFkFetchFacet('model') },
+
+      // ── M:M ─────────────────────────────────────────────────────────────────
       {
-        columnId: 'serial_number',
-        title: 'N° Serie',
-        type: 'text' as const,
-        placeholder: 'Buscar por N° Serie...',
+        columnId: 'contractor_other_equipment',
+        title: 'Afectaciones',
+        fetchFacet: makeFkFetchFacet('contractor_other_equipment', 'Sin afectar'),
       },
+
+      // ── Filtros de texto libre por columna ───────────────────────────────────
+      { columnId: 'serial_number', title: 'N° Serie', type: 'text' as const, placeholder: 'Buscar por N° Serie...' },
       {
         columnId: 'intern_number',
         title: 'N° Interno',
@@ -340,28 +264,35 @@ export function _OtherEquipmentDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por N° de factura...',
       },
+      {
+        columnId: 'composition',
+        title: 'Composición',
+        type: 'text' as const,
+        placeholder: 'Buscar por composición...',
+      },
+      { columnId: 'year', title: 'Año', type: 'text' as const, placeholder: 'Buscar por año...' },
+      {
+        columnId: 'horometer',
+        title: 'Horómetro',
+        type: 'text' as const,
+        placeholder: 'Buscar por horómetro...',
+      },
+      {
+        columnId: 'initial_value',
+        title: 'Valor inicial',
+        type: 'text' as const,
+        placeholder: 'Buscar por valor...',
+      },
 
-      // Filtros de rango de fechas
-      {
-        columnId: 'purchase_date',
-        title: 'Fecha de compra',
-        type: 'dateRange' as const,
-      },
-      {
-        columnId: 'created_at',
-        title: 'Creado',
-        type: 'dateRange' as const,
-      },
-      {
-        columnId: 'termination_date',
-        title: 'Fecha de baja',
-        type: 'dateRange' as const,
-      },
+      // ── Filtros de rango de fechas ───────────────────────────────────────────
+      { columnId: 'purchase_date', title: 'Fecha de compra', type: 'dateRange' as const },
+      { columnId: 'created_at', title: 'Creado', type: 'dateRange' as const },
+      { columnId: 'termination_date', title: 'Fecha de baja', type: 'dateRange' as const },
     ],
-    [facets]
+    [makeEnumFetchFacet, makeFkFetchFacet]
   );
 
-  // ─── Botón "Nuevo equipo" protegido por permisos ──────────────────────────
+  // ─── Botón "Nuevo equipo" protegido por permisos ───────────────────────────
   const toolbarActions = (
     <PermissionGuard module="equipos" tab="others" action="create">
       <Button asChild variant="gh_orange" size="sm">
@@ -373,26 +304,29 @@ export function _OtherEquipmentDataTable({
     </PermissionGuard>
   );
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <DataTable
       columns={columns}
       data={data}
       totalRows={totalRows}
       searchParams={searchParams}
-      searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
+      tableId={tableId}
+      paramNamespace={tableId}
+      // Client-side navigation: fetch instantáneo via React Query, sin router.push
+      queryFn={tableQueryFn}
+      queryKey={['other-equipment-paginated']}
+      onStateChange={handleStateChange}
       facetedFilters={facetedFilters}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
-      tableId={tableId}
-      paramNamespace={tableId}
+      searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
       showFilterToggle={true}
-      isFetchingFacets={isFetchingFacets}
       toolbarActions={toolbarActions}
       emptyMessage="No hay equipos registrados"
       data-testid="other-equipment-table"
       exportConfig={{
-        fetchAllData: () => getAllOtherEquipmentForExport(searchParams),
+        fetchAllData: () => getAllOtherEquipmentForExport(currentParams),
         options: {
           filename: 'otros-equipos',
           title: 'Listado de Otros Equipos',

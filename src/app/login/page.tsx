@@ -1,11 +1,11 @@
-import RenderBanner from '@/components/RenderBanner';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { LoginButton } from '@/features/Auth/components/LoginButton';
+import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
-import { LoginButton } from './componentsLogin/LoginButton';
 export default async function Login() {
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">

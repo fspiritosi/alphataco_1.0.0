@@ -1,4 +1,4 @@
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { Suspense } from 'react';
 import { getActiveExternalWorkshops, getActiveWorkshopSectors } from '../OrderManagement/actions/actionsServer';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';

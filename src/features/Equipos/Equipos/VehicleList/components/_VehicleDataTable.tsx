@@ -13,7 +13,9 @@ import {
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
+  type DataTableFilterOption,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
@@ -24,12 +26,17 @@ import {
   otherEquipmentStatusLabels,
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { CircleOff, Plus } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { getAllVehiclesForExport, getVehicleFacets, type VehicleListItem } from '../actions/actions.server';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  getAllVehiclesForExport,
+  getVehicleSingleFacet,
+  getVehiclesPaginated,
+  type VehicleListItem,
+} from '../actions/actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
 
 // ============================================================================
@@ -47,6 +54,40 @@ interface Props {
 }
 
 // ============================================================================
+// HELPERS — FacetResult builders
+// ============================================================================
+
+function buildFkFacetResult(
+  resolvedOptions: { value: string; label: string }[] | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  const options: DataTableFilterOption[] = (resolvedOptions ?? []).map((o) => ({ value: o.value, label: o.label }));
+  if (counts.has(NULL_FILTER_VALUE)) {
+    options.push({ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff });
+  }
+  return { options, counts };
+}
+
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  counts: Map<string, number>,
+  icons?: Record<string, LucideIcon | undefined>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  const options: DataTableFilterOption[] = enumValues.map((v) => ({
+    value: v,
+    label: labels[v] ?? v,
+    ...(icons?.[v] ? { icon: icons[v] } : {}),
+  }));
+  if (counts.has(NULL_FILTER_VALUE)) {
+    options.push({ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff });
+  }
+  return { options, counts };
+}
+
+// ============================================================================
 // CLIENT COMPONENT
 // ============================================================================
 
@@ -59,18 +100,41 @@ export function _VehicleDataTable({
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
-  // Extraer solo los params relevantes para facets (sin page/sort)
-  const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation mode ─────────────────────────────────────────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['vehicles-facets', facetParams],
-    queryFn: () => getVehicleFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getVehiclesPaginated(params), []);
+
+  // ─── Lazy-load facet factories ────────────────────────────────────────────
+
+  const makeFkFetchFacet = useCallback(
+    (columnId: string, nullLabel?: string) =>
+      async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getVehicleSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+      },
+    []
+  );
+
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons?: Record<string, LucideIcon | undefined>
+    ) =>
+      async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getVehicleSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, result.counts, icons);
+      },
+    []
+  );
 
   // Columnas ocultas por defecto (unir preferencias guardadas con las del sistema)
   const mergedColumnVisibility = useMemo(() => {
@@ -108,6 +172,10 @@ export function _VehicleDataTable({
       'serie',
       'intern_number',
       'contract_number',
+      'year',
+      'kilometer',
+      'engine_hours',
+      'price',
       'contract_expiration_date',
       'contract_start_date',
       'termination_date',
@@ -116,208 +184,118 @@ export function _VehicleDataTable({
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
-  // ─── Filtros facetados ────────────────────────────────────────────────────
+  // ─── Filtros facetados — lazy-load con fetchFacet ─────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       // condition (enum nullable) — con iconos que coinciden con las celdas
       {
         columnId: 'condition',
         title: 'Condición',
-        options: [
-          ...Object.values(condition_enum).map((value) => ({
-            value,
-            label: conditionLabels[value] ?? value,
-            icon: conditionIcons[value],
-          })),
-          ...(facets?.condition?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.condition,
+        fetchFacet: makeEnumFetchFacet(
+          'condition',
+          Object.values(condition_enum),
+          conditionLabels,
+          conditionIcons as Record<string, LucideIcon | undefined>
+        ),
       },
 
       // status (enum nullable)
       {
         columnId: 'status',
         title: 'Estado',
-        options: [
-          ...Object.values(status_type).map((value) => ({
-            value,
-            label: otherEquipmentStatusLabels[value] ?? value,
-          })),
-          ...(facets?.status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet('status', Object.values(status_type), otherEquipmentStatusLabels),
       },
 
-      // type (FK UUID — con "Sin asignar")
+      // type (FK UUID nullable)
       {
         columnId: 'type',
         title: 'Tipo',
-        options: [
-          ...(facets?.typeOptions?.map((t) => ({ value: t.id, label: t.name ?? '' })) ?? []),
-          ...(facets?.type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.type,
+        fetchFacet: makeFkFetchFacet('type'),
       },
 
-      // sub_type (FK UUID nullable — con "Sin asignar")
+      // sub_type (FK UUID nullable)
       {
         columnId: 'sub_type',
         title: 'Subtipo',
-        options: [
-          ...(facets?.subTypeOptions?.map((t) => ({ value: t.id, label: t.name ?? '' })) ?? []),
-          ...(facets?.sub_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.sub_type,
+        fetchFacet: makeFkFetchFacet('sub_type'),
       },
 
-      // brand (FK BigInt nullable — con "Sin asignar")
+      // brand (FK BigInt nullable)
       {
         columnId: 'brand',
         title: 'Marca',
-        options: [
-          ...(facets?.brandOptions?.map((b) => ({ value: String(b.id), label: b.name ?? '' })) ?? []),
-          ...(facets?.brand?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.brand,
+        fetchFacet: makeFkFetchFacet('brand'),
       },
 
-      // model (FK BigInt nullable — con "Sin asignar")
+      // model (FK BigInt nullable)
       {
         columnId: 'model',
         title: 'Modelo',
-        options: [
-          ...(facets?.modelOptions?.map((m) => ({ value: String(m.id), label: m.name ?? '' })) ?? []),
-          ...(facets?.model?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.model,
+        fetchFacet: makeFkFetchFacet('model'),
       },
 
-      // owner (FK UUID nullable — con "Sin asignar")
+      // owner (FK UUID nullable)
       {
         columnId: 'owner',
         title: 'Propietario',
-        options: [
-          ...(facets?.ownerOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
-          ...(facets?.owner?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.owner,
+        fetchFacet: makeFkFetchFacet('owner'),
       },
 
-      // sector (FK UUID nullable → hierarchy — con "Sin asignar")
+      // sector (FK UUID nullable → hierarchy)
       {
         columnId: 'sector',
         title: 'Sector',
-        options: [
-          ...(facets?.sectorOptions?.map((s) => ({ value: s.id, label: s.name ?? '' })) ?? []),
-          ...(facets?.sector?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.sector,
+        fetchFacet: makeFkFetchFacet('sector'),
       },
 
-      // cost_center (FK UUID nullable — con "Sin asignar")
+      // cost_center (FK UUID nullable)
       {
         columnId: 'cost_center',
         title: 'Centro de costo',
-        options: [
-          ...(facets?.costCenterOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.cost_center?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_center,
+        fetchFacet: makeFkFetchFacet('cost_center'),
       },
 
-      // contractor_equipment (M:M → customers — incluye "Sin afectar")
+      // contractor_equipment (M:M → customers)
       {
         columnId: 'contractor_equipment',
         title: 'Afectaciones',
-        options: [
-          ...(facets?.contractorOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.contractor_equipment?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.contractor_equipment,
+        fetchFacet: makeFkFetchFacet('contractor_equipment', 'Sin afectar'),
       },
 
-      // type_of_contract (enum nullable — con "Sin asignar")
+      // type_of_contract (enum nullable)
       {
         columnId: 'type_of_contract',
         title: 'Tipo de contrato',
-        options: [
-          ...Object.values(contract_type_vehicles_enum).map((value) => ({
-            value,
-            label: contractTypeVehiclesLabels[value] ?? value,
-          })),
-          ...(facets?.type_of_contract?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.type_of_contract,
+        fetchFacet: makeEnumFetchFacet(
+          'type_of_contract',
+          Object.values(contract_type_vehicles_enum),
+          contractTypeVehiclesLabels
+        ),
       },
 
       // cost_type (enum nullable)
       {
         columnId: 'cost_type',
         title: 'Tipo de costo',
-        options: [
-          ...Object.values(cost_type_enum).map((value) => ({
-            value,
-            label: costTypeLabels[value] ?? value,
-          })),
-          ...(facets?.cost_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_type,
+        fetchFacet: makeEnumFetchFacet('cost_type', Object.values(cost_type_enum), costTypeLabels),
       },
 
       // currency (enum nullable)
       {
         columnId: 'currency',
         title: 'Moneda',
-        options: [
-          ...Object.values(currency_enum).map((value) => ({
-            value,
-            label: currencyLabels[value] ?? value,
-          })),
-          ...(facets?.currency?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.currency,
+        fetchFacet: makeEnumFetchFacet('currency', Object.values(currency_enum), currencyLabels),
       },
 
       // reason_for_termination (enum nullable)
       {
         columnId: 'reason_for_termination',
         title: 'Motivo de baja',
-        options: [
-          ...Object.values(termination_reason_enum).map((value) => ({
-            value,
-            label: terminationReasonEquipmentLabels[value] ?? value,
-          })),
-          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.reason_for_termination,
+        fetchFacet: makeEnumFetchFacet(
+          'reason_for_termination',
+          Object.values(termination_reason_enum),
+          terminationReasonEquipmentLabels
+        ),
       },
 
       // Filtros de texto libre por columna
@@ -357,6 +335,30 @@ export function _VehicleDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por N° de contrato...',
       },
+      {
+        columnId: 'year',
+        title: 'Año',
+        type: 'text' as const,
+        placeholder: 'Buscar por año...',
+      },
+      {
+        columnId: 'kilometer',
+        title: 'Kilómetros',
+        type: 'text' as const,
+        placeholder: 'Buscar por kilómetros...',
+      },
+      {
+        columnId: 'engine_hours',
+        title: 'Horómetro',
+        type: 'text' as const,
+        placeholder: 'Buscar por horómetro...',
+      },
+      {
+        columnId: 'price',
+        title: 'Precio',
+        type: 'text' as const,
+        placeholder: 'Buscar por precio...',
+      },
 
       // Filtros de rango de fechas
       {
@@ -380,7 +382,7 @@ export function _VehicleDataTable({
         type: 'dateRange' as const,
       },
     ],
-    [facets]
+    [makeFkFetchFacet, makeEnumFetchFacet]
   );
 
   // ─── Botón "Nuevo vehículo" protegido por permisos ────────────────────────
@@ -402,6 +404,9 @@ export function _VehicleDataTable({
       data={data}
       totalRows={totalRows}
       searchParams={searchParams}
+      queryFn={tableQueryFn}
+      queryKey={['vehicles-list']}
+      onStateChange={handleStateChange}
       searchPlaceholder="Buscar por dominio, chassis, N° Interno..."
       facetedFilters={facetedFilters}
       initialColumnVisibility={mergedColumnVisibility}
@@ -409,12 +414,12 @@ export function _VehicleDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
-      isFetchingFacets={isFetchingFacets}
       toolbarActions={toolbarActions}
       emptyMessage="No hay vehículos registrados"
       data-testid="vehicles-table"
       exportConfig={{
-        fetchAllData: () => getAllVehiclesForExport(searchParams),
+        // Usar currentParams (no searchParams) para respetar filtros activos post-SSR
+        fetchAllData: () => getAllVehiclesForExport(currentParams),
         options: {
           filename: 'vehiculos',
           title: 'Listado de Vehículos',

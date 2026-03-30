@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -35,10 +36,10 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 };
 
 /** Columnas con filtro de texto libre */
-const TEXT_FILTER_COLUMNS: string[] = ['employee'];
+const TEXT_FILTER_COLUMNS: string[] = ['employee', 'period', 'deny_reason', 'fileNumber'];
 
 /** Columnas con filtro de rango de fechas */
-const DATE_RANGE_COLUMNS = ['created_at', 'period'];
+const DATE_RANGE_COLUMNS = ['created_at'];
 
 /**
  * Mapping de columnId (URL) → campo real en Prisma para buildFiltersWhere
@@ -88,6 +89,7 @@ const MONTHLY_DOCS_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
   // Logs para fecha de última actualización
@@ -104,7 +106,8 @@ const MONTHLY_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -212,7 +215,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     // Filtro base: compañía del empleado
     { employees: { company_id: companyId } },
     // Filtro base: solo tipos de documento mensuales y activos
-    { document_types: { is_it_montlhy: true, is_active: true } },
+    { document_types: { is_it_montlhy: true, is_active: true, ...(!canViewPrivate && { private: { not: true } }) } },
     // Filtro opcional por empleado específico (para vista de detalle)
     ...(employeeId ? [{ applies: employeeId }] : []),
   ];
@@ -227,16 +230,33 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     });
   }
 
-  // Filtro texto de empleado (busca por nombre, apellido y legajo)
+  // Filtro texto de empleado (busca por nombre y apellido)
   const employeeTextVal = state.filters['employee']?.[0];
   if (employeeTextVal) {
     andConditions.push({
       OR: [
         { employees: { lastname: { contains: employeeTextVal, mode: 'insensitive' as const } } },
         { employees: { firstname: { contains: employeeTextVal, mode: 'insensitive' as const } } },
-        { employees: { file: { contains: employeeTextVal, mode: 'insensitive' as const } } },
       ],
     });
+  }
+
+  // Filtro texto de período (campo directo en documents_employees)
+  const periodTextVal = state.filters['period']?.[0];
+  if (periodTextVal) {
+    andConditions.push({ period: { contains: periodTextVal, mode: 'insensitive' as const } });
+  }
+
+  // Filtro texto de razón de rechazo (campo directo en documents_employees)
+  const denyReasonTextVal = state.filters['deny_reason']?.[0];
+  if (denyReasonTextVal) {
+    andConditions.push({ deny_reason: { contains: denyReasonTextVal, mode: 'insensitive' as const } });
+  }
+
+  // Filtro de legajo (coincidencia exacta para evitar que "1" devuelva "10", "100", etc.)
+  const fileNumberVal = state.filters['fileNumber']?.[0];
+  if (fileNumberVal) {
+    andConditions.push({ employees: { file: { equals: fileNumberVal } } });
   }
 
   // Filtro por state (enum)
@@ -282,7 +302,7 @@ export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTab
 
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -322,12 +342,15 @@ export type MonthlyEmployeeDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllMonthlyEmployeeDocumentsForExport(searchParams: DataTableSearchParams, employeeId?: string) {
+export async function getAllMonthlyEmployeeDocumentsForExport(
+  searchParams: DataTableSearchParams,
+  employeeId?: string
+) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -364,13 +387,14 @@ export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTable
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       // Sin filtros activos: solo condiciones base
       return {
         AND: [
           { employees: { company_id: companyId } },
-          { document_types: baseDocumentTypesWhere },
+          { document_types: { ...baseDocumentTypesWhere, ...(!canViewPrivate && { private: { not: true } }) } },
           ...(employeeId ? [{ applies: employeeId }] : []),
         ],
       };
@@ -590,5 +614,196 @@ export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTable
   } catch (error) {
     logger.error('Error al obtener facets de documentos mensuales', { data: { error } });
     throw new Error('Error al obtener los facets de documentos mensuales');
+  }
+}
+
+// ============================================================================
+// SINGLE FACET — lazy-load on-demand por columna
+// ============================================================================
+
+/**
+ * Retorna counts + opciones resueltas para UNA sola columna.
+ * Usa crossWhere(columnId) para cross-filtering: aplica todos los filtros activos
+ * excepto el de la propia columna, de modo que los counts sean correctos.
+ */
+export async function getMonthlyEmployeeDocumentsSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams,
+  employeeId?: string
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  const companyId = await getServerCompanyId();
+
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+  }
+
+  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+
+  async function crossWhere(excludeColumn: string) {
+    if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
+      return {
+        AND: [
+          { employees: { company_id: companyId } },
+          {
+            document_types: {
+              is_it_montlhy: true,
+              is_active: true,
+              ...(!canViewPrivate && { private: { not: true } }),
+            },
+          },
+          ...(employeeId ? [{ applies: employeeId }] : []),
+        ],
+      };
+    }
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(companyId, modified, employeeId);
+  }
+
+  function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      if (key == null) {
+        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
+      } else {
+        map.set(String(key), count);
+      }
+    }
+    return map;
+  }
+
+  try {
+    const where = await crossWhere(columnId);
+
+    // ── state (enum directo) ──────────────────────────────────────────────────
+    if (columnId === 'state') {
+      const rows = await prisma.documents_employees.groupBy({
+        by: ['state'],
+        where,
+        _count: { state: true },
+      });
+      return {
+        counts: toFacetMap(rows.map((r) => ({ key: r.state as string | null, count: r._count.state }))),
+      };
+    }
+
+    // ── documentType (FK UUID → document_types) ───────────────────────────────
+    if (columnId === 'documentType') {
+      const rows = await prisma.documents_employees.groupBy({
+        by: ['id_document_types'],
+        where,
+        _count: { id_document_types: true },
+      });
+      const counts = toFacetMap(rows.map((r) => ({ key: r.id_document_types, count: r._count.id_document_types })));
+      const ids = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+      const resolvedOptions = ids.length
+        ? await prisma.document_types.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
+        : [];
+      return { counts, resolvedOptions };
+    }
+
+    // ── mandatory (booleano en document_types) ────────────────────────────────
+    if (columnId === 'mandatory') {
+      const rows = await prisma.documents_employees.groupBy({
+        by: ['id_document_types'],
+        where,
+        _count: { id_document_types: true },
+      });
+      const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+      const dtRecords = dtIds.length
+        ? await prisma.document_types.findMany({
+            where: { id: { in: dtIds } },
+            select: { id: true, mandatory: true },
+          })
+        : [];
+      const dtMap = new Map(dtRecords.map((dt) => [dt.id, dt.mandatory]));
+      const countMap = new Map<string, number>();
+      for (const row of rows) {
+        const count = row._count.id_document_types;
+        if (row.id_document_types == null) {
+          countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + count);
+        } else {
+          const val = dtMap.get(row.id_document_types);
+          const key = val == null ? NULL_FILTER_VALUE : String(val);
+          countMap.set(key, (countMap.get(key) ?? 0) + count);
+        }
+      }
+      return { counts: countMap };
+    }
+
+    // ── multiresource (booleano en document_types) ────────────────────────────
+    if (columnId === 'multiresource') {
+      const rows = await prisma.documents_employees.groupBy({
+        by: ['id_document_types'],
+        where,
+        _count: { id_document_types: true },
+      });
+      const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+      const dtRecords = dtIds.length
+        ? await prisma.document_types.findMany({
+            where: { id: { in: dtIds } },
+            select: { id: true, multiresource: true },
+          })
+        : [];
+      const dtMap = new Map(dtRecords.map((dt) => [dt.id, dt.multiresource]));
+      const countMap = new Map<string, number>();
+      for (const row of rows) {
+        const count = row._count.id_document_types;
+        if (row.id_document_types == null) {
+          countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + count);
+        } else {
+          const val = dtMap.get(row.id_document_types);
+          const key = val == null ? NULL_FILTER_VALUE : String(val);
+          countMap.set(key, (countMap.get(key) ?? 0) + count);
+        }
+      }
+      return { counts: countMap };
+    }
+
+    // ── contractor (M:M a través de employees) ────────────────────────────────
+    if (columnId === 'contractor') {
+      const docs = await prisma.documents_employees.findMany({
+        where,
+        select: {
+          employees: {
+            select: {
+              contractor_employee: {
+                select: { customers: { select: { id: true, name: true } } },
+              },
+            },
+          },
+        },
+      });
+      const countMap = new Map<string, number>();
+      const optionsMap = new Map<string, string>();
+      for (const doc of docs) {
+        const contractors = doc.employees?.contractor_employee ?? [];
+        if (contractors.length === 0) {
+          countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+        } else {
+          for (const ce of contractors) {
+            if (ce.customers?.id) {
+              countMap.set(ce.customers.id, (countMap.get(ce.customers.id) ?? 0) + 1);
+              optionsMap.set(ce.customers.id, ce.customers.name);
+            }
+          }
+        }
+      }
+      const resolvedOptions = Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name }));
+      return { counts: countMap, resolvedOptions };
+    }
+
+    logger.warn('getMonthlyEmployeeDocumentsSingleFacet: columnId no reconocido', { data: { columnId } });
+    return null;
+  } catch (error) {
+    logger.error('Error al obtener facet individual de documentos mensuales', { data: { error, columnId } });
+    throw new Error('Error al obtener el facet de documentos mensuales');
   }
 }

@@ -279,7 +279,7 @@ export default function ServiceItemsTable({
     <ResizablePanelGroup className=" flex flex-col gap-2" direction="horizontal">
       {canCreateOrUpdate && (
         <>
-          <ResizablePanel defaultSize={40}>
+          <ResizablePanel defaultSize={30}>
             <Card>
               <ServiceItemsForm
                 measure_units={measure_units}
@@ -295,7 +295,7 @@ export default function ServiceItemsTable({
           <ResizableHandle withHandle />
         </>
       )}
-      <ResizablePanel className=" min-w-[500px] flex flex-col gap-2" defaultSize={canCreateOrUpdate ? 60 : 100}>
+      <ResizablePanel className=" min-w-[500px] flex flex-col gap-2" defaultSize={canCreateOrUpdate ? 70 : 100}>
         <Card>
           <div className="flex flex-col p-4">
             <div className="flex space-x-4 justify-end mb-2">

@@ -1,20 +1,22 @@
-import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
-import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEmployeeDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/fallback/MonthlyEmployeeDocumentsSkeleton';
 import { MonthlyEmployeeDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/MonthlyEmployeeDocumentsList';
-import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
 import { EmployeePermanentDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/EmployeePermanentDocumentsList';
+import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
+import DocumentNav from '@/features/Documentacion/shared/components/DocumentNav';
+import { TiposDocumentosSkeleton } from '@/features/Documentacion/TiposDocumentos/fallback/TiposDocumentosSkeleton';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
+import EmployesDiagram from '@/features/Employees/Diagrams/EmployesDiagram';
+import { DiagramsSkeleton } from '@/features/Employees/Diagrams/fallback/DiagramsSkeleton';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
+import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
+import { CovenantTreeSkeleton } from '@/features/Empresa/CCT/fallback/CovenantTreeSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
 
 export async function generateMetadata() {
   const cookiesStore = await cookies();
@@ -173,7 +175,11 @@ export default async function EmployeePage({
           ),
           moduleSlug: 'empleados' as const,
           tabSlug: 'diagrams' as const,
-          content: <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />,
+          content: (
+            <Suspense fallback={<DiagramsSkeleton />}>
+              <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />
+            </Suspense>
+          ),
         },
         {
           value: 'tipos-de-documentos',
@@ -186,7 +192,7 @@ export default async function EmployeePage({
           moduleSlug: 'documentacion' as const,
           tabSlug: 'tipos-de-documentos' as const,
           content: (
-            <Suspense fallback={<DataTableSkeleton columns={4} />}>
+            <Suspense fallback={<TiposDocumentosSkeleton />}>
               <TiposDocumentosTabContent
                 searchParams={resolvedSearchParams}
                 showOnlyPersonas={true}
@@ -206,7 +212,7 @@ export default async function EmployeePage({
           moduleSlug: 'empleados' as const,
           tabSlug: 'covenant' as const,
           content: (
-            <Suspense fallback={<DataTableSkeleton columns={3} rows={5} />}>
+            <Suspense fallback={<CovenantTreeSkeleton />}>
               <CovenantTreeFileWrapper />
             </Suspense>
           ),

@@ -34,6 +34,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 export const SOURCE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   manual: 'Manual',
+  preventive: 'Preventivo',
 };
 
 type BadgeVariant = 'warning' | 'success' | 'destructive' | 'secondary' | 'default';
@@ -163,7 +164,22 @@ export function getMaintenanceRequestColumns({
       meta: { title: 'Chofer' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,
       cell: ({ row }) => {
-        return <div className="min-w-[120px]">{row.getValue('driver') || '-'}</div>;
+        const answerData = row.original.checklist_answers?.answer_data as { chofer?: string } | null;
+        if (answerData?.chofer) {
+          return <span>{answerData.chofer}</span>;
+        }
+        const employee = row.original.employees;
+        if (employee) {
+          return (
+            <div className="flex flex-col">
+              <span>
+                {employee.lastname} {employee.firstname}
+              </span>
+              {employee.file && <span className="text-xs text-muted-foreground">Leg. {employee.file}</span>}
+            </div>
+          );
+        }
+        return <span className="text-muted-foreground">-</span>;
       },
       enableSorting: false,
     },

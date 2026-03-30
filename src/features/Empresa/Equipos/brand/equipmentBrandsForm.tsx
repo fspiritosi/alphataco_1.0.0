@@ -3,12 +3,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { createBrandOfVehicle, updateBrandOfVehicle } from '../actions/actions';
+
+const logger = new Logger('EquipmentBrandsForm');
 
 interface EquipmentBrandsFormProps {
   initialData?: any | null;
@@ -36,6 +39,8 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
     mode: 'onChange',
   });
 
+  const queryClient = useQueryClient();
+
   const {
     register,
     handleSubmit,
@@ -44,8 +49,6 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
     watch,
     setValue,
   } = form;
-
-  const router = useRouter();
 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
@@ -79,6 +82,7 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
       }
 
       if (onSuccess) onSuccess();
+      queryClient.invalidateQueries({ queryKey: ['equipment-brands-table-brand'] });
       toast({
         title: 'Marca de equipo guardada correctamente',
         description: 'Los cambios se han guardado exitosamente.',
@@ -86,13 +90,11 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
       });
 
       onReset();
-      router.refresh();
     } catch (error: unknown) {
-      console.error('Error al guardar la marca de equipo:', error);
+      logger.error('Error al guardar la marca de equipo', { data: { error } });
 
       let errorMessage = 'Ocurrió un error al guardar. Por favor, inténtalo de nuevo.';
 
-      // Extraer el mensaje de error de diferentes formatos de error
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
@@ -105,7 +107,6 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
         errorMessage = error;
       }
 
-      // Mapear mensajes de error específicos
       if (errorMessage.includes('Marca de vehiculo no encontrado')) {
         errorMessage = 'No se encontró la marca de vehiculo a actualizar. Quizás fue eliminado por otro usuario.';
       } else if (errorMessage.includes('PGRST116') || errorMessage.includes('no rows returned')) {
@@ -121,9 +122,9 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
   };
 
   return (
-    <div className="flex space-y-8 max-w-[300px]">
+    <div className="max-w-md">
       <Form {...form}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
           <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar' : 'Crear'} Marca de Unidad</h2>
           <FormField
             name="name"
@@ -135,7 +136,7 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
                     type="text"
                     {...form.register('name')}
                     placeholder="Nombre de la marca de unidad"
-                    className={`w-[300px] ${form.formState.errors.name ? 'border-red-500' : ''}`}
+                    className={form.formState.errors.name ? 'border-red-500' : ''}
                   />
                 </FormControl>
                 <FormMessage />

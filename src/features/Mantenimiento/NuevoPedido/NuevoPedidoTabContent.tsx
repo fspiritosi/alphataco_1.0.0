@@ -1,4 +1,4 @@
-import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { NuevoPedidoChecklistForm } from './components/NuevoPedidoChecklistForm';
 
 interface NuevoPedidoTabContentProps {

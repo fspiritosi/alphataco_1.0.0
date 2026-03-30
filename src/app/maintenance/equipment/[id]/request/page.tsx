@@ -1,6 +1,6 @@
-import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
-import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
+import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { NuevoPedidoChecklistForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoChecklistForm';
+import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 

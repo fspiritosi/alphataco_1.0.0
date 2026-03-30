@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOperationData } from '../actions/actionsServer';
 
@@ -67,63 +68,81 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
           <Separator />
 
           {/* Items a reparar */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Items a Reparar ({operation.maintenance_order_items?.length || 0})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {operation.maintenance_order_items?.map((item) => {
-                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
-                  const repairTypeNames: string[] =
-                    pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
-                      : item.types_of_repairs?.name
-                        ? [item.types_of_repairs.name]
-                        : [];
+          {operation.maintenance_requests?.source === 'preventive' ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Tipo de Mantenimiento</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
+                  <Badge variant="secondary">
+                    {PREVENTIVE_TYPES[operation.maintenance_requests?.preventive_type as PreventiveType] ??
+                      operation.maintenance_requests?.preventive_type ??
+                      'Preventivo'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">
+                  Items a Reparar ({operation.maintenance_order_items?.length || 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {operation.maintenance_order_items?.map((item) => {
+                    // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const repairTypeNames: string[] =
+                      pivotRepairTypes.length > 0
+                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        : item.types_of_repairs?.name
+                          ? [item.types_of_repairs.name]
+                          : [];
 
-                  return (
-                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
-                          </p>
-                          <ItemComments
-                            item={item}
-                            source={operation.maintenance_requests?.source}
-                            fallbackAuthorName={
-                              operation.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
-                                ?.fullname
-                            }
-                          />
-                        </div>
-                        {repairTypeNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
-                            {repairTypeNames.map((name, idx) => (
-                              <Badge key={idx} variant="secondary">
-                                {name}
-                              </Badge>
-                            ))}
+                    return (
+                      <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">
+                              {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
+                            </p>
+                            <ItemComments
+                              item={item}
+                              source={operation.maintenance_requests?.source}
+                              fallbackAuthorName={
+                                operation.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
+                                  ?.fullname
+                              }
+                            />
                           </div>
-                        )}
+                          {repairTypeNames.length > 0 && (
+                            <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                              {repairTypeNames.map((name, idx) => (
+                                <Badge key={idx} variant="secondary">
+                                  {name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
 
-                {(!operation.maintenance_order_items || operation.maintenance_order_items.length === 0) && (
-                  <p className="text-muted-foreground text-center py-4">No hay items registrados</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {(!operation.maintenance_order_items || operation.maintenance_order_items.length === 0) && (
+                    <p className="text-muted-foreground text-center py-4">No hay items registrados</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </DialogContent>
     </Dialog>

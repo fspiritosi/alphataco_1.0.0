@@ -1,6 +1,6 @@
-import { getEquipmentsWithPendingDeviations } from '@/app/maintenance/actions';
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { Card } from '@/components/ui/card';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import { getEquipmentsWithPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { EquipmentsWithDeviationsTableClient } from './components/EquipmentsWithDeviationsTableClient';
 
 export async function EquiposConDesviosTabContent() {

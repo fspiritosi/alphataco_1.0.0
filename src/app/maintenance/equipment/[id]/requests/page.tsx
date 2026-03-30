@@ -1,6 +1,6 @@
+import RequestsListClient from '@/features/Mantenimiento/RepairRequests/components/requests-list-client';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import RequestsListClient from './requests-list-client';
 
 export default async function RequestsListPage({
   params,

@@ -6,20 +6,26 @@ import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 import { Upload, X } from 'lucide-react';
-import { use, useState } from 'react';
+import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { EmployeeFormData, Options } from './employee-form';
+import { getAllCountryOptions } from '../../actions.server';
+import type { EmployeeFormData } from './employee-form';
 
 interface EmployeePersonalDataFormProps {
   form: UseFormReturn<EmployeeFormData>;
-  readOnly: boolean;
-  options: Options['personalData']; // siempre viene
 }
 
-export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePersonalDataFormProps) {
+export function EmployeePersonalDataForm({ form }: EmployeePersonalDataFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(form.getValues('picture') || null);
-  const countries = use(options?.countriesPromise);
+
+  const { data: countries = [], isLoading: loadingCountries } = useQuery({
+    queryKey: ['catalog', 'countries'],
+    queryFn: () => getAllCountryOptions(),
+    staleTime: 10 * 60 * 1000,
+  });
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,57 +48,39 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
   return (
     <div className="space-y-6">
       {/* Foto del empleado */}
-      {readOnly ? (
-        false
-      ) : (
-        <div className="space-y-2">
-          <FormLabel>Foto del empleado</FormLabel>
-          <div className="flex items-center space-x-4">
-            {imagePreview ? (
-              <div className="relative">
-                <img
-                  src={imagePreview || '/placeholder.svg'}
-                  alt="Preview"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-                />
-                {!readOnly && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                    onClick={removeImage}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="w-24 h-24 rounded-full  border-2 border-dashed border-gray-300 flex items-center justify-center">
-                <Upload className="h-8 w-8 text-gray-400" />
-              </div>
-            )}
-            {!readOnly && (
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="picture-upload"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => document.getElementById('picture-upload')?.click()}
-                >
-                  {imagePreview ? 'Cambiar foto' : 'Subir foto'}
-                </Button>
-              </div>
-            )}
+      <div className="space-y-2">
+        <FormLabel>Foto del empleado</FormLabel>
+        <div className="flex items-center space-x-4">
+          {imagePreview ? (
+            <div className="relative">
+              <img
+                src={imagePreview || '/placeholder.svg'}
+                alt="Preview"
+                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                onClick={removeImage}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="w-24 h-24 rounded-full  border-2 border-dashed border-gray-300 flex items-center justify-center">
+              <Upload className="h-8 w-8 text-gray-400" />
+            </div>
+          )}
+          <div>
+            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="picture-upload" />
+            <Button type="button" variant="outline" onClick={() => document.getElementById('picture-upload')?.click()}>
+              {imagePreview ? 'Cambiar foto' : 'Subir foto'}
+            </Button>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Nombre */}
@@ -103,7 +91,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
             <FormItem>
               <FormLabel>Nombre *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el nombre" />
+                <Input {...field} placeholder="Ingrese el nombre" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -118,7 +106,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
             <FormItem>
               <FormLabel>Apellido *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el apellido" />
+                <Input {...field} placeholder="Ingrese el apellido" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -132,7 +120,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tipo de documento *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione tipo de documento" />
@@ -159,7 +147,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
             <FormItem>
               <FormLabel>Número de documento *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="Ingrese el número" />
+                <Input {...field} placeholder="Ingrese el número" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -174,7 +162,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
             <FormItem>
               <FormLabel>CUIL *</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={readOnly} placeholder="XX-XXXXXXXX-X" />
+                <Input {...field} placeholder="XX-XXXXXXXX-X" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -189,7 +177,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
             <FormItem>
               <FormLabel>Fecha de nacimiento *</FormLabel>
               <FormControl>
-                <Input {...field} type="date" readOnly={readOnly} />
+                <Input {...field} type="date" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -203,7 +191,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nacionalidad *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione la nacionalidad" />
@@ -226,20 +214,24 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>País de nacimiento *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione país de nacimiento" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {countries.map((country) => (
-                    <SelectItem key={country.id} value={country.id}>
-                      {country.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingCountries ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione país de nacimiento" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {countries.map((country) => (
+                      <SelectItem key={country.id} value={country.id}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -252,7 +244,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sexo *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione el sexo" />
@@ -275,7 +267,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>Estado civil *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione estado civil" />
@@ -300,7 +292,7 @@ export function EmployeePersonalDataForm({ form, readOnly, options }: EmployeePe
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nivel de instrucción *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={readOnly}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione nivel de instrucción" />

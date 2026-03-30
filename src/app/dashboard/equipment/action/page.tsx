@@ -3,11 +3,10 @@ import { VehicleHeaderSkeleton } from '@/features/Equipos/EquipoID/skeletons/veh
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
-import BackButton from '@/components/BackButton';
-import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
-import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
+import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
 import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
@@ -23,9 +22,10 @@ import {
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import { getMaintenanceOrdersForEquipment } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
+import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
-import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
+import BackButton from '@/shared/components/common/BackButton';
 
 // Componentes de Otros Equipos
 import {
@@ -178,7 +178,9 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={<EquipmentDocumentDetail equipmentId={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
+          documentsComponent={
+            <EquipmentDocumentDetail equipmentId={vehicle?.id || ''} searchParams={resolvedSearchParams} />
+          }
           repairsComponent={
             <RepairTypes
               searchParams={resolvedSearchParams}

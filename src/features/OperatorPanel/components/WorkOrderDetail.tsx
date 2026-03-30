@@ -1,7 +1,7 @@
 'use client';
 
-import { useOperatorContext } from '@/app/operator/operator-layout-provider';
 import { Button } from '@/components/ui/button';
+import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Plus } from 'lucide-react';

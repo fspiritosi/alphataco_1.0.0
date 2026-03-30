@@ -5,18 +5,20 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
 import { createSubTypeOfVehicle, getAvailableCompatibleItems, updateSubTypeOfVehicle } from '../actions/actions';
 import { useActiveChecklists } from './hooks/useActiveChecklists';
+
+const logger = new Logger('EquipmentSubTypesForm');
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
@@ -27,7 +29,7 @@ interface CompatibleItem {
 }
 
 interface EquipmentSubTypesFormProps {
-  initialData?: any | null;
+  initialData?: VehicleSubType | null;
   onReset: () => void;
   isEditing?: boolean;
   onSuccess?: () => void;
@@ -71,16 +73,24 @@ function EquipmentSubTypesForm({
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      is_active: true,
-      type_id: '',
-      compatible_item_ids: [],
-      checklist_ids: [],
-    },
+    defaultValues: initialData
+      ? {
+          id: initialData.id,
+          name: initialData.name ?? '',
+          is_active: initialData.is_active ?? true,
+          type_id: initialData.type ?? '',
+          compatible_item_ids: initialCompatibleItems?.map((item) => `${item.type}:${item.id}`) ?? [],
+          checklist_ids: initialChecklistIds ?? [],
+        }
+      : {
+          name: '',
+          is_active: true,
+          type_id: '',
+          compatible_item_ids: [],
+          checklist_ids: [],
+        },
   });
 
-  const router = useRouter();
   const queryClient = useQueryClient();
   const {
     handleSubmit,
@@ -112,7 +122,7 @@ function EquipmentSubTypesForm({
         types: result.types || [],
       });
     } catch (error) {
-      console.error('Error loading available items:', error);
+      logger.error('Error al cargar items compatibles', { data: { error } });
       setAvailableItems({ subTypes: [], types: [] });
     } finally {
       setIsLoadingItems(false);
@@ -139,7 +149,7 @@ function EquipmentSubTypesForm({
   // Mostrar error si hay problema cargando checklists
   useEffect(() => {
     if (checklistsError) {
-      console.error('Error loading checklists:', checklistsError);
+      logger.error('Error al cargar checklists', { data: { error: checklistsError } });
     }
   }, [checklistsError]);
 
@@ -167,35 +177,22 @@ function EquipmentSubTypesForm({
     return options;
   }, [availableItems, types]);
 
-  // Resetear el formulario cuando cambia initialData
-  useEffect(() => {
-    if (initialData) {
-      const compatibleIds = initialCompatibleItems.map((item) => `${item.type}:${item.id}`);
-      reset({
-        id: initialData.id,
-        name: initialData.name,
-        is_active: initialData.is_active,
-        type_id: initialData.type,
-        compatible_item_ids: compatibleIds,
-        checklist_ids: initialChecklistIds,
-      });
-    } else {
-      reset({
-        name: '',
-        is_active: true,
-        type_id: '',
-        compatible_item_ids: [],
-        checklist_ids: [],
-      });
-    }
-  }, [initialData, initialCompatibleItems, initialChecklistIds, reset]);
+  // El reset del formulario se maneja via key={editingItem?.id} en el wrapper padre.
+  // Cuando cambia el item editado, React remonta el componente con defaultValues frescos.
+  // NO usar useEffect para resetear — causa loops infinitos con form en deps.
 
-  // Resetear compatible_item_ids cuando cambia el tipo
-  useEffect(() => {
-    if (!isEditing) {
-      form.setValue('compatible_item_ids', []);
-    }
-  }, [selectedTypeId, form, isEditing]);
+  // Handler para cuando cambia el tipo — resetea compatible_item_ids
+  // (Lógica movida de useEffect a handler directo para evitar loop infinito con `form` en deps)
+  const handleTypeChange = useCallback(
+    (newTypeId: string) => {
+      form.setValue('type_id', newTypeId);
+      if (!isEditing) {
+        form.setValue('compatible_item_ids', []);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isEditing]
+  );
 
   // Función para parsear los IDs de items compatibles del formato "type:id" o "sub_type:id"
   const parseCompatibleItems = (ids: string[]): CompatibleItem[] => {
@@ -210,13 +207,12 @@ function EquipmentSubTypesForm({
       const compatibleItems = parseCompatibleItems(data.compatible_item_ids);
 
       if (isEditing && data.id) {
-        const prevActive = !!initialData.is_active;
+        const prevActive = !!initialData?.is_active;
         const nextActive = data.is_active;
 
         // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
         if (prevActive && !nextActive) {
-          //Awaite del fetch de dependencias
-          const depData = await fetchDependencies(dependencyConfigs[0], initialData.id);
+          const depData = await fetchDependencies(dependencyConfigs[0], initialData!.id);
 
           if (depData.data.length) {
             setShowDependencyModal(true);
@@ -232,11 +228,8 @@ function EquipmentSubTypesForm({
           checklist_ids: data.checklist_ids,
         });
 
-        // Invalidar queries de React Query para refrescar los datos
         queryClient.invalidateQueries({ queryKey: ['subtype-checklists', data.id] });
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
-
-        router.refresh();
       } else {
         await createSubTypeOfVehicle({
           name: data.name,
@@ -246,10 +239,7 @@ function EquipmentSubTypesForm({
           checklist_ids: data.checklist_ids,
         });
 
-        // Invalidar queries de React Query para refrescar los datos
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
-
-        router.refresh();
       }
 
       if (onSuccess) onSuccess();
@@ -261,11 +251,10 @@ function EquipmentSubTypesForm({
 
       onReset();
     } catch (error: unknown) {
-      console.error('Error al guardar el subtipo de equipo:', error);
+      logger.error('Error al guardar el subtipo de equipo', { data: { error } });
 
       let errorMessage = 'Ocurrió un error al guardar. Por favor, inténtalo de nuevo.';
 
-      // Extraer el mensaje de error de diferentes formatos de error
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
@@ -278,7 +267,6 @@ function EquipmentSubTypesForm({
         errorMessage = error;
       }
 
-      // Mapear mensajes de error específicos
       if (errorMessage.includes('Subtipo de vehículo no encontrado')) {
         errorMessage = 'No se encontró el subtipo de vehículo a actualizar. Quizás fue eliminado por otro usuario.';
       } else if (errorMessage.includes('PGRST116') || errorMessage.includes('no rows returned')) {
@@ -292,8 +280,8 @@ function EquipmentSubTypesForm({
       });
     }
   };
+
   const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
-    // Solicitamos solo las columnas que se van a mostrar
     const select = config.displayColumns.join(',') as '*';
 
     const data = await fetchDependenciesForValue<'vehicles', 'subType'>({
@@ -342,11 +330,11 @@ function EquipmentSubTypesForm({
           .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
           .update({
             [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as any)
+          } as Parameters<ReturnType<typeof supabase.from>['update']>[0] as any)
           .eq(dependencyConfigs[0].targetColumn, initialData.id);
 
         if (error) {
-          console.error(error);
+          logger.error('Error al actualizar referencias en Supabase', { data: { error } });
         }
 
         // Ahora sí, desactivar el registro actual
@@ -361,14 +349,12 @@ function EquipmentSubTypesForm({
           checklist_ids: values.checklist_ids,
         });
 
-        // Invalidar queries de React Query para refrescar los datos
         queryClient.invalidateQueries({ queryKey: ['subtype-checklists', values.id] });
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
 
-        router.refresh();
         if (onSuccess) onSuccess();
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { error: err } });
         toast({
           title: 'Error',
           description: 'No se pudieron reemplazar las referencias',
@@ -377,10 +363,11 @@ function EquipmentSubTypesForm({
       }
     }
   };
+
   return (
-    <div className="flex space-y-8 max-w-[400px]">
+    <div className="max-w-md">
       <Form {...form}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
           <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar' : 'Crear'} Subtipo de Unidad</h2>
           <FormField
             name="name"
@@ -391,7 +378,7 @@ function EquipmentSubTypesForm({
                   <Input
                     placeholder="Ingrese el nombre del subtipo de equipo"
                     {...form.register('name')}
-                    className={`w-[400px] ${form.formState.errors.name ? 'border-red-500' : ''}`}
+                    className={form.formState.errors.name ? 'border-red-500' : ''}
                   />
                 </FormControl>
                 <FormMessage />
@@ -403,9 +390,9 @@ function EquipmentSubTypesForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de Unidad</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={handleTypeChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger className="w-[400px]">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecciona un tipo" />
                     </SelectTrigger>
                   </FormControl>

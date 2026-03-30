@@ -1,6 +1,6 @@
+import EquipmentDashboardClient from '@/features/Mantenimiento/EquipmentDashboard/components/equipment-dashboard-client';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import EquipmentDashboardClient from './equipment-dashboard-client';
 
 export default async function EquipmentDashboardPage({
   params,

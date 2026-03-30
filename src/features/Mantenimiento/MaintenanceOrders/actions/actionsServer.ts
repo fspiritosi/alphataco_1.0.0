@@ -81,6 +81,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             kilometer: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
@@ -279,6 +280,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             kilometer: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },

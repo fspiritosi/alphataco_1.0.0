@@ -227,7 +227,7 @@ export function getColumns(): ColumnDef<CompanyDocListItem>[] {
 import dynamic from 'next/dynamic';
 
 const AddCompanyDocumentForm = dynamic(
-  () => import('@/app/dashboard/company/actualCompany/components/AddCompanyDocumentForm'),
+  () => import('@/features/Empresa/General/Documentacion/components/AddCompanyDocumentForm'),
   { ssr: false }
 );
 

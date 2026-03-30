@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -25,52 +26,67 @@ const KpiSchema = z.object({
   is_active: z.boolean().optional(),
 });
 
+type KpiFormValues = z.infer<typeof KpiSchema>;
+
+const DEFAULT_VALUES: KpiFormValues = {
+  id: '',
+  name: '',
+  number: '',
+  validity_date: '',
+  calculation_formula: '',
+  improvement_opportunities: '',
+  is_active: true,
+};
+
 export function KpiForm() {
   const editingKpi = useKpiStore((state) => state.kpi);
   const { invalidateKpiChart, invalidateAllKpiCharts } = useInvalidateKpiQueries();
-  const form = useForm<z.infer<typeof KpiSchema>>({
+  const queryClient = useQueryClient();
+
+  const form = useForm<KpiFormValues>({
     resolver: zodResolver(KpiSchema),
-    defaultValues: {
-      name: '',
-      number: '',
-      validity_date: '',
-      calculation_formula: '',
-      improvement_opportunities: '',
-      is_active: true,
-    },
+    defaultValues: DEFAULT_VALUES,
   });
 
   const { reset } = form;
   const router = useRouter();
-  const [isEditing, setIsEditing] = useState(!!editingKpi);
 
+  // Derivar isEditing del store — no necesita estado local propio
+  const isEditing = !!editingKpi;
+
+  // Sincronizar store → form cuando cambia el KPI editado
+  // useEffect es válido aquí porque editingKpi es estado externo (Zustand store)
   useEffect(() => {
     if (editingKpi) {
       reset({
         id: editingKpi.id,
         name: editingKpi.name,
-        number: editingKpi.number || '',
+        number: editingKpi.number ?? '',
         validity_date: editingKpi.validity_date,
         calculation_formula: editingKpi.calculation_formula,
-        improvement_opportunities: editingKpi.improvement_opportunities || '',
+        improvement_opportunities: editingKpi.improvement_opportunities ?? '',
         is_active: editingKpi.is_active ?? true,
       });
-      setIsEditing(true);
     } else {
-      reset({
-        id: '',
-        name: '',
-        number: '',
-        validity_date: '',
-        calculation_formula: '',
-        improvement_opportunities: '',
-        is_active: true,
-      });
-      setIsEditing(false);
+      reset(DEFAULT_VALUES);
     }
   }, [editingKpi, reset]);
 
-  const onSubmit = async (values: z.infer<typeof KpiSchema>) => {
+  const resetForm = () => {
+    reset(DEFAULT_VALUES);
+    useKpiStore.getState().setKpi(null);
+  };
+
+  const invalidateTable = (code?: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ['kpis-indicadores-paginated'] });
+    if (code) {
+      invalidateKpiChart(code as Parameters<typeof invalidateKpiChart>[0]);
+    } else {
+      invalidateAllKpiCharts();
+    }
+  };
+
+  const onSubmit = async (values: KpiFormValues) => {
     toast.promise(
       async () => {
         const result = await createKPI({
@@ -86,25 +102,17 @@ export function KpiForm() {
       {
         loading: 'Creando KPI...',
         success: (result) => {
-          // Si el KPI creado tiene código, invalidar solo ese gráfico
-          if (result?.data?.code) {
-            invalidateKpiChart(result.data.code as any);
-          } else {
-            // Si no hay código, invalidar todos
-            invalidateAllKpiCharts();
-          }
+          invalidateTable(result?.data?.code);
           router.refresh();
           resetForm();
           return 'KPI creado correctamente';
         },
-        error: (error) => {
-          return error?.message || 'Error al crear el KPI';
-        },
+        error: (error) => error?.message || 'Error al crear el KPI',
       }
     );
   };
 
-  const onUpdate = async (values: z.infer<typeof KpiSchema>) => {
+  const onUpdate = async (values: KpiFormValues) => {
     toast.promise(
       async () => {
         const result = await updateKPI({
@@ -121,49 +129,22 @@ export function KpiForm() {
       {
         loading: 'Actualizando KPI...',
         success: (result) => {
-          // Invalidar solo el gráfico del KPI que se actualizó
-          if (editingKpi?.code) {
-            invalidateKpiChart(editingKpi.code as any);
-          } else if (result?.data?.code) {
-            invalidateKpiChart(result.data.code as any);
-          } else {
-            invalidateAllKpiCharts();
-          }
+          invalidateTable(editingKpi?.code ?? result?.data?.code);
           router.refresh();
           resetForm();
           return 'KPI actualizado correctamente';
         },
-        error: (error) => {
-          return error?.message || 'Error al actualizar el KPI';
-        },
+        error: (error) => error?.message || 'Error al actualizar el KPI',
       }
     );
   };
 
-  const handleSubmit = (values: z.infer<typeof KpiSchema>) => {
+  const handleSubmit = (values: KpiFormValues) => {
     if (isEditing) {
       onUpdate(values);
     } else {
       onSubmit(values);
     }
-  };
-
-  const resetForm = () => {
-    reset({
-      id: '',
-      name: '',
-      number: '',
-      validity_date: '',
-      calculation_formula: '',
-      improvement_opportunities: '',
-      is_active: true,
-    });
-    setIsEditing(false);
-    useKpiStore.getState().setKpi(null);
-  };
-
-  const handleCancel = () => {
-    resetForm();
   };
 
   return (
@@ -197,7 +178,7 @@ export function KpiForm() {
                   {...field}
                   className="input w-full"
                   placeholder="Ej: 85.5 (porcentaje objetivo)"
-                  value={field.value || ''}
+                  value={field.value ?? ''}
                 />
               </FormControl>
               <FormMessage />
@@ -287,7 +268,7 @@ export function KpiForm() {
             {isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (
-            <Button type="button" onClick={handleCancel} variant="outline">
+            <Button type="button" onClick={resetForm} variant="outline">
               Cancelar
             </Button>
           )}

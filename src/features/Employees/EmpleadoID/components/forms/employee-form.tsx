@@ -1,32 +1,15 @@
 'use client';
 
-import { getEmployeeById } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
-import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
 import { Logger } from '@/lib/logger';
-import { fetchCountrys } from '@/shared/actions/employees.actions';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
-import {
-  fetchActiveWorkshopSectors,
-  fetchAllCostCenters,
-  fetchCategories,
-  fetchCitiesByProvinceId,
-  fetchCompanyPositions,
-  fetchContractorCompanies,
-  fetchCovenants,
-  fetchGuilds,
-  fetchHierarchicalPositions,
-  fetchProvinces,
-  fetchWorkflowDiagrams,
-} from '../../lib/actions/catalog-actions';
-import { createEmployee, updateEmployee } from '../../lib/actions/employee-actions';
+import { createEmployee, getEmployeeByIdCached, updateEmployee } from '../../actions.server';
 import { EmployeeContactDataForm } from './employee-contact-data-form';
 import { EmployeePersonalDataForm } from './employee-personal-data-form';
 import { EmployeeWorkDataForm } from './employee-work-data-form';
@@ -76,44 +59,18 @@ export const employeeFormSchema = z.object({
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
-type FetchCountries = ReturnType<typeof fetchCountrys>;
-
-export type Options = {
-  personalData: {
-    countriesPromise: FetchCountries;
-  };
-  contactData: {
-    // agrega props cuando existan
-    provincesPromise: ReturnType<typeof fetchProvinces>;
-    citiesPromise: ReturnType<typeof fetchCitiesByProvinceId>;
-  };
-  workData: {
-    costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
-    hierarchicalPositionsPromise: ReturnType<typeof fetchHierarchicalPositions>;
-    companyPositionsPromise: ReturnType<typeof fetchCompanyPositions>;
-    workflowDiagramsPromise: ReturnType<typeof fetchWorkflowDiagrams>;
-    guildsPromise: ReturnType<typeof fetchGuilds>;
-    covenantsPromise: ReturnType<typeof fetchCovenants>;
-    categoriesPromise: ReturnType<typeof fetchCategories>;
-    contractorCompaniesPromise: ReturnType<typeof fetchContractorCompanies>;
-    typeOfContractsPromise: ReturnType<typeof fetchAllContractTypes>;
-    aptitudesPromise: ReturnType<typeof fetchAllAptitudesTecnicas>;
-    workshopSectorsPromise: ReturnType<typeof fetchActiveWorkshopSectors>;
-  };
-};
 
 interface EmployeeFormProps {
-  employee: Awaited<ReturnType<typeof getEmployeeById>> | null;
-  activeTab: 'personalData' | 'contactData' | 'workData'; // vuelve a ser independiente
+  employee: Awaited<ReturnType<typeof getEmployeeByIdCached>> | null;
+  activeTab: 'personalData' | 'contactData' | 'workData';
   mode: 'new' | 'edit' | 'view';
   form: UseFormReturn<EmployeeFormData>;
   onSave?: (data: EmployeeFormData) => void;
   onErrorsChange?: (errors: { personalData: boolean; contactData: boolean; workData: boolean }) => void;
-  options: Options;
 }
-export function EmployeeForm({ employee, mode, onSave, form, options, activeTab }: EmployeeFormProps) {
+
+export function EmployeeForm({ employee, mode, onSave, form, activeTab }: EmployeeFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const readOnly = mode === 'view';
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -139,12 +96,11 @@ export function EmployeeForm({ employee, mode, onSave, form, options, activeTab 
     let createdEmployeeId;
     try {
       if (mode === 'new') {
-        const emnployee = await createEmployee(data as any);
-        createdEmployeeId = emnployee.id;
+        const createdEmployee = await createEmployee(data);
+        createdEmployeeId = createdEmployee.id;
       } else if (mode === 'edit' && employee?.id) {
-        await updateEmployee(employee.id, data as any);
+        await updateEmployee(employee.id, data);
       }
-      // onSave?.(data)
       refresh(createdEmployeeId);
     } catch (error) {
       logger.error('Error saving employee', { data: { error } });
@@ -160,15 +116,15 @@ export function EmployeeForm({ employee, mode, onSave, form, options, activeTab 
         <Tabs defaultValue={activeTab} className="w-full">
           {/* Tab Datos Personales */}
           <TabsContent value="personalData" className="px-2 py-2">
-            <EmployeePersonalDataForm options={options.personalData} form={form} readOnly={readOnly} />
+            <EmployeePersonalDataForm form={form} />
           </TabsContent>
 
           <TabsContent value="contactData" className="px-2 py-2">
-            <EmployeeContactDataForm options={options.contactData} form={form} readOnly={readOnly} />
+            <EmployeeContactDataForm form={form} />
           </TabsContent>
 
           <TabsContent value="workData" className="px-2 py-2">
-            <EmployeeWorkDataForm options={options.workData} form={form} readOnly={readOnly} />
+            <EmployeeWorkDataForm form={form} />
           </TabsContent>
         </Tabs>
         {/* Botón de envío visible en todas las tabs del formulario */}
@@ -177,7 +133,7 @@ export function EmployeeForm({ employee, mode, onSave, form, options, activeTab 
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-fit">
-                  {!readOnly && (
+                  {mode !== 'view' && (
                     <Button type="submit" className="mt-5 ml-2" disabled={isSubmitting}>
                       {isSubmitting ? 'Guardando...' : mode === 'edit' ? 'Guardar cambios' : 'Agregar empleado'}
                     </Button>

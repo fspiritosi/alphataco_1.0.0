@@ -30,15 +30,7 @@ npm run check-types
 - Check for implicit `any` types — must use `Awaited<ReturnType<typeof fn>>`
 - Verify all imports resolve
 
-### 3. Linting
-
-```sh
-npm run lint
-```
-
-- No linting errors
-
-### 4. Tests
+### 3. Tests
 
 > **NOTE**: Unit tests are not configured yet. Skip this step.
 > E2E tests (Cypress) available with `npm run test:e2e` but only run when explicitly requested.
@@ -55,9 +47,8 @@ Provide a build report with:
 1. **Build Status**: Success/Failure
 2. **Build Time**: How long the build took
 3. **Type Errors**: Count and details
-4. **Lint Errors**: Count and details
-5. **Prisma Status**: Client generated, migrations pending
-6. **Recommendations**: Suggestions for improvement
+4. **Prisma Status**: Client generated, migrations pending
+5. **Recommendations**: Suggestions for improvement
 
 ## Common Issues to Watch For
 

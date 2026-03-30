@@ -8,7 +8,7 @@ const nextConfig = {
   },
   logging: {
     fetches: {
-      fullUrl: true
+      fullUrl: process.env.NODE_ENV === 'development'
     }
   },
   images: {
@@ -28,10 +28,6 @@ const nextConfig = {
       {
         protocol: 'http',
         hostname: '127.0.0.1'
-      },
-      {
-        protocol: 'https',
-        hostname: 'vvrckjjyrwqzpbaatemz.supabase.co'
       }
     ]
   },

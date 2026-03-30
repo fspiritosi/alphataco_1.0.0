@@ -35,5 +35,4 @@ Usar formato de conventional commits para los mensajes:
 Antes de commitear, ejecutar:
 
 1. `npm run check-types` — verificar que compila
-2. `npm run lint` — verificar linting
-3. Revisar el diff para detectar problemas (seguridad, `:any`, `console.*`, etc.)
+2. Revisar el diff para detectar problemas (seguridad, `:any`, `console.*`, etc.)

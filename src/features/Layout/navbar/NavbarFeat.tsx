@@ -1,28 +1,33 @@
-import { fetchCurrentCompany, fetchUserCompanies } from '@/shared/actions/company.actions';
-import { getCurrentUserProfile, getUserNotifications } from './actions/actions.navbar';
-import { Navbar } from './components/Navbar';
+import { ModeToggle } from '@/components/ui/ToogleDarkButton';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Suspense } from 'react';
+import { CompanySelectorAsync } from './components/async/CompanySelectorAsync';
+import { UserMenuAsync } from './components/async/UserMenuAsync';
+import { _SidebarToggle } from './components/ui/_SidebarToggle';
 
-async function NavbarFeat() {
-  // Ejecutar todas las consultas en paralelo
-  const [user, notifications, currentCompany] = await Promise.all([
-    getCurrentUserProfile(),
-    getUserNotifications(),
-    fetchCurrentCompany(),
-  ]);
-
-  // Una vez tenemos el usuario, obtenemos sus compañías
-  // (esta consulta depende del ID de usuario, por eso no la ponemos en el Promise.all inicial) comentario de prueba
-  const { sharedCompanies, allCompanies } = await fetchUserCompanies(user?.id || '');
+/**
+ * NavbarFeat — Shell estático + partes dinámicas en Suspense individual.
+ *
+ * El container, hamburger y theme toggle se renderizan INSTANTÁNEAMENTE.
+ * CompanySelector y UserMenu se cargan por streaming independiente.
+ */
+function NavbarFeat() {
   return (
-    <Navbar
-      user={user}
-      notifications={notifications}
-      companies={{
-        sharedCompanies,
-        allCompanies,
-        currentCompany,
-      }}
-    />
+    <nav className="flex flex-shrink items-center justify-end sm:justify-between dark:bg-slate-950 bg-gh text-foreground pr-4 py-4 px-7 pl-0">
+      <div className="items-center flex gap-6">
+        <_SidebarToggle />
+        <Suspense fallback={<Skeleton className="h-9 w-[220px] rounded-md" />}>
+          <CompanySelectorAsync />
+        </Suspense>
+      </div>
+
+      <div className="flex gap-8 items-center">
+        <Suspense fallback={null}>
+          <UserMenuAsync />
+        </Suspense>
+        <ModeToggle />
+      </div>
+    </nav>
   );
 }
 

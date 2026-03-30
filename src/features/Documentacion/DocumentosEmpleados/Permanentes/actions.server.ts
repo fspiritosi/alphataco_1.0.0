@@ -1,5 +1,6 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -34,8 +35,13 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
   document_type: (dir) => ({ document_types: { name: dir } }),
 };
 
-/** Columnas con filtro de texto libre (campos directos o accesibles) */
-const TEXT_FILTER_COLUMNS: string[] = ['employee'];
+/**
+ * Columnas con filtro de texto libre.
+ * 'employee' se maneja manualmente (búsqueda en relación).
+ * 'deny_reason' es campo directo de la tabla.
+ * 'fileNumber' se maneja manualmente con coincidencia exacta (equals).
+ */
+const TEXT_FILTER_COLUMNS: string[] = ['employee', 'deny_reason', 'fileNumber'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
@@ -76,6 +82,7 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
       multiresource: true,
       explired: true,
       is_it_montlhy: true,
+      private: true,
     },
   },
 } as const;
@@ -84,7 +91,8 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -96,7 +104,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
 
-  // ─── Filtro texto de empleado (busca por nombre, apellido y legajo) ─────
+  // ─── Filtro texto de empleado (busca por nombre y apellido) ──────────────
   const employeeTextConditions: Record<string, unknown>[] = [];
   const employeeTextVal = state.filters['employee']?.[0];
   if (employeeTextVal) {
@@ -104,8 +112,25 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
       OR: [
         { employees: { lastname: { contains: employeeTextVal, mode: 'insensitive' } } },
         { employees: { firstname: { contains: employeeTextVal, mode: 'insensitive' } } },
-        { employees: { file: { contains: employeeTextVal, mode: 'insensitive' } } },
       ],
+    });
+  }
+
+  // ─── Filtro texto de motivo de rechazo ────────────────────────────────────
+  const denyReasonTextConditions: Record<string, unknown>[] = [];
+  const denyReasonTextVal = state.filters['deny_reason']?.[0];
+  if (denyReasonTextVal) {
+    denyReasonTextConditions.push({
+      deny_reason: { contains: denyReasonTextVal, mode: 'insensitive' },
+    });
+  }
+
+  // ─── Filtro de legajo (coincidencia exacta) ───────────────────────────────
+  const fileNumberConditions: Record<string, unknown>[] = [];
+  const fileNumberVal = state.filters['fileNumber']?.[0];
+  if (fileNumberVal) {
+    fileNumberConditions.push({
+      employees: { file: { equals: fileNumberVal } },
     });
   }
 
@@ -113,6 +138,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   // Construir el objeto document_types combinando is_it_montlhy + filtros opcionales.
   const documentTypesConditions: Record<string, unknown> = {
     is_it_montlhy: false,
+    ...(!canViewPrivate && { private: { not: true } }),
   };
 
   const mandatoryValues = state.filters['mandatory'];
@@ -138,6 +164,13 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     });
   }
 
+  const andConditions = [
+    ...searchConditions,
+    ...employeeTextConditions,
+    ...denyReasonTextConditions,
+    ...fileNumberConditions,
+  ];
+
   return {
     // Solo documentos permanentes (no mensuales) con empleados activos de la compañía
     ...(employeeId ? { applies: employeeId } : {}),
@@ -148,9 +181,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     document_types: documentTypesConditions,
     ...filtersWhere,
     ...dateFiltersWhere,
-    ...([...searchConditions, ...employeeTextConditions].length > 0
-      ? { AND: [...searchConditions, ...employeeTextConditions] }
-      : {}),
+    ...(andConditions.length > 0 ? { AND: andConditions } : {}),
   };
 }
 
@@ -165,7 +196,7 @@ export async function getEmployeePermanentDocumentsPaginated(searchParams: DataT
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -205,12 +236,15 @@ export type EmployeePermanentDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllEmployeePermanentDocumentsForExport(searchParams: DataTableSearchParams, employeeId?: string) {
+export async function getAllEmployeePermanentDocumentsForExport(
+  searchParams: DataTableSearchParams,
+  employeeId?: string
+) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state, employeeId);
+    const where = await buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -226,17 +260,22 @@ export async function getAllEmployeePermanentDocumentsForExport(searchParams: Da
 }
 
 // ============================================================================
-// FACETS
+// SINGLE FACET (lazy-load individual)
 // ============================================================================
 
 /**
- * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
+ * Obtiene opciones y counts para UN SOLO filtro facetado, con cross-filtering.
+ * Diseñado para lazy-load: cada filtro llama a esta función al abrirse.
  */
-export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTableSearchParams, employeeId?: string) {
+export async function getEmployeePermanentDocumentsSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams,
+  employeeId?: string
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
   const companyId = await getServerCompanyId();
-
-  const baseDocTypesWhere = { is_it_montlhy: false };
-  const baseEmployeesWhere = { company_id: companyId, is_active: true };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -245,12 +284,13 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  function crossWhere(excludeColumn: string) {
+  async function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
+      const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       return {
         ...(employeeId ? { applies: employeeId } : {}),
-        employees: baseEmployeesWhere,
-        document_types: baseDocTypesWhere,
+        employees: { company_id: companyId, is_active: true },
+        document_types: { is_it_montlhy: false, ...(!canViewPrivate && { private: { not: true } }) },
       };
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
@@ -260,7 +300,6 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
     return buildWhereClause(companyId, modified, employeeId);
   }
 
-  // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE
   function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
     const map = new Map<string, number>();
     for (const { key, count } of rows) {
@@ -274,30 +313,74 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
   }
 
   try {
-    const [stateCounts, employeeCounts, documentTypeCounts, mandatoryCounts, multiresourceCounts] = await Promise.all([
-      prisma.documents_employees.groupBy({
+    const where = await crossWhere(columnId);
+
+    // ── Estado (enum directo en documents_employees) ──────────────────────
+    if (columnId === 'state') {
+      const rows = await prisma.documents_employees.groupBy({
         by: ['state'],
-        where: crossWhere('state'),
+        where,
         _count: true,
-      }),
-      prisma.documents_employees.groupBy({
+      });
+      return {
+        counts: toFacetMap(rows.map((r) => ({ key: r.state as string | null, count: r._count }))),
+      };
+    }
+
+    // ── Empleado (FK via campo applies) ────────────────────────────────────
+    if (columnId === 'employee') {
+      const rows = await prisma.documents_employees.groupBy({
         by: ['applies'],
-        where: crossWhere('employee'),
+        where,
         _count: true,
-      }),
-      prisma.documents_employees.groupBy({
+      });
+      const employeeIds = rows.map((r) => r.applies).filter(Boolean) as string[];
+      const employeeRecords =
+        employeeIds.length > 0
+          ? await prisma.employees.findMany({
+              where: { id: { in: employeeIds } },
+              select: { id: true, firstname: true, lastname: true, file: true },
+            })
+          : [];
+
+      const counts = toFacetMap(rows.map((r) => ({ key: r.applies, count: r._count })));
+      const resolvedOptions = employeeRecords.map((e) => ({
+        id: e.id,
+        name: `[${e.file}] ${e.lastname} ${e.firstname}`,
+      }));
+
+      return { counts, resolvedOptions };
+    }
+
+    // ── Tipo de documento (FK UUID → document_types) ──────────────────────
+    if (columnId === 'document_type') {
+      const rows = await prisma.documents_employees.groupBy({
         by: ['id_document_types'],
-        where: crossWhere('document_type'),
+        where,
         _count: true,
-      }),
-      // mandatory es un campo de document_types, no de documents_employees directamente
-      prisma.document_types
+      });
+      const documentTypeIds = rows.map((r) => r.id_document_types).filter(Boolean) as string[];
+      const documentTypeRecords =
+        documentTypeIds.length > 0
+          ? await prisma.document_types.findMany({
+              where: { id: { in: documentTypeIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+
+      const counts = toFacetMap(rows.map((r) => ({ key: r.id_document_types, count: r._count })));
+      const resolvedOptions = documentTypeRecords.map((dt) => ({ id: dt.id, name: dt.name }));
+
+      return { counts, resolvedOptions };
+    }
+
+    // ── Mandatory (booleano en document_types) ────────────────────────────
+    if (columnId === 'mandatory') {
+      const rows = await prisma.document_types
         .findMany({
           where: {
             is_it_montlhy: false,
-            documents_employees: {
-              some: crossWhere('mandatory'),
-            },
+            documents_employees: { some: where },
           },
           select: {
             mandatory: true,
@@ -305,15 +388,17 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
           },
           distinct: ['mandatory'],
         })
-        .then((rows) => rows.map((r) => ({ key: String(r.mandatory), count: r._count.documents_employees }))),
-      // multiresource es un campo de document_types
-      prisma.document_types
+        .then((r) => r.map((row) => ({ key: String(row.mandatory), count: row._count.documents_employees })));
+      return { counts: toFacetMap(rows) };
+    }
+
+    // ── Multiresource (booleano en document_types) ────────────────────────
+    if (columnId === 'multiresource') {
+      const rows = await prisma.document_types
         .findMany({
           where: {
             is_it_montlhy: false,
-            documents_employees: {
-              some: crossWhere('multiresource'),
-            },
+            documents_employees: { some: where },
           },
           select: {
             multiresource: true,
@@ -321,42 +406,14 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
           },
           distinct: ['multiresource'],
         })
-        .then((rows) => rows.map((r) => ({ key: String(r.multiresource), count: r._count.documents_employees }))),
-    ]);
+        .then((r) => r.map((row) => ({ key: String(row.multiresource), count: row._count.documents_employees })));
+      return { counts: toFacetMap(rows) };
+    }
 
-    // Resolver nombres de empleados para el filtro
-    const employeeIds = employeeCounts.map((r) => r.applies).filter(Boolean) as string[];
-    const employeeOptions =
-      employeeIds.length > 0
-        ? await prisma.employees.findMany({
-            where: { id: { in: employeeIds } },
-            select: { id: true, firstname: true, lastname: true, file: true },
-          })
-        : [];
-
-    // Resolver nombres de tipos de documento para el filtro
-    const documentTypeIds = documentTypeCounts.map((r) => r.id_document_types).filter(Boolean) as string[];
-    const documentTypeOptions =
-      documentTypeIds.length > 0
-        ? await prisma.document_types.findMany({
-            where: { id: { in: documentTypeIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-
-    return {
-      state: toFacetMap(stateCounts.map((r) => ({ key: r.state as string, count: r._count }))),
-      employee: toFacetMap(employeeCounts.map((r) => ({ key: r.applies, count: r._count }))),
-      employeeOptions,
-      document_type: toFacetMap(documentTypeCounts.map((r) => ({ key: r.id_document_types, count: r._count }))),
-      documentTypeOptions,
-      mandatory: toFacetMap(mandatoryCounts),
-      multiresource: toFacetMap(multiresourceCounts),
-    };
+    logger.warn('getEmployeePermanentDocumentsSingleFacet: columnId no reconocido', { data: { columnId } });
+    return null;
   } catch (error) {
-    logger.error('Error al obtener facets de documentos permanentes de empleados', { data: { error } });
+    logger.error('Error al obtener facet de documentos permanentes de empleados', { data: { error, columnId } });
     return null;
   }
 }
-
-export type EmployeePermanentDocumentsFacets = Awaited<ReturnType<typeof getEmployeePermanentDocumentsFacets>>;

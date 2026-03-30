@@ -1,11 +1,16 @@
-import { FetchBrandOfVehicles } from '../actions/actions';
-import EquipmentBrands from './equipmentBrands';
+import { Suspense } from 'react';
+import EquipmentBrandList from '../EquipmentBrands/EquipmentBrandList';
+import { EquipmentBrandTableSkeleton } from '../EquipmentBrands/fallback/EquipmentBrandTableSkeleton';
 
-export default async function EquipmentBrandsWrapper() {
-  const vehicleBrands = await FetchBrandOfVehicles();
+interface EquipmentBrandsWrapperProps {
+  searchParams?: Record<string, string | string[] | undefined>;
+  permissions?: Record<string, boolean>;
+}
 
-  // Asegurarse de que vehicleBrands sea siempre un array
-  const safeVehicleBrands = vehicleBrands || [];
-
-  return <EquipmentBrands vehicleBrands={safeVehicleBrands} />;
+export default function EquipmentBrandsWrapper({ searchParams = {}, permissions = {} }: EquipmentBrandsWrapperProps) {
+  return (
+    <Suspense fallback={<EquipmentBrandTableSkeleton />}>
+      <EquipmentBrandList searchParams={searchParams} permissions={permissions} />
+    </Suspense>
+  );
 }

@@ -1,5 +1,5 @@
-import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
+import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';

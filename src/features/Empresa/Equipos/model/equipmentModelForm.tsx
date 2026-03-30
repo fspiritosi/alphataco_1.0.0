@@ -4,19 +4,30 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { createModelOfVehicle, updateModelOfVehicle } from '../actions/actions';
+import {
+  FetchBrandOfVehicles,
+  FetchModelOfVehicles,
+  createModelOfVehicle,
+  updateModelOfVehicle,
+} from '../actions/actions';
+
+const logger = new Logger('EquipmentModelForm');
+
+type VehicleBrand = NonNullable<Awaited<ReturnType<typeof FetchBrandOfVehicles>>>[number];
+type VehicleModel = NonNullable<Awaited<ReturnType<typeof FetchModelOfVehicles>>>[number];
 
 interface EquipmentModelFormProps {
-  initialData?: any | null;
+  initialData?: VehicleModel | null;
   onReset: () => void;
   isEditing?: boolean;
   onSuccess?: () => void;
-  brands: any[];
+  brands: VehicleBrand[];
 }
 
 // Esquema de validación con Zod
@@ -52,6 +63,8 @@ function EquipmentModelForm({
     criteriaMode: 'all',
   });
 
+  const queryClient = useQueryClient();
+
   const {
     handleSubmit,
     reset,
@@ -60,14 +73,12 @@ function EquipmentModelForm({
     setValue,
   } = form;
 
-  const router = useRouter();
-
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
     if (initialData) {
       reset({
         id: Number(initialData.id),
-        name: initialData.name,
+        name: initialData.name ?? '',
         brand: initialData.brand?.toString() || '',
         is_active: initialData.is_active ?? true,
       });
@@ -81,7 +92,6 @@ function EquipmentModelForm({
   }, [initialData, reset]);
 
   const onSubmit = async (data: FormData) => {
-    // La validación ahora es manejada por Zod, no se necesita validación manual
     try {
       if (isEditing && data.id) {
         await updateModelOfVehicle({
@@ -99,6 +109,7 @@ function EquipmentModelForm({
       }
 
       if (onSuccess) onSuccess();
+      queryClient.invalidateQueries({ queryKey: ['equipment-models-table'] });
       toast({
         title: 'Modelo de equipo guardado correctamente',
         description: 'Los cambios se han guardado exitosamente.',
@@ -106,13 +117,11 @@ function EquipmentModelForm({
       });
 
       onReset();
-      router.refresh();
     } catch (error: unknown) {
-      console.error('Error al guardar el modelo de equipo:', error);
+      logger.error('Error al guardar el modelo de equipo', { data: { error } });
 
       let errorMessage = 'Ocurrió un error al guardar. Por favor, inténtalo de nuevo.';
 
-      // Extraer el mensaje de error de diferentes formatos de error
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
@@ -125,7 +134,6 @@ function EquipmentModelForm({
         errorMessage = error;
       }
 
-      // Mapear mensajes de error específicos
       if (errorMessage.includes('Marca de vehiculo no encontrado')) {
         errorMessage = 'No se encontró la marca de vehiculo a actualizar. Quizás fue eliminado por otro usuario.';
       } else if (errorMessage.includes('PGRST116') || errorMessage.includes('no rows returned')) {
@@ -139,10 +147,11 @@ function EquipmentModelForm({
       });
     }
   };
+
   return (
-    <div className="flex space-y-8 max-w-[300px]">
+    <div className="max-w-md">
       <Form {...form}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
           <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar' : 'Crear'} Modelo de Unidad</h2>
           <FormField
             name="brand"
@@ -155,7 +164,7 @@ function EquipmentModelForm({
                       onValueChange={(value) => setValue('brand', value, { shouldValidate: true })}
                       value={watch('brand')}
                     >
-                      <SelectTrigger className="w-[300px]">
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccione una marca" />
                       </SelectTrigger>
                       <SelectContent>

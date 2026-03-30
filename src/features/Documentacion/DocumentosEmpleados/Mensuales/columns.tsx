@@ -1,15 +1,15 @@
 'use client';
 
-import SimpleDocument from '@/components/SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDocument';
 import { PermissionGuard } from '@/features/Permissions';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, FileText, HelpCircle, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -80,16 +80,39 @@ export const columns: ColumnDef<MonthlyEmployeeDocumentListItem>[] = [
           className="hover:underline font-medium"
           target="_blank"
         >
-          [{employee.file}] {employee.lastname} {employee.firstname}
+          {employee.lastname} {employee.firstname}
         </Link>
       );
     },
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.applies;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
-    },
     enableSorting: true,
+  },
+
+  // ─── Legajo ───────────────────────────────────────────────────────────────
+  {
+    id: 'fileNumber',
+    accessorFn: (row) => row.employees?.file ?? '',
+    meta: { title: 'Legajo' },
+    header: ({ column }) => (
+      <div className="flex items-center gap-1">
+        <DataTableColumnHeader column={column} title="Legajo" />
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help">
+                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Coincidencia exacta: ingrese el legajo completo</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    ),
+    cell: ({ row }) => {
+      const file = row.original.employees?.file;
+      if (!file) return <span className="text-muted-foreground">-</span>;
+      return <span className="font-mono text-sm">{file}</span>;
+    },
+    enableSorting: false,
   },
 
   // ─── Tipo de Documento ────────────────────────────────────────────────────
@@ -275,10 +298,15 @@ export const columns: ColumnDef<MonthlyEmployeeDocumentListItem>[] = [
 function ActionsCell({ row }: { row: MonthlyEmployeeDocumentListItem }) {
   const isPending = row.state === 'pendiente';
   const [open, setOpen] = useState(false);
+  const isPrivateDocType = row.document_types?.private === true;
 
   if (isPending) {
+    // Para tipos privados, verificar permiso upload_private en la tab padre
+    const guardTab = isPrivateDocType ? 'documentos-de-empleados' : 'docs-empleados-mensuales';
+    const guardAction = isPrivateDocType ? 'upload_private' : 'update';
+
     return (
-      <PermissionGuard module="documentacion" tab="docs-empleados-mensuales" action="update">
+      <PermissionGuard module="documentacion" tab={guardTab} action={guardAction}>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">

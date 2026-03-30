@@ -63,6 +63,8 @@ const CONFIRMED_ORDERS_SELECT = {
   created_at: true,
   date_approved_at: true,
   order_number: true,
+  source: true,
+  preventive_type: true,
   // FK relations
   vehicles: {
     select: {
@@ -81,6 +83,7 @@ const CONFIRMED_ORDERS_SELECT = {
       kilometer: true,
       created_at: true,
       source: true,
+      preventive_type: true,
       supervisor_id: true,
     },
   },

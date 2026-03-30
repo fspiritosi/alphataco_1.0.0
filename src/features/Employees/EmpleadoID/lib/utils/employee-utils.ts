@@ -50,7 +50,7 @@ export function formatEmployeeData(employee: Awaited<ReturnType<typeof fetchEmpl
     category: employee.category?.name || employee.category_id,
     cost_center_id: employee.cost_center_id,
     empleado_aptitudes:
-      employee.empleado_aptitudes?.map((apt: any) => ({
+      employee.empleado_aptitudes?.map((apt) => ({
         aptitud_id: apt.aptitud_id,
         aptitudes_tecnicas: apt.aptitudes_tecnicas,
       })) || [],

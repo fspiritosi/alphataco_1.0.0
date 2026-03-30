@@ -1,0 +1,39 @@
+'use client';
+import { Button } from '@/components/ui/button';
+import { GoogleIcon } from '@/components/ui/icons/google';
+import { googleLogin } from '@/features/Auth/actions/login-actions';
+import { useFormStatus } from 'react-dom';
+import { toast } from 'sonner';
+
+function GoogleButton() {
+  const { pending } = useFormStatus();
+
+  let url = '';
+
+  if (typeof window !== 'undefined') {
+    url = window.location.origin;
+  }
+
+  return (
+    <Button
+      variant="outline"
+      type="submit"
+      className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg mb-7"
+      disabled={pending}
+      formAction={async () => {
+        const error = await googleLogin(url);
+        if (error) {
+          toast.error('Error al iniciar sesión. Por favor, intenta de nuevo.');
+        }
+      }}
+    >
+      <span className="mr-2">
+        {' '}
+        <GoogleIcon />
+      </span>{' '}
+      {pending ? 'Cargando...' : 'Iniciar sesión con Google'}
+    </Button>
+  );
+}
+
+export default GoogleButton;

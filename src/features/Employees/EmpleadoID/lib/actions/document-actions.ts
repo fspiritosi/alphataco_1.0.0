@@ -1,7 +1,11 @@
 'use server';
 
+import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
+import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
 import type { Database } from '../../../../../../database.types';
 
@@ -11,9 +15,16 @@ type ReasonForTermination = Database['public']['Enums']['reason_for_termination_
 type DocumentState = Database['public']['Enums']['state'];
 
 export async function fetchDocumentTypes() {
+  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase.from('document_types').select('*').order('name', { ascending: true });
+  let query = supabase.from('document_types').select('*').order('name', { ascending: true });
+
+  if (!canViewPrivate) {
+    query = query.eq('private', false);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     logger.error('Error fetching document types', { data: { error } });
@@ -49,11 +60,11 @@ export async function toggleEmployeeStatus(
     p_is_active: activate,
   });
 
-  // Ban/unban del usuario vinculado al empleado
+  // Ban/unban del usuario vinculado al empleado + sync share_company_users.is_active
   try {
     const { data: profile } = await supabase
       .from('profile')
-      .select('credential_id')
+      .select('credential_id, id')
       .eq('employee_id', employeeId)
       .maybeSingle();
 
@@ -71,6 +82,21 @@ export async function toggleEmployeeStatus(
         logger.info(`Usuario ${activate ? 'desbaneado' : 'baneado'} exitosamente`, {
           data: { employeeId, credentialId: profile.credential_id },
         });
+
+        // Sincronizar share_company_users.is_active con el estado del ban
+        try {
+          await prisma.share_company_users.updateMany({
+            where: { profile_id: profile.id },
+            data: { is_active: activate },
+          });
+
+          // Invalidar cache de la tabla de usuarios de empresa
+          await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+        } catch (syncErr) {
+          logger.warn('No se pudo sincronizar is_active en share_company_users', {
+            data: { error: syncErr, profileId: profile.id, activate },
+          });
+        }
       }
     }
   } catch (banErr) {

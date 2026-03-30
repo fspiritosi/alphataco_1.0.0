@@ -52,6 +52,7 @@ export interface EmployeeIndicatorResult {
 }
 
 export interface DiagramIndicatorResult {
+  diagram_type_id: string;
   diagram_type_name: string;
   diagram_type_color: string;
   cantidad_empleados: number;
@@ -120,7 +121,10 @@ export async function getDashboardKpis() {
         where: { company_id: companyId, is_active: true },
       }),
       prisma.dailyreportrows.count({
-        where: reportWhere,
+        where: {
+          status: { in: ['pendiente', 'ejecutado'] },
+          ...reportWhere,
+        },
       }),
       getEquipmentIndicators(),
     ]);
@@ -132,12 +136,14 @@ export async function getDashboardKpis() {
       totalNotAvailable += item.not_available_units;
     }
     const totalFleet = totalActive + totalNotAvailable;
+    const fleetMinusRepair = activeVehicles - totalNotAvailable;
     const operativityPercentage = totalFleet > 0 ? Math.round((totalActive / totalFleet) * 100) : 0;
 
     return {
       activeEmployees,
       activeVehicles,
       totalFleet,
+      fleetMinusRepair,
       totalServices,
       operativityPercentage,
     };
@@ -338,7 +344,8 @@ export async function getDiagramIndicators(positionIds?: string[]): Promise<Diag
       typeMap.get(key)!.employees.add(d.employee_id);
     }
 
-    const result: DiagramIndicatorResult[] = Array.from(typeMap.values()).map((t) => ({
+    const result: DiagramIndicatorResult[] = Array.from(typeMap.entries()).map(([key, t]) => ({
+      diagram_type_id: key,
       diagram_type_name: t.name,
       diagram_type_color: t.color,
       cantidad_empleados: t.employees.size,
@@ -348,6 +355,7 @@ export async function getDiagramIndicators(positionIds?: string[]): Promise<Diag
     const sinDiagrama = totalActiveEmployees - allEmployeesWithDiagram.size;
     if (sinDiagrama > 0) {
       result.push({
+        diagram_type_id: '__none__',
         diagram_type_name: 'Sin diagrama',
         diagram_type_color: '#999999',
         cantidad_empleados: sinDiagrama,

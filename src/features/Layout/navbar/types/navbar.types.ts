@@ -9,7 +9,7 @@ export type CompanyGroup = {
 
 export type NavbarClientProps = {
   user: UserProfile | null;
-  notifications: FormattedNotifications[];
+  // notifications: FormattedNotifications[]; // COMMENTED OUT — notifications unused
   companies: {
     sharedCompanies: Company[];
     allCompanies: Company[];
