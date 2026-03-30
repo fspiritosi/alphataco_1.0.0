@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { resolveDriverName } from '@/features/Mantenimiento/utils/driverInfo';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { ColumnDef } from '@tanstack/react-table';
@@ -159,13 +160,7 @@ export function getMaintenanceRequestColumns({
     // Chofer / Empleado
     {
       id: 'driver',
-      accessorFn: (row) => {
-        const answerData = row.checklist_answers?.answer_data as { chofer?: string } | null;
-        if (answerData?.chofer) return answerData.chofer;
-        const employee = row.employees;
-        if (employee) return `${employee.firstname} ${employee.lastname}`;
-        return '';
-      },
+      accessorFn: (row) => resolveDriverName(row),
       meta: { title: 'Chofer' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,
       cell: ({ row }) => {

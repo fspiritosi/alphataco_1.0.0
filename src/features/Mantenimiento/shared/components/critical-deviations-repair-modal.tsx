@@ -54,6 +54,8 @@ interface CriticalDeviationsRepairModalProps {
   userId?: string;
   /** Kilometraje del equipo */
   kilometer?: string;
+  /** ID del empleado conductor (FK a employees) para driver_employee_id */
+  driverEmployeeId?: string;
 }
 
 export function CriticalDeviationsRepairModal({
@@ -66,6 +68,7 @@ export function CriticalDeviationsRepairModal({
   employeeId,
   userId,
   kilometer,
+  driverEmployeeId,
 }: CriticalDeviationsRepairModalProps) {
   const queryClient = useQueryClient();
 
@@ -169,6 +172,7 @@ export function CriticalDeviationsRepairModal({
         employeeId,
         userId,
         kilometer,
+        driverEmployeeId,
       });
 
       if (!result.ok) {

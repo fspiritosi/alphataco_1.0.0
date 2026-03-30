@@ -395,6 +395,12 @@ export type MaintenanceRequestOrigin = {
     email: string | null;
   } | null;
   createdAt: string | null;
+  // Empleado conductor asociado a la solicitud (si aplica)
+  driverEmployee?: {
+    firstname: string;
+    lastname: string;
+    file: string | null;
+  } | null;
 };
 
 /**
@@ -437,6 +443,9 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
           profile_maintenance_requests_user_idToprofile: {
             select: { id: true, fullname: true, email: true },
           },
+          driver_employee: {
+            select: { id: true, firstname: true, lastname: true, file: true },
+          },
         },
       }),
       prisma.maintenance_activity_log.findMany({
@@ -463,6 +472,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
         type: 'manual',
         manualCreator: creator ? { id: creator.id, fullname: creator.fullname, email: creator.email } : null,
         createdAt: request.created_at?.toISOString() ?? null,
+        driverEmployee: request.driver_employee ?? null,
       };
     } else {
       // Origen desde checklist
@@ -489,6 +499,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
             : null,
         },
         createdAt: request.created_at?.toISOString() ?? null,
+        driverEmployee: request.driver_employee ?? null,
       };
     }
 
@@ -554,6 +565,9 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
               profile_maintenance_requests_user_idToprofile: {
                 select: { id: true, fullname: true, email: true },
               },
+              driver_employee: {
+                select: { id: true, firstname: true, lastname: true, file: true },
+              },
             },
           })
         : Promise.resolve(null),
@@ -583,6 +597,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
           type: 'manual',
           manualCreator: creator ? { id: creator.id, fullname: creator.fullname, email: creator.email } : null,
           createdAt: requestData.created_at?.toISOString() ?? null,
+          driverEmployee: requestData.driver_employee ?? null,
         };
       } else {
         const answerData = requestData.checklist_answers?.answer_data as {
@@ -608,6 +623,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
               : null,
           },
           createdAt: requestData.created_at?.toISOString() ?? null,
+          driverEmployee: requestData.driver_employee ?? null,
         };
       }
     }

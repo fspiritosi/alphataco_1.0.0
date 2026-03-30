@@ -1415,6 +1415,7 @@ model employees {
   workshop_sectors                                                  workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
   employees_diagram                                                 employees_diagram[]
   maintenance_requests                                              maintenance_requests[]
+  maintenance_request_driver                                        maintenance_requests[] @relation("maintenance_request_driver")
   profile                                                           profile[]
   repair_solicitudes                                                repair_solicitudes[]
   repairlogs                                                        repairlogs[]
@@ -1814,12 +1815,14 @@ model maintenance_requests {
   source                                              String?                     @default("checklist")
   engine_hours                                        String?
   preventive_type                                     String?
+  driver_employee_id                                  String?                     @db.Uuid
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]
   profile_maintenance_requests_approved_byToprofile   profile?                    @relation("maintenance_requests_approved_byToprofile", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   checklist_answers                                   checklist_answers?          @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   employees                                           employees?                  @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_employee                                     employees?                  @relation("maintenance_request_driver", fields: [driver_employee_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   vehicles                                            vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_maintenance_requests_rejected_byToprofile   profile?                    @relation("maintenance_requests_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_supervisor_idToprofile profile?                    @relation("maintenance_requests_supervisor_idToprofile", fields: [supervisor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

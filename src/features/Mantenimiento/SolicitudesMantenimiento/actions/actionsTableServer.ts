@@ -138,6 +138,14 @@ export async function getMaintenanceRequestsPaginated(searchParams: DataTableSea
               file: true,
             },
           },
+          driver_employee: {
+            select: {
+              id: true,
+              firstname: true,
+              lastname: true,
+              file: true,
+            },
+          },
           profile_maintenance_requests_supervisor_idToprofile: {
             select: {
               id: true,
@@ -213,6 +221,14 @@ export async function getAllMaintenanceRequestsForExport(searchParams: DataTable
           },
         },
         employees: {
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+            file: true,
+          },
+        },
+        driver_employee: {
           select: {
             id: true,
             firstname: true,

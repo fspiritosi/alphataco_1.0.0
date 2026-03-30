@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
+import { resolveDriverName } from '@/features/Mantenimiento/utils/driverInfo';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -77,17 +78,12 @@ export function getColumns({
       id: 'Chofer',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,
       cell: ({ row }) => {
-        // Obtener el nombre del chofer desde el checklist
-        const answerData = row.original.checklist_answers?.answer_data as { chofer?: string } | null;
-        if (answerData?.chofer) {
-          return answerData.chofer;
-        }
-        // Fallback al empleado vinculado
-        const employee = row.original.employees;
-        if (employee) {
-          return `${employee.firstname} ${employee.lastname}`;
-        }
-        return <span className="text-muted-foreground">-</span>;
+        const name = resolveDriverName(row.original);
+        return name && name !== 'No especificado' ? (
+          <span>{name}</span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
       },
       enableSorting: false,
     },

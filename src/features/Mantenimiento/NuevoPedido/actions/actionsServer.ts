@@ -289,6 +289,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
   deviations?: CreateDeviationFromNuevoPedido[];
   source?: 'preventive';
   preventiveType?: PreventiveType;
+  driverEmployeeId?: string;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
@@ -431,23 +432,35 @@ export async function createMaintenanceOrderFromDeviations(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
       },
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations?.[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'approved',
-            description: deviations[idx]?.comment ?? null,
-            supervisor_comment: deviations[idx]?.comment ?? null,
-            supervisor_comment_by: deviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Crear maintenance_order con source='manual'
@@ -574,6 +587,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   deviations?: CreateDeviationFromNuevoPedido[];
   source?: 'preventive';
   preventiveType?: PreventiveType;
+  driverEmployeeId?: string;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
@@ -701,24 +715,36 @@ export async function createMaintenanceRequestPendingApproval(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
         // Sin approved_by ni approved_at ya que está pendiente
       },
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations?.[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'pending',
-            description: pendingDeviations[idx]?.comment ?? null,
-            supervisor_comment: pendingDeviations[idx]?.comment ?? null,
-            supervisor_comment_by: pendingDeviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Registrar actividad en maintenance_activity_log
