@@ -342,6 +342,9 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
               {selectedVehicle.intern_number && (
                 <p className="text-xs text-muted-foreground">Int. {selectedVehicle.intern_number}</p>
               )}
+              {selectedVehicle.sub_type_name && (
+                <p className="text-xs text-muted-foreground">{selectedVehicle.sub_type_name}</p>
+              )}
             </div>
             {!selectedVehicle.tire_template_id && (
               <div className="flex items-center gap-1 text-destructive text-xs">
@@ -436,6 +439,7 @@ function VehicleRow({ vehicle, selected, onSelect }: VehicleRowProps) {
       <div>
         <p className="font-medium">{vehicle.domain}</p>
         {vehicle.intern_number && <p className="text-xs text-muted-foreground">Int. {vehicle.intern_number}</p>}
+        {vehicle.sub_type_name && <p className="text-xs text-muted-foreground">{vehicle.sub_type_name}</p>}
       </div>
       <div className="flex items-center gap-2">
         {!vehicle.tire_template_id ? (

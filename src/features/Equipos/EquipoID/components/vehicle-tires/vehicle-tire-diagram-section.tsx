@@ -273,7 +273,7 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
       <VehicleAxleEditor
         vehicleId={vehicleId}
         currentAxles={currentAxles}
-        isNewConfig={false}
+        isNewConfig={!isCustom}
         open={editorOpen}
         onOpenChange={setEditorOpen}
         onSave={handleEditorSave}

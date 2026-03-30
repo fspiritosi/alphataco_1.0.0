@@ -71,8 +71,40 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
           <div className="space-y-6">
             {/* Header info */}
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-              <InfoItem label="Vehículo" value={order.vehicle?.domain ?? '-'} />
-              <InfoItem label="Enganche" value={order.trailer?.domain ?? 'Sin enganche'} />
+              <InfoItem
+                label="Vehículo"
+                value={
+                  order.vehicle ? (
+                    <div>
+                      <span>{order.vehicle.domain}</span>
+                      {order.vehicle.sub_type?.name && (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          {order.vehicle.sub_type.name}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+              <InfoItem
+                label="Enganche"
+                value={
+                  order.trailer ? (
+                    <div>
+                      <span>{order.trailer.domain}</span>
+                      {order.trailer.sub_type?.name && (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          {order.trailer.sub_type.name}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    'Sin enganche'
+                  )
+                }
+              />
               <InfoItem label="Kilómetros" value={order.kilometer ?? '-'} />
               <InfoItem label="Fecha" value={moment(order.service_date).format('DD/MM/YYYY')} />
               <InfoItem label="Creado por" value={order.creator?.fullname ?? '-'} />

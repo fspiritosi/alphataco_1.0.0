@@ -34,8 +34,8 @@ const SERVICE_ORDER_SELECT = {
   created_by: true,
   created_at: true,
   closed_at: true,
-  vehicle: { select: { id: true, domain: true, intern_number: true } },
-  trailer: { select: { id: true, domain: true, intern_number: true } },
+  vehicle: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
+  trailer: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
   creator: { select: { id: true, fullname: true } },
   _count: { select: { items: true } },
 } as const;
@@ -298,8 +298,8 @@ export async function getServiceOrderById(id: string) {
     const order = await prisma.tire_service_orders.findUnique({
       where: { id },
       include: {
-        vehicle: { select: { id: true, domain: true, intern_number: true } },
-        trailer: { select: { id: true, domain: true, intern_number: true } },
+        vehicle: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
+        trailer: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
         creator: { select: { id: true, fullname: true } },
         items: {
           select: {
@@ -484,6 +484,21 @@ export async function cancelServiceOrder(id: string) {
               data: { tire_id: item.tire_id },
             });
           }
+        }
+
+        if (item.action === 'MISSING_REPORT' && item.tire_id) {
+          // Reverse missing report: restore tire to INSTALLED and restore position
+          await tx.tires.update({
+            where: { id: item.tire_id },
+            data: { status: 'INSTALLED' },
+          });
+          await tx.vehicle_tire_positions.updateMany({
+            where: {
+              vehicle_id: item.vehicle_id,
+              position_number: item.position_number,
+            },
+            data: { tire_id: item.tire_id },
+          });
         }
 
         // Initial assign: tire_id is null in item, new_tire was placed for the first time
@@ -922,6 +937,7 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
         sub_type: {
           select: {
             id: true,
+            name: true,
             tire_template_id: true,
           },
         },
@@ -935,6 +951,7 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
       intern_number: v.intern_number,
       tire_template_id: resolveVehicleTireTemplateId(v),
       sub_type_id: v.sub_type?.id ?? null,
+      sub_type_name: v.sub_type?.name ?? null,
       type_id: v.type ?? null,
     }));
   } catch (error) {
@@ -1029,6 +1046,7 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
         sub_type: {
           select: {
             id: true,
+            name: true,
             tire_template_id: true,
           },
         },
@@ -1043,6 +1061,7 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
       intern_number: v.intern_number,
       tire_template_id: resolveVehicleTireTemplateId(v),
       sub_type_id: v.sub_type?.id ?? null,
+      sub_type_name: v.sub_type?.name ?? null,
       type_id: v.type ?? null,
     }));
   } catch (error) {

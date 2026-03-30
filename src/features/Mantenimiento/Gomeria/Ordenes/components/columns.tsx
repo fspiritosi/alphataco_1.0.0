@@ -76,9 +76,16 @@ export function getColumns(
       accessorFn: (row) => row.vehicle?.domain ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Vehículo" />,
       cell: ({ row }) => {
-        const domain = row.original.vehicle?.domain;
-        if (!domain) return <div className="text-muted-foreground">-</div>;
-        return <Badge variant="outline">{domain}</Badge>;
+        const vehicle = row.original.vehicle;
+        if (!vehicle?.domain) return <div className="text-muted-foreground">-</div>;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant="outline">{vehicle.domain}</Badge>
+            {vehicle.sub_type?.name && (
+              <span className="text-[10px] text-muted-foreground">{vehicle.sub_type.name}</span>
+            )}
+          </div>
+        );
       },
       filterFn: (row, _id, value: string[]) => {
         const id = row.original.vehicle_id;
@@ -94,15 +101,22 @@ export function getColumns(
       accessorFn: (row) => row.trailer?.domain ?? '',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Enganche" />,
       cell: ({ row }) => {
-        const domain = row.original.trailer?.domain;
-        if (!domain)
+        const trailer = row.original.trailer;
+        if (!trailer?.domain)
           return (
             <div className="inline-flex items-center gap-1 text-muted-foreground">
               <CircleOff className="h-3 w-3" />
               Sin asignar
             </div>
           );
-        return <Badge variant="outline">{domain}</Badge>;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant="outline">{trailer.domain}</Badge>
+            {trailer.sub_type?.name && (
+              <span className="text-[10px] text-muted-foreground">{trailer.sub_type.name}</span>
+            )}
+          </div>
+        );
       },
       filterFn: (row, _id, value: string[]) => {
         const id = row.original.trailer_vehicle_id;

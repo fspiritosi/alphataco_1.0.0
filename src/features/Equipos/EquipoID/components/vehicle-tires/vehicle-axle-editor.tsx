@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/com
 import type { AxleInput as PlantillasAxleInput } from '@/features/Mantenimiento/Gomeria/Plantillas/actions/actions.server';
 import { AxleConfigurator } from '@/features/Mantenimiento/Gomeria/Plantillas/components/AxleConfigurator';
 import { TireDiagramRenderer } from '@/features/Mantenimiento/Gomeria/shared/TireDiagramRenderer';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { AxleInput } from './actions.server';
 import { createVehicleCustomTemplate, updateVehicleCustomAxles } from './actions.server';
@@ -66,15 +66,18 @@ export function VehicleAxleEditor({
   );
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset editor state when opening
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
+  // Sync axles state when the sheet opens (Radix doesn't call onOpenChange for programmatic open)
+  useEffect(() => {
+    if (open) {
       setAxles(
         currentAxles.length > 0
           ? currentAxles.map(toPlantillasAxle)
           : [{ axle_number: 1, tires_per_side: 1, tire_size: '', is_drive_axle: false, is_spare: false }]
       );
     }
+  }, [open, currentAxles]);
+
+  function handleOpenChange(nextOpen: boolean) {
     onOpenChange(nextOpen);
   }
 
