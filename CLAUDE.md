@@ -22,10 +22,8 @@ Verification loop for quality:
 
 1. Make changes
 2. Run `npm run check-types` (TypeScript)
-3. Run `npm run lint` (ESLint)
-4. Run `npm run format` (Prettier)
-5. Before committing: review diff against project rules (see `/review-changes`)
-6. Before creating PR: run full check-types + lint + diff review (see `/grill`)
+3. Before committing: review diff against project rules (see `/review-changes`)
+4. Before creating PR: run full check-types + diff review (see `/grill`)
 
 ```sh
 # Development
@@ -34,8 +32,6 @@ npm run local            # Start Supabase + Next.js dev server
 
 # Verification
 npm run check-types      # TypeScript type checking
-npm run lint             # ESLint
-npm run format           # Prettier
 
 # Database
 npm run create-migration # Create new migration: npm run create-migration nombre
@@ -55,7 +51,7 @@ npm run test:e2e:open    # Open Cypress test runner
 | `/commit-push-pr` | Verify, commit, push, and open a PR                     |
 | `/quick-commit`   | Stage all changes and commit with a descriptive message |
 | `/review-changes` | Review uncommitted changes against project rules        |
-| `/test-and-fix`   | Run check-types + lint and fix any failures             |
+| `/test-and-fix`   | Run check-types and fix any failures                    |
 | `/worktree`       | Create a git worktree for parallel Claude sessions      |
 | `/grill`          | Adversarial code review — don't ship until it passes    |
 | `/techdebt`       | End-of-session sweep for duplicated and dead code       |

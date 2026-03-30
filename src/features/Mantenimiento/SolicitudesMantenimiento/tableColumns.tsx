@@ -6,8 +6,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { ColumnDef } from '@tanstack/react-table';
+import { CheckCircle, Clock, Eye, History, UserRoundCog, XCircle, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
-import { CheckCircle, CircleOff, Clock, Eye, History, UserRoundCog, XCircle, type LucideIcon } from 'lucide-react';
 import type { MaintenanceRequestListItem } from './actions/actionsTableServer';
 
 // ============================================================================
@@ -33,6 +33,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 export const SOURCE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   manual: 'Manual',
+  preventive: 'Preventivo',
 };
 
 type BadgeVariant = 'warning' | 'success' | 'destructive' | 'secondary' | 'default';
@@ -63,11 +64,7 @@ export const STATUS_ICONS: Record<string, LucideIcon> = {
 // COLUMNAS OCULTAS POR DEFECTO
 // ============================================================================
 
-export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = [
-  'source',
-  'kilometer',
-  'engine_hours',
-];
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['source', 'kilometer', 'engine_hours'];
 
 // ============================================================================
 // PROPS DE COLUMNAS
@@ -111,9 +108,7 @@ export function getMaintenanceRequestColumns({
         return (
           <div className="flex flex-col">
             <span className="font-medium">{label}</span>
-            {vehicle.intern_number && (
-              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-            )}
+            {vehicle.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
           </div>
         );
       },
@@ -182,10 +177,10 @@ export function getMaintenanceRequestColumns({
         if (employee) {
           return (
             <div className="flex flex-col">
-              <span>{employee.lastname} {employee.firstname}</span>
-              {employee.file && (
-                <span className="text-xs text-muted-foreground">Leg. {employee.file}</span>
-              )}
+              <span>
+                {employee.lastname} {employee.firstname}
+              </span>
+              {employee.file && <span className="text-xs text-muted-foreground">Leg. {employee.file}</span>}
             </div>
           );
         }
@@ -197,8 +192,7 @@ export function getMaintenanceRequestColumns({
     // Supervisor
     {
       id: 'supervisor',
-      accessorFn: (row) =>
-        row.profile_maintenance_requests_supervisor_idToprofile?.fullname || '',
+      accessorFn: (row) => row.profile_maintenance_requests_supervisor_idToprofile?.fullname || '',
       meta: { title: 'Supervisor' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Supervisor" />,
       cell: ({ row }) => {
@@ -309,12 +303,7 @@ export function getMaintenanceRequestColumns({
 
         return (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onView(request)}
-              title="Ver detalle"
-            >
+            <Button variant="ghost" size="icon" onClick={() => onView(request)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
             <Button

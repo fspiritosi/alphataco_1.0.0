@@ -34,6 +34,7 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
   updated_at: true,
   supervisor_id: true,
   source: true,
+  preventive_type: true,
   vehicles: {
     select: {
       id: true,
@@ -344,6 +345,50 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
   });
 
   const profile = await requireServerAuthProfile();
+
+  // --- PREVENTIVE APPROVAL BRANCH ---
+  if (input.preventiveApproval) {
+    const request = await prisma.maintenance_requests.findUniqueOrThrow({
+      where: { id: input.requestId },
+      select: { equipment_id: true, kilometer: true, engine_hours: true, source: true, preventive_type: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.maintenance_requests.update({
+        where: { id: input.requestId },
+        data: {
+          status: 'approved',
+          approved_by: profile.id,
+          approved_at: new Date(),
+        },
+      });
+
+      await tx.maintenance_orders.create({
+        data: {
+          maintenance_request_id: input.requestId,
+          equipment_id: request.equipment_id,
+          status: 'pending_scheduling',
+          kilometer_at_entry: request.kilometer ?? null,
+          source: request.source,
+          preventive_type: request.preventive_type,
+        },
+      });
+
+      await tx.maintenance_activity_log.create({
+        data: {
+          maintenance_request_id: input.requestId,
+          action_type: 'approved',
+          performed_by: profile.id,
+          notes: input.validatorComment || 'Solicitud preventiva aprobada',
+          metadata: { source: 'preventive', preventive_type: request.preventive_type },
+        },
+      });
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.approveMaintenanceRequestItems);
+    return;
+  }
+  // --- END PREVENTIVE BRANCH ---
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -829,6 +874,37 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
   });
 
   const profile = await requireServerAuthProfile();
+
+  // --- PREVENTIVE REJECTION BRANCH ---
+  if (input.itemIds.length === 0 && input.reason) {
+    const request = await prisma.maintenance_requests.findUniqueOrThrow({
+      where: { id: input.requestId },
+      select: { source: true, preventive_type: true },
+    });
+
+    if (request.source === 'preventive') {
+      await prisma.$transaction(async (tx) => {
+        await tx.maintenance_requests.update({
+          where: { id: input.requestId },
+          data: { status: 'rejected' },
+        });
+
+        await tx.maintenance_activity_log.create({
+          data: {
+            maintenance_request_id: input.requestId,
+            action_type: 'rejected',
+            performed_by: profile.id,
+            notes: input.reason,
+            metadata: { source: 'preventive', preventive_type: request.preventive_type },
+          },
+        });
+      });
+
+      await invalidateCacheTags(INVALIDATION_MAP.rejectMaintenanceRequestItems);
+      return;
+    }
+  }
+  // --- END PREVENTIVE BRANCH ---
 
   try {
     // Actualizar solo los items seleccionados como rechazados

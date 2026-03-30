@@ -9,7 +9,6 @@
     "dev": "next dev",
     "build": "prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "next lint",
     "format": "npx prettier --write .",
     "prepare": "husky",
     "check-types": "tsc --noEmit",

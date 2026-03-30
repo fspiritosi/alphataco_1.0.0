@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
@@ -127,6 +128,9 @@ export function getPendingExecutionColumns({
       header: ({ column }) => <DataTableColumnHeader column={column} title="Items" />,
       cell: ({ row }) => {
         const items = row.original.maintenance_order_items || [];
+        if (items.length === 0 && row.original.maintenance_requests?.source === 'preventive') {
+          return <PreventiveItemsBadge preventiveType={row.original.maintenance_requests?.preventive_type ?? ''} />;
+        }
         return (
           <Badge variant="secondary">
             {items.length} {items.length === 1 ? 'item' : 'items'}

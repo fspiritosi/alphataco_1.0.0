@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
 import { Clock, Gauge, Loader2, Truck, Wrench } from 'lucide-react';
 import moment from 'moment';
@@ -44,6 +45,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
   const equipmentLabel = order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar';
   const internNumber = order.vehicles?.intern_number;
   const itemCount = order.maintenance_order_items?.length ?? 0;
+  const isPreventive = order.maintenance_requests?.source === 'preventive';
 
   const handleSchedule = async () => {
     if (!dateStr) {
@@ -161,63 +163,76 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
         <Separator />
 
         {/* ── Items a reparar ──────────────────────────────────────────── */}
-        <div className="px-6 pt-3 pb-1">
-          <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase flex items-center gap-1.5">
-            <Wrench className="h-3.5 w-3.5" />
-            Items a reparar
-            <span className="text-xs font-normal normal-case">({itemCount})</span>
-          </h3>
-        </div>
-
-        <ScrollArea className="max-h-[35vh]">
-          <div className="px-6 pb-4 space-y-3">
-            {Object.entries(itemsByRepairType).map(([repairType, items]) => (
-              <div key={repairType} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-medium text-xs">
-                    {repairType}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">({items?.length || 0})</span>
-                </div>
-                <div className="space-y-1.5">
-                  {items?.map((item, index) => {
-                    const deviation = item.maintenance_request_items?.checklist_deviations;
-                    return (
-                      <div key={item.id} className="p-2.5 border rounded-lg space-y-1">
-                        <div className="flex items-start gap-2 min-w-0">
-                          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
-                            #{index + 1}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm leading-snug">
-                              {deviation?.item_label || 'Item sin descripción'}
-                            </p>
-                            {deviation?.section_code && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {formatSectionCode(deviation.section_code)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <ItemComments
-                          item={item}
-                          source={order.maintenance_requests?.source}
-                          fallbackAuthorName={
-                            order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
-                          }
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {itemCount === 0 && (
-              <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
-            )}
+        {isPreventive && (
+          <div className="px-6 pt-3 pb-4">
+            <PreventiveInfoCard preventiveType={order.maintenance_requests?.preventive_type ?? ''} />
           </div>
-        </ScrollArea>
+        )}
+
+        {itemCount > 0 && (
+          <>
+            <div className="px-6 pt-3 pb-1">
+              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase flex items-center gap-1.5">
+                <Wrench className="h-3.5 w-3.5" />
+                Items a reparar
+                <span className="text-xs font-normal normal-case">({itemCount})</span>
+              </h3>
+            </div>
+
+            <ScrollArea className="max-h-[35vh]">
+              <div className="px-6 pb-4 space-y-3">
+                {Object.entries(itemsByRepairType).map(([repairType, items]) => (
+                  <div key={repairType} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-medium text-xs">
+                        {repairType}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">({items?.length || 0})</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {items?.map((item, index) => {
+                        const deviation = item.maintenance_request_items?.checklist_deviations;
+                        return (
+                          <div key={item.id} className="p-2.5 border rounded-lg space-y-1">
+                            <div className="flex items-start gap-2 min-w-0">
+                              <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                                #{index + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm leading-snug">
+                                  {deviation?.item_label || 'Item sin descripción'}
+                                </p>
+                                {deviation?.section_code && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {formatSectionCode(deviation.section_code)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <ItemComments
+                              item={item}
+                              source={order.maintenance_requests?.source}
+                              fallbackAuthorName={
+                                order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
+                                  ?.fullname
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </>
+        )}
+
+        {itemCount === 0 && !isPreventive && (
+          <div className="px-6 pb-4">
+            <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
+          </div>
+        )}
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <Separator />

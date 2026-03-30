@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { getCachedSession } from '@/shared/lib/cached-session';
 import { prisma } from '@/shared/lib/prisma';
+import moment from 'moment';
 
 const logger = new Logger('features/Employees/Diagrams');
 
@@ -64,21 +65,24 @@ export async function searchEmployeeDiagrams(params: {
       };
     }
 
-    // Diagram type filter
+    // Diagram type filter — scoped to today's date (same as dashboard getDiagramIndicators)
     if (params.diagramTypes?.length) {
-      const hasNoDiagram = params.diagramTypes.includes('sin_diagrama');
-      const actualTypes = params.diagramTypes.filter((t) => t !== 'sin_diagrama');
+      const now = moment().utcOffset(-3);
+      const todayFilter = { day: now.date(), month: now.month() + 1, year: now.year() };
+
+      const hasNoDiagram = params.diagramTypes.includes('__none__');
+      const actualTypes = params.diagramTypes.filter((t) => t !== '__none__');
 
       if (hasNoDiagram && actualTypes.length === 0) {
-        where.employees_diagram = { none: {} };
+        where.employees_diagram = { none: todayFilter };
       } else if (hasNoDiagram && actualTypes.length > 0) {
         where.OR = [
-          { employees_diagram: { none: {} } },
-          { employees_diagram: { some: { diagram_type: { in: actualTypes } } } },
+          { employees_diagram: { none: todayFilter } },
+          { employees_diagram: { some: { ...todayFilter, diagram_type: { in: actualTypes } } } },
         ];
       } else {
         where.employees_diagram = {
-          some: { diagram_type: { in: actualTypes } },
+          some: { ...todayFilter, diagram_type: { in: actualTypes } },
         };
       }
     }

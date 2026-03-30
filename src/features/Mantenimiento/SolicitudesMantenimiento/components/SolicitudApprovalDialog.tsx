@@ -14,12 +14,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { cn } from '@/lib/utils';
 import { AlertCircle, AlertTriangle, Check, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
-import { useApproveMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
+import { useApproveMaintenanceRequestItems, useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
 
 interface SolicitudApprovalDialogProps {
   request: MaintenanceRequestData;
@@ -82,7 +83,13 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     }
   }, [open, pendingItems]);
 
+  const isPreventive = request.source === 'preventive';
+  const [preventiveAction, setPreventiveAction] = useState<'approve' | 'reject' | null>(null);
+  const [preventiveComment, setPreventiveComment] = useState('');
+  const [preventiveRejectionReason, setPreventiveRejectionReason] = useState('');
+
   const approveMutation = useApproveMaintenanceRequestItems();
+  const rejectMutation = useRejectMaintenanceRequestItems();
 
   // Handlers
   const handleApproveItem = (itemId: string) => {
@@ -210,6 +217,31 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     }
   };
 
+  const handlePreventiveSubmit = async () => {
+    try {
+      if (preventiveAction === 'approve' || preventiveAction === null) {
+        await approveMutation.mutateAsync({
+          requestId: request.id,
+          approvedItems: [],
+          rejectedItems: [],
+          preventiveApproval: true,
+          validatorComment: preventiveComment.trim() || undefined,
+        });
+        toast.success('Solicitud preventiva aprobada');
+      } else if (preventiveAction === 'reject') {
+        await rejectMutation.mutateAsync({
+          requestId: request.id,
+          itemIds: [],
+          reason: preventiveRejectionReason.trim(),
+        });
+        toast.success('Solicitud preventiva rechazada');
+      }
+      onClose();
+    } catch {
+      toast.error('Error al procesar la solicitud');
+    }
+  };
+
   // Separar items críticos y no críticos
   const criticalItems = pendingItems.filter((i) => i.is_critical);
   const nonCriticalItems = pendingItems.filter((i) => !i.is_critical);
@@ -251,92 +283,169 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
             </div>
           </div>
 
-          {/* Items Críticos */}
-          {criticalItems.length > 0 && (
-            <Card className="border-destructive/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2 text-destructive">
-                  <AlertCircle className="h-5 w-5" />
-                  Items Críticos ({criticalItems.length})
-                </CardTitle>
-                <CardDescription>Estos items requieren atención inmediata</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {criticalItems.map((item) => (
-                  <ItemCard
-                    key={item.itemId}
-                    item={item}
-                    decision={decisions[item.itemId]}
-                    onApprove={() => handleApproveItem(item.itemId)}
-                    onReject={() => handleRejectItem(item.itemId)}
-                    onReset={() => handleResetItem(item.itemId)}
-                    onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
-                    onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
-                    onToggleCommentField={() => handleToggleCommentField(item.itemId)}
-                    onCloseCommentField={() => handleCloseCommentField(item.itemId)}
+          {isPreventive ? (
+            <div className="space-y-4">
+              <PreventiveInfoCard preventiveType={request.preventive_type ?? ''} />
+
+              <div className="space-y-2">
+                <Label>Comentario del validador (opcional)</Label>
+                <Textarea
+                  value={preventiveComment}
+                  onChange={(e) => setPreventiveComment(e.target.value)}
+                  placeholder="Agregar un comentario..."
+                  rows={2}
+                  disabled={approveMutation.isPending || rejectMutation.isPending}
+                />
+              </div>
+
+              {preventiveAction === 'reject' && (
+                <div className="space-y-2">
+                  <Label>Motivo del rechazo *</Label>
+                  <Textarea
+                    value={preventiveRejectionReason}
+                    onChange={(e) => setPreventiveRejectionReason(e.target.value)}
+                    placeholder="Ingrese el motivo del rechazo..."
+                    rows={3}
+                    disabled={rejectMutation.isPending}
                   />
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Items No Críticos */}
-          {nonCriticalItems.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                  Otros Items ({nonCriticalItems.length})
-                </CardTitle>
-                <CardDescription>Items que requieren mantenimiento pero no son críticos</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {nonCriticalItems.map((item) => (
-                  <ItemCard
-                    key={item.itemId}
-                    item={item}
-                    decision={decisions[item.itemId]}
-                    onApprove={() => handleApproveItem(item.itemId)}
-                    onReject={() => handleRejectItem(item.itemId)}
-                    onReset={() => handleResetItem(item.itemId)}
-                    onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
-                    onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
-                    onToggleCommentField={() => handleToggleCommentField(item.itemId)}
-                    onCloseCommentField={() => handleCloseCommentField(item.itemId)}
-                  />
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          <Separator />
-
-          {/* Resumen */}
-          <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
-            <div className="flex gap-4 text-sm">
-              <span>
-                <span className="text-green-600 dark:text-green-400 font-medium">{approvedCount}</span> aprobados
-              </span>
-              <span>
-                <span className="text-red-600 dark:text-red-400 font-medium">{rejectedCount}</span> rechazados
-              </span>
-              {pendingCount > 0 && (
-                <span>
-                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">{pendingCount}</span> pendientes
-                </span>
+                </div>
               )}
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Items Críticos */}
+              {criticalItems.length > 0 && (
+                <Card className="border-destructive/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                      <AlertCircle className="h-5 w-5" />
+                      Items Críticos ({criticalItems.length})
+                    </CardTitle>
+                    <CardDescription>Estos items requieren atención inmediata</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {criticalItems.map((item) => (
+                      <ItemCard
+                        key={item.itemId}
+                        item={item}
+                        decision={decisions[item.itemId]}
+                        onApprove={() => handleApproveItem(item.itemId)}
+                        onReject={() => handleRejectItem(item.itemId)}
+                        onReset={() => handleResetItem(item.itemId)}
+                        onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                        onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
+                        onToggleCommentField={() => handleToggleCommentField(item.itemId)}
+                        onCloseCommentField={() => handleCloseCommentField(item.itemId)}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Items No Críticos */}
+              {nonCriticalItems.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      Otros Items ({nonCriticalItems.length})
+                    </CardTitle>
+                    <CardDescription>Items que requieren mantenimiento pero no son críticos</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {nonCriticalItems.map((item) => (
+                      <ItemCard
+                        key={item.itemId}
+                        item={item}
+                        decision={decisions[item.itemId]}
+                        onApprove={() => handleApproveItem(item.itemId)}
+                        onReject={() => handleRejectItem(item.itemId)}
+                        onReset={() => handleResetItem(item.itemId)}
+                        onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                        onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
+                        onToggleCommentField={() => handleToggleCommentField(item.itemId)}
+                        onCloseCommentField={() => handleCloseCommentField(item.itemId)}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Separator />
+
+              {/* Resumen */}
+              <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
+                <div className="flex gap-4 text-sm">
+                  <span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">{approvedCount}</span> aprobados
+                  </span>
+                  <span>
+                    <span className="text-red-600 dark:text-red-400 font-medium">{rejectedCount}</span> rechazados
+                  </span>
+                  {pendingCount > 0 && (
+                    <span>
+                      <span className="text-yellow-600 dark:text-yellow-400 font-medium">{pendingCount}</span>{' '}
+                      pendientes
+                    </span>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={approveMutation.isPending}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={approveMutation.isPending || pendingCount > 0}>
-            {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Procesar Solicitud
-          </Button>
+          {isPreventive ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={approveMutation.isPending || rejectMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              {preventiveAction === 'reject' ? (
+                <Button
+                  variant="destructive"
+                  onClick={handlePreventiveSubmit}
+                  disabled={rejectMutation.isPending || !preventiveRejectionReason.trim()}
+                >
+                  {rejectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Rechazar Solicitud
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setPreventiveAction('reject')}
+                    disabled={approveMutation.isPending}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Rechazar
+                  </Button>
+                  <Button
+                    onClick={handlePreventiveSubmit}
+                    disabled={approveMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Check className="mr-2 h-4 w-4" />
+                    Aprobar Solicitud
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} disabled={approveMutation.isPending}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSubmit} disabled={approveMutation.isPending || pendingCount > 0}>
+                {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Procesar Solicitud
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

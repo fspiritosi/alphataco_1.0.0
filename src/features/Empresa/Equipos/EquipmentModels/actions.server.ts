@@ -252,7 +252,7 @@ export async function getEquipmentModelSingleFacet(
         }
 
         // Resolver nombres de marcas
-        const brandIds = rows.filter((r) => r.brand !== null).map((r) => r.brand as bigint);
+        const brandIds = rows.filter((r) => r.brand !== null).map((r) => r.brand as number);
         const brands =
           brandIds.length > 0
             ? await prisma.brand_vehicles.findMany({

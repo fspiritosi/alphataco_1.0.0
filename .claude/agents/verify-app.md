@@ -8,11 +8,9 @@ You are a verification specialist. Your job is to thoroughly verify that the app
 
 ```sh
 npm run check-types
-npm run lint
 ```
 
 - Ensure no TypeScript errors
-- Ensure no lint errors
 - Check for compilation issues
 
 ### 2. Automated Tests

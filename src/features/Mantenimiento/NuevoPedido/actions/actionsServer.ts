@@ -1,5 +1,6 @@
 'use server';
 
+import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -285,22 +286,125 @@ export async function createMaintenanceOrderFromDeviations(input: {
   supervisorId: string;
   kilometer?: string;
   engine_hours?: string;
-  deviations: CreateDeviationFromNuevoPedido[];
+  deviations?: CreateDeviationFromNuevoPedido[];
+  source?: 'preventive';
+  preventiveType?: PreventiveType;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
       equipmentId: input.equipmentId,
       supervisorId: input.supervisorId,
-      deviationsCount: input.deviations.length,
+      deviationsCount: input.deviations?.length ?? 0,
+      source: input.source,
+      preventiveType: input.preventiveType,
     },
   });
 
   const profile = await requireServerAuthProfile();
 
+  const isPreventive = input.source === 'preventive' && input.preventiveType;
+
+  if (isPreventive) {
+    const { request, order } = await prisma.$transaction(async (tx) => {
+      const request = await tx.maintenance_requests.create({
+        data: {
+          equipment_id: input.equipmentId,
+          supervisor_id: input.supervisorId,
+          status: 'approved',
+          approved_by: profile.id,
+          approved_at: new Date(),
+          user_id: profile.id,
+          kilometer: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      const order = await tx.maintenance_orders.create({
+        data: {
+          equipment_id: input.equipmentId,
+          maintenance_request_id: request.id,
+          status: 'pending_scheduling',
+          kilometer_at_entry: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      await tx.maintenance_activity_log.create({
+        data: {
+          maintenance_request_id: request.id,
+          maintenance_order_id: order.id,
+          action_type: 'created',
+          performed_by: profile.id,
+          notes: `Pedido de mantenimiento preventivo creado: ${input.preventiveType}`,
+          metadata: {
+            source: 'preventive',
+            preventive_type: input.preventiveType,
+            supervisor_id: input.supervisorId,
+          },
+        },
+      });
+
+      return { request, order };
+    });
+
+    // Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+    if (input.kilometer || input.engine_hours) {
+      try {
+        const currentVehicle = await prisma.vehicles.findUnique({
+          where: { id: input.equipmentId },
+          select: { kilometer: true, engine_hours: true },
+        });
+
+        const updateData: Record<string, unknown> = {};
+
+        if (input.kilometer) {
+          const currentKm = Number(currentVehicle?.kilometer) || 0;
+          const newKm = Number(input.kilometer);
+          if (newKm >= currentKm) {
+            updateData.kilometer = input.kilometer;
+          } else {
+            serverLogger.warn('Kilometraje ignorado: menor al actual', {
+              data: { newKm, currentKm, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (input.engine_hours) {
+          const currentHours = Number(currentVehicle?.engine_hours) || 0;
+          const newHours = Number(input.engine_hours);
+          if (newHours >= currentHours) {
+            updateData.engine_hours = input.engine_hours;
+          } else {
+            serverLogger.warn('Horómetro ignorado: menor al actual', {
+              data: { newHours, currentHours, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.vehicles.update({ where: { id: input.equipmentId }, data: updateData });
+        }
+      } catch (vehicleError) {
+        serverLogger.warn('No se pudo actualizar datos del vehículo', { data: { error: vehicleError } });
+      }
+    }
+
+    serverLogger.info('Pedido preventivo creado exitosamente', {
+      data: { requestId: request.id, orderId: order.id, preventiveType: input.preventiveType },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceOrderFromDeviations);
+    return { request, order };
+  }
+
+  const deviations = input.deviations ?? [];
+
   const { request, order } = await prisma.$transaction(async (tx) => {
     // 1. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
-      input.deviations.map((d) =>
+      deviations.map((d) =>
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
@@ -338,9 +442,9 @@ export async function createMaintenanceOrderFromDeviations(input: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'approved',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: deviations[idx]?.comment ?? null,
+            supervisor_comment: deviations[idx]?.comment ?? null,
+            supervisor_comment_by: deviations[idx]?.comment ? profile.id : null,
           },
         })
       )
@@ -362,8 +466,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
       data: requestItems.map((ri, idx) => ({
         maintenance_order_id: order.id,
         maintenance_request_item_id: ri.id,
-        description: input.deviations[idx]?.comment ?? null,
-        is_critical: input.deviations[idx]?.isCritical ?? false,
+        description: deviations[idx]?.comment ?? null,
+        is_critical: deviations[idx]?.isCritical ?? false,
       })),
     });
 
@@ -378,7 +482,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
         metadata: {
           source: 'manual',
           supervisor_id: input.supervisorId,
-          deviations_count: input.deviations.length,
+          deviations_count: deviations.length,
         },
       },
     });
@@ -437,7 +541,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
     data: {
       requestId: request.id,
       orderId: order.id,
-      deviationsCount: input.deviations.length,
+      deviationsCount: deviations.length,
     },
   });
 
@@ -467,22 +571,112 @@ export async function createMaintenanceRequestPendingApproval(input: {
   supervisorId: string;
   kilometer?: string;
   engine_hours?: string;
-  deviations: CreateDeviationFromNuevoPedido[];
+  deviations?: CreateDeviationFromNuevoPedido[];
+  source?: 'preventive';
+  preventiveType?: PreventiveType;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
       equipmentId: input.equipmentId,
       supervisorId: input.supervisorId,
-      deviationsCount: input.deviations.length,
+      deviationsCount: input.deviations?.length ?? 0,
+      source: input.source,
+      preventiveType: input.preventiveType,
     },
   });
 
   const profile = await requireServerAuthProfile();
 
+  const isPreventive = input.source === 'preventive' && input.preventiveType;
+
+  if (isPreventive) {
+    const { request } = await prisma.$transaction(async (tx) => {
+      const request = await tx.maintenance_requests.create({
+        data: {
+          equipment_id: input.equipmentId,
+          supervisor_id: input.supervisorId,
+          status: 'pending_approval',
+          user_id: profile.id,
+          kilometer: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      await tx.maintenance_activity_log.create({
+        data: {
+          maintenance_request_id: request.id,
+          action_type: 'created',
+          performed_by: profile.id,
+          notes: `Solicitud de mantenimiento preventivo creada: ${input.preventiveType} - Pendiente de aprobación`,
+          metadata: {
+            source: 'preventive',
+            preventive_type: input.preventiveType,
+            supervisor_id: input.supervisorId,
+            requires_approval: true,
+          },
+        },
+      });
+
+      return { request };
+    });
+
+    // Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+    if (input.kilometer || input.engine_hours) {
+      try {
+        const currentVehicle = await prisma.vehicles.findUnique({
+          where: { id: input.equipmentId },
+          select: { kilometer: true, engine_hours: true },
+        });
+
+        const updateData: Record<string, unknown> = {};
+
+        if (input.kilometer) {
+          const currentKm = Number(currentVehicle?.kilometer) || 0;
+          const newKm = Number(input.kilometer);
+          if (newKm >= currentKm) {
+            updateData.kilometer = input.kilometer;
+          } else {
+            serverLogger.warn('Kilometraje ignorado: menor al actual', {
+              data: { newKm, currentKm, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (input.engine_hours) {
+          const currentHours = Number(currentVehicle?.engine_hours) || 0;
+          const newHours = Number(input.engine_hours);
+          if (newHours >= currentHours) {
+            updateData.engine_hours = input.engine_hours;
+          } else {
+            serverLogger.warn('Horómetro ignorado: menor al actual', {
+              data: { newHours, currentHours, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.vehicles.update({ where: { id: input.equipmentId }, data: updateData });
+        }
+      } catch (vehicleError) {
+        serverLogger.warn('No se pudo actualizar datos del vehículo', { data: { error: vehicleError } });
+      }
+    }
+
+    serverLogger.info('Solicitud preventiva creada - Pendiente de aprobación', {
+      data: { requestId: request.id, preventiveType: input.preventiveType },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequestPendingApproval);
+    return { request, requestItems: [] };
+  }
+
+  const pendingDeviations = input.deviations ?? [];
+
   const { request, requestItems } = await prisma.$transaction(async (tx) => {
     // 1. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
-      input.deviations.map((d) =>
+      pendingDeviations.map((d) =>
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
@@ -519,9 +713,9 @@ export async function createMaintenanceRequestPendingApproval(input: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'pending',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: pendingDeviations[idx]?.comment ?? null,
+            supervisor_comment: pendingDeviations[idx]?.comment ?? null,
+            supervisor_comment_by: pendingDeviations[idx]?.comment ? profile.id : null,
           },
         })
       )
@@ -537,7 +731,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         metadata: {
           source: 'manual',
           supervisor_id: input.supervisorId,
-          deviations_count: input.deviations.length,
+          deviations_count: pendingDeviations.length,
           requires_approval: true,
         },
       },
@@ -596,7 +790,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   serverLogger.info('Solicitud creada exitosamente - Pendiente de aprobación', {
     data: {
       requestId: request.id,
-      deviationsCount: input.deviations.length,
+      deviationsCount: pendingDeviations.length,
       supervisorId: input.supervisorId,
     },
   });
