@@ -95,6 +95,7 @@ export async function searchEmployeeDiagrams(params: {
           firstname: true,
           lastname: true,
           document_number: true,
+          file: true,
           employees_diagram: {
             select: {
               id: true,
@@ -137,6 +138,7 @@ export async function searchEmployeeDiagrams(params: {
       data: data.map((emp) => ({
         value: emp.id,
         label: `${emp.lastname?.charAt(0).toUpperCase()}${emp.lastname?.slice(1)} ${emp.firstname?.charAt(0).toUpperCase()}${emp.firstname?.slice(1)}`,
+        file: emp.file,
         // Convert Prisma Decimal fields to number for downstream compatibility
         diagrams: emp.employees_diagram.map((d) => {
           const dt = d.diagram_type_employees_diagram_diagram_typeTodiagram_type;
