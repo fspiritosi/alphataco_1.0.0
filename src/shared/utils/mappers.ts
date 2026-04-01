@@ -162,6 +162,38 @@ export const dailyReportStatusBadges: Record<string, BadgeVariant> = {
   cerrado_incompleto: 'destructive',
 };
 
+/**
+ * Labels para daily_report_status (estado de una fila del parte diario)
+ * Valores: pendiente, sin_recursos_asignados, ejecutado, reprogramado, cancelado, en_certificacion
+ */
+export const dailyReportRowStatusLabels: Record<string, string> = {
+  pendiente: 'Pendiente',
+  sin_recursos_asignados: 'Sin recursos',
+  ejecutado: 'Ejecutado',
+  reprogramado: 'Reprogramado',
+  cancelado: 'Cancelado',
+  en_certificacion: 'En certificación',
+};
+
+export const dailyReportRowStatusBadges: Record<string, BadgeVariant> = {
+  pendiente: 'yellow',
+  sin_recursos_asignados: 'destructive',
+  ejecutado: 'success',
+  reprogramado: 'default',
+  cancelado: 'destructive',
+  en_certificacion: 'default',
+};
+
+/**
+ * Labels para daily_report_type_enum (tipo de servicio de una fila)
+ * Valores: mensual, adicional, adicional_permanente
+ */
+export const dailyReportTypeServiceLabels: Record<string, string> = {
+  mensual: 'Mensual',
+  adicional: 'Adicional',
+  adicional_permanente: 'Adicional Permanente',
+};
+
 // ============================================================================
 // FORMULARIOS ENUM LABELS
 // ============================================================================

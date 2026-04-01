@@ -17,10 +17,8 @@ import {
   Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
-import { fetchDailyReportData } from '../actions/server-actions';
-
-// Tipo inferido automáticamente del retorno de la función del servidor
-type DailyReportServerData = Awaited<ReturnType<typeof fetchDailyReportData>>['rows'][0];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DailyReportServerData = Record<string, any>;
 
 interface ServiceDetailModalProps {
   serviceData: DailyReportServerData;
@@ -184,7 +182,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
             </h3>
             <div className="grid gap-4">
               {(
-                serviceData.dailyreportemployeerelations?.map((relation) => relation.employees) ||
+                serviceData.dailyreportemployeerelations?.map((relation: any) => relation.employees) ||
                 (serviceData as any).employees_references ||
                 []
               ).map((employee: any) => {
@@ -267,7 +265,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
             </h3>
             <div className="grid gap-4">
               {(
-                serviceData.dailyreportequipmentrelations?.map((relation) => {
+                serviceData.dailyreportequipmentrelations?.map((relation: any) => {
                   // Unificar vehículos y otros equipos en un solo objeto
                   const vehicle = relation.vehicles;
                   const otherEquip = relation.other_equipment;

@@ -1,0 +1,340 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
+import moment from 'moment';
+import { UseFormReturn } from 'react-hook-form';
+import type { DailyReportRowFormValues } from './schema';
+
+const WORKING_DAY_OPTIONS = [
+  { label: 'Jornada 8 horas', value: 'Jornada 8 horas' },
+  { label: 'Jornada 12 horas', value: 'Jornada 12 horas' },
+  { label: 'Jornada 24 horas', value: 'Jornada 24 horas' },
+  { label: 'Por horario', value: 'por horario' },
+];
+
+interface ScheduleSectionProps {
+  form: UseFormReturn<DailyReportRowFormValues>;
+  isEditMode?: boolean;
+  /** The date of the daily report (for disabling "ejecutado" when in the future) */
+  reportDate?: string;
+  disabled?: boolean;
+}
+
+export function ScheduleSection({ form, isEditMode = false, reportDate, disabled = false }: ScheduleSectionProps) {
+  const watchedWorkingDay = form.watch('working_day')?.toLowerCase() ?? '';
+  const watchedStatus = form.watch('status');
+  const watchedReproDate = form.watch('reprogram_date');
+  const is24Hours = watchedWorkingDay === 'jornada 24 horas';
+  const isPorHorario = watchedWorkingDay === 'por horario';
+
+  const isEjecutadoDisabled = reportDate != null && moment.utc(reportDate).isSameOrAfter(moment().add(1, 'day'), 'day');
+
+  return (
+    <div className="space-y-4">
+      {/* Status — solo en modo edición */}
+      {isEditMode && (
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Estado</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  if (value !== 'ejecutado') {
+                    form.setValue('remit_number', '');
+                  }
+                }}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un estado" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem
+                    value="ejecutado"
+                    disabled={field.value === 'sin_recursos_asignados' || isEjecutadoDisabled}
+                  >
+                    Ejecutado
+                  </SelectItem>
+                  <SelectItem value="reprogramado">Reprogramado</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                  <SelectItem value="pendiente" disabled>
+                    Pendiente
+                  </SelectItem>
+                  <SelectItem value="sin_recursos_asignados" disabled>
+                    Sin recursos asignados
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+
+              {/* Cancel reason */}
+              {watchedStatus === 'cancelado' && (
+                <div className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="cancel_reason"
+                    render={({ field: f }) => (
+                      <FormItem>
+                        <FormLabel>Motivo de cancelación</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ingrese el motivo de cancelación" {...f} value={f.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Reprogram date */}
+              {watchedStatus === 'reprogramado' && (
+                <div className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="reprogram_date"
+                    render={({ field: f }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="mt-2">Fecha de reprogramación</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn('pl-3 text-left font-normal', !f.value && 'text-muted-foreground')}
+                              >
+                                {f.value ? moment(f.value).format('DD/MM/YYYY') : 'Seleccionar fecha'}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={f.value}
+                              onSelect={f.onChange}
+                              disabled={(date) => moment(date).isBefore(moment())}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Jornada */}
+      <FormField
+        control={form.control}
+        name="working_day"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Jornada</FormLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    disabled={disabled}
+                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                    data-testid="working-day-select-button"
+                  >
+                    {field.value
+                      ? WORKING_DAY_OPTIONS.find((d) => d.value.toLowerCase() === field.value.toLowerCase())?.label
+                      : 'Seleccionar jornada'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="max-w-[400px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar jornada..." className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
+                    <CommandGroup>
+                      {WORKING_DAY_OPTIONS.map((day) => (
+                        <CommandItem
+                          value={day.label.toLocaleLowerCase()}
+                          key={day.value.toLocaleLowerCase()}
+                          data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
+                          onSelect={() => {
+                            const previousValue = form.getValues('working_day');
+                            form.setValue('working_day', day.value.toLowerCase());
+                            if (
+                              previousValue?.toLowerCase() === 'por horario' ||
+                              day.value.toLowerCase() !== 'por horario'
+                            ) {
+                              form.setValue('start_time', '');
+                              form.setValue('end_time', '');
+                            }
+                          }}
+                        >
+                          {day.label}
+                          <Check
+                            className={cn(
+                              'ml-auto h-4 w-4',
+                              day.value.toLowerCase() === field.value?.toLowerCase() ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Completed day/night checkboxes — solo en edición y jornada 24h pendiente */}
+      {isEditMode && watchedStatus === 'pendiente' && is24Hours && (
+        <div className="flex flex-row gap-4 items-center">
+          <FormField
+            control={form.control}
+            name="completed_day"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value ?? undefined} onCheckedChange={field.onChange} />
+                </FormControl>
+                <FormLabel className="font-normal m-0">Completado Día</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="completed_night"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value ?? undefined} onCheckedChange={field.onChange} />
+                </FormControl>
+                <FormLabel className="font-normal">Completado Noche</FormLabel>
+              </FormItem>
+            )}
+          />
+        </div>
+      )}
+
+      {/* Horario (condicional: por horario) */}
+      {isPorHorario && (
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="start_time"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Hora de inicio</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="end_time"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Hora de fin</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      )}
+
+      {/* Tipo de servicio */}
+      <FormField
+        control={form.control}
+        name="type_service"
+        render={({ field }) => (
+          <FormItem className="space-y-3">
+            <FormLabel>Tipo de servicio</FormLabel>
+            <FormControl>
+              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
+                <FormItem className="flex items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="mensual" data-testid="type-service-mensual" />
+                  </FormControl>
+                  <FormLabel className="font-normal">Mensual</FormLabel>
+                </FormItem>
+                <FormItem className="flex items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="adicional" data-testid="type-service-adicional" />
+                  </FormControl>
+                  <FormLabel className="font-normal">Adicional</FormLabel>
+                </FormItem>
+                <FormItem className="flex items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <RadioGroupItem value="adicional_permanente" />
+                  </FormControl>
+                  <FormLabel className="font-normal">Adicional Permanente</FormLabel>
+                </FormItem>
+              </RadioGroup>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Descripción */}
+      <FormField
+        control={form.control}
+        name="description"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Descripción</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Ingrese una descripción" className="min-h-[100px]" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Motivo de reasignación (condicional) */}
+      <FormField
+        control={form.control}
+        name="reasigment_reason"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Motivo de reasignación (si aplica)</FormLabel>
+            <FormControl>
+              <Input placeholder="Ingrese el motivo de la reasignación" {...field} value={field.value ?? ''} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
+  );
+}
