@@ -6,57 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { processMassiveDiagramCreation } from './actions/diagram-massive-actions';
+import type { ConflictData, MassiveFormData, ProcessingResult } from './types/massive-diagram';
 
 const logger = new Logger('Diagrams/ConflictResolutionModal');
-
-interface ConflictRecord {
-  employee_id: string;
-  employee_name: string;
-  day: number;
-  month: number;
-  year: number;
-  date_formatted: string;
-  current_diagram_type?: string;
-  current_diagram_name?: string;
-  current_diagram_color?: string;
-  new_diagram_name?: string;
-  new_diagram_color?: string;
-  is_used_in_operations: boolean;
-  operation_details?: string;
-  can_update: boolean;
-  conflict_type: string;
-}
-
-interface ConflictData {
-  operationConflicts: ConflictRecord[];
-  simpleConflicts: ConflictRecord[];
-}
-
-interface MassiveFormData {
-  employeeIds: string[];
-  workDiagramId: string;
-  activeNoveltyId?: string;
-  dateRange: {
-    from: Date;
-    to: Date;
-  };
-}
 
 interface Props {
   conflicts: ConflictData;
   formData: MassiveFormData;
-  onResolve: () => void;
   onCancel: () => void;
-  onProcessingComplete: (result: any) => void;
+  onProcessingComplete: (result: ProcessingResult) => void;
 }
 
-export function ConflictResolutionModal({ conflicts, formData, onResolve, onCancel, onProcessingComplete }: Props) {
+export function ConflictResolutionModal({ conflicts, formData, onCancel, onProcessingComplete }: Props) {
   const [processing, setProcessing] = useState(false);
-  const supabase = supabaseBrowser();
 
   const totalConflicts = conflicts.operationConflicts.length + conflicts.simpleConflicts.length;
 
@@ -64,35 +30,25 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
     setProcessing(true);
 
     try {
-      // Validar que formData existe y tiene los datos necesarios
       if (
-        !formData ||
-        !formData.employeeIds ||
-        !formData.workDiagramId ||
-        !formData.dateRange?.from ||
-        !formData.dateRange?.to
+        !formData?.employeeIds?.length ||
+        !formData?.workDiagramId ||
+        !formData?.dateRange?.from ||
+        !formData?.dateRange?.to
       ) {
-        logger.error('Error: formData is null or missing required properties', { data: { formData } });
+        logger.error('formData missing required properties', { data: { formData } });
         toast.error('Error: Datos del formulario no disponibles');
-        setProcessing(false);
         return;
       }
 
-      // Usar la función SQL corregida con los parámetros correctos
-      const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
-        p_employee_ids: formData.employeeIds,
-        p_work_diagram_id: formData.workDiagramId,
-        p_active_novelty_id: formData.activeNoveltyId || '',
-        p_date_from: formData.dateRange.from.toISOString().split('T')[0],
-        p_date_to: formData.dateRange.to.toISOString().split('T')[0],
-        p_conflict_resolution: 'update', // Actualizar conflictos simples
+      const result = await processMassiveDiagramCreation({
+        employeeIds: formData.employeeIds,
+        workDiagramId: formData.workDiagramId,
+        activeNoveltyId: formData.activeNoveltyId || '',
+        dateFrom: formData.dateRange.from.toISOString().split('T')[0],
+        dateTo: formData.dateRange.to.toISOString().split('T')[0],
+        conflictResolution: 'update',
       });
-
-      if (error) {
-        logger.error('Error creating diagrams', { data: { error } });
-        toast.error('Error al crear los diagramas');
-        return;
-      }
 
       onProcessingComplete(result);
       toast.success('Diagramas procesados correctamente');
