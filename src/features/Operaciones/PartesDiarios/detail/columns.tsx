@@ -10,25 +10,18 @@ import {
   dailyReportTypeServiceLabels,
 } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, CalendarOff, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import moment from 'moment';
 import type { DailyReportDetailRow } from './types';
 
 // ============================================================================
 // HIDDEN COLUMNS BY DEFAULT
 // ============================================================================
 
-export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = [
-  'type_service',
-  'sector',
-  'area',
-  'start_time',
-  'end_time',
-  'description',
-  'remit_number',
-  'completed_day',
-  'completed_night',
-  'customer_equipment',
-];
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['start_time', 'end_time'];
+
+/** Status que NO permiten selección para edición masiva */
+const NON_SELECTABLE_STATUSES = new Set(['ejecutado', 'sin_recursos_asignados', 'reprogramado']);
 
 // ============================================================================
 // PERMISSIONS TYPE
@@ -52,94 +45,75 @@ export type RowActionHandlers = {
 };
 
 // ============================================================================
-// EMPLOYEE BADGE CELL (with deviation detection)
+// HELPERS
 // ============================================================================
 
-function EmployeeBadgeCell({ row, reportDate }: { row: DailyReportDetailRow; reportDate: string }) {
+/**
+ * Retorna un Set de employee_id que aparecen en MÁS de una fila del parte
+ * (excluyendo la fila actual). Usado para marcar duplicados en naranja.
+ */
+function getDuplicatedEmployeeIds(allRows: DailyReportDetailRow[], currentRowId: string): Set<string> {
+  const counts = new Map<string, number>();
+  for (const r of allRows) {
+    if (r.id === currentRowId) continue;
+    for (const rel of r.dailyreportemployeerelations) {
+      if (rel.employee_id) {
+        counts.set(rel.employee_id, (counts.get(rel.employee_id) ?? 0) + 1);
+      }
+    }
+  }
+  // Solo los que aparecen al menos una vez en OTRAS filas
+  return new Set(counts.keys());
+}
+
+// ============================================================================
+// EMPLOYEE BADGE CELL (with duplication detection)
+// ============================================================================
+
+function EmployeeBadgeCell({ row, allRows }: { row: DailyReportDetailRow; allRows: DailyReportDetailRow[] }) {
   const relations = row.dailyreportemployeerelations;
 
   if (!relations || relations.length === 0) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
-  const first = relations[0];
-  const employee = first?.employees;
-
-  if (!employee) {
-    return <span className="text-muted-foreground text-xs">—</span>;
-  }
-
-  const primaryLabel = `[${employee.file ?? '?'}] ${employee.lastname ?? ''} ${employee.firstname ?? ''}`.trim();
-  const extraCount = relations.length - 1;
-
-  // Deviation detection for the first employee
-  // employees_diagram can be the full model (when reportDate is absent) OR
-  // a custom select shape (when reportDate is present). We access the nested
-  // diagram_type relation via a type cast to handle both.
-  const diagram = employee.employees_diagram?.[0];
-  const diagramRecord = diagram as
-    | null
-    | undefined
-    | {
-        diagram_type_employees_diagram_diagram_typeTodiagram_type?: {
-          id?: string;
-          name?: string | null;
-          work_active?: boolean | null;
-        } | null;
-      };
-  const diagramType = diagramRecord?.diagram_type_employees_diagram_diagram_typeTodiagram_type;
-
-  let deviationBadge: React.ReactNode = null;
-  if (!diagram) {
-    deviationBadge = (
-      <Badge variant="destructive" className="text-xs gap-1 px-1.5 py-0">
-        <AlertTriangle className="h-3 w-3" />
-        Sin diagrama
-      </Badge>
-    );
-  } else if (diagramType && diagramType.work_active === false) {
-    deviationBadge = (
-      <Badge variant="yellow" className="text-xs gap-1 px-1.5 py-0">
-        <CalendarOff className="h-3 w-3" />
-        {diagramType.name ?? 'No laboral'}
-      </Badge>
-    );
-  }
-
-  // Build tooltip content for all employees
-  const tooltipLines = relations.map((rel) => {
-    const emp = rel.employees;
-    if (!emp) return rel.employee_id ?? 'Desconocido';
-    return `[${emp.file ?? '?'}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
-  });
+  const duplicatedIds = getDuplicatedEmployeeIds(allRows, row.id);
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex flex-wrap items-center gap-1">
-            <Badge variant="outline" className="text-xs font-normal">
-              {primaryLabel}
-            </Badge>
-            {deviationBadge}
-            {extraCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                +{extraCount}
-              </Badge>
-            )}
-          </div>
-        </TooltipTrigger>
-        {relations.length > 1 && (
-          <TooltipContent className="bg-black text-white rounded-lg p-2">
-            <div className="flex flex-col gap-1 text-xs">
-              {tooltipLines.map((line, i) => (
-                <span key={i}>{line}</span>
-              ))}
-            </div>
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex flex-col gap-1">
+      {relations.map((rel) => {
+        const emp = rel.employees;
+        if (!emp) return null;
+        const isDuplicated = rel.employee_id ? duplicatedIds.has(rel.employee_id) : false;
+        const label = `[${emp.file ?? '?'}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
+
+        if (isDuplicated) {
+          return (
+            <TooltipProvider key={rel.employee_id ?? rel.id} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-normal border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400 cursor-default"
+                  >
+                    {label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black text-white rounded-lg p-2">
+                  <p className="text-xs">Empleado asignado a múltiples filas del parte</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
+
+        return (
+          <Badge key={rel.employee_id ?? rel.id} variant="outline" className="text-xs font-normal">
+            {label}
+          </Badge>
+        );
+      })}
+    </div>
   );
 }
 
@@ -154,57 +128,56 @@ function EquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
-  const first = relations[0];
-  const vehicle = first?.vehicles;
-  const other = first?.other_equipment;
-
-  let primaryLabel = '—';
-  if (vehicle) {
-    primaryLabel = vehicle.domain ?? vehicle.intern_number ?? 'Equipo';
-  } else if (other) {
-    primaryLabel = other.intern_number ?? other.serial_number ?? 'Equipo';
-  }
-
-  const extraCount = relations.length - 1;
-
-  const tooltipLines = relations.map((rel) => {
-    if (rel.vehicles) {
-      const v = rel.vehicles;
-      return `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
-    }
-    if (rel.other_equipment) {
-      const o = rel.other_equipment;
-      return o.intern_number ?? o.serial_number ?? 'Equipo';
-    }
-    return 'Equipo';
-  });
-
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex flex-wrap items-center gap-1">
-            <Badge variant="outline" className="text-xs font-normal">
-              {primaryLabel}
+    <div className="flex flex-col gap-1">
+      {relations.map((rel) => {
+        if (rel.vehicles) {
+          const v = rel.vehicles;
+          const label = `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
+          const isNotOperative = v.condition && v.condition !== 'operativo';
+
+          if (isNotOperative) {
+            return (
+              <TooltipProvider key={rel.id} delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-normal border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400 cursor-default"
+                    >
+                      <AlertTriangle className="h-3 w-3 mr-1 text-red-500" />
+                      {label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-black text-white rounded-lg p-2">
+                    <p className="text-xs">
+                      Equipo {v.condition === 'en_reparacion' ? 'en reparación' : 'no operativo'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
+          return (
+            <Badge key={rel.id} variant="outline" className="text-xs font-normal">
+              {label}
             </Badge>
-            {extraCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                +{extraCount}
-              </Badge>
-            )}
-          </div>
-        </TooltipTrigger>
-        {relations.length > 1 && (
-          <TooltipContent className="bg-black text-white rounded-lg p-2">
-            <div className="flex flex-col gap-1 text-xs">
-              {tooltipLines.map((line, i) => (
-                <span key={i}>{line}</span>
-              ))}
-            </div>
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+          );
+        }
+
+        if (rel.other_equipment) {
+          const o = rel.other_equipment;
+          return (
+            <Badge key={rel.id} variant="outline" className="text-xs font-normal">
+              {o.intern_number ?? o.serial_number ?? 'Equipo'}
+            </Badge>
+          );
+        }
+
+        return null;
+      })}
+    </div>
   );
 }
 
@@ -219,39 +192,14 @@ function CustomerEquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
-  const first = relations[0];
-  const equipo = first?.equipos_clientes;
-  const primaryLabel = equipo?.name ?? 'Equipo cliente';
-  const extraCount = relations.length - 1;
-
-  const tooltipLines = relations.map((rel) => rel.equipos_clientes?.name ?? 'Equipo cliente');
-
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex flex-wrap items-center gap-1">
-            <Badge variant="outline" className="text-xs font-normal">
-              {primaryLabel}
-            </Badge>
-            {extraCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                +{extraCount}
-              </Badge>
-            )}
-          </div>
-        </TooltipTrigger>
-        {relations.length > 1 && (
-          <TooltipContent className="bg-black text-white rounded-lg p-2">
-            <div className="flex flex-col gap-1 text-xs">
-              {tooltipLines.map((line, i) => (
-                <span key={i}>{line}</span>
-              ))}
-            </div>
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex flex-col gap-1">
+      {relations.map((rel) => (
+        <Badge key={rel.id} variant="outline" className="text-xs font-normal">
+          {rel.equipos_clientes?.name ?? 'Equipo cliente'}
+        </Badge>
+      ))}
+    </div>
   );
 }
 
@@ -280,15 +228,19 @@ export function getColumns(
           className="h-4 w-4 cursor-pointer"
         />
       ),
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={(e) => row.toggleSelected(e.target.checked)}
-          aria-label="Seleccionar fila"
-          className="h-4 w-4 cursor-pointer"
-        />
-      ),
+      cell: ({ row }) => {
+        const disabled = NON_SELECTABLE_STATUSES.has(row.original.status);
+        return (
+          <input
+            type="checkbox"
+            checked={row.getIsSelected()}
+            disabled={disabled}
+            onChange={(e) => row.toggleSelected(e.target.checked)}
+            aria-label="Seleccionar fila"
+            className={`h-4 w-4 ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+          />
+        );
+      },
     },
 
     // ── Cliente (FK UUID nullable) ────────────────────────────────────────────
@@ -432,6 +384,31 @@ export function getColumns(
         const val = row.original.status;
         const label = dailyReportRowStatusLabels[val] ?? val;
         const variant = dailyReportRowStatusBadges[val] ?? 'default';
+
+        // Ejecutado parcial: jornada 24h, no completamente ejecutado, pero al menos un turno completado
+        const is24Hours = row.original.working_day === 'Jornada 24 horas';
+        const completedDay = row.original.completed_day;
+        const completedNight = row.original.completed_night;
+        if (is24Hours && val !== 'ejecutado' && (completedDay || completedNight)) {
+          return <Badge variant="info">Ejecutado parcial</Badge>;
+        }
+
+        // Cancelado con motivo → tooltip
+        if (val === 'cancelado' && row.original.cancel_reason) {
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant={variant}>{label}</Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs bg-black text-white rounded-lg p-2">
+                  <p>{row.original.cancel_reason}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
+
         return <Badge variant={variant}>{label}</Badge>;
       },
       filterFn: (row, id, value: string[]) => {
@@ -454,7 +431,9 @@ export function getColumns(
       meta: { title: 'Empleados' },
       enableSorting: false,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
-      cell: ({ row }) => <EmployeeBadgeCell row={row.original} reportDate={reportDate} />,
+      cell: ({ row, table }) => (
+        <EmployeeBadgeCell row={row.original} allRows={table.options.data as DailyReportDetailRow[]} />
+      ),
       filterFn: (row, _id, value: string[]) => {
         const relations = row.original.dailyreportemployeerelations;
         if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
@@ -606,7 +585,9 @@ export function getColumns(
       meta: { title: '', excludeFromExport: true },
       enableSorting: false,
       enableHiding: false,
-      cell: ({ row }) => <RowActionsCell row={row.original} permissions={permissions} handlers={handlers} />,
+      cell: ({ row }) => (
+        <RowActionsCell row={row.original} permissions={permissions} handlers={handlers} reportDate={reportDate} />
+      ),
     },
   ];
 }
@@ -619,11 +600,20 @@ function RowActionsCell({
   row,
   permissions,
   handlers,
+  reportDate,
 }: {
   row: DailyReportDetailRow;
   permissions: Permissions;
   handlers: RowActionHandlers;
+  reportDate: string;
 }) {
+  const isToday = moment(reportDate).isSame(moment(), 'day');
+  const isFutureDate = moment(reportDate).isAfter(moment(), 'day');
+  // Editar: no permitir si ejecutado (salvo hoy) ni en_certificacion
+  const canEdit = permissions.canUpdate && row.status !== 'en_certificacion' && (row.status !== 'ejecutado' || isToday);
+  // Eliminar: solo si fecha hoy, futura, o status sin_recursos_asignados
+  const canDelete = permissions.canDelete && (isToday || isFutureDate || row.status === 'sin_recursos_asignados');
+
   return (
     <div className="flex items-center gap-1">
       {/* Ver detalle — siempre visible */}
@@ -634,7 +624,6 @@ function RowActionsCell({
         onClick={() => handlers.onViewDetail(row)}
       >
         <span className="sr-only">Ver detalle</span>
-        {/* Eye icon inline to avoid import cycle */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="14"
@@ -651,8 +640,8 @@ function RowActionsCell({
         </svg>
       </button>
 
-      {/* Editar — solo si canUpdate */}
-      {permissions.canUpdate && (
+      {/* Editar — solo si canUpdate Y (status no ejecutado O parte es hoy) */}
+      {canEdit && (
         <button
           type="button"
           title="Editar"
@@ -728,8 +717,8 @@ function RowActionsCell({
         </svg>
       </button>
 
-      {/* Eliminar — solo si canDelete */}
-      {permissions.canDelete && (
+      {/* Eliminar — solo si canDelete (fecha hoy/futura o sin_recursos) */}
+      {canDelete && (
         <button
           type="button"
           title="Eliminar"

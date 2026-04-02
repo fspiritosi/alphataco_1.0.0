@@ -31,7 +31,12 @@ export async function DailyReportHeader({ uuid }: Props) {
                 </Badge>
               )}
             </div>
-            <CardDescription>Fecha: {moment(header.date).format('DD/MM/YYYY')}</CardDescription>
+            <CardDescription>
+              Fecha:{' '}
+              {header.date instanceof Date
+                ? `${String(header.date.getUTCDate()).padStart(2, '0')}/${String(header.date.getUTCMonth() + 1).padStart(2, '0')}/${header.date.getUTCFullYear()}`
+                : moment.utc(header.date).format('DD/MM/YYYY')}
+            </CardDescription>
           </div>
         </div>
         <BackButton />

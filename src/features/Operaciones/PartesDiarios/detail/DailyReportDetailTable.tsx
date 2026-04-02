@@ -18,7 +18,12 @@ export async function DailyReportDetailTable({ uuid, searchParams }: Props) {
 
   const header = await getDailyReportHeader(uuid);
   const rawDate = header?.date ?? new Date();
-  const reportDate = rawDate instanceof Date ? rawDate.toISOString() : new Date(rawDate).toISOString();
+  // Extraer YYYY-MM-DD sin timezone para evitar desfase de fecha (UTC midnight → día anterior en hora local)
+  const reportDate =
+    rawDate instanceof Date
+      ? `${rawDate.getUTCFullYear()}-${String(rawDate.getUTCMonth() + 1).padStart(2, '0')}-${String(rawDate.getUTCDate()).padStart(2, '0')}`
+      : String(rawDate).slice(0, 10);
+  const dailyReportStatus = header?.status ?? 'abierto';
 
   const [{ data, total }, preferences, canUpdate, canDelete] = await Promise.all([
     getDailyReportDetailPaginated(uuid, tableParams, reportDate),
@@ -37,6 +42,7 @@ export async function DailyReportDetailTable({ uuid, searchParams }: Props) {
           tableId={TABLE_ID}
           dailyReportId={uuid}
           reportDate={reportDate}
+          dailyReportStatus={dailyReportStatus}
           canUpdate={canUpdate}
           canDelete={canDelete}
           initialColumnVisibility={preferences.columnVisibility ?? {}}

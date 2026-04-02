@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -20,7 +19,9 @@ import {
   LinkIcon,
   PlusCircle,
   RotateCcw,
+  Truck,
   UserCircle,
+  Users,
   Wrench,
   X,
 } from 'lucide-react';
@@ -28,12 +29,6 @@ import moment from 'moment';
 import { useState } from 'react';
 import { getDailyReportRowHistory } from '../actions.server';
 import type { DailyReportHistoryEntry } from '../types';
-
-// ============================================================================
-// LOGGER
-// ============================================================================
-
-const logger = new Logger('HistoryDialog');
 
 // ============================================================================
 // PROPS
@@ -46,7 +41,7 @@ interface Props {
 }
 
 // ============================================================================
-// HELPERS
+// HELPERS — Action type display
 // ============================================================================
 
 type ActionType = string;
@@ -57,6 +52,8 @@ function getActionIcon(actionType: ActionType) {
       return <RotateCcw className="h-5 w-5" />;
     case 'LINK':
       return <LinkIcon className="h-5 w-5" />;
+    case 'UNLINK':
+      return <X className="h-5 w-5" />;
     case 'CREATE':
       return <PlusCircle className="h-5 w-5" />;
     default:
@@ -98,6 +95,10 @@ function getActionName(actionType: ActionType) {
   }
 }
 
+// ============================================================================
+// HELPERS — Field translations
+// ============================================================================
+
 const fieldTranslations: Record<string, string> = {
   completed_night: 'Completado Nocturno',
   completed_day: 'Completado Diurno',
@@ -105,26 +106,98 @@ const fieldTranslations: Record<string, string> = {
   description: 'Descripción',
   start_time: 'Hora de Inicio',
   end_time: 'Hora de Fin',
+  type_service: 'Tipo de Servicio',
   service_type: 'Tipo de Servicio',
   working_day: 'Jornada Laboral',
   customer: 'Cliente',
+  customer_name: 'Cliente',
   service: 'Servicio',
+  service_name: 'Servicio',
   item: 'Ítem',
-  sin_recursos_asignados: 'Sin Recursos Asignados',
+  item_name: 'Ítem',
+  remit_number: 'Nro Remito',
+  cancel_reason: 'Motivo de Cancelación',
+  sector_name: 'Sector',
+  area_name: 'Área',
 };
 
-function getFieldDisplayName(fieldName: string, field: string) {
-  return fieldTranslations[field] || fieldName || field;
+const statusTranslations: Record<string, string> = {
+  pendiente: 'Pendiente',
+  sin_recursos_asignados: 'Sin Recursos Asignados',
+  ejecutado: 'Ejecutado',
+  reprogramado: 'Reprogramado',
+  cancelado: 'Cancelado',
+  en_certificacion: 'En Certificación',
+};
+
+function getFieldDisplayName(field: string) {
+  return fieldTranslations[field] ?? field.replace(/_/g, ' ');
 }
+
+const typeServiceTranslations: Record<string, string> = {
+  mensual: 'Mensual',
+  adicional: 'Adicional',
+  adicional_permanente: 'Adicional Permanente',
+};
 
 function getValueDisplay(value: unknown, field: string): string {
   if (value === null || value === undefined) return 'Sin valor';
-  switch (field) {
-    case 'completed_night':
-    case 'completed_day':
-      return value === true ? 'Completado' : value === false ? 'No completado' : String(value);
+  if (field === 'completed_night' || field === 'completed_day') {
+    return value === true || value === 'true' ? 'Completado' : 'No completado';
+  }
+  if (field === 'status') {
+    return statusTranslations[String(value)] ?? String(value).replace(/_/g, ' ');
+  }
+  if (field === 'type_service') {
+    return typeServiceTranslations[String(value)] ?? String(value).replace(/_/g, ' ');
+  }
+  return String(value);
+}
+
+// ============================================================================
+// HELPERS — Determine relation type from raw DB data
+// ============================================================================
+
+type RelationType = 'employee' | 'vehicle' | 'other_equipment' | 'customer_equipment' | 'unknown';
+
+function getRelationType(entry: DailyReportHistoryEntry): RelationType {
+  const table = entry.related_table;
+  if (table === 'dailyreportemployeerelations') return 'employee';
+  if (table === 'dailyreportequipmentrelations') {
+    // Distinguish vehicle vs other_equipment via changed_data
+    const data = entry.changed_data as Record<string, unknown> | null;
+    if (data?.tipo_equipo === 'other_equipment') return 'other_equipment';
+    return 'vehicle';
+  }
+  if (table === 'dailyreport_customer_equipment_relations') return 'customer_equipment';
+  return 'unknown';
+}
+
+function getRelationBadgeLabel(relType: RelationType): string {
+  switch (relType) {
+    case 'employee':
+      return 'Empleado';
+    case 'vehicle':
+      return 'Vehículo';
+    case 'other_equipment':
+      return 'Otro Equipo';
+    case 'customer_equipment':
+      return 'Equipo Cliente';
     default:
-      return String(value).replaceAll('_', ' ');
+      return 'Recurso';
+  }
+}
+
+function getRelationIcon(relType: RelationType) {
+  switch (relType) {
+    case 'employee':
+      return <Users className="h-3 w-3 mr-1" />;
+    case 'vehicle':
+      return <Truck className="h-3 w-3 mr-1" />;
+    case 'other_equipment':
+      return <Wrench className="h-3 w-3 mr-1" />;
+    default:
+      return null;
   }
 }
 
@@ -161,34 +234,13 @@ function HistoryDialogSkeleton() {
 function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Parse changed_data as an object or array if it's JSON
-  type ChangesShape = {
-    type?: string;
-    fieldName?: string;
-    field?: string;
-    oldValue?: unknown;
-    newValue?: unknown;
-    data?: Record<string, unknown>;
-    vehicle?: { id?: string; domain?: string; internNumber?: string };
-    employee?: { id?: string; name?: string };
-    otherEquipment?: {
-      typeName?: string;
-      internNumber?: string;
-      serialNumber?: string;
-    };
-  };
-
-  let changes: ChangesShape[] = [];
-  try {
-    if (entry.changed_data) {
-      const parsed = JSON.parse(JSON.stringify(entry.changed_data));
-      changes = Array.isArray(parsed) ? parsed : [parsed];
-    }
-  } catch (e) {
-    logger.warn('Error al parsear changed_data del historial', { data: { e } });
-  }
-
   const actionType = entry.action_type ?? 'UNKNOWN';
+  const changedData = (entry.changed_data ?? {}) as Record<string, unknown>;
+  const changedFields = (entry.changed_fields ?? {}) as Record<string, { old?: unknown; new?: unknown }>;
+  const relationType = getRelationType(entry);
+
+  // Count meaningful changes for UPDATE badge
+  const updateFieldCount = Object.keys(changedFields).length;
 
   return (
     <div className="relative">
@@ -213,17 +265,15 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
             <div className="flex items-center gap-2">
               <h3 className="font-medium text-slate-900 dark:text-slate-100">{getActionName(actionType)}</h3>
               <Badge variant="outline" className="font-normal text-xs">
-                {actionType === 'UPDATE' && `${changes.length} cambio${changes.length !== 1 ? 's' : ''}`}
-                {(actionType === 'LINK' || actionType === 'UNLINK') &&
-                  changes[0]?.type === 'vehicle_relation' &&
-                  'Vehículo'}
-                {(actionType === 'LINK' || actionType === 'UNLINK') &&
-                  changes[0]?.type === 'employee_relation' &&
-                  'Empleado'}
-                {(actionType === 'LINK' || actionType === 'UNLINK') &&
-                  changes[0]?.type === 'other_equipment_relation' &&
-                  'Otro Equipo'}
                 {actionType === 'CREATE' && 'Nuevo registro'}
+                {actionType === 'UPDATE' && `${updateFieldCount} cambio${updateFieldCount !== 1 ? 's' : ''}`}
+                {(actionType === 'LINK' || actionType === 'UNLINK') && (
+                  <span className="flex items-center">
+                    {getRelationIcon(relationType)}
+                    {getRelationBadgeLabel(relationType)}
+                  </span>
+                )}
+                {actionType === 'DELETE' && 'Eliminación'}
               </Badge>
             </div>
 
@@ -283,20 +333,30 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
           {/* Expandable content */}
           {expanded && (
             <div className="space-y-3">
-              {/* CREATE: full record */}
-              {actionType === 'CREATE' && changes[0]?.type === 'full_record' && (
+              {/* Reassignment reason — shown for any action type */}
+              {entry.reassignment_reason && (
+                <div className="bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 p-2 rounded-md">
+                  <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-1">
+                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Motivo:</strong> {entry.reassignment_reason}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {/* ── CREATE: show changed_data snapshot ──────────────────── */}
+              {actionType === 'CREATE' && (
                 <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
                   <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
                     Detalles del registro creado:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {Object.entries((changes[0].data as Record<string, unknown>) ?? {}).map(([key, value]) => (
+                    {Object.entries(changedData).map(([key, value]) => (
                       <div key={key} className="bg-white dark:bg-slate-900 p-3 rounded-md border">
-                        <span className="text-xs text-muted-foreground block mb-1 capitalize">
-                          {key.replace(/_/g, ' ')}
-                        </span>
+                        <span className="text-xs text-muted-foreground block mb-1">{getFieldDisplayName(key)}</span>
                         <span className="font-medium text-slate-900 dark:text-slate-200 text-sm">
-                          {String(value ?? '—')}
+                          {getValueDisplay(value, key)}
                         </span>
                       </div>
                     ))}
@@ -304,106 +364,13 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
                 </div>
               )}
 
-              {/* LINK/UNLINK: vehicle */}
-              {(actionType === 'LINK' || actionType === 'UNLINK') && changes[0]?.type === 'vehicle_relation' && (
-                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
-                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                    {actionType === 'LINK' ? 'Vehículo vinculado:' : 'Vehículo desvinculado:'}
-                  </h4>
-                  {entry.reassignment_reason && (
-                    <div className="mb-3 bg-amber-50 border border-amber-200 p-2 rounded-md">
-                      <p className="text-sm text-amber-800 flex items-start gap-1">
-                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>
-                          <strong>Motivo:</strong> {entry.reassignment_reason}
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Dominio:</span>
-                      <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">
-                        {changes[0].vehicle?.domain ?? '—'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Número interno:</span>
-                      <span className="font-medium text-sm">{changes[0].vehicle?.internNumber ?? '—'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* LINK/UNLINK: other equipment */}
-              {(actionType === 'LINK' || actionType === 'UNLINK') &&
-                changes[0]?.type === 'other_equipment_relation' && (
-                  <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
-                    <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                      {actionType === 'LINK' ? 'Otro equipo vinculado:' : 'Otro equipo desvinculado:'}
-                    </h4>
-                    {entry.reassignment_reason && (
-                      <div className="mb-3 bg-amber-50 border border-amber-200 p-2 rounded-md">
-                        <p className="text-sm text-amber-800 flex items-start gap-1">
-                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          <span>
-                            <strong>Motivo:</strong> {entry.reassignment_reason}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                    <div className="bg-white dark:bg-slate-900 p-3 rounded-md border flex flex-col gap-2">
-                      {changes[0].otherEquipment?.typeName && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Tipo:</span>
-                          <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100">
-                            <Wrench className="h-3 w-3 mr-1" />
-                            {changes[0].otherEquipment.typeName}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Número interno:</span>
-                        <span className="font-medium text-sm">{changes[0].otherEquipment?.internNumber ?? '—'}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              {/* LINK/UNLINK: employee */}
-              {(actionType === 'LINK' || actionType === 'UNLINK') && changes[0]?.type === 'employee_relation' && (
-                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
-                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                    {actionType === 'LINK' ? 'Empleado vinculado:' : 'Empleado desvinculado:'}
-                  </h4>
-                  {entry.reassignment_reason && (
-                    <div className="mb-3 bg-amber-50 border border-amber-200 p-2 rounded-md">
-                      <p className="text-sm text-amber-800 flex items-start gap-1">
-                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>
-                          <strong>Motivo:</strong> {entry.reassignment_reason}
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Nombre:</span>
-                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                        {changes[0].employee?.name ?? '—'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* UPDATE: field changes */}
-              {actionType === 'UPDATE' && (
+              {/* ── UPDATE: show changed_fields (old → new) ────────────── */}
+              {actionType === 'UPDATE' && updateFieldCount > 0 && (
                 <div className="space-y-3">
-                  {changes.map((change, idx) => (
-                    <div key={idx} className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  {Object.entries(changedFields).map(([field, change]) => (
+                    <div key={field} className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
                       <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                        {getFieldDisplayName(change.fieldName ?? '', change.field ?? '')}
+                        {getFieldDisplayName(field)}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="bg-white dark:bg-slate-900 p-3 rounded-md border relative overflow-hidden">
@@ -412,8 +379,8 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
                             <X className="h-3 w-3 text-red-500" />
                             Valor anterior
                           </span>
-                          <span className="font-medium text-sm capitalize">
-                            {getValueDisplay(change.oldValue, change.field ?? '')}
+                          <span className="font-medium text-sm capitalize block mt-1">
+                            {getValueDisplay(change.old, field)}
                           </span>
                         </div>
                         <div className="bg-white dark:bg-slate-900 p-3 rounded-md border relative overflow-hidden">
@@ -422,13 +389,130 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
                             <CheckCircle2 className="h-3 w-3 text-green-500" />
                             Valor nuevo
                           </span>
-                          <span className="font-medium text-sm capitalize">
-                            {getValueDisplay(change.newValue, change.field ?? '')}
+                          <span className="font-medium text-sm capitalize block mt-1">
+                            {getValueDisplay(change.new, field)}
                           </span>
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ── UPDATE fallback: if changed_fields is empty, show changed_data snapshot ── */}
+              {actionType === 'UPDATE' && updateFieldCount === 0 && Object.keys(changedData).length > 0 && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    Estado del registro al momento de la actualización:
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.entries(changedData).map(([key, value]) => (
+                      <div key={key} className="bg-white dark:bg-slate-900 p-3 rounded-md border">
+                        <span className="text-xs text-muted-foreground block mb-1">{getFieldDisplayName(key)}</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-200 text-sm">
+                          {getValueDisplay(value, key)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── LINK/UNLINK: employee ───────────────────────────────── */}
+              {(actionType === 'LINK' || actionType === 'UNLINK') && relationType === 'employee' && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    {actionType === 'LINK' ? 'Empleado vinculado:' : 'Empleado desvinculado:'}
+                  </h4>
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-200">
+                        {(changedData.empleado_nombre as string) ?? '—'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── LINK/UNLINK: vehicle ────────────────────────────────── */}
+              {(actionType === 'LINK' || actionType === 'UNLINK') && relationType === 'vehicle' && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    {actionType === 'LINK' ? 'Vehículo vinculado:' : 'Vehículo desvinculado:'}
+                  </h4>
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Dominio:</span>
+                      <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-900 dark:text-purple-200">
+                        <Truck className="h-3 w-3 mr-1" />
+                        {(changedData.vehiculo_dominio as string) ?? '—'}
+                      </Badge>
+                    </div>
+                    {typeof changedData.vehiculo_numero_interno === 'string' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Número interno:</span>
+                        <span className="font-medium text-sm">{changedData.vehiculo_numero_interno}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── LINK/UNLINK: other equipment ───────────────────────── */}
+              {(actionType === 'LINK' || actionType === 'UNLINK') && relationType === 'other_equipment' && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    {actionType === 'LINK' ? 'Otro equipo vinculado:' : 'Otro equipo desvinculado:'}
+                  </h4>
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border flex flex-col gap-2">
+                    {typeof changedData.equipo_tipo === 'string' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Tipo:</span>
+                        <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100 dark:bg-teal-900 dark:text-teal-200">
+                          <Wrench className="h-3 w-3 mr-1" />
+                          {changedData.equipo_tipo}
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Número interno:</span>
+                      <span className="font-medium text-sm">
+                        {(changedData.equipo_numero_interno as string) ?? (changedData.equipo_serie as string) ?? '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── LINK/UNLINK: customer equipment ────────────────────── */}
+              {(actionType === 'LINK' || actionType === 'UNLINK') && relationType === 'customer_equipment' && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    {actionType === 'LINK' ? 'Equipo cliente vinculado:' : 'Equipo cliente desvinculado:'}
+                  </h4>
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border">
+                    <span className="font-medium text-sm">{(changedData.equipo_cliente_nombre as string) ?? '—'}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── LINK/UNLINK: unknown relation type — show raw data ── */}
+              {(actionType === 'LINK' || actionType === 'UNLINK') && relationType === 'unknown' && (
+                <div className="p-4 rounded-lg border bg-slate-50 dark:bg-slate-800">
+                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                    {actionType === 'LINK' ? 'Recurso vinculado:' : 'Recurso desvinculado:'}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.entries(changedData).map(([key, value]) => (
+                      <div key={key} className="bg-white dark:bg-slate-900 p-3 rounded-md border">
+                        <span className="text-xs text-muted-foreground block mb-1">{key.replace(/_/g, ' ')}</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-200 text-sm">
+                          {String(value ?? '—')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

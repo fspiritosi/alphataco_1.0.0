@@ -310,6 +310,7 @@ function buildRowSelect(reportDate?: string) {
             id: true,
             domain: true,
             intern_number: true,
+            condition: true,
             brand_vehicles: {
               select: { name: true },
             },
@@ -895,6 +896,19 @@ export interface BulkRowUpdateData {
   working_day?: string;
   type_service?: 'mensual' | 'adicional' | 'adicional_permanente' | null;
   description?: string | null;
+  /** Motivo de cancelación (requerido cuando status = 'cancelado') */
+  cancel_reason?: string | null;
+  /**
+   * Fecha destino para reprogramación (YYYY-MM-DD).
+   * Cuando se provee con status = 'reprogramado', se crean nuevas filas en esa fecha.
+   */
+  reschedule_date?: string | null;
+  /**
+   * Pseudo-estados que modifican completed_day / completed_night en lugar del status.
+   * Se resuelven en bulkUpdateRowStatus y nunca se persisten como status.
+   */
+  completar_diurno?: boolean;
+  completar_nocturno?: boolean;
 }
 
 // ── Helpers internos ─────────────────────────────────────────────────────────
@@ -1182,20 +1196,44 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
   }
 
   try {
-    const updatePayload: Record<string, unknown> = {};
+    // ── Completar diurno (pseudo-estado: solo setea completed_day = true) ────
+    if (data.completar_diurno) {
+      const result = await prisma.dailyreportrows.updateMany({
+        where: { id: { in: rowIds } },
+        data: { completed_day: true },
+      });
+      return { count: result.count };
+    }
 
-    if (data.status !== undefined) {
-      updatePayload.status = data.status;
+    // ── Completar nocturno (pseudo-estado: solo setea completed_night = true) ─
+    if (data.completar_nocturno) {
+      const result = await prisma.dailyreportrows.updateMany({
+        where: { id: { in: rowIds } },
+        data: { completed_night: true },
+      });
+      return { count: result.count };
     }
-    if (data.working_day !== undefined) {
-      updatePayload.working_day = data.working_day;
+
+    // ── Reprogramado con fecha: clonar filas a destino + marcar origen ────────
+    if (data.status === 'reprogramado' && data.reschedule_date) {
+      await cloneDailyReportRows(rowIds, [data.reschedule_date], {
+        includeEmployees: false,
+        includeEquipment: false,
+      });
+      await prisma.dailyreportrows.updateMany({
+        where: { id: { in: rowIds } },
+        data: { status: 'reprogramado' },
+      });
+      return { count: rowIds.length };
     }
-    if (data.type_service !== undefined) {
-      updatePayload.type_service = data.type_service;
-    }
-    if (data.description !== undefined) {
-      updatePayload.description = data.description;
-    }
+
+    // ── Actualización normal ─────────────────────────────────────────────────
+    const updatePayload: Record<string, unknown> = {};
+    if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.working_day !== undefined) updatePayload.working_day = data.working_day;
+    if (data.type_service !== undefined) updatePayload.type_service = data.type_service;
+    if (data.description !== undefined) updatePayload.description = data.description;
+    if (data.cancel_reason !== undefined) updatePayload.cancel_reason = data.cancel_reason;
 
     const result = await prisma.dailyreportrows.updateMany({
       where: { id: { in: rowIds } },
@@ -1254,6 +1292,16 @@ export interface CloneRowsOptions {
   includeEmployees?: boolean;
   /** Si true, copia equipos (vehículos + otros) de las filas originales */
   includeEquipment?: boolean;
+  /**
+   * Si se provee y rowIds está vacío, clona TODAS las filas del parte indicado.
+   * Permite el flujo "Clonar todo el parte" sin selección previa.
+   */
+  cloneAllFromReportId?: string;
+  /**
+   * Filtro opcional de tipos de servicio a incluir (solo aplica en modo "clonar todo").
+   * Si no se provee, se incluyen todos los tipos.
+   */
+  typeServiceFilter?: Array<'mensual' | 'adicional' | 'adicional_permanente'>;
 }
 
 /**
@@ -1272,8 +1320,28 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
     data: { rowCount: rowIds.length, dateCount: targetDates.length },
   });
 
-  if (rowIds.length === 0 || targetDates.length === 0) {
-    return { createdReports: [], clonedRowCount: 0 };
+  if (targetDates.length === 0) {
+    return { createdReportIds: [], clonedRowCount: 0 };
+  }
+
+  // Modo "clonar todo": si rowIds está vacío pero se proporcionó un dailyReportId,
+  // buscar todas las filas activas del parte (con filtro opcional por tipo de servicio)
+  let resolvedRowIds = rowIds;
+  if (rowIds.length === 0) {
+    if (!options.cloneAllFromReportId) {
+      return { createdReportIds: [], clonedRowCount: 0 };
+    }
+    const allRows = await prisma.dailyreportrows.findMany({
+      where: {
+        daily_report_id: options.cloneAllFromReportId,
+        ...(options.typeServiceFilter?.length ? { type_service: { in: options.typeServiceFilter } } : {}),
+      },
+      select: { id: true },
+    });
+    resolvedRowIds = allRows.map((r) => r.id);
+    if (resolvedRowIds.length === 0) {
+      return { createdReportIds: [], clonedRowCount: 0 };
+    }
   }
 
   const { includeEmployees = false, includeEquipment = false } = options;
@@ -1281,7 +1349,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
   try {
     // 1. Cargar las filas originales con sus relaciones
     const originalRows = await prisma.dailyreportrows.findMany({
-      where: { id: { in: rowIds } },
+      where: { id: { in: resolvedRowIds } },
       select: {
         id: true,
         customer_id: true,
@@ -1335,6 +1403,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
     const existingByDate = new Map(existingReports.map((r) => [moment(r.date).format('YYYY-MM-DD'), r]));
 
     const createdReportIds: string[] = [];
+    const allReportIds: string[] = [];
     let totalCloned = 0;
 
     // 4. Para cada fecha destino, crear el header si falta y clonar las filas
@@ -1353,6 +1422,8 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
         });
         createdReportIds.push(report.id);
       }
+
+      allReportIds.push(report.id);
 
       const targetReportId = report.id;
 
@@ -1429,6 +1500,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
 
     return {
       createdReportIds,
+      allReportIds,
       clonedRowCount: totalCloned,
     };
   } catch (error) {
@@ -1438,6 +1510,39 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
 }
 
 export type CloneDailyReportRowsResult = Awaited<ReturnType<typeof cloneDailyReportRows>>;
+
+// ============================================================================
+// 10b. TYPE SERVICE SUMMARY (para CloneRowsDialog)
+// ============================================================================
+
+/**
+ * Retorna la cantidad de filas por tipo de servicio de un parte diario.
+ * Usado por CloneRowsDialog para saber qué checkboxes de tipo habilitar.
+ */
+export async function getDailyReportTypeServiceSummary(dailyReportId: string) {
+  logger.debug('Obteniendo resumen de tipos de servicio', { data: { dailyReportId } });
+
+  try {
+    const rows = await prisma.dailyreportrows.groupBy({
+      by: ['type_service'],
+      where: { daily_report_id: dailyReportId },
+      _count: true,
+    });
+
+    const summary: Record<string, number> = {};
+    for (const row of rows) {
+      const key = row.type_service ?? 'null';
+      summary[key] = row._count;
+    }
+
+    return summary;
+  } catch (error) {
+    logger.error('Error al obtener resumen de tipos de servicio', { data: { error, dailyReportId } });
+    return {};
+  }
+}
+
+export type DailyReportTypeServiceSummary = Awaited<ReturnType<typeof getDailyReportTypeServiceSummary>>;
 
 // ============================================================================
 // 11. FORM DATA — customers, services, items, sectors, areas, equipment
@@ -1710,3 +1815,124 @@ export async function getOtherEquipmentForForm() {
 
 export type OtherEquipmentForForm = Awaited<ReturnType<typeof getOtherEquipmentForForm>>;
 export type OtherEquipmentItem = OtherEquipmentForForm[number];
+
+// ============================================================================
+// 15. ROW DETAIL (on-demand — ServiceDetailDialog)
+// ============================================================================
+
+/**
+ * Fetches full detail data for a single row, including enriched employee/equipment info.
+ * Used by ServiceDetailDialog to show DNI, email, phone, position, brand, model, etc.
+ * This is fetched on-demand (not in the paginated query) to avoid bloating the main payload.
+ */
+export async function getDailyReportRowDetail(rowId: string) {
+  logger.debug('Obteniendo detalle enriquecido de fila del parte diario', { data: { rowId } });
+
+  try {
+    const row = await prisma.dailyreportrows.findUnique({
+      where: { id: rowId },
+      select: {
+        id: true,
+        customer_id: true,
+        service_id: true,
+        item_id: true,
+        description: true,
+        status: true,
+        working_day: true,
+        start_time: true,
+        end_time: true,
+        remit_number: true,
+        cancel_reason: true,
+        type_service: true,
+        completed_day: true,
+        completed_night: true,
+        last_comercial_edit_at: true,
+        customers: {
+          select: { id: true, name: true },
+        },
+        customer_services: {
+          select: { id: true, service_name: true },
+        },
+        service_items: {
+          select: { id: true, item_name: true, item_description: true },
+        },
+        service_sectors: {
+          select: {
+            id: true,
+            sectors: { select: { id: true, name: true } },
+          },
+        },
+        service_areas: {
+          select: {
+            id: true,
+            areas_cliente: { select: { id: true, descripcion_corta: true } },
+          },
+        },
+        preparte: {
+          select: { id: true, numero_pedido: true },
+        },
+        dailyreportemployeerelations: {
+          select: {
+            id: true,
+            employee_id: true,
+            role: true,
+            employees: {
+              select: {
+                id: true,
+                firstname: true,
+                lastname: true,
+                file: true,
+                cuil: true,
+                email: true,
+                phone: true,
+                hierarchy: { select: { name: true } },
+              },
+            },
+          },
+        },
+        dailyreportequipmentrelations: {
+          select: {
+            id: true,
+            equipment_id: true,
+            other_equipment_id: true,
+            vehicles: {
+              select: {
+                id: true,
+                domain: true,
+                intern_number: true,
+                year: true,
+                condition: true,
+                brand_vehicles: { select: { name: true } },
+                model_vehicles: { select: { name: true } },
+                types_of_vehicles: { select: { name: true } },
+              },
+            },
+            other_equipment: {
+              select: {
+                id: true,
+                intern_number: true,
+                serial_number: true,
+              },
+            },
+          },
+        },
+        dailyreport_customer_equipment_relations: {
+          select: {
+            id: true,
+            customer_equipment_id: true,
+            equipos_clientes: {
+              select: { name: true, type: true },
+            },
+          },
+        },
+      },
+    });
+
+    return row;
+  } catch (error) {
+    logger.error('Error al obtener detalle de fila del parte diario', { data: { error, rowId } });
+    throw new Error('No se pudo obtener el detalle de la fila. Intente nuevamente.');
+  }
+}
+
+export type DailyReportRowDetailData = Awaited<ReturnType<typeof getDailyReportRowDetail>>;

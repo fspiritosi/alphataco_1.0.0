@@ -22,6 +22,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
+import moment from 'moment';
 import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState } from 'react';
 import { useDailyReportDetailFormStore } from '../../store/dailyReportDetailFormStore';
@@ -94,6 +95,8 @@ interface Props {
   dailyReportId: string;
   /** ISO date string of the daily report — used for employee diagram deviation detection */
   reportDate: string;
+  /** Status del parte diario (abierto/cerrado/etc.) — para deshabilitar Crear */
+  dailyReportStatus: string;
   canUpdate: boolean;
   canDelete: boolean;
   initialColumnVisibility: Record<string, boolean>;
@@ -111,6 +114,7 @@ export function _DailyReportDetailDataTable({
   tableId,
   dailyReportId,
   reportDate,
+  dailyReportStatus,
   canUpdate,
   canDelete,
   initialColumnVisibility,
@@ -134,9 +138,13 @@ export function _DailyReportDetailDataTable({
   // ── Zustand store for DailyReportRowForm Sheet ────────────────────────────
   const { isOpen: isFormOpen, open: openForm, close: closeForm, editingRowId } = useDailyReportDetailFormStore();
 
+  // ── Crear: disponible si canUpdate Y (parte abierto O es el día de hoy) ────
+  const isReportToday = moment(reportDate).isSame(moment(), 'day');
+  const canCreate = canUpdate && (dailyReportStatus === 'abierto' || isReportToday);
+
   // ── Modal state ───────────────────────────────────────────────────────────
   const [deleteRow, setDeleteRow] = useState<DailyReportDetailRow | null>(null);
-  const [detailRow, setDetailRow] = useState<DailyReportDetailRow | null>(null);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [historyRowId, setHistoryRowId] = useState<string | null>(null);
   const [remitosRowId, setRemitosRowId] = useState<string | null>(null);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -177,7 +185,7 @@ export function _DailyReportDetailDataTable({
   // ── Row action handlers ───────────────────────────────────────────────────
   const handlers: RowActionHandlers = useMemo(
     () => ({
-      onViewDetail: (row) => setDetailRow(row),
+      onViewDetail: (row) => setDetailRowId(row.id),
       onEdit: (row) => openForm(row.id),
       onHistory: (row) => setHistoryRowId(row.id),
       onRemitos: (row) => setRemitosRowId(row.id),
@@ -448,12 +456,22 @@ export function _DailyReportDetailDataTable({
     const hasBulk = selectedRows.length > 0;
     return (
       <div className="flex items-center gap-2">
+        {/* Crear — siempre visible si canUpdate, deshabilitado si parte cerrado y no es hoy */}
         {canUpdate && (
-          <Button variant="default" size="sm" className="gap-1.5" onClick={() => openForm()}>
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => openForm()}
+            disabled={!canCreate}
+            title={!canCreate ? 'El parte está cerrado y no es el día de hoy' : undefined}
+          >
             <Plus className="h-3.5 w-3.5" />
             Crear
           </Button>
         )}
+
+        {/* Acciones masivas — solo con selección activa */}
         {hasBulk && (
           <>
             <span className="text-sm text-muted-foreground">
@@ -465,15 +483,17 @@ export function _DailyReportDetailDataTable({
                 Editar seleccionados
               </Button>
             )}
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
-              <Copy className="h-3.5 w-3.5" />
-              Clonar seleccionados
-            </Button>
           </>
         )}
+
+        {/* Clonar — SIEMPRE visible. Sin selección = clonar todo el parte */}
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
+          <Copy className="h-3.5 w-3.5" />
+          {hasBulk ? 'Clonar seleccionados' : 'Clonar todo el parte'}
+        </Button>
       </div>
     );
-  }, [selectedRows.length, canUpdate, openForm]);
+  }, [selectedRows.length, canUpdate, canCreate, openForm]);
 
   // ── Export formatters ─────────────────────────────────────────────────────
   const exportFormatters = useMemo(
@@ -570,11 +590,11 @@ export function _DailyReportDetailDataTable({
       />
 
       <ServiceDetailDialog
-        open={detailRow !== null}
+        open={detailRowId !== null}
         onOpenChange={(open) => {
-          if (!open) setDetailRow(null);
+          if (!open) setDetailRowId(null);
         }}
-        row={detailRow}
+        rowId={detailRowId}
       />
 
       <HistoryDialog
@@ -609,8 +629,10 @@ export function _DailyReportDetailDataTable({
       <CloneRowsDialog
         open={showClone}
         onOpenChange={setShowClone}
+        mode={selectedRows.length > 0 ? 'selected' : 'all'}
         selectedRows={selectedRows}
         dailyReportId={dailyReportId}
+        reportDate={reportDate}
         onSuccess={() => {
           invalidateDetail();
           setSelectedRows([]);
