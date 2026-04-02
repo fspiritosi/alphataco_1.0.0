@@ -7,86 +7,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Logger } from '@/lib/logger';
 import { CheckCircle2, Download, RefreshCw, RotateCcw } from 'lucide-react';
+import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import type {
+  ErrorRecord,
+  ProcessingResult,
+  ProcessingResultRecord,
+  UpdatedResultRecord,
+} from './types/massive-diagram';
+
+// Re-export for backward compatibility (DiagramMassive.tsx imports it from here)
+export type { ProcessingResult };
 
 const logger = new Logger('Diagrams/DiagramMassiveResults');
-
-export interface ProcessingResult {
-  success: boolean;
-  summary: {
-    total_employees: number;
-    processed_employees: number;
-    total_days: number;
-    processed_days: number;
-    created_records: number;
-    updated_records: number;
-    skipped_records: number;
-    errors_count: number | null;
-    processing_time_seconds: number;
-    start_time: string;
-    end_time: string;
-  };
-  data: {
-    created: any[];
-    updated: any[];
-  };
-  details: {
-    date_range: {
-      from: string;
-      to: string;
-    };
-    work_diagram: {
-      id: string;
-      name: string;
-      active_days: number;
-      inactive_days: number;
-      cycle_length: number;
-    };
-    active_novelty: {
-      id: string;
-      name: string;
-      color: string;
-    };
-    conflict_resolution: string;
-    employee_ids: string[];
-  };
-  errors: any[];
-}
-
-interface CreatedRecord {
-  employee_id: string;
-  employee_name?: string;
-  date: string;
-  day: number;
-  month: number;
-  year: number;
-  is_active: boolean;
-  novelty_name?: string;
-  novelty_color?: string;
-}
-
-interface UpdatedRecord {
-  employee_id: string;
-  employee_name?: string;
-  date: string;
-  day: number;
-  month: number;
-  year: number;
-  is_active: boolean;
-  novelty_name?: string;
-  novelty_color?: string;
-  previous_novelty_name?: string;
-  previous_novelty_color?: string;
-}
-
-interface ErrorRecord {
-  employee_id: string;
-  employee_name: string;
-  date: string | null;
-  error_type: string;
-  error_message: string;
-}
 
 interface Props {
   results: ProcessingResult;
@@ -122,9 +56,12 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
     };
   };
 
-  const getDetails = () => {
+  const getDetails = (): {
+    created_records: ProcessingResultRecord[];
+    updated_records: UpdatedResultRecord[];
+    error_records: ErrorRecord[];
+  } => {
     if (!results) return { created_records: [], updated_records: [], error_records: [] };
-
     return {
       created_records: results.data.created || [],
       updated_records: results.data.updated || [],
@@ -154,7 +91,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
       details.created_records.forEach((record, index) => {
         const employeeName = record.employee_name || record.employee_id || 'N/A';
         const noveltyInfo = record.novelty_name ? ` - Novedad: ${record.novelty_name}` : '';
-        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${record.date}${noveltyInfo}\n`;
+        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${moment(record.date).format('DD/MM/YYYY')}${noveltyInfo}\n`;
       });
       report += `\n`;
     }
@@ -168,7 +105,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
           ? ` - Novedad Anterior: ${record.previous_novelty_name}`
           : '';
         const newNovelty = record.novelty_name ? ` - Novedad Nueva: ${record.novelty_name}` : '';
-        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${record.date}${previousNovelty}${newNovelty}\n`;
+        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${moment(record.date).format('DD/MM/YYYY')}${previousNovelty}${newNovelty}\n`;
       });
       report += `\n`;
     }
@@ -178,7 +115,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
       report += `${'='.repeat(50)}\n`;
       details.error_records.forEach((record, index) => {
         const employeeName = record.employee_name || 'N/A';
-        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${record.date || 'N/A'}\n`;
+        report += `${(index + 1).toString().padStart(3, ' ')}. ${employeeName} - ${record.date ? moment(record.date).format('DD/MM/YYYY') : 'N/A'}\n`;
         report += `     Tipo de Error: ${record.error_type}\n`;
         report += `     Descripción: ${record.error_message}\n`;
         report += `\n`;
@@ -220,14 +157,6 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
     const summary = getSummary();
     const successfulRecords = summary.total_created + summary.total_updated;
     return summary.total_processed > 0 ? Math.round((successfulRecords / summary.total_processed) * 100) : 0;
-  };
-
-  const getSuccessIcon = () => {
-    const summary = getSummary();
-    if (summary.total_errors > 0) {
-      return 'warning'; // Hay errores
-    }
-    return 'success'; // Todo exitoso
   };
 
   const summary = getSummary();
@@ -328,7 +257,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                       {details.created_records.map((record, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{record.employee_name || record.employee_id}</TableCell>
-                          <TableCell>{record.date}</TableCell>
+                          <TableCell>{moment(record.date).format('DD/MM/YYYY')}</TableCell>
                           <TableCell>
                             {record.novelty_name ? (
                               <Badge
@@ -375,7 +304,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                       {details.updated_records.map((record, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{record.employee_name || record.employee_id}</TableCell>
-                          <TableCell>{record.date}</TableCell>
+                          <TableCell>{moment(record.date).format('DD/MM/YYYY')}</TableCell>
                           <TableCell>
                             {record.previous_novelty_name ? (
                               <Badge
@@ -434,7 +363,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                       {details.error_records.map((record, index) => (
                         <TableRow key={index} className="bg-red-25">
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
-                          <TableCell>{record.date || 'N/A'}</TableCell>
+                          <TableCell>{record.date ? moment(record.date).format('DD/MM/YYYY') : 'N/A'}</TableCell>
                           <TableCell>
                             <Badge variant="destructive">{record.error_type}</Badge>
                           </TableCell>

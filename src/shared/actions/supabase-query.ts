@@ -321,7 +321,7 @@ export async function querySelectDistinct<
   },
   p_filters?: Record<string, string | number | boolean | null> | null
 ) {
-  const supabase = supabaseBrowser();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.rpc('select_distinct_values', {
     p_table_name: tableName,
