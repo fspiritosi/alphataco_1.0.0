@@ -29,6 +29,11 @@ export type AxleInput = {
   is_spare: boolean;
 };
 
+export type DisplacedTireAction = {
+  tireId: string;
+  destination: 'AVAILABLE' | 'REPAIR' | 'DISCARD';
+};
+
 // ============================================================================
 // POSITIONS & TEMPLATE INFO
 // ============================================================================
@@ -130,10 +135,109 @@ export async function getVehicleTemplateInfo(vehicleId: string) {
 export type VehicleTemplateInfo = Awaited<ReturnType<typeof getVehicleTemplateInfo>>;
 
 // ============================================================================
+// SHARED HELPERS (internal — not exported)
+// ============================================================================
+
+/**
+ * Rebuilds vehicle_tire_positions for a given template after axles have been
+ * (re)inserted. Preserves tire assignments where position_number matches and
+ * applies the caller-supplied destination for any displaced tires.
+ */
+async function rebuildPositionsPreservingTires(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  vehicleId: string,
+  templateId: string,
+  displacedTireActions: DisplacedTireAction[]
+) {
+  // 1. Capture current tire assignments by position number
+  const oldPositions = await tx.vehicle_tire_positions.findMany({
+    where: { vehicle_id: vehicleId },
+    select: { position_number: true, tire_id: true },
+  });
+
+  const tireByPosition = new Map<number, string>();
+  for (const pos of oldPositions) {
+    if (pos.tire_id) {
+      tireByPosition.set(pos.position_number, pos.tire_id);
+    }
+  }
+
+  // 2. Delete all old positions
+  await tx.vehicle_tire_positions.deleteMany({ where: { vehicle_id: vehicleId } });
+
+  // 3. Fetch the newly inserted axles for this template
+  const newAxles = await tx.tire_template_axles.findMany({
+    where: { template_id: templateId },
+    orderBy: { axle_number: 'asc' },
+  });
+
+  // 4. Compute new positions
+  const diagramAxles: DiagramAxle[] = newAxles.map((a) => ({
+    id: a.id,
+    axle_number: a.axle_number,
+    tires_per_side: a.tires_per_side,
+    tire_size: a.tire_size,
+    is_drive_axle: a.is_drive_axle,
+    is_spare: a.is_spare,
+  }));
+
+  const computedPositions = calculatePositions(diagramAxles);
+  const axleIdByNumber = new Map(newAxles.map((a) => [a.axle_number, a.id]));
+
+  // 5. Determine which tires land in new positions and which are displaced
+  const newPositionNumbers = new Set(computedPositions.map((p) => p.position_number));
+  const displacedTireIds = new Set<string>();
+
+  for (const [posNum, tireId] of tireByPosition) {
+    if (!newPositionNumbers.has(posNum)) {
+      displacedTireIds.add(tireId);
+    }
+  }
+
+  // 6. Create new positions, preserving tire assignments where position matches
+  if (computedPositions.length > 0) {
+    await tx.vehicle_tire_positions.createMany({
+      data: computedPositions.map((pos) => ({
+        vehicle_id: vehicleId,
+        template_axle_id: axleIdByNumber.get(pos.axle_number)!,
+        position_number: pos.position_number,
+        axle_number: pos.axle_number,
+        side: pos.side,
+        tire_id: tireByPosition.get(pos.position_number) ?? null,
+      })),
+    });
+  }
+
+  // 7. Apply destination for displaced tires
+  if (displacedTireIds.size > 0) {
+    const actionMap = new Map(displacedTireActions.map((a) => [a.tireId, a.destination]));
+
+    for (const tireId of displacedTireIds) {
+      const destination = actionMap.get(tireId) ?? 'AVAILABLE';
+
+      if (destination === 'AVAILABLE') {
+        await tx.tires.update({ where: { id: tireId }, data: { status: 'AVAILABLE' } });
+      } else if (destination === 'REPAIR') {
+        await tx.tires.update({ where: { id: tireId }, data: { status: 'IN_REPAIR' } });
+      } else if (destination === 'DISCARD') {
+        await tx.tires.update({
+          where: { id: tireId },
+          data: { status: 'DISCARDED', discarded_at: new Date() },
+        });
+      }
+    }
+  }
+}
+
+// ============================================================================
 // CUSTOM TEMPLATE CRUD
 // ============================================================================
 
-export async function createVehicleCustomTemplate(vehicleId: string, axles: AxleInput[]) {
+export async function createVehicleCustomTemplate(
+  vehicleId: string,
+  axles: AxleInput[],
+  displacedTireActions: DisplacedTireAction[] = []
+) {
   logger.debug('Creating custom tire template for vehicle', { data: { vehicleId, axleCount: axles.length } });
 
   try {
@@ -181,59 +285,10 @@ export async function createVehicleCustomTemplate(vehicleId: string, axles: Axle
         data: { tire_template_id: template.id },
       });
 
-      // Save old positions with their tire assignments before deleting
-      const oldPositions = await tx.vehicle_tire_positions.findMany({
-        where: { vehicle_id: vehicleId },
-        select: { position_number: true, tire_id: true },
-      });
-
-      // Build a map: position_number → tire_id (preserves tire assignments)
-      const tireByPosition = new Map<number, string>();
-      for (const pos of oldPositions) {
-        if (pos.tire_id) {
-          tireByPosition.set(pos.position_number, pos.tire_id);
-        }
-      }
-
-      // Delete old positions (linked to the old template's axles)
-      await tx.vehicle_tire_positions.deleteMany({
-        where: { vehicle_id: vehicleId },
-      });
-
-      // Generate new positions from the new custom template
-      const newAxles = await tx.tire_template_axles.findMany({
-        where: { template_id: template.id },
-        orderBy: { axle_number: 'asc' },
-      });
-
-      const diagramAxles: DiagramAxle[] = newAxles.map((a) => ({
-        id: a.id,
-        axle_number: a.axle_number,
-        tires_per_side: a.tires_per_side,
-        tire_size: a.tire_size,
-        is_drive_axle: a.is_drive_axle,
-        is_spare: a.is_spare,
-      }));
-
-      const computedPositions = calculatePositions(diagramAxles);
-      const axleIdByNumber = new Map(newAxles.map((a) => [a.axle_number, a.id]));
-
-      if (computedPositions.length > 0) {
-        await tx.vehicle_tire_positions.createMany({
-          data: computedPositions.map((pos) => ({
-            vehicle_id: vehicleId,
-            template_axle_id: axleIdByNumber.get(pos.axle_number)!,
-            position_number: pos.position_number,
-            axle_number: pos.axle_number,
-            side: pos.side,
-            // Preserve tire assignment if the same position existed before
-            tire_id: tireByPosition.get(pos.position_number) ?? null,
-          })),
-        });
-      }
+      await rebuildPositionsPreservingTires(tx, vehicleId, template.id, displacedTireActions);
 
       logger.info('Created custom template for vehicle', {
-        data: { vehicleId, templateId: template.id, positions: computedPositions.length },
+        data: { vehicleId, templateId: template.id },
       });
 
       return template;
@@ -244,7 +299,11 @@ export async function createVehicleCustomTemplate(vehicleId: string, axles: Axle
   }
 }
 
-export async function updateVehicleCustomAxles(vehicleId: string, axles: AxleInput[]) {
+export async function updateVehicleCustomAxles(
+  vehicleId: string,
+  axles: AxleInput[],
+  displacedTireActions: DisplacedTireAction[] = []
+) {
   logger.debug('Updating custom axles for vehicle', { data: { vehicleId, axleCount: axles.length } });
 
   try {
@@ -260,20 +319,6 @@ export async function updateVehicleCustomAxles(vehicleId: string, axles: AxleInp
 
       const templateId = vehicle.tire_template_id;
 
-      const currentPositions = await tx.vehicle_tire_positions.findMany({
-        where: { vehicle_id: vehicleId, tire_id: { not: null } },
-        select: { tire_id: true },
-      });
-
-      if (currentPositions.length > 0) {
-        const tireIds = currentPositions.map((p) => p.tire_id!);
-        await tx.tires.updateMany({
-          where: { id: { in: tireIds } },
-          data: { status: 'AVAILABLE' },
-        });
-      }
-
-      await tx.vehicle_tire_positions.deleteMany({ where: { vehicle_id: vehicleId } });
       await tx.tire_template_axles.deleteMany({ where: { template_id: templateId } });
 
       if (axles.length > 0) {
@@ -289,39 +334,9 @@ export async function updateVehicleCustomAxles(vehicleId: string, axles: AxleInp
         });
       }
 
-      const newAxles = await tx.tire_template_axles.findMany({
-        where: { template_id: templateId },
-        orderBy: { axle_number: 'asc' },
-      });
+      await rebuildPositionsPreservingTires(tx, vehicleId, templateId, displacedTireActions);
 
-      const diagramAxles: DiagramAxle[] = newAxles.map((a) => ({
-        id: a.id,
-        axle_number: a.axle_number,
-        tires_per_side: a.tires_per_side,
-        tire_size: a.tire_size,
-        is_drive_axle: a.is_drive_axle,
-        is_spare: a.is_spare,
-      }));
-
-      const computedPositions = calculatePositions(diagramAxles);
-      const axleIdByNumber = new Map(newAxles.map((a) => [a.axle_number, a.id]));
-
-      if (computedPositions.length > 0) {
-        await tx.vehicle_tire_positions.createMany({
-          data: computedPositions.map((pos) => ({
-            vehicle_id: vehicleId,
-            template_axle_id: axleIdByNumber.get(pos.axle_number)!,
-            position_number: pos.position_number,
-            axle_number: pos.axle_number,
-            side: pos.side,
-            tire_id: null,
-          })),
-        });
-      }
-
-      logger.info('Updated custom axles for vehicle', {
-        data: { vehicleId, templateId, positions: computedPositions.length },
-      });
+      logger.info('Updated custom axles for vehicle', { data: { vehicleId, templateId } });
     });
   } catch (error) {
     logger.error('Error updating custom axles', { data: { error, vehicleId } });

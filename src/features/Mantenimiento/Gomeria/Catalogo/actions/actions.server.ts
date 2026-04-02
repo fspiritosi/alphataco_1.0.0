@@ -122,7 +122,7 @@ export async function getTiresPaginated(searchParams: DataTableSearchParams) {
     }
     const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
 
-    const [data, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       prisma.tires.findMany({
         skip,
         take,
@@ -132,6 +132,9 @@ export async function getTiresPaginated(searchParams: DataTableSearchParams) {
       }),
       prisma.tires.count({ where }),
     ]);
+
+    // Prisma returns Decimal objects for tread_depth — serialize to number for RSC→Client serialization
+    const data = raw.map((t) => ({ ...t, tread_depth: t.tread_depth != null ? t.tread_depth.toNumber() : null }));
 
     return { data, total };
   } catch (error) {
@@ -151,13 +154,13 @@ export async function getTiresForExport(searchParams: DataTableSearchParams) {
     const state = parseSearchParams(searchParams);
     const where = buildTiresWhereClause(state);
 
-    const data = await prisma.tires.findMany({
+    const raw = await prisma.tires.findMany({
       orderBy: [{ created_at: 'desc' }],
       where,
       select: TIRE_SELECT,
     });
 
-    return data;
+    return raw.map((t) => ({ ...t, tread_depth: t.tread_depth != null ? t.tread_depth.toNumber() : null }));
   } catch (error) {
     logger.error('Error exporting tires', { data: { error } });
     throw new Error('Error al exportar las cubiertas');

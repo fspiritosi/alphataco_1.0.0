@@ -1,5 +1,3 @@
-'use server';
-
 import { getCompanyId } from '@/lib/company-config';
 import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -18,7 +16,6 @@ export const getServerCompanyId = async (): Promise<string> => {
 };
 
 export const fetchCurrentCompany = async () => {
-  'use server';
   const supabase = await supabaseServer();
 
   // Usar la función centralizada para obtener el company_id

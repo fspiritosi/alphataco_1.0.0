@@ -38,17 +38,20 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
     staleTime: 30 * 1000,
   });
 
+  // Use historical snapshots if available, otherwise fall back to live positions
+  const hasSnapshot = !!(order?.axle_snapshot && order?.positions_snapshot);
+
   const { data: vehiclePositions, isLoading: isLoadingPositions } = useQuery({
     queryKey: ['vehicle-tire-positions', order?.vehicle_id],
     queryFn: () => getVehicleTirePositions(order!.vehicle_id),
-    enabled: !!order?.vehicle_id && open,
+    enabled: !!order?.vehicle_id && open && !hasSnapshot,
     staleTime: 30 * 1000,
   });
 
   const { data: trailerPositions } = useQuery({
     queryKey: ['vehicle-tire-positions', order?.trailer_vehicle_id],
     queryFn: () => getVehicleTirePositions(order!.trailer_vehicle_id!),
-    enabled: !!order?.trailer_vehicle_id && open,
+    enabled: !!order?.trailer_vehicle_id && open && !hasSnapshot,
     staleTime: 30 * 1000,
   });
 
@@ -174,8 +177,16 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
               </div>
             )}
 
-            {/* Vehicle diagram — below interventions */}
-            {isLoadingPositions ? (
+            {/* Vehicle diagram — use historical snapshot if available */}
+            {hasSnapshot ? (
+              <SnapshotDiagram
+                axleSnapshot={order.axle_snapshot as AxleSnapshotEntry[]}
+                positionsSnapshot={(order.positions_snapshot as PositionSnapshotEntry[]).filter(
+                  (p) => p.vehicle_id === order.vehicle_id
+                )}
+                label={`Diagrama — ${order.vehicle?.domain} (al momento de la intervención)`}
+              />
+            ) : isLoadingPositions ? (
               <Skeleton className="h-40 w-full rounded-lg" />
             ) : vehiclePositions && vehiclePositions.length > 0 ? (
               <div className="space-y-2">
@@ -187,15 +198,27 @@ export function ServiceOrderDetailView({ orderId, open, onOpenChange }: ServiceO
             ) : null}
 
             {/* Trailer diagram */}
-            {order.trailer_vehicle_id && trailerPositions && trailerPositions.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 border-t border-dashed" />
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Enganche: {order.trailer?.domain}</p>
-                  <div className="flex-1 border-t border-dashed" />
+            {hasSnapshot && order.trailer_vehicle_id ? (
+              <SnapshotDiagram
+                axleSnapshot={order.axle_snapshot as AxleSnapshotEntry[]}
+                positionsSnapshot={(order.positions_snapshot as PositionSnapshotEntry[]).filter(
+                  (p) => p.vehicle_id === order.trailer_vehicle_id
+                )}
+                label={`Enganche: ${order.trailer?.domain} (al momento de la intervención)`}
+              />
+            ) : (
+              order.trailer_vehicle_id &&
+              trailerPositions &&
+              trailerPositions.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 border-t border-dashed" />
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">Enganche: {order.trailer?.domain}</p>
+                    <div className="flex-1 border-t border-dashed" />
+                  </div>
+                  <VehicleDiagramReadonly positions={trailerPositions} />
                 </div>
-                <VehicleDiagramReadonly positions={trailerPositions} />
-              </div>
+              )
             )}
           </div>
         )}
@@ -247,5 +270,67 @@ function VehicleDiagramReadonly({ positions, label }: { positions: PositionWithA
 
   return (
     <TireDiagramRenderer axles={axles} positions={diagramPositions} interactive={false} label={label ?? undefined} />
+  );
+}
+
+// ─── Snapshot types ─────────────────────────────────────────────────────────
+
+type AxleSnapshotEntry = {
+  id: string;
+  axle_number: number;
+  tires_per_side: number;
+  tire_size: string;
+  is_drive_axle: boolean;
+  is_spare: boolean;
+};
+
+type PositionSnapshotEntry = {
+  position_number: number;
+  axle_number: number;
+  side: string;
+  vehicle_id: string;
+  tire_id: string | null;
+  tire_serial: string | null;
+  tire_brand: string | null;
+  tire_size: string | null;
+};
+
+// ─── Snapshot diagram component ─────────────────────────────────────────────
+
+function SnapshotDiagram({
+  axleSnapshot,
+  positionsSnapshot,
+  label,
+}: {
+  axleSnapshot: AxleSnapshotEntry[];
+  positionsSnapshot: PositionSnapshotEntry[];
+  label?: string;
+}) {
+  if (!axleSnapshot?.length || !positionsSnapshot?.length) return null;
+
+  const axles: DiagramAxle[] = axleSnapshot.map((a) => ({
+    id: a.id,
+    axle_number: a.axle_number,
+    tires_per_side: a.tires_per_side,
+    tire_size: a.tire_size,
+    is_drive_axle: a.is_drive_axle,
+    is_spare: a.is_spare,
+  }));
+
+  const positions: DiagramPosition[] = positionsSnapshot.map((p) => ({
+    position_number: p.position_number,
+    axle_number: p.axle_number,
+    side: p.side as 'LEFT' | 'RIGHT' | 'SPARE',
+    tire_id: p.tire_id,
+    tire_serial: p.tire_serial ?? undefined,
+    tire_brand: p.tire_brand ?? undefined,
+    tire_size: p.tire_size ?? undefined,
+  }));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+      <TireDiagramRenderer axles={axles} positions={positions} interactive={false} />
+    </div>
   );
 }

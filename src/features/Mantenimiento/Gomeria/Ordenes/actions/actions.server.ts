@@ -356,6 +356,47 @@ export async function createServiceOrder(data: {
   logger.debug('Creating service order', { data: { vehicle_id: data.vehicle_id } });
 
   try {
+    // Snapshot current tire positions for historical diagram reconstruction
+    const vehiclePositions = await getVehicleTirePositions(data.vehicle_id);
+    let trailerPositions: Awaited<ReturnType<typeof getVehicleTirePositions>> = [];
+    if (data.trailer_vehicle_id) {
+      trailerPositions = await getVehicleTirePositions(data.trailer_vehicle_id);
+    }
+
+    const allPositions = [...vehiclePositions, ...trailerPositions];
+
+    // Build axle snapshot (unique axle geometries)
+    const axleMap = new Map<string, object>();
+    for (const pos of allPositions) {
+      if (!pos.template_axle) continue;
+      if (!axleMap.has(pos.template_axle.id)) {
+        axleMap.set(pos.template_axle.id, {
+          id: pos.template_axle.id,
+          axle_number: pos.template_axle.axle_number,
+          tires_per_side: pos.template_axle.tires_per_side,
+          tire_size: pos.template_axle.tire_size,
+          is_drive_axle: pos.template_axle.is_drive_axle,
+          is_spare: pos.template_axle.is_spare,
+        });
+      }
+    }
+
+    // Build positions snapshot (all positions with tire details)
+    const positionsSnapshot = allPositions.map((pos) => ({
+      position_number: pos.position_number,
+      axle_number: pos.axle_number,
+      side: pos.side,
+      vehicle_id: pos.vehicle_id,
+      tire_id: pos.tire_id,
+      tire_serial: pos.tire?.serial_number ?? null,
+      tire_brand: pos.tire?.brand?.name ?? null,
+      tire_size: pos.tire?.tire_type?.size ?? null,
+      tire_tread_type: pos.tire?.tire_type?.tread_type ?? null,
+      tire_status: pos.tire?.status ?? null,
+      tire_is_new: pos.tire?.is_new ?? null,
+      tire_tread_depth: pos.tire?.tread_depth ? Number(pos.tire.tread_depth) : null,
+    }));
+
     const order = await prisma.tire_service_orders.create({
       data: {
         vehicle_id: data.vehicle_id,
@@ -364,6 +405,8 @@ export async function createServiceOrder(data: {
         service_date: new Date(),
         created_by: profile.id,
         company_id: data.company_id,
+        axle_snapshot: Array.from(axleMap.values()),
+        positions_snapshot: positionsSnapshot,
       },
     });
     return order;

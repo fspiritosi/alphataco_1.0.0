@@ -27,7 +27,7 @@ import {
   getVehicleTirePositionsWithDetails,
   resetVehicleToSubTypeTemplate,
 } from './actions.server';
-import { VehicleAxleEditor } from './vehicle-axle-editor';
+import { VehicleAxleEditor, type TirePositionSummary } from './vehicle-axle-editor';
 
 // ============================================================================
 // TYPES
@@ -132,6 +132,13 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
     is_spare: a.is_spare,
   }));
 
+  const currentPositionsForEditor: TirePositionSummary[] = (positions ?? []).map((p) => ({
+    position_number: p.position_number,
+    tire_id: p.tire_id,
+    tire_serial: p.tire?.serial_number,
+    tire_brand: p.tire?.brand?.name,
+  }));
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   function handleEditClick() {
@@ -202,6 +209,7 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
         <VehicleAxleEditor
           vehicleId={vehicleId}
           currentAxles={[]}
+          currentPositions={[]}
           isNewConfig={true}
           open={editorOpen}
           onOpenChange={setEditorOpen}
@@ -273,6 +281,7 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
       <VehicleAxleEditor
         vehicleId={vehicleId}
         currentAxles={currentAxles}
+        currentPositions={currentPositionsForEditor}
         isNewConfig={!isCustom}
         open={editorOpen}
         onOpenChange={setEditorOpen}

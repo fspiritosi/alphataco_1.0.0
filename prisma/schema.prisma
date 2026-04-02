@@ -2730,6 +2730,8 @@ model tire_service_orders {
   company_id         String                 @db.Uuid
   created_at         DateTime               @default(now()) @db.Timestamptz(6)
   closed_at          DateTime?              @db.Timestamptz(6)
+  axle_snapshot      Json?
+  positions_snapshot Json?
 
   vehicle  vehicles             @relation("tire_service_vehicle", fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   trailer  vehicles?            @relation("tire_service_trailer", fields: [trailer_vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
