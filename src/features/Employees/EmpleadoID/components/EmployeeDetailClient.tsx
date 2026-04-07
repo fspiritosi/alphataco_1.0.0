@@ -5,7 +5,7 @@ import { PermissionGuard } from '@/features/Permissions/components/PermissionGua
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, BarChart3, Briefcase, FileText, Lock, Pencil, Phone, User, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Briefcase, FileText, Lock, Pencil, Phone, Shirt, User, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useState } from 'react';
@@ -27,6 +27,8 @@ interface EmployeeDetailClientProps {
   documentsSlot: React.ReactNode;
   /** Slot de diagramas envuelto en Suspense (Server Component pre-renderizado) */
   diagramsSlot: React.ReactNode;
+  /** Slot de indumentaria/EPP envuelto en Suspense (Server Component pre-renderizado) */
+  clothingSlot: React.ReactNode;
 }
 
 type ActiveTab = 'personalData' | 'contactData' | 'workData';
@@ -41,6 +43,7 @@ export function EmployeeDetailClient({
   header,
   documentsSlot,
   diagramsSlot,
+  clothingSlot,
 }: EmployeeDetailClientProps) {
   const [currentMode, setCurrentMode] = useState<'view' | 'edit' | 'new'>(initialMode);
   const router = useRouter();
@@ -48,6 +51,9 @@ export function EmployeeDetailClient({
 
   // Verificar acceso a la tab de diagramas (alguna de sus subtabs)
   const hasDiagramAccess = canView('empleados', 'diagramas-empleado') || canView('empleados', 'new');
+
+  // Verificar acceso a la tab de indumentaria
+  const hasClothingAccess = canView('empleados', 'indumentaria_empleado');
 
   // ─── Handlers de modo ──────────────────────────────────────────────────────
   const switchToEdit = () => {
@@ -160,6 +166,24 @@ export function EmployeeDetailClient({
           },
         ]
       : []),
+    // Tab de indumentaria: solo si el usuario tiene acceso
+    ...(hasClothingAccess
+      ? [
+          {
+            value: 'clothing',
+            label: (
+              <div className="flex items-center gap-2">
+                {currentMode === 'new' ? <Lock className="h-4 w-4" /> : <Shirt className="h-4 w-4" />}
+                <span className="hidden sm:inline">Indumentaria</span>
+              </div>
+            ),
+            moduleSlug: 'empleados' as const,
+            tabSlug: 'indumentaria_empleado' as const,
+            disabled: currentMode === 'new',
+            content: clothingSlot,
+          },
+        ]
+      : []),
   ];
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -213,7 +237,7 @@ export function EmployeeDetailClient({
           paramName="tab"
           defaultTab="personalData"
           tabs={tabs}
-          listClassName="grid w-full grid-cols-5"
+          listClassName="grid w-full grid-cols-6"
           triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
         />
       </div>

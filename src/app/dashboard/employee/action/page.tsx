@@ -1,4 +1,6 @@
 import { Card } from '@/components/ui/card';
+import { EmployeeDeliveriesTableSkeleton } from '@/features/Clothing/EmployeeDeliveries/EmployeeDeliveriesList/fallback/EmployeeDeliveriesTableSkeleton';
+import { EmployeeDeliveriesTabContent } from '@/features/Clothing/EmployeeDeliveries/EmployeeDeliveriesTabContent';
 import { getEmployeeByIdCached } from '@/features/Employees/EmpleadoID/actions.server';
 import { EmployeeDetailClient } from '@/features/Employees/EmpleadoID/components/EmployeeDetailClient';
 import { EmployeeDiagramsSection } from '@/features/Employees/EmpleadoID/components/EmployeeDiagramsSection';
@@ -74,6 +76,13 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
                   employee={employee}
                   searchParams={searchParamsForSlots}
                 />
+              </Suspense>
+            ) : null
+          }
+          clothingSlot={
+            employeeId ? (
+              <Suspense fallback={<EmployeeDeliveriesTableSkeleton />}>
+                <EmployeeDeliveriesTabContent employeeId={employeeId} searchParams={resolvedSearchParams} />
               </Suspense>
             ) : null
           }

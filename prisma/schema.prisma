@@ -778,6 +778,111 @@ model cities {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_brands {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_brands_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_deliveries {
+  id                                                              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_id                                                     String                    @db.Uuid
+  delivered_by_id                                                 String                    @db.Uuid
+  delivery_type                                                   clothing_delivery_type
+  signature_url                                                   String?
+  notes                                                           String?
+  delivered_at                                                    DateTime                  @db.Timestamptz(6)
+  company_id                                                      String                    @db.Uuid
+  created_at                                                      DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                      DateTime                  @default(now()) @db.Timestamptz(6)
+  employees_clothing_deliveries_employee_idToemployees            employees                 @relation("clothing_deliveries_employee_idToemployees", fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees_clothing_deliveries_delivered_by_idToemployees        employees                 @relation("clothing_deliveries_delivered_by_idToemployees", fields: [delivered_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                                                         company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_delivery_items                                         clothing_delivery_items[]
+
+  @@index([employee_id], map: "idx_clothing_deliveries_employee")
+  @@index([company_id], map: "idx_clothing_deliveries_company")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_delivery_items {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clothing_delivery_id  String               @db.Uuid
+  clothing_item_id      String               @db.Uuid
+  clothing_brand_id     String?              @db.Uuid
+  clothing_size_id      String?              @db.Uuid
+  quantity              Int                  @default(1)
+  has_certificate       Boolean              @default(false)
+  clothing_deliveries   clothing_deliveries  @relation(fields: [clothing_delivery_id], references: [id], onDelete: Cascade)
+  clothing_items        clothing_items       @relation(fields: [clothing_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_brands       clothing_brands?     @relation(fields: [clothing_brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_sizes        clothing_sizes?      @relation(fields: [clothing_size_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([clothing_delivery_id], map: "idx_clothing_delivery_items_delivery")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_item_brand_sizes {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clothing_item_id  String          @db.Uuid
+  clothing_brand_id String          @db.Uuid
+  clothing_size_id  String          @db.Uuid
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  clothing_items    clothing_items  @relation(fields: [clothing_item_id], references: [id], onDelete: Cascade)
+  clothing_brands   clothing_brands @relation(fields: [clothing_brand_id], references: [id], onDelete: Cascade)
+  clothing_sizes    clothing_sizes  @relation(fields: [clothing_size_id], references: [id], onDelete: Cascade)
+
+  @@unique([clothing_item_id, clothing_brand_id, clothing_size_id], map: "clothing_item_brand_sizes_unique_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_items {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  code                      String?
+  description               String?
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_items_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_sizes {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_sizes_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model companies_employees {
   employee_id String    @db.Uuid
   id          String    @id(map: "companies_employees_pkey1") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -810,6 +915,10 @@ model company {
   by_defect           Boolean?              @default(false)
   brand_vehicles      brand_vehicles[]
   checklist_templates checklist_templates[]
+  clothing_brands     clothing_brands[]
+  clothing_deliveries clothing_deliveries[]
+  clothing_items      clothing_items[]
+  clothing_sizes      clothing_sizes[]
   companies_employees companies_employees[]
   cities              cities                @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile             profile?              @relation(fields: [owner_id], references: [id], onDelete: Cascade)
@@ -1419,6 +1528,8 @@ model employees {
   profile                                                           profile[]
   repair_solicitudes                                                repair_solicitudes[]
   repairlogs                                                        repairlogs[]
+  clothing_deliveries_received                                      clothing_deliveries[]  @relation("clothing_deliveries_employee_idToemployees")
+  clothing_deliveries_given                                         clothing_deliveries[]  @relation("clothing_deliveries_delivered_by_idToemployees")
 
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
   @@index([workshop_sector_id], map: "idx_employees_workshop_sector_id")
@@ -3358,4 +3469,12 @@ enum buckettype {
   VECTOR
 
   @@schema("storage")
+}
+
+enum clothing_delivery_type {
+  PLANNED_CCT
+  PLANNED_EPP
+  REPLACEMENT
+
+  @@schema("public")
 }
