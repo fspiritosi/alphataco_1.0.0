@@ -47,7 +47,7 @@ export function StepConfirm({
   const { mutate, isPending } = useMutation({
     mutationFn: (data: CreateDeliveryInput) => createClothingDelivery(data),
     onSuccess: () => {
-      logger.info('Delivery created successfully — resetting wizard');
+      logger.info('Delivery created successfully');
       toast.success('Entrega registrada correctamente');
       onReset();
     },

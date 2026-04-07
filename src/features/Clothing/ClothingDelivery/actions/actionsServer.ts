@@ -54,6 +54,40 @@ export async function getEmployeesForDelivery(companyId: string, search?: string
 
 export type EmployeeForDelivery = Awaited<ReturnType<typeof getEmployeesForDelivery>>[number];
 
+/**
+ * Gets a single employee by ID for pre-loading in the delivery wizard.
+ * Returns null if not found or not active.
+ */
+export async function getEmployeeForDeliveryById(
+  companyId: string,
+  employeeId: string
+): Promise<EmployeeForDelivery | null> {
+  logger.debug('Getting employee by ID for delivery pre-load', { data: { companyId, employeeId } });
+
+  try {
+    const employee = await prisma.employees.findFirst({
+      where: {
+        id: employeeId,
+        company_id: companyId,
+        is_active: true,
+      },
+      select: {
+        id: true,
+        firstname: true,
+        lastname: true,
+        file: true,
+        cuil: true,
+        company_positions: { select: { name: true } },
+      },
+    });
+
+    return employee;
+  } catch (error) {
+    logger.error('Error getting employee by ID for delivery', { data: { error, employeeId } });
+    return null;
+  }
+}
+
 // ============================================================================
 // ITEMS
 // ============================================================================

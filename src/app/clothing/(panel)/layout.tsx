@@ -16,7 +16,7 @@ function ClothingPanelSkeleton() {
         <Skeleton className="h-6 w-48" />
         <Skeleton className="h-9 w-24" />
       </header>
-      <main className="flex-1 p-4 md:p-6 max-w-4xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <div className="grid gap-6 lg:grid-cols-3">
@@ -40,7 +40,7 @@ async function ClothingPanelContent({ children }: { children: React.ReactNode })
     <ClothingLayoutProvider context={context}>
       <div className="min-h-dvh bg-background flex flex-col">
         <ClothingPanelHeader employeeName={context.employeeName} logoutAction={clothingLogout} />
-        <main className="flex-1 p-4 md:p-6 max-w-4xl mx-auto w-full">{children}</main>
+        <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">{children}</main>
       </div>
     </ClothingLayoutProvider>
   );

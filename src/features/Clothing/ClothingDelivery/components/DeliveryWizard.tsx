@@ -4,6 +4,7 @@ import { useClothingContext } from '@/app/clothing/clothing-layout-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+import { getEmployeeForDeliveryById } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
 import { StepAddItems, type WizardItem } from '@/features/Clothing/ClothingDelivery/components/StepAddItems';
 import { StepConfirm } from '@/features/Clothing/ClothingDelivery/components/StepConfirm';
 import { StepDeliveryType } from '@/features/Clothing/ClothingDelivery/components/StepDeliveryType';
@@ -12,7 +13,7 @@ import { StepSignature } from '@/features/Clothing/ClothingDelivery/components/S
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, Package, Pen, User } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const logger = new Logger('Clothing/DeliveryWizard');
 
@@ -66,7 +67,7 @@ function validateStep(step: number, data: WizardData): string | null {
       return null;
     }
     case 3:
-      // Signature is optional — no validation error
+      if (!data.signatureUrl) return 'Debe registrar la firma del empleado para continuar.';
       return null;
     default:
       return null;
@@ -156,11 +157,29 @@ function MobileStepIndicator({ currentStep }: { currentStep: number }) {
 // MAIN WIZARD
 // ============================================================================
 
-export function DeliveryWizard() {
+interface DeliveryWizardProps {
+  initialEmployeeId?: string;
+  onComplete?: () => void;
+}
+
+export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizardProps) {
   const { employeeId, companyId } = useClothingContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<WizardData>(INITIAL_DATA);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Pre-load employee from URL param
+  useEffect(() => {
+    if (!initialEmployeeId || data.employee) return;
+
+    getEmployeeForDeliveryById(companyId, initialEmployeeId).then((employee) => {
+      if (employee) {
+        setData((prev) => ({ ...prev, employee }));
+        setCurrentStep(1);
+        logger.info('Employee pre-loaded from URL', { data: { employeeId: initialEmployeeId } });
+      }
+    });
+  }, [initialEmployeeId, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isLastStep = currentStep === STEPS.length - 1;
 
@@ -182,10 +201,12 @@ export function DeliveryWizard() {
 
   const updateSignatureUrl = useCallback((signatureUrl: string) => {
     setData((prev) => ({ ...prev, signatureUrl }));
+    setValidationError(null);
   }, []);
 
   const clearSignature = useCallback(() => {
     setData((prev) => ({ ...prev, signatureUrl: null }));
+    setValidationError(null);
   }, []);
 
   const updateNotes = useCallback((notes: string) => {
@@ -196,7 +217,8 @@ export function DeliveryWizard() {
     setData(INITIAL_DATA);
     setCurrentStep(0);
     setValidationError(null);
-  }, []);
+    onComplete?.();
+  }, [onComplete]);
 
   const handleNext = useCallback(() => {
     const error = validateStep(currentStep, data);

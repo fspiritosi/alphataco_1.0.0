@@ -51,8 +51,7 @@ export function StepSignature({ companyId, signatureUrl, onSave, onClear }: Step
       <div>
         <p className="text-sm font-medium mb-1.5 text-foreground">Firma del empleado</p>
         <p className="text-sm text-muted-foreground mb-3">
-          El empleado debe firmar en el panel a continuacion para confirmar la recepcion. La firma es opcional pero
-          recomendada.
+          El empleado debe firmar en el panel a continuacion para confirmar la recepcion.
         </p>
       </div>
 
@@ -105,14 +104,11 @@ export function StepSignature({ companyId, signatureUrl, onSave, onClear }: Step
       {/* Signature pad — always visible so user can redraw */}
       {!isUploading && <SignaturePad onSave={handleSave} onClear={handleClear} />}
 
-      {/* Optional note */}
+      {/* Required note */}
       {!signatureUrl && (
         <Alert>
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            La firma es opcional. Puede continuar sin ella, pero se recomienda obtenerla para mayor validez del
-            comprobante.
-          </AlertDescription>
+          <AlertDescription>Debe registrar la firma del empleado para poder continuar con la entrega.</AlertDescription>
         </Alert>
       )}
     </div>

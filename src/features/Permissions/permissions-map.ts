@@ -510,7 +510,7 @@ export const PERMISSIONS = {
             name: 'Indumentaria',
             tabId: '3df67b2a-f5e7-47e0-849b-88698d055863',
             parent: 'detalle-empleado',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'create'],
           },
         },
       },
