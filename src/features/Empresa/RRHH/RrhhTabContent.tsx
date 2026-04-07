@@ -1,11 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import ClothingCatalogTabContent from '@/features/Clothing/ClothingCatalogTabContent';
 import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
 import ContractTypeList from '@/features/Empresa/RRHH/ContractTypes/ContractTypeList';
 import { ContractTypeTableSkeleton } from '@/features/Empresa/RRHH/ContractTypes/fallback/ContractTypeTableSkeleton';
 import DiagramTypeList from '@/features/Empresa/RRHH/DiagramTypes/DiagramTypeList';
 import { DiagramTypeTableSkeleton } from '@/features/Empresa/RRHH/DiagramTypes/fallback/DiagramTypeTableSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Award, Briefcase, Calendar, FileText, Layers, ScrollText } from 'lucide-react';
+import { Award, Briefcase, Calendar, FileText, Layers, ScrollText, Shirt } from 'lucide-react';
 import { Suspense } from 'react';
 import AptitudesList from './AptitudesTecnicas/AptitudesList';
 import { AptitudesTableSkeleton } from './AptitudesTecnicas/fallback/AptitudesTableSkeleton';
@@ -170,6 +171,28 @@ export default function RrhhTabContent({
                   <Suspense fallback={<AptitudesTableSkeleton />}>
                     <AptitudesList searchParams={searchParams} permissions={permissions} />
                   </Suspense>
+                </CardContent>
+              </Card>
+            ),
+          },
+          {
+            value: 'items-maestro',
+            label: (
+              <span className="flex items-center gap-2">
+                <Shirt className="h-4 w-4" />
+                Artículos
+              </span>
+            ),
+            moduleSlug: 'empresa',
+            tabSlug: 'listado_maestro_articulos',
+            content: (
+              <Card>
+                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                  <CardTitle>Listado Maestro de Artículos</CardTitle>
+                  <CardDescription>Gestión del catálogo de indumentaria y EPP</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <ClothingCatalogTabContent searchParams={searchParams} permissions={permissions} />
                 </CardContent>
               </Card>
             ),
