@@ -11,17 +11,26 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { createClothingItem, setItemBrandSizes, updateClothingItem } from '@/features/Clothing/actions/actionsServer';
+import {
+  createClothingItem,
+  getActiveClothingBrands,
+  getActiveClothingSizes,
+  getItemBrandSizes,
+  setItemBrandSizes,
+  updateClothingItem,
+} from '@/features/Clothing/actions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import type { ClothingItemListItem } from '../ClothingItemsList/actions.server';
-import { ItemBrandSizeManager, type ItemBrandSizeManagerRef } from './ItemBrandSizeManager';
+import { ItemBrandSizeManager, type BrandSizeGroup } from './ItemBrandSizeManager';
 
 // ============================================================================
 // LOGGER
@@ -48,7 +57,6 @@ type FormValues = z.infer<typeof formSchema>;
 interface ClothingItemFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** If provided, the form is in edit mode */
   item?: ClothingItemListItem | null;
 }
 
@@ -59,39 +67,104 @@ interface ClothingItemFormProps {
 export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!item;
-  const brandSizeRef = useRef<ItemBrandSizeManagerRef>(null);
+
+  // ─── Brand-size local state (unified for create and edit) ─────────────────
+  const [brandSizeGroups, setBrandSizeGroups] = useState<BrandSizeGroup[]>([]);
+  // Ref to avoid stale closure in onSubmit
+  const brandSizeGroupsRef = useRef<BrandSizeGroup[]>([]);
+  brandSizeGroupsRef.current = brandSizeGroups;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      code: '',
-      description: '',
-    },
+    defaultValues: { name: '', code: '', description: '' },
   });
 
-  // Sync form values when dialog opens or item changes
-  // useEffect is correct here: we're synchronizing with an external prop (item)
-  // that changes outside of user interaction within this component
+  // ─── Fetch catalogs ───────────────────────────────────────────────────────
+  const { data: activeBrands, isLoading: isLoadingBrands } = useQuery({
+    queryKey: ['active-clothing-brands'],
+    queryFn: () => getActiveClothingBrands(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: activeSizes, isLoading: isLoadingSizes } = useQuery({
+    queryKey: ['active-clothing-sizes'],
+    queryFn: () => getActiveClothingSizes(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ─── Fetch existing combinations (edit mode only) ─────────────────────────
+  const { data: existingEntries, isLoading: isLoadingEntries } = useQuery({
+    queryKey: ['item-brand-sizes', item?.id],
+    queryFn: () => getItemBrandSizes(item!.id),
+    staleTime: 30 * 1000,
+    enabled: !!item?.id && open,
+  });
+
+  // ─── Sync form + brand-size state when dialog opens ───────────────────────
   useEffect(() => {
-    if (open && item) {
-      form.reset({
-        name: item.name,
-        code: item.code ?? '',
-        description: item.description ?? '',
-      });
-    } else if (open && !item) {
+    if (!open) return;
+
+    if (item) {
+      form.reset({ name: item.name, code: item.code ?? '', description: item.description ?? '' });
+    } else {
       form.reset({ name: '', code: '', description: '' });
+      setBrandSizeGroups([]);
     }
   }, [open, item, form]);
 
+  // Sync brand-size groups from server data when it loads (edit mode)
+  useEffect(() => {
+    if (!existingEntries || !activeBrands || !activeSizes) return;
+
+    const map = new Map<string, { brandName: string; sizes: { id: string; name: string }[] }>();
+    for (const entry of existingEntries) {
+      const brandId = entry.clothing_brand_id;
+      if (!map.has(brandId)) {
+        const brand = activeBrands.find((b) => b.id === brandId);
+        map.set(brandId, { brandName: brand?.name ?? brandId, sizes: [] });
+      }
+      const size = activeSizes.find((s) => s.id === entry.clothing_size_id);
+      map.get(brandId)!.sizes.push({ id: entry.clothing_size_id, name: size?.name ?? entry.clothing_size_id });
+    }
+
+    setBrandSizeGroups(
+      Array.from(map.entries()).map(([brandId, { brandName, sizes }]) => ({ brandId, brandName, sizes }))
+    );
+  }, [existingEntries, activeBrands, activeSizes]);
+
+  // ─── Brand-size handlers ──────────────────────────────────────────────────
+  const handleAddBrandSize = useCallback(
+    (brandId: string, sizeIds: string[]) => {
+      const brand = activeBrands?.find((b) => b.id === brandId);
+      const sizes = sizeIds
+        .map((sId) => {
+          const s = activeSizes?.find((sz) => sz.id === sId);
+          return s ? { id: s.id, name: s.name } : null;
+        })
+        .filter(Boolean) as { id: string; name: string }[];
+
+      setBrandSizeGroups((prev) => {
+        const withoutBrand = prev.filter((g) => g.brandId !== brandId);
+        return [...withoutBrand, { brandId, brandName: brand?.name ?? brandId, sizes }];
+      });
+    },
+    [activeBrands, activeSizes]
+  );
+
+  const handleRemoveBrandSize = useCallback((brandId: string) => {
+    setBrandSizeGroups((prev) => prev.filter((g) => g.brandId !== brandId));
+  }, []);
+
+  // ─── Close handler ────────────────────────────────────────────────────────
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       form.reset({ name: '', code: '', description: '' });
+      setBrandSizeGroups([]);
     }
     onOpenChange(nextOpen);
   };
 
+  // ─── Single submit: saves everything ──────────────────────────────────────
   async function onSubmit(values: FormValues) {
     logger.debug(isEditing ? 'Updating clothing item' : 'Creating clothing item', {
       data: { name: values.name, id: item?.id },
@@ -104,22 +177,29 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
         description: values.description || undefined,
       };
 
+      const currentGroups = brandSizeGroupsRef.current;
+      const combinations = currentGroups.flatMap((g) => g.sizes.map((s) => ({ brandId: g.brandId, sizeId: s.id })));
+
+      logger.debug('Submitting with combinations', {
+        data: { combinationsCount: combinations.length, groups: currentGroups.length },
+      });
+
       if (isEditing && item) {
         await updateClothingItem(item.id, payload);
+        await setItemBrandSizes(item.id, combinations);
         toast.success('Artículo actualizado exitosamente');
       } else {
-        // Create item, then save brand-size combinations with the returned ID
         const created = await createClothingItem(payload);
-        const combinations = brandSizeRef.current?.getCombinations() ?? [];
-
         if (combinations.length > 0) {
           await setItemBrandSizes(created.id, combinations);
         }
-
         toast.success('Artículo creado exitosamente');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
+      if (item?.id) {
+        await queryClient.invalidateQueries({ queryKey: ['item-brand-sizes', item.id] });
+      }
       handleOpenChange(false);
     } catch (error) {
       logger.error('Error saving clothing item', { data: { error } });
@@ -130,6 +210,8 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
       toast.error(message);
     }
   }
+
+  const isLoadingCatalogs = isLoadingBrands || isLoadingSizes || (isEditing && isLoadingEntries);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -148,7 +230,6 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name */}
             <FormField
               control={form.control}
               name="name"
@@ -163,7 +244,6 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
               )}
             />
 
-            {/* Code */}
             <FormField
               control={form.control}
               name="code"
@@ -180,7 +260,6 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
               )}
             />
 
-            {/* Description */}
             <FormField
               control={form.control}
               name="description"
@@ -202,9 +281,28 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
               )}
             />
 
+            <Separator />
+
+            {/* Brand-size section — integrated into the same form */}
+            {isLoadingCatalogs ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-3/4" />
+              </div>
+            ) : (
+              <ItemBrandSizeManager
+                groups={brandSizeGroups}
+                onAdd={handleAddBrandSize}
+                onRemove={handleRemoveBrandSize}
+                brands={activeBrands ?? []}
+                sizes={activeSizes ?? []}
+              />
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                {isEditing ? 'Cerrar' : 'Cancelar'}
+                Cancelar
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear artículo'}
@@ -212,11 +310,6 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
             </DialogFooter>
           </form>
         </Form>
-
-        {/* Brand-size manager — server mode (edit) or local mode (create) */}
-        <div className="mt-2">
-          <ItemBrandSizeManager ref={brandSizeRef} itemId={isEditing ? item!.id : undefined} />
-        </div>
       </DialogContent>
     </Dialog>
   );
