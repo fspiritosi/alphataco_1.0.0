@@ -2,15 +2,10 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Check, MoreHorizontal, Pencil, Power, X } from 'lucide-react';
+import { Check, Pencil, Power, X } from 'lucide-react';
 import moment from 'moment';
 import type { ClothingBrandListItem } from './actions.server';
 
@@ -96,28 +91,40 @@ export function getColumns(permissions: Permissions, handlers: ActionsHandlers):
             cell: ({ row }: { row: { original: ClothingBrandListItem } }) => {
               const brand = row.original;
               return (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Abrir menú</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                <TooltipProvider delayDuration={100}>
+                  <div className="flex items-center gap-1">
                     {canUpdate && (
-                      <DropdownMenuItem onClick={() => handlers.onEdit(brand)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar
-                      </DropdownMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handlers.onEdit(brand)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Editar</TooltipContent>
+                      </Tooltip>
                     )}
                     {canDelete && (
-                      <DropdownMenuItem onClick={() => handlers.onToggleActive(brand)}>
-                        <Power className="mr-2 h-4 w-4" />
-                        {brand.is_active ? 'Desactivar' : 'Activar'}
-                      </DropdownMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handlers.onToggleActive(brand)}
+                          >
+                            <Power className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{brand.is_active ? 'Desactivar' : 'Activar'}</TooltipContent>
+                      </Tooltip>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </div>
+                </TooltipProvider>
               );
             },
           } satisfies ColumnDef<ClothingBrandListItem>,
