@@ -12,16 +12,16 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { createClothingItem, updateClothingItem } from '@/features/Clothing/actions/actionsServer';
+import { createClothingItem, setItemBrandSizes, updateClothingItem } from '@/features/Clothing/actions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import type { ClothingItemListItem } from '../ClothingItemsList/actions.server';
-import { ItemBrandSizeManager } from './ItemBrandSizeManager';
+import { ItemBrandSizeManager, type ItemBrandSizeManagerRef } from './ItemBrandSizeManager';
 
 // ============================================================================
 // LOGGER
@@ -59,7 +59,7 @@ interface ClothingItemFormProps {
 export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!item;
-  const [createdItemId, setCreatedItemId] = useState<string | null>(null);
+  const brandSizeRef = useRef<ItemBrandSizeManagerRef>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -85,13 +85,9 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
     }
   }, [open, item, form]);
 
-  const handleOpenChange = async (nextOpen: boolean) => {
+  const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       form.reset({ name: '', code: '', description: '' });
-      if (createdItemId) {
-        await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
-      }
-      setCreatedItemId(null);
     }
     onOpenChange(nextOpen);
   };
@@ -112,12 +108,19 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
         await updateClothingItem(item.id, payload);
         toast.success('Artículo actualizado exitosamente');
       } else {
+        // Create item, then save brand-size combinations with the returned ID
         const created = await createClothingItem(payload);
-        toast.success('Artículo creado. Ahora podés asignar marcas y talles.');
-        setCreatedItemId(created.id);
+        const combinations = brandSizeRef.current?.getCombinations() ?? [];
+
+        if (combinations.length > 0) {
+          await setItemBrandSizes(created.id, combinations);
+        }
+
+        toast.success('Artículo creado exitosamente');
       }
 
       await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
+      handleOpenChange(false);
     } catch (error) {
       logger.error('Error saving clothing item', { data: { error } });
       const message =
@@ -135,103 +138,85 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>
-            {createdItemId ? 'Artículo creado' : isEditing ? 'Editar artículo' : 'Nuevo artículo'}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar artículo' : 'Nuevo artículo'}</DialogTitle>
           <DialogDescription>
-            {createdItemId
-              ? 'Asigná marcas y talles al artículo recién creado.'
-              : isEditing
-                ? 'Modificá los datos del artículo de indumentaria.'
-                : 'Ingresá los datos del nuevo artículo de indumentaria.'}
+            {isEditing
+              ? 'Modificá los datos del artículo de indumentaria.'
+              : 'Ingresá los datos del nuevo artículo de indumentaria.'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Form — hidden after create (brand-size manager takes over) */}
-        {!createdItemId && (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {/* Name */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: Camisa manga larga, Botas de seguridad..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Name */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Camisa manga larga, Botas de seguridad..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Code */}
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Código <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: CAM-ML-001" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Code */}
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Código <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: CAM-ML-001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Description */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Descripción <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Descripción adicional del artículo..."
-                        className="resize-none"
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Description */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Descripción <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Descripción adicional del artículo..."
+                      className="resize-none"
+                      rows={3}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                  {isEditing ? 'Cerrar' : 'Cancelar'}
-                </Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear artículo'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                {isEditing ? 'Cerrar' : 'Cancelar'}
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear artículo'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
 
-        {/* Close button after create (form is hidden, only brand-size manager visible) */}
-        {createdItemId && (
-          <DialogFooter>
-            <Button type="button" onClick={() => handleOpenChange(false)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        )}
-
-        {/* Brand-size manager — visible in edit mode and after create */}
-        {(isEditing && item) || createdItemId ? (
-          <div className="mt-2">
-            <ItemBrandSizeManager itemId={createdItemId ?? item!.id} />
-          </div>
-        ) : null}
+        {/* Brand-size manager — server mode (edit) or local mode (create) */}
+        <div className="mt-2">
+          <ItemBrandSizeManager ref={brandSizeRef} itemId={isEditing ? item!.id : undefined} />
+        </div>
       </DialogContent>
     </Dialog>
   );
