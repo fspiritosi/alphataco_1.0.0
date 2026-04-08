@@ -16,7 +16,7 @@ import { createClothingItem, updateClothingItem } from '@/features/Clothing/acti
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -59,6 +59,7 @@ interface ClothingItemFormProps {
 export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!item;
+  const [createdItemId, setCreatedItemId] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -84,9 +85,13 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
     }
   }, [open, item, form]);
 
-  const handleOpenChange = (nextOpen: boolean) => {
+  const handleOpenChange = async (nextOpen: boolean) => {
     if (!nextOpen) {
       form.reset({ name: '', code: '', description: '' });
+      if (createdItemId) {
+        await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
+      }
+      setCreatedItemId(null);
     }
     onOpenChange(nextOpen);
   };
@@ -107,12 +112,9 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
         await updateClothingItem(item.id, payload);
         toast.success('Artículo actualizado exitosamente');
       } else {
-        await createClothingItem(payload);
-        toast.success('Artículo creado exitosamente');
-        // Close after create — no brand-size manager in create mode
-        await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
-        handleOpenChange(false);
-        return;
+        const created = await createClothingItem(payload);
+        toast.success('Artículo creado. Ahora podés asignar marcas y talles.');
+        setCreatedItemId(created.id);
       }
 
       await queryClient.invalidateQueries({ queryKey: ['clothing-items'] });
@@ -133,87 +135,103 @@ export function ClothingItemForm({ open, onOpenChange, item }: ClothingItemFormP
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar artículo' : 'Nuevo artículo'}</DialogTitle>
+          <DialogTitle>
+            {createdItemId ? 'Artículo creado' : isEditing ? 'Editar artículo' : 'Nuevo artículo'}
+          </DialogTitle>
           <DialogDescription>
-            {isEditing
-              ? 'Modificá los datos del artículo de indumentaria.'
-              : 'Ingresá los datos del nuevo artículo de indumentaria.'}
+            {createdItemId
+              ? 'Asigná marcas y talles al artículo recién creado.'
+              : isEditing
+                ? 'Modificá los datos del artículo de indumentaria.'
+                : 'Ingresá los datos del nuevo artículo de indumentaria.'}
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Camisa manga larga, Botas de seguridad..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        {/* Form — hidden after create (brand-size manager takes over) */}
+        {!createdItemId && (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Name */}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Camisa manga larga, Botas de seguridad..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Code */}
-            <FormField
-              control={form.control}
-              name="code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Código <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: CAM-ML-001" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* Code */}
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Código <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: CAM-ML-001" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Description */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Descripción <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Descripción adicional del artículo..."
-                      className="resize-none"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Descripción <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Descripción adicional del artículo..."
+                        className="resize-none"
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                {isEditing ? 'Cerrar' : 'Cancelar'}
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear artículo'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-
-        {/* Brand-size manager — only visible in edit mode */}
-        {isEditing && item && (
-          <div className="mt-2">
-            <ItemBrandSizeManager itemId={item.id} />
-          </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                  {isEditing ? 'Cerrar' : 'Cancelar'}
+                </Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear artículo'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         )}
+
+        {/* Close button after create (form is hidden, only brand-size manager visible) */}
+        {createdItemId && (
+          <DialogFooter>
+            <Button type="button" onClick={() => handleOpenChange(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        )}
+
+        {/* Brand-size manager — visible in edit mode and after create */}
+        {(isEditing && item) || createdItemId ? (
+          <div className="mt-2">
+            <ItemBrandSizeManager itemId={createdItemId ?? item!.id} />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
