@@ -13,6 +13,7 @@ import {
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import {
+  checkOtherEquipmentDuplicates,
   createOtherEquipment,
   updateOtherEquipment,
   type OtherEquipmentDetail,
@@ -31,7 +32,7 @@ const logger = new Logger('OtherEquipmentForm');
 
 // ─── Schema de validación ─────────────────────────────────────────────────────
 
-const otherEquipmentSchema = z.object({
+const otherEquipmentBaseSchema = z.object({
   type_id: z.string().min(1, 'El tipo es requerido'),
   sub_type_id: z.string().nullable().optional(),
   brand_id: z.string().nullable().optional(),
@@ -63,7 +64,31 @@ const otherEquipmentSchema = z.object({
   contractors: z.array(z.string()).optional(),
 });
 
-export type OtherEquipmentFormData = z.infer<typeof otherEquipmentSchema>;
+function createOtherEquipmentSchema(excludeId?: string) {
+  return otherEquipmentBaseSchema.superRefine(async (data, ctx) => {
+    if (!data.serial_number && !data.intern_number) return;
+
+    const duplicates = await checkOtherEquipmentDuplicates(data.serial_number, data.intern_number, excludeId);
+
+    if (duplicates.serial_number) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: duplicates.serial_number,
+        path: ['serial_number'],
+      });
+    }
+
+    if (duplicates.intern_number) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: duplicates.intern_number,
+        path: ['intern_number'],
+      });
+    }
+  });
+}
+
+export type OtherEquipmentFormData = z.infer<typeof otherEquipmentBaseSchema>;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -94,7 +119,7 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
   const searchParams = useSearchParams();
 
   const form = useForm<OtherEquipmentFormData>({
-    resolver: zodResolver(otherEquipmentSchema),
+    resolver: zodResolver(createOtherEquipmentSchema(mode === 'edit' ? equipmentId : undefined)),
     defaultValues: {
       type_id: equipment?.type?.id ?? '',
       sub_type_id: equipment?.sub_type?.id ?? null,
@@ -199,7 +224,8 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
       refreshAfterSave(createdId);
     } catch (error) {
       logger.error('Error al guardar other equipment', { data: { error } });
-      toast.error(mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo');
+      const message = error instanceof Error ? error.message : undefined;
+      toast.error(message || (mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo'));
     } finally {
       setIsSubmitting(false);
     }

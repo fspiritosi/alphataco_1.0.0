@@ -110,9 +110,10 @@ function addGroupSeparator(sheet: ExcelJS.Worksheet, rowIndex: number, colCount:
 
 function buildSummarySheet(workbook: ExcelJS.Workbook, summary: PreparteReportSummary) {
   const sheet = workbook.addWorksheet('Resumen');
+  const colCount = 11;
 
   // Título
-  sheet.mergeCells('A1:L1');
+  sheet.mergeCells(`A1:K1`);
   const titleCell = sheet.getCell('A1');
   titleCell.value = 'Informe del Gestor de Pedidos';
   titleCell.font = { bold: true, size: 16, color: { argb: THEME.primary } };
@@ -120,7 +121,7 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, summary: PreparteReportSu
   sheet.getRow(1).height = 35;
 
   // Fecha de generación
-  sheet.mergeCells('A2:L2');
+  sheet.mergeCells(`A2:K2`);
   const dateCell = sheet.getCell('A2');
   dateCell.value = `Generado el ${moment().format('DD/MM/YYYY [a las] HH:mm')}`;
   dateCell.font = { size: 10, italic: true, color: { argb: '6b7280' } };
@@ -130,7 +131,7 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, summary: PreparteReportSu
   const headers = [
     'Desde',
     'Hasta',
-    'Cliente(s)',
+    'Cliente',
     'Total',
     '% Confirmados',
     '% Pendientes',
@@ -138,44 +139,74 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, summary: PreparteReportSu
     '% Cancelados',
     '% Rechazados',
     '% Vencidos',
-    '% Corrimiento',
     '% Perdidos',
   ];
 
   const headerRow = sheet.getRow(4);
-  headers.forEach((h, i) => applyHeaderStyle(headerRow.getCell(i + 1)));
   headers.forEach((h, i) => {
-    headerRow.getCell(i + 1).value = h;
+    const cell = headerRow.getCell(i + 1);
+    cell.value = h;
+    applyHeaderStyle(cell);
   });
   headerRow.height = 28;
 
-  // Datos (fila 5)
-  const pct = (status: string) => summary.byStatus[status]?.percentage ?? 0;
-  const values = [
-    moment(summary.from).format('DD/MM/YYYY'),
-    moment(summary.to).format('DD/MM/YYYY'),
-    summary.clientNames,
-    summary.total,
-    `${pct('confirmado')}%`,
-    `${pct('pendiente')}%`,
-    `${pct('reprogramado')}%`,
-    `${pct('cancelado')}%`,
-    `${pct('rechazado')}%`,
-    `${pct('vencido')}%`,
-    `${summary.shiftPercentage}%`,
-    `${summary.lostPercentage}%`,
-  ];
+  // Helper para construir los valores de una fila
+  const buildRowValues = (
+    clientName: string,
+    stats: { total: number; byStatus: Record<string, { count: number; percentage: number }>; lostPercentage: number }
+  ) => {
+    const pct = (status: string) => stats.byStatus[status]?.percentage ?? 0;
+    return [
+      moment(summary.from).format('DD/MM/YYYY'),
+      moment(summary.to).format('DD/MM/YYYY'),
+      clientName,
+      stats.total,
+      `${pct('confirmado')}%`,
+      `${pct('pendiente')}%`,
+      `${pct('reprogramado')}%`,
+      `${pct('cancelado')}%`,
+      `${pct('rechazado')}%`,
+      `${pct('vencido')}%`,
+      `${stats.lostPercentage}%`,
+    ];
+  };
 
-  const dataRow = sheet.getRow(5);
-  values.forEach((val, i) => {
-    const cell = dataRow.getCell(i + 1);
-    cell.value = val;
-    applyCellStyle(cell, false);
-    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-  });
+  // Una fila por cliente
+  let rowIndex = 5;
+  for (let i = 0; i < summary.clientSummaries.length; i++) {
+    const cs = summary.clientSummaries[i];
+    const values = buildRowValues(cs.clientName, cs);
+    const dataRow = sheet.getRow(rowIndex);
+    values.forEach((val, ci) => {
+      const cell = dataRow.getCell(ci + 1);
+      cell.value = val;
+      applyCellStyle(cell, i % 2 === 1);
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    rowIndex++;
+  }
+
+  // Fila TOTAL (solo si hay más de un cliente)
+  if (summary.clientSummaries.length > 1) {
+    const totalValues = buildRowValues('TOTAL', summary);
+    const totalRow = sheet.getRow(rowIndex);
+    totalValues.forEach((val, ci) => {
+      const cell = totalRow.getCell(ci + 1);
+      cell.value = val;
+      cell.font = { bold: true, size: 11 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: THEME.groupBg } };
+      cell.border = {
+        top: { style: 'thin', color: { argb: THEME.border } },
+        bottom: { style: 'thin', color: { argb: THEME.border } },
+        left: { style: 'thin', color: { argb: THEME.border } },
+        right: { style: 'thin', color: { argb: THEME.border } },
+      };
+    });
+  }
 
   // Anchos
-  [12, 12, 30, 8, 14, 14, 16, 14, 14, 12, 14, 14].forEach((w, i) => {
+  [12, 12, 30, 8, 14, 14, 16, 14, 14, 12, 14].forEach((w, i) => {
     sheet.getColumn(i + 1).width = w;
   });
 }

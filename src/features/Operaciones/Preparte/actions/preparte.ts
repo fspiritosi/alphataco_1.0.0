@@ -966,13 +966,19 @@ export type PreparteReportDetail = {
   observaciones: string | null;
 };
 
+export type PreparteClientSummary = {
+  clientName: string;
+  total: number;
+  byStatus: Record<string, { count: number; percentage: number }>;
+  lostPercentage: number;
+};
+
 export type PreparteReportSummary = {
   from: string;
   to: string;
-  clientNames: string;
+  clientSummaries: PreparteClientSummary[];
   total: number;
   byStatus: Record<string, { count: number; percentage: number }>;
-  shiftPercentage: number;
   lostPercentage: number;
 };
 
@@ -1025,40 +1031,54 @@ export async function getPreparteReportData(filters: PreparteReportFilters): Pro
 
     const total = data.length;
 
-    // Contar por estado
-    const statusCounts: Record<string, number> = {};
+    // Helper para calcular estadísticas de un grupo de registros
+    function computeStats(rows: typeof data) {
+      const count = rows.length;
+      const statusCounts: Record<string, number> = {};
+      for (const row of rows) {
+        const s = row.status || 'sin_estado';
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+      }
+      const byStatus: Record<string, { count: number; percentage: number }> = {};
+      for (const [status, c] of Object.entries(statusCounts)) {
+        byStatus[status] = {
+          count: c,
+          percentage: count > 0 ? Math.round((c / count) * 10000) / 100 : 0,
+        };
+      }
+      const rechazadoCount = statusCounts['rechazado'] || 0;
+      const vencidoCount = statusCounts['vencido'] || 0;
+      const lostPercentage = count > 0 ? Math.round(((rechazadoCount + vencidoCount) / count) * 10000) / 100 : 0;
+      return { total: count, byStatus, lostPercentage };
+    }
+
+    // Agrupar por cliente
+    const clientGroups = new Map<string, typeof data>();
     for (const row of data) {
-      const s = row.status || 'sin_estado';
-      statusCounts[s] = (statusCounts[s] || 0) + 1;
+      const clientName = row.customers?.name || 'Sin cliente';
+      const group = clientGroups.get(clientName) || [];
+      group.push(row);
+      clientGroups.set(clientName, group);
     }
 
-    const byStatus: Record<string, { count: number; percentage: number }> = {};
-    for (const [status, count] of Object.entries(statusCounts)) {
-      byStatus[status] = {
-        count,
-        percentage: total > 0 ? Math.round((count / total) * 10000) / 100 : 0,
-      };
-    }
+    // Resumen por cliente
+    const clientSummaries: PreparteClientSummary[] = [...clientGroups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([clientName, rows]) => ({
+        clientName,
+        ...computeStats(rows),
+      }));
 
-    const reprogramadoCount = statusCounts['reprogramado'] || 0;
-    const rechazadoCount = statusCounts['rechazado'] || 0;
-    const vencidoCount = statusCounts['vencido'] || 0;
-
-    // Resolver nombres de clientes para el resumen
-    let clientNames = 'Todos';
-    if (filters.clientIds && filters.clientIds.length > 0) {
-      const uniqueNames = [...new Set(data.map((d) => d.customers?.name).filter(Boolean))];
-      clientNames = uniqueNames.join(', ') || 'Todos';
-    }
+    // Totales globales
+    const overallStats = computeStats(data);
 
     const summary: PreparteReportSummary = {
       from: filters.from,
       to: filters.to,
-      clientNames,
+      clientSummaries,
       total,
-      byStatus,
-      shiftPercentage: total > 0 ? Math.round((reprogramadoCount / total) * 10000) / 100 : 0,
-      lostPercentage: total > 0 ? Math.round(((rechazadoCount + vencidoCount) / total) * 10000) / 100 : 0,
+      byStatus: overallStats.byStatus,
+      lostPercentage: overallStats.lostPercentage,
     };
 
     const details: PreparteReportDetail[] = data.map((row) => ({
