@@ -213,8 +213,8 @@ export function ServiceDetailDialog({ open, onOpenChange, rowId }: Props) {
                             <ExternalLink className="h-3 w-3" />
                           </Link>
                           {rel.role && (
-                            <Badge variant="secondary" className="text-xs">
-                              {rel.role}
+                            <Badge variant="secondary" className="text-xs capitalize">
+                              {rel.role.replace(/_/g, ' ')}
                             </Badge>
                           )}
                         </div>

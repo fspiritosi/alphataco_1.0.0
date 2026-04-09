@@ -1,7 +1,9 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
@@ -10,8 +12,9 @@ import {
   dailyReportTypeServiceLabels,
 } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import moment from 'moment';
+import type { EmployeeDeviation, EquipmentDeviation } from '../actions/actions';
 import type { DailyReportDetailRow } from './types';
 
 // ============================================================================
@@ -45,83 +48,132 @@ export type RowActionHandlers = {
 };
 
 // ============================================================================
-// HELPERS
+// DEVIATION GETTERS TYPE
 // ============================================================================
 
-/**
- * Retorna un Set de employee_id que aparecen en MÁS de una fila del parte
- * (excluyendo la fila actual). Usado para marcar duplicados en naranja.
- */
-function getDuplicatedEmployeeIds(allRows: DailyReportDetailRow[], currentRowId: string): Set<string> {
-  const counts = new Map<string, number>();
-  for (const r of allRows) {
-    if (r.id === currentRowId) continue;
-    for (const rel of r.dailyreportemployeerelations) {
-      if (rel.employee_id) {
-        counts.set(rel.employee_id, (counts.get(rel.employee_id) ?? 0) + 1);
-      }
-    }
-  }
-  // Solo los que aparecen al menos una vez en OTRAS filas
-  return new Set(counts.keys());
+export type DeviationGetters = {
+  getEmployeeDeviation: (employeeId: string, rowId: string) => EmployeeDeviation | null;
+  getEquipmentDeviation: (equipmentId: string, rowId: string) => EquipmentDeviation | null;
+  loadingValidations: boolean;
+};
+
+// ============================================================================
+// HELPERS — Employee label
+// ============================================================================
+
+function buildEmployeeLabel(emp: {
+  file?: string | null;
+  lastname?: string | null;
+  firstname?: string | null;
+}): string {
+  return `[${emp.file ?? '?'}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
 }
 
 // ============================================================================
-// EMPLOYEE BADGE CELL (with duplication detection)
+// EMPLOYEE BADGE CELL (with RPC deviation data)
 // ============================================================================
 
-function EmployeeBadgeCell({ row, allRows }: { row: DailyReportDetailRow; allRows: DailyReportDetailRow[] }) {
+function renderEmployeeBadge(
+  employeeId: string,
+  label: string,
+  rowId: string,
+  deviations: DeviationGetters,
+  key: string
+): React.ReactNode {
+  if (deviations.loadingValidations) {
+    return (
+      <Badge key={key} variant="outline" className="text-xs font-normal border-gray-400 text-gray-500 cursor-default">
+        {label}
+      </Badge>
+    );
+  }
+
+  const dev = deviations.getEmployeeDeviation(employeeId, rowId);
+
+  if (!dev) {
+    // Sin desviaciones — badge estándar
+    return (
+      <TooltipProvider key={key} delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="text-xs font-normal dark:text-black cursor-default">
+              {label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="bg-black text-white rounded-lg p-2">
+            <p className="text-xs">Empleado asignado correctamente</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Construir mensajes de tooltip (pueden ser múltiples)
+  const messages: string[] = [];
+  if (dev.is_duplicated) messages.push('Empleado asignado en múltiples filas');
+  if (dev.is_unassigned_to_client) messages.push('No asignado al cliente de esta fila');
+  if (dev.has_no_diagram) messages.push('Sin diagrama cargado para este día');
+  if (dev.is_non_work_day) {
+    messages.push(`Día no laboral: ${dev.diagram_type_name ?? 'No laboral'}`);
+  }
+
+  // Determinar color según prioridad
+  const badgeClass = dev.is_duplicated
+    ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
+    : dev.is_unassigned_to_client && dev.has_no_diagram
+      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 dark:border-purple-400'
+      : dev.is_unassigned_to_client
+        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
+        : dev.has_no_diagram
+          ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
+          : dev.is_non_work_day
+            ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
+            : 'dark:text-black';
+
+  return (
+    <TooltipProvider key={key} delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={cn('text-xs font-normal cursor-default', badgeClass)}>
+            {label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="bg-black text-white rounded-lg p-2 max-w-xs">
+          {messages.map((msg, i) => (
+            <p key={i} className="text-xs">
+              {msg}
+            </p>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function EmployeeBadgeCell({ row, deviations }: { row: DailyReportDetailRow; deviations: DeviationGetters }) {
   const relations = row.dailyreportemployeerelations;
 
   if (!relations || relations.length === 0) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
-  const duplicatedIds = getDuplicatedEmployeeIds(allRows, row.id);
-
   return (
     <div className="flex flex-col gap-1">
       {relations.map((rel) => {
         const emp = rel.employees;
         if (!emp) return null;
-        const isDuplicated = rel.employee_id ? duplicatedIds.has(rel.employee_id) : false;
-        const label = `[${emp.file ?? '?'}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
-
-        if (isDuplicated) {
-          return (
-            <TooltipProvider key={rel.employee_id ?? rel.id} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-normal border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400 cursor-default"
-                  >
-                    {label}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent className="bg-black text-white rounded-lg p-2">
-                  <p className="text-xs">Empleado asignado a múltiples filas del parte</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
-        }
-
-        return (
-          <Badge key={rel.employee_id ?? rel.id} variant="outline" className="text-xs font-normal">
-            {label}
-          </Badge>
-        );
+        const label = buildEmployeeLabel(emp);
+        return renderEmployeeBadge(rel.employee_id ?? '', label, row.id, deviations, rel.employee_id ?? rel.id);
       })}
     </div>
   );
 }
 
 // ============================================================================
-// EQUIPMENT BADGE CELL (vehicles + other_equipment)
+// EQUIPMENT BADGE CELL (with RPC deviation data)
 // ============================================================================
 
-function EquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
+function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; deviations: DeviationGetters }) {
   const relations = row.dailyreportequipmentrelations;
 
   if (!relations || relations.length === 0) {
@@ -134,44 +186,111 @@ function EquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
         if (rel.vehicles) {
           const v = rel.vehicles;
           const label = `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
-          const isNotOperative = v.condition && v.condition !== 'operativo';
 
-          if (isNotOperative) {
+          if (deviations.loadingValidations) {
             return (
-              <TooltipProvider key={rel.id} delayDuration={100}>
+              <Badge
+                key={rel.id}
+                variant="outline"
+                className="text-xs font-normal border-gray-400 text-gray-500 cursor-default"
+              >
+                {label}
+              </Badge>
+            );
+          }
+
+          const dev = rel.equipment_id ? deviations.getEquipmentDeviation(rel.equipment_id, row.id) : null;
+
+          if (!dev) {
+            // Sin desviaciones — badge estándar con tooltip
+            return (
+              <TooltipProvider key={rel.id} delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-normal border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400 cursor-default"
-                    >
-                      <AlertTriangle className="h-3 w-3 mr-1 text-red-500" />
+                    <Badge variant="outline" className="text-xs font-normal dark:text-black cursor-default">
                       {label}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent className="bg-black text-white rounded-lg p-2">
-                    <p className="text-xs">
-                      Equipo {v.condition === 'en_reparacion' ? 'en reparación' : 'no operativo'}
-                    </p>
+                    <p className="text-xs">Equipo asignado correctamente</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             );
           }
 
+          // Determinar color según prioridad y condición
+          const condition = dev.condition?.toLowerCase() ?? '';
+          const badgeClass = dev.is_duplicated
+            ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
+            : condition === 'no operativo'
+              ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
+              : condition === 'en reparacion' || condition === 'en_reparacion'
+                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
+                : dev.is_unassigned_to_client
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
+                  : condition === 'operativo condicionado'
+                    ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 dark:border-sky-400'
+                    : condition === 'en preparacion' || condition === 'en_preparacion'
+                      ? 'border-gray-400 bg-transparent'
+                      : 'dark:text-black';
+
+          const tooltipMessages: string[] = [];
+          if (dev.is_duplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+          if (condition === 'no operativo') tooltipMessages.push('Condición: No operativo');
+          if (condition === 'en reparacion' || condition === 'en_reparacion')
+            tooltipMessages.push('Condición: En reparación');
+          if (dev.is_unassigned_to_client) tooltipMessages.push('No asignado al cliente de esta fila');
+          if (condition === 'operativo condicionado') tooltipMessages.push('Condición: Condicionado');
+          if (condition === 'en preparacion' || condition === 'en_preparacion')
+            tooltipMessages.push('Condición: En preparación');
+
+          if (tooltipMessages.length === 0) {
+            return (
+              <Badge key={rel.id} variant="outline" className={cn('text-xs font-normal dark:text-black', badgeClass)}>
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {label}
+              </Badge>
+            );
+          }
+
           return (
-            <Badge key={rel.id} variant="outline" className="text-xs font-normal">
-              {label}
-            </Badge>
+            <TooltipProvider key={rel.id} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className={cn('text-xs font-normal cursor-default', badgeClass)}>
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black text-white rounded-lg p-2 max-w-xs">
+                  {tooltipMessages.map((msg, i) => (
+                    <p key={i} className="text-xs">
+                      {msg}
+                    </p>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           );
         }
 
         if (rel.other_equipment) {
           const o = rel.other_equipment;
+          const label = o.intern_number ?? o.serial_number ?? 'Equipo';
           return (
-            <Badge key={rel.id} variant="outline" className="text-xs font-normal">
-              {o.intern_number ?? o.serial_number ?? 'Equipo'}
-            </Badge>
+            <TooltipProvider key={rel.id} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-xs font-normal border-blue-400 cursor-default">
+                    {label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black text-white rounded-lg p-2">
+                  <p className="text-xs">Otro Equipo Operativo</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           );
         }
 
@@ -195,8 +314,9 @@ function CustomerEquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
   return (
     <div className="flex flex-col gap-1">
       {relations.map((rel) => (
-        <Badge key={rel.id} variant="outline" className="text-xs font-normal">
-          {rel.equipos_clientes?.name ?? 'Equipo cliente'}
+        <Badge key={rel.id} variant="default" className="select-none text-nowrap text-xs">
+          {rel.equipos_clientes?.name}
+          {rel.equipos_clientes?.type ? ` (${rel.equipos_clientes.type})` : ''}
         </Badge>
       ))}
     </div>
@@ -210,7 +330,8 @@ function CustomerEquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
 export function getColumns(
   permissions: Permissions,
   handlers: RowActionHandlers,
-  reportDate: string
+  reportDate: string,
+  deviations: DeviationGetters
 ): ColumnDef<DailyReportDetailRow>[] {
   return [
     // ── Select (checkbox) ────────────────────────────────────────────────────
@@ -220,24 +341,22 @@ export function getColumns(
       enableSorting: false,
       enableHiding: false,
       header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllPageRowsSelected()}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Seleccionar todos"
-          className="h-4 w-4 cursor-pointer"
+          className="cursor-pointer"
         />
       ),
       cell: ({ row }) => {
         const disabled = NON_SELECTABLE_STATUSES.has(row.original.status);
         return (
-          <input
-            type="checkbox"
+          <Checkbox
             checked={row.getIsSelected()}
             disabled={disabled}
-            onChange={(e) => row.toggleSelected(e.target.checked)}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Seleccionar fila"
-            className={`h-4 w-4 ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+            className={disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}
           />
         );
       },
@@ -291,7 +410,15 @@ export function getColumns(
       accessorFn: (row) => row.service_sectors?.sectors?.name ?? '',
       meta: { title: 'Sector' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
-      cell: ({ row }) => <span>{row.original.service_sectors?.sectors?.name ?? '—'}</span>,
+      cell: ({ row }) => {
+        const name = row.original.service_sectors?.sectors?.name;
+        if (!name) return <span className="text-muted-foreground text-xs">—</span>;
+        return (
+          <Badge variant="outline" className="font-medium">
+            {name}
+          </Badge>
+        );
+      },
       filterFn: (row, _id, value: string[]) => {
         const sectorId = row.original.service_sectors?.sectors?.id;
         if (sectorId == null) return value.includes(NULL_FILTER_VALUE);
@@ -305,7 +432,15 @@ export function getColumns(
       accessorFn: (row) => row.service_areas?.areas_cliente?.descripcion_corta ?? '',
       meta: { title: 'Área' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Área" />,
-      cell: ({ row }) => <span>{row.original.service_areas?.areas_cliente?.descripcion_corta ?? '—'}</span>,
+      cell: ({ row }) => {
+        const name = row.original.service_areas?.areas_cliente?.descripcion_corta;
+        if (!name) return <span className="text-muted-foreground text-xs">—</span>;
+        return (
+          <Badge variant="outline" className="font-medium">
+            {name}
+          </Badge>
+        );
+      },
       filterFn: (row, _id, value: string[]) => {
         const areaId = row.original.service_areas?.areas_cliente?.id;
         if (areaId == null) return value.includes(NULL_FILTER_VALUE);
@@ -327,6 +462,232 @@ export function getColumns(
         const val = row.getValue(id) as string | null;
         if (val == null) return value.includes(NULL_FILTER_VALUE);
         return value.includes(val);
+      },
+    },
+
+    // ── Equipo Cliente (M:M — virtual) — movido arriba de los roles ──────────
+    {
+      id: 'customer_equipment',
+      accessorFn: (row) =>
+        row.dailyreport_customer_equipment_relations
+          .map((r) => r.equipos_clientes?.name ?? '')
+          .filter(Boolean)
+          .join(', '),
+      meta: { title: 'Equipo cliente' },
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo cliente" />,
+      cell: ({ row }) => <CustomerEquipmentBadgeCell row={row.original} />,
+      filterFn: (row, _id, value: string[]) => {
+        const relations = row.original.dailyreport_customer_equipment_relations;
+        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
+        return relations.some((r) => r.customer_equipment_id && value.includes(r.customer_equipment_id));
+      },
+    },
+
+    // ── Chofer Día (rol de empleado — jornada 12h o 24h) ─────────────────────
+    {
+      id: 'chofer_dia',
+      accessorFn: (row) => {
+        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'chofer_dia');
+        if (!rel?.employees) return '';
+        return buildEmployeeLabel(rel.employees);
+      },
+      meta: { title: 'Chofer Día' },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a =
+          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_dia')?.employees?.lastname ?? '';
+        const b =
+          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_dia')?.employees?.lastname ?? '';
+        return a.localeCompare(b);
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer Día" />,
+      cell: ({ row }) => {
+        const wday = row.original.working_day?.toLowerCase();
+        if (wday !== 'jornada 12 horas' && wday !== 'jornada 24 horas') {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_dia');
+        if (!rel?.employees) {
+          return <span className="text-muted-foreground text-xs italic">Sin asignar</span>;
+        }
+        const emp = rel.employees;
+        const label = buildEmployeeLabel(emp);
+        return renderEmployeeBadge(
+          rel.employee_id ?? '',
+          label,
+          row.original.id,
+          deviations,
+          `chofer_dia_${rel.employee_id ?? rel.id}`
+        );
+      },
+    },
+
+    // ── Ayudante Día (rol de empleado — jornada 12h o 24h) ───────────────────
+    {
+      id: 'ayudante_dia',
+      accessorFn: (row) => {
+        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia');
+        if (!rel?.employees) return '';
+        return buildEmployeeLabel(rel.employees);
+      },
+      meta: { title: 'Ayudante Día' },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a =
+          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia')?.employees?.lastname ?? '';
+        const b =
+          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia')?.employees?.lastname ?? '';
+        return a.localeCompare(b);
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Ayudante Día" />,
+      cell: ({ row }) => {
+        const wday = row.original.working_day?.toLowerCase();
+        if (wday !== 'jornada 12 horas' && wday !== 'jornada 24 horas') {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia');
+        if (!rel?.employees) {
+          return <span className="text-muted-foreground text-xs italic">Opcional</span>;
+        }
+        const emp = rel.employees;
+        const label = buildEmployeeLabel(emp);
+        return renderEmployeeBadge(
+          rel.employee_id ?? '',
+          label,
+          row.original.id,
+          deviations,
+          `ayudante_dia_${rel.employee_id ?? rel.id}`
+        );
+      },
+    },
+
+    // ── Chofer Noche (rol de empleado — solo jornada 24h) ────────────────────
+    {
+      id: 'chofer_noche',
+      accessorFn: (row) => {
+        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'chofer_noche');
+        if (!rel?.employees) return '';
+        return buildEmployeeLabel(rel.employees);
+      },
+      meta: { title: 'Chofer Noche' },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a =
+          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_noche')?.employees?.lastname ?? '';
+        const b =
+          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_noche')?.employees?.lastname ?? '';
+        return a.localeCompare(b);
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer Noche" />,
+      cell: ({ row }) => {
+        const wday = row.original.working_day?.toLowerCase();
+        if (wday !== 'jornada 24 horas') {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'chofer_noche');
+        if (!rel?.employees) {
+          return <span className="text-muted-foreground text-xs italic">Sin asignar</span>;
+        }
+        const emp = rel.employees;
+        const label = buildEmployeeLabel(emp);
+        return renderEmployeeBadge(
+          rel.employee_id ?? '',
+          label,
+          row.original.id,
+          deviations,
+          `chofer_noche_${rel.employee_id ?? rel.id}`
+        );
+      },
+    },
+
+    // ── Ayudante Noche (rol de empleado — solo jornada 24h) ──────────────────
+    {
+      id: 'ayudante_noche',
+      accessorFn: (row) => {
+        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche');
+        if (!rel?.employees) return '';
+        return buildEmployeeLabel(rel.employees);
+      },
+      meta: { title: 'Ayudante Noche' },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const a =
+          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche')?.employees?.lastname ??
+          '';
+        const b =
+          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche')?.employees?.lastname ??
+          '';
+        return a.localeCompare(b);
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Ayudante Noche" />,
+      cell: ({ row }) => {
+        const wday = row.original.working_day?.toLowerCase();
+        if (wday !== 'jornada 24 horas') {
+          return <span className="text-muted-foreground text-xs">—</span>;
+        }
+        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche');
+        if (!rel?.employees) {
+          return <span className="text-muted-foreground text-xs italic">Opcional</span>;
+        }
+        const emp = rel.employees;
+        const label = buildEmployeeLabel(emp);
+        return renderEmployeeBadge(
+          rel.employee_id ?? '',
+          label,
+          row.original.id,
+          deviations,
+          `ayudante_noche_${rel.employee_id ?? rel.id}`
+        );
+      },
+    },
+
+    // ── Empleados (M:M — todos los empleados de la fila, virtual) ────────────
+    {
+      id: 'employees',
+      accessorFn: (row) =>
+        row.dailyreportemployeerelations
+          .map((r) => {
+            const emp = r.employees;
+            return emp ? `[${emp.file ?? '?'}] ${emp.lastname ?? ''}`.trim() : '';
+          })
+          .filter(Boolean)
+          .join(', '),
+      meta: { title: 'Empleados' },
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
+      cell: ({ row }) => <EmployeeBadgeCell row={row.original} deviations={deviations} />,
+      filterFn: (row, _id, value: string[]) => {
+        const relations = row.original.dailyreportemployeerelations;
+        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
+        return relations.some((r) => r.employee_id && value.includes(r.employee_id));
+      },
+    },
+
+    // ── Equipos (M:M — virtual) ───────────────────────────────────────────────
+    {
+      id: 'equipment',
+      accessorFn: (row) =>
+        row.dailyreportequipmentrelations
+          .map((r) => {
+            if (r.vehicles) return r.vehicles.domain ?? r.vehicles.intern_number ?? '';
+            if (r.other_equipment) return r.other_equipment.intern_number ?? r.other_equipment.serial_number ?? '';
+            return '';
+          })
+          .filter(Boolean)
+          .join(', '),
+      meta: { title: 'Equipos' },
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipos" />,
+      cell: ({ row }) => <EquipmentBadgeCell row={row.original} deviations={deviations} />,
+      filterFn: (row, _id, value: string[]) => {
+        const relations = row.original.dailyreportequipmentrelations;
+        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
+        return relations.some(
+          (r) =>
+            (r.equipment_id && value.includes(r.equipment_id)) ||
+            (r.other_equipment_id && value.includes(r.other_equipment_id))
+        );
       },
     },
 
@@ -386,7 +747,7 @@ export function getColumns(
         const variant = dailyReportRowStatusBadges[val] ?? 'default';
 
         // Ejecutado parcial: jornada 24h, no completamente ejecutado, pero al menos un turno completado
-        const is24Hours = row.original.working_day === 'Jornada 24 horas';
+        const is24Hours = row.original.working_day?.toLowerCase() === 'jornada 24 horas';
         const completedDay = row.original.completed_day;
         const completedNight = row.original.completed_night;
         if (is24Hours && val !== 'ejecutado' && (completedDay || completedNight)) {
@@ -399,7 +760,10 @@ export function getColumns(
             <TooltipProvider delayDuration={100}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge variant={variant}>{label}</Badge>
+                  <Badge variant={variant} className="inline-flex items-center gap-1">
+                    {label}
+                    <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                  </Badge>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs text-xs bg-black text-white rounded-lg p-2">
                   <p>{row.original.cancel_reason}</p>
@@ -414,76 +778,6 @@ export function getColumns(
       filterFn: (row, id, value: string[]) => {
         const val = row.getValue(id) as string;
         return value.includes(val);
-      },
-    },
-
-    // ── Empleados (M:M — virtual) ─────────────────────────────────────────────
-    {
-      id: 'employees',
-      accessorFn: (row) =>
-        row.dailyreportemployeerelations
-          .map((r) => {
-            const emp = r.employees;
-            return emp ? `[${emp.file ?? '?'}] ${emp.lastname ?? ''}`.trim() : '';
-          })
-          .filter(Boolean)
-          .join(', '),
-      meta: { title: 'Empleados' },
-      enableSorting: false,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
-      cell: ({ row, table }) => (
-        <EmployeeBadgeCell row={row.original} allRows={table.options.data as DailyReportDetailRow[]} />
-      ),
-      filterFn: (row, _id, value: string[]) => {
-        const relations = row.original.dailyreportemployeerelations;
-        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
-        return relations.some((r) => r.employee_id && value.includes(r.employee_id));
-      },
-    },
-
-    // ── Equipos (M:M — virtual) ───────────────────────────────────────────────
-    {
-      id: 'equipment',
-      accessorFn: (row) =>
-        row.dailyreportequipmentrelations
-          .map((r) => {
-            if (r.vehicles) return r.vehicles.domain ?? r.vehicles.intern_number ?? '';
-            if (r.other_equipment) return r.other_equipment.intern_number ?? r.other_equipment.serial_number ?? '';
-            return '';
-          })
-          .filter(Boolean)
-          .join(', '),
-      meta: { title: 'Equipos' },
-      enableSorting: false,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipos" />,
-      cell: ({ row }) => <EquipmentBadgeCell row={row.original} />,
-      filterFn: (row, _id, value: string[]) => {
-        const relations = row.original.dailyreportequipmentrelations;
-        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
-        return relations.some(
-          (r) =>
-            (r.equipment_id && value.includes(r.equipment_id)) ||
-            (r.other_equipment_id && value.includes(r.other_equipment_id))
-        );
-      },
-    },
-
-    // ── Equipos Cliente (M:M — virtual) ──────────────────────────────────────
-    {
-      id: 'customer_equipment',
-      accessorFn: (row) =>
-        row.dailyreport_customer_equipment_relations
-          .map((r) => r.equipos_clientes?.name ?? '')
-          .filter(Boolean)
-          .join(', '),
-      meta: { title: 'Equipos Cliente' },
-      enableSorting: false,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipos Cliente" />,
-      cell: ({ row }) => <CustomerEquipmentBadgeCell row={row.original} />,
-      filterFn: (row, _id, value: string[]) => {
-        const relations = row.original.dailyreport_customer_equipment_relations;
-        if (!relations || relations.length === 0) return value.includes(NULL_FILTER_VALUE);
-        return relations.some((r) => r.customer_equipment_id && value.includes(r.customer_equipment_id));
       },
     },
 

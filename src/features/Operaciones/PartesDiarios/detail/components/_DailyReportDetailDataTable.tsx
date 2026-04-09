@@ -37,6 +37,7 @@ import {
 } from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns, type RowActionHandlers } from '../columns';
 import { useDailyReportDetailInvalidation } from '../hooks/useDailyReportDetail';
+import { useValidationData } from '../hooks/useValidationData';
 import type { DailyReportDetailRow } from '../types';
 
 // Lightweight modals — regular imports
@@ -135,6 +136,13 @@ export function _DailyReportDetailDataTable({
   // ── Query invalidation ────────────────────────────────────────────────────
   const { invalidateDetail } = useDailyReportDetailInvalidation();
 
+  // ── Datos de validaciones de desvíos (empleados y equipos) ───────────────
+  const {
+    isLoading: loadingValidations,
+    getEmployeeDeviation,
+    getEquipmentDeviation,
+  } = useValidationData(dailyReportId, reportDate);
+
   // ── Zustand store for DailyReportRowForm Sheet ────────────────────────────
   const { isOpen: isFormOpen, open: openForm, close: closeForm, editingRowId } = useDailyReportDetailFormStore();
 
@@ -197,6 +205,16 @@ export function _DailyReportDetailDataTable({
   // ── Permissions ───────────────────────────────────────────────────────────
   const permissions = useMemo(() => ({ canUpdate, canDelete }), [canUpdate, canDelete]);
 
+  // ── Deviation getters (estables para el memo de columnas) ─────────────────
+  const deviationGetters = useMemo(
+    () => ({
+      getEmployeeDeviation,
+      getEquipmentDeviation,
+      loadingValidations,
+    }),
+    [getEmployeeDeviation, getEquipmentDeviation, loadingValidations]
+  );
+
   // ── Column visibility ─────────────────────────────────────────────────────
   const mergedColumnVisibility = useMemo(() => {
     const defaults: Record<string, boolean> = {};
@@ -229,7 +247,22 @@ export function _DailyReportDetailDataTable({
   }, [initialFilterVisibility]);
 
   // ── Columns ────────────────────────────────────────────────────────────────
-  const columns = useMemo(() => getColumns(permissions, handlers, reportDate), [permissions, handlers, reportDate]);
+  const columns = useMemo(
+    () => getColumns(permissions, handlers, reportDate, deviationGetters),
+    [permissions, handlers, reportDate, deviationGetters]
+  );
+
+  // ── Row className — indicadores visuales por estado ───────────────────────
+  const reportDateMoment = useMemo(() => moment(reportDate), [reportDate]);
+  const getRowClassName = useCallback(
+    (row: DailyReportDetailRow) => {
+      if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
+      if (row.created_at && moment(row.created_at).isAfter(reportDateMoment))
+        return 'bg-yellow-100 dark:bg-yellow-900/30';
+      return '';
+    },
+    [reportDateMoment]
+  );
 
   // ── Lazy-load facet factory ───────────────────────────────────────────────
 
@@ -478,7 +511,18 @@ export function _DailyReportDetailDataTable({
               {selectedRows.length} seleccionado{selectedRows.length !== 1 ? 's' : ''}
             </span>
             {canUpdate && (
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkEdit(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowBulkEdit(true)}
+                disabled={selectedRows.some((r) => r.status === 'ejecutado')}
+                title={
+                  selectedRows.some((r) => r.status === 'ejecutado')
+                    ? 'No se pueden editar registros ejecutados. Deseleccioná las filas ejecutadas'
+                    : undefined
+                }
+              >
                 <Pencil className="h-3.5 w-3.5" />
                 Editar seleccionados
               </Button>
@@ -486,11 +530,13 @@ export function _DailyReportDetailDataTable({
           </>
         )}
 
-        {/* Clonar — SIEMPRE visible. Sin selección = clonar todo el parte */}
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
-          <Copy className="h-3.5 w-3.5" />
-          {hasBulk ? 'Clonar seleccionados' : 'Clonar todo el parte'}
-        </Button>
+        {/* Clonar — solo si tiene permiso de update */}
+        {canUpdate && (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
+            <Copy className="h-3.5 w-3.5" />
+            {hasBulk ? 'Clonar seleccionados' : 'Clonar todo el parte'}
+          </Button>
+        )}
       </div>
     );
   }, [selectedRows.length, canUpdate, canCreate, openForm]);
@@ -538,6 +584,11 @@ export function _DailyReportDetailDataTable({
       employees: (val: unknown) => String(val ?? ''),
       equipment: (val: unknown) => String(val ?? ''),
       customer_equipment: (val: unknown) => String(val ?? ''),
+      // Columnas de roles de empleado
+      chofer_dia: (val: unknown) => String(val ?? ''),
+      ayudante_dia: (val: unknown) => String(val ?? ''),
+      chofer_noche: (val: unknown) => String(val ?? ''),
+      ayudante_noche: (val: unknown) => String(val ?? ''),
     }),
     []
   );
@@ -565,6 +616,7 @@ export function _DailyReportDetailDataTable({
         showRowSelection={true}
         onRowSelectionChange={setSelectedRows}
         toolbarActions={toolbarActions}
+        rowClassName={getRowClassName}
         data-testid="daily-report-detail-table"
         exportConfig={{
           fetchAllData: () => getDailyReportDetailForExport(dailyReportId, currentParams),
