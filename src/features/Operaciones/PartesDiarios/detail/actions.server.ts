@@ -15,6 +15,9 @@ import moment from 'moment';
 
 const logger = new Logger('features/Operaciones/PartesDiarios/detail');
 
+/** Tipo del cliente transaccional de Prisma (evita TS2589 con Omit<typeof prisma, ...>) */
+type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -934,7 +937,7 @@ function resolveRowStatus(
  * de una fila dentro de una transacción existente.
  */
 async function createRowRelations(
-  tx: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+  tx: PrismaTransactionClient,
   rowId: string,
   employees: EmployeeInput[],
   equipment: string[],
