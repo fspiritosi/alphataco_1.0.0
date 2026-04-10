@@ -37,6 +37,65 @@ async function getCompanyId(): Promise<string> {
   return company_id;
 }
 
+// ─── Helper interno: check de duplicados por intern_number / serial_number ──
+
+/**
+ * Verifica que no exista otro `other_equipment` activo en la misma empresa con
+ * el mismo `intern_number` o `serial_number`. Si encuentra un duplicado, lanza
+ * un error descriptivo.
+ *
+ * Solo considera registros con `is_active = true`. Ignora valores vacíos/null.
+ * `excludeId` permite excluir el propio registro al actualizar.
+ */
+async function assertNoOtherEquipmentDuplicate(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  companyId: string,
+  fields: { intern_number?: string | null; serial_number?: string | null },
+  excludeId?: string
+): Promise<void> {
+  const internNumber = fields.intern_number?.trim() || null;
+  const serialNumber = fields.serial_number?.trim() || null;
+
+  if (!internNumber && !serialNumber) return;
+
+  // Buscar registros activos de la misma empresa cuyo intern_number o serial_number coincida
+  let query = supabase
+    .from('other_equipment')
+    .select('id, intern_number, serial_number')
+    .eq('company_id', companyId)
+    .eq('is_active', true);
+
+  // Construir filtro OR — solo incluir los campos que tienen valor
+  const orClauses: string[] = [];
+  if (internNumber) orClauses.push(`intern_number.eq.${internNumber}`);
+  if (serialNumber) orClauses.push(`serial_number.eq.${serialNumber}`);
+  query = query.or(orClauses.join(','));
+
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data: existing, error } = await query;
+
+  if (error) {
+    logger.error('Error al verificar duplicados de other_equipment', {
+      data: { companyId, fields, error: error.message },
+    });
+    throw new Error('Error al verificar duplicados del equipo');
+  }
+
+  if (!existing || existing.length === 0) return;
+
+  // Identificar qué campo exacto está duplicado para un mensaje claro
+  const conflict = existing[0];
+  if (internNumber && conflict.intern_number === internNumber) {
+    throw new Error(`Ya existe un equipo activo con el Nº interno "${internNumber}" en esta empresa.`);
+  }
+  if (serialNumber && conflict.serial_number === serialNumber) {
+    throw new Error(`Ya existe un equipo activo con el Nº de serie "${serialNumber}" en esta empresa.`);
+  }
+  // Fallback genérico (no debería caer acá si el filtro OR funcionó)
+  throw new Error('Ya existe un equipo activo con el mismo Nº interno o Nº de serie en esta empresa.');
+}
+
 // ─── CRUD Principal ──────────────────────────────────────────────────────────
 
 /**
@@ -88,12 +147,19 @@ export type OtherEquipmentDetail = Awaited<ReturnType<typeof getOtherEquipmentBy
 /**
  * Crea un nuevo registro de other_equipment.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo con el mismo intern_number o serial_number.
  */
 export async function createOtherEquipment(data: OtherEquipmentInsertWithContractors) {
   const supabase = await supabaseServer();
   const company_id = await getCompanyId();
 
   const { contractors, ...equipmentData } = data;
+
+  // Verificar duplicados antes del insert — lanza error descriptivo si ya existe
+  await assertNoOtherEquipmentDuplicate(supabase, company_id, {
+    intern_number: equipmentData.intern_number,
+    serial_number: equipmentData.serial_number,
+  });
 
   const { data: created, error } = await supabase
     .from('other_equipment')
@@ -127,12 +193,27 @@ export type OtherEquipmentRow = Awaited<ReturnType<typeof createOtherEquipment>>
 /**
  * Actualiza un registro de other_equipment existente.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo (excluyendo el propio) con el mismo
+ * intern_number o serial_number.
  */
 export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdateWithContractors) {
   const supabase = await supabaseServer();
   const company_id = await getCompanyId();
 
   const { contractors, ...equipmentData } = data;
+
+  // Verificar duplicados solo si el update toca intern_number o serial_number
+  if (equipmentData.intern_number !== undefined || equipmentData.serial_number !== undefined) {
+    await assertNoOtherEquipmentDuplicate(
+      supabase,
+      company_id,
+      {
+        intern_number: equipmentData.intern_number,
+        serial_number: equipmentData.serial_number,
+      },
+      id
+    );
+  }
 
   const { data: updated, error } = await supabase
     .from('other_equipment')

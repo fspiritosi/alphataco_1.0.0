@@ -122,7 +122,14 @@ export function OtherEquipmentTabs({
                   <h3 className="text-base font-semibold">Fotos</h3>
                   <p className="text-sm text-muted-foreground">Imágenes del equipo (máx. 4)</p>
                 </div>
+                {/*
+                 * key={`${equipmentId}-pictures`} fuerza el REMOUNT del componente al
+                 * cambiar de equipo. Sin esto, el useState(initialFiles) interno queda
+                 * stale y un equipo muestra las imágenes del anterior. Ver fix de bug
+                 * reportado por usuaria con piletas GH PL-050 / GH PL-052.
+                 */}
                 <OtherEquipmentFileUpload
+                  key={`${equipmentId}-pictures`}
                   equipmentId={equipmentId}
                   type="pictures"
                   files={equipment?.pictures ?? []}
@@ -138,6 +145,7 @@ export function OtherEquipmentTabs({
                   <p className="text-sm text-muted-foreground">Documentos técnicos y planos del equipo</p>
                 </div>
                 <OtherEquipmentFileUpload
+                  key={`${equipmentId}-blueprints`}
                   equipmentId={equipmentId}
                   type="blueprints"
                   files={equipment?.blueprints ?? []}
