@@ -149,7 +149,7 @@ export function EmployeeWorkDataForm({ form }: EmployeeWorkDataFormProps) {
 
   const handleHierarchicalPositionChange = (hierarchicalPositionId: string) => {
     const currentHierarchicalPosition = form.getValues('hierarchical_position');
-    form.setValue('hierarchical_position', hierarchicalPositionId);
+    form.setValue('hierarchical_position', hierarchicalPositionId, { shouldValidate: true, shouldDirty: true });
 
     // Si se selecciona una posición jerárquica diferente, restablecer puesto de empresa y aptitudes
     if (currentHierarchicalPosition !== hierarchicalPositionId) {
@@ -160,7 +160,7 @@ export function EmployeeWorkDataForm({ form }: EmployeeWorkDataFormProps) {
 
   const handleCompanyPositionChange = (companyPositionId: string) => {
     const currentCompanyPosition = form.getValues('company_position');
-    form.setValue('company_position', companyPositionId);
+    form.setValue('company_position', companyPositionId, { shouldValidate: true, shouldDirty: true });
 
     // Si se selecciona un puesto diferente, restablecer aptitudes seleccionadas
     if (currentCompanyPosition !== companyPositionId) {

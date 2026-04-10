@@ -1,6 +1,10 @@
 'use client';
 
+// Activa el errorMap de zod en español (side-effect: z.setErrorMap).
+// Se importa acá porque este es un Client Component de raíz — así el side-effect
+// se ejecuta en el bundle del cliente, donde viven los forms con zodResolver.
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import '@/lib/zod-es';
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
 import { useEffect, useRef } from 'react';
