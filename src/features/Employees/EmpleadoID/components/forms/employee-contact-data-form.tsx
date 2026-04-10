@@ -34,8 +34,10 @@ export function EmployeeContactDataForm({ form }: EmployeeContactDataFormProps) 
   });
 
   const handleProvinceSelect = (provinceId: bigint) => {
-    form.setValue('province', Number(provinceId));
-    form.setValue('city', '' as unknown as number); // Limpiar ciudad al cambiar provincia
+    form.setValue('province', Number(provinceId), { shouldValidate: true, shouldDirty: true });
+    // Limpiar ciudad al cambiar provincia (sin validar — volverá a required y es lo correcto)
+    form.setValue('city', undefined as unknown as number, { shouldValidate: false, shouldDirty: true });
+    form.clearErrors('city');
   };
 
   return (
@@ -170,7 +172,7 @@ export function EmployeeContactDataForm({ form }: EmployeeContactDataFormProps) 
                               value={city.name}
                               key={city.id}
                               onSelect={() => {
-                                form.setValue('city', Number(city.id));
+                                form.setValue('city', Number(city.id), { shouldValidate: true, shouldDirty: true });
                               }}
                             >
                               {city.name}
