@@ -201,6 +201,7 @@ export type OtherEquipmentDetail = Awaited<ReturnType<typeof getOtherEquipmentBy
 /**
  * Crea un nuevo registro de other_equipment.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo con el mismo intern_number o serial_number.
  */
 export async function createOtherEquipment(data: OtherEquipmentInsertWithContractors) {
   const supabase = await supabaseServer();
@@ -243,6 +244,8 @@ export type OtherEquipmentRow = Awaited<ReturnType<typeof createOtherEquipment>>
 /**
  * Actualiza un registro de other_equipment existente.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo (excluyendo el propio) con el mismo
+ * intern_number o serial_number.
  */
 export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdateWithContractors) {
   const supabase = await supabaseServer();
