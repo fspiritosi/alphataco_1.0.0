@@ -20,11 +20,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { VisibilityState } from '@tanstack/react-table';
 import moment from 'moment';
 
-import { Plus } from 'lucide-react';
+import { FileSpreadsheet, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PreparteForm, type PreparteFormData } from './PreparteForm';
+import { PreparteReportModal } from './PreparteReportModal';
 import { PreparteTable } from './PreparteTable';
 
 import { fetchAllContracts } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
@@ -80,6 +81,7 @@ export function PreparteManager({
   const [open, setOpen] = useState(false);
   const [savedVisibility] = useState<VisibilityState>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // PP-3: formData ya no tiene jornada, tipo, observaciones, executionDate ni subject_to_availability a nivel global
   // Estos campos ahora están dentro de cada item
@@ -512,32 +514,38 @@ export function PreparteManager({
         <h2 className="text-2xl font-bold" data-testid="preparte-title">
           Gestión de Pedidos
         </h2>
-        <PermissionGuard module="operaciones" tab="preparte" action="create">
-          <Button
-            data-testid="nuevo-pedido-button"
-            onClick={() => {
-              // Limpiar el formulario al abrir para nuevo pedido
-              setIsEditing(false);
-              setCurrentItem(null);
-              setFormData({
-                id: '',
-                cliente_id: '',
-                contrato_id: '',
-                item: [],
-                requestDate: new Date(),
-                solicitante: '',
-                status: 'pendiente',
-                sector_service_id: '',
-                areas_service_id: '',
-                equipos_cliente: [],
-              });
-              setOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Pedido
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setReportModalOpen(true)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Generar Informe
           </Button>
-        </PermissionGuard>
+          <PermissionGuard module="operaciones" tab="preparte" action="create">
+            <Button
+              data-testid="nuevo-pedido-button"
+              onClick={() => {
+                // Limpiar el formulario al abrir para nuevo pedido
+                setIsEditing(false);
+                setCurrentItem(null);
+                setFormData({
+                  id: '',
+                  cliente_id: '',
+                  contrato_id: '',
+                  item: [],
+                  requestDate: new Date(),
+                  solicitante: '',
+                  status: 'pendiente',
+                  sector_service_id: '',
+                  areas_service_id: '',
+                  equipos_cliente: [],
+                });
+                setOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Pedido
+            </Button>
+          </PermissionGuard>
+        </div>
       </div>
 
       {/* Sheet fuera del contenedor flex para no afectar el layout */}
@@ -599,6 +607,8 @@ export function PreparteManager({
           />
         </CardContent>
       </Card>
+
+      <PreparteReportModal open={reportModalOpen} onOpenChange={setReportModalOpen} customers={Customers} />
     </div>
   );
 }

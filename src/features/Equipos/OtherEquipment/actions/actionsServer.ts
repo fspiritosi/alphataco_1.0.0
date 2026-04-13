@@ -37,63 +37,117 @@ async function getCompanyId(): Promise<string> {
   return company_id;
 }
 
-// ─── Helper interno: check de duplicados por intern_number / serial_number ──
+// ─── Validación de duplicados ────────────────────────────────────────────────
 
 /**
- * Verifica que no exista otro `other_equipment` activo en la misma empresa con
- * el mismo `intern_number` o `serial_number`. Si encuentra un duplicado, lanza
- * un error descriptivo.
- *
- * Solo considera registros con `is_active = true`. Ignora valores vacíos/null.
- * `excludeId` permite excluir el propio registro al actualizar.
+ * Verifica que serial_number e intern_number no estén duplicados
+ * dentro de la misma empresa (solo equipos activos).
+ * excludeId permite excluir el registro actual al editar.
  */
-async function assertNoOtherEquipmentDuplicate(
+async function validateUniqueFields(
   supabase: Awaited<ReturnType<typeof supabaseServer>>,
   companyId: string,
-  fields: { intern_number?: string | null; serial_number?: string | null },
+  serialNumber: string | null | undefined,
+  internNumber: string | null | undefined,
   excludeId?: string
-): Promise<void> {
-  const internNumber = fields.intern_number?.trim() || null;
-  const serialNumber = fields.serial_number?.trim() || null;
+) {
+  const errors: string[] = [];
 
-  if (!internNumber && !serialNumber) return;
+  if (serialNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('serial_number', serialNumber)
+      .eq('is_active', true)
+      .limit(1);
 
-  // Buscar registros activos de la misma empresa cuyo intern_number o serial_number coincida
-  let query = supabase
-    .from('other_equipment')
-    .select('id, intern_number, serial_number')
-    .eq('company_id', companyId)
-    .eq('is_active', true);
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
 
-  // Construir filtro OR — solo incluir los campos que tienen valor
-  const orClauses: string[] = [];
-  if (internNumber) orClauses.push(`intern_number.eq.${internNumber}`);
-  if (serialNumber) orClauses.push(`serial_number.eq.${serialNumber}`);
-  query = query.or(orClauses.join(','));
-
-  if (excludeId) query = query.neq('id', excludeId);
-
-  const { data: existing, error } = await query;
-
-  if (error) {
-    logger.error('Error al verificar duplicados de other_equipment', {
-      data: { companyId, fields, error: error.message },
-    });
-    throw new Error('Error al verificar duplicados del equipo');
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.push(`El N° de Serie "${serialNumber}" ya está en uso por otro equipo`);
+    }
   }
 
-  if (!existing || existing.length === 0) return;
+  if (internNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('intern_number', internNumber)
+      .eq('is_active', true)
+      .limit(1);
 
-  // Identificar qué campo exacto está duplicado para un mensaje claro
-  const conflict = existing[0];
-  if (internNumber && conflict.intern_number === internNumber) {
-    throw new Error(`Ya existe un equipo activo con el Nº interno "${internNumber}" en esta empresa.`);
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.push(`El N° Interno "${internNumber}" ya está en uso por otro equipo`);
+    }
   }
-  if (serialNumber && conflict.serial_number === serialNumber) {
-    throw new Error(`Ya existe un equipo activo con el Nº de serie "${serialNumber}" en esta empresa.`);
+
+  if (errors.length > 0) {
+    throw new Error(errors.join('. '));
   }
-  // Fallback genérico (no debería caer acá si el filtro OR funcionó)
-  throw new Error('Ya existe un equipo activo con el mismo Nº interno o Nº de serie en esta empresa.');
+}
+
+/**
+ * Verifica si serial_number o intern_number ya existen en otros equipos activos.
+ * Retorna un objeto con los campos duplicados para que el form muestre errores inline.
+ */
+export async function checkOtherEquipmentDuplicates(
+  serialNumber: string | null | undefined,
+  internNumber: string | null | undefined,
+  excludeId?: string
+): Promise<{ serial_number?: string; intern_number?: string }> {
+  const supabase = await supabaseServer();
+  const company_id = await getCompanyId();
+  const errors: { serial_number?: string; intern_number?: string } = {};
+
+  if (serialNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', company_id)
+      .eq('serial_number', serialNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.serial_number = 'Este N° de Serie ya está en uso por otro equipo';
+    }
+  }
+
+  if (internNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', company_id)
+      .eq('intern_number', internNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.intern_number = 'Este N° Interno ya está en uso por otro equipo';
+    }
+  }
+
+  return errors;
 }
 
 // ─── CRUD Principal ──────────────────────────────────────────────────────────
@@ -155,11 +209,8 @@ export async function createOtherEquipment(data: OtherEquipmentInsertWithContrac
 
   const { contractors, ...equipmentData } = data;
 
-  // Verificar duplicados antes del insert — lanza error descriptivo si ya existe
-  await assertNoOtherEquipmentDuplicate(supabase, company_id, {
-    intern_number: equipmentData.intern_number,
-    serial_number: equipmentData.serial_number,
-  });
+  // Validar que serial_number e intern_number no estén duplicados
+  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number);
 
   const { data: created, error } = await supabase
     .from('other_equipment')
@@ -202,18 +253,8 @@ export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdat
 
   const { contractors, ...equipmentData } = data;
 
-  // Verificar duplicados solo si el update toca intern_number o serial_number
-  if (equipmentData.intern_number !== undefined || equipmentData.serial_number !== undefined) {
-    await assertNoOtherEquipmentDuplicate(
-      supabase,
-      company_id,
-      {
-        intern_number: equipmentData.intern_number,
-        serial_number: equipmentData.serial_number,
-      },
-      id
-    );
-  }
+  // Validar que serial_number e intern_number no estén duplicados (excluyendo el registro actual)
+  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number, id);
 
   const { data: updated, error } = await supabase
     .from('other_equipment')
