@@ -2,10 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
-import { RepairSolicitudesTabContent } from '@/features/Mantenimiento/RepairSolicitudes/RepairSolicitudesTabContent';
-import { RepairSolicitudesSkeleton } from '@/features/Mantenimiento/RepairSolicitudes/fallback/RepairSolicitudesSkeleton';
 import MaintenanceGroupsWrapper from '@/features/Mantenimiento/TiposReparaciones/MaintenanceGroupsWrapper';
-import RepairEntryWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairEntryWrapper';
 import RepairTypeFormWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairTypeFormWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { AlertTriangle, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
@@ -40,38 +37,38 @@ export default async function MantenimientoComponent({ searchParams, permissions
       defaultTab="maint_operaciones"
       permissions={permissions}
       tabs={[
-        {
-          value: 'created_solicitudes',
-          label: (
-            <span className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Solicitudes Activas
-            </span>
-          ),
-          moduleSlug: 'mantenimiento',
-          tabSlug: 'created_solicitudes' as const,
-          content: (
-            <Suspense fallback={<RepairSolicitudesSkeleton />}>
-              <RepairSolicitudesTabContent searchParams={searchParams} />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'type_of_repair_new_entry',
-          label: (
-            <span className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nueva Solicitud
-            </span>
-          ),
-          moduleSlug: 'mantenimiento',
-          tabSlug: 'type_of_repair_new_entry' as const,
-          content: (
-            <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
-              <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
-            </Suspense>
-          ),
-        },
+        // {
+        //   value: 'created_solicitudes',
+        //   label: (
+        //     <span className="flex items-center gap-2">
+        //       <ClipboardList className="h-4 w-4" />
+        //       Solicitudes Activas
+        //     </span>
+        //   ),
+        //   moduleSlug: 'mantenimiento',
+        //   tabSlug: 'created_solicitudes' as const,
+        //   content: (
+        //     <Suspense fallback={<RepairSolicitudesSkeleton />}>
+        //       <RepairSolicitudesTabContent searchParams={searchParams} />
+        //     </Suspense>
+        //   ),
+        // },
+        // {
+        //   value: 'type_of_repair_new_entry',
+        //   label: (
+        //     <span className="flex items-center gap-2">
+        //       <Plus className="h-4 w-4" />
+        //       Nueva Solicitud
+        //     </span>
+        //   ),
+        //   moduleSlug: 'mantenimiento',
+        //   tabSlug: 'type_of_repair_new_entry' as const,
+        //   content: (
+        //     <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
+        //       <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
+        //     </Suspense>
+        //   ),
+        // },
         // ============================================
         // TAB: OPERACIONES (Pipeline visual)
         // ============================================
