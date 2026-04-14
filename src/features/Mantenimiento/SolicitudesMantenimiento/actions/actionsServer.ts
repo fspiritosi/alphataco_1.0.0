@@ -965,3 +965,119 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
     throw error;
   }
 }
+
+/**
+ * Crea desvíos manuales sobre un checklist ya guardado (sin ítems fallidos automáticos)
+ * junto con su solicitud de mantenimiento. Todo en una sola transacción.
+ *
+ * Flujo: checklist_deviations → maintenance_requests → maintenance_request_items.
+ * Los desvíos quedan vinculados al checklist_answer_id (a diferencia de los desvíos
+ * manuales de NuevoPedido que son huérfanos).
+ */
+export async function createManualDeviationsFromChecklist(input: {
+  checklistAnswerId: string;
+  equipmentId: string;
+  supervisorId: string;
+  driverEmployeeId?: string;
+  employeeId?: string;
+  userId?: string;
+  kilometer?: string;
+  items: Array<{
+    templateItemId: string;
+    itemCode: string;
+    itemLabel: string;
+    sectionCode: string;
+    isCritical: boolean;
+    comment?: string;
+  }>;
+}): Promise<{ ok: true; requestId: string; deviationIds: string[] } | { ok: false; error: string }> {
+  serverLogger.info('createManualDeviationsFromChecklist - Iniciando', {
+    data: {
+      checklistAnswerId: input.checklistAnswerId,
+      equipmentId: input.equipmentId,
+      itemsCount: input.items.length,
+    },
+  });
+
+  if (input.items.length === 0) {
+    return { ok: false, error: 'Debe seleccionar al menos un ítem' };
+  }
+
+  try {
+    const profile = await requireServerAuthProfile();
+
+    const answer = await prisma.checklist_answers.findUnique({
+      where: { id: input.checklistAnswerId },
+      select: { id: true, equipment_id: true },
+    });
+
+    if (!answer || answer.equipment_id !== input.equipmentId) {
+      serverLogger.error('checklist_answer invalido o no coincide con equipo', {
+        data: { checklistAnswerId: input.checklistAnswerId, equipmentId: input.equipmentId },
+      });
+      return { ok: false, error: 'Checklist no encontrado o no coincide con el equipo' };
+    }
+
+    const userId = input.userId ?? profile.id;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const createdDeviations = await Promise.all(
+        input.items.map((item) =>
+          tx.checklist_deviations.create({
+            data: {
+              checklist_answer_id: input.checklistAnswerId,
+              equipment_id: input.equipmentId,
+              item_code: item.itemCode,
+              item_label: item.itemLabel,
+              section_code: item.sectionCode,
+              is_critical: item.isCritical,
+              driver_comment: item.comment?.trim() || null,
+              created_by_user_id: profile.id,
+            },
+            select: { id: true },
+          })
+        )
+      );
+
+      const deviationIds = createdDeviations.map((d) => d.id);
+
+      const request = await tx.maintenance_requests.create({
+        data: {
+          checklist_answer_id: input.checklistAnswerId,
+          equipment_id: input.equipmentId,
+          employee_id: input.employeeId ?? null,
+          user_id: userId,
+          kilometer: input.kilometer ?? null,
+          supervisor_id: input.supervisorId,
+          status: 'pending_approval',
+          driver_employee_id: input.driverEmployeeId ?? null,
+        },
+        select: { id: true },
+      });
+
+      await tx.maintenance_request_items.createMany({
+        data: input.items.map((item, idx) => ({
+          maintenance_request_id: request.id,
+          checklist_deviation_id: deviationIds[idx],
+          repair_type_id: null,
+          driver_comment: item.comment?.trim() || null,
+          driver_comment_by: item.comment?.trim() ? profile.id : null,
+          status: 'pending',
+        })),
+      });
+
+      return { requestId: request.id, deviationIds };
+    });
+
+    serverLogger.info('createManualDeviationsFromChecklist - OK', {
+      data: { requestId: result.requestId, deviationsCount: result.deviationIds.length },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
+
+    return { ok: true, requestId: result.requestId, deviationIds: result.deviationIds };
+  } catch (error) {
+    serverLogger.error('Error en createManualDeviationsFromChecklist', { data: { error } });
+    return { ok: false, error: 'Error inesperado al registrar los desvíos' };
+  }
+}
