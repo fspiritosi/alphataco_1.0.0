@@ -18,6 +18,7 @@ import {
   type DocumentTypeListItem,
 } from '../actions/actions.server';
 import { _DocumentTypeFormModal } from '../components/_DocumentTypeFormModal';
+import { getEquipmentTypeLabel } from '../config/equipmentTypes';
 
 // ============================================================================
 // BOOL FACET OPTIONS
@@ -129,10 +130,10 @@ export default function _EquiposDataTable({
   const equipmentTypeFetchFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
     const result = await getDocTypeSingleFacet('equipment_type', document_applies.Equipos, params);
     if (!result) return { options: [], counts: new Map() };
-    // Construir opciones desde los counts (los valores son los propios tipos)
+    // Construir opciones desde los counts mapeando a labels amigables
     const options: { value: string; label: string }[] = [];
     for (const [key] of result.counts) {
-      if (key) options.push({ value: key, label: key });
+      if (key) options.push({ value: key, label: getEquipmentTypeLabel(key) });
     }
     return { options, counts: result.counts };
   }, []);
@@ -240,7 +241,7 @@ export default function _EquiposDataTable({
             is_it_montlhy: (value) => (value ? 'Sí' : 'No'),
             private: (value) => (value ? 'Sí' : 'No'),
             down_document: (value) => (value ? 'Sí' : 'No'),
-            equipment_type: (value) => (value as string) || '-',
+            equipment_type: (value) => getEquipmentTypeLabel(value as string | null),
             created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
           },
         }}
