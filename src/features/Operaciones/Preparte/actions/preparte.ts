@@ -8,7 +8,7 @@ import {
 } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer } from '@/lib/supabase/server';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
@@ -837,110 +837,83 @@ export async function confirmMultiplePrepartesToDailyReport(preparteIds: string[
 /**
  * Registra un cambio en el log de cambios de preparte.
  * Diseñado para ser genérico y soportar cambios de cualquier campo.
- * Usa adminSupabaseServer para bypasear RLS ya que es un log de auditoría.
  */
 export async function logPreparteChange(changeLog: PreparteChangeLog) {
-  // Obtener el usuario actual con el cliente normal
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Usar admin client para el insert (bypasea RLS)
-  const adminSupabase = await adminSupabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.create({
+      data: {
+        preparte_id: changeLog.preparte_id,
+        field_name: changeLog.field_name,
+        old_value: changeLog.old_value,
+        new_value: changeLog.new_value,
+        reason: changeLog.reason,
+        changed_by: changeLog.changed_by || user?.id || null,
+        metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
+      },
+    });
 
-  const { data, error } = await adminSupabase
-    .from('preparte_change_logs')
-    .insert({
-      preparte_id: changeLog.preparte_id,
-      field_name: changeLog.field_name,
-      old_value: changeLog.old_value,
-      new_value: changeLog.new_value,
-      reason: changeLog.reason,
-      changed_by: changeLog.changed_by || user?.id || null,
-      metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
-    })
-    .select()
-    .single();
-
-  if (error) {
+    return data;
+  } catch (error) {
     logger.error('Error logging preparte change', { data: { error } });
     throw new Error('Error al registrar el cambio en el historial');
   }
-
-  return data;
 }
 
 /**
  * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
- * OPTIMIZADO: Usa JOIN con profile para obtener nombres en una sola query.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
-  const supabase = await supabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.findMany({
+      where: { preparte_id: preparteId },
+      include: {
+        profile: { select: { credential_id: true, fullname: true } },
+      },
+      orderBy: { changed_at: 'desc' },
+    });
 
-  const { data, error } = await supabase
-    .from('preparte_change_logs')
-    .select(
-      `
-      *,
-      profile:changed_by(credential_id, fullname)
-    `
-    )
-    .eq('preparte_id', preparteId)
-    .order('changed_at', { ascending: false });
-
-  if (error) {
+    return data.map((log) => ({
+      ...log,
+      changed_by_name: log.profile?.fullname || null,
+      metadata: log.metadata as Record<string, unknown> | null,
+      profile: undefined,
+    }));
+  } catch (error) {
     logger.error('Error fetching preparte change logs', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
-
-  if (!data || data.length === 0) return [];
-
-  // Mapear datos con nombre de usuario del JOIN
-  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
-
-  return data.map((log: LogWithProfile) => ({
-    ...log,
-    changed_by_name: log.profile?.fullname || null,
-    profile: undefined, // Remover objeto anidado
-  }));
 }
 
 /**
  * Obtiene el historial de cambios de todos los prepartes con el mismo numero_pedido.
- * OPTIMIZADO: Usa doble JOIN (preparte + profile) para obtener todo en una sola query.
  */
 export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
-  const supabase = await supabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.findMany({
+      where: {
+        preparte: { numero_pedido: numeroPedido },
+      },
+      include: {
+        profile: { select: { credential_id: true, fullname: true } },
+      },
+      orderBy: { changed_at: 'desc' },
+    });
 
-  const { data, error } = await supabase
-    .from('preparte_change_logs')
-    .select(
-      `
-      *,
-      preparte!inner(numero_pedido),
-      profile:changed_by(credential_id, fullname)
-    `
-    )
-    .eq('preparte.numero_pedido', numeroPedido)
-    .order('changed_at', { ascending: false });
-
-  if (error) {
+    return data.map((log) => ({
+      ...log,
+      changed_by_name: log.profile?.fullname || null,
+      metadata: log.metadata as Record<string, unknown> | null,
+      profile: undefined,
+    }));
+  } catch (error) {
     logger.error('Error fetching preparte change logs by order number', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
-
-  if (!data || data.length === 0) return [];
-
-  // Mapear datos con nombre de usuario del JOIN
-  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
-
-  return data.map((log: LogWithProfile) => ({
-    ...log,
-    changed_by_name: log.profile?.fullname || null,
-    preparte: undefined, // Remover objeto anidado
-    profile: undefined, // Remover objeto anidado
-  }));
 }
 
 // ── Reporte de Preparte ──────────────────────────────────────────────────
