@@ -293,7 +293,7 @@ export async function createArea(values: any) {
     }
 
     // revalidatePath('/dashboard/company/actualCompany');
-    return { status: 200, body: 'Area creada satisfactoriamente' };
+    return { status: 200, body: 'Area creada satisfactoriamente', data: { areaId } };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { status: 400, body: JSON.stringify(error.errors) };
@@ -371,7 +371,7 @@ export async function updateArea(values: any) {
       return { status: 500, body: 'Internal Server Error' };
     }
 
-    return { status: 200, body: 'Area actualizada satisfactoriamente' };
+    return { status: 200, body: 'Area actualizada satisfactoriamente', data: { areaId: values.id } };
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { status: 400, body: JSON.stringify(error.errors) };
@@ -379,6 +379,87 @@ export async function updateArea(values: any) {
     console.error(error);
     return { status: 500, body: 'Internal Server Error' };
   }
+}
+
+/**
+ * Devuelve los contratos (customer_services) activos de un cliente,
+ * para ofrecer vincular un area recien creada/editada.
+ */
+export async function fetchActiveContractsByCustomer(customerId: string) {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase
+    .from('customer_services')
+    .select('id, service_name, contract_number, service_start, service_validity')
+    .eq('customer_id', customerId)
+    .eq('is_active', true)
+    .order('service_name', { ascending: true });
+
+  if (error) {
+    console.error('Error al cargar contratos del cliente', error);
+    return [];
+  }
+  return data ?? [];
+}
+
+export type ActiveContract = Awaited<ReturnType<typeof fetchActiveContractsByCustomer>>[number];
+
+/**
+ * Devuelve los service_id ya vinculados a un area, para filtrarlos
+ * del selector en modo edicion.
+ */
+export async function fetchAreaLinkedContracts(areaId: string): Promise<string[]> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.from('service_areas').select('service_id').eq('area_id', areaId);
+
+  if (error) {
+    console.error('Error al cargar vinculos existentes del area', error);
+    return [];
+  }
+  return (data ?? []).map((r) => r.service_id);
+}
+
+/**
+ * Vincula un area a uno o varios contratos (customer_services) insertando
+ * filas en service_areas. Idempotente: evita duplicados con un SELECT previo.
+ */
+export async function linkAreaToContracts(
+  areaId: string,
+  serviceIds: string[]
+): Promise<{ ok: true; linked: number } | { ok: false; error: string }> {
+  if (!areaId || serviceIds.length === 0) {
+    return { ok: false, error: 'Faltan datos para vincular' };
+  }
+
+  const supabase = await supabaseServer();
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('service_areas')
+    .select('service_id')
+    .eq('area_id', areaId)
+    .in('service_id', serviceIds);
+
+  if (existingErr) {
+    console.error('Error al verificar vinculos existentes', existingErr);
+    return { ok: false, error: 'Error al verificar vinculos existentes' };
+  }
+
+  const existingIds = new Set((existing ?? []).map((r) => r.service_id));
+  const toInsert = serviceIds
+    .filter((id) => !existingIds.has(id))
+    .map((service_id) => ({ service_id, area_id: areaId }));
+
+  if (toInsert.length === 0) {
+    return { ok: true, linked: 0 };
+  }
+
+  const { error: insertErr } = await supabase.from('service_areas' as any).insert(toInsert as any);
+
+  if (insertErr) {
+    console.error('Error al vincular area a contratos', insertErr);
+    return { ok: false, error: 'Error al guardar los vinculos' };
+  }
+
+  return { ok: true, linked: toInsert.length };
 }
 
 export async function fetchAreasWithProvinces() {

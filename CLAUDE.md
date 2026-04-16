@@ -204,6 +204,19 @@ WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
 
 El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
 
+### NUNCA encadenar modales — unificar en un solo form
+
+Si una tarea requiere capturar datos secundarios u opcionales después de una acción principal, **NUNCA** resolver con "un modal que abre otro modal". El usuario detesta ese patrón.
+
+**Solución correcta**: un único formulario con secciones separadas por `<Separator />`:
+
+- Sección principal: campos obligatorios (ej: form de creación del Área)
+- Separador con título descriptivo (ej: "Vincular a contratos (opcional)")
+- Sección secundaria: campos opcionales, renderizada condicionalmente si dependen de inputs previos (ej: MultiSelect de contratos solo visible cuando hay `customer_id` seleccionado)
+- **Un solo botón de submit** que ejecuta: acción principal → captura ID del resultado → acciones secundarias con ese ID
+
+Siempre consultar `/frontend-design:frontend-design` antes de implementar para distribuir el form correctamente.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
