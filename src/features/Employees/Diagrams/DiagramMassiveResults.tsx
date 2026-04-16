@@ -74,7 +74,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
   const generateTxtReport = () => {
     const timestamp = new Date().toLocaleString('es-ES');
 
-    let report = `REPORTE DE CARGA MASIVA DE DIAGRAMAS\n`;
+    let report = `REPORTE DE CARGA MASIVA\n`;
     report += `Fecha y Hora: ${timestamp}\n`;
     report += `=====================================\n\n`;
 

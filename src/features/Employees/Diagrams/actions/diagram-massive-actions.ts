@@ -85,6 +85,36 @@ export async function getWorkDiagramNovelties(workDiagramId: string) {
 export type NoveltyData = Awaited<ReturnType<typeof getWorkDiagramNovelties>>;
 export type ActiveNoveltyItem = NoveltyData['activeNovelties'][number];
 
+// ─── Diagram Types (Novelties) ──────────────────────────────────────────────
+
+/**
+ * Trae todas las novedades activas de la empresa para el selector de carga masiva por novedad.
+ * No depende de un work_diagram — devuelve el catálogo completo.
+ */
+export async function getActiveDiagramTypes() {
+  logger.debug('Fetching active diagram types');
+
+  try {
+    const data = await prisma.diagram_type.findMany({
+      where: { is_active: true },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        short_description: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('Error fetching active diagram types', { data: { error } });
+    throw error;
+  }
+}
+
+export type DiagramTypeItem = Awaited<ReturnType<typeof getActiveDiagramTypes>>[number];
+
 // ─── RPC Wrappers ───────────────────────────────────────────────────────────
 
 export async function checkDiagramConflicts(params: {
@@ -149,6 +179,70 @@ export async function processMassiveDiagramCreation(params: {
     return data as unknown as ProcessingResult;
   } catch (error) {
     logger.error('Error in processMassiveDiagramCreation', { data: { error } });
+    throw error;
+  }
+}
+
+// ─── RPC Wrappers — Novelty mode ────────────────────────────────────────────
+
+export async function checkNoveltyConflicts(params: {
+  employeeIds: string[];
+  diagramTypeId: string;
+  dateFrom: string;
+  dateTo: string;
+}) {
+  logger.debug('Checking novelty conflicts', { data: { params } });
+
+  try {
+    const supabase = await supabaseServer();
+
+    const { data, error } = await supabase.rpc('check_novelty_conflicts', {
+      p_employee_ids: params.employeeIds,
+      p_diagram_type_id: params.diagramTypeId,
+      p_date_from: params.dateFrom,
+      p_date_to: params.dateTo,
+    });
+
+    if (error) {
+      logger.error('Error checking novelty conflicts', { data: { error } });
+      throw error;
+    }
+
+    return data as unknown as ConflictCheckResult;
+  } catch (error) {
+    logger.error('Error in checkNoveltyConflicts', { data: { error } });
+    throw error;
+  }
+}
+
+export async function processMassiveNoveltyCreation(params: {
+  employeeIds: string[];
+  diagramTypeId: string;
+  dateFrom: string;
+  dateTo: string;
+  conflictResolution: 'skip' | 'update';
+}) {
+  logger.debug('Processing massive novelty creation', { data: { params } });
+
+  try {
+    const supabase = await supabaseServer();
+
+    const { data, error } = await supabase.rpc('process_massive_novelty_creation', {
+      p_employee_ids: params.employeeIds,
+      p_diagram_type_id: params.diagramTypeId,
+      p_date_from: params.dateFrom,
+      p_date_to: params.dateTo,
+      p_conflict_resolution: params.conflictResolution,
+    });
+
+    if (error) {
+      logger.error('Error processing massive novelty creation', { data: { error } });
+      throw error;
+    }
+
+    return data as unknown as ProcessingResult;
+  } catch (error) {
+    logger.error('Error in processMassiveNoveltyCreation', { data: { error } });
     throw error;
   }
 }

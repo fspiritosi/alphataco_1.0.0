@@ -1,14 +1,29 @@
+// ─── Mode ───────────────────────────────────────────────────────────────────
+
+export type MassiveMode = 'diagram' | 'novelty';
+
 // ─── Form Data ──────────────────────────────────────────────────────────────
 
-export interface MassiveFormData {
+interface MassiveFormDataBase {
   employeeIds: string[];
-  workDiagramId: string;
-  activeNoveltyId?: string;
   dateRange: {
     from: Date;
     to: Date;
   };
 }
+
+export interface DiagramFormData extends MassiveFormDataBase {
+  mode: 'diagram';
+  workDiagramId: string;
+  activeNoveltyId?: string;
+}
+
+export interface NoveltyFormData extends MassiveFormDataBase {
+  mode: 'novelty';
+  diagramTypeId: string;
+}
+
+export type MassiveFormData = DiagramFormData | NoveltyFormData;
 
 // ─── Conflict Types ─────────────────────────────────────────────────────────
 
@@ -32,9 +47,10 @@ export interface ConflictRecord {
 
 export interface ConflictCheckResult {
   conflicts: ConflictRecord[];
-  work_diagram_id: string;
-  active_novelty_id: string;
-  inactive_novelty_id: string;
+  work_diagram_id?: string;
+  active_novelty_id?: string;
+  inactive_novelty_id?: string;
+  diagram_type_id?: string;
 }
 
 export interface ConflictData {
@@ -90,15 +106,17 @@ export interface ProcessingResult {
   };
   details: {
     date_range: { from: string; to: string };
-    work_diagram: {
+    mode?: MassiveMode;
+    work_diagram?: {
       id: string;
       name: string;
       active_days: number;
       inactive_days: number;
       cycle_length: number;
     };
-    active_novelty: { id: string; name: string; color: string };
-    inactive_novelty: { id: string; name: string; color: string };
+    active_novelty?: { id: string; name: string; color: string };
+    inactive_novelty?: { id: string; name: string; color: string };
+    novelty?: { id: string; name: string; color: string };
     conflict_resolution: string;
     employee_ids: string[];
   };
