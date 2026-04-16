@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
 import {
   PREVENTIVE_TYPES,
   PREVENTIVE_TYPE_DESCRIPTIONS,
@@ -109,6 +110,7 @@ export function NuevoPedidoChecklistForm({
   // Paso 3: Selección de items/desvíos
   const [selectedDeviations, setSelectedDeviations] = useState<SelectedDeviation[]>([]);
   const [deviationComments, setDeviationComments] = useState<Record<string, string>>({});
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
 
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
@@ -212,6 +214,7 @@ export function NuevoPedidoChecklistForm({
         setSelectedTemplateId('');
         setSelectedDeviations([]);
         setDeviationComments({});
+        setManualItems([]);
         setSelectedSupervisorId('');
       }
       setEquipmentOpen(false);
@@ -224,6 +227,7 @@ export function NuevoPedidoChecklistForm({
     // Reset selecciones de desvíos
     setSelectedDeviations([]);
     setDeviationComments({});
+    setManualItems([]);
   }, []);
 
   const handleToggleDeviation = useCallback(
@@ -273,6 +277,7 @@ export function NuevoPedidoChecklistForm({
       setSelectedPreventiveType('');
       setSelectedDeviations([]);
       setDeviationComments({});
+      setManualItems([]);
       setSelectedSupervisorId('');
       setIsCurrentUserSupervisor(null);
     },
@@ -287,8 +292,8 @@ export function NuevoPedidoChecklistForm({
       toast.error('Faltan datos requeridos');
       return;
     }
-    if (requestType === 'checklist' && selectedDeviations.length === 0) {
-      toast.error('Debes seleccionar al menos un desvío');
+    if (requestType === 'checklist' && selectedDeviations.length === 0 && manualItems.length === 0) {
+      toast.error('Debes seleccionar al menos un desvío o agregar un ítem manual');
       return;
     }
     if (requestType === 'preventive' && !selectedPreventiveType) {
@@ -341,6 +346,7 @@ export function NuevoPedidoChecklistForm({
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
             driverEmployeeId: driverEmployeeId || undefined,
+            manualItems: manualItems.map((m) => ({ label: m.label })),
           });
         }
 
@@ -372,6 +378,7 @@ export function NuevoPedidoChecklistForm({
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
             driverEmployeeId: driverEmployeeId || undefined,
+            manualItems: manualItems.map((m) => ({ label: m.label })),
           });
         }
 
@@ -389,6 +396,7 @@ export function NuevoPedidoChecklistForm({
       setSelectedTemplateId('');
       setSelectedDeviations([]);
       setDeviationComments({});
+      setManualItems([]);
       setSelectedSupervisorId('');
       setIsCurrentUserSupervisor(skipSupervisorQuestion ? false : null);
       setSelectedPreventiveType('');
@@ -422,7 +430,7 @@ export function NuevoPedidoChecklistForm({
         if (requestType === 'checklist') return !!selectedTemplateId;
         return !!selectedPreventiveType;
       case 'items':
-        return selectedDeviations.length > 0;
+        return selectedDeviations.length > 0 || manualItems.length > 0;
       case 'supervisor':
         if (isCurrentUserSupervisor === null) return false;
         if (isCurrentUserSupervisor) return true;
@@ -439,6 +447,7 @@ export function NuevoPedidoChecklistForm({
     selectedTemplateId,
     selectedPreventiveType,
     selectedDeviations,
+    manualItems,
     selectedSupervisorId,
     isCurrentUserSupervisor,
   ]);
@@ -756,6 +765,8 @@ export function NuevoPedidoChecklistForm({
       ) : (
         <div className="p-4 bg-muted text-center rounded-lg">No hay items en este checklist</div>
       )}
+
+      <ManualItemsInput items={manualItems} onChange={setManualItems} disabled={isSubmitting} />
     </div>
   );
 

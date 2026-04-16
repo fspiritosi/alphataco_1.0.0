@@ -40,7 +40,7 @@ export function ChecklistDeviationsDashboard() {
   }
 
   return (
-    <Card>
+    <Card className="border-l-4 border-l-destructive">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
