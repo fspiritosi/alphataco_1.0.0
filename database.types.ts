@@ -6193,6 +6193,15 @@ export type Database = {
           tab_slug: string;
         }[];
       };
+      check_novelty_conflicts: {
+        Args: {
+          p_date_from: string;
+          p_date_to: string;
+          p_diagram_type_id: string;
+          p_employee_ids: string[];
+        };
+        Returns: Json;
+      };
       collect_daily_indicators: {
         Args: {
           p_company_id: string;
@@ -6608,6 +6617,16 @@ export type Database = {
           p_date_to: string;
           p_employee_ids: string[];
           p_work_diagram_id: string;
+        };
+        Returns: Json;
+      };
+      process_massive_novelty_creation: {
+        Args: {
+          p_conflict_resolution: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_diagram_type_id: string;
+          p_employee_ids: string[];
         };
         Returns: Json;
       };

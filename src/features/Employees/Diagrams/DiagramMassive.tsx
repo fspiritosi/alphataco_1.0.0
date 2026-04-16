@@ -37,15 +37,14 @@ function DiagramMassive() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Carga Masiva de Diagramas</CardTitle>
+          <CardTitle>Carga Masiva</CardTitle>
           <div className="text-sm text-muted-foreground">
-            Genera diagramas automáticamente para múltiples empleados según sus patrones de trabajo
+            Asigna un patrón de diagrama cíclico o una novedad puntual a múltiples empleados en un rango de fechas.
           </div>
         </CardHeader>
         <CardContent>
           <StepIndicator currentStep={currentStep} />
 
-          {/* Contenido según el paso actual */}
           {currentStep === 'form' && (
             <DiagramMassiveForm
               onConflictsFound={handleConflictsFound}
@@ -55,15 +54,10 @@ function DiagramMassive() {
             />
           )}
 
-          {currentStep === 'conflicts' && conflicts && (
+          {currentStep === 'conflicts' && conflicts && formData && (
             <ConflictResolutionModal
               conflicts={conflicts}
-              formData={{
-                ...formData,
-                workDiagramId: formData?.workDiagramId || '',
-                employeeIds: formData?.employeeIds || [],
-                dateRange: formData?.dateRange || { from: new Date(), to: new Date() },
-              }}
+              formData={formData}
               onCancel={handleStartOver}
               onProcessingComplete={handleProcessingComplete}
             />
