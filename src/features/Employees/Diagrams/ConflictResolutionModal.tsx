@@ -9,7 +9,7 @@ import { Logger } from '@/lib/logger';
 import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { processMassiveDiagramCreation } from './actions/diagram-massive-actions';
+import { processMassiveDiagramCreation, processMassiveNoveltyCreation } from './actions/diagram-massive-actions';
 import type { ConflictData, MassiveFormData, ProcessingResult } from './types/massive-diagram';
 
 const logger = new Logger('Diagrams/ConflictResolutionModal');
@@ -30,28 +30,37 @@ export function ConflictResolutionModal({ conflicts, formData, onCancel, onProce
     setProcessing(true);
 
     try {
-      if (
-        !formData?.employeeIds?.length ||
-        !formData?.workDiagramId ||
-        !formData?.dateRange?.from ||
-        !formData?.dateRange?.to
-      ) {
+      if (!formData?.employeeIds?.length || !formData?.dateRange?.from || !formData?.dateRange?.to) {
         logger.error('formData missing required properties', { data: { formData } });
         toast.error('Error: Datos del formulario no disponibles');
         return;
       }
 
-      const result = await processMassiveDiagramCreation({
-        employeeIds: formData.employeeIds,
-        workDiagramId: formData.workDiagramId,
-        activeNoveltyId: formData.activeNoveltyId || '',
-        dateFrom: formData.dateRange.from.toISOString().split('T')[0],
-        dateTo: formData.dateRange.to.toISOString().split('T')[0],
-        conflictResolution: 'update',
-      });
+      const dateFrom = formData.dateRange.from.toISOString().split('T')[0];
+      const dateTo = formData.dateRange.to.toISOString().split('T')[0];
+
+      const result =
+        formData.mode === 'diagram'
+          ? await processMassiveDiagramCreation({
+              employeeIds: formData.employeeIds,
+              workDiagramId: formData.workDiagramId,
+              activeNoveltyId: formData.activeNoveltyId || '',
+              dateFrom,
+              dateTo,
+              conflictResolution: 'update',
+            })
+          : await processMassiveNoveltyCreation({
+              employeeIds: formData.employeeIds,
+              diagramTypeId: formData.diagramTypeId,
+              dateFrom,
+              dateTo,
+              conflictResolution: 'update',
+            });
 
       onProcessingComplete(result);
-      toast.success('Diagramas procesados correctamente');
+      toast.success(
+        formData.mode === 'diagram' ? 'Diagramas procesados correctamente' : 'Novedad cargada correctamente'
+      );
     } catch (error) {
       logger.error('Error in creation', { data: { error } });
       toast.error('Error en la creación');
@@ -165,8 +174,8 @@ export function ConflictResolutionModal({ conflicts, formData, onCancel, onProce
             <Alert className="m-4 border-yellow-200 bg-yellow-50">
               <Info className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-700">
-                Estos registros existen pero no están en uso. Se actualizarán automáticamente con los nuevos valores
-                según el patrón de trabajo del empleado.
+                Estos registros existen pero no están en uso. Se reemplazarán automáticamente con los nuevos valores de
+                la carga masiva.
               </AlertDescription>
             </Alert>
 
