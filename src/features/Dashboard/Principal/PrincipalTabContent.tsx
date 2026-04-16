@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getServicesSummary } from './actions/actions.server';
-import { ChecklistDeviationsDashboard } from './components/ChecklistDeviationsDashboard';
+// import { ChecklistDeviationsDashboard } from './components/ChecklistDeviationsDashboard';
 import { EquipmentFleetSection } from './components/EquipmentFleetSection';
 import { EquipmentOperationSection } from './components/EquipmentOperationSection';
 import { KpiCardsRow } from './components/KpiCardsRow';
@@ -21,7 +21,7 @@ export default async function PrincipalTabContent() {
         <KpiCardsRow />
       </Suspense>
 
-      <ChecklistDeviationsDashboard />
+      {/* <ChecklistDeviationsDashboard /> */}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Suspense fallback={<SectionSkeleton />}>
