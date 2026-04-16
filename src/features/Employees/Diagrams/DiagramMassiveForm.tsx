@@ -532,23 +532,21 @@ export function DiagramMassiveForm({ onConflictsFound, loading, setLoading }: Pr
             />
           )}
 
-          {/* ─── Date range picker + day counter ─── */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium leading-none">Rango de fechas</span>
-              {days > 0 && (
-                <Badge variant="secondary" className="font-mono">
-                  {days} {days === 1 ? 'día' : 'días'}
-                </Badge>
-              )}
-            </div>
+          {/* ─── Date range picker + day counter (lado derecho) ─── */}
+          <div className="flex items-start gap-2">
             <FormItemDatePicker
               name="dateRange"
               control={form.control}
-              label=""
+              label="Rango de fechas"
               description="Selecciona el rango de fechas para la carga masiva"
               disabled={(date) => date < new Date()}
+              className="flex-1"
             />
+            {days > 0 && (
+              <Badge variant="secondary" className="mt-7 h-10 shrink-0 whitespace-nowrap px-3 font-mono text-sm">
+                {days} {days === 1 ? 'día' : 'días'}
+              </Badge>
+            )}
           </div>
         </form>
       </Form>
