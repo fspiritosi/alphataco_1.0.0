@@ -12,8 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { Logger } from '@/lib/logger';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
-import { confirmMultiplePrepartesToDailyReport, updateMultiplePreparteStatus } from '../actions/preparte';
+import {
+  bulkReschedulePrepartes,
+  confirmMultiplePrepartesToDailyReport,
+  updateMultiplePreparteStatus,
+} from '../actions/preparte';
 import { PreparteItem } from './PreparteManager';
 
 const logger = new Logger('PreparteBulkStatusModal');
@@ -29,7 +34,10 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
   const [status, setStatus] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [confirmedBy, setConfirmedBy] = useState<string>('');
+  const [reprogramDate, setReprogramDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const todayStr = moment().format('YYYY-MM-DD');
 
   // Reiniciar formulario al abrir/cerrar el modal
   useEffect(() => {
@@ -37,8 +45,16 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
       setStatus('');
       setReason('');
       setConfirmedBy('');
+      setReprogramDate('');
     }
   }, [isOpen]);
+
+  // Al cambiar el estado elegido, limpiar la fecha si no aplica
+  useEffect(() => {
+    if (status !== 'reprogramado') {
+      setReprogramDate('');
+    }
+  }, [status]);
 
   // Verificar si el formulario es válido
   const isFormValid = () => {
@@ -46,6 +62,12 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
     // Si el estado requiere motivo, verificar que esté presente
     if ((status === 'cancelado' || status === 'rechazado' || status === 'reprogramado') && !reason.trim()) {
       return false;
+    }
+    // Reprogramado también exige fecha válida (no pasada)
+    if (status === 'reprogramado') {
+      if (!reprogramDate) return false;
+      const parsed = moment(reprogramDate, 'YYYY-MM-DD', true);
+      if (!parsed.isValid() || parsed.isBefore(moment().startOf('day'))) return false;
     }
     // Si el estado es confirmado, verificar que esté presente el confirmante
     if (status === 'confirmado' && !confirmedBy.trim()) {
@@ -93,6 +115,18 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
             duration: 10000,
           });
         }
+      } else if (status === 'reprogramado') {
+        // Reprogramación masiva atómica: clona cada preparte como `pendiente`
+        // con la nueva fecha y marca el original como `reprogramado`.
+        const selectedIds = selectedRows.map((row) => row.id);
+        const newDate = new Date(`${reprogramDate}T00:00:00`);
+
+        const result = await bulkReschedulePrepartes(selectedIds, newDate, reason);
+
+        toast({
+          title: 'Pedidos reprogramados',
+          description: `Se reprogramaron ${result.succeeded} pedido${result.succeeded > 1 ? 's' : ''} para el ${moment(newDate).format('DD/MM/YYYY')}.`,
+        });
       } else {
         // Para otros estados: usar la actualización masiva existente
         const selectedIds = selectedRows.map((row) => row.id);
@@ -103,8 +137,6 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
           updateData.cancel_reason = reason;
         } else if (status === 'rechazado') {
           updateData.rejected_reason = reason;
-        } else if (status === 'reprogramado') {
-          updateData.reprogram_reason = reason;
         }
 
         await updateMultiplePreparteStatus(selectedIds, updateData);
@@ -183,6 +215,26 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
               </SelectContent>
             </Select>
           </div>
+
+          {/* Campo de fecha (solo para reprogramado) */}
+          {status === 'reprogramado' && (
+            <div className="space-y-2 mb-4">
+              <Label htmlFor="reprogram-date">
+                Fecha de reprogramación <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="reprogram-date"
+                type="date"
+                min={todayStr}
+                value={reprogramDate}
+                onChange={(e) => setReprogramDate(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Se creará un nuevo pedido pendiente por cada uno seleccionado, con esta fecha de ejecución.
+              </p>
+            </div>
+          )}
 
           {/* Campo de motivo (condicional) */}
           {requiresReason && (

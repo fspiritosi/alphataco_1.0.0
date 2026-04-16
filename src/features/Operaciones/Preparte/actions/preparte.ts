@@ -1100,3 +1100,95 @@ export async function getPreparteReportData(filters: PreparteReportFilters): Pro
     throw error;
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// bulkReschedulePrepartes — reprogramación masiva atómica (COD-395)
+//
+// Por cada preparte seleccionado:
+//  1. Crea un clon en status `pendiente` con `executionDate` = newDate y
+//     `reprogram` apuntando al id original (para trazabilidad, espeja el
+//     flujo individual del PreparteForm).
+//  2. Marca el original como `reprogramado` con motivo y nota en observaciones.
+//
+// Todo corre dentro de una única `prisma.$transaction([...])`: si cualquier
+// operación falla, se revierten todas.
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reason: string) {
+  logger.debug('Reprogramación masiva de prepartes', {
+    data: { count: ids.length, newDate, reason },
+  });
+
+  if (!ids.length) {
+    throw new Error('No se seleccionaron pedidos para reprogramar.');
+  }
+  if (!(newDate instanceof Date) || Number.isNaN(newDate.getTime())) {
+    throw new Error('La fecha de reprogramación no es válida.');
+  }
+  if (!reason?.trim()) {
+    throw new Error('El motivo de reprogramación es obligatorio.');
+  }
+
+  try {
+    const originals = await prisma.preparte.findMany({
+      where: { id: { in: ids } },
+    });
+
+    const foundIds = new Set(originals.map((p) => p.id));
+    const missingIds = ids.filter((id) => !foundIds.has(id));
+    if (missingIds.length > 0) {
+      throw new Error(`No se encontraron ${missingIds.length} pedido(s) seleccionado(s) en la base de datos.`);
+    }
+
+    const fechaHoy = moment().format('DD/MM/YYYY');
+    const fechaNueva = moment(newDate).format('DD/MM/YYYY');
+
+    const operations = originals.flatMap((original) => [
+      prisma.preparte.create({
+        data: {
+          cliente_id: original.cliente_id,
+          contrato_id: original.contrato_id,
+          tipo: original.tipo,
+          jornada: original.jornada,
+          start_time: original.start_time,
+          end_time: original.end_time,
+          solicitante: original.solicitante,
+          item: original.item,
+          observaciones: original.observaciones,
+          executionDate: newDate,
+          requestDate: original.requestDate,
+          quantity: original.quantity,
+          numero_pedido: original.numero_pedido,
+          sector_service_id: original.sector_service_id,
+          areas_service_id: original.areas_service_id,
+          equipos_cliente: original.equipos_cliente,
+          company_id: original.company_id,
+          preparteImage: original.preparteImage,
+          subject_to_availability: false,
+          status: preparte_status.pendiente,
+          reprogram: original.id,
+        },
+      }),
+      prisma.preparte.update({
+        where: { id: original.id },
+        data: {
+          status: preparte_status.reprogramado,
+          reprogram_reason: reason,
+          observaciones: `[${fechaHoy}] Se reprogramó para ${fechaNueva}. ${original.observaciones ?? ''}`.trim(),
+          updated_at: new Date(),
+        },
+      }),
+    ]);
+
+    await prisma.$transaction(operations);
+
+    return { succeeded: originals.length, errors: [] as string[] };
+  } catch (error) {
+    logger.error('Error en reprogramación masiva de prepartes', {
+      data: { error, ids, newDate, reason },
+    });
+    throw error instanceof Error ? error : new Error('Error al reprogramar los pedidos seleccionados.');
+  }
+}
+
+export type BulkRescheduleResult = Awaited<ReturnType<typeof bulkReschedulePrepartes>>;
