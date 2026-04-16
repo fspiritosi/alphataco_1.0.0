@@ -33,6 +33,7 @@ import {
   type DocumentTypeListItem,
 } from '../actions/actions.server';
 import { createEmptyConditionsState, type ConditionsState } from '../config/documentConditions';
+import { EQUIPMENT_TYPE_OPTIONS } from '../config/equipmentTypes';
 import {
   conditionsJsonToSelections,
   hasActiveConditions,
@@ -65,11 +66,6 @@ type FormValues = z.infer<typeof formSchema>;
 // ============================================
 // CONSTANTES
 // ============================================
-
-const EQUIPMENT_TYPE_OPTIONS = [
-  { value: 'Vehiculo', label: 'Vehículo' },
-  { value: 'Otro', label: 'Otro' },
-];
 
 const APPLIES_OPTIONS = [
   { value: document_applies.Persona, label: 'Empleados', icon: User },
