@@ -582,6 +582,8 @@ export async function createOrUpdateMaintenanceRequest(input: {
   userId?: string;
   kilometer?: string;
   driverEmployeeId?: string;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }): Promise<{ ok: true; requestId?: string; created: boolean } | { ok: false; error: string }> {
   serverLogger.info('createOrUpdateMaintenanceRequest - Iniciando', {
     data: {
@@ -591,6 +593,12 @@ export async function createOrUpdateMaintenanceRequest(input: {
       hasChecklistAnswerId: !!input.checklistAnswerId,
     },
   });
+
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
 
   try {
     const profile = await requireServerAuthProfile();
@@ -628,6 +636,48 @@ export async function createOrUpdateMaintenanceRequest(input: {
                 driver_comment_by: profile.id,
               },
             });
+          }
+        }
+
+        // Crear ítems manuales si se incluyeron
+        if (input.manualItems && input.manualItems.length > 0) {
+          // Obtener checklist_answer_id del request existente
+          const existingRequest = await tx.maintenance_requests.findUnique({
+            where: { id: requestId },
+            select: { checklist_answer_id: true },
+          });
+
+          if (existingRequest?.checklist_answer_id) {
+            const manualDevs = await Promise.all(
+              input.manualItems
+                .filter((m) => m.label.trim().length > 0)
+                .map((m) =>
+                  tx.checklist_deviations.create({
+                    data: {
+                      checklist_answer_id: existingRequest.checklist_answer_id!,
+                      equipment_id: input.equipmentId,
+                      item_code: 'manual',
+                      item_label: m.label.trim(),
+                      section_code: null,
+                      is_critical: false,
+                      created_by_user_id: profile.id,
+                    },
+                    select: { id: true },
+                  })
+                )
+            );
+
+            if (manualDevs.length > 0) {
+              await tx.maintenance_request_items.createMany({
+                data: manualDevs.map((d) => ({
+                  maintenance_request_id: requestId,
+                  checklist_deviation_id: d.id,
+                  repair_type_id: null,
+                  driver_comment: null,
+                  status: 'pending',
+                })),
+              });
+            }
           }
         }
       });
@@ -692,6 +742,40 @@ export async function createOrUpdateMaintenanceRequest(input: {
           await tx.checklist_deviations.update({
             where: { id: deviation.deviationId },
             data: { driver_comment: deviation.comment },
+          });
+        }
+      }
+
+      // Crear ítems manuales (texto libre, no del template)
+      if (input.manualItems && input.manualItems.length > 0) {
+        const manualDevs = await Promise.all(
+          input.manualItems
+            .filter((m) => m.label.trim().length > 0)
+            .map((m) =>
+              tx.checklist_deviations.create({
+                data: {
+                  checklist_answer_id: checklistAnswerId!,
+                  equipment_id: input.equipmentId,
+                  item_code: 'manual',
+                  item_label: m.label.trim(),
+                  section_code: null,
+                  is_critical: false,
+                  created_by_user_id: profile.id,
+                },
+                select: { id: true },
+              })
+            )
+        );
+
+        if (manualDevs.length > 0) {
+          await tx.maintenance_request_items.createMany({
+            data: manualDevs.map((d) => ({
+              maintenance_request_id: request.id,
+              checklist_deviation_id: d.id,
+              repair_type_id: null,
+              driver_comment: null,
+              status: 'pending',
+            })),
           });
         }
       }
@@ -990,6 +1074,8 @@ export async function createManualDeviationsFromChecklist(input: {
     isCritical: boolean;
     comment?: string;
   }>;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }): Promise<{ ok: true; requestId: string; deviationIds: string[] } | { ok: false; error: string }> {
   serverLogger.info('createManualDeviationsFromChecklist - Iniciando', {
     data: {
@@ -999,8 +1085,15 @@ export async function createManualDeviationsFromChecklist(input: {
     },
   });
 
-  if (input.items.length === 0) {
-    return { ok: false, error: 'Debe seleccionar al menos un ítem' };
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
+
+  const manualCount = (input.manualItems ?? []).filter((m) => m.label.trim().length > 0).length;
+  if (input.items.length === 0 && manualCount === 0) {
+    return { ok: false, error: 'Debe agregar al menos un ítem' };
   }
 
   try {
@@ -1039,7 +1132,7 @@ export async function createManualDeviationsFromChecklist(input: {
         )
       );
 
-      const deviationIds = createdDeviations.map((d) => d.id);
+      let deviationIds = createdDeviations.map((d) => d.id);
 
       const request = await tx.maintenance_requests.create({
         data: {
@@ -1065,6 +1158,41 @@ export async function createManualDeviationsFromChecklist(input: {
           status: 'pending',
         })),
       });
+
+      // Crear ítems manuales (texto libre, no del template)
+      if (input.manualItems && input.manualItems.length > 0) {
+        const manualDevs = await Promise.all(
+          input.manualItems
+            .filter((m) => m.label.trim().length > 0)
+            .map((m) =>
+              tx.checklist_deviations.create({
+                data: {
+                  checklist_answer_id: input.checklistAnswerId,
+                  equipment_id: input.equipmentId,
+                  item_code: 'manual',
+                  item_label: m.label.trim(),
+                  section_code: null,
+                  is_critical: false,
+                  created_by_user_id: profile.id,
+                },
+                select: { id: true },
+              })
+            )
+        );
+
+        if (manualDevs.length > 0) {
+          await tx.maintenance_request_items.createMany({
+            data: manualDevs.map((d) => ({
+              maintenance_request_id: request.id,
+              checklist_deviation_id: d.id,
+              repair_type_id: null,
+              driver_comment: null,
+              status: 'pending',
+            })),
+          });
+          deviationIds = [...deviationIds, ...manualDevs.map((d) => d.id)];
+        }
+      }
 
       return { requestId: request.id, deviationIds };
     });

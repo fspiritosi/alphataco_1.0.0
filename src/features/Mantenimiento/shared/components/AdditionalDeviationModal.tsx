@@ -23,6 +23,7 @@ import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ChecklistItemPicker, type PickableSection, type SelectedItem } from './ChecklistItemPicker';
+import { ManualItemsInput, type ManualItem } from './ManualItemsInput';
 
 const logger = new Logger('AdditionalDeviationModal');
 
@@ -63,6 +64,7 @@ export function AdditionalDeviationModal({
   const [selectedSupervisorId, setSelectedSupervisorId] = useState('');
   const [openSupervisorSelect, setOpenSupervisorSelect] = useState(false);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitSuccessRef = useRef(false);
 
@@ -75,6 +77,7 @@ export function AdditionalDeviationModal({
     if (isOpen) {
       setSelectedSupervisorId('');
       setSelectedItems([]);
+      setManualItems([]);
       setIsSubmitting(false);
       submitSuccessRef.current = false;
       explicitCloseRef.current = false;
@@ -86,12 +89,14 @@ export function AdditionalDeviationModal({
     [supervisors, selectedSupervisorId]
   );
 
+  const totalItems = selectedItems.length + manualItems.length;
+
   const handleSubmit = useCallback(async () => {
     if (!selectedSupervisorId) {
       toast.error('Debes seleccionar un supervisor de turno');
       return;
     }
-    if (selectedItems.length === 0) {
+    if (selectedItems.length === 0 && manualItems.length === 0) {
       toast.error('Debes seleccionar al menos un ítem');
       return;
     }
@@ -114,6 +119,7 @@ export function AdditionalDeviationModal({
           isCritical: s.isCritical,
           comment: s.comment?.trim() || undefined,
         })),
+        manualItems: manualItems.map((m) => ({ label: m.label })),
       });
 
       if (!result.ok) {
@@ -123,7 +129,7 @@ export function AdditionalDeviationModal({
       }
 
       toast.success('Solicitud de mantenimiento creada', {
-        description: `Se registraron ${selectedItems.length} desvío(s) para revisión del supervisor.`,
+        description: `Se registraron ${totalItems} desvío(s) para revisión del supervisor.`,
       });
       invalidateAllMaintenanceQueries(queryClient);
 
@@ -131,6 +137,7 @@ export function AdditionalDeviationModal({
       explicitCloseRef.current = true;
       setSelectedSupervisorId('');
       setSelectedItems([]);
+      setManualItems([]);
       setIsSubmitting(false);
       onSuccess();
     } catch (error) {
@@ -141,6 +148,7 @@ export function AdditionalDeviationModal({
   }, [
     selectedSupervisorId,
     selectedItems,
+    manualItems,
     checklistAnswerId,
     equipmentId,
     driverEmployeeId,
@@ -149,6 +157,7 @@ export function AdditionalDeviationModal({
     kilometer,
     queryClient,
     onSuccess,
+    totalItems,
   ]);
 
   const handleCancelClick = useCallback(() => {
@@ -172,11 +181,10 @@ export function AdditionalDeviationModal({
   };
 
   const submitLabel =
-    selectedItems.length === 0
-      ? 'Registrar desvíos'
-      : `Registrar ${selectedItems.length} desvío${selectedItems.length > 1 ? 's' : ''}`;
+    totalItems === 0 ? 'Registrar desvíos' : `Registrar ${totalItems} desvío${totalItems > 1 ? 's' : ''}`;
 
-  const submitDisabled = isSubmitting || !selectedSupervisorId || selectedItems.length === 0;
+  const submitDisabled =
+    isSubmitting || !selectedSupervisorId || (selectedItems.length === 0 && manualItems.length === 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -254,6 +262,7 @@ export function AdditionalDeviationModal({
             onChange={setSelectedItems}
             disabled={isSubmitting}
           />
+          <ManualItemsInput items={manualItems} onChange={setManualItems} disabled={isSubmitting} />
         </div>
 
         <DialogFooter className="px-6 py-4 border-t flex-row sm:justify-between gap-2">

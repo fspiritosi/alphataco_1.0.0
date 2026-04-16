@@ -19,6 +19,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ManualItemsInput, type ManualItem } from './ManualItemsInput';
 
 const logger = new Logger('CriticalDeviationsRepairModal');
 
@@ -111,12 +112,16 @@ export function CriticalDeviationsRepairModal({
   // Estado de envío
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ítems manuales adicionales (no listados en el checklist)
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
+
   // Limpiar estado cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       setSelectedSupervisorId('');
       setDeviationComments({});
       setShowCommentField({});
+      setManualItems([]);
       setIsSubmitting(false);
       submitSuccessRef.current = false;
     }
@@ -173,6 +178,7 @@ export function CriticalDeviationsRepairModal({
         userId,
         kilometer,
         driverEmployeeId,
+        manualItems: manualItems.map((m) => ({ label: m.label })),
       });
 
       if (!result.ok) {
@@ -185,8 +191,10 @@ export function CriticalDeviationsRepairModal({
         ? 'Solicitud de mantenimiento creada correctamente'
         : 'Solicitud actualizada correctamente';
 
+      const totalDeviations = deviations.length + manualItems.length;
+
       toast.success(message, {
-        description: `Se registraron ${deviations.length} desvío(s) para revisión del supervisor.`,
+        description: `Se registraron ${totalDeviations} desvío(s) para revisión del supervisor.`,
       });
 
       // Invalidar todas las queries de mantenimiento para que las tabs se actualicen
@@ -198,6 +206,7 @@ export function CriticalDeviationsRepairModal({
       // Limpiar estado local antes de llamar onComplete
       setSelectedSupervisorId('');
       setDeviationComments({});
+      setManualItems([]);
       setIsSubmitting(false);
 
       // Solo llamar onComplete, NO handleClose (evita doble redirección)
@@ -395,6 +404,9 @@ export function CriticalDeviationsRepairModal({
               </div>
             </CardContent>
           </Card>
+
+          {/* Ítems adicionales no listados en el checklist */}
+          <ManualItemsInput items={manualItems} onChange={setManualItems} disabled={isSubmitting} />
 
           <Separator />
 
