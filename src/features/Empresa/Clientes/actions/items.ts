@@ -14,7 +14,8 @@ export async function fetchServiceItems(customer_service_id: string) {
         measure_units (*)
       `
       )
-      .eq('customer_service_id', customer_service_id);
+      .eq('customer_service_id', customer_service_id)
+      .eq('is_active', true);
 
     if (error) {
       console.error('Error al obtener items del servicio:', error);
