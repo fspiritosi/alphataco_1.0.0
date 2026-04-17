@@ -45,7 +45,8 @@ export async function fetchContractsByClientId(clientId: string) {
     .from('customer_services')
     .select('id, service_name')
     .order('service_name', { ascending: true })
-    .eq('customer_id', clientId);
+    .eq('customer_id', clientId)
+    .eq('is_active', true);
 
   if (error) {
     logger.error('Error fetching contracts', { data: { error } });
@@ -63,7 +64,8 @@ export async function fetchAllContracts() {
   const { data, error } = await supabase
     .from('customer_services')
     .select('id, service_name')
-    .order('service_name', { ascending: true });
+    .order('service_name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     logger.error('Error fetching contracts', { data: { error } });

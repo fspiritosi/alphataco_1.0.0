@@ -28,7 +28,10 @@ export async function fetchCustomersWithRelations() {
       )
     `
     )
-    .eq('company_id', company_id);
+    .eq('company_id', company_id)
+    .eq('is_active', true)
+    .eq('customer_services.is_active', true)
+    .eq('customer_services.service_items.is_active', true);
 
   if (error) {
     logger.error('Error fetching customers with relations', { data: { error } });
