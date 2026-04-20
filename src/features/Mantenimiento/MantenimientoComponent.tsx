@@ -4,8 +4,9 @@ import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/Equip
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
 import MaintenanceGroupsWrapper from '@/features/Mantenimiento/TiposReparaciones/MaintenanceGroupsWrapper';
 import RepairTypeFormWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairTypeFormWrapper';
+import { WorkshopSectorsSkeleton, WorkshopViewTabContent } from '@/features/Mantenimiento/WorkshopView';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
+import { AlertTriangle, Building2, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import { OperacionesPipelineContent } from './Pipeline/OperacionesPipeline/OperacionesPipelineContent';
 import { OperacionesPipelineSkeleton } from './Pipeline/OperacionesPipeline/fallback/OperacionesPipelineSkeleton';
@@ -85,6 +86,25 @@ export default async function MantenimientoComponent({ searchParams, permissions
           content: (
             <Suspense fallback={<OperacionesPipelineSkeleton />}>
               <OperacionesPipelineContent searchParams={searchParams} />
+            </Suspense>
+          ),
+        },
+        // ============================================
+        // TAB: VISTA TALLER (acordeones por sector — COD-394)
+        // ============================================
+        {
+          value: 'workshop_view',
+          label: (
+            <span className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Vista Taller
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'workshop_view',
+          content: (
+            <Suspense fallback={<WorkshopSectorsSkeleton />}>
+              <WorkshopViewTabContent searchParams={searchParams} />
             </Suspense>
           ),
         },

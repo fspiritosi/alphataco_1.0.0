@@ -956,6 +956,15 @@ export const PERMISSIONS = {
         allowedActions: ['view'],
         subtabs: {},
       },
+      // Vista Taller (COD-394) — agrupada por sector de taller
+      workshop_view: {
+        slug: 'workshop_view',
+        name: 'Vista Taller',
+        tabId: '60000000-0000-0000-0000-000000000071',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
       // Tab 1: Operaciones
       maint_operaciones: {
         slug: 'maint_operaciones',
