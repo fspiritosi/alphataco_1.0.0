@@ -4,41 +4,78 @@ import { Badge } from '@/components/ui/badge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { type ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, XCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Ban,
+  CalendarClock,
+  CheckCircle2,
+  CircleDashed,
+  Clock,
+  ExternalLink,
+  Hammer,
+  Pause,
+  PlayCircle,
+  Wrench,
+  XCircle,
+} from 'lucide-react';
 import moment from 'moment';
-import Link from 'next/link';
 import type { WorkshopSectorTaskListItem } from './actions.server';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['rejection_reason', 'assigned_at', 'created_at', 'is_diagnostico'];
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = [
+  'rejection_reason',
+  'assigned_at',
+  'created_at',
+  'is_diagnostico',
+  'is_critical',
+  'is_rejected',
+];
 
 // ============================================================================
-// TASK STATUS — derivado de flags (no existe campo único de estado en BD)
+// ESTADOS — OM (maintenance_orders.status) y OT (work_orders.status)
 // ============================================================================
 
-type TaskStatus = 'rejected' | 'critical' | 'pending' | 'normal';
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'info' | 'warning' | 'success' | 'yellow' | 'red';
 
-function getTaskStatus(row: WorkshopSectorTaskListItem): TaskStatus {
-  if (row.is_rejected) return 'rejected';
-  if (row.is_critical) return 'critical';
-  return 'normal';
-}
-
-type TaskStatusConfig = {
+type StatusConfig = {
   label: string;
-  variant: 'destructive' | 'yellow' | 'secondary' | 'default';
+  variant: BadgeVariant;
   icon: typeof AlertCircle;
 };
 
-export const TASK_STATUS_CONFIG: Record<TaskStatus, TaskStatusConfig> = {
+/** Estados de maintenance_orders (String, no enum). Valores documentados en uso. */
+export const MO_STATUS_CONFIG: Record<string, StatusConfig> = {
+  pending_scheduling: { label: 'Por planificar', variant: 'secondary', icon: CalendarClock },
+  scheduled: { label: 'Planificada', variant: 'info', icon: CalendarClock },
+  date_confirmed: { label: 'Fecha confirmada', variant: 'info', icon: CheckCircle2 },
+  in_workshop: { label: 'En taller', variant: 'warning', icon: Hammer },
+  completed: { label: 'Completada', variant: 'success', icon: CheckCircle2 },
   rejected: { label: 'Rechazada', variant: 'destructive', icon: XCircle },
-  critical: { label: 'Crítica', variant: 'yellow', icon: AlertTriangle },
-  normal: { label: 'Normal', variant: 'default', icon: CheckCircle2 },
-  pending: { label: 'Pendiente', variant: 'secondary', icon: AlertCircle },
 };
+
+/** Estados de work_orders (enum work_order_status). */
+export const WO_STATUS_CONFIG: Record<string, StatusConfig> = {
+  pending: { label: 'Pendiente', variant: 'secondary', icon: Clock },
+  in_progress: { label: 'En progreso', variant: 'info', icon: PlayCircle },
+  paused: { label: 'Pausada', variant: 'yellow', icon: Pause },
+  completed: { label: 'Completada', variant: 'success', icon: CheckCircle2 },
+  completed_partial: { label: 'Parcial', variant: 'success', icon: CheckCircle2 },
+  cancelled: { label: 'Cancelada', variant: 'destructive', icon: Ban },
+};
+
+function getMoStatusConfig(status: string | null | undefined): StatusConfig {
+  if (!status) return { label: 'Sin estado', variant: 'secondary', icon: CircleDashed };
+  return MO_STATUS_CONFIG[status] ?? { label: status, variant: 'secondary', icon: CircleDashed };
+}
+
+function getWoStatusConfig(status: string | null | undefined): StatusConfig {
+  if (!status) return { label: 'Sin OT', variant: 'secondary', icon: CircleDashed };
+  return WO_STATUS_CONFIG[status] ?? { label: status, variant: 'secondary', icon: CircleDashed };
+}
 
 // Exportamos los labels/icons para uso en los filtros del DataTable
 export const IS_CRITICAL_LABELS: Record<string, string> = {
@@ -57,56 +94,90 @@ export const IS_REJECTED_LABELS: Record<string, string> = {
 
 export function getWorkshopSectorTasksColumns(): ColumnDef<WorkshopSectorTaskListItem>[] {
   return [
-    // ── Estado derivado (is_critical + is_rejected → badge visual) ────────
-    {
-      id: 'task_status',
-      accessorFn: (row) => {
-        if (row.is_rejected) return 'rejected';
-        if (row.is_critical) return 'critical';
-        return 'normal';
-      },
-      meta: { title: 'Estado' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-      cell: ({ row }) => {
-        const status = getTaskStatus(row.original);
-        const config = TASK_STATUS_CONFIG[status];
-        const Icon = config.icon;
-        return (
-          <Badge variant={config.variant} className="gap-1 whitespace-nowrap">
-            <Icon className="h-3 w-3" />
-            {config.label}
-          </Badge>
-        );
-      },
-      // Sin filterFn — los filtros is_critical e is_rejected son columnas separadas
-      enableSorting: false,
-    },
-
-    // ── N° Orden (FK → maintenance_orders, con link al detalle) ────────────
+    // ── N° OM + Estado OM (link externo con filtro pre-aplicado) ───────────
     {
       id: 'maintenance_order',
       accessorFn: (row) => row.maintenance_orders?.order_number ?? row.maintenance_orders?.id ?? '',
-      meta: { title: 'N° Orden' },
-      header: ({ column }) => <DataTableColumnHeader column={column} title="N° Orden" />,
+      meta: { title: 'N° OM' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="N° OM" />,
       cell: ({ row }) => {
         const mo = row.original.maintenance_orders;
         if (!mo) return <span className="text-muted-foreground">—</span>;
         const label = mo.order_number ?? mo.id.slice(0, 8);
-        return (
-          <Link
-            href={`/dashboard/maintenance/${mo.id}`}
-            className="flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+        const cfg = getMoStatusConfig(mo.status);
+        const StatusIcon = cfg.icon;
+        const href = mo.order_number
+          ? `/dashboard/maintenance?tab=maint_taller&taller_step=in_workshop&maintenance-orders__order_number=${encodeURIComponent(
+              mo.order_number
+            )}`
+          : null;
+        const numberEl = href ? (
+          <a
+            href={href}
             target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-mono text-sm font-medium text-primary underline-offset-2 hover:underline"
           >
             {label}
-            <ExternalLink className="h-3 w-3 flex-shrink-0" />
-          </Link>
+            <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-60" />
+          </a>
+        ) : (
+          <span className="font-mono text-sm font-medium text-muted-foreground">{label}</span>
+        );
+        return (
+          <div className="flex flex-col gap-1">
+            {numberEl}
+            <Badge
+              variant={cfg.variant}
+              className="w-fit gap-1 whitespace-nowrap px-1.5 py-0 text-[10px] uppercase tracking-wide"
+            >
+              <StatusIcon className="h-2.5 w-2.5" />
+              {cfg.label}
+            </Badge>
+          </div>
         );
       },
       filterFn: (row, _id, value: string[]) => {
         const id = row.original.maintenance_orders?.id;
         if (id == null) return value.includes(NULL_FILTER_VALUE);
         return value.includes(id);
+      },
+    },
+
+    // ── N° OT + Estado OT (puede ser null si el item aún no se envió a taller) ─
+    {
+      id: 'work_order',
+      accessorFn: (row) => row.work_orders?.order_number ?? '',
+      meta: { title: 'N° OT' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="N° OT" />,
+      cell: ({ row }) => {
+        const wo = row.original.work_orders;
+        if (!wo) {
+          return (
+            <Badge variant="secondary" className="w-fit gap-1 px-1.5 py-0 text-[10px] uppercase tracking-wide">
+              <CircleDashed className="h-2.5 w-2.5" />
+              Sin OT
+            </Badge>
+          );
+        }
+        const label = wo.order_number ?? wo.id.slice(0, 8);
+        const cfg = getWoStatusConfig(wo.status);
+        const StatusIcon = cfg.icon;
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="inline-flex items-center gap-1 font-mono text-sm font-medium">
+              <Wrench className="h-3 w-3 opacity-60" />
+              {label}
+            </span>
+            <Badge
+              variant={cfg.variant}
+              className="w-fit gap-1 whitespace-nowrap px-1.5 py-0 text-[10px] uppercase tracking-wide"
+            >
+              <StatusIcon className="h-2.5 w-2.5" />
+              {cfg.label}
+            </Badge>
+          </div>
+        );
       },
     },
 
@@ -288,10 +359,15 @@ export function getWorkshopSectorTasksColumns(): ColumnDef<WorkshopSectorTaskLis
 
 export function getWorkshopSectorTasksExportFormatters() {
   return {
-    // Estado derivado (virtual)
-    task_status: (val: unknown) => {
-      const config = TASK_STATUS_CONFIG[val as TaskStatus];
-      return config?.label ?? String(val ?? '');
+    // Estado OM (accessorFn retorna status crudo → traducir)
+    mo_status: (val: unknown) => {
+      if (!val) return '';
+      return MO_STATUS_CONFIG[val as string]?.label ?? String(val);
+    },
+    // Estado OT (accessorFn retorna status crudo → traducir)
+    wo_status: (val: unknown) => {
+      if (!val) return 'Sin OT';
+      return WO_STATUS_CONFIG[val as string]?.label ?? String(val);
     },
     // Booleanos
     is_critical: (val: unknown) => (val ? 'Sí' : 'No'),

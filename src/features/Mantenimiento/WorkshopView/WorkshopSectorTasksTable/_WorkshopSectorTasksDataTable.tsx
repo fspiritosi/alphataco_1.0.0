@@ -8,7 +8,7 @@ import type {
   DataTableSearchParams,
 } from '@/shared/components/common/DataTable/types';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Check, CheckCircle2, CircleOff, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, CircleDashed, CircleOff, X, XCircle } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { WorkshopSectorTaskListItem } from './actions.server';
 import {
@@ -20,6 +20,8 @@ import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   IS_CRITICAL_LABELS,
   IS_REJECTED_LABELS,
+  MO_STATUS_CONFIG,
+  WO_STATUS_CONFIG,
   getWorkshopSectorTasksColumns,
   getWorkshopSectorTasksExportFormatters,
 } from './columns';
@@ -28,7 +30,7 @@ import {
 // CONSTANTS
 // ============================================================================
 
-const DEFAULT_VISIBLE_FILTERS = ['repair_type', 'is_critical', 'planned_start_date'];
+const DEFAULT_VISIBLE_FILTERS = ['wo_status', 'mo_status', 'repair_type'];
 
 // ============================================================================
 // PROPS
@@ -134,7 +136,39 @@ export function _WorkshopSectorTasksDataTable({
       { value: 'false', label: 'No', icon: X },
     ];
 
+    // mo_status options (enum string)
+    const moStatusOptions: DataTableFilterOption[] = Object.entries(MO_STATUS_CONFIG).map(([value, cfg]) => ({
+      value,
+      label: cfg.label,
+      icon: cfg.icon,
+    }));
+    if (facets?.mo_status?.has(NULL_FILTER_VALUE)) {
+      moStatusOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff });
+    }
+
+    // wo_status options (enum + null = sin OT)
+    const woStatusOptions: DataTableFilterOption[] = Object.entries(WO_STATUS_CONFIG).map(([value, cfg]) => ({
+      value,
+      label: cfg.label,
+      icon: cfg.icon,
+    }));
+    woStatusOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin OT', icon: CircleDashed });
+
     return [
+      {
+        columnId: 'wo_status',
+        title: 'Estado OT',
+        type: 'faceted' as const,
+        options: woStatusOptions,
+        externalCounts: facets?.wo_status,
+      },
+      {
+        columnId: 'mo_status',
+        title: 'Estado OM',
+        type: 'faceted' as const,
+        options: moStatusOptions,
+        externalCounts: facets?.mo_status,
+      },
       {
         columnId: 'repair_type',
         title: 'Tipo de Reparación',

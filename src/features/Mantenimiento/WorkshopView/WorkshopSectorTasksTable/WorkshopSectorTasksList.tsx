@@ -1,9 +1,17 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
-import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
+import { NULL_FILTER_VALUE, stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { _WorkshopSectorTasksDataTable } from './_WorkshopSectorTasksDataTable';
 import { getWorkshopSectorTasksPaginated } from './actions.server';
+
+/**
+ * Filtro default de Estado OT al abrir el acordeón: muestra todo excepto las
+ * finalizadas (`completed`, `completed_partial`) y `cancelled`. El filtro
+ * queda marcado en la UI para que el usuario pueda quitarlo y ver los
+ * finalizados/cancelados si lo desea.
+ */
+const DEFAULT_WO_STATUS = `pending,in_progress,paused,${NULL_FILTER_VALUE}`;
 
 // ============================================================================
 // PROPS
@@ -35,6 +43,11 @@ export async function WorkshopSectorTasksList({ sectorId, searchParams }: Worksh
 
   // Strip del namespace antes de parsear los searchParams de esta tabla
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
+
+  // Aplicar filtro default de Estado OT si el usuario aún no definió uno
+  if (!tableParams.wo_status) {
+    tableParams.wo_status = DEFAULT_WO_STATUS;
+  }
 
   const [{ data, total }, preferences] = await Promise.all([
     getWorkshopSectorTasksPaginated(sectorId, tableParams),

@@ -31,6 +31,9 @@ const VALID_SORT_FIELDS = new Set([
   // FK columns via FK_SORT_MAP:
   'repair_type',
   'maintenance_order',
+  'mo_status',
+  'wo_status',
+  'work_order',
   // 'vehicle' omitido — enableSorting: false en columns (anidamiento vehicle via maintenance_orders)
 ]);
 
@@ -38,6 +41,9 @@ const VALID_SORT_FIELDS = new Set([
 const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
   repair_type: (dir) => ({ types_of_repairs: { name: dir } }),
   maintenance_order: (dir) => ({ maintenance_orders: { order_number: dir } }),
+  mo_status: (dir) => ({ maintenance_orders: { status: dir } }),
+  work_order: (dir) => ({ work_orders: { order_number: dir } }),
+  wo_status: (dir) => ({ work_orders: { status: dir } }),
   vehicle: (dir) => ({ maintenance_orders: { vehicles: { domain: dir } } }),
 };
 
@@ -85,6 +91,14 @@ const SECTOR_TASKS_SELECT = {
       },
     },
   },
+  // FK: orden de trabajo (OT) — puede ser null hasta que el item se envía a taller
+  work_orders: {
+    select: {
+      id: true,
+      order_number: true,
+      status: true,
+    },
+  },
 };
 
 // ============================================================================
@@ -103,6 +117,8 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
       'is_critical', // booleano — manejado manualmente
       'is_rejected', // booleano — manejado manualmente
       'is_diagnostico', // booleano — manejado manualmente
+      'mo_status', // enum string — manejado manualmente (relación maintenance_orders)
+      'wo_status', // enum — manejado manualmente (relación work_orders, nullable)
     ],
   });
 
@@ -156,6 +172,33 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
     filtersWhere.is_diagnostico = isDiagnosticoValues[0] === 'true';
   }
 
+  // ─── Filtro mo_status (enum string en maintenance_orders.status) ────────
+  const moStatusValues = state.filters['mo_status'];
+  if (moStatusValues?.length) {
+    filtersWhere.maintenance_orders = {
+      ...(filtersWhere.maintenance_orders as object),
+      status: { in: moStatusValues },
+    };
+  }
+
+  // ─── Filtro wo_status (enum en work_orders.status, nullable) ────────────
+  // NULL_FILTER_VALUE representa items SIN OT (work_order_id = null)
+  const woStatusExtraConditions: Record<string, unknown>[] = [];
+  const woStatusValues = state.filters['wo_status'];
+  if (woStatusValues?.length) {
+    const hasNull = woStatusValues.includes(NULL_FILTER_VALUE);
+    const realValues = woStatusValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      woStatusExtraConditions.push({
+        OR: [{ work_orders: { status: { in: realValues } } }, { work_order_id: null }],
+      });
+    } else if (hasNull) {
+      woStatusExtraConditions.push({ work_order_id: null });
+    } else {
+      woStatusExtraConditions.push({ work_orders: { status: { in: realValues } } });
+    }
+  }
+
   // ─── Filtro vehicle (texto en campos de vehicles anidados) ──────────────
   const vehicleValues = state.filters['vehicle'];
   const vehicleExtraConditions: Record<string, unknown>[] = [];
@@ -178,7 +221,7 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
   }
 
   // ─── Condiciones AND mixtas ─────────────────────────────────────────────
-  const extraAndConditions: Record<string, unknown>[] = [...vehicleExtraConditions];
+  const extraAndConditions: Record<string, unknown>[] = [...vehicleExtraConditions, ...woStatusExtraConditions];
 
   // Caso mixto repair_type
   const rtValues = state.filters['repair_type'];
@@ -332,6 +375,8 @@ export async function getWorkshopSectorTasksFacets(sectorId: string, searchParam
       crossWhereIsCritical,
       crossWhereIsRejected,
       crossWhereIsDiagnostico,
+      crossWhereMoStatus,
+      crossWhereWoStatus,
     ] = await Promise.all([
       crossWhere('repair_type'),
       crossWhere('maintenance_order'),
@@ -339,43 +384,78 @@ export async function getWorkshopSectorTasksFacets(sectorId: string, searchParam
       crossWhere('is_critical'),
       crossWhere('is_rejected'),
       crossWhere('is_diagnostico'),
+      crossWhere('mo_status'),
+      crossWhere('wo_status'),
     ]);
 
-    const [repairTypeCounts, moCounts, vehicleCounts, isCriticalCounts, isRejectedCounts, isDiagnosticoCounts] =
-      await Promise.all([
-        prisma.maintenance_order_items.groupBy({
-          by: ['repair_type_id'],
-          where: crossWhereRepairType,
-          _count: { _all: true },
-        }),
-        prisma.maintenance_order_items.groupBy({
-          by: ['maintenance_order_id'],
-          where: crossWhereMo,
-          _count: { _all: true },
-        }),
-        prisma.maintenance_order_items.groupBy({
-          // groupBy equipment_id vía maintenance_orders no es posible directamente,
-          // así que usamos maintenance_order_id y luego resolvemos los vehicles
-          by: ['maintenance_order_id'],
-          where: crossWhereVehicle,
-          _count: { _all: true },
-        }),
-        prisma.maintenance_order_items.groupBy({
-          by: ['is_critical'],
-          where: crossWhereIsCritical,
-          _count: { _all: true },
-        }),
-        prisma.maintenance_order_items.groupBy({
-          by: ['is_rejected'],
-          where: crossWhereIsRejected,
-          _count: { _all: true },
-        }),
-        prisma.maintenance_order_items.groupBy({
-          by: ['is_diagnostico'],
-          where: crossWhereIsDiagnostico,
-          _count: { _all: true },
-        }),
-      ]);
+    const [
+      repairTypeCounts,
+      moCounts,
+      vehicleCounts,
+      isCriticalCounts,
+      isRejectedCounts,
+      isDiagnosticoCounts,
+      moStatusRows,
+      woStatusRows,
+    ] = await Promise.all([
+      prisma.maintenance_order_items.groupBy({
+        by: ['repair_type_id'],
+        where: crossWhereRepairType,
+        _count: { _all: true },
+      }),
+      prisma.maintenance_order_items.groupBy({
+        by: ['maintenance_order_id'],
+        where: crossWhereMo,
+        _count: { _all: true },
+      }),
+      prisma.maintenance_order_items.groupBy({
+        // groupBy equipment_id vía maintenance_orders no es posible directamente,
+        // así que usamos maintenance_order_id y luego resolvemos los vehicles
+        by: ['maintenance_order_id'],
+        where: crossWhereVehicle,
+        _count: { _all: true },
+      }),
+      prisma.maintenance_order_items.groupBy({
+        by: ['is_critical'],
+        where: crossWhereIsCritical,
+        _count: { _all: true },
+      }),
+      prisma.maintenance_order_items.groupBy({
+        by: ['is_rejected'],
+        where: crossWhereIsRejected,
+        _count: { _all: true },
+      }),
+      prisma.maintenance_order_items.groupBy({
+        by: ['is_diagnostico'],
+        where: crossWhereIsDiagnostico,
+        _count: { _all: true },
+      }),
+      // mo_status: groupBy sobre maintenance_order_id + join a MO para obtener status.
+      // groupBy directo a relación no es posible → traemos items con select minimal.
+      prisma.maintenance_order_items.findMany({
+        where: crossWhereMoStatus,
+        select: { maintenance_orders: { select: { status: true } } },
+      }),
+      // wo_status: lo mismo para work_orders.status (nullable)
+      prisma.maintenance_order_items.findMany({
+        where: crossWhereWoStatus,
+        select: { work_orders: { select: { status: true } } },
+      }),
+    ]);
+
+    // Agregar counts para mo_status agrupando en memoria
+    const moStatusCountMap = new Map<string, number>();
+    for (const row of moStatusRows) {
+      const key = row.maintenance_orders?.status ?? NULL_FILTER_VALUE;
+      moStatusCountMap.set(key, (moStatusCountMap.get(key) ?? 0) + 1);
+    }
+
+    // Agregar counts para wo_status (null = items sin OT)
+    const woStatusCountMap = new Map<string, number>();
+    for (const row of woStatusRows) {
+      const key = row.work_orders?.status ?? NULL_FILTER_VALUE;
+      woStatusCountMap.set(key, (woStatusCountMap.get(key) ?? 0) + 1);
+    }
 
     // Resolver nombres de tipos de reparación
     const repairTypeIds = repairTypeCounts
@@ -452,6 +532,8 @@ export async function getWorkshopSectorTasksFacets(sectorId: string, searchParam
       is_diagnostico: toFacetMap(
         isDiagnosticoCounts.map((r) => ({ key: String(r.is_diagnostico), count: r._count._all }))
       ),
+      mo_status: moStatusCountMap,
+      wo_status: woStatusCountMap,
     };
   } catch (error) {
     logger.error('Error al obtener facets de tareas del sector', { data: { error, sectorId } });

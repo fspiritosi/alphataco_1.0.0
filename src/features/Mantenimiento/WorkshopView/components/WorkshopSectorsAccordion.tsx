@@ -2,9 +2,47 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
-import { Building2, Wrench } from 'lucide-react';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { Building2, CircleDashed, Clock, Pause, PlayCircle, Wrench } from 'lucide-react';
 import { memo, type ReactNode } from 'react';
 import type { WorkshopSectorWithCount } from '../actions.server';
+
+/**
+ * Contadores a mostrar en el header del acordeón.
+ * Orden = orden visual. Se ocultan los estados con count = 0.
+ * NO se muestran: `completed`, `completed_partial`, `cancelled` (se tratan como finalizados).
+ */
+const STATUS_COUNTERS: Array<{
+  key: string;
+  label: string;
+  icon: typeof Clock;
+  className: string;
+}> = [
+  {
+    key: 'pending',
+    label: 'Pendientes',
+    icon: Clock,
+    className: 'bg-red-500/15 text-red-700 ring-red-500/30 dark:text-red-300',
+  },
+  {
+    key: 'in_progress',
+    label: 'En progreso',
+    icon: PlayCircle,
+    className: 'bg-blue-500/15 text-blue-700 ring-blue-500/30 dark:text-blue-300',
+  },
+  {
+    key: 'paused',
+    label: 'Pausadas',
+    icon: Pause,
+    className: 'bg-amber-500/15 text-amber-700 ring-amber-500/30 dark:text-amber-300',
+  },
+  {
+    key: NULL_FILTER_VALUE,
+    label: 'Sin OT',
+    icon: CircleDashed,
+    className: 'bg-muted text-muted-foreground ring-border',
+  },
+];
 
 interface SectorItem extends WorkshopSectorWithCount {
   /** JSX con la tabla de tareas renderizada por el Server Component padre */
@@ -73,17 +111,27 @@ function WorkshopSectorsAccordionInner({ sectors }: WorkshopSectorsAccordionProp
                 ) : null}
               </div>
 
-              {/* Count pill */}
-              <span
-                className={cn(
-                  'ml-auto mr-2 inline-flex min-w-9 items-center justify-center rounded-full',
-                  'border border-border/70 bg-muted/60 px-2 py-0.5',
-                  'font-mono text-xs tabular-nums text-muted-foreground',
-                  sector.count === 0 && 'opacity-50'
-                )}
-              >
-                {sector.count}
-              </span>
+              {/* Contadores por estado de OT — solo los que tienen count > 0 */}
+              <div className="ml-auto mr-2 flex flex-wrap items-center justify-end gap-1">
+                {STATUS_COUNTERS.map((counter) => {
+                  const count = sector.statusCounts[counter.key] ?? 0;
+                  if (count === 0) return null;
+                  const Icon = counter.icon;
+                  return (
+                    <span
+                      key={counter.key}
+                      title={counter.label}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ring-1',
+                        counter.className
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {count}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           </AccordionTrigger>
 
