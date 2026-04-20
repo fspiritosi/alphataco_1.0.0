@@ -593,7 +593,7 @@ export const PERMISSIONS = {
             name: 'Solicitudes',
             tabId: '30000000-0000-0000-0000-000000000041',
             parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'update'],
           },
           type_of_repair: {
             slug: 'type_of_repair',
@@ -952,6 +952,15 @@ export const PERMISSIONS = {
         slug: 'type_of_repair_new_entry',
         name: 'Nueva Solicitud',
         tabId: '60000000-0000-0000-0000-000000000013',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+      // Vista Taller (COD-394) — agrupada por sector de taller
+      workshop_view: {
+        slug: 'workshop_view',
+        name: 'Vista Taller',
+        tabId: '60000000-0000-0000-0000-000000000071',
         parent: null,
         allowedActions: ['view'],
         subtabs: {},
