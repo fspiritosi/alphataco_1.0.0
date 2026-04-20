@@ -593,7 +593,7 @@ export const PERMISSIONS = {
             name: 'Solicitudes',
             tabId: '30000000-0000-0000-0000-000000000041',
             parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'update'],
           },
           type_of_repair: {
             slug: 'type_of_repair',

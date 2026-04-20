@@ -23,7 +23,7 @@ import {
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import { getMaintenanceOrdersForEquipment } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
 import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
-import { getUserPermissionsMapServer } from '@/features/Permissions';
+import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import BackButton from '@/shared/components/common/BackButton';
 
@@ -54,7 +54,10 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   const mode = resolvedSearchParams.action || 'view';
   const isOtherEquipment = resolvedSearchParams.type === 'other';
 
-  const permissions = await getUserPermissionsMapServer();
+  const [permissions, canEditSolicitudes] = await Promise.all([
+    getUserPermissionsMapServer(),
+    checkPermissionServer('equipos', 'created_solicitudes', 'update'),
+  ]);
 
   // ─── OTROS EQUIPOS ────────────────────────────────────────────────────────
 
@@ -187,6 +190,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
               equipment_id={resolvedSearchParams.id}
               moduleSlug="equipos"
               permissions={permissions}
+              canEditSolicitudes={canEditSolicitudes}
               hiddenTabs={[
                 'equipments_with_deviations',
                 'type_of_repair',
