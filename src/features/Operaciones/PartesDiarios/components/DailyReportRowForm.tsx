@@ -743,7 +743,7 @@ export function DailyReportForm({
 
     // Setear equipos del cliente
     if (selectedRow.customer_equipment) {
-      const equipos_clienteIds = selectedRow.customer_equipment.map((eq) => eq.id || '');
+      const equipos_clienteIds = selectedRow.customer_equipment.map((eq) => eq.id).filter((id): id is string => !!id);
       form.setValue('equipos_cliente', equipos_clienteIds);
     }
 
