@@ -1,6 +1,9 @@
 'use client';
 
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+
+const logger = new Logger('features/PartesDiarios/actionsClient');
 
 // ============================================
 // FUNCIONES CLIENT-SIDE (sin cookies)
@@ -26,7 +29,7 @@ export async function getCustomersClient() {
     .order('name');
 
   if (error) {
-    console.error('Error en getCustomersClient:', error);
+    logger.error('Error en getCustomersClient', { data: { error } });
     throw error;
   }
 

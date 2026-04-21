@@ -465,15 +465,19 @@ export function CustomerDataSection({
                       return (
                         <Badge key={eqId} variant="secondary" className="gap-1">
                           {eq?.name}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
+                          <button
+                            type="button"
+                            aria-label="Quitar equipo"
+                            className="ml-1 inline-flex cursor-pointer rounded hover:bg-muted-foreground/20"
                             onClick={() => {
                               form.setValue(
                                 'equipos_cliente',
                                 selectedCustomerEquipment.filter((id: string) => id !== eqId)
                               );
                             }}
-                          />
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </Badge>
                       );
                     })}
