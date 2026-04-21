@@ -86,8 +86,8 @@ Always use Context7 MCP first for library docs. Always use shadcn MCP for UI com
 
 ## MCPs Disponibles
 
-1. **Supabase (LOCAL, DEV, PROD)** — SOLO LECTURA. Usar LOCAL por defecto. Solo usar DEV/PROD cuando el usuario lo indique explicitamente.
-2. **chrome-devtools** — Debug y verificacion en browser
+1. **Supabase (LOCAL, PROD)** — SOLO LECTURA. Usar LOCAL por defecto. Solo usar PROD cuando el usuario lo indique explicitamente.
+2. **Supabase DEV** — LECTURA + ESCRITURA DE DATOS ÚNICAMENTE. Permitido: `SELECT`, `INSERT`, `UPDATE`, `DELETE` sobre datos existentes (seeds de prueba, clonar registros desde PROD, editar datos para testing). **ESTRICTAMENTE PROHIBIDO**: toda query que modifique estructura o metadata — `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `RENAME`, `GRANT`, `REVOKE`, cambios de políticas RLS, creación/modificación de funciones/triggers/vistas/índices/tipos/enums. **TODA migración (estructura, funciones, triggers, políticas) se hace EXCLUSIVAMENTE con Prisma** siguiendo `.claude/rules/migrations.md`. Si el usuario pide un cambio estructural, responder con el flujo de Prisma — nunca ejecutarlo por MCP.
 3. **shadcn-ui** — SIEMPRE usar para UI
 4. **Context7** — SIEMPRE usar PRIMERO para docs de librerias
 5. **Migraciones**: Ver `.claude/rules/migrations.md`. NUNCA `prisma migrate dev`. Flujo: diff → carpeta → SQL → db execute → resolve → generate.
