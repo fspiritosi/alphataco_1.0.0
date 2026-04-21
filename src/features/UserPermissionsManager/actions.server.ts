@@ -183,12 +183,12 @@ export async function getModulesWithTabsServer() {
         .filter((tab) => tab.module_id === moduleId && tab.parent_tab_id === parentId)
         .map((tab) => {
           const tabDefinition = findTabDefinition(moduleSlug, tab.slug);
-          let tabActions = actions;
-          if (tabDefinition && (tabDefinition as { allowedActions?: string[] }).allowedActions) {
-            tabActions = actions.filter((action) =>
-              (tabDefinition as { allowedActions: string[] }).allowedActions.includes(action.slug)
-            );
-          }
+          // Si la tab no está declarada en permissions-map o no tiene allowedActions,
+          // NO mostramos acciones. Antes el fallback era "todas", lo cual permitía que
+          // acciones custom (upload_private, view_all_requests, etc.) aparezcan en tabs
+          // que nunca las declararon, contaminando role_permissions.
+          const allowed = (tabDefinition as { allowedActions?: string[] } | null)?.allowedActions;
+          const tabActions = allowed ? actions.filter((a) => allowed.includes(a.slug)) : [];
           return {
             ...tab,
             actions: tabActions,

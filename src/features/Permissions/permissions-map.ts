@@ -180,7 +180,7 @@ export const PERMISSIONS = {
                 name: 'Usuarios',
                 tabId: '10000000-0000-0000-0000-000000000141',
                 parent: 'users',
-                allowedActions: ['view', 'create', 'delete'],
+                allowedActions: ['view', 'create', 'update', 'delete'],
               },
               'gestion-roles': {
                 slug: 'gestion-roles',
@@ -537,7 +537,7 @@ export const PERMISSIONS = {
             name: 'Vehículos',
             tabId: '30000000-0000-0000-0000-000000000011',
             parent: 'equipos',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'create'],
           },
           others: {
             slug: 'others',
@@ -772,6 +772,7 @@ export const PERMISSIONS = {
         name: 'Formularios',
         tabId: '80000000-0000-0000-0000-000000000001',
         parent: null,
+        allowedActions: ['view'],
         subtabs: {},
       },
     },
