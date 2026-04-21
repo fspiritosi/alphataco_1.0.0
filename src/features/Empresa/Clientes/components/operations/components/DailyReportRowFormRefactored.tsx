@@ -100,7 +100,8 @@ export function DailyReportRowFormRefactored() {
         // Extraer IDs de empleados y equipos de las referencias
         const employeeIds = selectedRow.employees_references?.map((emp: any) => emp.id) || [];
         const equipmentIds = selectedRow.equipment_references?.map((eq: any) => eq.id) || [];
-        const customerEquipmentIds = selectedRow.customer_equipment?.map((eq: any) => eq.id) || [];
+        const customerEquipmentIds =
+          selectedRow.customer_equipment?.map((eq: any) => eq.id).filter((id: unknown): id is string => !!id) || [];
 
         // Buscar el cliente
         if (customerId && customers.length > 0) {

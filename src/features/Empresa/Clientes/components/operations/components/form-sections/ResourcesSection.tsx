@@ -166,15 +166,19 @@ export function ResourcesSection({
                         >
                           {emp?.firstname} {emp?.lastname}
                           {isInactive && <span className="text-[10px]">(Inactivo)</span>}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
+                          <button
+                            type="button"
+                            aria-label="Quitar empleado"
+                            className="ml-1 inline-flex cursor-pointer rounded hover:bg-muted-foreground/20"
                             onClick={() => {
                               form.setValue(
                                 'employees',
                                 selectedEmployees.filter((id: string) => id !== empId)
                               );
                             }}
-                          />
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </Badge>
                       );
                     })}
@@ -291,15 +295,19 @@ export function ResourcesSection({
                         >
                           {displayName}
                           {isInactive && <span className="text-[10px]">(Inactivo)</span>}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
+                          <button
+                            type="button"
+                            aria-label="Quitar equipo"
+                            className="ml-1 inline-flex cursor-pointer rounded hover:bg-muted-foreground/20"
                             onClick={() => {
                               form.setValue(
                                 'equipment',
                                 selectedEquipment.filter((id: string) => id !== eqId)
                               );
                             }}
-                          />
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </Badge>
                       );
                     })}
