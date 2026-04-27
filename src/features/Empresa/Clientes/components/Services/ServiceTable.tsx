@@ -419,37 +419,37 @@ const ServiceTable = ({
           )}
 
           <div>
-            <Dialog
-              open={open}
-              onOpenChange={(isOpen) => {
-                if (!isOpen) {
-                  setEditingService(null);
-                }
-                setOpen(isOpen);
-              }}
-            >
-              <DialogTrigger asChild>
-                <PermissionGuard module="comercial" tab="service" action="create">
-                  {hideCreateButton && (
+            <PermissionGuard module="comercial" tab="service" action="create">
+              <Dialog
+                open={open}
+                onOpenChange={(isOpen) => {
+                  if (!isOpen) {
+                    setEditingService(null);
+                  }
+                  setOpen(isOpen);
+                }}
+              >
+                {hideCreateButton && (
+                  <DialogTrigger asChild>
                     <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
                       Crear Contrato
                     </Button>
-                  )}
-                </PermissionGuard>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl">
-                <DialogTitle>Crear Contrato</DialogTitle>
+                  </DialogTrigger>
+                )}
+                <DialogContent className="max-w-4xl">
+                  <DialogTitle>Crear Contrato</DialogTitle>
 
-                <ServicesForm
-                  customers={customers as any}
-                  editingService={editingService as any}
-                  company_id={company_id}
-                  areas={areas}
-                  sectors={sectors}
-                  setOpen={setOpen}
-                />
-              </DialogContent>
-            </Dialog>
+                  <ServicesForm
+                    customers={customers as any}
+                    editingService={editingService as any}
+                    company_id={company_id}
+                    areas={areas}
+                    sectors={sectors}
+                    setOpen={setOpen}
+                  />
+                </DialogContent>
+              </Dialog>
+            </PermissionGuard>
 
             {openDetail ? (
               <div>
