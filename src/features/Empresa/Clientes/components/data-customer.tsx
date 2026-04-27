@@ -3,7 +3,16 @@
 import React from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -616,61 +625,60 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className=" p-6 rounded-lg border">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold">Empleados del Cliente</h3>
-                <Dialog open={isEmployeeDialogOpen} onOpenChange={() => handleEmployeeDialogOpenChange()}>
-                  <DialogTrigger asChild>
-                    <PermissionGuard module="comercial" tab="empleados-cliente" action="update">
+                <PermissionGuard module="comercial" tab="empleados-cliente" action="update">
+                  <Dialog open={isEmployeeDialogOpen} onOpenChange={() => handleEmployeeDialogOpenChange()}>
+                    <DialogTrigger asChild>
                       <Button variant="gh_orange">Cargar empleados</Button>
-                    </PermissionGuard>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Seleccionar empleados</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                      <div className="space-y-4 w-full">
-                        <Form {...form}>
-                          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
-                            {selectedCustomer && (
-                              <input type="hidden" {...form.register('customer_id')} value={selectedCustomer.id} />
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Seleccionar empleados</DialogTitle>
+                        <DialogDescription>
+                          Asigná los empleados que trabajan para {selectedCustomer?.name ?? 'este cliente'}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="w-full space-y-6 pt-2">
+                          {selectedCustomer && (
+                            <input type="hidden" {...form.register('customer_id')} value={selectedCustomer.id} />
+                          )}
+                          <FormField
+                            control={form.control}
+                            name="employees"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>Empleados</FormLabel>
+                                <FormControl>
+                                  <MultiSelectCombobox
+                                    options={allEmployees || []}
+                                    emptyMessage="No se encontraron empleados"
+                                    selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                    onChange={(values) => {
+                                      field.onChange(values);
+                                    }}
+                                    placeholder="Buscar empleados..."
+                                    showSelectAll={true}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
                             )}
-                            <FormField
-                              control={form.control}
-                              name="employees"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Empleados</FormLabel>
-                                  <FormControl>
-                                    <MultiSelectCombobox
-                                      options={allEmployees || []}
-                                      emptyMessage="No se encontraron empleados"
-                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
-                                      onChange={(values) => {
-                                        field.onChange(values);
-                                      }}
-                                      placeholder="Buscar empleados..."
-                                      showSelectAll={true}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="flex justify-end space-x-2 pt-4">
-                              <DialogClose asChild>
-                                <Button type="button" variant="outline">
-                                  Cancelar
-                                </Button>
-                              </DialogClose>
-                              <Button type="submit" variant="default">
-                                Asignar empleados
+                          />
+                          <DialogFooter className="gap-2 sm:gap-2">
+                            <DialogClose asChild>
+                              <Button type="button" variant="outline">
+                                Cancelar
                               </Button>
-                            </div>
-                          </form>
-                        </Form>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                            </DialogClose>
+                            <Button type="submit" variant="default">
+                              Asignar empleados
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                </PermissionGuard>
               </div>
 
               {/* {transformedEmployees.length > 0 ? ( */}
@@ -704,67 +712,66 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className="p-6 rounded-lg border">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold">Equipos del Cliente</h3>
-                <Dialog open={isEquipmentDialogOpen} onOpenChange={handleEquipmentDialogOpenChange}>
-                  <DialogTrigger asChild>
-                    <PermissionGuard module="comercial" tab="equipos-cliente" action="update">
+                <PermissionGuard module="comercial" tab="equipos-cliente" action="update">
+                  <Dialog open={isEquipmentDialogOpen} onOpenChange={handleEquipmentDialogOpenChange}>
+                    <DialogTrigger asChild>
                       <Button variant="gh_orange">Asignar Equipos</Button>
-                    </PermissionGuard>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Seleccionar Equipos</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                      <div className="space-y-4 w-full">
-                        <Form {...equipmentForm}>
-                          <form
-                            onSubmit={equipmentForm.handleSubmit(handleEquipmentSubmit)}
-                            className="space-y-4 w-[300px]"
-                          >
-                            {selectedCustomer && <input type="hidden" name="customer_id" value={selectedCustomer.id} />}
-                            <FormField
-                              control={equipmentForm.control}
-                              name="equipments"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Equipos</FormLabel>
-                                  <FormControl>
-                                    <MultiSelectCombobox
-                                      options={
-                                        equipments?.map((equip) => ({
-                                          value: String(equip.id),
-                                          label: equip.domain as string,
-                                        })) || []
-                                      }
-                                      emptyMessage="No se encontraron equipos"
-                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
-                                      onChange={(values) => {
-                                        field.onChange(values);
-                                      }}
-                                      placeholder="Buscar equipos..."
-                                      showSelectAll={true}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="flex justify-end space-x-2 pt-4">
-                              <DialogClose asChild>
-                                <Button type="button" variant="outline">
-                                  Cancelar
-                                </Button>
-                              </DialogClose>
-                              <Button type="submit" variant="gh_orange">
-                                Guardar
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Seleccionar Equipos</DialogTitle>
+                        <DialogDescription>
+                          Asigná los equipos que trabajan para {selectedCustomer?.name ?? 'este cliente'}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Form {...equipmentForm}>
+                        <form
+                          onSubmit={equipmentForm.handleSubmit(handleEquipmentSubmit)}
+                          className="w-full space-y-6 pt-2"
+                        >
+                          {selectedCustomer && <input type="hidden" name="customer_id" value={selectedCustomer.id} />}
+                          <FormField
+                            control={equipmentForm.control}
+                            name="equipments"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>Equipos</FormLabel>
+                                <FormControl>
+                                  <MultiSelectCombobox
+                                    options={
+                                      equipments?.map((equip) => ({
+                                        value: String(equip.id),
+                                        label: equip.domain as string,
+                                      })) || []
+                                    }
+                                    emptyMessage="No se encontraron equipos"
+                                    selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                    onChange={(values) => {
+                                      field.onChange(values);
+                                    }}
+                                    placeholder="Buscar equipos..."
+                                    showSelectAll={true}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <DialogFooter className="gap-2 sm:gap-2">
+                            <DialogClose asChild>
+                              <Button type="button" variant="outline">
+                                Cancelar
                               </Button>
-                            </div>
-                          </form>
-                        </Form>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                            </DialogClose>
+                            <Button type="submit" variant="gh_orange">
+                              Guardar
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                </PermissionGuard>
               </div>
               {isEquipmentLoading ? (
                 <div className="flex justify-center items-center h-64">
