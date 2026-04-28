@@ -350,6 +350,44 @@ export function getWorkshopSectorTasksColumns(): ColumnDef<WorkshopSectorTaskLis
         </span>
       ),
     },
+
+    // ── Columna virtual: Estado OM (para filtro facetado mo_status) ──────────
+    // No visible en la tabla — la celda visual está embebida en la columna
+    // `maintenance_order`. Esta columna existe únicamente para que el filtro
+    // con columnId: 'mo_status' pueda vincular a table.getColumn('mo_status').
+    {
+      id: 'mo_status',
+      accessorFn: (row) => row.maintenance_orders?.status ?? null,
+      meta: { title: 'Estado OM', excludeFromExport: true },
+      header: () => null,
+      cell: () => null,
+      enableHiding: false,
+      enableSorting: false,
+      filterFn: (row, _id, value: string[]) => {
+        const val = row.original.maintenance_orders?.status;
+        if (val == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(val);
+      },
+    },
+
+    // ── Columna virtual: Estado OT (para filtro facetado wo_status) ──────────
+    // No visible en la tabla — la celda visual está embebida en la columna
+    // `work_order`. Esta columna existe únicamente para que el filtro
+    // con columnId: 'wo_status' pueda vincular a table.getColumn('wo_status').
+    {
+      id: 'wo_status',
+      accessorFn: (row) => row.work_orders?.status ?? null,
+      meta: { title: 'Estado OT', excludeFromExport: true },
+      header: () => null,
+      cell: () => null,
+      enableHiding: false,
+      enableSorting: false,
+      filterFn: (row, _id, value: string[]) => {
+        const val = row.original.work_orders?.status;
+        if (val == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(val);
+      },
+    },
   ];
 }
 
