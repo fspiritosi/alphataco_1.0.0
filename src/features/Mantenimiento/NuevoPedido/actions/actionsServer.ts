@@ -290,6 +290,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
@@ -300,6 +302,12 @@ export async function createMaintenanceOrderFromDeviations(input: {
       preventiveType: input.preventiveType,
     },
   });
+
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
 
   const profile = await requireServerAuthProfile();
 
@@ -500,6 +508,54 @@ export async function createMaintenanceOrderFromDeviations(input: {
       },
     });
 
+    // 7. Crear ítems manuales (texto libre, no del template)
+    if (input.manualItems && input.manualItems.length > 0) {
+      const manualDevs = await Promise.all(
+        input.manualItems
+          .filter((m) => m.label.trim().length > 0)
+          .map((m) =>
+            tx.checklist_deviations.create({
+              data: {
+                checklist_answer_id: null,
+                equipment_id: input.equipmentId,
+                item_code: 'manual',
+                item_label: m.label.trim(),
+                section_code: null,
+                is_critical: false,
+                created_by_user_id: profile.id,
+              },
+              select: { id: true },
+            })
+          )
+      );
+
+      if (manualDevs.length > 0) {
+        const manualRequestItems = await Promise.all(
+          manualDevs.map((d) =>
+            tx.maintenance_request_items.create({
+              data: {
+                maintenance_request_id: request.id,
+                checklist_deviation_id: d.id,
+                repair_type_id: null,
+                driver_comment: null,
+                status: 'pending',
+              },
+              select: { id: true },
+            })
+          )
+        );
+
+        await tx.maintenance_order_items.createMany({
+          data: manualRequestItems.map((ri) => ({
+            maintenance_order_id: order.id,
+            maintenance_request_item_id: ri.id,
+            description: null,
+            is_critical: false,
+          })),
+        });
+      }
+    }
+
     return { request, order };
   });
 
@@ -588,6 +644,8 @@ export async function createMaintenanceRequestPendingApproval(input: {
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
@@ -598,6 +656,12 @@ export async function createMaintenanceRequestPendingApproval(input: {
       preventiveType: input.preventiveType,
     },
   });
+
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
 
   const profile = await requireServerAuthProfile();
 
@@ -762,6 +826,40 @@ export async function createMaintenanceRequestPendingApproval(input: {
         },
       },
     });
+
+    // 5. Crear ítems manuales (texto libre, no del template)
+    if (input.manualItems && input.manualItems.length > 0) {
+      const manualDevs = await Promise.all(
+        input.manualItems
+          .filter((m) => m.label.trim().length > 0)
+          .map((m) =>
+            tx.checklist_deviations.create({
+              data: {
+                checklist_answer_id: null,
+                equipment_id: input.equipmentId,
+                item_code: 'manual',
+                item_label: m.label.trim(),
+                section_code: null,
+                is_critical: false,
+                created_by_user_id: profile.id,
+              },
+              select: { id: true },
+            })
+          )
+      );
+
+      if (manualDevs.length > 0) {
+        await tx.maintenance_request_items.createMany({
+          data: manualDevs.map((d) => ({
+            maintenance_request_id: request.id,
+            checklist_deviation_id: d.id,
+            repair_type_id: null,
+            driver_comment: null,
+            status: 'pending',
+          })),
+        });
+      }
+    }
 
     return { request, requestItems };
   });

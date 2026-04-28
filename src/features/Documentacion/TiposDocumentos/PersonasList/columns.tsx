@@ -7,6 +7,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Check, Pencil, X } from 'lucide-react';
 import moment from 'moment';
 import type { DocumentTypeListItem } from '../actions/actions.server';
+import { getEquipmentTypeLabel } from '../config/equipmentTypes';
 
 // ============================================================================
 // HELPERS
@@ -156,7 +157,7 @@ export function getDocTypeColumns(
       id: 'equipment_type',
       meta: { title: 'Tipo de equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de equipo" />,
-      cell: ({ row }) => <div>{row.original.equipment_type ?? '-'}</div>,
+      cell: ({ row }) => <div>{getEquipmentTypeLabel(row.original.equipment_type)}</div>,
       filterFn: (row, id, value: string[]) => {
         const val = row.getValue(id) as string | null;
         if (val == null) return false;

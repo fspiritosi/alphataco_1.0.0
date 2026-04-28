@@ -200,6 +200,15 @@ Para CADA columna en `columns.tsx`, preguntar:
   - `condition`: agregado íconos semánticos (CheckCircle2, XCircle, Wrench, AlertCircle, Settings2) en opciones del filtro facetado
   - `SOURCE_ICONS` en columns.tsx tipado como `Record<string, LucideIcon>` para compatibilidad con `DataTableFilterOption.icon`
 
+- **RepairSolicitudes**: `src/features/Mantenimiento/RepairSolicitudes/` — migrado 2026-04
+  - Causa raíz del bug (COD-400): `BaseDataTable` creaba un `QueryClient` local interno; el `useQuery` de la tabla usaba el QueryClient RAÍZ (outer), pero `invalidateQueries()` desde dentro del `<QueryClientProvider>` interno invalidaba el cliente INCORRECTO.
+  - Solución: migrar a client-side navigation mode (`queryFn` + `queryKey` en `<DataTable>`). El `RepairEquipmentDialog` recibe `tableQueryKey` como prop y llama `queryClient.invalidateQueries({ queryKey })` al guardar.
+  - Patrón para pasar queryKey al dialog desde columnas: `getColumns({ showEditActions, tableQueryKey })` → `getColumns` es función que devuelve `ColumnDef[]` condicionalmente. Declarar `queryKey` con `useMemo` ANTES de `columns` para evitar `TS2448` (block-scoped var used before declaration).
+  - Filtro fijo `equipment_id`: se pasa a `getRepairSolicitudesPaginated(params, fixedEquipmentId)` como segundo arg. `RepairSolicitudesList` usa `tableId = equipment_id ? repair-solicitudes-${id} : 'repair-solicitudes'` para aislar URL params cuando se usa en detalle de equipo.
+  - Íconos en `fetchFacet`: arrays de options deben tiparse como `DataTableFilterOption[]` explícitamente. Los iconos de mapas `Record<string, React.ElementType>` necesitan cast `as LucideIcon | undefined` para que TypeScript acepte la asignación a `icon?`.
+  - Archivos viejo eliminados: `RepairSolicitudesTable/RepairSolicitudes.tsx`, `mechanicColumns.tsx`, `columns.tsx`, `RepairModal.tsx` + todos los `data-table-*.tsx` internos del sistema viejo.
+  - `RepairSolicitudesWrapper.tsx` reescrito como thin wrapper sobre `RepairSolicitudesList` del nuevo sistema.
+
 - **CompanyPositions (Puestos)**: `src/features/Empresa/RRHH/Positions/`
   - Migrado 2026-03. Schema: `company_positions` (id, name, is_active?, created_at, hierarchical_position_id String[]) + M:M via `aptitudes_tecnicas_puestos`
   - `hierarchical_position_id` es un ARRAY de UUIDs guardado directamente en la columna (no FK relacional). Se resuelve en batch: `prisma.hierarchy.findMany({ where: { id: { in: allIds } } })` + Map para nombre.

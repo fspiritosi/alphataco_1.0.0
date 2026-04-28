@@ -458,7 +458,11 @@ function buildWhereClause(
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getRepairSolicitudesPaginated(searchParams: DataTableSearchParams) {
+export async function getRepairSolicitudesPaginated(
+  searchParams: DataTableSearchParams,
+  /** Filtro fijo por equipo (cuando la tabla se usa en la vista de detalle de equipo) */
+  fixedEquipmentId?: string
+) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -489,7 +493,10 @@ export async function getRepairSolicitudesPaginated(searchParams: DataTableSearc
       }
     }
 
-    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
+    const baseWhere = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
+
+    // Aplicar filtro fijo por equipo si viene como prop
+    const where = fixedEquipmentId ? { ...baseWhere, equipment_id: fixedEquipmentId } : baseWhere;
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -527,7 +534,7 @@ export type RepairSolicitudListItem = Awaited<ReturnType<typeof getRepairSolicit
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllRepairSolicitudesForExport(searchParams: DataTableSearchParams) {
+export async function getAllRepairSolicitudesForExport(searchParams: DataTableSearchParams, fixedEquipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -556,7 +563,8 @@ export async function getAllRepairSolicitudesForExport(searchParams: DataTableSe
       }
     }
 
-    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
+    const baseWhere = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
+    const where = fixedEquipmentId ? { ...baseWhere, equipment_id: fixedEquipmentId } : baseWhere;
 
     const data = await prisma.repair_solicitudes.findMany({
       orderBy: [{ created_at: 'desc' }],

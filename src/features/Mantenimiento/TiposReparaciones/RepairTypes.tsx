@@ -22,6 +22,7 @@ export default async function RepairTypes({
   hiddenTabs,
   moduleSlug = 'equipos',
   permissions,
+  canEditSolicitudes = false,
 }: {
   mechanic?: boolean;
   equipment_id?: string;
@@ -29,6 +30,7 @@ export default async function RepairTypes({
   hiddenTabs?: string[];
   moduleSlug?: 'equipos' | 'mantenimiento';
   permissions: Record<string, boolean>;
+  canEditSolicitudes?: boolean;
 }) {
   const allTabs = [
     {
@@ -43,7 +45,7 @@ export default async function RepairTypes({
       tabSlug: 'created_solicitudes' as const,
       content: (
         <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-          <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
+          <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} canEdit={canEditSolicitudes} />
         </Suspense>
       ),
     },

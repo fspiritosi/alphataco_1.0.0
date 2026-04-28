@@ -86,8 +86,8 @@ Always use Context7 MCP first for library docs. Always use shadcn MCP for UI com
 
 ## MCPs Disponibles
 
-1. **Supabase (LOCAL, DEV, PROD)** — SOLO LECTURA. Usar LOCAL por defecto. Solo usar DEV/PROD cuando el usuario lo indique explicitamente.
-2. **chrome-devtools** — Debug y verificacion en browser
+1. **Supabase (LOCAL, PROD)** — SOLO LECTURA. Usar LOCAL por defecto. Solo usar PROD cuando el usuario lo indique explicitamente.
+2. **Supabase DEV** — LECTURA + ESCRITURA DE DATOS ÚNICAMENTE. Permitido: `SELECT`, `INSERT`, `UPDATE`, `DELETE` sobre datos existentes (seeds de prueba, clonar registros desde PROD, editar datos para testing). **ESTRICTAMENTE PROHIBIDO**: toda query que modifique estructura o metadata — `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `RENAME`, `GRANT`, `REVOKE`, cambios de políticas RLS, creación/modificación de funciones/triggers/vistas/índices/tipos/enums. **TODA migración (estructura, funciones, triggers, políticas) se hace EXCLUSIVAMENTE con Prisma** siguiendo `.claude/rules/migrations.md`. Si el usuario pide un cambio estructural, responder con el flujo de Prisma — nunca ejecutarlo por MCP.
 3. **shadcn-ui** — SIEMPRE usar para UI
 4. **Context7** — SIEMPRE usar PRIMERO para docs de librerias
 5. **Migraciones**: Ver `.claude/rules/migrations.md`. NUNCA `prisma migrate dev`. Flujo: diff → carpeta → SQL → db execute → resolve → generate.
@@ -203,6 +203,19 @@ WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
 ### Legajo: columna separada en DataTables
 
 El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
+
+### NUNCA encadenar modales — unificar en un solo form
+
+Si una tarea requiere capturar datos secundarios u opcionales después de una acción principal, **NUNCA** resolver con "un modal que abre otro modal". El usuario detesta ese patrón.
+
+**Solución correcta**: un único formulario con secciones separadas por `<Separator />`:
+
+- Sección principal: campos obligatorios (ej: form de creación del Área)
+- Separador con título descriptivo (ej: "Vincular a contratos (opcional)")
+- Sección secundaria: campos opcionales, renderizada condicionalmente si dependen de inputs previos (ej: MultiSelect de contratos solo visible cuando hay `customer_id` seleccionado)
+- **Un solo botón de submit** que ejecuta: acción principal → captura ID del resultado → acciones secundarias con ese ID
+
+Siempre consultar `/frontend-design:frontend-design` antes de implementar para distribuir el form correctamente.
 
 ---
 

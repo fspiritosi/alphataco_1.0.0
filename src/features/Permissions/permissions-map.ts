@@ -180,7 +180,7 @@ export const PERMISSIONS = {
                 name: 'Usuarios',
                 tabId: '10000000-0000-0000-0000-000000000141',
                 parent: 'users',
-                allowedActions: ['view', 'create', 'delete'],
+                allowedActions: ['view', 'create', 'update', 'delete'],
               },
               'gestion-roles': {
                 slug: 'gestion-roles',
@@ -537,7 +537,7 @@ export const PERMISSIONS = {
             name: 'Vehículos',
             tabId: '30000000-0000-0000-0000-000000000011',
             parent: 'equipos',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'create'],
           },
           others: {
             slug: 'others',
@@ -593,7 +593,7 @@ export const PERMISSIONS = {
             name: 'Solicitudes',
             tabId: '30000000-0000-0000-0000-000000000041',
             parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'update'],
           },
           type_of_repair: {
             slug: 'type_of_repair',
@@ -772,6 +772,7 @@ export const PERMISSIONS = {
         name: 'Formularios',
         tabId: '80000000-0000-0000-0000-000000000001',
         parent: null,
+        allowedActions: ['view'],
         subtabs: {},
       },
     },
@@ -952,6 +953,15 @@ export const PERMISSIONS = {
         slug: 'type_of_repair_new_entry',
         name: 'Nueva Solicitud',
         tabId: '60000000-0000-0000-0000-000000000013',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+      // Vista Taller (COD-394) — agrupada por sector de taller
+      workshop_view: {
+        slug: 'workshop_view',
+        name: 'Vista Taller',
+        tabId: '60000000-0000-0000-0000-000000000071',
         parent: null,
         allowedActions: ['view'],
         subtabs: {},

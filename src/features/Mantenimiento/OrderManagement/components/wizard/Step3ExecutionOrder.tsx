@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { useMemo } from 'react';
 import type { LocalItem } from '../ManageOrderWizard';
+import { RejectedItemsList } from './RejectedItemsList';
 
 interface SectorOrderEntry {
   sectorId: string;
@@ -36,6 +37,7 @@ interface Step3ExecutionOrderProps {
   sectorOrder: SectorOrderEntry[];
   onReorder: (sectorId: string, direction: 'up' | 'down') => void;
   onDragReorder: (reordered: SectorOrderEntry[]) => void;
+  repairTypes: Array<{ id: string; name: string }>;
 }
 
 // ─── Sortable Sector Card ──────────────────────────────────
@@ -132,6 +134,7 @@ export function Step3ExecutionOrder({
   sectorOrder,
   onReorder,
   onDragReorder,
+  repairTypes,
 }: Step3ExecutionOrderProps) {
   const sorted = useMemo(() => [...sectorOrder].sort((a, b) => a.sequenceOrder - b.sequenceOrder), [sectorOrder]);
 
@@ -236,6 +239,13 @@ export function Step3ExecutionOrder({
           </div>
         </div>
       )}
+
+      {/* Rejected items (informational only) */}
+      <RejectedItemsList
+        localItems={localItems}
+        repairTypes={repairTypes}
+        contextNote="no se incluirán en ninguna OT"
+      />
     </div>
   );
 }

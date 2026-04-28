@@ -62,13 +62,14 @@ function buildWhereClause(
   supervisorId?: string | null
 ) {
   // Filtros facetados — columnas simples (status y source)
+  // Excluir 'vehicle' porque se procesa aparte con equipment_id
   const filtersWhere = buildFiltersWhere(
     state.filters,
     {
       status: 'status',
       source: 'source',
     },
-    { exclude: TEXT_COLUMNS }
+    { exclude: [...TEXT_COLUMNS, 'vehicle'] }
   );
 
   // Filtros de texto por columna individual

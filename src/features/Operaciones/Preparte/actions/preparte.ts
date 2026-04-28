@@ -6,8 +6,10 @@ import {
   createDailyReportCustomerEquipmentRelations,
   createDailyReportRow,
 } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
 const logger = new Logger('preparte-actions');
@@ -835,108 +837,331 @@ export async function confirmMultiplePrepartesToDailyReport(preparteIds: string[
 /**
  * Registra un cambio en el log de cambios de preparte.
  * Diseñado para ser genérico y soportar cambios de cualquier campo.
- * Usa adminSupabaseServer para bypasear RLS ya que es un log de auditoría.
  */
 export async function logPreparteChange(changeLog: PreparteChangeLog) {
-  // Obtener el usuario actual con el cliente normal
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Usar admin client para el insert (bypasea RLS)
-  const adminSupabase = await adminSupabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.create({
+      data: {
+        preparte_id: changeLog.preparte_id,
+        field_name: changeLog.field_name,
+        old_value: changeLog.old_value,
+        new_value: changeLog.new_value,
+        reason: changeLog.reason,
+        changed_by: changeLog.changed_by || user?.id || null,
+        metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
+      },
+    });
 
-  const { data, error } = await adminSupabase
-    .from('preparte_change_logs')
-    .insert({
-      preparte_id: changeLog.preparte_id,
-      field_name: changeLog.field_name,
-      old_value: changeLog.old_value,
-      new_value: changeLog.new_value,
-      reason: changeLog.reason,
-      changed_by: changeLog.changed_by || user?.id || null,
-      metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
-    })
-    .select()
-    .single();
-
-  if (error) {
+    return data;
+  } catch (error) {
     logger.error('Error logging preparte change', { data: { error } });
     throw new Error('Error al registrar el cambio en el historial');
   }
-
-  return data;
 }
 
 /**
  * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
- * OPTIMIZADO: Usa JOIN con profile para obtener nombres en una sola query.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
-  const supabase = await supabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.findMany({
+      where: { preparte_id: preparteId },
+      include: {
+        profile: { select: { credential_id: true, fullname: true } },
+      },
+      orderBy: { changed_at: 'desc' },
+    });
 
-  const { data, error } = await supabase
-    .from('preparte_change_logs')
-    .select(
-      `
-      *,
-      profile:changed_by(credential_id, fullname)
-    `
-    )
-    .eq('preparte_id', preparteId)
-    .order('changed_at', { ascending: false });
-
-  if (error) {
+    return data.map((log) => ({
+      ...log,
+      changed_by_name: log.profile?.fullname || null,
+      metadata: log.metadata as Record<string, unknown> | null,
+      profile: undefined,
+    }));
+  } catch (error) {
     logger.error('Error fetching preparte change logs', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
-
-  if (!data || data.length === 0) return [];
-
-  // Mapear datos con nombre de usuario del JOIN
-  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
-
-  return data.map((log: LogWithProfile) => ({
-    ...log,
-    changed_by_name: log.profile?.fullname || null,
-    profile: undefined, // Remover objeto anidado
-  }));
 }
 
 /**
  * Obtiene el historial de cambios de todos los prepartes con el mismo numero_pedido.
- * OPTIMIZADO: Usa doble JOIN (preparte + profile) para obtener todo en una sola query.
  */
 export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
-  const supabase = await supabaseServer();
+  try {
+    const data = await prisma.preparte_change_logs.findMany({
+      where: {
+        preparte: { numero_pedido: numeroPedido },
+      },
+      include: {
+        profile: { select: { credential_id: true, fullname: true } },
+      },
+      orderBy: { changed_at: 'desc' },
+    });
 
-  const { data, error } = await supabase
-    .from('preparte_change_logs')
-    .select(
-      `
-      *,
-      preparte!inner(numero_pedido),
-      profile:changed_by(credential_id, fullname)
-    `
-    )
-    .eq('preparte.numero_pedido', numeroPedido)
-    .order('changed_at', { ascending: false });
-
-  if (error) {
+    return data.map((log) => ({
+      ...log,
+      changed_by_name: log.profile?.fullname || null,
+      metadata: log.metadata as Record<string, unknown> | null,
+      profile: undefined,
+    }));
+  } catch (error) {
     logger.error('Error fetching preparte change logs by order number', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
-
-  if (!data || data.length === 0) return [];
-
-  // Mapear datos con nombre de usuario del JOIN
-  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
-
-  return data.map((log: LogWithProfile) => ({
-    ...log,
-    changed_by_name: log.profile?.fullname || null,
-    preparte: undefined, // Remover objeto anidado
-    profile: undefined, // Remover objeto anidado
-  }));
 }
+
+// ── Reporte de Preparte ──────────────────────────────────────────────────
+
+export type PreparteReportFilters = {
+  from: string; // ISO date string YYYY-MM-DD
+  to: string; // ISO date string YYYY-MM-DD
+  clientIds?: string[];
+  statuses?: preparte_status[];
+  groupBy: 'line' | 'order';
+};
+
+export type PreparteReportDetail = {
+  id: string;
+  numero_pedido: string | null;
+  clientName: string;
+  contractName: string;
+  itemName: string | null;
+  requestDate: string | null;
+  executionDate: string | null;
+  status: string;
+  solicitante: string;
+  observaciones: string | null;
+};
+
+export type PreparteClientSummary = {
+  clientName: string;
+  total: number;
+  byStatus: Record<string, { count: number; percentage: number }>;
+  lostPercentage: number;
+};
+
+export type PreparteReportSummary = {
+  from: string;
+  to: string;
+  clientSummaries: PreparteClientSummary[];
+  total: number;
+  byStatus: Record<string, { count: number; percentage: number }>;
+  lostPercentage: number;
+};
+
+export type PreparteReportResult = {
+  summary: PreparteReportSummary;
+  details: PreparteReportDetail[];
+};
+
+export async function getPreparteReportData(filters: PreparteReportFilters): Promise<PreparteReportResult> {
+  logger.info('Generando reporte de preparte', { data: { filters } });
+
+  try {
+    const fromDate = new Date(`${filters.from}T00:00:00Z`);
+    const toDate = new Date(`${filters.to}T23:59:59Z`);
+
+    const where: Record<string, unknown> = {
+      OR: [
+        { executionDate: { gte: fromDate, lte: toDate } },
+        {
+          executionDate: null,
+          requestDate: { gte: fromDate, lte: toDate },
+        },
+      ],
+    };
+
+    if (filters.clientIds && filters.clientIds.length > 0) {
+      where.cliente_id = { in: filters.clientIds };
+    }
+
+    if (filters.statuses && filters.statuses.length > 0) {
+      where.status = { in: filters.statuses };
+    }
+
+    const data = await prisma.preparte.findMany({
+      where,
+      select: {
+        id: true,
+        numero_pedido: true,
+        status: true,
+        solicitante: true,
+        observaciones: true,
+        executionDate: true,
+        requestDate: true,
+        customers: { select: { name: true } },
+        customer_services: { select: { service_name: true } },
+        service_items: { select: { item_name: true } },
+      },
+      orderBy: [{ status: 'asc' }, { executionDate: 'asc' }],
+    });
+
+    const total = data.length;
+
+    // Helper para calcular estadísticas de un grupo de registros
+    function computeStats(rows: typeof data) {
+      const count = rows.length;
+      const statusCounts: Record<string, number> = {};
+      for (const row of rows) {
+        const s = row.status || 'sin_estado';
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+      }
+      const byStatus: Record<string, { count: number; percentage: number }> = {};
+      for (const [status, c] of Object.entries(statusCounts)) {
+        byStatus[status] = {
+          count: c,
+          percentage: count > 0 ? Math.round((c / count) * 10000) / 100 : 0,
+        };
+      }
+      const rechazadoCount = statusCounts['rechazado'] || 0;
+      const vencidoCount = statusCounts['vencido'] || 0;
+      const lostPercentage = count > 0 ? Math.round(((rechazadoCount + vencidoCount) / count) * 10000) / 100 : 0;
+      return { total: count, byStatus, lostPercentage };
+    }
+
+    // Agrupar por cliente
+    const clientGroups = new Map<string, typeof data>();
+    for (const row of data) {
+      const clientName = row.customers?.name || 'Sin cliente';
+      const group = clientGroups.get(clientName) || [];
+      group.push(row);
+      clientGroups.set(clientName, group);
+    }
+
+    // Resumen por cliente
+    const clientSummaries: PreparteClientSummary[] = [...clientGroups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([clientName, rows]) => ({
+        clientName,
+        ...computeStats(rows),
+      }));
+
+    // Totales globales
+    const overallStats = computeStats(data);
+
+    const summary: PreparteReportSummary = {
+      from: filters.from,
+      to: filters.to,
+      clientSummaries,
+      total,
+      byStatus: overallStats.byStatus,
+      lostPercentage: overallStats.lostPercentage,
+    };
+
+    const details: PreparteReportDetail[] = data.map((row) => ({
+      id: row.id,
+      numero_pedido: row.numero_pedido,
+      clientName: row.customers?.name || '-',
+      contractName: row.customer_services?.service_name || '-',
+      itemName: row.service_items?.item_name || null,
+      requestDate: row.requestDate ? moment(row.requestDate).format('DD/MM/YYYY') : null,
+      executionDate: row.executionDate ? moment(row.executionDate).format('DD/MM/YYYY') : null,
+      status: row.status || 'sin_estado',
+      solicitante: row.solicitante,
+      observaciones: row.observaciones,
+    }));
+
+    return { summary, details };
+  } catch (error) {
+    logger.error('Error generando reporte de preparte', { data: { error } });
+    throw error;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// bulkReschedulePrepartes — reprogramación masiva atómica (COD-395)
+//
+// Por cada preparte seleccionado:
+//  1. Crea un clon en status `pendiente` con `executionDate` = newDate y
+//     `reprogram` apuntando al id original (para trazabilidad, espeja el
+//     flujo individual del PreparteForm).
+//  2. Marca el original como `reprogramado` con motivo y nota en observaciones.
+//
+// Todo corre dentro de una única `prisma.$transaction([...])`: si cualquier
+// operación falla, se revierten todas.
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reason: string) {
+  logger.debug('Reprogramación masiva de prepartes', {
+    data: { count: ids.length, newDate, reason },
+  });
+
+  if (!ids.length) {
+    throw new Error('No se seleccionaron pedidos para reprogramar.');
+  }
+  if (!(newDate instanceof Date) || Number.isNaN(newDate.getTime())) {
+    throw new Error('La fecha de reprogramación no es válida.');
+  }
+  if (!reason?.trim()) {
+    throw new Error('El motivo de reprogramación es obligatorio.');
+  }
+
+  try {
+    const originals = await prisma.preparte.findMany({
+      where: { id: { in: ids } },
+    });
+
+    const foundIds = new Set(originals.map((p) => p.id));
+    const missingIds = ids.filter((id) => !foundIds.has(id));
+    if (missingIds.length > 0) {
+      throw new Error(`No se encontraron ${missingIds.length} pedido(s) seleccionado(s) en la base de datos.`);
+    }
+
+    const fechaHoy = moment().format('DD/MM/YYYY');
+    const fechaNueva = moment(newDate).format('DD/MM/YYYY');
+
+    const operations = originals.flatMap((original) => [
+      prisma.preparte.create({
+        data: {
+          cliente_id: original.cliente_id,
+          contrato_id: original.contrato_id,
+          tipo: original.tipo,
+          jornada: original.jornada,
+          start_time: original.start_time,
+          end_time: original.end_time,
+          solicitante: original.solicitante,
+          item: original.item,
+          observaciones: original.observaciones,
+          executionDate: newDate,
+          requestDate: original.requestDate,
+          quantity: original.quantity,
+          numero_pedido: original.numero_pedido,
+          sector_service_id: original.sector_service_id,
+          areas_service_id: original.areas_service_id,
+          equipos_cliente: original.equipos_cliente,
+          company_id: original.company_id,
+          preparteImage: original.preparteImage,
+          subject_to_availability: false,
+          status: preparte_status.pendiente,
+          reprogram: original.id,
+        },
+      }),
+      prisma.preparte.update({
+        where: { id: original.id },
+        data: {
+          status: preparte_status.reprogramado,
+          reprogram_reason: reason,
+          observaciones: `[${fechaHoy}] Se reprogramó para ${fechaNueva}. ${original.observaciones ?? ''}`.trim(),
+          updated_at: new Date(),
+        },
+      }),
+    ]);
+
+    await prisma.$transaction(operations);
+
+    return { succeeded: originals.length, errors: [] as string[] };
+  } catch (error) {
+    logger.error('Error en reprogramación masiva de prepartes', {
+      data: { error, ids, newDate, reason },
+    });
+    throw error instanceof Error ? error : new Error('Error al reprogramar los pedidos seleccionados.');
+  }
+}
+
+export type BulkRescheduleResult = Awaited<ReturnType<typeof bulkReschedulePrepartes>>;
