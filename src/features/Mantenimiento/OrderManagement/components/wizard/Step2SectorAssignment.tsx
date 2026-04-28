@@ -12,6 +12,7 @@ import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getSectorCandidatesForRepairTypes, type WorkshopSector } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
+import { RejectedItemsList } from './RejectedItemsList';
 import { getItemLabel, getItemRepairTypeIds as getRepairTypeIds } from './helpers';
 
 const logger = new Logger('Step2SectorAssignment');
@@ -43,7 +44,7 @@ export function Step2SectorAssignment({
   repairTypes,
 }: Step2SectorAssignmentProps) {
   const regularItems = useMemo(
-    () => localItems.filter((item) => !item.is_diagnostico && !item._deleted && !item.work_order_id),
+    () => localItems.filter((item) => !item.is_diagnostico && !item._deleted && !item.work_order_id && !item._rejected),
     [localItems]
   );
 
@@ -304,6 +305,13 @@ export function Step2SectorAssignment({
           <span className="text-xs font-medium">Todos los desvíos tienen sector asignado.</span>
         </div>
       )}
+
+      {/* Rejected items (informational only) */}
+      <RejectedItemsList
+        localItems={localItems}
+        repairTypes={repairTypes}
+        contextNote="no se asignarán a ningún sector"
+      />
     </div>
   );
 }
