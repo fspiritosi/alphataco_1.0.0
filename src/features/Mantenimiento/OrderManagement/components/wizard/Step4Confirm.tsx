@@ -9,6 +9,7 @@ import moment from 'moment';
 import { useMemo } from 'react';
 import type { WorkshopSector } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
+import { RejectedItemsList } from './RejectedItemsList';
 import type { SectorOrderEntry } from './Step3ExecutionOrder';
 import { getItemLabel, getItemRepairTypeNames } from './helpers';
 
@@ -156,6 +157,13 @@ export function Step4Confirm({
         </div>
         {dateError && <p className="text-xs text-destructive">La fecha de fin debe ser posterior a la de inicio.</p>}
       </div>
+
+      {/* Rejected items (informational only) */}
+      <RejectedItemsList
+        localItems={localItems}
+        repairTypes={repairTypes}
+        contextNote="no se incluirán en ninguna OT"
+      />
     </div>
   );
 }

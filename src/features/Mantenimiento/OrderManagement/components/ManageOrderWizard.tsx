@@ -792,6 +792,7 @@ export function ManageOrderWizard({
                 sectorOrder={sectorOrder}
                 onReorder={handleReorder}
                 onDragReorder={handleDragReorder}
+                repairTypes={repairTypes}
               />
             )}
 
