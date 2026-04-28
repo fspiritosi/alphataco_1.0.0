@@ -4,7 +4,6 @@ import { Logger } from '@/lib/logger';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
-  buildSearchWhere,
   buildTextFiltersWhere,
   NULL_FILTER_VALUE,
   parseSearchParams,
@@ -56,7 +55,6 @@ const DATE_RANGE_COLUMNS = ['planned_start_date', 'planned_end_date', 'assigned_
 /** Mapping columnId (URL) → campo real en Prisma para buildFiltersWhere */
 const COLUMN_MAP: Record<string, string> = {
   repair_type: 'repair_type_id',
-  maintenance_order: 'maintenance_order_id',
   is_critical: 'is_critical',
   is_rejected: 'is_rejected',
   is_diagnostico: 'is_diagnostico',
@@ -106,19 +104,29 @@ const SECTOR_TASKS_SELECT = {
 // ============================================================================
 
 function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearchParams>) {
-  const searchWhere = buildSearchWhere(state.search, ['description']);
+  // Búsqueda global: description + N° OT + N° OM
+  const searchWhere = state.search
+    ? {
+        OR: [
+          { description: { contains: state.search, mode: 'insensitive' as const } },
+          { work_orders: { order_number: { contains: state.search, mode: 'insensitive' as const } } },
+          { maintenance_orders: { order_number: { contains: state.search, mode: 'insensitive' as const } } },
+        ],
+      }
+    : {};
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_COLUMNS,
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
-      'maintenance_order', // manejado manualmente (FK UUID)
+      'maintenance_order', // texto en relación maintenance_orders.order_number — manejado manualmente
       'vehicle', // filtro virtual via maintenance_orders.vehicles
       'is_critical', // booleano — manejado manualmente
       'is_rejected', // booleano — manejado manualmente
       'is_diagnostico', // booleano — manejado manualmente
       'mo_status', // enum string — manejado manualmente (relación maintenance_orders)
       'wo_status', // enum — manejado manualmente (relación work_orders, nullable)
+      'work_order', // texto en relación work_orders.order_number — manejado manualmente
     ],
   });
 
@@ -137,20 +145,6 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
       filtersWhere.repair_type_id = null;
     } else {
       filtersWhere.repair_type_id = { in: realValues };
-    }
-  }
-
-  // ─── Filtro maintenance_order (FK UUID nullable) ────────────────────────
-  const moValues = state.filters['maintenance_order'];
-  if (moValues?.length) {
-    const hasNull = moValues.includes(NULL_FILTER_VALUE);
-    const realValues = moValues.filter((v) => v !== NULL_FILTER_VALUE);
-    if (hasNull && realValues.length > 0) {
-      // mixto: manejado en AND abajo
-    } else if (hasNull) {
-      filtersWhere.maintenance_order_id = null;
-    } else {
-      filtersWhere.maintenance_order_id = { in: realValues };
     }
   }
 
@@ -175,9 +169,41 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
   // ─── Filtro mo_status (enum string en maintenance_orders.status) ────────
   const moStatusValues = state.filters['mo_status'];
   if (moStatusValues?.length) {
+    const hasNullMoStatus = moStatusValues.includes(NULL_FILTER_VALUE);
+    const realMoStatusValues = moStatusValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNullMoStatus && realMoStatusValues.length > 0) {
+      // caso mixto: null + valores reales — se maneja en extraAndConditions abajo
+    } else if (hasNullMoStatus) {
+      filtersWhere.maintenance_orders = {
+        ...(filtersWhere.maintenance_orders as object),
+        status: null,
+      };
+    } else {
+      filtersWhere.maintenance_orders = {
+        ...(filtersWhere.maintenance_orders as object),
+        status: { in: realMoStatusValues },
+      };
+    }
+  }
+
+  // ─── Filtro work_order: N° OT (texto en work_orders.order_number) ────────
+  // No se usa buildTextFiltersWhere porque el campo está en una relación anidada.
+  // El valor del filtro de texto se almacena en state.filters['work_order'][0].
+  const workOrderTextValue = state.filters['work_order']?.[0];
+  if (workOrderTextValue) {
+    filtersWhere.work_orders = {
+      ...(filtersWhere.work_orders as object),
+      order_number: { contains: workOrderTextValue, mode: 'insensitive' as const },
+    };
+  }
+
+  // ─── Filtro maintenance_order: N° OM (texto en maintenance_orders.order_number) ──
+  // Mismo patrón que work_order: campo en relación anidada → manejo manual.
+  const maintenanceOrderTextValue = state.filters['maintenance_order']?.[0];
+  if (maintenanceOrderTextValue) {
     filtersWhere.maintenance_orders = {
       ...(filtersWhere.maintenance_orders as object),
-      status: { in: moStatusValues },
+      order_number: { contains: maintenanceOrderTextValue, mode: 'insensitive' as const },
     };
   }
 
@@ -235,17 +261,16 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
     });
   }
 
-  // Caso mixto maintenance_order
-  const moVals = state.filters['maintenance_order'];
+  // Caso mixto mo_status (null + valores reales)
   if (
-    moVals?.length &&
-    moVals.includes(NULL_FILTER_VALUE) &&
-    moVals.filter((v) => v !== NULL_FILTER_VALUE).length > 0
+    moStatusValues?.length &&
+    moStatusValues.includes(NULL_FILTER_VALUE) &&
+    moStatusValues.filter((v) => v !== NULL_FILTER_VALUE).length > 0
   ) {
     extraAndConditions.push({
       OR: [
-        { maintenance_order_id: { in: moVals.filter((v) => v !== NULL_FILTER_VALUE) } },
-        { maintenance_order_id: null },
+        { maintenance_orders: { status: { in: moStatusValues.filter((v) => v !== NULL_FILTER_VALUE) } } },
+        { maintenance_orders: { status: null } },
       ],
     });
   }
@@ -542,3 +567,201 @@ export async function getWorkshopSectorTasksFacets(sectorId: string, searchParam
 }
 
 export type WorkshopSectorTasksFacets = Awaited<ReturnType<typeof getWorkshopSectorTasksFacets>>;
+
+// ============================================================================
+// SINGLE FACET (lazy-load individual — reemplaza el bulk de getWorkshopSectorTasksFacets)
+// ============================================================================
+
+/**
+ * Obtiene opciones y counts para UN SOLO filtro facetado, con cross-filtering.
+ * Cada filtro llama a esta función al abrirse (lazy-load on-demand).
+ *
+ * Retorna:
+ *   - `counts`: Map de valor → cantidad de registros
+ *   - `resolvedOptions`: para filtros FK, lista de { id, name } con los nombres reales
+ */
+export async function getWorkshopSectorTasksSingleFacet(
+  columnId: string,
+  sectorId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+  }
+
+  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+
+  /** Construye el WHERE excluyendo el filtro de la columna propia (cross-filter). */
+  function crossWhere(excludeColumn: string) {
+    if (!parsedState || !hasActiveFilters) {
+      return buildWhereClause(sectorId, parseSearchParams({}));
+    }
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(sectorId, modified);
+  }
+
+  function toFacetMapLocal(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      if (key == null) {
+        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
+      } else {
+        map.set(String(key), count);
+      }
+    }
+    return map;
+  }
+
+  try {
+    const where = crossWhere(columnId);
+
+    // ── repair_type (FK UUID nullable) ──
+    if (columnId === 'repair_type') {
+      const rows = await prisma.maintenance_order_items.groupBy({
+        by: ['repair_type_id'],
+        where,
+        _count: { _all: true },
+      });
+      const counts = toFacetMapLocal(rows.map((r) => ({ key: r.repair_type_id, count: r._count._all })));
+      const ids = rows.map((r) => r.repair_type_id).filter(Boolean) as string[];
+      const resolvedOptions =
+        ids.length > 0
+          ? await prisma.types_of_repairs.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+              orderBy: { name: 'asc' },
+            })
+          : [];
+      return { counts, resolvedOptions };
+    }
+
+    // ── vehicle (FK anidado: maintenance_orders.vehicles) ──
+    if (columnId === 'vehicle') {
+      // Agrupar por maintenance_order_id y luego resolver los vehículos
+      const rows = await prisma.maintenance_order_items.groupBy({
+        by: ['maintenance_order_id'],
+        where,
+        _count: { _all: true },
+      });
+      const moIds = rows.map((r) => r.maintenance_order_id).filter(Boolean) as string[];
+      const maintenanceOrders =
+        moIds.length > 0
+          ? await prisma.maintenance_orders.findMany({
+              where: { id: { in: moIds } },
+              select: {
+                id: true,
+                vehicles: { select: { id: true, domain: true, serie: true, intern_number: true } },
+              },
+            })
+          : [];
+
+      const moMap = new Map(maintenanceOrders.map((mo) => [mo.id, mo]));
+      const vehicleCountMap = new Map<string, number>();
+      for (const r of rows) {
+        const mo = moMap.get(r.maintenance_order_id);
+        if (mo?.vehicles?.id) {
+          vehicleCountMap.set(mo.vehicles.id, (vehicleCountMap.get(mo.vehicles.id) ?? 0) + r._count._all);
+        } else {
+          // items sin vehículo (sin maintenance_order o sin vehicle en la OM)
+          vehicleCountMap.set(NULL_FILTER_VALUE, (vehicleCountMap.get(NULL_FILTER_VALUE) ?? 0) + r._count._all);
+        }
+      }
+
+      const vehicleOptionsMap = new Map<
+        string,
+        { id: string; domain: string | null; serie: string | null; intern_number: string | null }
+      >();
+      for (const mo of maintenanceOrders) {
+        if (mo.vehicles?.id) {
+          vehicleOptionsMap.set(mo.vehicles.id, mo.vehicles);
+        }
+      }
+      const resolvedOptions = Array.from(vehicleOptionsMap.values())
+        .sort((a, b) => (a.domain ?? '').localeCompare(b.domain ?? ''))
+        .map((v) => ({
+          id: v.id,
+          name: [v.domain, v.serie, v.intern_number ? `(${v.intern_number})` : ''].filter(Boolean).join(' '),
+        }));
+
+      return { counts: vehicleCountMap, resolvedOptions };
+    }
+
+    // ── is_critical (booleano) ──
+    if (columnId === 'is_critical') {
+      const rows = await prisma.maintenance_order_items.groupBy({
+        by: ['is_critical'],
+        where,
+        _count: { _all: true },
+      });
+      return {
+        counts: toFacetMapLocal(rows.map((r) => ({ key: String(r.is_critical), count: r._count._all }))),
+      };
+    }
+
+    // ── is_rejected (booleano) ──
+    if (columnId === 'is_rejected') {
+      const rows = await prisma.maintenance_order_items.groupBy({
+        by: ['is_rejected'],
+        where,
+        _count: { _all: true },
+      });
+      return {
+        counts: toFacetMapLocal(rows.map((r) => ({ key: String(r.is_rejected), count: r._count._all }))),
+      };
+    }
+
+    // ── is_diagnostico (booleano) ──
+    if (columnId === 'is_diagnostico') {
+      const rows = await prisma.maintenance_order_items.groupBy({
+        by: ['is_diagnostico'],
+        where,
+        _count: { _all: true },
+      });
+      return {
+        counts: toFacetMapLocal(rows.map((r) => ({ key: String(r.is_diagnostico), count: r._count._all }))),
+      };
+    }
+
+    // ── mo_status (enum string en maintenance_orders.status) ──
+    // Prisma no permite groupBy sobre relaciones → traemos los items y agrupamos en memoria
+    if (columnId === 'mo_status') {
+      const items = await prisma.maintenance_order_items.findMany({
+        where,
+        select: { maintenance_orders: { select: { status: true } } },
+      });
+      const map = new Map<string, number>();
+      for (const item of items) {
+        const key = item.maintenance_orders?.status ?? NULL_FILTER_VALUE;
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+      return { counts: map };
+    }
+
+    // ── wo_status (enum en work_orders.status, null = sin OT) ──
+    if (columnId === 'wo_status') {
+      const items = await prisma.maintenance_order_items.findMany({
+        where,
+        select: { work_orders: { select: { status: true } } },
+      });
+      const map = new Map<string, number>();
+      for (const item of items) {
+        const key = item.work_orders?.status ?? NULL_FILTER_VALUE;
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+      return { counts: map };
+    }
+
+    logger.warn('getWorkshopSectorTasksSingleFacet: columnId desconocido', { data: { columnId } });
+    return null;
+  } catch (error) {
+    logger.error('Error al obtener facet individual de tareas del sector', { data: { error, columnId, sectorId } });
+    return null;
+  }
+}

@@ -6,15 +6,15 @@ import type {
   DataTableFacetedFilterConfig,
   DataTableFilterOption,
   DataTableSearchParams,
+  FacetResult,
 } from '@/shared/components/common/DataTable/types';
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Check, CheckCircle2, CircleDashed, CircleOff, X, XCircle } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import type { WorkshopSectorTaskListItem } from './actions.server';
 import {
   getAllWorkshopSectorTasksForExport,
-  getWorkshopSectorTasksFacets,
   getWorkshopSectorTasksPaginated,
+  getWorkshopSectorTasksSingleFacet,
+  type WorkshopSectorTaskListItem,
 } from './actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
@@ -47,6 +47,30 @@ interface Props {
 }
 
 // ============================================================================
+// HELPERS — builders para FacetResult
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(options: DataTableFilterOption[], counts: Map<string, number>): FacetResult {
+  return { options, counts };
+}
+
+/** Construye FacetResult para FK/relaciones: opciones resueltas del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -75,141 +99,125 @@ export function _WorkshopSectorTasksDataTable({
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(() => getWorkshopSectorTasksColumns(), []);
 
-  // ── Facets (cross-filtering) ──────────────────────────────────────────────
-  const facetParams = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams as Record<string, unknown>;
-    return rest as DataTableSearchParams;
-  }, [searchParams]);
+  // ── fetchFacet factories: lazy-load por columna ────────────────────────────
 
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['workshop-sector-tasks-facets', sectorId, facetParams],
-    queryFn: () => getWorkshopSectorTasksFacets(sectorId, facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  /**
+   * Factory para filtros enum: construye un fetchFacet que llama a
+   * getWorkshopSectorTasksSingleFacet y construye las opciones a partir de
+   * un array estático de opciones con sus iconos.
+   */
+  const makeEnumFetchFacet = useCallback(
+    (columnId: string, staticOptions: DataTableFilterOption[]) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getWorkshopSectorTasksSingleFacet(columnId, sectorId, params);
+        if (!result) return { options: staticOptions, counts: new Map() };
+        return buildEnumFacetResult(staticOptions, result.counts);
+      };
+    },
+    [sectorId]
+  );
 
-  // ── Faceted Filters ────────────────────────────────────────────────────────
-  const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(() => {
-    // Repair type options
-    const repairTypeOptions: DataTableFilterOption[] = (facets?.repairTypeOptions ?? []).map((rt) => ({
-      value: rt.id,
-      label: rt.name,
-    }));
-    if (facets?.repair_type?.has(NULL_FILTER_VALUE)) {
-      repairTypeOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin tipo', icon: CircleOff });
-    }
+  /**
+   * Factory para filtros FK: construye un fetchFacet que llama a
+   * getWorkshopSectorTasksSingleFacet y usa las opciones resueltas del servidor.
+   */
+  const makeFkFetchFacet = useCallback(
+    (columnId: string, nullLabel = 'Sin asignar') => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getWorkshopSectorTasksSingleFacet(columnId, sectorId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+      };
+    },
+    [sectorId]
+  );
 
-    // Maintenance order options
-    const moOptions: DataTableFilterOption[] = (facets?.moOptions ?? []).map((mo) => ({
-      value: mo.id,
-      label: mo.label,
-    }));
-    if (facets?.maintenance_order?.has(NULL_FILTER_VALUE)) {
-      moOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-    }
+  // Opciones estáticas para los filtros enum (con iconos semánticos)
+  const woStatusStaticOptions = useMemo<DataTableFilterOption[]>(
+    () => [
+      ...Object.entries(WO_STATUS_CONFIG).map(([value, cfg]) => ({
+        value,
+        label: cfg.label,
+        icon: cfg.icon,
+      })),
+      { value: NULL_FILTER_VALUE, label: 'Sin OT', icon: CircleDashed },
+    ],
+    []
+  );
 
-    // Vehicle options
-    const vehicleOptions: DataTableFilterOption[] = (facets?.vehicleOptions ?? []).map((v) => ({
-      value: v.id,
-      label: [v.domain, v.serie, v.intern_number ? `(${v.intern_number})` : ''].filter(Boolean).join(' '),
-    }));
-    if (facets?.vehicle?.has(NULL_FILTER_VALUE)) {
-      vehicleOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin equipo', icon: CircleOff });
-    }
+  const moStatusStaticOptions = useMemo<DataTableFilterOption[]>(
+    () => [
+      ...Object.entries(MO_STATUS_CONFIG).map(([value, cfg]) => ({
+        value,
+        label: cfg.label,
+        icon: cfg.icon,
+      })),
+      { value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff },
+    ],
+    []
+  );
 
-    // is_critical options
-    const isCriticalOptions: DataTableFilterOption[] = [
+  const isCriticalStaticOptions = useMemo<DataTableFilterOption[]>(
+    () => [
       { value: 'true', label: IS_CRITICAL_LABELS['true'], icon: AlertTriangle },
       { value: 'false', label: IS_CRITICAL_LABELS['false'], icon: Check },
-    ];
+    ],
+    []
+  );
 
-    // is_rejected options
-    const isRejectedOptions: DataTableFilterOption[] = [
+  const isRejectedStaticOptions = useMemo<DataTableFilterOption[]>(
+    () => [
       { value: 'true', label: IS_REJECTED_LABELS['true'], icon: XCircle },
       { value: 'false', label: IS_REJECTED_LABELS['false'], icon: CheckCircle2 },
-    ];
+    ],
+    []
+  );
 
-    // is_diagnostico options (no tiene filtro faceted declarado en DEFAULT_VISIBLE_FILTERS
-    // pero sí lo incluimos por completitud del checklist columna→filtro)
-    const isDiagnosticoOptions: DataTableFilterOption[] = [
+  const isDiagnosticoStaticOptions = useMemo<DataTableFilterOption[]>(
+    () => [
       { value: 'true', label: 'Sí', icon: Check },
       { value: 'false', label: 'No', icon: X },
-    ];
+    ],
+    []
+  );
 
-    // mo_status options (enum string)
-    const moStatusOptions: DataTableFilterOption[] = Object.entries(MO_STATUS_CONFIG).map(([value, cfg]) => ({
-      value,
-      label: cfg.label,
-      icon: cfg.icon,
-    }));
-    if (facets?.mo_status?.has(NULL_FILTER_VALUE)) {
-      moStatusOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff });
-    }
-
-    // wo_status options (enum + null = sin OT)
-    const woStatusOptions: DataTableFilterOption[] = Object.entries(WO_STATUS_CONFIG).map(([value, cfg]) => ({
-      value,
-      label: cfg.label,
-      icon: cfg.icon,
-    }));
-    woStatusOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin OT', icon: CircleDashed });
-
-    return [
+  // ── Faceted Filters con lazy-load ──────────────────────────────────────────
+  const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
+    () => [
       {
         columnId: 'wo_status',
         title: 'Estado OT',
-        type: 'faceted' as const,
-        options: woStatusOptions,
-        externalCounts: facets?.wo_status,
+        fetchFacet: makeEnumFetchFacet('wo_status', woStatusStaticOptions),
       },
       {
         columnId: 'mo_status',
         title: 'Estado OM',
-        type: 'faceted' as const,
-        options: moStatusOptions,
-        externalCounts: facets?.mo_status,
+        fetchFacet: makeEnumFetchFacet('mo_status', moStatusStaticOptions),
       },
       {
         columnId: 'repair_type',
         title: 'Tipo de Reparación',
-        type: 'faceted' as const,
-        options: repairTypeOptions,
-        externalCounts: facets?.repair_type,
-      },
-      {
-        columnId: 'maintenance_order',
-        title: 'N° Orden',
-        type: 'faceted' as const,
-        options: moOptions,
-        externalCounts: facets?.maintenance_order,
+        fetchFacet: makeFkFetchFacet('repair_type', 'Sin tipo'),
       },
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        type: 'faceted' as const,
-        options: vehicleOptions,
-        externalCounts: facets?.vehicle,
+        fetchFacet: makeFkFetchFacet('vehicle', 'Sin equipo'),
       },
       {
         columnId: 'is_critical',
         title: 'Crítica',
-        type: 'faceted' as const,
-        options: isCriticalOptions,
-        externalCounts: facets?.is_critical,
+        fetchFacet: makeEnumFetchFacet('is_critical', isCriticalStaticOptions),
       },
       {
         columnId: 'is_rejected',
         title: 'Rechazada',
-        type: 'faceted' as const,
-        options: isRejectedOptions,
-        externalCounts: facets?.is_rejected,
+        fetchFacet: makeEnumFetchFacet('is_rejected', isRejectedStaticOptions),
       },
       {
         columnId: 'is_diagnostico',
         title: 'Diagnóstico',
-        type: 'faceted' as const,
-        options: isDiagnosticoOptions,
-        externalCounts: facets?.is_diagnostico,
+        fetchFacet: makeEnumFetchFacet('is_diagnostico', isDiagnosticoStaticOptions),
       },
       {
         columnId: 'planned_start_date',
@@ -237,8 +245,29 @@ export function _WorkshopSectorTasksDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por descripción...',
       },
-    ];
-  }, [facets]);
+      {
+        columnId: 'work_order',
+        title: 'N° OT',
+        type: 'text' as const,
+        placeholder: 'Buscar por N° OT...',
+      },
+      {
+        columnId: 'maintenance_order',
+        title: 'N° OM',
+        type: 'text' as const,
+        placeholder: 'Buscar por N° OM...',
+      },
+    ],
+    [
+      makeEnumFetchFacet,
+      makeFkFetchFacet,
+      woStatusStaticOptions,
+      moStatusStaticOptions,
+      isCriticalStaticOptions,
+      isRejectedStaticOptions,
+      isDiagnosticoStaticOptions,
+    ]
+  );
 
   // ── Filter visibility ─────────────────────────────────────────────────────
   const mergedFilterVisibility = useMemo(() => {
@@ -252,7 +281,10 @@ export function _WorkshopSectorTasksDataTable({
   const mergedColumnVisibility = useMemo(
     () => ({
       ...Object.fromEntries(HIDDEN_COLUMNS_BY_DEFAULT.map((c) => [c, false])),
-      // Las columnas de flags booleanos se muestran pero las ocultas-por-defecto no
+      // Columnas virtuales de filtro: siempre ocultas
+      mo_status: false,
+      wo_status: false,
+      // Las preferencias guardadas tienen prioridad sobre los defaults
       ...(initialColumnVisibility ?? {}),
     }),
     [initialColumnVisibility]
@@ -285,11 +317,10 @@ export function _WorkshopSectorTasksDataTable({
       onStateChange={handleStateChange}
       tableId={tableId}
       paramNamespace={tableId}
-      searchPlaceholder="Buscar por descripción..."
+      searchPlaceholder="Buscar por descripción, N° OT o N° OM..."
       emptyMessage="No hay tareas asignadas a este sector"
       showFilterToggle={true}
       facetedFilters={facetedFilters}
-      isFetchingFacets={isFetchingFacets}
       exportConfig={exportConfig}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
