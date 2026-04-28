@@ -32,31 +32,21 @@ import type { DailyReportDetailRow } from '../types';
 // CONSTANTS
 // ============================================================================
 
+/**
+ * Estados disponibles en edición masiva — alineados con prod.
+ * NO se permite cambiar a 'pendiente', 'sin_recursos_asignados' ni 'en_certificacion'
+ * desde aquí (esos son estados internos del flujo, no acciones del usuario).
+ */
 const BASE_STATUS_OPTIONS = [
-  { value: 'pendiente', label: 'Pendiente' },
-  { value: 'sin_recursos_asignados', label: 'Sin recursos asignados' },
   { value: 'ejecutado', label: 'Ejecutado' },
-  { value: 'reprogramado', label: 'Reprogramado' },
   { value: 'cancelado', label: 'Cancelado' },
-  { value: 'en_certificacion', label: 'En certificación' },
+  { value: 'reprogramado', label: 'Reprogramado' },
 ];
 
 /** Opciones exclusivas de jornadas 24 horas */
 const OPTIONS_24H = [
   { value: 'completar_diurno', label: 'Completar turno diurno' },
   { value: 'completar_nocturno', label: 'Completar turno nocturno' },
-];
-
-const WORKING_DAY_OPTIONS = [
-  { value: 'Jornada 8 horas', label: 'Jornada 8 horas' },
-  { value: 'Jornada 12 horas', label: 'Jornada 12 horas' },
-  { value: 'Jornada 24 horas', label: 'Jornada 24 horas' },
-];
-
-const TYPE_SERVICE_OPTIONS = [
-  { value: 'mensual', label: 'Mensual' },
-  { value: 'adicional', label: 'Adicional' },
-  { value: 'adicional_permanente', label: 'Adicional Permanente' },
 ];
 
 // ============================================================================
@@ -66,17 +56,14 @@ const TYPE_SERVICE_OPTIONS = [
 const formSchema = z
   .object({
     status: z.string().optional(),
-    working_day: z.string().optional(),
-    type_service: z.enum(['mensual', 'adicional', 'adicional_permanente']).optional(),
     cancel_reason: z.string().optional(),
     reschedule_date: z.string().optional(), // YYYY-MM-DD
   })
   .superRefine((data, ctx) => {
-    const hasAnyField = data.status !== undefined || data.working_day !== undefined || data.type_service !== undefined;
-    if (!hasAnyField) {
+    if (data.status === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Debe seleccionar al menos un campo para actualizar',
+        message: 'Debe seleccionar un estado para actualizar',
         path: ['status'],
       });
     }
@@ -130,8 +117,6 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
     resolver: zodResolver(formSchema),
     defaultValues: {
       status: undefined,
-      working_day: undefined,
-      type_service: undefined,
       cancel_reason: undefined,
       reschedule_date: undefined,
     },
@@ -140,7 +125,6 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
   const watchedStatus = form.watch('status');
   const showCancelReason = watchedStatus === 'cancelado';
   const showRescheduleDate = watchedStatus === 'reprogramado';
-  const isPseudoStatus = watchedStatus === 'completar_diurno' || watchedStatus === 'completar_nocturno';
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -156,8 +140,6 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
 
       return bulkUpdateRowStatus(rowIds, {
         ...(values.status !== undefined ? { status: values.status } : {}),
-        ...(values.working_day !== undefined ? { working_day: values.working_day } : {}),
-        ...(values.type_service !== undefined ? { type_service: values.type_service } : {}),
         ...(values.cancel_reason ? { cancel_reason: values.cancel_reason } : {}),
         ...(values.reschedule_date ? { reschedule_date: values.reschedule_date } : {}),
       });
@@ -192,51 +174,62 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-auto gap-4">
+        <DialogHeader className="space-y-1.5">
           <DialogTitle>Edición masiva</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             Actualizando{' '}
-            <strong>
+            <strong className="text-foreground">
               {selectedRows.length} registro{selectedRows.length !== 1 ? 's' : ''}
-            </strong>{' '}
-            seleccionado{selectedRows.length !== 1 ? 's' : ''}. Solo se actualizarán los campos que completes.
+            </strong>
+            . Solo se actualizan los campos que completes.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Lista scrollable de filas seleccionadas */}
-        <ScrollArea className="max-h-32 rounded-md border">
-          <div className="p-2 space-y-1">
+        {/* Lista scrollable de filas seleccionadas — compacta, altura adaptativa */}
+        <ScrollArea className={cn('rounded-md border bg-muted/30', selectedRows.length > 4 ? 'max-h-32' : 'max-h-fit')}>
+          <ul className="px-2.5 py-2 space-y-1">
             {selectedRows.map((row) => (
-              <div key={row.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{row.customers?.name ?? '—'}</span>
-                <span>→</span>
-                <span>{row.customer_services?.service_name ?? '—'}</span>
+              <li key={row.id} className="flex items-center gap-2 text-xs">
+                <span className="font-medium text-foreground truncate">{row.customers?.name ?? '—'}</span>
+                <span className="text-muted-foreground/60">→</span>
+                <span className="text-muted-foreground truncate">{row.customer_services?.service_name ?? '—'}</span>
                 {row.working_day === 'Jornada 24 horas' && (
-                  <Badge variant="info" className="text-[10px] px-1 py-0">
+                  <Badge variant="info" className="ml-auto shrink-0 text-[10px] px-1 py-0">
                     24h
                   </Badge>
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </ScrollArea>
 
         {/* Indicador de turnos faltantes para filas 24h */}
         {has24hRows && (
-          <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/30 p-3 space-y-1">
+          <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 px-3 py-2 space-y-0.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">
-              <Info className="h-3.5 w-3.5" />
-              Filas de Jornada 24 horas seleccionadas ({rows24h.length})
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              {rows24h.length} fila{rows24h.length !== 1 ? 's' : ''} de Jornada 24h seleccionada
+              {rows24h.length !== 1 ? 's' : ''}
             </div>
-            {missingDay.length > 0 && (
-              <p className="text-xs text-blue-600 dark:text-blue-300 ml-5">
-                {missingDay.length} fila{missingDay.length !== 1 ? 's' : ''} sin completar turno diurno
-              </p>
-            )}
-            {missingNight.length > 0 && (
-              <p className="text-xs text-blue-600 dark:text-blue-300 ml-5">
-                {missingNight.length} fila{missingNight.length !== 1 ? 's' : ''} sin completar turno nocturno
+            {(missingDay.length > 0 || missingNight.length > 0) && (
+              <p className="text-xs text-blue-600 dark:text-blue-300 pl-5">
+                Faltan completar:
+                {missingDay.length > 0 && (
+                  <>
+                    {' '}
+                    <strong>{missingDay.length}</strong> turno{missingDay.length !== 1 ? 's' : ''} diurno
+                    {missingDay.length !== 1 ? 's' : ''}
+                  </>
+                )}
+                {missingDay.length > 0 && missingNight.length > 0 && ','}
+                {missingNight.length > 0 && (
+                  <>
+                    {' '}
+                    <strong>{missingNight.length}</strong> turno{missingNight.length !== 1 ? 's' : ''} nocturno
+                    {missingNight.length !== 1 ? 's' : ''}
+                  </>
+                )}
               </p>
             )}
           </div>
@@ -252,7 +245,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
               name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Estado</FormLabel>
+                  <FormLabel>Nuevo estado</FormLabel>
                   <Select
                     value={field.value ?? ''}
                     onValueChange={(val) => {
@@ -263,12 +256,11 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
                     }}
                   >
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sin cambios" />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seleccionar estado..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="_none">Sin cambios</SelectItem>
                       {statusOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
@@ -342,75 +334,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
               />
             )}
 
-            {/* Jornada — no disponible para pseudo-estados 24h */}
-            {!isPseudoStatus && (
-              <FormField
-                control={form.control}
-                name="working_day"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Jornada</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={(val) => field.onChange(val === '_none' ? undefined : val)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sin cambios" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="_none">Sin cambios</SelectItem>
-                        {WORKING_DAY_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {/* Tipo de servicio — no disponible para pseudo-estados 24h */}
-            {!isPseudoStatus && (
-              <FormField
-                control={form.control}
-                name="type_service"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de servicio</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={(val) =>
-                        field.onChange(
-                          val === '_none' ? undefined : (val as 'mensual' | 'adicional' | 'adicional_permanente')
-                        )
-                      }
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sin cambios" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="_none">Sin cambios</SelectItem>
-                        {TYPE_SERVICE_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-2 pt-2">
               <Button
                 type="button"
                 variant="outline"
@@ -419,7 +343,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={mutation.isPending || selectedRows.length === 0}>
+              <Button type="submit" disabled={mutation.isPending || selectedRows.length === 0} className="min-w-32">
                 {mutation.isPending ? 'Guardando...' : 'Guardar cambios'}
               </Button>
             </DialogFooter>

@@ -61,6 +61,9 @@ const MANUALLY_HANDLED = [
   'area',
   'completed_day',
   'completed_night',
+  'employees',
+  'equipment',
+  'customer_equipment',
   ...TEXT_COLUMNS,
 ];
 
@@ -184,6 +187,75 @@ function buildWhereClause(dailyReportId: string, state: ReturnType<typeof parseS
   if (completedNightValues?.length) {
     const boolVal = completedNightValues[0] === 'true';
     manualFilters.push({ completed_night: boolVal });
+  }
+
+  // employees (M:M via dailyreportemployeerelations.employee_id)
+  const employeeValues = state.filters['employees'];
+  if (employeeValues?.length) {
+    const hasNull = employeeValues.includes(NULL_FILTER_VALUE);
+    const realValues = employeeValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      manualFilters.push({
+        OR: [
+          { dailyreportemployeerelations: { some: { employee_id: { in: realValues } } } },
+          { dailyreportemployeerelations: { none: {} } },
+        ],
+      });
+    } else if (hasNull) {
+      manualFilters.push({ dailyreportemployeerelations: { none: {} } });
+    } else {
+      manualFilters.push({
+        dailyreportemployeerelations: { some: { employee_id: { in: realValues } } },
+      });
+    }
+  }
+
+  // equipment (M:M mixto: vehicles via equipment_id + other_equipment via other_equipment_id)
+  const equipmentValues = state.filters['equipment'];
+  if (equipmentValues?.length) {
+    const hasNull = equipmentValues.includes(NULL_FILTER_VALUE);
+    const realValues = equipmentValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      manualFilters.push({
+        OR: [
+          { dailyreportequipmentrelations: { some: { equipment_id: { in: realValues } } } },
+          { dailyreportequipmentrelations: { some: { other_equipment_id: { in: realValues } } } },
+          { dailyreportequipmentrelations: { none: {} } },
+        ],
+      });
+    } else if (hasNull) {
+      manualFilters.push({ dailyreportequipmentrelations: { none: {} } });
+    } else {
+      manualFilters.push({
+        OR: [
+          { dailyreportequipmentrelations: { some: { equipment_id: { in: realValues } } } },
+          { dailyreportequipmentrelations: { some: { other_equipment_id: { in: realValues } } } },
+        ],
+      });
+    }
+  }
+
+  // customer_equipment (M:M via dailyreport_customer_equipment_relations.customer_equipment_id)
+  const customerEquipmentValues = state.filters['customer_equipment'];
+  if (customerEquipmentValues?.length) {
+    const hasNull = customerEquipmentValues.includes(NULL_FILTER_VALUE);
+    const realValues = customerEquipmentValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      manualFilters.push({
+        OR: [
+          { dailyreport_customer_equipment_relations: { some: { customer_equipment_id: { in: realValues } } } },
+          { dailyreport_customer_equipment_relations: { none: {} } },
+        ],
+      });
+    } else if (hasNull) {
+      manualFilters.push({ dailyreport_customer_equipment_relations: { none: {} } });
+    } else {
+      manualFilters.push({
+        dailyreport_customer_equipment_relations: {
+          some: { customer_equipment_id: { in: realValues } },
+        },
+      });
+    }
   }
 
   const base: Record<string, unknown> = {
@@ -338,16 +410,6 @@ function buildRowSelect(reportDate?: string) {
             name: true,
             type: true,
           },
-        },
-      },
-    },
-    remitos: {
-      select: {
-        id: true,
-        remit_number: true,
-        is_linked: true,
-        _count: {
-          select: { remito_documents: true },
         },
       },
     },
@@ -789,6 +851,153 @@ export async function getDailyReportDetailSingleFacet(
         return { counts, resolvedOptions };
       }
 
+      // ── M:M → employees ──────────────────────────────────────────────────
+      case 'employees': {
+        const where = crossWhere('employees');
+        const rows = await prisma.dailyreportemployeerelations.groupBy({
+          by: ['employee_id'],
+          where: { dailyreportrows: where },
+          _count: { _all: true },
+        });
+
+        // Registros sin empleados (none) — contar filas sin relaciones
+        const rowsWithoutEmployees = await prisma.dailyreportrows.count({
+          where: { ...where, dailyreportemployeerelations: { none: {} } },
+        });
+
+        const counts = toFacetMap(rows.map((r) => ({ key: r.employee_id, count: r._count._all })));
+        if (rowsWithoutEmployees > 0) {
+          counts.set(NULL_FILTER_VALUE, rowsWithoutEmployees);
+        }
+
+        const ids = rows.map((r) => r.employee_id).filter((id): id is string => id != null);
+        const employees = ids.length
+          ? await prisma.employees.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, firstname: true, lastname: true, file: true },
+              orderBy: [{ lastname: 'asc' }, { firstname: 'asc' }],
+            })
+          : [];
+
+        const resolvedOptions = employees.map((e) => ({
+          value: e.id,
+          label: `[${e.file ?? '—'}] ${e.lastname ?? ''} ${e.firstname ?? ''}`.trim(),
+        }));
+
+        return { counts, resolvedOptions };
+      }
+
+      // ── M:M → equipment (vehicles + other_equipment) ─────────────────────
+      case 'equipment': {
+        const where = crossWhere('equipment');
+
+        // Dos groupBys paralelos: equipment_id (vehicles) y other_equipment_id
+        const [vehicleRows, otherRows] = await Promise.all([
+          prisma.dailyreportequipmentrelations.groupBy({
+            by: ['equipment_id'],
+            where: { dailyreportrows: where, equipment_id: { not: null } },
+            _count: { _all: true },
+          }),
+          prisma.dailyreportequipmentrelations.groupBy({
+            by: ['other_equipment_id'],
+            where: { dailyreportrows: where, other_equipment_id: { not: null } },
+            _count: { _all: true },
+          }),
+        ]);
+
+        // Combinar counts de ambos tipos en un solo Map
+        const counts = new Map<string, number>();
+        for (const r of vehicleRows) {
+          if (r.equipment_id) counts.set(r.equipment_id, (counts.get(r.equipment_id) ?? 0) + r._count._all);
+        }
+        for (const r of otherRows) {
+          if (r.other_equipment_id)
+            counts.set(r.other_equipment_id, (counts.get(r.other_equipment_id) ?? 0) + r._count._all);
+        }
+
+        // Registros sin equipos — contar filas sin relaciones
+        const rowsWithoutEquipment = await prisma.dailyreportrows.count({
+          where: { ...where, dailyreportequipmentrelations: { none: {} } },
+        });
+        if (rowsWithoutEquipment > 0) {
+          counts.set(NULL_FILTER_VALUE, rowsWithoutEquipment);
+        }
+
+        const vehicleIds = vehicleRows.map((r) => r.equipment_id).filter((id): id is string => id != null);
+        const otherIds = otherRows.map((r) => r.other_equipment_id).filter((id): id is string => id != null);
+
+        const [vehicles, otherEquipment] = await Promise.all([
+          vehicleIds.length
+            ? prisma.vehicles.findMany({
+                where: { id: { in: vehicleIds } },
+                select: { id: true, domain: true, intern_number: true },
+                orderBy: { domain: 'asc' },
+              })
+            : [],
+          otherIds.length
+            ? prisma.other_equipment.findMany({
+                where: { id: { in: otherIds } },
+                select: { id: true, intern_number: true, serial_number: true },
+                orderBy: { intern_number: 'asc' },
+              })
+            : [],
+        ]);
+
+        const resolvedOptions = [
+          ...vehicles.map((v) => ({
+            value: v.id,
+            label: [v.domain, v.intern_number ? `(${v.intern_number})` : ''].filter(Boolean).join(' ').trim() || '—',
+          })),
+          ...otherEquipment.map((o) => ({
+            value: o.id,
+            label: [o.intern_number, o.serial_number].filter(Boolean).join(' / ') || '—',
+          })),
+        ];
+
+        return { counts, resolvedOptions };
+      }
+
+      // ── M:M → customer_equipment ──────────────────────────────────────────
+      case 'customer_equipment': {
+        const where = crossWhere('customer_equipment');
+        const rows = await prisma.dailyreport_customer_equipment_relations.groupBy({
+          by: ['customer_equipment_id'],
+          where: { dailyreportrows: where },
+          _count: { _all: true },
+        });
+
+        // Registros sin equipo cliente — contar filas sin relaciones
+        const rowsWithoutCustomerEquipment = await prisma.dailyreportrows.count({
+          where: { ...where, dailyreport_customer_equipment_relations: { none: {} } },
+        });
+
+        const counts = toFacetMap(rows.map((r) => ({ key: r.customer_equipment_id, count: r._count._all })));
+        if (rowsWithoutCustomerEquipment > 0) {
+          counts.set(NULL_FILTER_VALUE, rowsWithoutCustomerEquipment);
+        }
+
+        const ids = rows.map((r) => r.customer_equipment_id).filter((id): id is string => id != null);
+        const items = ids.length
+          ? await prisma.equipos_clientes.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+              orderBy: { name: 'asc' },
+            })
+          : [];
+
+        const nameMap = new Map(items.map((i) => [i.id, i.name]));
+
+        const resolvedOptions = rows
+          .filter((r) => r.customer_equipment_id != null)
+          .map((r) => ({
+            value: r.customer_equipment_id!,
+            label: nameMap.get(r.customer_equipment_id!) ?? r.customer_equipment_id!,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        return { counts, resolvedOptions };
+      }
+
       default:
         logger.warn('columnId no soportado en getDailyReportDetailSingleFacet', {
           data: { columnId },
@@ -896,8 +1105,6 @@ export interface DailyReportRowInput {
 /** Datos para edición masiva de filas */
 export interface BulkRowUpdateData {
   status?: string;
-  working_day?: string;
-  type_service?: 'mensual' | 'adicional' | 'adicional_permanente' | null;
   description?: string | null;
   /** Motivo de cancelación (requerido cuando status = 'cancelado') */
   cancel_reason?: string | null;
@@ -1233,8 +1440,6 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
     // ── Actualización normal ─────────────────────────────────────────────────
     const updatePayload: Record<string, unknown> = {};
     if (data.status !== undefined) updatePayload.status = data.status;
-    if (data.working_day !== undefined) updatePayload.working_day = data.working_day;
-    if (data.type_service !== undefined) updatePayload.type_service = data.type_service;
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.cancel_reason !== undefined) updatePayload.cancel_reason = data.cancel_reason;
 

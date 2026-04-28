@@ -23,8 +23,9 @@ import type { DailyReportDetailRow } from './types';
 
 export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['start_time', 'end_time'];
 
-/** Status que NO permiten selección para edición masiva */
-const NON_SELECTABLE_STATUSES = new Set(['ejecutado', 'sin_recursos_asignados', 'reprogramado']);
+/** Status que NO permiten selección. Los registros ejecutados SÍ se pueden seleccionar
+ *  (el botón de edición masiva tiene su propio guard que los excluye). */
+const NON_SELECTABLE_STATUSES = new Set(['sin_recursos_asignados', 'reprogramado']);
 
 // ============================================================================
 // PERMISSIONS TYPE
@@ -43,7 +44,6 @@ export type RowActionHandlers = {
   onViewDetail: (row: DailyReportDetailRow) => void;
   onEdit: (row: DailyReportDetailRow) => void;
   onHistory: (row: DailyReportDetailRow) => void;
-  onRemitos: (row: DailyReportDetailRow) => void;
   onDelete: (row: DailyReportDetailRow) => void;
 };
 
@@ -82,7 +82,11 @@ function renderEmployeeBadge(
 ): React.ReactNode {
   if (deviations.loadingValidations) {
     return (
-      <Badge key={key} variant="outline" className="text-xs font-normal border-gray-400 text-gray-500 cursor-default">
+      <Badge
+        key={key}
+        variant="secondary"
+        className="text-xs font-normal bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-default"
+      >
         {label}
       </Badge>
     );
@@ -91,12 +95,12 @@ function renderEmployeeBadge(
   const dev = deviations.getEmployeeDeviation(employeeId, rowId);
 
   if (!dev) {
-    // Sin desviaciones — badge estándar
+    // Sin desviaciones — badge default (sólido, igual que prod)
     return (
       <TooltipProvider key={key} delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge variant="outline" className="text-xs font-normal dark:text-black cursor-default">
+            <Badge variant="default" className="text-xs font-normal select-none text-nowrap cursor-default">
               {label}
             </Badge>
           </TooltipTrigger>
@@ -191,8 +195,8 @@ function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; de
             return (
               <Badge
                 key={rel.id}
-                variant="outline"
-                className="text-xs font-normal border-gray-400 text-gray-500 cursor-default"
+                variant="secondary"
+                className="text-xs font-normal bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-default"
               >
                 {label}
               </Badge>
@@ -202,12 +206,12 @@ function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; de
           const dev = rel.equipment_id ? deviations.getEquipmentDeviation(rel.equipment_id, row.id) : null;
 
           if (!dev) {
-            // Sin desviaciones — badge estándar con tooltip
+            // Sin desviaciones — badge default (sólido, igual que prod)
             return (
               <TooltipProvider key={rel.id} delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge variant="outline" className="text-xs font-normal dark:text-black cursor-default">
+                    <Badge variant="default" className="text-xs font-normal select-none text-nowrap cursor-default">
                       {label}
                     </Badge>
                   </TooltipTrigger>
@@ -456,7 +460,7 @@ export function getColumns(
       cell: ({ row }) => {
         const val = row.original.type_service;
         if (!val) return <span className="text-muted-foreground text-xs">—</span>;
-        return <Badge variant="outline">{dailyReportTypeServiceLabels[val] ?? val}</Badge>;
+        return <Badge className="font-medium capitalize">{dailyReportTypeServiceLabels[val] ?? val}</Badge>;
       },
       filterFn: (row, id, value: string[]) => {
         const val = row.getValue(id) as string | null;
@@ -981,33 +985,6 @@ function RowActionsCell({
         >
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
-        </svg>
-      </button>
-
-      {/* Remitos — siempre visible */}
-      <button
-        type="button"
-        title="Remitos"
-        className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground"
-        onClick={() => handlers.onRemitos(row)}
-      >
-        <span className="sr-only">Remitos</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
         </svg>
       </button>
 

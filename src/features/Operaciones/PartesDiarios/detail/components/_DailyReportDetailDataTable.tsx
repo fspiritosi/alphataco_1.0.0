@@ -1,6 +1,9 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
@@ -54,14 +57,6 @@ const DailyReportRowForm = dynamic(
 const HistoryDialog = dynamic(() => import('./HistoryDialog').then((m) => ({ default: m.HistoryDialog })), {
   ssr: false,
 });
-
-const RemitosManagerDialog = dynamic(
-  () =>
-    import('./RemitosManager/RemitosManagerDialog').then((m) => ({
-      default: m.RemitosManagerDialog,
-    })),
-  { ssr: false }
-);
 
 const CloneRowsDialog = dynamic(() => import('./CloneRowsDialog').then((m) => ({ default: m.CloneRowsDialog })), {
   ssr: false,
@@ -154,7 +149,6 @@ export function _DailyReportDetailDataTable({
   const [deleteRow, setDeleteRow] = useState<DailyReportDetailRow | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [historyRowId, setHistoryRowId] = useState<string | null>(null);
-  const [remitosRowId, setRemitosRowId] = useState<string | null>(null);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showClone, setShowClone] = useState(false);
 
@@ -196,7 +190,6 @@ export function _DailyReportDetailDataTable({
       onViewDetail: (row) => setDetailRowId(row.id),
       onEdit: (row) => openForm(row.id),
       onHistory: (row) => setHistoryRowId(row.id),
-      onRemitos: (row) => setRemitosRowId(row.id),
       onDelete: (row) => setDeleteRow(row),
     }),
     [openForm]
@@ -242,6 +235,9 @@ export function _DailyReportDetailDataTable({
       'remit_number',
       'completed_day',
       'completed_night',
+      'employees',
+      'equipment',
+      'customer_equipment',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -381,6 +377,15 @@ export function _DailyReportDetailDataTable({
 
   const fetchCompletedNightFacet = useMemo(() => makeBoolFetchFacet('completed_night'), [makeBoolFetchFacet]);
 
+  const fetchEmployeesFacet = useMemo(() => makeFkFetchFacet('employees', 'Sin empleados'), [makeFkFetchFacet]);
+
+  const fetchEquipmentFacet = useMemo(() => makeFkFetchFacet('equipment', 'Sin equipos'), [makeFkFetchFacet]);
+
+  const fetchCustomerEquipmentFacet = useMemo(
+    () => makeFkFetchFacet('customer_equipment', 'Sin equipo cliente'),
+    [makeFkFetchFacet]
+  );
+
   // ── Faceted filters ───────────────────────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
@@ -469,6 +474,27 @@ export function _DailyReportDetailDataTable({
         title: 'Completado Noche',
         fetchFacet: fetchCompletedNightFacet,
       },
+
+      // ── Empleados (M:M via dailyreportemployeerelations) ─────────────────────
+      {
+        columnId: 'employees',
+        title: 'Empleados',
+        fetchFacet: fetchEmployeesFacet,
+      },
+
+      // ── Equipos (M:M mixto: vehicles + other_equipment) ──────────────────────
+      {
+        columnId: 'equipment',
+        title: 'Equipos',
+        fetchFacet: fetchEquipmentFacet,
+      },
+
+      // ── Equipo Cliente (M:M via dailyreport_customer_equipment_relations) ─────
+      {
+        columnId: 'customer_equipment',
+        title: 'Equipo cliente',
+        fetchFacet: fetchCustomerEquipmentFacet,
+      },
     ],
     [
       fetchStatusFacet,
@@ -481,65 +507,102 @@ export function _DailyReportDetailDataTable({
       fetchWorkingDayFacet,
       fetchCompletedDayFacet,
       fetchCompletedNightFacet,
+      fetchEmployeesFacet,
+      fetchEquipmentFacet,
+      fetchCustomerEquipmentFacet,
     ]
   );
 
   // ── Toolbar: Crear button + bulk actions ──────────────────────────────────
   const toolbarActions = useMemo(() => {
-    const hasBulk = selectedRows.length > 0;
+    const selectedCount = selectedRows.length;
+    const hasBulk = selectedCount > 0;
+    const hasExecutedSelected = selectedRows.some((r) => r.status === 'ejecutado');
+
     return (
-      <div className="flex items-center gap-2">
-        {/* Crear — siempre visible si canUpdate, deshabilitado si parte cerrado y no es hoy */}
-        {canUpdate && (
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => openForm()}
-            disabled={!canCreate}
-            title={!canCreate ? 'El parte está cerrado y no es el día de hoy' : undefined}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Crear
-          </Button>
-        )}
-
-        {/* Acciones masivas — solo con selección activa */}
-        {hasBulk && (
-          <>
-            <span className="text-sm text-muted-foreground">
-              {selectedRows.length} seleccionado{selectedRows.length !== 1 ? 's' : ''}
-            </span>
-            {canUpdate && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setShowBulkEdit(true)}
-                disabled={selectedRows.some((r) => r.status === 'ejecutado')}
-                title={
-                  selectedRows.some((r) => r.status === 'ejecutado')
-                    ? 'No se pueden editar registros ejecutados. Deseleccioná las filas ejecutadas'
-                    : undefined
-                }
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Editar seleccionados
+      <TooltipProvider delayDuration={150}>
+        <div className="flex items-center gap-2">
+          {/* CTA primario: Crear */}
+          {canUpdate &&
+            (canCreate ? (
+              <Button variant="default" size="sm" className="gap-1.5" onClick={() => openForm()}>
+                <Plus className="h-3.5 w-3.5" />
+                Crear
               </Button>
-            )}
-          </>
-        )}
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="inline-flex">
+                    <Button variant="default" size="sm" className="gap-1.5" disabled>
+                      <Plus className="h-3.5 w-3.5" />
+                      Crear
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="max-w-xs text-xs">El parte está cerrado y no es el día de hoy</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
 
-        {/* Clonar — solo si tiene permiso de update */}
-        {canUpdate && (
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
-            <Copy className="h-3.5 w-3.5" />
-            {hasBulk ? 'Clonar seleccionados' : 'Clonar todo el parte'}
-          </Button>
-        )}
-      </div>
+          {/* Separador visual entre CTA y acciones secundarias */}
+          {canUpdate && <Separator orientation="vertical" className="mx-1 h-6" />}
+
+          {/* Acciones masivas — solo con selección activa */}
+          {hasBulk && canUpdate && (
+            <>
+              {hasExecutedSelected ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0} className="inline-flex">
+                      <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar
+                        <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                          {selectedCount}
+                        </Badge>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="max-w-xs text-xs">
+                      No se pueden editar registros ejecutados. Deseleccioná las filas con estado{' '}
+                      <span className="font-medium">Ejecutado</span> para continuar.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkEdit(true)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                    {selectedCount}
+                  </Badge>
+                </Button>
+              )}
+            </>
+          )}
+
+          {/* Clonar — siempre disponible si canUpdate; cambia de label según haya selección */}
+          {canUpdate && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
+              <Copy className="h-3.5 w-3.5" />
+              {hasBulk ? (
+                <>
+                  Clonar
+                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                    {selectedCount}
+                  </Badge>
+                </>
+              ) : (
+                'Clonar todo el parte'
+              )}
+            </Button>
+          )}
+        </div>
+      </TooltipProvider>
     );
-  }, [selectedRows.length, canUpdate, canCreate, openForm]);
+  }, [selectedRows, canUpdate, canCreate, openForm]);
 
   // ── Export formatters ─────────────────────────────────────────────────────
   const exportFormatters = useMemo(
@@ -655,16 +718,6 @@ export function _DailyReportDetailDataTable({
           if (!open) setHistoryRowId(null);
         }}
         rowId={historyRowId}
-      />
-
-      <RemitosManagerDialog
-        open={remitosRowId !== null}
-        onOpenChange={(open) => {
-          if (!open) setRemitosRowId(null);
-        }}
-        rowId={remitosRowId}
-        dailyReportId={dailyReportId}
-        onSuccess={invalidateDetail}
       />
 
       <BulkEditModal
