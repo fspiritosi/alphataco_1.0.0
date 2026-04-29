@@ -321,7 +321,9 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       accessorKey: 'date_of_admission',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de ingreso" />,
       cell: ({ row }) => (
-        <div>{row.original.date_of_admission ? moment(row.original.date_of_admission).format('DD/MM/YYYY') : '-'}</div>
+        <div>
+          {row.original.date_of_admission ? moment.utc(row.original.date_of_admission).format('DD/MM/YYYY') : '-'}
+        </div>
       ),
       meta: { title: 'Fecha de ingreso' },
     },
@@ -849,7 +851,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
             ),
             cell: ({ row }: { row: import('@tanstack/react-table').Row<EmployeeListItem> }) => (
               <div>
-                {row.original.termination_date ? moment(row.original.termination_date).format('DD/MM/YYYY') : '-'}
+                {row.original.termination_date ? moment.utc(row.original.termination_date).format('DD/MM/YYYY') : '-'}
               </div>
             ),
             meta: { title: 'Fecha de baja' },
