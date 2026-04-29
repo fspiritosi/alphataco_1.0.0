@@ -101,11 +101,7 @@ const PRIVATE_PERMISSION_TAB: Record<string, string> = {
  * El parámetro `applies` se aplica como filtro fijo (scope de tab).
  * Filtra tipos de documento privados si el usuario no tiene permiso `view_private`.
  */
-async function buildWhereClause(
-  companyId: string,
-  applies: document_applies,
-  state: ReturnType<typeof parseSearchParams>
-) {
+async function buildWhereClause(applies: document_applies, state: ReturnType<typeof parseSearchParams>) {
   const tabSlug = PRIVATE_PERMISSION_TAB[applies];
   const canViewPrivate = tabSlug ? await checkPermissionServer('documentacion', tabSlug, 'view_private') : true;
   const searchWhere = buildSearchWhere(state.search, ['name', 'description']);
@@ -137,7 +133,6 @@ async function buildWhereClause(
   }
 
   return {
-    company_id: companyId,
     applies,
     ...searchWhere,
     ...filtersWhere,
@@ -153,8 +148,6 @@ async function buildWhereClause(
 // ============================================================================
 
 async function getDocTypesPaginated(applies: document_applies, searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
-
   try {
     const state = parseSearchParams(searchParams);
     for (const key of IGNORED_PARAMS) {
@@ -162,7 +155,7 @@ async function getDocTypesPaginated(applies: document_applies, searchParams: Dat
     }
 
     const { skip, take } = stateToPrismaParams(state);
-    const where = await buildWhereClause(companyId, applies, state);
+    const where = await buildWhereClause(applies, state);
 
     // Safe multi-sort, only whitelisted fields
     const resolvedSorts: Record<string, 'asc' | 'desc'>[] = [];
@@ -215,15 +208,13 @@ export async function getEmpresaDocTypesPaginated(searchParams: DataTableSearchP
 // ============================================================================
 
 async function getDocTypesForExport(applies: document_applies, searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
-
   try {
     const state = parseSearchParams(searchParams);
     for (const key of IGNORED_PARAMS) {
       delete state.filters[key];
     }
 
-    const where = await buildWhereClause(companyId, applies, state);
+    const where = await buildWhereClause(applies, state);
 
     return await prisma.document_types.findMany({
       orderBy: [{ name: 'asc' }],
@@ -256,13 +247,11 @@ export async function getEmpresaDocTypesForExport(searchParams: DataTableSearchP
  * Obtiene un tipo de documento completo (incluyendo conditions) para edición.
  */
 export async function getDocumentTypeForEdit(id: string) {
-  const companyId = await getServerCompanyId();
-
   logger.debug('Obteniendo tipo de documento para editar', { data: { id } });
 
   try {
     const data = await prisma.document_types.findFirst({
-      where: { id, company_id: companyId },
+      where: { id },
     });
 
     if (!data) {
@@ -352,13 +341,11 @@ export interface UpdateDocumentTypeInput {
  * Actualiza un tipo de documento existente.
  */
 export async function updateDocumentType(id: string, data: UpdateDocumentTypeInput) {
-  const companyId = await getServerCompanyId();
-
   logger.debug('Actualizando tipo de documento', { data: { id } });
 
   try {
     const existing = await prisma.document_types.findFirst({
-      where: { id, company_id: companyId },
+      where: { id },
       select: { id: true },
     });
 
@@ -797,8 +784,7 @@ export async function getDocTypeSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
-  const baseWhere = { company_id: companyId, applies };
+  const baseWhere = { applies };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -816,7 +802,7 @@ export async function getDocTypeSingleFacet(
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return await buildWhereClause(companyId, applies, modified);
+    return await buildWhereClause(applies, modified);
   }
 
   function toFacetMap(rows: { key: string | boolean | null | undefined; count: number }[]): Map<string, number> {
@@ -943,7 +929,7 @@ export async function verifyDocumentTypeConsistency(documentTypeId: string): Pro
   try {
     // 1. Cargar el tipo de documento
     const docType = await prisma.document_types.findFirst({
-      where: { id: documentTypeId, company_id: companyId },
+      where: { id: documentTypeId },
     });
 
     if (!docType) throw new Error('Tipo de documento no encontrado');
@@ -1180,7 +1166,7 @@ export async function fixDocumentTypeConsistency(
   try {
     // Cargar tipo para saber applies
     const docType = await prisma.document_types.findFirst({
-      where: { id: documentTypeId, company_id: companyId },
+      where: { id: documentTypeId },
       select: { applies: true },
     });
 
@@ -1340,7 +1326,7 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
 
   try {
     const docType = await prisma.document_types.findFirst({
-      where: { id: docTypeId, company_id: companyId },
+      where: { id: docTypeId },
       select: {
         id: true,
         name: true,
@@ -1446,7 +1432,7 @@ export async function deactivateDocumentType(docTypeId: string, options: { delet
   try {
     return await prisma.$transaction(async (tx) => {
       const docType = await tx.document_types.findFirst({
-        where: { id: docTypeId, company_id: companyId, is_active: true },
+        where: { id: docTypeId, is_active: true },
         select: { id: true, applies: true, mandatory: true },
       });
 
@@ -1522,7 +1508,7 @@ export async function hardDeleteDocumentType(docTypeId: string) {
   try {
     return await prisma.$transaction(async (tx) => {
       const docType = await tx.document_types.findFirst({
-        where: { id: docTypeId, company_id: companyId },
+        where: { id: docTypeId },
         select: { id: true, applies: true, mandatory: true },
       });
 
@@ -1595,14 +1581,13 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
   try {
     return await prisma.$transaction(async (tx) => {
       const docType = await tx.document_types.findFirst({
-        where: { id: docTypeId, company_id: companyId, is_active: false },
+        where: { id: docTypeId, is_active: false },
         select: {
           id: true,
           applies: true,
           mandatory: true,
           special: true,
           conditions: true,
-          company_id: true,
         },
       });
 
@@ -1626,7 +1611,7 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
                 WHERE de.id_document_types = $2 AND de.applies = e.id
               )
           `,
-            docType.company_id,
+            companyId,
             docTypeId
           );
 
@@ -1651,7 +1636,7 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
                 WHERE de.id_document_types = $2 AND de.applies = v.id
               )
           `,
-            docType.company_id,
+            companyId,
             docTypeId
           );
 
@@ -1670,11 +1655,11 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
           const existing = await tx.documents_company.findFirst({
             where: { id_document_types: docTypeId },
           });
-          if (!existing && docType.company_id) {
+          if (!existing && companyId) {
             await tx.documents_company.create({
               data: {
                 id_document_types: docTypeId,
-                applies: docType.company_id,
+                applies: companyId,
                 state: 'pendiente',
                 is_active: true,
               },

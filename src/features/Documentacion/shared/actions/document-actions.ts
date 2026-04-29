@@ -1,20 +1,11 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 
 export const fetchAllDocumentTypes = async () => {
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
 
-  const { data, error } = await supabase
-    .from('document_types')
-    .select('*')
-    .eq('is_active', true)
-    .or(`company_id.eq.${company_id},company_id.is.null`)
-    .order('name');
+  const { data, error } = await supabase.from('document_types').select('*').eq('is_active', true).order('name');
 
   if (error) {
     console.error('Error fetching document types:', error);
