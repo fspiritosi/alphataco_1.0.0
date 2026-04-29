@@ -11,6 +11,7 @@ import type {
 import { Logger } from '@/lib/logger';
 import { getCachedSession } from '@/shared/lib/cached-session';
 import { prisma } from '@/shared/lib/prisma';
+import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import type { EmployeeFormData } from './components/forms/employee-form';
 
@@ -516,6 +517,8 @@ export async function createEmployee(data: EmployeeFormData) {
     });
 
     logger.info('Empleado creado exitosamente', { data: { employeeId: employee.id } });
+    revalidatePath('/dashboard/employee/action');
+    revalidatePath('/dashboard/employee');
     return employee;
   } catch (error) {
     logger.error('Error al crear empleado', { data: { error } });
@@ -600,6 +603,8 @@ export async function updateEmployee(employeeId: string, data: EmployeeFormData)
     });
 
     logger.info('Empleado actualizado exitosamente', { data: { employeeId: employee.id } });
+    revalidatePath('/dashboard/employee/action');
+    revalidatePath('/dashboard/employee');
     return employee;
   } catch (error) {
     logger.error('Error al actualizar empleado', { data: { error, employeeId } });
