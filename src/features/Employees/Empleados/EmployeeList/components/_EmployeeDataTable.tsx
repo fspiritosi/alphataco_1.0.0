@@ -441,9 +441,9 @@ export default function _EmployeeDataTable({
           cost_type: (value) => getEnumLabel(value as string, costTypeLabels),
           affiliate_status: (value) => getEnumLabel(value as string, affiliateStatusLabels),
           reason_for_termination: (value) => getEnumLabel(value as string, reasonForTerminationLabels),
-          date_of_admission: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
+          date_of_admission: (value) => (value ? moment.utc(value as string | Date).format('DD/MM/YYYY') : '-'),
           created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
-          termination_date: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
+          termination_date: (value) => (value ? moment.utc(value as string | Date).format('DD/MM/YYYY') : '-'),
           born_date: (value) => {
             if (!value) return '-';
             const parsed = moment(value as string, ['YYYY-MM-DD', 'DD/MM/YYYY'], true);
