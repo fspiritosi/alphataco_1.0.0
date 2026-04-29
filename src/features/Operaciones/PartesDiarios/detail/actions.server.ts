@@ -1965,6 +1965,9 @@ export async function getVehiclesForForm() {
           select: { name: true },
         },
         type: true,
+        type_vehicles_typeTotype: {
+          select: { id: true, name: true },
+        },
         contractor_equipment: {
           select: {
             customers: {

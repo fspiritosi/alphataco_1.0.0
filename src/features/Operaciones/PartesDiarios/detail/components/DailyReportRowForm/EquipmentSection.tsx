@@ -103,9 +103,9 @@ export function EquipmentSection({
                         (() => {
                           const typesMap: Record<string, VehicleForForm[]> = {};
                           vehicles.forEach((v) => {
-                            const type = v.type ?? 'Sin tipo';
-                            if (!typesMap[type]) typesMap[type] = [];
-                            typesMap[type].push(v);
+                            const typeName = v.type_vehicles_typeTotype?.name ?? 'Sin tipo';
+                            if (!typesMap[typeName]) typesMap[typeName] = [];
+                            typesMap[typeName].push(v);
                           });
 
                           return Object.keys(typesMap)

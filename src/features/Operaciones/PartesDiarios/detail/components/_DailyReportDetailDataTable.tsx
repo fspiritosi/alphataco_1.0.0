@@ -2,8 +2,8 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
@@ -15,13 +15,12 @@ import { dailyReportRowStatusLabels, dailyReportTypeServiceLabels } from '@/shar
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  CalendarCheck,
   CalendarOff,
   CheckCircle2,
   CircleOff,
   Clock,
-  Copy,
   Pencil,
-  Plus,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -513,96 +512,95 @@ export function _DailyReportDetailDataTable({
     ]
   );
 
-  // ── Toolbar: Crear button + bulk actions ──────────────────────────────────
+  // ── Toolbar: bulk Editar (solo con selección activa) ──────────────────────
   const toolbarActions = useMemo(() => {
     const selectedCount = selectedRows.length;
     const hasBulk = selectedCount > 0;
     const hasExecutedSelected = selectedRows.some((r) => r.status === 'ejecutado');
 
+    if (!hasBulk || !canUpdate) return null;
+
     return (
       <TooltipProvider delayDuration={150}>
         <div className="flex items-center gap-2">
-          {/* CTA primario: Crear */}
-          {canUpdate &&
-            (canCreate ? (
-              <Button variant="default" size="sm" className="gap-1.5" onClick={() => openForm()}>
-                <Plus className="h-3.5 w-3.5" />
-                Crear
-              </Button>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0} className="inline-flex">
-                    <Button variant="default" size="sm" className="gap-1.5" disabled>
-                      <Plus className="h-3.5 w-3.5" />
-                      Crear
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="max-w-xs text-xs">El parte está cerrado y no es el día de hoy</p>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-
-          {/* Separador visual entre CTA y acciones secundarias */}
-          {canUpdate && <Separator orientation="vertical" className="mx-1 h-6" />}
-
-          {/* Acciones masivas — solo con selección activa */}
-          {hasBulk && canUpdate && (
-            <>
-              {hasExecutedSelected ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} className="inline-flex">
-                      <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Editar
-                        <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
-                          {selectedCount}
-                        </Badge>
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="max-w-xs text-xs">
-                      No se pueden editar registros ejecutados. Deseleccioná las filas con estado{' '}
-                      <span className="font-medium">Ejecutado</span> para continuar.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkEdit(true)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Editar
-                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
-                    {selectedCount}
-                  </Badge>
-                </Button>
-              )}
-            </>
-          )}
-
-          {/* Clonar — siempre disponible si canUpdate; cambia de label según haya selección */}
-          {canUpdate && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowClone(true)}>
-              <Copy className="h-3.5 w-3.5" />
-              {hasBulk ? (
-                <>
-                  Clonar
-                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
-                    {selectedCount}
-                  </Badge>
-                </>
-              ) : (
-                'Clonar todo el parte'
-              )}
+          {hasExecutedSelected ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0} className="inline-flex">
+                  <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                    <Pencil className="h-3.5 w-3.5" />
+                    Editar
+                    <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                      {selectedCount}
+                    </Badge>
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="max-w-xs text-xs">
+                  No se pueden editar registros ejecutados. Deseleccioná las filas con estado{' '}
+                  <span className="font-medium">Ejecutado</span> para continuar.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkEdit(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                {selectedCount}
+              </Badge>
             </Button>
           )}
         </div>
       </TooltipProvider>
     );
-  }, [selectedRows, canUpdate, canCreate, openForm]);
+  }, [selectedRows, canUpdate]);
+
+  // ── Top action bar: Crear + Clonar (estilo prod, encima de la tabla) ─────
+  const topActionBar = useMemo(() => {
+    if (!canUpdate) return null;
+    const selectedCount = selectedRows.length;
+    const hasBulk = selectedCount > 0;
+
+    return (
+      <TooltipProvider delayDuration={150}>
+        <div className={cn('flex items-center', canCreate ? 'justify-between' : 'justify-end')}>
+          {canCreate ? (
+            <Button variant="default" onClick={() => openForm()}>
+              Crear
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0} className="inline-flex">
+                  <Button variant="default" disabled>
+                    Crear
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="max-w-xs text-xs">El parte está cerrado y no es el día de hoy</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Button onClick={() => setShowClone(true)} className="flex items-center gap-2 ml-2">
+            <CalendarCheck className="h-4 w-4" />
+            {hasBulk ? (
+              <>
+                Clonar
+                <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-medium">
+                  {selectedCount}
+                </Badge>
+              </>
+            ) : (
+              'Clonar Registros'
+            )}
+          </Button>
+        </div>
+      </TooltipProvider>
+    );
+  }, [canUpdate, canCreate, openForm, selectedRows]);
 
   // ── Export formatters ─────────────────────────────────────────────────────
   const exportFormatters = useMemo(
@@ -659,6 +657,7 @@ export function _DailyReportDetailDataTable({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
+      {topActionBar && <div className="mb-4">{topActionBar}</div>}
       <DataTable
         columns={columns}
         data={data}

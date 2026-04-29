@@ -937,6 +937,7 @@ export type PreparteReportDetail = {
   status: string;
   solicitante: string;
   observaciones: string | null;
+  motivo: string | null;
 };
 
 export type PreparteClientSummary = {
@@ -995,6 +996,9 @@ export async function getPreparteReportData(filters: PreparteReportFilters): Pro
         observaciones: true,
         executionDate: true,
         requestDate: true,
+        cancel_reason: true,
+        rejected_reason: true,
+        reprogram_reason: true,
         customers: { select: { name: true } },
         customer_services: { select: { service_name: true } },
         service_items: { select: { item_name: true } },
@@ -1054,18 +1058,28 @@ export async function getPreparteReportData(filters: PreparteReportFilters): Pro
       lostPercentage: overallStats.lostPercentage,
     };
 
-    const details: PreparteReportDetail[] = data.map((row) => ({
-      id: row.id,
-      numero_pedido: row.numero_pedido,
-      clientName: row.customers?.name || '-',
-      contractName: row.customer_services?.service_name || '-',
-      itemName: row.service_items?.item_name || null,
-      requestDate: row.requestDate ? moment(row.requestDate).format('DD/MM/YYYY') : null,
-      executionDate: row.executionDate ? moment(row.executionDate).format('DD/MM/YYYY') : null,
-      status: row.status || 'sin_estado',
-      solicitante: row.solicitante,
-      observaciones: row.observaciones,
-    }));
+    const details: PreparteReportDetail[] = data.map((row) => {
+      const status = row.status || 'sin_estado';
+      let motivo: string | null = null;
+      if (status === 'cancelado') motivo = row.cancel_reason ?? null;
+      else if (status === 'rechazado') motivo = row.rejected_reason ?? null;
+      else if (status === 'reprogramado') motivo = row.reprogram_reason ?? null;
+      else if (status === 'vencido') motivo = 'Vencido sin confirmar a tiempo';
+
+      return {
+        id: row.id,
+        numero_pedido: row.numero_pedido,
+        clientName: row.customers?.name || '-',
+        contractName: row.customer_services?.service_name || '-',
+        itemName: row.service_items?.item_name || null,
+        requestDate: row.requestDate ? moment(row.requestDate).format('DD/MM/YYYY') : null,
+        executionDate: row.executionDate ? moment(row.executionDate).format('DD/MM/YYYY') : null,
+        status,
+        solicitante: row.solicitante,
+        observaciones: row.observaciones,
+        motivo,
+      };
+    });
 
     return { summary, details };
   } catch (error) {
