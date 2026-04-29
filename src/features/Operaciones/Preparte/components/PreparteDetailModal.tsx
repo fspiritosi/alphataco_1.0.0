@@ -115,15 +115,18 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
   };
 
   // Determinar si hay motivo de cancelación, rechazo o reprogramación
+  // Siempre se renderiza el banner cuando el estado lo requiere — si el motivo
+  // no está cargado, se muestra "Sin motivo registrado"
   const getReason = () => {
     const { status, cancel_reason, rejected_reason, reprogram_reason } = preparteData;
+    const fallback = 'Sin motivo registrado';
 
-    if (status === 'cancelado' && cancel_reason) {
-      return { title: 'Motivo de cancelación', content: cancel_reason };
-    } else if (status === 'rechazado' && rejected_reason) {
-      return { title: 'Motivo de rechazo', content: rejected_reason };
-    } else if (status === 'reprogramado' && reprogram_reason) {
-      return { title: 'Motivo de reprogramación', content: reprogram_reason };
+    if (status === 'cancelado') {
+      return { title: 'Motivo de cancelación', content: cancel_reason?.trim() || fallback };
+    } else if (status === 'rechazado') {
+      return { title: 'Motivo de rechazo', content: rejected_reason?.trim() || fallback };
+    } else if (status === 'reprogramado') {
+      return { title: 'Motivo de reprogramación', content: reprogram_reason?.trim() || fallback };
     } else if (status === 'vencido') {
       return { title: 'Vencimiento', content: 'Este preparte ha vencido sin ser confirmado a tiempo.' };
     }

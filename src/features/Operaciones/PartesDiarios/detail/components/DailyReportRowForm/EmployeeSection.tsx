@@ -63,38 +63,69 @@ function EmployeeRoleSelect({
             <CommandInput placeholder="Buscar por legajo o nombre..." className="h-9" />
             <CommandList>
               <CommandEmpty>No se encontraron empleados.</CommandEmpty>
-              <CommandGroup className="max-h-[250px] overflow-y-auto">
-                {employees.map((employee) => {
-                  const isDisabled = disabledEmployeeIds.includes(employee.id);
-                  const isAssigned = employee.contractor_employee?.some(
-                    (ce) => ce.customers?.id === selectedCustomerId
-                  );
-                  return (
-                    <CommandItem
-                      value={`${employee.file} ${employee.lastname} ${employee.firstname}`}
-                      key={employee.id}
-                      disabled={isDisabled}
-                      onSelect={() => {
-                        if (isDisabled) return;
-                        onChange(employee.id);
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        isDisabled && 'opacity-50 cursor-not-allowed',
-                        !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
-                      )}
-                    >
-                      <Check className={cn('mr-2 h-4 w-4', value === employee.id ? 'opacity-100' : 'opacity-0')} />[
-                      {employee.file}] {employee.lastname} {employee.firstname}
-                      {!isAssigned && (
-                        <Badge variant="outline" className="ml-auto bg-orange-100 text-orange-800 border-orange-300">
-                          No asignado
-                        </Badge>
-                      )}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
+              {selectedCustomerId && (
+                <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                  Los empleados en naranja no están asignados al cliente seleccionado.
+                </div>
+              )}
+              {(() => {
+                const positionsMap: Record<string, EmployeeForForm[]> = {};
+                employees.forEach((employee) => {
+                  const position = employee.company_positions?.name ?? 'Sin posición';
+                  if (!positionsMap[position]) positionsMap[position] = [];
+                  positionsMap[position].push(employee);
+                });
+
+                return Object.keys(positionsMap)
+                  .sort()
+                  .map((position) => (
+                    <CommandGroup key={position} heading={position.charAt(0).toUpperCase() + position.slice(1)}>
+                      {positionsMap[position].map((employee) => {
+                        const isDisabled = disabledEmployeeIds.includes(employee.id);
+                        const isAssigned = employee.contractor_employee?.some(
+                          (ce) => ce.customers?.id === selectedCustomerId
+                        );
+                        return (
+                          <CommandItem
+                            value={`${employee.file} ${employee.lastname} ${employee.firstname}`}
+                            key={employee.id}
+                            disabled={isDisabled}
+                            onSelect={() => {
+                              if (isDisabled) return;
+                              onChange(employee.id);
+                              setOpen(false);
+                            }}
+                            className={cn(
+                              isDisabled && 'opacity-50 cursor-not-allowed',
+                              !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                            )}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <div className="flex items-center">
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    !isAssigned && 'text-orange-600',
+                                    value === employee.id ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                                [{employee.file}] {employee.lastname} {employee.firstname}
+                              </div>
+                              {!isAssigned && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                >
+                                  No asignado
+                                </Badge>
+                              )}
+                            </div>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ));
+              })()}
             </CommandList>
           </Command>
         </PopoverContent>

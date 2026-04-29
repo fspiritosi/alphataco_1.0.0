@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -11,17 +10,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import moment from 'moment';
 import { UseFormReturn } from 'react-hook-form';
 import type { DailyReportRowFormValues } from './schema';
-
-const WORKING_DAY_OPTIONS = [
-  { label: 'Jornada 8 horas', value: 'Jornada 8 horas' },
-  { label: 'Jornada 12 horas', value: 'Jornada 12 horas' },
-  { label: 'Jornada 24 horas', value: 'Jornada 24 horas' },
-  { label: 'Por horario', value: 'por horario' },
-];
 
 interface ScheduleSectionProps {
   form: UseFormReturn<DailyReportRowFormValues>;
@@ -29,9 +21,17 @@ interface ScheduleSectionProps {
   /** The date of the daily report (for disabling "ejecutado" when in the future) */
   reportDate?: string;
   disabled?: boolean;
+  /** Si true, mostrar el campo "Motivo de reasignación" (cuando cambian empleados/equipos en edición) */
+  showReasigmentReason?: boolean;
 }
 
-export function ScheduleSection({ form, isEditMode = false, reportDate, disabled = false }: ScheduleSectionProps) {
+export function ScheduleSection({
+  form,
+  isEditMode = false,
+  reportDate,
+  disabled = false,
+  showReasigmentReason = false,
+}: ScheduleSectionProps) {
   const watchedWorkingDay = form.watch('working_day')?.toLowerCase() ?? '';
   const watchedStatus = form.watch('status');
   const watchedReproDate = form.watch('reprogram_date');
@@ -144,72 +144,6 @@ export function ScheduleSection({ form, isEditMode = false, reportDate, disabled
         />
       )}
 
-      {/* Jornada */}
-      <FormField
-        control={form.control}
-        name="working_day"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Jornada</FormLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    disabled={disabled}
-                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                    data-testid="working-day-select-button"
-                  >
-                    {field.value
-                      ? WORKING_DAY_OPTIONS.find((d) => d.value.toLowerCase() === field.value.toLowerCase())?.label
-                      : 'Seleccionar jornada'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="max-w-[400px] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar jornada..." className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
-                    <CommandGroup>
-                      {WORKING_DAY_OPTIONS.map((day) => (
-                        <CommandItem
-                          value={day.label.toLocaleLowerCase()}
-                          key={day.value.toLocaleLowerCase()}
-                          data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
-                          onSelect={() => {
-                            const previousValue = form.getValues('working_day');
-                            form.setValue('working_day', day.value.toLowerCase());
-                            if (
-                              previousValue?.toLowerCase() === 'por horario' ||
-                              day.value.toLowerCase() !== 'por horario'
-                            ) {
-                              form.setValue('start_time', '');
-                              form.setValue('end_time', '');
-                            }
-                          }}
-                        >
-                          {day.label}
-                          <Check
-                            className={cn(
-                              'ml-auto h-4 w-4',
-                              day.value.toLowerCase() === field.value?.toLowerCase() ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
       {/* Completed day/night checkboxes — solo en edición y jornada 24h pendiente */}
       {isEditMode && watchedStatus === 'pendiente' && is24Hours && (
         <div className="flex flex-row gap-4 items-center">
@@ -321,20 +255,22 @@ export function ScheduleSection({ form, isEditMode = false, reportDate, disabled
         )}
       />
 
-      {/* Motivo de reasignación (condicional) */}
-      <FormField
-        control={form.control}
-        name="reasigment_reason"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Motivo de reasignación (si aplica)</FormLabel>
-            <FormControl>
-              <Input placeholder="Ingrese el motivo de la reasignación" {...field} value={field.value ?? ''} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {/* Motivo de reasignación — solo cuando se removieron/reemplazaron empleados o equipos */}
+      {showReasigmentReason && (
+        <FormField
+          control={form.control}
+          name="reasigment_reason"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Motivo de reasignación</FormLabel>
+              <FormControl>
+                <Input placeholder="Ingrese el motivo de la reasignación" {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
     </div>
   );
 }

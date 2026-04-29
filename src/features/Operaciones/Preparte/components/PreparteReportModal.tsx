@@ -216,7 +216,7 @@ function buildDetailSheetByLine(workbook: ExcelJS.Workbook, result: PreparteRepo
   const { summary, details } = result;
 
   // Título
-  sheet.mergeCells('A1:I1');
+  sheet.mergeCells('A1:J1');
   const title = sheet.getCell('A1');
   title.value = 'Detalle — Por Línea';
   title.font = { bold: true, size: 14, color: { argb: THEME.primary } };
@@ -231,6 +231,7 @@ function buildDetailSheetByLine(workbook: ExcelJS.Workbook, result: PreparteRepo
     'Fecha Solicitud',
     'Fecha Ejecución',
     'Estado',
+    'Motivo',
     'Solicitante',
     'Observaciones',
   ];
@@ -259,7 +260,7 @@ function buildDetailSheetByLine(workbook: ExcelJS.Workbook, result: PreparteRepo
       const statusLabel = STATUS_LABELS[currentStatus] || currentStatus;
       const statusCount = summary.byStatus[currentStatus]?.count ?? 0;
       const statusPct = summary.byStatus[currentStatus]?.percentage ?? 0;
-      addGroupSeparator(sheet, rowIndex, 9, `${statusLabel} (${statusCount} — ${statusPct}%)`);
+      addGroupSeparator(sheet, rowIndex, headers.length, `${statusLabel} (${statusCount} — ${statusPct}%)`);
       rowIndex++;
       dataRowCount = 0;
     }
@@ -273,6 +274,7 @@ function buildDetailSheetByLine(workbook: ExcelJS.Workbook, result: PreparteRepo
       detail.requestDate || '-',
       detail.executionDate || '-',
       STATUS_LABELS[detail.status] || detail.status,
+      detail.motivo || '-',
       detail.solicitante,
       detail.observaciones || '-',
     ];
@@ -287,7 +289,7 @@ function buildDetailSheetByLine(workbook: ExcelJS.Workbook, result: PreparteRepo
     dataRowCount++;
   }
 
-  [14, 25, 25, 25, 14, 14, 16, 20, 30].forEach((w, i) => {
+  [14, 25, 25, 25, 14, 14, 16, 30, 20, 30].forEach((w, i) => {
     sheet.getColumn(i + 1).width = w;
   });
 }
@@ -297,7 +299,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
   const { summary, details } = result;
 
   // Título
-  sheet.mergeCells('A1:H1');
+  sheet.mergeCells('A1:I1');
   const title = sheet.getCell('A1');
   title.value = 'Detalle — Agrupado por Pedido';
   title.font = { bold: true, size: 14, color: { argb: THEME.primary } };
@@ -312,6 +314,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
     'Fecha Solicitud',
     'Fecha Ejecución',
     'Estado',
+    'Motivo',
     'Solicitante',
   ];
 
@@ -334,6 +337,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
       requestDate: string | null;
       executionDate: string | null;
       statuses: string[];
+      motivos: Set<string>;
       solicitante: string;
     }
   >();
@@ -346,6 +350,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
       if (!existing.statuses.includes(detail.status)) {
         existing.statuses.push(detail.status);
       }
+      if (detail.motivo) existing.motivos.add(detail.motivo);
     } else {
       orderMap.set(key, {
         numero_pedido: detail.numero_pedido || '-',
@@ -355,6 +360,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
         requestDate: detail.requestDate,
         executionDate: detail.executionDate,
         statuses: [detail.status],
+        motivos: new Set(detail.motivo ? [detail.motivo] : []),
         solicitante: detail.solicitante,
       });
     }
@@ -380,13 +386,14 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
       const statusLabel = STATUS_LABELS[currentStatus] || currentStatus;
       const statusCount = summary.byStatus[currentStatus]?.count ?? 0;
       const statusPct = summary.byStatus[currentStatus]?.percentage ?? 0;
-      addGroupSeparator(sheet, rowIndex, 8, `${statusLabel} (${statusCount} — ${statusPct}%)`);
+      addGroupSeparator(sheet, rowIndex, 9, `${statusLabel} (${statusCount} — ${statusPct}%)`);
       rowIndex++;
       dataRowCount = 0;
     }
 
     const row = sheet.getRow(rowIndex);
     const statusDisplay = order.statuses.map((s) => STATUS_LABELS[s] || s).join(', ');
+    const motivoDisplay = order.motivos.size > 0 ? [...order.motivos].join(' | ') : '-';
 
     const cellValues = [
       order.numero_pedido,
@@ -396,6 +403,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
       order.requestDate || '-',
       order.executionDate || '-',
       statusDisplay,
+      motivoDisplay,
       order.solicitante,
     ];
 
@@ -409,7 +417,7 @@ function buildDetailSheetByOrder(workbook: ExcelJS.Workbook, result: PreparteRep
     dataRowCount++;
   }
 
-  [14, 25, 25, 12, 14, 14, 20, 20].forEach((w, i) => {
+  [14, 25, 25, 12, 14, 14, 20, 30, 20].forEach((w, i) => {
     sheet.getColumn(i + 1).width = w;
   });
 }
