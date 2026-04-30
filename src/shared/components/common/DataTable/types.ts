@@ -234,6 +234,9 @@ export interface DataTableProps<TData, TValue = unknown> {
   /** Indica que los facets se están re-fetcheando (muestra skeletons en los filtros activos) */
   isFetchingFacets?: boolean;
 
+  /** Función para asignar className condicional a cada fila (ej: background por estado) */
+  rowClassName?: (row: TData) => string;
+
   // ---- Client-side navigation mode ----
 
   /**

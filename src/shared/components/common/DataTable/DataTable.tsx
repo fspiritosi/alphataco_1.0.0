@@ -59,6 +59,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   initialFilterVisibility = {},
   'data-testid': dataTestId = 'data-table',
   isFetchingFacets,
+  rowClassName,
   // Client-side mode props
   queryFn,
   queryKey: queryKeyProp,
@@ -260,6 +261,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                     data-testid={`table-row-${row.id}`}
+                    className={rowClassName ? rowClassName(row.original) : undefined}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
