@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   getMaintenanceOrderActivityLog,
   getMaintenanceOrderFullActivityLog,
@@ -16,19 +15,31 @@ import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowRight,
+  ArrowUpDown,
   Calendar,
   CheckCircle,
   ClipboardCheck,
   Clock,
   FileText,
   GitBranch,
+  Hash,
+  Layers,
   LogIn,
   Pause,
   Play,
+  Plus,
+  Settings,
+  Trash2,
   Truck,
+  Undo2,
   User,
+  Wrench,
   XCircle,
 } from 'lucide-react';
+import { ActivityHistorySkeleton } from './ActivityHistory/ActivityHistorySkeleton';
+import { GroupedActionItem } from './ActivityHistory/GroupedActionItem';
+import { WorkOrderAccordion } from './ActivityHistory/WorkOrderAccordion';
 
 interface ActivityHistoryModalProps {
   open: boolean;
@@ -101,6 +112,101 @@ const actionConfig: Record<
   // Otras acciones
   status_changed: { label: 'Estado actualizado', icon: Clock, color: 'text-gray-600', bgColor: 'bg-gray-50' },
   comment_added: { label: 'Comentario agregado', icon: User, color: 'text-gray-600', bgColor: 'bg-gray-50' },
+
+  // Gestión de items y OM
+  order_items_updated: {
+    label: 'Gestión de items actualizada',
+    icon: Settings,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+  },
+  order_items_assigned: {
+    label: 'Items asignados a sectores',
+    icon: Layers,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+  },
+  order_item_added: { label: 'Item agregado', icon: Plus, color: 'text-green-600', bgColor: 'bg-green-50' },
+  order_item_repair_types_updated: {
+    label: 'Tipos de reparación actualizados',
+    icon: Wrench,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-50',
+  },
+  order_item_removed: { label: 'Item eliminado', icon: Trash2, color: 'text-red-600', bgColor: 'bg-red-50' },
+  order_number_generated: {
+    label: 'Número de OM generado',
+    icon: Hash,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-50',
+  },
+  work_orders_generated: { label: 'OTs generadas', icon: GitBranch, color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
+
+  workshop_returned_order: {
+    label: 'OM devuelta al taller',
+    icon: Undo2,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+  },
+  sector_execution_order_updated: {
+    label: 'Orden de sectores actualizado',
+    icon: ArrowUpDown,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+  },
+  external_wo_completed: {
+    label: 'OT externa completada',
+    icon: CheckCircle,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+  },
+
+  repair_task_approved: { label: 'Tarea aprobada', icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
+  repair_task_rejected: { label: 'Tarea rechazada', icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-50' },
+  repair_task_reassigned: {
+    label: 'Tarea reasignada a otro sector',
+    icon: ArrowRight,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+  },
+
+  wo_started: { label: 'OT iniciada', icon: Play, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  wo_paused: { label: 'OT pausada', icon: Pause, color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+  wo_resumed: { label: 'OT reanudada', icon: Play, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  wo_closed: { label: 'OT cerrada', icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
+  repair_completed: {
+    label: 'Reparación completada',
+    icon: CheckCircle,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+  },
+  repair_uncompleted: { label: 'Reparación reabierta', icon: Undo2, color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+  repair_technician_notes_updated: {
+    label: 'Notas del técnico actualizadas',
+    icon: FileText,
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-50',
+  },
+  repair_returned_to_chief: {
+    label: 'Tarea devuelta al jefe',
+    icon: Undo2,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+  },
+  task_added_by_operator: {
+    label: 'Tarea agregada por operario',
+    icon: Plus,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+  },
+  task_requested_for_other_sector: {
+    label: 'Tarea solicitada a otro sector',
+    icon: ArrowRight,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+  },
+
+  approved: { label: 'Solicitud aprobada', icon: CheckCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
 };
 
 // Tipo para el performer (puede venir como objeto o array de Supabase)
@@ -460,18 +566,7 @@ export function ActivityHistoryModal({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="flex-1 space-y-1">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                    <Skeleton className="h-3 w-1/3" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActivityHistorySkeleton showWorkOrders={isOrderView} />
           ) : (activityLog && activityLog.length > 0) || requestOrigin ? (
             <div>
               {/* Mostrar OTs hermanas si es vista de work order */}
@@ -484,15 +579,81 @@ export function ActivityHistoryModal({
                 {/* Mostrar origen como primer item (para vista de pedido o solicitud) */}
                 {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={activityLog.length > 0} />}
 
-                {activityLog.map((entry, index) => (
-                  <TimelineItem
-                    key={entry.id}
-                    entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
-                    isLast={index === activityLog.length - 1}
-                    showSource={isWorkOrderView}
-                  />
-                ))}
+                {activityLog.map((entry, index) => {
+                  if (entry.action_type === 'order_items_updated') {
+                    return (
+                      <GroupedActionItem
+                        key={entry.id}
+                        performedAt={entry.performed_at}
+                        performerName={getPerformerName(entry.performer ?? null)}
+                        metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                        isLast={index === activityLog.length - 1}
+                      />
+                    );
+                  }
+                  return (
+                    <TimelineItem
+                      key={entry.id}
+                      entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
+                      isLast={index === activityLog.length - 1}
+                      showSource={isWorkOrderView}
+                    />
+                  );
+                })}
               </div>
+
+              {/* Sección de Órdenes de Trabajo (solo en vista de OM) */}
+              {isOrderView && fullOrderLog?.workOrders && fullOrderLog.workOrders.length > 0 && (
+                <>
+                  <Separator className="my-4" />
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <GitBranch className="h-4 w-4" />
+                      Órdenes de Trabajo ({fullOrderLog.workOrders.length})
+                    </h4>
+                    {fullOrderLog.workOrders.map((wo, idx) => (
+                      <WorkOrderAccordion
+                        key={wo.id}
+                        workOrder={{
+                          id: wo.id,
+                          orderNumber: wo.orderNumber,
+                          status: wo.status,
+                          sectorName: wo.sectorName,
+                          isExternal: wo.isExternal,
+                        }}
+                        defaultOpen={fullOrderLog.workOrders.length === 1 || idx === 0}
+                      >
+                        {wo.history.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">Sin actividad registrada en esta OT.</p>
+                        ) : (
+                          <div className="relative">
+                            {wo.history.map((entry, i) => {
+                              if (entry.action_type === 'order_items_updated') {
+                                return (
+                                  <GroupedActionItem
+                                    key={entry.id}
+                                    performedAt={entry.performed_at}
+                                    performerName={getPerformerName(entry.performer ?? null)}
+                                    metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                                    isLast={i === wo.history.length - 1}
+                                  />
+                                );
+                              }
+                              return (
+                                <TimelineItem
+                                  key={entry.id}
+                                  entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
+                                  isLast={i === wo.history.length - 1}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </WorkOrderAccordion>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* Separador y leyenda si es vista de work order */}
               {isWorkOrderView && (

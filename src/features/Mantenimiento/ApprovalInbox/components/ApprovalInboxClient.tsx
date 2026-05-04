@@ -18,11 +18,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, FileText, MessageSquare, RotateCcw, ShieldCheck, Truck, Wrench, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  Clock,
+  FileText,
+  MessageSquare,
+  RotateCcw,
+  ShieldCheck,
+  Truck,
+  Wrench,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -117,6 +129,12 @@ function getDriverComment(task: PendingTaskData | ReturnedTaskData): string | nu
   return 'driver_comment' in reqItem ? (reqItem.driver_comment as string | null) : null;
 }
 
+function getWorkOrderId(task: PendingTaskData | ReturnedTaskData): string | null {
+  const woItems = task.work_order_items;
+  if (!woItems || typeof woItems !== 'object') return null;
+  return 'work_order_id' in woItems ? (woItems.work_order_id as string | null) ?? null : null;
+}
+
 function getAddedByName(task: PendingTaskData): string | null {
   const user = task.added_by_user;
   if (!user || typeof user !== 'object') return null;
@@ -150,6 +168,9 @@ export function ApprovalInboxClient({
   // Modal states for indicators
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showReturnedModal, setShowReturnedModal] = useState(false);
+
+  // History modal state
+  const [historyWoId, setHistoryWoId] = useState<string | null>(null);
 
   // Approve task dialog state
   const [approveTarget, setApproveTarget] = useState<PendingTaskData | null>(null);
@@ -319,6 +340,16 @@ export function ApprovalInboxClient({
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
                             variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Ver historial"
+                            onClick={() => setHistoryWoId(getWorkOrderId(task))}
+                            disabled={!getWorkOrderId(task)}
+                          >
+                            <Clock className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
                             size="sm"
                             className="text-green-600 h-8"
                             onClick={() => setApproveTarget(task)}
@@ -422,15 +453,22 @@ export function ApprovalInboxClient({
                           </div>
                           {originalSectorName && <Badge variant="warning">{originalSectorName}</Badge>}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 h-8"
-                          onClick={() => setReassignTarget(task)}
-                        >
-                          <ArrowRight className="h-4 w-4 mr-1" />
-                          Reasignar
-                        </Button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Ver historial"
+                            onClick={() => setHistoryWoId(getWorkOrderId(task))}
+                            disabled={!getWorkOrderId(task)}
+                          >
+                            <Clock className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8" onClick={() => setReassignTarget(task)}>
+                            <ArrowRight className="h-4 w-4 mr-1" />
+                            Reasignar
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Repair type */}
@@ -564,6 +602,13 @@ export function ApprovalInboxClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ActivityHistoryModal
+        open={!!historyWoId}
+        onClose={() => setHistoryWoId(null)}
+        workOrderId={historyWoId}
+        title="Historial de OT"
+      />
     </>
   );
 }

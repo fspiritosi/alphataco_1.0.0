@@ -17,12 +17,13 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, Loader2, Plus, Save, Trash2, Wrench } from 'lucide-react';
+import { ClipboardList, Clock, Loader2, Plus, Save, Trash2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -84,6 +85,7 @@ export function ManageOrderDialog({
   const [editingRepairTypesItem, setEditingRepairTypesItem] = useState<OrderItem | null>(null);
   const [generateWoOpen, setGenerateWoOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Local items state for batch editing
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
@@ -468,11 +470,17 @@ export function ManageOrderDialog({
               <div className="flex items-center gap-2">
                 <span className="font-mono text-lg">{order.order_number || 'Orden sin numero'}</span>
               </div>
-              {hasChanges && (
-                <Badge variant="warning" className="text-xs animate-pulse">
-                  Cambios sin guardar
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {hasChanges && (
+                  <Badge variant="warning" className="text-xs animate-pulse">
+                    Cambios sin guardar
+                  </Badge>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
+                  <Clock className="h-4 w-4 mr-1" />
+                  Ver historial
+                </Button>
+              </div>
             </DialogTitle>
 
             {/* Vehicle info bar */}
@@ -783,6 +791,13 @@ export function ManageOrderDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ActivityHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        maintenanceOrderId={order?.id ?? null}
+        title={`Historial de OM ${order?.order_number ?? ''}`}
+      />
     </>
   );
 }
