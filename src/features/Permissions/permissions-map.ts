@@ -753,7 +753,7 @@ export const PERMISSIONS = {
         name: 'Detalle de Parte Diario',
         tabId: '70000000-0000-0000-0000-000000000003',
         parent: null,
-        allowedActions: ['view', 'create', 'update'],
+        allowedActions: ['view', 'create', 'update', 'delete'],
         subtabs: {},
       },
     },
