@@ -1406,22 +1406,36 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
   }
 
   try {
-    // ── Completar diurno (pseudo-estado: solo setea completed_day = true) ────
-    if (data.completar_diurno) {
-      const result = await prisma.dailyreportrows.updateMany({
-        where: { id: { in: rowIds } },
-        data: { completed_day: true },
-      });
-      return { count: result.count };
-    }
+    // ── Completar diurno: setea completed_day=true; si la noche ya estaba ────
+    //    completa, promueve el status a 'ejecutado' (replicado de prod).
+    if (data.completar_diurno || data.completar_nocturno) {
+      const completandoDiurno = !!data.completar_diurno;
+      const completandoNocturno = !!data.completar_nocturno;
 
-    // ── Completar nocturno (pseudo-estado: solo setea completed_night = true) ─
-    if (data.completar_nocturno) {
-      const result = await prisma.dailyreportrows.updateMany({
+      // Leer estado actual de cada fila para decidir promoción
+      const currentRows = await prisma.dailyreportrows.findMany({
         where: { id: { in: rowIds } },
-        data: { completed_night: true },
+        select: { id: true, completed_day: true, completed_night: true, status: true },
       });
-      return { count: result.count };
+
+      const updates = currentRows.map((row) => {
+        const newCompletedDay = completandoDiurno ? true : row.completed_day;
+        const newCompletedNight = completandoNocturno ? true : row.completed_night;
+        const bothComplete = newCompletedDay === true && newCompletedNight === true;
+
+        const updateData: Record<string, unknown> = {};
+        if (completandoDiurno) updateData.completed_day = true;
+        if (completandoNocturno) updateData.completed_night = true;
+        if (bothComplete) updateData.status = 'ejecutado';
+
+        return prisma.dailyreportrows.update({
+          where: { id: row.id },
+          data: updateData,
+        });
+      });
+
+      await prisma.$transaction(updates);
+      return { count: currentRows.length };
     }
 
     // ── Reprogramado con fecha: clonar filas a destino + marcar origen ────────
