@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { OrderDetailDialog } from '@/features/Mantenimiento/MaintenanceOrders/components/OrderDetailDialog';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { calculateRepairProgress } from '@/features/Mantenimiento/utils/repairProgress';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
+import { Clock, Eye } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import type { ValidationOrdersData } from '../actions/actionsServer';
@@ -37,6 +38,27 @@ function getVehicleLabel(order: ValidationOrder): string {
   if (v.serie) return v.serie;
   if (v.intern_number) return `N° ${v.intern_number}`;
   return 'Sin identificar';
+}
+
+// ============================================================================
+// HISTORY CELL
+// ============================================================================
+
+function HistoryCell({ maintenanceOrderId, orderNumber }: { maintenanceOrderId: string; orderNumber: string | null }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="ghost" size="icon" onClick={() => setOpen(true)} title="Ver historial">
+        <Clock className="h-4 w-4" />
+      </Button>
+      <ActivityHistoryModal
+        open={open}
+        onClose={() => setOpen(false)}
+        maintenanceOrderId={maintenanceOrderId}
+        title={`Historial de OM ${orderNumber ?? ''}`}
+      />
+    </>
+  );
 }
 
 // ============================================================================
@@ -152,6 +174,16 @@ function ValidationOrdersTable({
           const date = row.original.workshop_entry_date;
           return <span className="text-sm">{date ? moment(date).format('DD/MM/YYYY') : '-'}</span>;
         },
+      },
+
+      // ── Historial ─────────────────────────────────────────────────────────
+      {
+        id: 'history',
+        meta: { title: '', excludeFromExport: true },
+        enableSorting: false,
+        enableHiding: false,
+        header: '',
+        cell: ({ row }) => <HistoryCell maintenanceOrderId={row.original.id} orderNumber={row.original.order_number} />,
       },
 
       // ── Acciones ──────────────────────────────────────────────────────────

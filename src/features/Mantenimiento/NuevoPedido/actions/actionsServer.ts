@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -340,18 +342,16 @@ export async function createMaintenanceOrderFromDeviations(input: {
         },
       });
 
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_request_id: request.id,
-          maintenance_order_id: order.id,
-          action_type: 'created',
-          performed_by: profile.id,
-          notes: `Pedido de mantenimiento preventivo creado: ${input.preventiveType}`,
-          metadata: {
-            source: 'preventive',
-            preventive_type: input.preventiveType,
-            supervisor_id: input.supervisorId,
-          },
+      await logActivity(tx, {
+        maintenanceRequestId: request.id,
+        maintenanceOrderId: order.id,
+        actionType: ACTIVITY_LOG.CREATED,
+        performedBy: profile.id,
+        notes: `Pedido de mantenimiento preventivo creado: ${input.preventiveType}`,
+        metadata: {
+          source: 'preventive',
+          preventive_type: input.preventiveType,
+          supervisor_id: input.supervisorId,
         },
       });
 
@@ -493,18 +493,16 @@ export async function createMaintenanceOrderFromDeviations(input: {
     });
 
     // 6. Registrar actividad en maintenance_activity_log
-    await tx.maintenance_activity_log.create({
-      data: {
-        maintenance_request_id: request.id,
-        maintenance_order_id: order.id,
-        action_type: 'created',
-        performed_by: profile.id,
-        notes: 'Pedido creado manualmente desde Nuevo Pedido',
-        metadata: {
-          source: 'manual',
-          supervisor_id: input.supervisorId,
-          deviations_count: deviations.length,
-        },
+    await logActivity(tx, {
+      maintenanceRequestId: request.id,
+      maintenanceOrderId: order.id,
+      actionType: ACTIVITY_LOG.CREATED,
+      performedBy: profile.id,
+      notes: 'Pedido creado manualmente desde Nuevo Pedido',
+      metadata: {
+        source: 'manual',
+        supervisor_id: input.supervisorId,
+        deviations_count: deviations.length,
       },
     });
 
@@ -681,18 +679,16 @@ export async function createMaintenanceRequestPendingApproval(input: {
         },
       });
 
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_request_id: request.id,
-          action_type: 'created',
-          performed_by: profile.id,
-          notes: `Solicitud de mantenimiento preventivo creada: ${input.preventiveType} - Pendiente de aprobación`,
-          metadata: {
-            source: 'preventive',
-            preventive_type: input.preventiveType,
-            supervisor_id: input.supervisorId,
-            requires_approval: true,
-          },
+      await logActivity(tx, {
+        maintenanceRequestId: request.id,
+        actionType: ACTIVITY_LOG.CREATED,
+        performedBy: profile.id,
+        notes: `Solicitud de mantenimiento preventivo creada: ${input.preventiveType} - Pendiente de aprobación`,
+        metadata: {
+          source: 'preventive',
+          preventive_type: input.preventiveType,
+          supervisor_id: input.supervisorId,
+          requires_approval: true,
         },
       });
 
@@ -812,18 +808,16 @@ export async function createMaintenanceRequestPendingApproval(input: {
     );
 
     // 4. Registrar actividad en maintenance_activity_log
-    await tx.maintenance_activity_log.create({
-      data: {
-        maintenance_request_id: request.id,
-        action_type: 'created',
-        performed_by: profile.id,
-        notes: 'Solicitud creada manualmente desde Nuevo Pedido - Pendiente de aprobación del supervisor',
-        metadata: {
-          source: 'manual',
-          supervisor_id: input.supervisorId,
-          deviations_count: pendingDeviations.length,
-          requires_approval: true,
-        },
+    await logActivity(tx, {
+      maintenanceRequestId: request.id,
+      actionType: ACTIVITY_LOG.CREATED,
+      performedBy: profile.id,
+      notes: 'Solicitud creada manualmente desde Nuevo Pedido - Pendiente de aprobación del supervisor',
+      metadata: {
+        source: 'manual',
+        supervisor_id: input.supervisorId,
+        deviations_count: pendingDeviations.length,
+        requires_approval: true,
       },
     });
 
