@@ -184,6 +184,10 @@ export function PreparteManager({
           numero_pedido: formData.numero_pedido,
           // Si el estado es 'reprogramado', guardamos el ID del preparte original
           reprogram: formData.status === 'reprogramado' ? currentItem.id : undefined,
+          // Motivo del cambio de estado (el actor lo setea el server desde la sesión)
+          ...(formData.status === 'cancelado' ? { cancel_reason: formData.cancel_reason ?? null } : {}),
+          ...(formData.status === 'rechazado' ? { rejected_reason: formData.rejected_reason ?? null } : {}),
+          ...(formData.status === 'reprogramado' ? { reprogram_reason: formData.reprogram_reason ?? null } : {}),
           // incluir sector/área/equipos si existen
           sector_service_id: formData.sector_service_id ?? '',
           areas_service_id: formData.areas_service_id ?? '',

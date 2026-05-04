@@ -9,6 +9,7 @@ import {
 import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
@@ -36,6 +37,13 @@ export type Preparte = {
   // nueva columna para almacenar la URL o ruta de la imagen del preparte
   preparteImage?: string | null;
   confirmed_by?: string | null;
+  // FK a profile.credential_id — se setea automáticamente del usuario logueado
+  rejected_by?: string | null;
+  cancelled_by?: string | null;
+  reprogrammed_by?: string | null;
+  cancel_reason?: string | null;
+  rejected_reason?: string | null;
+  reprogram_reason?: string | null;
   created_at?: string;
   updated_at?: string;
   // Nuevo campo: indica si el pedido está sujeto a disponibilidad operativa
@@ -210,6 +218,20 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
   if ('item_change_reason' in payload) delete payload.item_change_reason;
   if ('original_item_id' in payload) delete payload.original_item_id;
 
+  // El actor (rejected_by/cancelled_by/reprogrammed_by) se deriva del usuario logueado.
+  // Nunca aceptar el valor desde el cliente.
+  delete payload.rejected_by;
+  delete payload.cancelled_by;
+  delete payload.reprogrammed_by;
+  if (payload.status === 'rechazado' || payload.status === 'cancelado' || payload.status === 'reprogramado') {
+    const profile = await getServerAuthProfile();
+    if (profile) {
+      if (payload.status === 'rechazado') payload.rejected_by = profile.credentialId;
+      else if (payload.status === 'cancelado') payload.cancelled_by = profile.credentialId;
+      else if (payload.status === 'reprogramado') payload.reprogrammed_by = profile.credentialId;
+    }
+  }
+
   // Equipos: solo si la clave está presente
   if ('equipos_cliente' in preparteData) {
     payload.equipos_cliente = Array.isArray(preparteData.equipos_cliente)
@@ -368,7 +390,13 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 
   let query = supabase
     .from('preparte')
-    .select('*, service_items(id, item_name)')
+    .select(
+      `*,
+       service_items(id, item_name),
+       rejected_by_profile:profile!preparte_rejected_by_fkey(credential_id, fullname),
+       cancelled_by_profile:profile!preparte_cancelled_by_fkey(credential_id, fullname),
+       reprogrammed_by_profile:profile!preparte_reprogrammed_by_fkey(credential_id, fullname)`
+    )
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -457,7 +485,14 @@ export async function fetchPrepartes({
 
   try {
     // Construir la consulta base
-    let query = supabase.from('preparte').select('*, service_items(id, item_name)', { count: 'exact' });
+    let query = supabase.from('preparte').select(
+      `*,
+         service_items(id, item_name),
+         rejected_by_profile:profile!preparte_rejected_by_fkey(credential_id, fullname),
+         cancelled_by_profile:profile!preparte_cancelled_by_fkey(credential_id, fullname),
+         reprogrammed_by_profile:profile!preparte_reprogrammed_by_fkey(credential_id, fullname)`,
+      { count: 'exact' }
+    );
 
     // Aplicar ordenamiento
     if (sorting.length > 0) {
@@ -650,6 +685,8 @@ export async function movePreparteFile(
   return finalUrl;
 }
 // Función para actualizar el estado de múltiples prepartes
+// El actor (rejected_by/cancelled_by/reprogrammed_by) se obtiene automáticamente del usuario logueado.
+// `confirmed_by` se mantiene como input manual (texto) — no se toca.
 export async function updateMultiplePreparteStatus(
   ids: string[],
   updateData: {
@@ -662,10 +699,22 @@ export async function updateMultiplePreparteStatus(
 ) {
   const supabase = await supabaseServer();
 
+  // Para acciones que requieren actor, obtener credential_id del usuario logueado.
+  let actorPayload: Record<string, string> = {};
+  if (updateData.status === 'rechazado' || updateData.status === 'cancelado' || updateData.status === 'reprogramado') {
+    const profile = await getServerAuthProfile();
+    if (profile) {
+      if (updateData.status === 'rechazado') actorPayload = { rejected_by: profile.credentialId };
+      else if (updateData.status === 'cancelado') actorPayload = { cancelled_by: profile.credentialId };
+      else if (updateData.status === 'reprogramado') actorPayload = { reprogrammed_by: profile.credentialId };
+    }
+  }
+
   const { data, error } = await supabase
     .from('preparte')
     .update({
       ...updateData,
+      ...actorPayload,
       updated_at: new Date().toISOString(),
     })
     .in('id', ids)
@@ -999,6 +1048,10 @@ export async function getPreparteReportData(filters: PreparteReportFilters): Pro
         cancel_reason: true,
         rejected_reason: true,
         reprogram_reason: true,
+        cancelled_by: true,
+        rejected_by: true,
+        reprogrammed_by: true,
+        confirmed_by: true,
         customers: { select: { name: true } },
         customer_services: { select: { service_name: true } },
         service_items: { select: { item_name: true } },
@@ -1106,6 +1159,9 @@ export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reas
     data: { count: ids.length, newDate, reason },
   });
 
+  const profile = await getServerAuthProfile();
+  const reprogrammedBy = profile?.credentialId ?? null;
+
   if (!ids.length) {
     throw new Error('No se seleccionaron pedidos para reprogramar.');
   }
@@ -1161,6 +1217,7 @@ export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reas
         data: {
           status: preparte_status.reprogramado,
           reprogram_reason: reason,
+          reprogrammed_by: reprogrammedBy,
           observaciones: `[${fechaHoy}] Se reprogramó para ${fechaNueva}. ${original.observaciones ?? ''}`.trim(),
           updated_at: new Date(),
         },
