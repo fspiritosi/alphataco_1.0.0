@@ -71,17 +71,23 @@ interface Props {
 export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId, onSuccess }: Props) {
   const queryClient = useQueryClient();
 
-  // ── Segmentación de la selección por jornada/turno (replicado de prod) ───
+  // Snapshot de las filas al abrir el modal — independiente del parent.
+  // Sin esto, cuando el parent limpia selectedRows tras un save (para
+  // deseleccionar la tabla), el modal se queda sin filas y cierra
+  // prematuramente, impidiendo procesar secciones restantes.
+  const [snapshotRows, setSnapshotRows] = useState<DailyReportDetailRow[]>([]);
+
+  // ── Segmentación del snapshot por jornada/turno (replicado de prod) ──────
   const groups = useMemo(() => {
     const is24h = (r: DailyReportDetailRow) => r.working_day?.toLowerCase() === 'jornada 24 horas';
 
     return {
-      jornadas24hs: selectedRows.filter((r) => is24h(r) && r.completed_day !== true && r.completed_night !== true),
-      completarDiurno: selectedRows.filter((r) => is24h(r) && r.completed_night === true && r.completed_day !== true),
-      completarNocturno: selectedRows.filter((r) => is24h(r) && r.completed_day === true && r.completed_night !== true),
-      otrasJornadas: selectedRows.filter((r) => !is24h(r)),
+      jornadas24hs: snapshotRows.filter((r) => is24h(r) && r.completed_day !== true && r.completed_night !== true),
+      completarDiurno: snapshotRows.filter((r) => is24h(r) && r.completed_night === true && r.completed_day !== true),
+      completarNocturno: snapshotRows.filter((r) => is24h(r) && r.completed_day === true && r.completed_night !== true),
+      otrasJornadas: snapshotRows.filter((r) => !is24h(r)),
     };
-  }, [selectedRows]);
+  }, [snapshotRows]);
 
   const otrasTipos = useMemo(
     () => [...new Set(groups.otrasJornadas.map((r) => r.working_day).filter((w): w is string => Boolean(w)))],
@@ -97,9 +103,12 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
   const [processedSections, setProcessedSections] = useState<Set<SectionKey>>(new Set());
   const [completedFlash, setCompletedFlash] = useState<SectionKey | null>(null);
 
-  // Reset al cerrar
+  // Snapshot al abrir / reset al cerrar
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setSnapshotRows(selectedRows);
+    } else {
+      setSnapshotRows([]);
       setSection24h(EMPTY_SECTION);
       setSectionDiurno(EMPTY_SECTION);
       setSectionNocturno(EMPTY_SECTION);
@@ -108,6 +117,9 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
       setProcessedSections(new Set());
       setCompletedFlash(null);
     }
+    // selectedRows se snapshotea SOLO al abrir el modal — cambios posteriores
+    // del parent (ej. clearing tras save) se ignoran para mantener la UI estable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const tomorrow = useMemo(() => moment().add(1, 'day').startOf('day').toDate(), []);
@@ -204,9 +216,10 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
           <DialogDescription>
             Actualizando{' '}
             <strong className="text-foreground">
-              {selectedRows.length} registro{selectedRows.length !== 1 ? 's' : ''}
+              {snapshotRows.length} registro{snapshotRows.length !== 1 ? 's' : ''}
             </strong>
-            . Cada bloque se procesa por separado según el tipo de jornada y los turnos completados.
+            . Cada bloque se procesa <strong className="text-foreground">por separado</strong> con su propio botón
+            Guardar — el estado seleccionado en una sección NO afecta a las demás.
           </DialogDescription>
         </DialogHeader>
 
@@ -330,7 +343,7 @@ function SectionBlock({
   return (
     <div
       className={cn(
-        'rounded-lg border p-4 space-y-3 transition-colors',
+        'rounded-lg border p-4 space-y-3 transition-colors w-full min-w-0',
         isProcessed && 'bg-green-50/50 border-green-300 dark:bg-green-950/20 dark:border-green-800',
         isFlashing && 'ring-2 ring-green-400'
       )}
@@ -354,11 +367,11 @@ function SectionBlock({
       {/* Lista compacta de filas — clip vertical con scroll interno; sin scroll horizontal */}
       <div
         className={cn(
-          'rounded border bg-muted/30 overflow-y-auto overflow-x-hidden',
+          'w-full min-w-0 rounded border bg-muted/30 overflow-y-auto overflow-x-hidden',
           rows.length > 4 ? 'max-h-32' : ''
         )}
       >
-        <ul className="px-2.5 py-2 space-y-1">
+        <ul className="w-full min-w-0 px-2.5 py-2 space-y-1">
           {rows.map((row) => {
             const completedLabel =
               row.completed_day && row.completed_night
@@ -370,16 +383,16 @@ function SectionBlock({
                     : null;
 
             return (
-              <li key={row.id} className="flex items-center gap-2 text-xs min-w-0">
-                <span className="font-medium text-foreground truncate min-w-0 flex-1">
+              <li key={row.id} className="flex w-full min-w-0 items-center gap-2 text-xs">
+                <span className="block min-w-0 flex-1 truncate font-medium text-foreground">
                   {row.customers?.name ?? '—'}
                 </span>
-                <span className="text-muted-foreground/60 shrink-0">→</span>
-                <span className="text-muted-foreground truncate min-w-0 flex-1">
+                <span className="shrink-0 text-muted-foreground/60">→</span>
+                <span className="block min-w-0 flex-1 truncate text-muted-foreground">
                   {row.customer_services?.service_name ?? '—'}
                 </span>
                 {completedLabel && (
-                  <span className="shrink-0 text-[10px] text-muted-foreground italic">{completedLabel}</span>
+                  <span className="shrink-0 text-[10px] italic text-muted-foreground">{completedLabel}</span>
                 )}
               </li>
             );
