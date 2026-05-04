@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -199,7 +198,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-auto gap-4">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden gap-4">
         <DialogHeader>
           <DialogTitle>Edición masiva por estado</DialogTitle>
           <DialogDescription>
@@ -352,27 +351,41 @@ function SectionBlock({
         </div>
       </div>
 
-      {/* Lista compacta de filas */}
-      <ScrollArea className={cn('rounded border bg-muted/30', rows.length > 4 ? 'max-h-32' : 'max-h-fit')}>
+      {/* Lista compacta de filas — clip vertical con scroll interno; sin scroll horizontal */}
+      <div
+        className={cn(
+          'rounded border bg-muted/30 overflow-y-auto overflow-x-hidden',
+          rows.length > 4 ? 'max-h-32' : ''
+        )}
+      >
         <ul className="px-2.5 py-2 space-y-1">
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-center gap-2 text-xs">
-              <span className="font-medium text-foreground truncate">{row.customers?.name ?? '—'}</span>
-              <span className="text-muted-foreground/60">→</span>
-              <span className="text-muted-foreground truncate">{row.customer_services?.service_name ?? '—'}</span>
-              {(row.completed_day || row.completed_night) && (
-                <span className="ml-auto shrink-0 text-[10px] text-muted-foreground italic">
-                  {row.completed_day && row.completed_night
-                    ? 'Ambos turnos'
-                    : row.completed_day
-                      ? 'Diurno OK'
-                      : 'Nocturno OK'}
+          {rows.map((row) => {
+            const completedLabel =
+              row.completed_day && row.completed_night
+                ? 'Ambos turnos'
+                : row.completed_day
+                  ? 'Diurno OK'
+                  : row.completed_night
+                    ? 'Nocturno OK'
+                    : null;
+
+            return (
+              <li key={row.id} className="flex items-center gap-2 text-xs min-w-0">
+                <span className="font-medium text-foreground truncate min-w-0 flex-1">
+                  {row.customers?.name ?? '—'}
                 </span>
-              )}
-            </li>
-          ))}
+                <span className="text-muted-foreground/60 shrink-0">→</span>
+                <span className="text-muted-foreground truncate min-w-0 flex-1">
+                  {row.customer_services?.service_name ?? '—'}
+                </span>
+                {completedLabel && (
+                  <span className="shrink-0 text-[10px] text-muted-foreground italic">{completedLabel}</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
-      </ScrollArea>
+      </div>
 
       {/* Form de la sección — deshabilitado si ya fue procesada */}
       <fieldset disabled={isProcessed} className={cn('space-y-3', isProcessed && 'opacity-50')}>
