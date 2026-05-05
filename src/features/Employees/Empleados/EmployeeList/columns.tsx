@@ -788,18 +788,30 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       meta: { title: 'Sindicato' },
     },
 
-    // --- Workshop Sectors ---
+    // --- Workshop Sectors (M:M) ---
     {
       id: 'workshop_sectors',
-      accessorFn: (row) => row.workshop_sectors?.name ?? '',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector de taller" />,
-      cell: ({ row }) => <div>{row.original.workshop_sectors?.name ?? '-'}</div>,
-      filterFn: (row, _id, value: string[]) => {
-        const id = row.original.workshop_sectors?.id;
-        if (id == null) return value.includes(NULL_FILTER_VALUE);
-        return value.includes(id);
+      accessorFn: (row) =>
+        row.employee_workshop_sectors
+          ?.map((ews) => ews.workshop_sectors?.name)
+          .filter(Boolean)
+          .join(', ') ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sectores de taller" />,
+      cell: ({ row }) => {
+        const names =
+          row.original.employee_workshop_sectors?.map((ews) => ews.workshop_sectors?.name).filter(Boolean) ?? [];
+        return <div>{names.length > 0 ? names.join(', ') : '-'}</div>;
       },
-      meta: { title: 'Sector de taller' },
+      enableSorting: false,
+      filterFn: (row, _id, value: string[]) => {
+        const ids =
+          (row.original.employee_workshop_sectors
+            ?.map((ews) => ews.workshop_sectors?.id)
+            .filter(Boolean) as string[]) ?? [];
+        if (ids.length === 0) return value.includes(NULL_FILTER_VALUE);
+        return ids.some((id) => value.includes(id));
+      },
+      meta: { title: 'Sectores de taller' },
     },
 
     // --- Countries (birthplace) ---
