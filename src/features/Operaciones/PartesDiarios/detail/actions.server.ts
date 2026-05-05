@@ -11,6 +11,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { withAuditUser } from '@/shared/lib/prisma-audit';
 import moment from 'moment';
 
 const logger = new Logger('features/Operaciones/PartesDiarios/detail');
@@ -1217,7 +1218,7 @@ export async function createDailyReportRowPrisma(data: DailyReportRowInput & { d
   const resolvedStatus = resolveRowStatus(data.status, hasResources);
 
   try {
-    const row = await prisma.$transaction(async (tx) => {
+    const row = await withAuditUser(async (tx) => {
       const newRow = await tx.dailyreportrows.create({
         data: {
           id: crypto.randomUUID(),
@@ -1274,7 +1275,7 @@ export async function updateDailyReportRowPrisma(rowId: string, data: DailyRepor
   const resolvedStatus = resolveRowStatus(data.status, hasResources);
 
   try {
-    const row = await prisma.$transaction(async (tx) => {
+    const row = await withAuditUser(async (tx) => {
       // 1. Actualizar la fila principal
       const updatedRow = await tx.dailyreportrows.update({
         where: { id: rowId },
@@ -1357,7 +1358,7 @@ export async function deleteDailyReportRowPrisma(rowId: string) {
     }
 
     // 2. Eliminar la fila (cascade elimina relaciones en BD)
-    await prisma.dailyreportrows.delete({ where: { id: rowId } });
+    await withAuditUser(async (tx) => tx.dailyreportrows.delete({ where: { id: rowId } }));
 
     // 3. Si tenía preparte vinculado, revertir su estado a pendiente
     if (row.preparte_id && row.preparte) {
@@ -1418,23 +1419,23 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
         select: { id: true, completed_day: true, completed_night: true, status: true },
       });
 
-      const updates = currentRows.map((row) => {
-        const newCompletedDay = completandoDiurno ? true : row.completed_day;
-        const newCompletedNight = completandoNocturno ? true : row.completed_night;
-        const bothComplete = newCompletedDay === true && newCompletedNight === true;
+      await withAuditUser(async (tx) => {
+        for (const row of currentRows) {
+          const newCompletedDay = completandoDiurno ? true : row.completed_day;
+          const newCompletedNight = completandoNocturno ? true : row.completed_night;
+          const bothComplete = newCompletedDay === true && newCompletedNight === true;
 
-        const updateData: Record<string, unknown> = {};
-        if (completandoDiurno) updateData.completed_day = true;
-        if (completandoNocturno) updateData.completed_night = true;
-        if (bothComplete) updateData.status = 'ejecutado';
+          const updateData: Record<string, unknown> = {};
+          if (completandoDiurno) updateData.completed_day = true;
+          if (completandoNocturno) updateData.completed_night = true;
+          if (bothComplete) updateData.status = 'ejecutado';
 
-        return prisma.dailyreportrows.update({
-          where: { id: row.id },
-          data: updateData,
-        });
+          await tx.dailyreportrows.update({
+            where: { id: row.id },
+            data: updateData,
+          });
+        }
       });
-
-      await prisma.$transaction(updates);
       return { count: currentRows.length };
     }
 
@@ -1444,10 +1445,12 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
         includeEmployees: false,
         includeEquipment: false,
       });
-      await prisma.dailyreportrows.updateMany({
-        where: { id: { in: rowIds } },
-        data: { status: 'reprogramado' },
-      });
+      await withAuditUser(async (tx) =>
+        tx.dailyreportrows.updateMany({
+          where: { id: { in: rowIds } },
+          data: { status: 'reprogramado' },
+        })
+      );
       return { count: rowIds.length };
     }
 
@@ -1457,10 +1460,12 @@ export async function bulkUpdateRowStatus(rowIds: string[], data: BulkRowUpdateD
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.cancel_reason !== undefined) updatePayload.cancel_reason = data.cancel_reason;
 
-    const result = await prisma.dailyreportrows.updateMany({
-      where: { id: { in: rowIds } },
-      data: updatePayload,
-    });
+    const result = await withAuditUser(async (tx) =>
+      tx.dailyreportrows.updateMany({
+        where: { id: { in: rowIds } },
+        data: updatePayload,
+      })
+    );
 
     return { count: result.count };
   } catch (error) {
@@ -1650,7 +1655,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
       const targetReportId = report.id;
 
       // Clonar todas las filas para esta fecha en una transacción
-      await prisma.$transaction(async (tx) => {
+      await withAuditUser(async (tx) => {
         for (const originalRow of originalRows) {
           // Determinar empleados a copiar (solo activos)
           const employeesToCopy: EmployeeInput[] = includeEmployees
