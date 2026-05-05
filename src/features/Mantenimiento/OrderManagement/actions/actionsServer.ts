@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
@@ -388,6 +390,19 @@ export async function assignItemsToSectors(maintenanceOrderId: string, assignmen
           });
         }
       }
+
+      await logActivity(tx, {
+        maintenanceOrderId,
+        actionType: ACTIVITY_LOG.ORDER_ITEMS_ASSIGNED,
+        performedBy: profile.id,
+        metadata: {
+          assignments: assignments.map((a) => ({
+            itemIds: a.maintenanceOrderItemIds,
+            sectorId: a.sectorId,
+            sequenceOrder: a.sequenceOrder,
+          })),
+        },
+      });
     });
 
     logger.info('Items asignados a sectores exitosamente', {
@@ -412,6 +427,8 @@ export async function addItemToOrder(
     repairTypeIds?: string[];
   }
 ) {
+  const profile = await requireServerAuthProfile();
+
   try {
     const newItem = await prisma.$transaction(async (tx) => {
       const item = await tx.maintenance_order_items.create({
@@ -433,6 +450,17 @@ export async function addItemToOrder(
         });
       }
 
+      await logActivity(tx, {
+        maintenanceOrderId,
+        actionType: ACTIVITY_LOG.ORDER_ITEM_ADDED,
+        performedBy: profile.id,
+        metadata: {
+          itemId: item.id,
+          description: data.description,
+          repairTypeIds: data.repairTypeIds ?? [],
+        },
+      });
+
       return item;
     });
 
@@ -450,7 +478,17 @@ export async function addItemToOrder(
  * Actualiza tanto el campo legacy como la tabla pivot.
  */
 export async function updateItemRepairTypes(maintenanceOrderItemId: string, repairTypeIds: string[]) {
+  const profile = await requireServerAuthProfile();
+
   try {
+    const item = await prisma.maintenance_order_items.findUnique({
+      where: { id: maintenanceOrderItemId },
+      select: { maintenance_order_id: true },
+    });
+    if (!item?.maintenance_order_id) {
+      throw new Error('Item no encontrado o sin orden asociada');
+    }
+
     await prisma.$transaction(async (tx) => {
       // Actualizar campo legacy con el primer tipo
       await tx.maintenance_order_items.update({
@@ -473,6 +511,13 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
           skipDuplicates: true,
         });
       }
+
+      await logActivity(tx, {
+        maintenanceOrderId: item.maintenance_order_id,
+        actionType: ACTIVITY_LOG.ORDER_ITEM_REPAIR_TYPES_UPDATED,
+        performedBy: profile.id,
+        metadata: { itemId: maintenanceOrderItemId, repairTypeIds },
+      });
     });
 
     logger.info('Tipos de reparacion actualizados', {
@@ -492,11 +537,13 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
  * Elimina un item que fue agregado manualmente (no tiene maintenance_request_item_id)
  */
 export async function removeManualItem(itemId: string) {
+  const profile = await requireServerAuthProfile();
+
   try {
     // Verificar que el item no tiene origen de solicitud
     const item = await prisma.maintenance_order_items.findUnique({
       where: { id: itemId },
-      select: { id: true, maintenance_request_item_id: true, is_diagnostico: true },
+      select: { id: true, maintenance_order_id: true, maintenance_request_item_id: true, is_diagnostico: true },
     });
 
     if (!item) {
@@ -508,7 +555,17 @@ export async function removeManualItem(itemId: string) {
     }
 
     // Las relaciones tienen ON DELETE CASCADE, por lo que el delete borra el pivot automáticamente
-    await prisma.maintenance_order_items.delete({ where: { id: itemId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.maintenance_order_items.delete({ where: { id: itemId } });
+      if (item.maintenance_order_id) {
+        await logActivity(tx, {
+          maintenanceOrderId: item.maintenance_order_id,
+          actionType: ACTIVITY_LOG.ORDER_ITEM_REMOVED,
+          performedBy: profile.id,
+          metadata: { itemId },
+        });
+      }
+    });
 
     logger.info('Item eliminado exitosamente', { data: { itemId } });
 
@@ -531,6 +588,8 @@ export type AddItemResult = Awaited<ReturnType<typeof addItemToOrder>>;
  * Called when the OM enters the workshop (status = 'in_workshop').
  */
 export async function generateMaintenanceOrderNumber(orderId: string) {
+  const profile = await requireServerAuthProfile();
+
   try {
     // Check if already has a number
     const existing = await prisma.maintenance_orders.findUnique({
@@ -551,9 +610,17 @@ export async function generateMaintenanceOrderNumber(orderId: string) {
     const orderNumber = `OM-${paddedSeq}`;
 
     // Update the order
-    await prisma.maintenance_orders.update({
-      where: { id: orderId },
-      data: { order_number: orderNumber },
+    await prisma.$transaction(async (tx) => {
+      await tx.maintenance_orders.update({
+        where: { id: orderId },
+        data: { order_number: orderNumber },
+      });
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.ORDER_NUMBER_GENERATED,
+        performedBy: profile.id,
+        metadata: { orderNumber },
+      });
     });
 
     logger.info('Numero de orden generado', { data: { orderId, orderNumber } });
@@ -851,15 +918,13 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
             data: { status: 'workshop_rejected', updated_at: new Date() },
           });
 
-          await tx.maintenance_activity_log.create({
-            data: {
-              maintenance_order_id: orderId,
-              action_type: 'workshop_rejected_all_items',
-              performed_by: profile.id,
-              previous_status: currentOrder?.status ?? 'in_workshop',
-              new_status: 'workshop_rejected',
-              notes: `Todos los items rechazados por taller (${regularItems.length} item(s))`,
-            },
+          await logActivity(tx, {
+            maintenanceOrderId: orderId,
+            actionType: ACTIVITY_LOG.WORKSHOP_REJECTED_ALL_ITEMS,
+            performedBy: profile.id,
+            previousStatus: currentOrder?.status ?? 'in_workshop',
+            newStatus: 'workshop_rejected',
+            notes: `Todos los items rechazados por taller (${regularItems.length} item(s))`,
           });
         } else if (hasNonRejected && currentOrder?.status === 'workshop_rejected') {
           // Some items restored or new items added → back to in_workshop
@@ -868,17 +933,37 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
             data: { status: 'in_workshop', updated_at: new Date() },
           });
 
-          await tx.maintenance_activity_log.create({
-            data: {
-              maintenance_order_id: orderId,
-              action_type: 'workshop_restored_from_rejected',
-              performed_by: profile.id,
-              previous_status: 'workshop_rejected',
-              new_status: 'in_workshop',
-              notes: 'Orden restaurada - items disponibles para gestionar',
-            },
+          await logActivity(tx, {
+            maintenanceOrderId: orderId,
+            actionType: ACTIVITY_LOG.WORKSHOP_RESTORED_FROM_REJECTED,
+            performedBy: profile.id,
+            previousStatus: 'workshop_rejected',
+            newStatus: 'in_workshop',
+            notes: 'Orden restaurada - items disponibles para gestionar',
           });
         }
+      }
+
+      // Grouped audit log: one entry capturing ALL changes from this save session
+      const groupedMetadata: Record<string, unknown> = {};
+      if (changes.deletes.length > 0) groupedMetadata.deletes = changes.deletes;
+      if (changes.adds.length > 0) groupedMetadata.adds = changes.adds;
+      if (changes.sectorAssignments.length > 0) groupedMetadata.sectorAssignments = changes.sectorAssignments;
+      if (changes.repairTypeUpdates.length > 0) groupedMetadata.repairTypeUpdates = changes.repairTypeUpdates;
+      if (changes.sequenceUpdates.length > 0) groupedMetadata.sequenceUpdates = changes.sequenceUpdates;
+      if (changes.descriptionUpdates.length > 0) groupedMetadata.descriptionUpdates = changes.descriptionUpdates;
+      if (changes.chiefCommentUpdates.length > 0) groupedMetadata.chiefCommentUpdates = changes.chiefCommentUpdates;
+      if (changes.workshopAssignments.length > 0) groupedMetadata.workshopAssignments = changes.workshopAssignments;
+      if (changes.rejections && changes.rejections.length > 0) groupedMetadata.rejections = changes.rejections;
+      if (changes.restorations && changes.restorations.length > 0) groupedMetadata.restorations = changes.restorations;
+
+      if (Object.keys(groupedMetadata).length > 0) {
+        await logActivity(tx, {
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.ORDER_ITEMS_UPDATED,
+          performedBy: profile.id,
+          metadata: groupedMetadata,
+        });
       }
     });
 
@@ -1208,6 +1293,21 @@ export async function generateWorkOrdersForOrder(
           }
         }
 
+        await logActivity(tx, {
+          workOrderId: wo.id,
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.WORK_ORDER_CREATED,
+          performedBy: profile.id,
+          newStatus: 'pending',
+          metadata: {
+            orderNumber: wo.order_number,
+            sectorName: sector.sectorName,
+            plannedStartDate: dates.plannedStartDate,
+            plannedEndDate: dates.plannedEndDate,
+            isExternal: sector.isExternal,
+          },
+        });
+
         return wo;
       });
 
@@ -1225,6 +1325,21 @@ export async function generateWorkOrdersForOrder(
         },
       });
     }
+
+    await prisma.$transaction(async (tx) => {
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.WORK_ORDERS_GENERATED,
+        performedBy: profile.id,
+        metadata: {
+          workOrders: createdOrders.map((co) => ({
+            orderNumber: co.orderNumber,
+            sectorName: co.sectorName,
+            itemCount: co.itemCount,
+          })),
+        },
+      });
+    });
 
     logger.info('Ordenes de trabajo generadas exitosamente', {
       data: { orderId, count: createdOrders.length },
@@ -1456,6 +1571,31 @@ export async function setupAndGenerateWorkOrders(
             },
           });
         }
+      }
+
+      // Grouped audit log: capture all wizard changes in a single entry (gestión)
+      const groupedMetadata: Record<string, unknown> = {};
+      if (itemChanges.deletes.length > 0) groupedMetadata.deletes = itemChanges.deletes;
+      if (itemChanges.adds.length > 0) groupedMetadata.adds = itemChanges.adds;
+      if (itemChanges.repairTypeUpdates.length > 0) groupedMetadata.repairTypeUpdates = itemChanges.repairTypeUpdates;
+      if (itemChanges.descriptionUpdates.length > 0)
+        groupedMetadata.descriptionUpdates = itemChanges.descriptionUpdates;
+      if (itemChanges.chiefCommentUpdates.length > 0)
+        groupedMetadata.chiefCommentUpdates = itemChanges.chiefCommentUpdates;
+      if (sectorAssignments.length > 0) {
+        groupedMetadata.sectorAssignments = sectorAssignments.map((a) => ({
+          itemIds: a.itemIds,
+          sectorId: a.sectorId,
+          sequenceOrder: sectorSequenceMap.get(a.sectorId) ?? null,
+        }));
+      }
+      if (Object.keys(groupedMetadata).length > 0) {
+        await logActivity(tx, {
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.ORDER_ITEMS_UPDATED,
+          performedBy: profile.id,
+          metadata: { ...groupedMetadata, source: 'wizard' },
+        });
       }
     });
 

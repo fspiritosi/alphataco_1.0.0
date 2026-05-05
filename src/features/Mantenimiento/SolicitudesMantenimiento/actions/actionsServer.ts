@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -382,14 +384,12 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         },
       });
 
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_request_id: input.requestId,
-          action_type: 'approved',
-          performed_by: profile.id,
-          notes: input.validatorComment || 'Solicitud preventiva aprobada',
-          metadata: { source: 'preventive', preventive_type: request.preventive_type },
-        },
+      await logActivity(tx, {
+        maintenanceRequestId: input.requestId,
+        actionType: ACTIVITY_LOG.REQUEST_APPROVED,
+        performedBy: profile.id,
+        notes: input.validatorComment || 'Solicitud preventiva aprobada',
+        metadata: { source: 'preventive', preventive_type: request.preventive_type },
       });
     });
 
@@ -983,14 +983,12 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
           data: { status: 'rejected' },
         });
 
-        await tx.maintenance_activity_log.create({
-          data: {
-            maintenance_request_id: input.requestId,
-            action_type: 'rejected',
-            performed_by: profile.id,
-            notes: input.reason,
-            metadata: { source: 'preventive', preventive_type: request.preventive_type },
-          },
+        await logActivity(tx, {
+          maintenanceRequestId: input.requestId,
+          actionType: ACTIVITY_LOG.REJECTED,
+          performedBy: profile.id,
+          notes: input.reason,
+          metadata: { source: 'preventive', preventive_type: request.preventive_type },
         });
       });
 

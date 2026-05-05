@@ -2118,6 +2118,9 @@ model preparte {
   status                  preparte_status?
   preparteImage           String?
   confirmed_by            String?
+  rejected_by             String?                @db.Uuid
+  cancelled_by            String?                @db.Uuid
+  reprogrammed_by         String?                @db.Uuid
   subject_to_availability Boolean?               @default(false)
   dailyreportrows         dailyreportrows?
   service_areas           service_areas?         @relation(fields: [areas_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2129,10 +2132,16 @@ model preparte {
   preparte                preparte?              @relation("preparteTopreparte", fields: [reprogram], references: [id], onDelete: NoAction, onUpdate: NoAction)
   other_preparte          preparte[]             @relation("preparteTopreparte")
   service_sectors         service_sectors?       @relation(fields: [sector_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rejected_by_profile     profile?               @relation("preparte_rejected_byToprofile", fields: [rejected_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_rejected_by_fkey")
+  cancelled_by_profile    profile?               @relation("preparte_cancelled_byToprofile", fields: [cancelled_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_cancelled_by_fkey")
+  reprogrammed_by_profile profile?               @relation("preparte_reprogrammed_byToprofile", fields: [reprogrammed_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_reprogrammed_by_fkey")
   preparte_change_logs    preparte_change_logs[]
 
   @@index([cliente_id], map: "idx_preparte_cliente")
   @@index([executionDate], map: "idx_preparte_fecha_ejecucion")
+  @@index([rejected_by], map: "idx_preparte_rejected_by")
+  @@index([cancelled_by], map: "idx_preparte_cancelled_by")
+  @@index([reprogrammed_by], map: "idx_preparte_reprogrammed_by")
   @@schema("public")
 }
 
@@ -2192,6 +2201,9 @@ model profile {
   other_equipment                                                                    other_equipment[]
   password_reset_tokens                                                              password_reset_tokens[]
   preparte_change_logs                                                               preparte_change_logs[]
+  preparte_rejected_byToprofile                                                      preparte[]                  @relation("preparte_rejected_byToprofile")
+  preparte_cancelled_byToprofile                                                     preparte[]                  @relation("preparte_cancelled_byToprofile")
+  preparte_reprogrammed_byToprofile                                                  preparte[]                  @relation("preparte_reprogrammed_byToprofile")
   users_profile_credential_idTousers                                                 users?                      @relation("profile_credential_idTousers", fields: [credential_id], references: [id], onDelete: Cascade)
   employees                                                                          employees?                  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
   users_profile_idTousers                                                            users                       @relation("profile_idTousers", fields: [id], references: [id], onDelete: Cascade)

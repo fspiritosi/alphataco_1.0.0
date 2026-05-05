@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, Calendar, Clock, EyeIcon, FileText, History, Wrench } from 'lucide-react';
+import { Building2, Calendar, Clock, EyeIcon, FileText, History, User, Wrench } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/es';
+import Link from 'next/link';
 import { useState } from 'react';
 import { usePreparteChangeLogs } from '../hooks';
 import { Cliente, Contrato, PreparteItem } from './PreparteManager';
@@ -118,17 +119,42 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
   // Siempre se renderiza el banner cuando el estado lo requiere — si el motivo
   // no está cargado, se muestra "Sin motivo registrado"
   const getReason = () => {
-    const { status, cancel_reason, rejected_reason, reprogram_reason } = preparteData;
+    const data = preparteData as typeof preparteData & {
+      rejected_by_profile?: { fullname?: string | null } | null;
+      cancelled_by_profile?: { fullname?: string | null } | null;
+      reprogrammed_by_profile?: { fullname?: string | null } | null;
+    };
+    const { status, cancel_reason, rejected_reason, reprogram_reason } = data;
     const fallback = 'Sin motivo registrado';
 
     if (status === 'cancelado') {
-      return { title: 'Motivo de cancelación', content: cancel_reason?.trim() || fallback };
+      return {
+        title: 'Motivo de cancelación',
+        content: cancel_reason?.trim() || fallback,
+        actorLabel: 'Cancelado por',
+        actor: data.cancelled_by_profile?.fullname?.trim() || null,
+      };
     } else if (status === 'rechazado') {
-      return { title: 'Motivo de rechazo', content: rejected_reason?.trim() || fallback };
+      return {
+        title: 'Motivo de rechazo',
+        content: rejected_reason?.trim() || fallback,
+        actorLabel: 'Rechazado por',
+        actor: data.rejected_by_profile?.fullname?.trim() || null,
+      };
     } else if (status === 'reprogramado') {
-      return { title: 'Motivo de reprogramación', content: reprogram_reason?.trim() || fallback };
+      return {
+        title: 'Motivo de reprogramación',
+        content: reprogram_reason?.trim() || fallback,
+        actorLabel: 'Reprogramado por',
+        actor: data.reprogrammed_by_profile?.fullname?.trim() || null,
+      };
     } else if (status === 'vencido') {
-      return { title: 'Vencimiento', content: 'Este preparte ha vencido sin ser confirmado a tiempo.' };
+      return {
+        title: 'Vencimiento',
+        content: 'Este preparte ha vencido sin ser confirmado a tiempo.',
+        actorLabel: null,
+        actor: null,
+      };
     }
 
     return null;
@@ -211,6 +237,21 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
                   <h3 className="font-semibold text-amber-900">{reason.title}</h3>
                 </div>
                 <div className="text-amber-700 text-sm">{reason.content}</div>
+                {reason.actor && reason.actorLabel && (
+                  <div className="mt-3 pt-3 border-t border-amber-200 text-amber-800 text-sm flex items-center gap-1.5">
+                    <span className="font-medium">{reason.actorLabel}:</span>
+                    <Link
+                      href={`/dashboard/company/actualCompany?subtab=users&company-users__search=${encodeURIComponent(
+                        reason.actor
+                      )}`}
+                      className="inline-flex items-center gap-1 text-amber-900 hover:text-amber-700 hover:underline"
+                      title="Ver usuario en la tabla de usuarios"
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      <span>{reason.actor}</span>
+                    </Link>
+                  </div>
+                )}
               </div>
               <Separator />
             </>

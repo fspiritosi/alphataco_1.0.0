@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
@@ -57,6 +59,7 @@ export async function getPendingApprovalTasks() {
         work_order_items: {
           select: {
             id: true,
+            work_order_id: true,
             maintenance_order_items: {
               select: {
                 id: true,
@@ -143,6 +146,7 @@ export async function getReturnedTasks() {
         work_order_items: {
           select: {
             id: true,
+            work_order_id: true,
             maintenance_order_items: {
               select: {
                 id: true,
@@ -265,13 +269,32 @@ export async function approveTask(taskId: string) {
   logger.debug('Aprobando tarea', { data: { taskId, approvedBy: profile.id } });
 
   try {
-    await prisma.work_order_item_repairs.update({
-      where: { id: taskId },
-      data: {
-        status: 'pending',
-        approved_by: profile.id,
-        approved_at: new Date(),
-      },
+    const ctx = await resolveRepairContext(taskId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.work_order_item_repairs.update({
+        where: { id: taskId },
+        data: {
+          status: 'pending',
+          approved_by: profile.id,
+          approved_at: new Date(),
+        },
+      });
+
+      if (ctx.workOrderId) {
+        await logActivity(tx, {
+          workOrderId: ctx.workOrderId,
+          actionType: ACTIVITY_LOG.REPAIR_TASK_APPROVED,
+          performedBy: profile.id,
+          previousStatus: 'pending_approval',
+          newStatus: 'pending',
+          metadata: {
+            repairId: taskId,
+            repairTypeName: ctx.repairTypeName,
+            sectorName: ctx.currentSectorName,
+          },
+        });
+      }
     });
   } catch (error) {
     logger.error('Error al aprobar tarea', { data: { error, taskId } });
@@ -292,14 +315,35 @@ export async function rejectTask(taskId: string, reason: string) {
   logger.debug('Rechazando tarea', { data: { taskId, rejectedBy: profile.id } });
 
   try {
-    await prisma.work_order_item_repairs.update({
-      where: { id: taskId },
-      data: {
-        status: 'rejected',
-        rejection_reason: reason,
-        approved_by: profile.id,
-        approved_at: new Date(),
-      },
+    const ctx = await resolveRepairContext(taskId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.work_order_item_repairs.update({
+        where: { id: taskId },
+        data: {
+          status: 'rejected',
+          rejection_reason: reason,
+          approved_by: profile.id,
+          approved_at: new Date(),
+        },
+      });
+
+      if (ctx.workOrderId) {
+        await logActivity(tx, {
+          workOrderId: ctx.workOrderId,
+          actionType: ACTIVITY_LOG.REPAIR_TASK_REJECTED,
+          performedBy: profile.id,
+          previousStatus: 'pending_approval',
+          newStatus: 'rejected',
+          rejectionReason: reason,
+          metadata: {
+            repairId: taskId,
+            repairTypeName: ctx.repairTypeName,
+            sectorName: ctx.currentSectorName,
+            reason,
+          },
+        });
+      }
     });
   } catch (error) {
     logger.error('Error al rechazar tarea', { data: { error, taskId } });
@@ -315,10 +359,11 @@ export async function rejectTask(taskId: string, reason: string) {
  * Reasigna una tarea devuelta a un nuevo sector
  */
 export async function reassignTaskToSector(taskId: string, newSectorId: string) {
+  const profile = await requireServerAuthProfile();
+
   logger.debug('Reasignando tarea a nuevo sector', { data: { taskId, newSectorId } });
 
   try {
-    // Primero obtener el work_order_item para actualizar el maintenance_order_item
     const repair = await prisma.work_order_item_repairs.findUnique({
       where: { id: taskId },
       select: {
@@ -332,20 +377,42 @@ export async function reassignTaskToSector(taskId: string, newSectorId: string) 
       throw new Error('Tarea no encontrada');
     }
 
-    // Actualizar el status de la reparacion
-    await prisma.work_order_item_repairs.update({
-      where: { id: taskId },
-      data: { status: 'pending' },
+    const ctx = await resolveRepairContext(taskId);
+    const newSector = await prisma.workshop_sectors.findUnique({
+      where: { id: newSectorId },
+      select: { name: true },
     });
 
-    // Actualizar el sector del maintenance_order_item si existe
-    const moItemId = repair.work_order_items?.maintenance_order_item_id;
-    if (moItemId) {
-      await prisma.maintenance_order_items.update({
-        where: { id: moItemId },
-        data: { assigned_sector_id: newSectorId },
+    await prisma.$transaction(async (tx) => {
+      await tx.work_order_item_repairs.update({
+        where: { id: taskId },
+        data: { status: 'pending' },
       });
-    }
+
+      const moItemId = repair.work_order_items?.maintenance_order_item_id;
+      if (moItemId) {
+        await tx.maintenance_order_items.update({
+          where: { id: moItemId },
+          data: { assigned_sector_id: newSectorId },
+        });
+      }
+
+      if (ctx.workOrderId) {
+        await logActivity(tx, {
+          workOrderId: ctx.workOrderId,
+          actionType: ACTIVITY_LOG.REPAIR_TASK_REASSIGNED,
+          performedBy: profile.id,
+          previousStatus: 'reassignment_requested',
+          newStatus: 'pending',
+          metadata: {
+            repairId: taskId,
+            repairTypeName: ctx.repairTypeName,
+            fromSector: ctx.currentSectorName,
+            toSector: newSector?.name ?? null,
+          },
+        });
+      }
+    });
   } catch (error) {
     logger.error('Error al reasignar tarea', { data: { error, taskId, newSectorId } });
     throw new Error(`Error al reasignar: ${error instanceof Error ? error.message : String(error)}`);
@@ -354,4 +421,35 @@ export async function reassignTaskToSector(taskId: string, newSectorId: string) 
   await invalidateCacheTags(INVALIDATION_MAP.reassignTaskToSector);
 
   logger.info('Tarea reasignada a nuevo sector', { data: { taskId, newSectorId } });
+}
+
+/**
+ * Resuelve el work_order_id, repair_type_name y sector_name desde un repair.
+ * Usado para enriquecer metadata de los logs de ApprovalInbox.
+ */
+async function resolveRepairContext(repairId: string) {
+  const repair = await prisma.work_order_item_repairs.findUnique({
+    where: { id: repairId },
+    select: {
+      types_of_repairs: { select: { name: true } },
+      workshop_sectors: { select: { name: true } },
+      work_order_items: {
+        select: {
+          work_order_id: true,
+          maintenance_order_items: {
+            select: {
+              workshop_sectors: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    workOrderId: repair?.work_order_items?.work_order_id ?? null,
+    repairTypeName: repair?.types_of_repairs?.name ?? null,
+    originalSectorName: repair?.workshop_sectors?.name ?? null,
+    currentSectorName: repair?.work_order_items?.maintenance_order_items?.workshop_sectors?.name ?? null,
+  };
 }

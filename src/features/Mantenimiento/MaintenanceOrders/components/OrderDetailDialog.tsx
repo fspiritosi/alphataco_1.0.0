@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
 import {
   PREVENTIVE_TYPES,
@@ -109,6 +110,7 @@ export function OrderDetailDialog({
   const [operationsRejectionReason, setOperationsRejectionReason] = useState('');
   const [showOperationsRejectDialog, setShowOperationsRejectDialog] = useState(false);
   const [showOpsItemRejectDialog, setShowOpsItemRejectDialog] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Fetch full order detail — ALWAYS when dialog is open (fresh data from DB)
   const resolvedOrderId = propOrderId ?? propOrder?.id;
@@ -963,6 +965,10 @@ export function OrderDetailDialog({
                           ? 'Completada'
                           : status}
             </Badge>
+            <Button variant="outline" size="sm" className="ml-auto" onClick={() => setHistoryOpen(true)}>
+              <Clock className="h-4 w-4 mr-1" />
+              Ver historial
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -1719,6 +1725,14 @@ export function OrderDetailDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ActivityHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        maintenanceOrderId={order?.id ?? null}
+        maintenanceRequestId={order?.maintenance_request_id ?? null}
+        title={`Historial de OM ${order?.order_number ?? ''}`}
+      />
     </Dialog>
   );
 }
