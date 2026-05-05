@@ -2,18 +2,27 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getWorkOrdersForOperator, operatorLogout } from '@/features/OperatorPanel/actions/actionsServer';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  getWorkOrdersForOperator,
+  operatorLogout,
+  setActiveOperatorSector,
+} from '@/features/OperatorPanel/actions/actionsServer';
 import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ChevronsUpDown, LogOut, Wrench } from 'lucide-react';
+import { useState, useTransition } from 'react';
 
 const logger = new Logger('OperatorPanel/OperatorHeader');
 
 export function OperatorHeader() {
   const context = useOperatorContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isSwitching, startTransition] = useTransition();
 
   const { data: workOrders } = useQuery({
     queryKey: ['operator-work-orders', context.sectorId],
@@ -32,6 +41,25 @@ export function OperatorHeader() {
     }
   };
 
+  const handleSelectSector = (sectorId: string) => {
+    if (sectorId === context.sectorId) {
+      setPopoverOpen(false);
+      return;
+    }
+    startTransition(async () => {
+      const result = await setActiveOperatorSector(sectorId);
+      if (result.error) {
+        logger.error('Error al cambiar sector activo', { data: { error: result.error } });
+        return;
+      }
+      setPopoverOpen(false);
+      // Reload para que todas las queries del panel re-ejecuten con el nuevo sector
+      window.location.reload();
+    });
+  };
+
+  const hasMultipleSectors = context.sectors.length > 1;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4 sm:h-16 sm:px-6">
@@ -49,8 +77,54 @@ export function OperatorHeader() {
               )}
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
-              <span>{context.sectorName}</span>
-              <span className="hidden sm:inline"> · {context.workshopName}</span>
+              {hasMultipleSectors ? (
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={isSwitching}
+                      className="inline-flex items-center gap-1 rounded-md hover:bg-accent hover:text-accent-foreground px-1.5 py-0.5 -ml-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <span>{context.sectorName}</span>
+                      <span className="hidden sm:inline"> · {context.workshopName}</span>
+                      <ChevronsUpDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[280px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar sector..." />
+                      <CommandList>
+                        <CommandEmpty>Sin sectores asignados.</CommandEmpty>
+                        <CommandGroup>
+                          {context.sectors.map((sector) => (
+                            <CommandItem
+                              key={sector.sectorId}
+                              value={`${sector.sectorName} ${sector.workshopName}`}
+                              onSelect={() => handleSelectSector(sector.sectorId)}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  sector.sectorId === context.sectorId ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-sm">{sector.sectorName}</span>
+                                <span className="text-xs text-muted-foreground">{sector.workshopName}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <>
+                  <span>{context.sectorName}</span>
+                  <span className="hidden sm:inline"> · {context.workshopName}</span>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -1496,8 +1496,8 @@ model employees {
   company_position                                                  String?                        @db.Uuid
   type_of_contract                                                  String?                        @db.Uuid
   cost_type                                                         cost_type_enum?
-  workshop_sector_id                                                String?                        @db.Uuid
   full_name                                                         String?                        @default(dbgenerated("((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))"))
+  employee_workshop_sectors                                         employee_workshop_sectors[]
   assing_customer                                                   assing_customer[]
   category_employee                                                 category_employee[]
   checklist_answers_checklist_answers_chofer_employee_idToemployees checklist_answers[]            @relation("checklist_answers_chofer_employee_idToemployees")
@@ -1521,7 +1521,6 @@ model employees {
   provinces                                                         provinces                      @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
   types_of_contract                                                 types_of_contract?             @relation(fields: [type_of_contract], references: [id], onDelete: NoAction, onUpdate: NoAction)
   work_diagram                                                      work_diagram?                  @relation(fields: [workflow_diagram], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workshop_sectors                                                  workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
   employees_diagram                                                 employees_diagram[]
   maintenance_requests                                              maintenance_requests[]
   maintenance_request_driver                                        maintenance_requests[] @relation("maintenance_request_driver")
@@ -1532,7 +1531,6 @@ model employees {
   clothing_deliveries_given                                         clothing_deliveries[]  @relation("clothing_deliveries_delivered_by_idToemployees")
 
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
-  @@index([workshop_sector_id], map: "idx_employees_workshop_sector_id")
   @@schema("public")
 }
 
@@ -2856,6 +2854,19 @@ model work_orders {
   @@schema("public")
 }
 
+model employee_workshop_sectors {
+  employee_id        String           @db.Uuid
+  workshop_sector_id String           @db.Uuid
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  employees          employees        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workshop_sectors   workshop_sectors @relation(fields: [workshop_sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([employee_id, workshop_sector_id])
+  @@index([employee_id], map: "idx_ews_employee_id")
+  @@index([workshop_sector_id], map: "idx_ews_workshop_sector_id")
+  @@schema("public")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model workshop_sectors {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -2866,7 +2877,7 @@ model workshop_sectors {
   is_active               Boolean                   @default(true)
   workshop_id             String                    @db.Uuid
   max_capacity            Int?
-  employees               employees[]
+  employee_workshop_sectors employee_workshop_sectors[]
   maintenance_order_items maintenance_order_items[]
   sector_repair_types     sector_repair_types[]
   work_order_item_repairs work_order_item_repairs[]

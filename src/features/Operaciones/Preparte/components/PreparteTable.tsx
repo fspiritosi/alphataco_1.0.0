@@ -39,6 +39,20 @@ import { Status, StatusCards } from './StatusCards';
 
 const logger = new Logger('PreparteTable');
 
+/**
+ * Extrae el fullname del actor de una relacion preparte → profile.
+ * Supabase puede tipar la relacion como array o como objeto; manejamos ambos casos.
+ */
+function getActorName(profile: unknown): string | null {
+  if (!profile) return null;
+  const candidate = Array.isArray(profile) ? profile[0] : profile;
+  if (candidate && typeof candidate === 'object' && 'fullname' in candidate) {
+    const name = (candidate as { fullname?: string | null }).fullname;
+    return name?.trim() || null;
+  }
+  return null;
+}
+
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -421,6 +435,38 @@ const getColumns = (
       },
     },
 
+    {
+      id: 'confirmed_by',
+      accessorFn: (row) => row.confirmed_by ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Confirmado por" />,
+      cell: ({ row }) => <div>{row.original.confirmed_by || '-'}</div>,
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
+    {
+      id: 'rejected_by_profile',
+      accessorFn: (row) => getActorName(row.rejected_by_profile) ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Rechazado por" />,
+      cell: ({ row }) => <div>{getActorName(row.original.rejected_by_profile) ?? '-'}</div>,
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
+    {
+      id: 'cancelled_by_profile',
+      accessorFn: (row) => getActorName(row.cancelled_by_profile) ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Cancelado por" />,
+      cell: ({ row }) => <div>{getActorName(row.original.cancelled_by_profile) ?? '-'}</div>,
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
+    {
+      id: 'reprogrammed_by_profile',
+      accessorFn: (row) => getActorName(row.reprogrammed_by_profile) ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Reprogramado por" />,
+      cell: ({ row }) => <div>{getActorName(row.original.reprogrammed_by_profile) ?? '-'}</div>,
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
     {
       accessorKey: 'observaciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Observaciones" />,

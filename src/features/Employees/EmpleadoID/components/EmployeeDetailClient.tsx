@@ -103,7 +103,8 @@ function buildDefaultValues(employee: EmployeeDetailData | null): DefaultValues<
     category_id: employee.category_id || undefined,
     cost_center_id: employee.cost_center_id || undefined,
     cost_type: employee.cost_type || undefined,
-    workshop_sector_id: employee.workshop_sector_id || undefined,
+    workshop_sector_ids:
+      (employee.employee_workshop_sectors?.map((ews) => ews.workshop_sectors?.id).filter(Boolean) as string[]) ?? [],
   };
 }
 

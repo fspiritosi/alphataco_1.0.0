@@ -103,7 +103,15 @@ function WorkDataView({ employee }: { employee: NonNullable<EmployeeDetailData> 
         <Field label="Categoría" value={employee.category?.name} />
         <Field label="Centro de costo" value={employee.cost_center?.name} />
         <Field label="Tipo de costo" value={employee.cost_type} />
-        <Field label="Sector de taller" value={employee.workshop_sectors?.name} />
+        <Field
+          label="Sectores de taller"
+          value={
+            employee.employee_workshop_sectors
+              ?.map((ews) => ews.workshop_sectors?.name)
+              .filter(Boolean)
+              .join(', ') || undefined
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
