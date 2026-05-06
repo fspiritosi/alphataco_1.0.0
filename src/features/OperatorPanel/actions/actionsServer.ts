@@ -16,6 +16,38 @@ const logger = new Logger('OperatorPanel/actions');
 // AUTH
 // =============================================================================
 
+const ACTIVE_SECTOR_COOKIE = 'activeOperatorSectorId';
+
+/**
+ * Carga la lista de sectores de taller asignados a un empleado (M:N).
+ */
+async function getEmployeeAssignedSectors(employeeId: string) {
+  const rows = await prisma.employee_workshop_sectors.findMany({
+    where: { employee_id: employeeId, workshop_sectors: { is_active: true } },
+    select: {
+      workshop_sectors: {
+        select: {
+          id: true,
+          name: true,
+          workshop_id: true,
+          workshops: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { workshop_sectors: { name: 'asc' } },
+  });
+
+  return rows
+    .map((r) => r.workshop_sectors)
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .map((s) => ({
+      sectorId: s.id,
+      sectorName: s.name,
+      workshopId: s.workshop_id,
+      workshopName: s.workshops?.name ?? 'Taller',
+    }));
+}
+
 export async function operatorLogin(email: string, password: string) {
   const supabase = await supabaseServer();
 
@@ -40,32 +72,41 @@ export async function operatorLogin(email: string, password: string) {
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
-  // Verify employee has workshop sector
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('id, firstname, lastname, workshop_sector_id, company_id')
-    .eq('id', profile.employee_id)
-    .single();
+  // Cargar empleado + sectores asignados (M:N)
+  const employee = await prisma.employees.findUnique({
+    where: { id: profile.employee_id },
+    select: { id: true, firstname: true, lastname: true, company_id: true },
+  });
 
   if (!employee) {
     await supabase.auth.signOut();
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 
-  if (!employee.workshop_sector_id) {
+  const sectors = await getEmployeeAssignedSectors(employee.id);
+
+  if (sectors.length === 0) {
     await supabase.auth.signOut();
-    return { error: 'Tu empleado no tiene un sector de taller asignado. Contacta al administrador.' };
+    return { error: 'Tu empleado no tiene sectores de taller asignados. Contacta al administrador.' };
   }
+
+  const cookieStore = await cookies();
 
   // Set company cookie
   if (employee.company_id) {
-    const cookieStore = await cookies();
     cookieStore.set('actualComp', employee.company_id, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
     });
   }
+
+  // Setear el sector activo al primer sector asignado
+  cookieStore.set(ACTIVE_SECTOR_COOKIE, sectors[0]!.sectorId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  });
 
   return { success: true };
 }
@@ -75,13 +116,49 @@ export async function operatorLogout() {
   await supabase.auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete('actualComp');
+  cookieStore.delete(ACTIVE_SECTOR_COOKIE);
   revalidatePath('/', 'layout');
   redirect('/operator/login');
 }
 
 /**
- * Gets the full operator context: user -> profile -> employee -> sector -> workshop
- * Returns null if any step fails (no session, no employee, no sector)
+ * Cambia el sector de taller activo del operario.
+ * Valida que el sector pertenezca a la lista de sectores asignados al empleado.
+ */
+export async function setActiveOperatorSector(sectorId: string) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'No autenticado' };
+
+  const { data: profile } = await supabase.from('profile').select('employee_id').eq('id', user.id).single();
+  if (!profile?.employee_id) return { error: 'Sin empleado vinculado' };
+
+  const belongs = await prisma.employee_workshop_sectors.findFirst({
+    where: { employee_id: profile.employee_id, workshop_sector_id: sectorId },
+    select: { workshop_sector_id: true },
+  });
+
+  if (!belongs) {
+    return { error: 'El sector seleccionado no pertenece al empleado' };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_SECTOR_COOKIE, sectorId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  });
+
+  revalidatePath('/operator', 'layout');
+  return { success: true };
+}
+
+/**
+ * Gets the full operator context: user -> profile -> employee -> sectores asignados (M:N) -> sector activo (cookie).
+ * Returns null if any step fails (no session, no employee, no sectors).
  */
 export async function getOperatorContext() {
   const supabase = await supabaseServer();
@@ -96,37 +173,36 @@ export async function getOperatorContext() {
 
   if (!profile?.employee_id) return null;
 
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('id, firstname, lastname, cuil, workshop_sector_id, company_id')
-    .eq('id', profile.employee_id)
-    .single();
+  const employee = await prisma.employees.findUnique({
+    where: { id: profile.employee_id },
+    select: { id: true, firstname: true, lastname: true, cuil: true, company_id: true },
+  });
 
-  if (!employee?.workshop_sector_id) return null;
+  if (!employee) return null;
 
-  const { data: sector } = await supabase
-    .from('workshop_sectors')
-    .select('id, name, workshop_id')
-    .eq('id', employee.workshop_sector_id)
-    .single();
+  const sectors = await getEmployeeAssignedSectors(employee.id);
+  if (sectors.length === 0) return null;
 
-  if (!sector) return null;
-
-  const { data: workshop } = await supabase.from('workshops').select('id, name').eq('id', sector.workshop_id).single();
+  // Resolver sector activo desde cookie, fallback al primero
+  const cookieStore = await cookies();
+  const cookieSectorId = cookieStore.get(ACTIVE_SECTOR_COOKIE)?.value ?? null;
+  const activeSector = sectors.find((s) => s.sectorId === cookieSectorId) ?? sectors[0]!;
 
   return {
     userId: user.id,
     employeeId: employee.id,
     employeeName: `${employee.firstname} ${employee.lastname}`.trim(),
-    sectorId: sector.id,
-    sectorName: sector.name,
-    workshopId: sector.workshop_id,
-    workshopName: workshop?.name || 'Taller',
     companyId: employee.company_id,
+    sectors,
+    sectorId: activeSector.sectorId,
+    sectorName: activeSector.sectorName,
+    workshopId: activeSector.workshopId,
+    workshopName: activeSector.workshopName,
   };
 }
 
 export type OperatorContext = NonNullable<Awaited<ReturnType<typeof getOperatorContext>>>;
+export type OperatorAssignedSector = OperatorContext['sectors'][number];
 
 // =============================================================================
 // WORK ORDERS - SECTOR SEQUENCE BLOCKING

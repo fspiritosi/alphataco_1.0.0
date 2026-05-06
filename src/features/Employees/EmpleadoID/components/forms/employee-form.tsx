@@ -55,7 +55,7 @@ export const employeeFormSchema = z.object({
   category_id: z.string().optional(),
   cost_center_id: z.string().optional(),
   cost_type: z.string().optional(),
-  workshop_sector_id: z.string().optional(),
+  workshop_sector_ids: z.array(z.string()).optional(),
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;

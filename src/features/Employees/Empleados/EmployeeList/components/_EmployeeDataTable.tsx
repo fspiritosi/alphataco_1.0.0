@@ -342,7 +342,7 @@ export default function _EmployeeDataTable({
       { columnId: 'company_positions', title: 'Puesto', fetchFacet: makeFkFetchFacet('company_positions') },
       { columnId: 'types_of_contract', title: 'Tipo de Contrato', fetchFacet: makeFkFetchFacet('types_of_contract') },
       { columnId: 'work_diagram', title: 'Diagrama', fetchFacet: makeFkFetchFacet('work_diagram') },
-      { columnId: 'workshop_sectors', title: 'Sector de taller', fetchFacet: makeFkFetchFacet('workshop_sectors') },
+      { columnId: 'workshop_sectors', title: 'Sectores de taller', fetchFacet: makeFkFetchFacet('workshop_sectors') },
       { columnId: 'category', title: 'Categoria', fetchFacet: makeFkFetchFacet('category') },
       { columnId: 'covenant', title: 'Convenio', fetchFacet: makeFkFetchFacet('covenant') },
       { columnId: 'guild', title: 'Sindicato', fetchFacet: makeFkFetchFacet('guild') },

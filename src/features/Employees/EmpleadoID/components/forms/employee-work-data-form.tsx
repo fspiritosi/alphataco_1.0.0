@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
@@ -512,31 +513,26 @@ export function EmployeeWorkDataForm({ form }: EmployeeWorkDataFormProps) {
           )}
         />
 
-        {/* Sector de Taller */}
+        {/* Sectores de Taller (multiselect) */}
         <FormField
           control={form.control}
-          name="workshop_sector_id"
+          name="workshop_sector_ids"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Sector de Taller</FormLabel>
-              {loadingWorkshopSectors ? (
-                <Skeleton className="h-9 w-full" />
-              ) : (
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione el sector de taller" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {workshopSectors.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.id}>
-                        {sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <FormLabel>Sectores de Taller</FormLabel>
+              <FormControl>
+                <MultiSelectCombobox
+                  options={workshopSectors.map((sector) => ({
+                    value: sector.id,
+                    label: sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name,
+                  }))}
+                  selectedValues={field.value ?? []}
+                  onChange={field.onChange}
+                  placeholder="Seleccione los sectores de taller"
+                  emptyMessage="No hay sectores disponibles"
+                  isLoading={loadingWorkshopSectors}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

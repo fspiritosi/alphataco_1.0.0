@@ -52,7 +52,6 @@ const VALID_SORT_FIELDS = new Set([
   'company_positions',
   'types_of_contract',
   'work_diagram',
-  'workshop_sectors',
   'category',
   'covenant',
   'guild',
@@ -71,7 +70,6 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
   company_positions: (dir) => ({ company_positions: { name: dir } }),
   types_of_contract: (dir) => ({ types_of_contract: { name: dir } }),
   work_diagram: (dir) => ({ work_diagram: { name: dir } }),
-  workshop_sectors: (dir) => ({ workshop_sectors: { name: dir } }),
   category: (dir) => ({ category: { name: dir } }),
   covenant: (dir) => ({ covenant: { name: dir } }),
   guild: (dir) => ({ guild: { name: dir } }),
@@ -110,7 +108,6 @@ const COLUMN_MAP: Record<string, string> = {
   company_positions: 'company_position',
   types_of_contract: 'type_of_contract',
   work_diagram: 'workflow_diagram',
-  workshop_sectors: 'workshop_sector_id',
   category: 'category_id',
   covenant: 'covenants_id',
   guild: 'guild_id',
@@ -158,7 +155,6 @@ const EMPLOYEE_SELECT = {
   company_positions: { select: { id: true, name: true } },
   types_of_contract: { select: { id: true, name: true } },
   work_diagram: { select: { id: true, name: true } },
-  workshop_sectors: { select: { id: true, name: true } },
   category: { select: { id: true, name: true } },
   covenant: { select: { id: true, name: true } },
   guild: { select: { id: true, name: true } },
@@ -174,6 +170,11 @@ const EMPLOYEE_SELECT = {
       aptitudes_tecnicas: { select: { id: true, nombre: true } },
     },
   },
+  employee_workshop_sectors: {
+    select: {
+      workshop_sectors: { select: { id: true, name: true } },
+    },
+  },
 } as const;
 
 // ============================================================================
@@ -185,7 +186,7 @@ function buildWhereClause(companyId: string, isActive: boolean, state: ReturnTyp
   const searchWhere = buildSearchWhere(state.search, ['lastname', 'firstname', 'cuil', 'file']);
 
   // Columnas manejadas manualmente (BigInt FK, M:M)
-  const MANUALLY_HANDLED = ['province', 'city', 'contractor_employee', 'empleado_aptitudes'];
+  const MANUALLY_HANDLED = ['province', 'city', 'contractor_employee', 'empleado_aptitudes', 'workshop_sectors'];
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -275,6 +276,25 @@ function buildWhereClause(companyId: string, isActive: boolean, state: ReturnTyp
       m2mFilters.empleado_aptitudes = { none: {} };
     } else {
       m2mFilters.empleado_aptitudes = { some: { aptitud_id: { in: realValues } } };
+    }
+  }
+
+  const workshopSectorValues = state.filters['workshop_sectors'];
+  if (workshopSectorValues?.length) {
+    const hasNull = workshopSectorValues.includes(NULL_FILTER_VALUE);
+    const realValues = workshopSectorValues.filter((v) => v !== NULL_FILTER_VALUE);
+
+    if (hasNull && realValues.length > 0) {
+      extraAndConditions.push({
+        OR: [
+          { employee_workshop_sectors: { some: { workshop_sector_id: { in: realValues } } } },
+          { employee_workshop_sectors: { none: {} } },
+        ],
+      });
+    } else if (hasNull) {
+      m2mFilters.employee_workshop_sectors = { none: {} };
+    } else {
+      m2mFilters.employee_workshop_sectors = { some: { workshop_sector_id: { in: realValues } } };
     }
   }
 
@@ -489,11 +509,6 @@ export async function getEmployeeSingleFacet(
         resolver: (ids) =>
           prisma.work_diagram.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
       },
-      workshop_sectors: {
-        prismaField: 'workshop_sector_id',
-        resolver: (ids) =>
-          prisma.workshop_sectors.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
-      },
       category: {
         prismaField: 'category_id',
         resolver: (ids) => prisma.category.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
@@ -622,6 +637,38 @@ export async function getEmployeeSingleFacet(
       const resolvedOptions = relations
         .filter((r) => r.aptitud_id && r.aptitudes_tecnicas)
         .map((r) => ({ id: r.aptitudes_tecnicas!.id, name: r.aptitudes_tecnicas!.nombre }));
+
+      return { counts: countMap, resolvedOptions };
+    }
+
+    // ── M:M: employee_workshop_sectors ──
+    if (columnId === 'workshop_sectors') {
+      const [relations, allRels, totalInCross, withSome] = await Promise.all([
+        prisma.employee_workshop_sectors.findMany({
+          where: { employees: where },
+          select: { workshop_sector_id: true, workshop_sectors: { select: { id: true, name: true } } },
+          distinct: ['workshop_sector_id'],
+        }),
+        prisma.employee_workshop_sectors.findMany({
+          where: { employees: where },
+          select: { workshop_sector_id: true },
+        }),
+        prisma.employees.count({ where }),
+        prisma.employees.count({ where: { ...where, employee_workshop_sectors: { some: {} } } }),
+      ]);
+
+      const countMap = new Map<string, number>();
+      for (const rel of allRels) {
+        if (rel.workshop_sector_id) {
+          countMap.set(rel.workshop_sector_id, (countMap.get(rel.workshop_sector_id) ?? 0) + 1);
+        }
+      }
+      const unassigned = totalInCross - withSome;
+      if (unassigned > 0) countMap.set(NULL_FILTER_VALUE, unassigned);
+
+      const resolvedOptions = relations
+        .filter((r) => r.workshop_sector_id && r.workshop_sectors)
+        .map((r) => ({ id: r.workshop_sectors!.id, name: r.workshop_sectors!.name }));
 
       return { counts: countMap, resolvedOptions };
     }
