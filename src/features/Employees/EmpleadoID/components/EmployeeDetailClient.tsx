@@ -14,8 +14,9 @@ import { ArrowLeft, BarChart3, Briefcase, FileText, Lock, Pencil, Phone, Shirt, 
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useForm, type DefaultValues } from 'react-hook-form';
+import { toast } from 'sonner';
 import type { EmployeeDetailData } from '../actions.server';
 import { createEmployee, updateEmployee } from '../actions.server';
 import { EmployeeViewDisplay } from './EmployeeViewDisplay';
@@ -140,9 +141,20 @@ export function EmployeeDetailClient({
   clothingSlot,
 }: EmployeeDetailClientProps) {
   const [currentMode, setCurrentMode] = useState<'view' | 'edit' | 'new'>(initialMode);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, startRefreshTransition] = useTransition();
+  const refreshResolveRef = useRef<(() => void) | null>(null);
   const router = useRouter();
   const { canView } = usePermissions();
+
+  // Resolver la promise pendiente cuando la transition de router.refresh() termina.
+  // Sincronizamos con el state interno de transitions de React/Next router (sistema externo)
+  // para mantener el toast.promise abierto hasta que el Server Component se re-renderice.
+  useEffect(() => {
+    if (!isRefreshing && refreshResolveRef.current) {
+      refreshResolveRef.current();
+      refreshResolveRef.current = null;
+    }
+  }, [isRefreshing]);
 
   // ─── Form único compartido entre las 3 tabs de datos ─────────────────────
   // Vive en el padre inmediato de las tabs para que el estado se preserve
@@ -179,34 +191,61 @@ export function EmployeeDetailClient({
     window.history.replaceState(null, '', `?action=view&employee_id=${employeeId}`);
   };
 
-  const handleSaved = (newEmployeeId?: string) => {
-    if (newEmployeeId) {
-      // Nuevo empleado creado: full reload para cargar los datos del servidor
-      window.location.href = `?action=view&employee_id=${newEmployeeId}`;
-    } else {
-      switchToView();
-      // Refrescar datos del servidor sin perder el estado de la URL
-      router.refresh();
+  // ─── Submit del form ──────────────────────────────────────────────────────
+  // Usamos toast.promise para feedback continuo desde el click hasta que los
+  // datos se ven actualizados en pantalla. En el caso edit, la promise no resuelve
+  // hasta que la transition de router.refresh() termina (Server Component re-renderizado).
+  const onSubmit = async (data: EmployeeFormData) => {
+    if (currentMode === 'new') {
+      const createPromise = (async () => {
+        const created = await createEmployee(data);
+        // Full reload para cargar el detalle del nuevo empleado
+        window.location.href = `?action=view&employee_id=${created.id}`;
+      })();
+
+      toast.promise(createPromise, {
+        loading: 'Creando empleado...',
+        success: 'Empleado creado',
+        error: 'Hubo un error al crear el empleado',
+      });
+
+      try {
+        await createPromise;
+      } catch (error) {
+        logger.error('Error al crear empleado', { data: { error } });
+      }
+      return;
+    }
+
+    if (currentMode === 'edit' && employee?.id) {
+      const savePromise = (async () => {
+        await updateEmployee(employee.id, data);
+        switchToView();
+        // Esperar a que router.refresh() complete la re-renderización del Server Component
+        // (header con nombre actualizado, view display, etc.) antes de cerrar el toast.
+        await new Promise<void>((resolve) => {
+          refreshResolveRef.current = resolve;
+          startRefreshTransition(() => {
+            router.refresh();
+          });
+        });
+      })();
+
+      toast.promise(savePromise, {
+        loading: 'Guardando cambios...',
+        success: 'Cambios guardados',
+        error: 'Hubo un error al guardar los cambios',
+      });
+
+      try {
+        await savePromise;
+      } catch (error) {
+        logger.error('Error al actualizar empleado', { data: { error } });
+      }
     }
   };
 
-  // ─── Submit del form ──────────────────────────────────────────────────────
-  const onSubmit = async (data: EmployeeFormData) => {
-    setIsSubmitting(true);
-    try {
-      if (currentMode === 'new') {
-        const created = await createEmployee(data);
-        handleSaved(created.id);
-      } else if (currentMode === 'edit' && employee?.id) {
-        await updateEmployee(employee.id, data);
-        handleSaved();
-      }
-    } catch (error) {
-      logger.error('Error al guardar empleado', { data: { error } });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const isSaving = form.formState.isSubmitting || isRefreshing;
 
   // ─── Construcción de tabs ─────────────────────────────────────────────────
   const isFormMode = currentMode === 'edit' || currentMode === 'new';
@@ -389,12 +428,8 @@ export function EmployeeDetailClient({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="w-fit">
-                      <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting
-                          ? 'Guardando...'
-                          : currentMode === 'edit'
-                            ? 'Guardar cambios'
-                            : 'Agregar empleado'}
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving ? 'Guardando...' : currentMode === 'edit' ? 'Guardar cambios' : 'Agregar empleado'}
                       </Button>
                     </div>
                   </TooltipTrigger>
