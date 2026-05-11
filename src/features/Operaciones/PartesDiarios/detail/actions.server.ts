@@ -1529,6 +1529,12 @@ export interface CloneRowsOptions {
    * Si no se provee, se incluyen todos los tipos.
    */
   typeServiceFilter?: Array<'mensual' | 'adicional' | 'adicional_permanente'>;
+  /**
+   * Map de `targetDate (YYYY-MM-DD) → array de rowIds a omitir en esa fecha`.
+   * Permite clonar el resto de las rows en fechas con conflictos parciales.
+   * Si una fecha no está en el map, se clonan todas las rows.
+   */
+  skipRowIdsByDate?: Record<string, string[]>;
 }
 
 /**
@@ -1621,13 +1627,13 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
     // 3. Verificar qué fechas ya tienen un dailyreport
     const existingReports = await prisma.dailyreport.findMany({
       where: {
-        date: { in: targetDates.map((d) => new Date(d)) },
+        date: { in: targetDates.map((d) => moment.utc(d).toDate()) },
         company_id: companyId,
       },
       select: { id: true, date: true },
     });
 
-    const existingByDate = new Map(existingReports.map((r) => [moment(r.date).format('YYYY-MM-DD'), r]));
+    const existingByDate = new Map(existingReports.map((r) => [moment.utc(r.date).format('YYYY-MM-DD'), r]));
 
     const createdReportIds: string[] = [];
     const allReportIds: string[] = [];
@@ -1635,18 +1641,39 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
 
     // 4. Para cada fecha destino, crear el header si falta y clonar las filas
     for (const targetDate of targetDates) {
-      let report = existingByDate.get(targetDate);
+      // Resolver rows efectivas para ESTA fecha (aplica skip si corresponde)
+      const skipForDate = options.skipRowIdsByDate?.[targetDate] ?? [];
+      const rowsForThisDate = skipForDate.length
+        ? originalRows.filter((r) => !skipForDate.includes(r.id))
+        : originalRows;
 
-      if (!report) {
-        // Crear el parte diario para esta fecha
-        report = await prisma.dailyreport.create({
-          data: {
-            id: crypto.randomUUID(),
-            date: new Date(targetDate),
+      // Si no quedan rows para clonar en esta fecha, no crear header ni transacción
+      if (rowsForThisDate.length === 0) {
+        continue;
+      }
+
+      // Resolver/crear el dailyreport destino con upsert (race-safe gracias al UNIQUE
+      // compound (date, company_id)). El snapshot pre-cargado solo se usa para
+      // diferenciar "creado por esta llamada" vs "ya existía".
+      const wasInPreSnapshot = existingByDate.has(targetDate);
+      const targetDateValue = moment.utc(targetDate).toDate();
+      const report = await prisma.dailyreport.upsert({
+        where: {
+          date_company_id: {
+            date: targetDateValue,
             company_id: companyId,
           },
-          select: { id: true, date: true },
-        });
+        },
+        update: {},
+        create: {
+          id: crypto.randomUUID(),
+          date: targetDateValue,
+          company_id: companyId,
+        },
+        select: { id: true, date: true },
+      });
+
+      if (!wasInPreSnapshot) {
         createdReportIds.push(report.id);
       }
 
@@ -1656,7 +1683,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
 
       // Clonar todas las filas para esta fecha en una transacción
       await withAuditUser(async (tx) => {
-        for (const originalRow of originalRows) {
+        for (const originalRow of rowsForThisDate) {
           // Determinar empleados a copiar (solo activos)
           const employeesToCopy: EmployeeInput[] = includeEmployees
             ? originalRow.dailyreportemployeerelations
@@ -1708,6 +1735,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
               sector_service_id: originalRow.sector_service_id,
               type_service: originalRow.type_service,
               status: newStatus,
+              cloned_from_row_id: originalRow.id,
             },
           });
 
@@ -1737,6 +1765,173 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
 }
 
 export type CloneDailyReportRowsResult = Awaited<ReturnType<typeof cloneDailyReportRows>>;
+
+// ============================================================================
+// 10a. CLONE CONFLICTS (verificación previa al clonado)
+// ============================================================================
+
+export interface CloneConflictRow {
+  id: string;
+  cloned_from_row_id: string;
+  customerName: string | null;
+  serviceName: string | null;
+  itemName: string | null;
+  sectorName: string | null;
+  areaName: string | null;
+  workingDay: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  description: string | null;
+  typeService: 'mensual' | 'adicional' | 'adicional_permanente' | null;
+  clonedAt: string | null;
+}
+
+export interface CloneConflictsByDate {
+  /** Map de targetDate (YYYY-MM-DD) → conflictos en esa fecha. Solo incluye fechas con al menos un conflicto. */
+  conflicts: Record<string, CloneConflictRow[]>;
+  /** Total sumado de todos los conflictos. */
+  totalCount: number;
+  /** Map sugerido para el botón "Excluir duplicados": targetDate → rowIds (de los seleccionados) que tienen clon previo en esa fecha. */
+  skipMap: Record<string, string[]>;
+}
+
+/**
+ * Verifica si las rows a clonar ya fueron clonadas previamente a las fechas destino.
+ *
+ * Para cada `(rowId, targetDate)` busca si existe un `dailyreportrows` cuyo
+ * `cloned_from_row_id ∈ effectiveRowIds` dentro del `dailyreport` correspondiente
+ * a esa fecha y la `company_id` actual.
+ *
+ * Si `rowIds` está vacío y hay `cloneAllFromReportId`, primero resuelve las rows
+ * efectivas (mismo comportamiento que `cloneDailyReportRows`).
+ */
+export async function getCloneConflicts(
+  rowIds: string[],
+  targetDates: string[],
+  cloneAllFromReportId?: string,
+  typeServiceFilter?: Array<'mensual' | 'adicional' | 'adicional_permanente'>
+): Promise<CloneConflictsByDate> {
+  logger.debug('Buscando conflictos de clonación', {
+    data: { rowCount: rowIds.length, dateCount: targetDates.length, cloneAllFromReportId },
+  });
+
+  if (targetDates.length === 0) {
+    return { conflicts: {}, totalCount: 0, skipMap: {} };
+  }
+
+  try {
+    // 1. Resolver rows efectivas (mismo flujo que el clone)
+    let effectiveRowIds = rowIds;
+    if (effectiveRowIds.length === 0) {
+      if (!cloneAllFromReportId) {
+        return { conflicts: {}, totalCount: 0, skipMap: {} };
+      }
+      const allRows = await prisma.dailyreportrows.findMany({
+        where: {
+          daily_report_id: cloneAllFromReportId,
+          ...(typeServiceFilter?.length ? { type_service: { in: typeServiceFilter } } : {}),
+        },
+        select: { id: true },
+      });
+      effectiveRowIds = allRows.map((r) => r.id);
+      if (effectiveRowIds.length === 0) {
+        return { conflicts: {}, totalCount: 0, skipMap: {} };
+      }
+    }
+
+    // 2. Obtener company_id desde la cookie
+    const { cookies } = await import('next/headers');
+    const { getCompanyId } = await import('@/lib/company-config');
+    const cookieStore = await cookies();
+    const companyId = getCompanyId(cookieStore.get('actualComp')?.value);
+
+    // 3. Resolver dailyreports destino
+    const reports = await prisma.dailyreport.findMany({
+      where: {
+        date: { in: targetDates.map((d) => moment.utc(d).toDate()) },
+        company_id: companyId,
+      },
+      select: { id: true, date: true },
+    });
+
+    if (reports.length === 0) {
+      return { conflicts: {}, totalCount: 0, skipMap: {} };
+    }
+
+    const reportIdToDate = new Map(reports.map((r) => [r.id, moment.utc(r.date).format('YYYY-MM-DD')]));
+
+    // 4. Buscar rows duplicadas en esos partes
+    const duplicatedRows = await prisma.dailyreportrows.findMany({
+      where: {
+        daily_report_id: { in: reports.map((r) => r.id) },
+        cloned_from_row_id: { in: effectiveRowIds },
+      },
+      select: {
+        id: true,
+        cloned_from_row_id: true,
+        daily_report_id: true,
+        working_day: true,
+        start_time: true,
+        end_time: true,
+        description: true,
+        type_service: true,
+        created_at: true,
+        customers: { select: { name: true } },
+        customer_services: { select: { service_name: true } },
+        service_items: { select: { item_name: true } },
+        service_sectors: { select: { sectors: { select: { name: true } } } },
+        service_areas: { select: { areas_cliente: { select: { descripcion_corta: true } } } },
+      },
+    });
+
+    // 5. Componer el resultado agrupado por fecha
+    const conflicts: Record<string, CloneConflictRow[]> = {};
+    const skipMap: Record<string, string[]> = {};
+
+    for (const dup of duplicatedRows) {
+      const targetDate = reportIdToDate.get(dup.daily_report_id ?? '') ?? null;
+      if (!targetDate || !dup.cloned_from_row_id) continue;
+
+      const formatTime = (t: Date | null) => {
+        if (!t) return null;
+        const hh = String(t.getUTCHours()).padStart(2, '0');
+        const mm = String(t.getUTCMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+      };
+
+      const conflictRow: CloneConflictRow = {
+        id: dup.id,
+        cloned_from_row_id: dup.cloned_from_row_id,
+        customerName: dup.customers?.name ?? null,
+        serviceName: dup.customer_services?.service_name ?? null,
+        itemName: dup.service_items?.item_name ?? null,
+        sectorName: dup.service_sectors?.sectors?.name ?? null,
+        areaName: dup.service_areas?.areas_cliente?.descripcion_corta ?? null,
+        workingDay: dup.working_day,
+        startTime: formatTime(dup.start_time),
+        endTime: formatTime(dup.end_time),
+        description: dup.description,
+        typeService: dup.type_service,
+        clonedAt: dup.created_at?.toISOString() ?? null,
+      };
+
+      if (!conflicts[targetDate]) conflicts[targetDate] = [];
+      conflicts[targetDate].push(conflictRow);
+
+      if (!skipMap[targetDate]) skipMap[targetDate] = [];
+      if (!skipMap[targetDate].includes(dup.cloned_from_row_id)) {
+        skipMap[targetDate].push(dup.cloned_from_row_id);
+      }
+    }
+
+    const totalCount = Object.values(conflicts).reduce((sum, arr) => sum + arr.length, 0);
+
+    return { conflicts, totalCount, skipMap };
+  } catch (error) {
+    logger.error('Error al verificar conflictos de clonación', { data: { error } });
+    throw new Error('No se pudieron verificar los registros existentes. Intentá nuevamente.');
+  }
+}
 
 // ============================================================================
 // 10b. TYPE SERVICE SUMMARY (para CloneRowsDialog)

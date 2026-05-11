@@ -98,11 +98,6 @@ export default function DeleteDocument({
           });
 
         router.refresh();
-        if (resource === 'company') {
-          router.push('/dashboard/company/actualCompany');
-        } else {
-          router.push('/dashboard/document');
-        }
         setIsOpen(false);
       },
       {
