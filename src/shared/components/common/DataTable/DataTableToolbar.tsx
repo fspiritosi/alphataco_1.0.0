@@ -40,8 +40,14 @@ export function DataTableToolbar<TData>({
   facetParams,
   onSearchChange,
   searchValue: externalSearchValue,
+  hasActiveFilters: externalHasActiveFilters,
+  onResetFilters,
 }: DataTableToolbarProps<TData>) {
-  const isFiltered = table.getState().columnFilters.length > 0;
+  // isFiltered: true si hay columnFilters en TanStack Table (faceted / búsqueda).
+  // externalHasActiveFilters: true si hay cualquier filtro activo en el estado de URL,
+  // incluyendo dateRange (_from/_to) y filtros de columnas no visibles en el toolbar.
+  // Combinamos ambos para que el botón "Limpiar filtros" cubra todos los casos.
+  const isFiltered = table.getState().columnFilters.length > 0 || (externalHasActiveFilters ?? false);
   const sortingState = table.getState().sorting;
   const isSorted = sortingState.length > 0;
 
@@ -128,7 +134,14 @@ export function DataTableToolbar<TData>({
           {isFiltered && (
             <Button
               variant="ghost"
-              onClick={() => table.resetColumnFilters()}
+              onClick={() => {
+                if (onResetFilters) {
+                  // Limpieza completa: incluye dateRange (_from/_to) y filtros de columnas ocultas
+                  onResetFilters();
+                } else {
+                  table.resetColumnFilters();
+                }
+              }}
               className="h-8 px-2 lg:px-3"
               data-testid="clear-filters"
             >
