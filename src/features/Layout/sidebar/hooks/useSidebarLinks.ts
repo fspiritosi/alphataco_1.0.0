@@ -11,6 +11,13 @@ interface AccessibleModule {
 }
 
 /**
+ * Módulos siempre visibles en la sidebar para cualquier usuario autenticado,
+ * incluso si no figuran en `accessibleModules`. Útil para secciones globales
+ * como el Centro de Ayuda, que no tienen tabs/role_permissions cargados en BD.
+ */
+const ALWAYS_VISIBLE_MODULE_SLUGS = new Set<string>(['ayuda']);
+
+/**
  * Hook para filtrar y ordenar los links del sidebar según los módulos accesibles
  *
  * @param accessibleModules - Array de módulos a los que el usuario tiene acceso
@@ -18,9 +25,11 @@ interface AccessibleModule {
  */
 export function useSidebarLinks(accessibleModules: AccessibleModule[]) {
   return useMemo(() => {
-    // Filtrar links según módulos accesibles
-    const filtered = navigationLinks.filter((link) =>
-      accessibleModules.some((mod) => mod.module_slug === link.moduleSlug)
+    // Filtrar links según módulos accesibles, dejando pasar los que están en la lista de siempre-visibles.
+    const filtered = navigationLinks.filter(
+      (link) =>
+        ALWAYS_VISIBLE_MODULE_SLUGS.has(link.moduleSlug) ||
+        accessibleModules.some((mod) => mod.module_slug === link.moduleSlug)
     );
 
     // Ordenar por position

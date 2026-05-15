@@ -1,4 +1,5 @@
-import { ReportAnIssue } from '@/features/Ayuda/components/ReportAnIssue';
+import { getMySupportTickets } from '@/features/Ayuda/actions/support-tickets';
+import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 
@@ -8,59 +9,21 @@ export async function generateMetadata() {
   if (companyName) {
     return {
       title: `Ayuda | ${companyName}`,
-      description: `Página de ayuda de ${companyName} con información general, comercial, HR y equipos`,
+      description: `Centro de ayuda de ${companyName}`,
     };
-  } else {
-    const companyName = await getCompanyName();
-    if (companyName) {
-      return {
-        title: `Ayuda | ${companyName.company_name}`,
-        description: `Página de ayuda de ${companyName.company_name} con información general, comercial, HR y equipos`,
-      };
-    }
   }
+  const fetched = await getCompanyName();
+  if (fetched) {
+    return {
+      title: `Ayuda | ${fetched.company_name}`,
+      description: `Centro de ayuda de ${fetched.company_name}`,
+    };
+  }
+  return { title: 'Ayuda' };
 }
-export default function page() {
-  //  return <VehicleInspectionForm />;
-  return <ReportAnIssue />;
-  // return (
-  //   <Viewcomponent
-  //     viewData={
-  //       {
-  //         defaulValue: "general",
-  //         tabsValues:[
-  //           {
-  //             value: "general",
-  //             name:"General",
-  //             restricted: ["usuario"],
-  //             content:{
-  //               title: "Empresa",
-  //               description: "Datos generales de la compañía",
-  //               component: <div>Hola Yordan</div>,
-  //             }
-  //           },
-  //           {
-  //             value: "documents",
-  //             name:"Documentacion",
-  //             restricted: [] ,
-  //             content:{
-  //             title: "Documentación",
-  //             description: "Documentos generales de la compañía",
-  //             component: <TypesDocumentsView equipos personas />,
-  //           }},
-  //           {
-  //             value: "clients",
-  //             name:"Clientes",
-  //             restricted: [] ,
-  //             content:{
-  //             title: "Clientes",
-  //             description: "Documentos generales de la Clientes",
-  //             component: <Customers />,
 
-  //           }},
-  //         ]
-  //       }
-  //     }
-  //   />
-  // )
+export default async function HelpPage() {
+  const initialTickets = await getMySupportTickets();
+
+  return <HelpCenter initialTickets={initialTickets} />;
 }
