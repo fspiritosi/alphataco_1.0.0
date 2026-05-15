@@ -39,7 +39,9 @@ export async function getEmployeesForDelivery(companyId: string, search?: string
         lastname: true,
         file: true,
         cuil: true,
+        date_of_admission: true,
         company_positions: { select: { name: true } },
+        covenant: { select: { name: true } },
       },
       orderBy: { lastname: 'asc' },
       take: 50,
@@ -77,7 +79,9 @@ export async function getEmployeeForDeliveryById(
         lastname: true,
         file: true,
         cuil: true,
+        date_of_admission: true,
         company_positions: { select: { name: true } },
+        covenant: { select: { name: true } },
       },
     });
 

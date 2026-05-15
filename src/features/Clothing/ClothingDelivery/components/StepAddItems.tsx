@@ -13,7 +13,7 @@ import {
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useId } from 'react';
+import { useCallback, useId, useState } from 'react';
 
 const logger = new Logger('Clothing/StepAddItems');
 
@@ -102,8 +102,23 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
     [index, sizes, onUpdate]
   );
 
+  // Draft string mientras el input tiene foco — permite estado vacio durante edicion.
+  // Cuando no esta enfocado, displayQuantity refleja item.quantity (siempre sincronizado al padre).
+  const [quantityDraft, setQuantityDraft] = useState<string | null>(null);
+  const displayQuantity = quantityDraft ?? String(item.quantity);
+
+  const handleQuantityFocus = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      setQuantityDraft(String(item.quantity));
+      e.target.select();
+    },
+    [item.quantity]
+  );
+
   const handleQuantityChange = useCallback(
     (val: string) => {
+      setQuantityDraft(val);
+      if (val === '') return;
       const num = parseInt(val, 10);
       if (!isNaN(num) && num >= 1) {
         onUpdate(index, { quantity: num });
@@ -111,6 +126,14 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
     },
     [index, onUpdate]
   );
+
+  const handleQuantityBlur = useCallback(() => {
+    const num = parseInt(quantityDraft ?? '', 10);
+    if (isNaN(num) || num < 1) {
+      onUpdate(index, { quantity: 1 });
+    }
+    setQuantityDraft(null);
+  }, [quantityDraft, index, onUpdate]);
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
@@ -160,8 +183,10 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
             id={`${idPrefix}-qty`}
             type="number"
             min={1}
-            value={item.quantity}
+            value={displayQuantity}
             onChange={(e) => handleQuantityChange(e.target.value)}
+            onFocus={handleQuantityFocus}
+            onBlur={handleQuantityBlur}
             className="h-9"
           />
         </div>
