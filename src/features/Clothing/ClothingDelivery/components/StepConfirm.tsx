@@ -14,7 +14,7 @@ import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/featur
 import type { clothing_delivery_type } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { useMutation } from '@tanstack/react-query';
-import { Briefcase, CreditCard, Loader2, Package, Pen, User } from 'lucide-react';
+import { Briefcase, CalendarDays, CreditCard, Loader2, Package, Pen, ScrollText, User } from 'lucide-react';
 import moment from 'moment';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -118,6 +118,18 @@ export function StepConfirm({
             <Badge variant="outline" className="gap-1 text-xs">
               <CreditCard className="h-3 w-3" />
               CUIL: {employee.cuil}
+            </Badge>
+          )}
+          {employee.covenant?.name && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <ScrollText className="h-3 w-3" />
+              CCT: {employee.covenant.name}
+            </Badge>
+          )}
+          {employee.date_of_admission && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <CalendarDays className="h-3 w-3" />
+              Ingreso: {moment(employee.date_of_admission).format('DD/MM/YYYY')}
             </Badge>
           )}
         </div>
