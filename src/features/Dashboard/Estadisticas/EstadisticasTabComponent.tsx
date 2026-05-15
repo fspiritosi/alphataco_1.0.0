@@ -1,10 +1,12 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import MantenimientoTabContent from '@/features/Dashboard/Estadisticas/Mantenimiento/MantenimientoTabContent';
+import { MantenimientoChartsSkeleton } from '@/features/Dashboard/Estadisticas/Mantenimiento/fallback/MantenimientoChartsSkeleton';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
 import { OperacionesChartsSkeleton } from '@/features/Dashboard/Estadisticas/Operaciones/fallback/OperacionesChartsSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
-import { BarChart3, Calendar, Users } from 'lucide-react';
+import { BarChart3, Calendar, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import KpisTabContent from './KPIs/KpisTabContent';
 import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
@@ -73,22 +75,22 @@ function EstadisticasTabComponent({
               </Suspense>
             ),
           },
-          // {
-          //     value: 'mantenimiento',
-          //     label: (
-          //         <span className="flex items-center gap-2">
-          //             <Wrench className="h-4 w-4" />
-          //             Mantenimiento
-          //         </span>
-          //     ),
-          //     moduleSlug: 'dashboard',
-          //     tabSlug: 'mantenimiento',
-          //     content: (
-          //         <section className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4">
-          //             {/* Maintenance statistics content will go here */}
-          //         </section>
-          //     ),
-          // },
+          {
+            value: 'mantenimiento',
+            label: (
+              <span className="flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Mantenimiento
+              </span>
+            ),
+            moduleSlug: 'dashboard',
+            tabSlug: 'mantenimiento',
+            content: (
+              <Suspense fallback={<MantenimientoChartsSkeleton />}>
+                <MantenimientoTabContent />
+              </Suspense>
+            ),
+          },
         ]}
       />
     </FeatureFlagShow>
