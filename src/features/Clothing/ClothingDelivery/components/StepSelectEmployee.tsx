@@ -9,7 +9,8 @@ import {
 } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
-import { Briefcase, CreditCard, Search, User, X } from 'lucide-react';
+import { Briefcase, CalendarDays, CreditCard, ScrollText, Search, User, X } from 'lucide-react';
+import moment from 'moment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const logger = new Logger('Clothing/StepSelectEmployee');
@@ -117,26 +118,35 @@ export function StepSelectEmployee({ companyId, value, onChange }: StepSelectEmp
                 {debouncedSearch.length > 0 ? 'No se encontraron empleados' : 'Escriba para buscar empleados'}
               </div>
             ) : (
-              employees.map((emp) => (
-                <button
-                  key={emp.id}
-                  type="button"
-                  onClick={() => handleSelect(emp)}
-                  className="w-full text-left px-3 py-2.5 hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-3 border-b last:border-b-0"
-                >
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">
-                      [{emp.file}] {emp.lastname} {emp.firstname}
+              employees.map((emp) => {
+                const meta = [
+                  emp.covenant?.name && `CCT ${emp.covenant.name}`,
+                  emp.date_of_admission && `Ingreso ${moment(emp.date_of_admission).format('DD/MM/YYYY')}`,
+                ].filter(Boolean);
+                return (
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onClick={() => handleSelect(emp)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-3 border-b last:border-b-0"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 text-primary" />
                     </div>
-                    {emp.company_positions?.name && (
-                      <div className="text-xs text-muted-foreground truncate">{emp.company_positions.name}</div>
-                    )}
-                  </div>
-                </button>
-              ))
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        [{emp.file}] {emp.lastname} {emp.firstname}
+                      </div>
+                      {emp.company_positions?.name && (
+                        <div className="text-xs text-muted-foreground truncate">{emp.company_positions.name}</div>
+                      )}
+                      {meta.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground/80 truncate">{meta.join(' · ')}</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         )}
@@ -173,6 +183,18 @@ export function StepSelectEmployee({ companyId, value, onChange }: StepSelectEmp
               <Badge variant="outline" className="gap-1.5">
                 <CreditCard className="h-3 w-3" />
                 CUIL: {value.cuil}
+              </Badge>
+            )}
+            {value.covenant?.name && (
+              <Badge variant="outline" className="gap-1.5">
+                <ScrollText className="h-3 w-3" />
+                CCT: {value.covenant.name}
+              </Badge>
+            )}
+            {value.date_of_admission && (
+              <Badge variant="outline" className="gap-1.5">
+                <CalendarDays className="h-3 w-3" />
+                Ingreso: {moment(value.date_of_admission).format('DD/MM/YYYY')}
               </Badge>
             )}
           </div>

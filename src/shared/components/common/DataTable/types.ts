@@ -288,6 +288,18 @@ export interface DataTableToolbarProps<TData> {
    * Se usa junto con onSearchChange para mantener sincronía con el servidor.
    */
   searchValue?: string;
+  /**
+   * Indica si hay filtros activos en el estado de la tabla (incluyendo dateRange _from/_to
+   * y filtros de columnas no visibles en el toolbar).
+   * Cuando es true, se muestra el botón "Limpiar filtros" aunque `columnFilters` de TanStack
+   * esté vacío (caso: filtro en columna oculta o filtro dateRange llegado por URL).
+   */
+  hasActiveFilters?: boolean;
+  /**
+   * Callback para limpiar TODOS los filtros activos (incluyendo dateRange y columnas ocultas).
+   * Cuando se provee, reemplaza el `table.resetColumnFilters()` por defecto.
+   */
+  onResetFilters?: () => void;
 }
 
 /**

@@ -19,8 +19,47 @@ import { DataTablePendingProvider } from './DataTablePendingContext';
 import { DataTableToolbar } from './DataTableToolbar';
 import { _DataTableExportButton } from './_DataTableExportButton';
 import { stateToSearchParams } from './helpers';
-import type { DataTableProps, DataTableSearchParams } from './types';
+import type { DataTableFacetedFilterConfig, DataTableProps, DataTableSearchParams } from './types';
 import { useDataTable } from './useDataTable';
+
+/**
+ * Detecta qué columnIds tienen un filtro activo en los searchParams dados.
+ * Maneja tanto filtros facetados/texto (key = columnId) como dateRange (key = columnId_from / columnId_to).
+ * Los `facetedFilters` se usan para mapear los sufijos _from/_to al columnId base.
+ */
+function getActiveFilterColumnIds(
+  searchParams: DataTableSearchParams,
+  facetedFilters: DataTableFacetedFilterConfig[]
+): Set<string> {
+  const reservedKeys = new Set(['page', 'pageSize', 'sort', 'sortBy', 'sortOrder', 'search']);
+  const active = new Set<string>();
+
+  // Construir un índice de columnas dateRange para detectar los sufijos _from/_to
+  const dateRangeColumnIds = new Set(
+    facetedFilters.filter((f) => f.type === 'dateRange').map((f) => f.columnId)
+  );
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (reservedKeys.has(key) || !value) return;
+
+    // Comprobar si es un sufijo _from o _to de un filtro dateRange
+    if (key.endsWith('_from') || key.endsWith('_to')) {
+      const suffix = key.endsWith('_from') ? '_from' : '_to';
+      const baseKey = key.slice(0, key.length - suffix.length);
+      if (dateRangeColumnIds.has(baseKey)) {
+        active.add(baseKey);
+        return;
+      }
+    }
+
+    // Filtro normal (faceted o texto): la key ES el columnId
+    if (!reservedKeys.has(key)) {
+      active.add(key);
+    }
+  });
+
+  return active;
+}
 
 /**
  * DataTable Server-Side con soporte para paginación, sorting y filtros.
@@ -73,8 +112,26 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   // Estado de visibilidad de columnas (local, inicializado con las visibilidades por defecto)
   const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
 
-  // Estado de visibilidad de filtros
-  const [filterVisibility, setFilterVisibility] = React.useState<Record<string, boolean>>(initialFilterVisibility);
+  // Estado de visibilidad de filtros.
+  // Al inicializar, forzamos a "visible" cualquier columna que tenga un filtro activo en la URL
+  // aunque no esté en las preferencias guardadas del usuario. Esto evita el estado "fantasma"
+  // donde la tabla filtra datos pero no muestra ningún chip visible al usuario.
+  // IMPORTANTE: no se persiste en BD — solo vive en memoria mientras dure la sesión.
+  const [filterVisibility, setFilterVisibility] = React.useState<Record<string, boolean>>(() => {
+    const activeColumnIds = getActiveFilterColumnIds(searchParams ?? {}, facetedFilters);
+    if (activeColumnIds.size === 0) return initialFilterVisibility;
+
+    // Combinar: preferencias del usuario base + forzar true para columnas activas
+    const merged: Record<string, boolean> = { ...initialFilterVisibility };
+    activeColumnIds.forEach((columnId) => {
+      // Solo forzar visible si la columna existe en la configuración de filtros
+      const isKnownFilter = facetedFilters.some((f) => f.columnId === columnId);
+      if (isKnownFilter && merged[columnId] !== true) {
+        merged[columnId] = true;
+      }
+    });
+    return merged;
+  });
 
   // Hook para manejar estado sincronizado con URL
   const filterableColumns = facetedFilters.map((f) => f.columnId);
@@ -87,6 +144,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     onSortingChange,
     onColumnFiltersChange,
     onGlobalFilterChange,
+    resetFilters,
     isPending: isNavigationPending,
     startTransition,
     notifyUrlChange,
@@ -114,6 +172,13 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     const { page, pageSize, sort, sortBy, sortOrder, ...rest } = stateSearchParams;
     return rest;
   }, [stateSearchParams]);
+
+  // Detectar si hay filtros activos en el estado (incluyendo _from/_to de dateRange).
+  // Esto se usa para activar el botón "Limpiar filtros" independientemente de si las
+  // columnas están visibles en el toolbar o no.
+  const hasActiveFilters = React.useMemo(() => {
+    return Object.entries(state.filters).some(([, values]) => values.length > 0);
+  }, [state.filters]);
 
   // Notificar al padre cuando el estado cambia (para facets y queries dependientes)
   const onStateChangeRef = React.useRef(onStateChange);
@@ -227,6 +292,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           facetParams={facetParams}
           onSearchChange={onGlobalFilterChange}
           searchValue={state.search}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
           exportActions={
             exportConfig && showExportButton ? (
               <_DataTableExportButton columns={columns} exportConfig={exportConfig} />
