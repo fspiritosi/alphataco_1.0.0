@@ -16,6 +16,7 @@ import type {
   MaintenanceVehicle,
   OwnershipCategory,
   VehicleStatus,
+  WorkdaysAggregate,
 } from '../types';
 
 const logger = new Logger('Dashboard/Estadisticas/Mantenimiento');
@@ -98,25 +99,45 @@ export async function getMaintenanceMonthSummary(monthKey: string): Promise<Main
       throw new Error(`Invalid monthKey: ${monthKey}`);
     }
 
+    const monthEnd = monthStart.clone().add(1, 'month').startOf('month');
+    const daysElapsed = computeDaysElapsed(monthStart);
+
     const baseWhere = {
       company_id: companyId,
       is_active: true,
       type_of_contract: { not: null },
     } as const;
 
-    const [vehiclesLight, conditionGroups, oldestReport] = await Promise.all([
-      // Trae solo lo necesario para counts + types por categoria
+    const [vehiclesLight, workedRelations, oldestReport] = await Promise.all([
+      // Trae lo necesario para counts + types + condicion por categoria
       prisma.vehicles.findMany({
         where: baseWhere,
         select: {
+          id: true,
+          condition: true,
           type_of_contract: true,
           type_vehicles_typeTotype: { select: { id: true, name: true } },
         },
       }),
-      prisma.vehicles.groupBy({
-        by: ['condition'],
-        where: baseWhere,
-        _count: true,
+      // Para workdays globales: trae todas las relaciones dailyreport↔vehiculo
+      // del mes (cualquier categoria). Luego agrupamos en memoria por categoria.
+      prisma.dailyreportequipmentrelations.findMany({
+        where: {
+          equipment_id: { not: null },
+          vehicles: { company_id: companyId, is_active: true, type_of_contract: { not: null } },
+          dailyreportrows: {
+            status: { not: daily_report_status.cancelado },
+            dailyreport: {
+              company_id: companyId,
+              is_active: true,
+              date: { gte: monthStart.toDate(), lt: monthEnd.toDate() },
+            },
+          },
+        },
+        select: {
+          equipment_id: true,
+          dailyreportrows: { select: { dailyreport: { select: { date: true } } } },
+        },
       }),
       prisma.dailyreport.findFirst({
         where: { company_id: companyId, is_active: true },
@@ -125,33 +146,71 @@ export async function getMaintenanceMonthSummary(monthKey: string): Promise<Main
       }),
     ]);
 
-    // Counts y tipos por categoria
-    const countsByCategory: Record<OwnershipCategory, number> = { Propios: 0, Leasing: 0, Contratados: 0 };
-    const typesPerCat = emptyTypeMap();
-    for (const v of vehiclesLight) {
-      const cat = CATEGORY_BY_CONTRACT_TYPE[v.type_of_contract!];
-      countsByCategory[cat] += 1;
-      const t = v.type_vehicles_typeTotype;
-      if (t?.id && t?.name) typesPerCat[cat].set(t.id, t.name);
-    }
-
-    // Counts por condicion (estado operativo)
-    const conditionCounts: Record<VehicleStatus, number> = {
+    // Estructura inicial vacia (helpers)
+    const emptyConditionCounts = (): Record<VehicleStatus, number> => ({
       operativo: 0,
       operativo_condicionado: 0,
       en_preparacion: 0,
       no_operativo: 0,
       en_reparacion: 0,
+    });
+
+    // Counts, tipos y conditionCountsByCategory en una sola pasada
+    const countsByCategory: Record<OwnershipCategory, number> = { Propios: 0, Leasing: 0, Contratados: 0 };
+    const typesPerCat = emptyTypeMap();
+    const conditionCountsByCategory: Record<OwnershipCategory, Record<VehicleStatus, number>> = {
+      Propios: emptyConditionCounts(),
+      Leasing: emptyConditionCounts(),
+      Contratados: emptyConditionCounts(),
     };
-    for (const g of conditionGroups) {
-      if (g.condition && g.condition in conditionCounts) {
-        conditionCounts[g.condition as VehicleStatus] = g._count;
+    // Index vehicle id → categoria, para mapear los workedDays luego
+    const categoryByVehicleId = new Map<string, OwnershipCategory>();
+
+    for (const v of vehiclesLight) {
+      const cat = CATEGORY_BY_CONTRACT_TYPE[v.type_of_contract!];
+      countsByCategory[cat] += 1;
+      categoryByVehicleId.set(v.id, cat);
+
+      const t = v.type_vehicles_typeTotype;
+      if (t?.id && t?.name) typesPerCat[cat].set(t.id, t.name);
+
+      // condition es nullable; default operativo (mismo criterio que en el detail action)
+      const status = (v.condition as VehicleStatus | null) ?? 'operativo';
+      if (status in conditionCountsByCategory[cat]) {
+        conditionCountsByCategory[cat][status] += 1;
       }
+    }
+
+    // Fechas unicas trabajadas por vehiculo, luego sumadas por categoria
+    const daysByVehicle = new Map<string, Set<string>>();
+    for (const rel of workedRelations) {
+      const vehicleId = rel.equipment_id;
+      const date = rel.dailyreportrows?.dailyreport?.date;
+      if (!vehicleId || !date) continue;
+      const key = moment(date).format('YYYY-MM-DD');
+      let set = daysByVehicle.get(vehicleId);
+      if (!set) {
+        set = new Set();
+        daysByVehicle.set(vehicleId, set);
+      }
+      set.add(key);
+    }
+
+    const workdaysByCategory: Record<OwnershipCategory, WorkdaysAggregate> = {
+      Propios: { worked: 0, possible: countsByCategory.Propios * daysElapsed },
+      Leasing: { worked: 0, possible: countsByCategory.Leasing * daysElapsed },
+      Contratados: { worked: 0, possible: countsByCategory.Contratados * daysElapsed },
+    };
+    for (const [vehicleId, dates] of daysByVehicle) {
+      const cat = categoryByVehicleId.get(vehicleId);
+      if (!cat) continue;
+      // Cap a daysElapsed: si se cargaron dias futuros, no inflan el worked.
+      workdaysByCategory[cat].worked += Math.min(dates.size, daysElapsed);
     }
 
     return {
       month: monthStart.format('YYYY-MM'),
-      daysElapsed: computeDaysElapsed(monthStart),
+      daysElapsed,
       daysInMonth: monthStart.daysInMonth(),
       countsByCategory,
       typesByCategory: {
@@ -159,7 +218,8 @@ export async function getMaintenanceMonthSummary(monthKey: string): Promise<Main
         Leasing: toSortedOptions(typesPerCat.Leasing),
         Contratados: toSortedOptions(typesPerCat.Contratados),
       },
-      conditionCounts,
+      conditionCountsByCategory,
+      workdaysByCategory,
       earliestMonth: oldestReport ? moment(oldestReport.date).startOf('month').format('YYYY-MM') : null,
     };
   } catch (error) {

@@ -21,6 +21,13 @@ export type MaintenanceTypeOption = {
   name: string;
 };
 
+// Agregado de utilizacion: dias trabajados vs dias posibles del rango.
+// possible = count * daysElapsed (capacidad teorica de la flota en el mes hasta hoy).
+export type WorkdaysAggregate = {
+  worked: number;
+  possible: number;
+};
+
 // ── Resumen liviano del mes (se carga upfront) ──────────────────────────────
 export type MaintenanceMonthSummary = {
   month: string;
@@ -28,7 +35,12 @@ export type MaintenanceMonthSummary = {
   daysInMonth: number;
   countsByCategory: Record<OwnershipCategory, number>;
   typesByCategory: Record<OwnershipCategory, MaintenanceTypeOption[]>;
-  conditionCounts: Record<VehicleStatus, number>;
+  // Counts por condicion segmentados por categoria de tenencia.
+  // Permite drill-down: al seleccionar una categoria, la banda de condiciones
+  // muestra solo los counts de esa categoria.
+  conditionCountsByCategory: Record<OwnershipCategory, Record<VehicleStatus, number>>;
+  // Utilizacion de la flota: dias trabajados vs posibles por categoria.
+  workdaysByCategory: Record<OwnershipCategory, WorkdaysAggregate>;
   earliestMonth: string | null;
 };
 

@@ -1,13 +1,19 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
 import { Cell, Pie, PieChart } from 'recharts';
 import {
   OWNERSHIP_CATEGORIES,
   VEHICLE_STATUSES,
   type OwnershipCategory,
   type VehicleStatus,
+  type WorkdaysAggregate,
 } from '../types';
+import { ConditionChip } from './ConditionChip';
+import { OwnershipCard } from './OwnershipCard';
+import { WorkdaysProgress } from './WorkdaysProgress';
 
 // Paleta semantica para distinguir las 3 categorias.
 const CATEGORY_COLORS: Record<OwnershipCategory, string> = {
@@ -16,13 +22,39 @@ const CATEGORY_COLORS: Record<OwnershipCategory, string> = {
   Contratados: 'var(--chart-1)',
 };
 
-// Labels y colores para los KPIs de condicion operativa
-const STATUS_META: Record<VehicleStatus, { label: string; dotClass: string }> = {
-  operativo: { label: 'Operativos', dotClass: 'bg-emerald-500' },
-  operativo_condicionado: { label: 'Op. condicionado', dotClass: 'bg-amber-500' },
-  en_preparacion: { label: 'En preparación', dotClass: 'bg-sky-500' },
-  no_operativo: { label: 'No operativos', dotClass: 'bg-rose-500' },
-  en_reparacion: { label: 'En reparación', dotClass: 'bg-indigo-500' },
+// Labels + clases visuales para los KPIs de condicion operativa.
+// ringClass + tintClass se aplican cuando el chip esta selected.
+const STATUS_META: Record<VehicleStatus, { label: string; dotClass: string; ringClass: string; tintClass: string }> = {
+  operativo: {
+    label: 'Operativos',
+    dotClass: 'bg-emerald-500',
+    ringClass: 'ring-1 ring-emerald-500/50',
+    tintClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  },
+  operativo_condicionado: {
+    label: 'Op. condicionado',
+    dotClass: 'bg-amber-500',
+    ringClass: 'ring-1 ring-amber-500/50',
+    tintClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  },
+  en_preparacion: {
+    label: 'En preparación',
+    dotClass: 'bg-sky-500',
+    ringClass: 'ring-1 ring-sky-500/50',
+    tintClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  },
+  no_operativo: {
+    label: 'No operativos',
+    dotClass: 'bg-rose-500',
+    ringClass: 'ring-1 ring-rose-500/50',
+    tintClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  },
+  en_reparacion: {
+    label: 'En reparación',
+    dotClass: 'bg-indigo-500',
+    ringClass: 'ring-1 ring-indigo-500/50',
+    tintClass: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
+  },
 };
 
 const chartConfig = {
@@ -34,23 +66,52 @@ const chartConfig = {
 
 interface OwnershipDonutChartProps {
   countsByCategory: Record<OwnershipCategory, number>;
-  conditionCounts: Record<VehicleStatus, number>;
+  // Counts de condicion mostrados en la banda inferior. Ya viene segmentado
+  // por el padre segun haya drill-down o no (responsabilidad del client).
+  effectiveConditionCounts: Record<VehicleStatus, number>;
+  workdays: WorkdaysAggregate;
+  // Drill-down activo (o null si esta global).
+  drilledCategory: OwnershipCategory | null;
+  // Estados seleccionados para el filtro global.
+  selectedStatuses: Set<VehicleStatus>;
+  onDrillDown: (category: OwnershipCategory) => void;
+  onToggleStatus: (status: VehicleStatus) => void;
+  onClearStatuses: () => void;
 }
 
-export function OwnershipDonutChart({ countsByCategory, conditionCounts }: OwnershipDonutChartProps) {
+export function OwnershipDonutChart({
+  countsByCategory,
+  effectiveConditionCounts,
+  workdays,
+  drilledCategory,
+  selectedStatuses,
+  onDrillDown,
+  onToggleStatus,
+  onClearStatuses,
+}: OwnershipDonutChartProps) {
   const total = OWNERSHIP_CATEGORIES.reduce((sum, cat) => sum + countsByCategory[cat], 0);
 
+  // Data del donut: si hay drill-down, atenuamos los slices NO seleccionados
+  // bajando su opacidad (mantenemos el slice visible para no romper la composicion).
   const data = OWNERSHIP_CATEGORIES.map((category) => ({
     category,
     count: countsByCategory[category],
     fill: CATEGORY_COLORS[category],
+    fillOpacity: drilledCategory && drilledCategory !== category ? 0.25 : 1,
   })).filter((d) => d.count > 0);
 
-  // Solo mostramos KPIs de condicion con count > 0 — evita ruido
-  const visibleStatuses = VEHICLE_STATUSES.filter((s) => conditionCounts[s] > 0);
+  // Banda de condiciones: solo mostramos chips con count > 0 O seleccionados
+  // (un chip seleccionado siempre visible aunque su count baje a 0 por filtros).
+  const visibleStatuses = VEHICLE_STATUSES.filter(
+    (s) => effectiveConditionCounts[s] > 0 || selectedStatuses.has(s)
+  );
+
+  const conditionLabel = drilledCategory ? `${drilledCategory}` : 'Todas las categorías';
 
   return (
     <div className="flex flex-col gap-6">
+      <WorkdaysProgress worked={workdays.worked} possible={workdays.possible} />
+
       <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:justify-around">
         {/* Donut chart con total al centro */}
         <ChartContainer config={chartConfig} className="aspect-square h-[220px] w-[220px]">
@@ -65,7 +126,7 @@ export function OwnershipDonutChart({ countsByCategory, conditionCounts }: Owner
               paddingAngle={total > 0 ? 2 : 0}
             >
               {data.map((entry) => (
-                <Cell key={entry.category} fill={entry.fill} />
+                <Cell key={entry.category} fill={entry.fill} fillOpacity={entry.fillOpacity} />
               ))}
             </Pie>
             <text
@@ -89,44 +150,71 @@ export function OwnershipDonutChart({ countsByCategory, conditionCounts }: Owner
           </PieChart>
         </ChartContainer>
 
-        {/* Leyenda con count y porcentaje por categoria */}
+        {/* Leyenda clickeable */}
         <div className="flex flex-col gap-2.5 w-full max-w-xs">
           {OWNERSHIP_CATEGORIES.map((category) => {
             const count = countsByCategory[category];
             const percent = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
-              <div
+              <OwnershipCard
                 key={category}
-                className="flex items-center gap-3 rounded-md border bg-card/40 px-3 py-2 transition-colors hover:bg-card"
-              >
-                <span
-                  className="h-3 w-3 rounded-full shrink-0"
-                  style={{ backgroundColor: CATEGORY_COLORS[category] }}
-                  aria-hidden
-                />
-                <span className="text-sm font-medium flex-1">{category}</span>
-                <span className="text-sm tabular-nums font-semibold">{count}</span>
-                <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">{percent}%</span>
-              </div>
+                category={category}
+                count={count}
+                percent={percent}
+                color={CATEGORY_COLORS[category]}
+                selected={drilledCategory === category}
+                dimmed={drilledCategory !== null && drilledCategory !== category}
+                onClick={() => onDrillDown(category)}
+              />
             );
           })}
         </div>
       </div>
 
-      {/* KPIs de condicion operativa — banda inferior */}
+      {/* Banda de condicion — chips multi-select */}
       {visibleStatuses.length > 0 && (
-        <div className="flex flex-wrap items-center justify-center gap-2 border-t pt-4 lg:gap-4">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Condición:</span>
-          {visibleStatuses.map((status) => (
-            <div
-              key={status}
-              className="flex items-center gap-2 rounded-md border bg-card/40 px-2.5 py-1"
-            >
-              <span className={`h-2 w-2 rounded-full shrink-0 ${STATUS_META[status].dotClass}`} aria-hidden />
-              <span className="text-xs text-muted-foreground">{STATUS_META[status].label}</span>
-              <span className="text-xs font-semibold tabular-nums">{conditionCounts[status]}</span>
-            </div>
-          ))}
+        <div className="border-t pt-4 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Condición · <span className="normal-case text-foreground/80">{conditionLabel}</span>
+            </span>
+            {selectedStatuses.size > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={onClearStatuses}
+              >
+                Limpiar ({selectedStatuses.size})
+              </Button>
+            )}
+          </div>
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-2 lg:gap-3',
+              drilledCategory && 'lg:justify-start'
+            )}
+          >
+            {visibleStatuses.map((status) => {
+              const meta = STATUS_META[status];
+              const count = effectiveConditionCounts[status];
+              return (
+                <ConditionChip
+                  key={status}
+                  status={status}
+                  label={meta.label}
+                  count={count}
+                  dotClass={meta.dotClass}
+                  ringClass={meta.ringClass}
+                  tintClass={meta.tintClass}
+                  selected={selectedStatuses.has(status)}
+                  disabled={count === 0 && !selectedStatuses.has(status)}
+                  onClick={() => onToggleStatus(status)}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
