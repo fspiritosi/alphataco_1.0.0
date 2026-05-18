@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { getMaintenanceCategoryVehicles } from '../actions/actions.server';
-import type { MaintenanceTypeOption, OwnershipCategory } from '../types';
+import type { MaintenanceTypeOption, OwnershipCategory, VehicleStatus } from '../types';
 import { EquipmentRow } from './EquipmentRow';
+import { PatenteSearchInput } from './PatenteSearchInput';
 
 interface CategorySectionProps {
   category: OwnershipCategory;
@@ -20,9 +22,14 @@ interface CategorySectionProps {
   types: MaintenanceTypeOption[];
   selectedTypeIds: string[];
   onTypeFilterChange: (values: string[]) => void;
+  patenteFilter: string;
+  onPatenteFilterChange: (value: string) => void;
+  selectedStatuses: Set<VehicleStatus>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   daysElapsed: number;
+  highlightActive: boolean;
+  highlightSeq: number;
 }
 
 /**
@@ -60,9 +67,14 @@ export function CategorySection({
   types,
   selectedTypeIds,
   onTypeFilterChange,
+  patenteFilter,
+  onPatenteFilterChange,
+  selectedStatuses,
   open,
   onOpenChange,
   daysElapsed,
+  highlightActive,
+  highlightSeq,
 }: CategorySectionProps) {
   // Lazy fetch: solo dispara la query cuando el acordeon esta abierto.
   // Cachea por monthKey+category — reabrir es instantaneo dentro del staleTime.
@@ -73,24 +85,58 @@ export function CategorySection({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Combinacion AND de filtros locales (tipos + patente) + globales (estados).
   const filteredVehicles = React.useMemo(() => {
     if (!vehicles) return [];
-    if (selectedTypeIds.length === 0) return vehicles;
-    return vehicles.filter((v) => v.typeId !== null && selectedTypeIds.includes(v.typeId));
-  }, [vehicles, selectedTypeIds]);
+    const patenteQuery = patenteFilter.trim().toLowerCase();
+    return vehicles.filter((v) => {
+      if (selectedTypeIds.length > 0) {
+        if (v.typeId === null || !selectedTypeIds.includes(v.typeId)) return false;
+      }
+      if (selectedStatuses.size > 0 && !selectedStatuses.has(v.status)) return false;
+      if (patenteQuery.length > 0) {
+        if (!v.domain?.toLowerCase().includes(patenteQuery)) return false;
+      }
+      return true;
+    });
+  }, [vehicles, selectedTypeIds, selectedStatuses, patenteFilter]);
 
-  const totalDaysWorked = filteredVehicles.reduce((sum, v) => sum + Math.min(v.workedDays, daysElapsed), 0);
+  // Workdays del acordeon: suma de dias trabajados / posibles (cap a daysElapsed).
+  const workdays = React.useMemo(() => {
+    if (filteredVehicles.length === 0) return { worked: 0, possible: 0 };
+    const worked = filteredVehicles.reduce((sum, v) => sum + Math.min(v.workedDays, daysElapsed), 0);
+    const possible = filteredVehicles.length * daysElapsed;
+    return { worked, possible };
+  }, [filteredVehicles, daysElapsed]);
+
+  // Highlight ring: se activa por 800ms cuando este acordeon recibe drill-down.
+  // useEffect minimal — unico caso justificado: cleanup de timer asociado a un
+  // evento externo (highlightSeq) que no podemos derivar.
+  const [showRing, setShowRing] = React.useState(false);
+  React.useEffect(() => {
+    if (!highlightActive) return;
+    setShowRing(true);
+    const t = window.setTimeout(() => setShowRing(false), 800);
+    return () => window.clearTimeout(t);
+  }, [highlightActive, highlightSeq]);
+
+  const hasLocalFilter = selectedTypeIds.length > 0 || patenteFilter.trim().length > 0 || selectedStatuses.size > 0;
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange} asChild>
-      <Card className="py-0">
-        <CardHeader className="flex flex-row items-center justify-between gap-3 px-6 py-3 border-b">
+      <Card
+        className={cn(
+          'py-0 transition-shadow duration-300',
+          showRing && 'ring-2 ring-primary/50 shadow-md'
+        )}
+      >
+        <CardHeader className="flex flex-col gap-3 px-6 py-3 border-b sm:flex-row sm:items-center sm:justify-between">
           <CollapsibleTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="-ml-2 h-8 gap-2 px-2 hover:bg-transparent group"
+              className="-ml-2 h-8 gap-2 px-2 hover:bg-transparent group justify-start"
               aria-label={`${open ? 'Contraer' : 'Expandir'} ${category}`}
             >
               <ChevronDown
@@ -99,29 +145,42 @@ export function CategorySection({
               <span className="text-base font-semibold">{category}</span>
               <Badge variant="secondary" className="ml-1 tabular-nums">
                 {open && vehicles
-                  ? selectedTypeIds.length > 0
+                  ? hasLocalFilter
                     ? `${filteredVehicles.length} / ${vehicles.length}`
                     : vehicles.length
                   : totalCount}
               </Badge>
               {open && vehicles && daysElapsed > 0 && filteredVehicles.length > 0 && (
-                <span className="ml-2 text-xs text-muted-foreground hidden md:inline">
-                  Total: {totalDaysWorked} días trabajados
+                <span className="ml-2 text-xs text-muted-foreground hidden md:inline tabular-nums">
+                  {workdays.worked.toLocaleString('es-AR')}
+                  <span className="text-muted-foreground/60"> / </span>
+                  {workdays.possible.toLocaleString('es-AR')} días
                 </span>
               )}
             </Button>
           </CollapsibleTrigger>
 
-          <div className="w-[220px]" onClick={(e) => e.stopPropagation()}>
-            <MultiSelectCombobox
-              options={types.map((t) => ({ label: t.name, value: t.id }))}
-              placeholder={types.length === 0 ? 'Sin tipos' : 'Todos los tipos'}
-              emptyMessage="No hay tipos disponibles"
-              selectedValues={selectedTypeIds}
-              onChange={onTypeFilterChange}
-              disabled={types.length === 0 || !open}
-              showSelectAll
+          <div
+            className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <PatenteSearchInput
+              value={patenteFilter}
+              onChange={onPatenteFilterChange}
+              disabled={!open}
+              className="sm:w-[160px]"
             />
+            <div className="sm:w-[200px]">
+              <MultiSelectCombobox
+                options={types.map((t) => ({ label: t.name, value: t.id }))}
+                placeholder={types.length === 0 ? 'Sin tipos' : 'Todos los tipos'}
+                emptyMessage="No hay tipos disponibles"
+                selectedValues={selectedTypeIds}
+                onChange={onTypeFilterChange}
+                disabled={types.length === 0 || !open}
+                showSelectAll
+              />
+            </div>
           </div>
         </CardHeader>
 
@@ -147,7 +206,7 @@ export function CategorySection({
               </p>
             ) : filteredVehicles.length === 0 ? (
               <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-                Ningún equipo coincide con el filtro de tipo seleccionado.
+                Ningún equipo coincide con los filtros aplicados.
               </p>
             ) : (
               filteredVehicles.map((vehicle) => (
