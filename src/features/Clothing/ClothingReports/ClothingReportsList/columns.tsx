@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DeliveryReceiptButton } from '@/features/Clothing/pdf/DeliveryReceiptButton';
 import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
@@ -21,6 +22,31 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = ['notes', 'created_at'];
 
 export function getColumns(): ColumnDef<ClothingReportListItem>[] {
   return [
+    // ── select ────────────────────────────────────────────────────────────────
+    {
+      id: 'select',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Seleccionar todas las visibles"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Seleccionar entrega"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+
     // ── delivered_at ──────────────────────────────────────────────────────────
     {
       accessorKey: 'delivered_at',

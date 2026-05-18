@@ -85,6 +85,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   showRowSelection = false,
   enableRowSelection = false,
   onRowSelectionChange,
+  onRowSelectionIdsChange,
+  clearSelectionTrigger,
   emptyMessage = 'No se encontraron resultados.',
   pageSizeOptions,
   toolbarActions,
@@ -221,17 +223,40 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
       columnFilters,
       pagination,
     },
+    // Row IDs estables: si el dato tiene `id`, usarlo; si no, usar el índice.
+    // Esto evita que la selección "salte" a otras filas al cambiar de página o re-fetch.
+    getRowId: (row, index) => {
+      const maybeId = (row as { id?: string | number }).id;
+      return typeof maybeId === 'string' || typeof maybeId === 'number' ? String(maybeId) : String(index);
+    },
     // Row selection
     enableRowSelection,
     onRowSelectionChange: (updater) => {
       const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
       setRowSelection(newSelection);
 
-      // Callback externo con las filas seleccionadas
+      // Callback con IDs (cross-page): las claves del map son IDs gracias a getRowId.
+      if (onRowSelectionIdsChange) {
+        const ids = Object.keys(newSelection).filter((key) => newSelection[key as keyof typeof newSelection]);
+        onRowSelectionIdsChange(ids);
+      }
+
+      // Callback con filas (solo página actual): para compatibilidad con consumers
+      // existentes que necesitan los objetos completos.
       if (onRowSelectionChange) {
-        const selectedRows = Object.keys(newSelection)
-          .filter((key) => newSelection[key as keyof typeof newSelection])
-          .map((index) => tableData[Number(index)]);
+        const rowsById = new Map<string, TData>();
+        for (const r of tableData) {
+          const maybeId = (r as { id?: string | number }).id;
+          if (typeof maybeId === 'string' || typeof maybeId === 'number') {
+            rowsById.set(String(maybeId), r);
+          }
+        }
+        const selectedRows: TData[] = [];
+        for (const key of Object.keys(newSelection)) {
+          if (!newSelection[key as keyof typeof newSelection]) continue;
+          const fromCurrentPage = rowsById.get(key);
+          if (fromCurrentPage) selectedRows.push(fromCurrentPage);
+        }
         onRowSelectionChange(selectedRows);
       }
     },
@@ -264,6 +289,17 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
 
     return () => clearTimeout(timer);
   }, [columnVisibility, tableId]);
+
+  // Reset externo de la selección (skip initial render para no disparar al montar).
+  const skipFirstClearRef = React.useRef(true);
+  React.useEffect(() => {
+    if (clearSelectionTrigger === undefined) return;
+    if (skipFirstClearRef.current) {
+      skipFirstClearRef.current = false;
+      return;
+    }
+    setRowSelection({});
+  }, [clearSelectionTrigger]);
 
   return (
     <DataTablePendingProvider
