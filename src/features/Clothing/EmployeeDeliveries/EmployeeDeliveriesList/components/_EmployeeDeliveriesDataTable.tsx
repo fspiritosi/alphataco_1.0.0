@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { BulkDownloadBar } from '@/features/Clothing/pdf/BulkDownloadBar';
 import { clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { clothing_delivery_type } from '@/generated/prisma/enums';
@@ -102,6 +103,14 @@ export default function _EmployeeDeliveriesDataTable({
     (params: DataTableSearchParams) => getEmployeeDeliveriesPaginated(employeeId, params),
     [employeeId]
   );
+
+  // ─── Bulk download — selección cross-page ─────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [clearTrigger, setClearTrigger] = useState(0);
+  const clearSelection = useCallback(() => {
+    setSelectedIds([]);
+    setClearTrigger((n) => n + 1);
+  }, []);
 
   // ─── Lazy-load facets — factories ─────────────────────────────────────────
 
@@ -238,25 +247,32 @@ export default function _EmployeeDeliveriesDataTable({
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-      totalRows={totalRows}
-      searchParams={searchParams}
-      paramNamespace={tableId}
-      tableId={tableId}
-      queryFn={tableQueryFn}
-      queryKey={['employee-deliveries', employeeId]}
-      onStateChange={handleStateChange}
-      facetedFilters={facetedFilters}
-      initialFilterVisibility={mergedFilterVisibility}
-      initialColumnVisibility={mergedColumnVisibility}
-      searchPlaceholder="Buscar en notas..."
-      showFilterToggle={true}
-      showSearch={true}
-      emptyMessage="No hay entregas registradas para este empleado"
-      exportConfig={exportConfig}
-      toolbarActions={toolbarActions}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={data}
+        totalRows={totalRows}
+        searchParams={searchParams}
+        paramNamespace={tableId}
+        tableId={tableId}
+        queryFn={tableQueryFn}
+        queryKey={['employee-deliveries', employeeId]}
+        onStateChange={handleStateChange}
+        facetedFilters={facetedFilters}
+        initialFilterVisibility={mergedFilterVisibility}
+        initialColumnVisibility={mergedColumnVisibility}
+        searchPlaceholder="Buscar en notas..."
+        showFilterToggle={true}
+        showSearch={true}
+        emptyMessage="No hay entregas registradas para este empleado"
+        exportConfig={exportConfig}
+        toolbarActions={toolbarActions}
+        enableRowSelection
+        showRowSelection
+        onRowSelectionIdsChange={setSelectedIds}
+        clearSelectionTrigger={clearTrigger}
+      />
+      <BulkDownloadBar selectedIds={selectedIds} onClear={clearSelection} />
+    </>
   );
 }

@@ -203,8 +203,21 @@ export interface DataTableProps<TData, TValue = unknown> {
   showRowSelection?: boolean;
   /** Habilitar selección de filas (default: false) */
   enableRowSelection?: boolean;
-  /** Callback cuando cambia la selección */
+  /** Callback cuando cambia la selección — entrega las filas seleccionadas de la página actual. */
   onRowSelectionChange?: (selectedRows: TData[]) => void;
+  /**
+   * Callback cuando cambia la selección — entrega los IDs de TODAS las filas seleccionadas
+   * (acumulando entre páginas). Requiere que el dato tenga campo `id`.
+   */
+  onRowSelectionIdsChange?: (ids: string[]) => void;
+  /**
+   * Trigger externo para limpiar la selección de filas. Cada vez que este valor
+   * cambia (cualquier número distinto al anterior), el DataTable resetea su
+   * estado interno de `rowSelection`. Útil para que un padre que muestre una
+   * acción masiva pueda deseleccionar todo desde afuera sin perder otros estados
+   * (filtros, paginación, sorting).
+   */
+  clearSelectionTrigger?: number;
   /** Mensaje cuando no hay resultados */
   emptyMessage?: string;
   /** Tamaños de página disponibles */
