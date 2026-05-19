@@ -8,7 +8,14 @@ import moment from 'moment';
 import 'moment/locale/es';
 import * as React from 'react';
 import { getMaintenanceMonthSummary } from '../actions/actions.server';
-import { OWNERSHIP_CATEGORIES, type MaintenanceMonthSummary, type OwnershipCategory } from '../types';
+import {
+  OWNERSHIP_CATEGORIES,
+  VEHICLE_STATUSES,
+  type MaintenanceMonthSummary,
+  type OwnershipCategory,
+  type VehicleStatus,
+  type WorkdaysAggregate,
+} from '../types';
 import { CategorySection } from './CategorySection';
 import { OwnershipDonutChart } from './OwnershipDonutChart';
 
@@ -19,19 +26,59 @@ interface Props {
   initialMonthKey: string;
 }
 
+// Construye un Record vacio para conditionCounts (helper local).
+function emptyConditionCounts(): Record<VehicleStatus, number> {
+  return {
+    operativo: 0,
+    operativo_condicionado: 0,
+    en_preparacion: 0,
+    no_operativo: 0,
+    en_reparacion: 0,
+  };
+}
+
+// Suma una lista de Records de conditionCounts en uno solo.
+function sumConditionCounts(
+  records: Record<VehicleStatus, number>[]
+): Record<VehicleStatus, number> {
+  const acc = emptyConditionCounts();
+  for (const rec of records) {
+    for (const s of VEHICLE_STATUSES) acc[s] += rec[s];
+  }
+  return acc;
+}
+
 export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: Props) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => moment(initialMonthKey, MONTH_KEY_FORMAT));
+
+  // Drill-down de tenencia (toggle de UNA card a la vez).
+  const [drilledCategory, setDrilledCategory] = React.useState<OwnershipCategory | null>(null);
+
+  // Filtro global de estados — multi-select.
+  const [selectedStatuses, setSelectedStatuses] = React.useState<Set<VehicleStatus>>(() => new Set());
+
+  // Filtros locales por acordeon: tipos + patente.
   const [typeFilters, setTypeFilters] = React.useState<Record<OwnershipCategory, string[]>>({
     Propios: [],
     Leasing: [],
     Contratados: [],
   });
+  const [patenteFilters, setPatenteFilters] = React.useState<Record<OwnershipCategory, string>>({
+    Propios: '',
+    Leasing: '',
+    Contratados: '',
+  });
+
   // Todas las secciones inician CERRADAS — el detalle se carga lazy al abrir.
   const [openSections, setOpenSections] = React.useState<Record<OwnershipCategory, boolean>>({
     Propios: false,
     Leasing: false,
     Contratados: false,
   });
+
+  // Trigger de highlight breve cuando cambia el drill-down (apunta a un acordeon).
+  // Cada bump aumenta el contador; CategorySection observa el cambio y aplica el ring.
+  const [highlightSeq, setHighlightSeq] = React.useState(0);
 
   const monthKey = selectedMonth.format(MONTH_KEY_FORMAT);
 
@@ -63,12 +110,22 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
   const goToMonth = React.useCallback((next: moment.Moment) => {
     setSelectedMonth(next);
     setTypeFilters({ Propios: [], Leasing: [], Contratados: [] });
+    setPatenteFilters({ Propios: '', Leasing: '', Contratados: '' });
     setOpenSections({ Propios: false, Leasing: false, Contratados: false });
+    setDrilledCategory(null);
+    setSelectedStatuses(new Set());
   }, []);
 
   const handleTypeFilterChange = React.useCallback(
     (category: OwnershipCategory) => (values: string[]) => {
       setTypeFilters((prev) => ({ ...prev, [category]: values }));
+    },
+    []
+  );
+
+  const handlePatenteFilterChange = React.useCallback(
+    (category: OwnershipCategory) => (value: string) => {
+      setPatenteFilters((prev) => ({ ...prev, [category]: value }));
     },
     []
   );
@@ -80,7 +137,84 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
     []
   );
 
+  const handleDrillDown = React.useCallback((category: OwnershipCategory) => {
+    setDrilledCategory((prev) => (prev === category ? null : category));
+    // Bump del trigger de highlight; CategorySection lo lee y aplica ring breve.
+    setHighlightSeq((s) => s + 1);
+  }, []);
+
+  const handleToggleStatus = React.useCallback((status: VehicleStatus) => {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }, []);
+
+  const handleClearStatuses = React.useCallback(() => {
+    setSelectedStatuses(new Set());
+  }, []);
+
   const activeSummary = summary ?? initialSummary;
+
+  // ── Derivados globales segun drill-down + estados seleccionados ──────────
+  // Counts efectivos por categoria: si hay estados seleccionados, restringe a esos.
+  // Si no hay seleccion, count total de la categoria.
+  const effectiveCountsByCategory = React.useMemo<Record<OwnershipCategory, number>>(() => {
+    if (selectedStatuses.size === 0) return activeSummary.countsByCategory;
+    const result: Record<OwnershipCategory, number> = { Propios: 0, Leasing: 0, Contratados: 0 };
+    for (const cat of OWNERSHIP_CATEGORIES) {
+      let sum = 0;
+      for (const s of selectedStatuses) sum += activeSummary.conditionCountsByCategory[cat][s];
+      result[cat] = sum;
+    }
+    return result;
+  }, [activeSummary.countsByCategory, activeSummary.conditionCountsByCategory, selectedStatuses]);
+
+  // ConditionCounts efectivos para la banda inferior:
+  // - Con drill-down: counts de esa categoria
+  // - Sin drill-down: suma de las 3 categorias (= total global)
+  const effectiveConditionCounts = React.useMemo(() => {
+    if (drilledCategory) return activeSummary.conditionCountsByCategory[drilledCategory];
+    return sumConditionCounts(OWNERSHIP_CATEGORIES.map((c) => activeSummary.conditionCountsByCategory[c]));
+  }, [activeSummary.conditionCountsByCategory, drilledCategory]);
+
+  // Workdays globales para el progress bar del header:
+  // - Con drill-down: workdays de esa categoria
+  // - Sin drill-down: suma de las 3 categorias
+  // NOTA: el filtro de estados NO se aplica al workdays globalmente porque
+  // worked esta agregado a nivel categoria (no por vehiculo+status). El
+  // workdays del acordeon (que SI tiene granularidad por vehiculo) si lo aplica.
+  const effectiveWorkdays = React.useMemo<WorkdaysAggregate>(() => {
+    if (drilledCategory) return activeSummary.workdaysByCategory[drilledCategory];
+    return OWNERSHIP_CATEGORIES.reduce<WorkdaysAggregate>(
+      (acc, cat) => {
+        acc.worked += activeSummary.workdaysByCategory[cat].worked;
+        acc.possible += activeSummary.workdaysByCategory[cat].possible;
+        return acc;
+      },
+      { worked: 0, possible: 0 }
+    );
+  }, [activeSummary.workdaysByCategory, drilledCategory]);
+
+  // Para el chevron de "scroll a categoria" al activar drill-down,
+  // mantenemos refs por acordeon. CategorySection puede expandirlas al recibir.
+  const sectionRefs = React.useRef<Record<OwnershipCategory, HTMLDivElement | null>>({
+    Propios: null,
+    Leasing: null,
+    Contratados: null,
+  });
+
+  // Scroll suave al acordeon activo en cada bump del drill-down.
+  React.useEffect(() => {
+    if (!drilledCategory) return;
+    const el = sectionRefs.current[drilledCategory];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Intencionalmente depende SOLO de highlightSeq para correr en cada toggle,
+    // incluso si la categoria es la misma (no re-toggle de la misma categoria).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightSeq]);
 
   return (
     <section className="grid grid-cols-1 gap-3 mb-4">
@@ -133,26 +267,43 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
         </CardHeader>
         <CardContent className="px-2 pt-6 pb-6 sm:px-6">
           <OwnershipDonutChart
-            countsByCategory={activeSummary.countsByCategory}
-            conditionCounts={activeSummary.conditionCounts}
+            countsByCategory={effectiveCountsByCategory}
+            effectiveConditionCounts={effectiveConditionCounts}
+            workdays={effectiveWorkdays}
+            drilledCategory={drilledCategory}
+            selectedStatuses={selectedStatuses}
+            onDrillDown={handleDrillDown}
+            onToggleStatus={handleToggleStatus}
+            onClearStatuses={handleClearStatuses}
           />
         </CardContent>
       </Card>
 
       {/* 3 secciones — cada una se autoabastece via useQuery cuando esta abierta */}
       {OWNERSHIP_CATEGORIES.map((category) => (
-        <CategorySection
+        <div
           key={category}
-          category={category}
-          monthKey={monthKey}
-          totalCount={activeSummary.countsByCategory[category]}
-          types={activeSummary.typesByCategory[category]}
-          selectedTypeIds={typeFilters[category]}
-          onTypeFilterChange={handleTypeFilterChange(category)}
-          open={openSections[category]}
-          onOpenChange={handleSectionOpenChange(category)}
-          daysElapsed={activeSummary.daysElapsed}
-        />
+          ref={(el) => {
+            sectionRefs.current[category] = el;
+          }}
+        >
+          <CategorySection
+            category={category}
+            monthKey={monthKey}
+            totalCount={activeSummary.countsByCategory[category]}
+            types={activeSummary.typesByCategory[category]}
+            selectedTypeIds={typeFilters[category]}
+            onTypeFilterChange={handleTypeFilterChange(category)}
+            patenteFilter={patenteFilters[category]}
+            onPatenteFilterChange={handlePatenteFilterChange(category)}
+            selectedStatuses={selectedStatuses}
+            open={openSections[category]}
+            onOpenChange={handleSectionOpenChange(category)}
+            daysElapsed={activeSummary.daysElapsed}
+            highlightActive={drilledCategory === category}
+            highlightSeq={highlightSeq}
+          />
+        </div>
       ))}
     </section>
   );
