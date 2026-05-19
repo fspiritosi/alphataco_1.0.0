@@ -1,3 +1,5 @@
+'use server';
+
 import { getCompanyId } from '@/lib/company-config';
 import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
