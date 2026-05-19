@@ -214,6 +214,50 @@ const getColumns = (
       enableColumnFilter: true,
     },
     {
+      accessorKey: 'status',
+      id: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      cell: ({ row }) => {
+        type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
+        type StatusType =
+          | 'pendiente'
+          | 'confirmado'
+          | 'cancelado'
+          | 'rechazado'
+          | 'vencido'
+          | 'reprogramado'
+          | 'default';
+
+        const variantStatus: Record<StatusType, BadgeVariant> = {
+          pendiente: 'default',
+          confirmado: 'success',
+          reprogramado: 'warning',
+          cancelado: 'destructive',
+          rechazado: 'destructive',
+          vencido: 'destructive',
+          default: 'default',
+        };
+
+        return (
+          <div>
+            <Badge
+              variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
+              className={cn(
+                'capitalize whitespace-nowrap',
+                row.original.status === 'pendiente' ? 'bg-black text-white' : ''
+              )}
+              data-testid={`status-badge-${row.original.numero_pedido}`}
+            >
+              {row.original.status || 'Sin estado'}
+            </Badge>
+          </div>
+        );
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
+    },
+    {
       accessorKey: 'cliente_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
       cell: ({ row }) => {
@@ -369,50 +413,6 @@ const getColumns = (
       accessorKey: 'solicitante',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Solicitante" />,
       cell: ({ row }) => <div>{row.getValue('solicitante')}</div>,
-    },
-    {
-      accessorKey: 'status',
-      id: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-      cell: ({ row }) => {
-        type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
-        type StatusType =
-          | 'pendiente'
-          | 'confirmado'
-          | 'cancelado'
-          | 'rechazado'
-          | 'vencido'
-          | 'reprogramado'
-          | 'default';
-
-        const variantStatus: Record<StatusType, BadgeVariant> = {
-          pendiente: 'default',
-          confirmado: 'success',
-          reprogramado: 'warning',
-          cancelado: 'destructive',
-          rechazado: 'destructive',
-          vencido: 'destructive',
-          default: 'default',
-        };
-
-        return (
-          <div>
-            <Badge
-              variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
-              className={cn(
-                'capitalize whitespace-nowrap',
-                row.original.status === 'pendiente' ? 'bg-black text-white' : ''
-              )}
-              data-testid={`status-badge-${row.original.numero_pedido}`}
-            >
-              {row.original.status || 'Sin estado'}
-            </Badge>
-          </div>
-        );
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(String(row.getValue(id)));
-      },
     },
     {
       accessorKey: 'reason',
