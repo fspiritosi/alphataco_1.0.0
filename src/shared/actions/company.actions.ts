@@ -18,7 +18,6 @@ export const getServerCompanyId = async (): Promise<string> => {
 };
 
 export const fetchCurrentCompany = async () => {
-  'use server';
   const supabase = await supabaseServer();
 
   // Usar la función centralizada para obtener el company_id

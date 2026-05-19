@@ -949,6 +949,11 @@ model company {
   vehicles            vehicles[]
   work_orders         work_orders[]
   workshops           workshops[]
+  tire_brands         tire_brands[]
+  tires               tires[]
+  tire_templates      tire_templates[]
+  tire_types          tire_types[]
+  tire_service_orders tire_service_orders[]
 
   @@schema("public")
 }
@@ -2226,6 +2231,7 @@ model profile {
   work_orders_work_orders_created_byToprofile                                        work_orders[]               @relation("work_orders_created_byToprofile")
   work_orders_work_orders_paused_byToprofile                                         work_orders[]               @relation("work_orders_paused_byToprofile")
   work_orders_work_orders_started_byToprofile                                        work_orders[]               @relation("work_orders_started_byToprofile")
+  tire_service_orders                                                                tire_service_orders[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
@@ -2472,12 +2478,14 @@ model sub_type {
   is_active                    Boolean?                       @default(true)
   company_id                   String?                        @db.Uuid
   type                         String?                        @db.Uuid
+  tire_template_id             String?                        @db.Uuid
   checklist_template_sub_types checklist_template_sub_types[]
   other_equipment              other_equipment[]
   company                      company?                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
   type_sub_type_typeTotype     type?                          @relation("sub_type_typeTotype", fields: [type], references: [id], onDelete: NoAction, onUpdate: NoAction)
   sub_type_compatible_items    sub_type_compatible_items[]
   vehicles                     vehicles[]
+  tire_template                tire_templates?                @relation(fields: [tire_template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -2705,6 +2713,10 @@ model vehicles {
   maintenance_requests          maintenance_requests[]
   other_equipment               other_equipment[]
   repair_solicitudes            repair_solicitudes[]
+  vehicle_tire_positions        vehicle_tire_positions[]
+  tire_service_orders_vehicle   tire_service_orders[]           @relation("tire_service_vehicle")
+  tire_service_orders_trailer   tire_service_orders[]           @relation("tire_service_trailer")
+  tire_service_items            tire_service_items[]
   model_vehicles                model_vehicles?                 @relation(fields: [model], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_vehicles_model_fkey")
   type_vehicles_typeTotype      type                            @relation("vehicles_typeTotype", fields: [type], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_vehicles_type_fkey")
   brand_vehicles                brand_vehicles?                 @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2717,6 +2729,169 @@ model vehicles {
   type_operative                type_operative?                 @relation(fields: [type_operative_id], references: [id])
   profile                       profile?                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   work_orders                   work_orders[]
+  tire_template_id              String?                         @db.Uuid
+  tire_template                 tire_templates?                 @relation("vehicle_tire_template", fields: [tire_template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model tire_brands {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  company_id String   @db.Uuid
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  company company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tires   tires[]
+
+  @@unique([name, company_id])
+  @@schema("public")
+}
+
+model tire_types {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  size       String
+  tread_type TireTreadType
+  company_id String        @db.Uuid
+  is_active  Boolean       @default(true)
+  created_at DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at DateTime      @updatedAt @db.Timestamptz(6)
+
+  company company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tires   tires[]
+
+  @@unique([size, tread_type, company_id])
+  @@schema("public")
+}
+
+model tires {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serial_number   String
+  brand_id        String            @db.Uuid
+  tire_type_id    String            @db.Uuid
+  is_new          Boolean           @default(true)
+  retread_level   TireRetreadLevel?
+  tread_depth     Decimal?          @db.Decimal(5, 2)
+  status          TireStatus        @default(AVAILABLE)
+  discard_photo   String?
+  discard_comment String?
+  discarded_at    DateTime?         @db.Timestamptz(6)
+  company_id      String            @db.Uuid
+  is_active       Boolean           @default(true)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @updatedAt @db.Timestamptz(6)
+
+  brand                      tire_brands              @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tire_type                  tire_types               @relation(fields: [tire_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                    company                  @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle_tire_positions     vehicle_tire_positions[]
+  tire_service_items_current tire_service_items[]     @relation("tire_at_position")
+  tire_service_items_new     tire_service_items[]     @relation("replacement_tire")
+
+  @@unique([serial_number, company_id])
+  @@schema("public")
+}
+
+model tire_templates {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  description        String?
+  is_vehicle_override Boolean @default(false)
+  source_template_id String?  @db.Uuid
+  company_id         String   @db.Uuid
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  company           company               @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  source_template   tire_templates?       @relation("template_source", fields: [source_template_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  derived_templates tire_templates[]      @relation("template_source")
+  vehicles_override vehicles[]            @relation("vehicle_tire_template")
+  axles             tire_template_axles[]
+  sub_types         sub_type[]
+
+  @@schema("public")
+}
+
+model tire_template_axles {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id    String   @db.Uuid
+  axle_number    Int
+  tires_per_side Int
+  tire_size      String
+  is_drive_axle  Boolean  @default(false)
+  is_spare       Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  template               tire_templates           @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicle_tire_positions vehicle_tire_positions[]
+
+  @@unique([template_id, axle_number])
+  @@schema("public")
+}
+
+model vehicle_tire_positions {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vehicle_id       String           @db.Uuid
+  template_axle_id String           @db.Uuid
+  position_number  Int
+  axle_number      Int
+  side             TirePositionSide
+  tire_id          String?          @db.Uuid
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime         @updatedAt @db.Timestamptz(6)
+
+  vehicle       vehicles            @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  template_axle tire_template_axles @relation(fields: [template_axle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tire          tires?              @relation(fields: [tire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vehicle_id, position_number])
+  @@schema("public")
+}
+
+model tire_service_orders {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vehicle_id         String                 @db.Uuid
+  trailer_vehicle_id String?                @db.Uuid
+  kilometer          String?
+  service_date       DateTime               @db.Timestamptz(6)
+  status             TireServiceOrderStatus @default(OPEN)
+  created_by         String                 @db.Uuid
+  company_id         String                 @db.Uuid
+  created_at         DateTime               @default(now()) @db.Timestamptz(6)
+  closed_at          DateTime?              @db.Timestamptz(6)
+  axle_snapshot      Json?
+  positions_snapshot Json?
+
+  vehicle  vehicles             @relation("tire_service_vehicle", fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trailer  vehicles?            @relation("tire_service_trailer", fields: [trailer_vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator  profile              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company  company              @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items    tire_service_items[]
+
+  @@schema("public")
+}
+
+model tire_service_items {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_order_id     String              @db.Uuid
+  position_number      Int
+  vehicle_id           String              @db.Uuid
+  action               TireServiceAction
+  tire_id              String?             @db.Uuid
+  new_tire_id          String?             @db.Uuid
+  old_tire_destination TireOldDestination?
+  tread_depth          Decimal?            @db.Decimal(5, 2)
+  pressure_start       Decimal?            @db.Decimal(5, 1)
+  pressure_end         Decimal?            @db.Decimal(5, 1)
+  observations         String?
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+
+  service_order tire_service_orders @relation(fields: [service_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicle       vehicles            @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tire          tires?              @relation("tire_at_position", fields: [tire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  new_tire      tires?              @relation("replacement_tire", fields: [new_tire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -3487,6 +3662,64 @@ enum work_order_status {
 enum workshop_type {
   interno
   externo
+
+  @@schema("public")
+}
+
+enum TireStatus {
+  AVAILABLE
+  INSTALLED
+  IN_REPAIR
+  DISCARDED
+  MISSING
+
+  @@schema("public")
+}
+
+enum TireRetreadLevel {
+  FIRST
+  SECOND
+  THIRD
+
+  @@schema("public")
+}
+
+enum TireTreadType {
+  SMOOTH
+  MIXED
+  BLOCK
+
+  @@schema("public")
+}
+
+enum TirePositionSide {
+  LEFT
+  RIGHT
+  SPARE
+
+  @@schema("public")
+}
+
+enum TireServiceAction {
+  REPLACE
+  REPAIR
+  CALIBRATE
+  MISSING_REPORT
+
+  @@schema("public")
+}
+
+enum TireOldDestination {
+  AVAILABLE
+  DISCARD
+  REPAIR
+
+  @@schema("public")
+}
+
+enum TireServiceOrderStatus {
+  OPEN
+  CLOSED
 
   @@schema("public")
 }
