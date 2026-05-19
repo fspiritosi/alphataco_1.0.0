@@ -4945,6 +4945,7 @@ export type Database = {
           id: string;
           is_active: boolean | null;
           name: string;
+          tire_template_id: string | null;
           type: string | null;
         };
         Insert: {
@@ -4953,6 +4954,7 @@ export type Database = {
           id?: string;
           is_active?: boolean | null;
           name: string;
+          tire_template_id?: string | null;
           type?: string | null;
         };
         Update: {
@@ -4961,6 +4963,7 @@ export type Database = {
           id?: string;
           is_active?: boolean | null;
           name?: string;
+          tire_template_id?: string | null;
           type?: string | null;
         };
         Relationships: [
@@ -4969,6 +4972,13 @@ export type Database = {
             columns: ['company_id'];
             isOneToOne: false;
             referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sub_type_tire_template_id_fkey';
+            columns: ['tire_template_id'];
+            isOneToOne: false;
+            referencedRelation: 'tire_templates';
             referencedColumns: ['id'];
           },
           {
@@ -5394,6 +5404,7 @@ export type Database = {
           status: Database['public']['Enums']['status_type'] | null;
           subType: string | null;
           termination_date: string | null;
+          tire_template_id: string | null;
           type: string;
           type_of_contract: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
@@ -5431,6 +5442,7 @@ export type Database = {
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
           termination_date?: string | null;
+          tire_template_id?: string | null;
           type: string;
           type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
@@ -5468,6 +5480,7 @@ export type Database = {
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
           termination_date?: string | null;
+          tire_template_id?: string | null;
           type?: string;
           type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle?: number;

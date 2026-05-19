@@ -1,0 +1,421 @@
+'use client';
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import type { ComputedPosition, DiagramAxle, DiagramPosition } from './tire-diagram-utils';
+import { calculatePositions } from './tire-diagram-utils';
+
+// Re-export types and utils from the shared (server-safe) module
+export { calculatePositions } from './tire-diagram-utils';
+export type { ComputedPosition, DiagramAxle, DiagramPosition } from './tire-diagram-utils';
+
+export interface TireDiagramRendererProps {
+  axles: DiagramAxle[];
+  positions?: DiagramPosition[];
+  interactive?: boolean;
+  onPositionClick?: (positionNumber: number) => void;
+  highlightedPositions?: number[];
+  /** e.g. vehicle domain/plate */
+  label?: string;
+}
+
+// ─── Internal helpers ──────────────────────────────────────────────────────
+
+interface MergedPosition extends ComputedPosition {
+  tire_id: string | null;
+  tire_serial?: string;
+  tire_brand?: string;
+  tire_size?: string;
+}
+
+function mergePositions(computed: ComputedPosition[], positions: DiagramPosition[]): MergedPosition[] {
+  const posMap = new Map<number, DiagramPosition>(positions.map((p) => [p.position_number, p]));
+
+  return computed.map((cp) => {
+    const data = posMap.get(cp.position_number);
+    return {
+      ...cp,
+      tire_id: data?.tire_id ?? null,
+      tire_serial: data?.tire_serial,
+      tire_brand: data?.tire_brand,
+      tire_size: data?.tire_size,
+    };
+  });
+}
+
+// ─── TireDrum ──────────────────────────────────────────────────────────────
+// Renders a single tire as a horizontal drum (bird's-eye schematic view).
+// Oriented horizontally: left-cap → body → right-cap (wider than tall).
+
+interface TireDrumProps {
+  position: MergedPosition;
+  interactive: boolean;
+  highlighted: boolean;
+  onClick?: () => void;
+  /** Slightly shorter for dual axles */
+  compact?: boolean;
+  /** Circular shape for spare tires */
+  circular?: boolean;
+}
+
+function TireDrum({ position, interactive, highlighted, onClick, compact = false, circular = false }: TireDrumProps) {
+  const hasTire = position.tire_id !== null;
+
+  const interactiveClass = interactive
+    ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-blue-400 transition-all'
+    : '';
+
+  const tooltipLines: string[] = [];
+  if (position.tire_brand) tooltipLines.push(`Marca: ${position.tire_brand}`);
+  if (position.tire_size) tooltipLines.push(`Medida: ${position.tire_size}`);
+  if (position.tire_serial) tooltipLines.push(`Serie: ${position.tire_serial}`);
+
+  // Colors for the drum
+  const bodyBg = highlighted ? 'bg-amber-500' : hasTire ? 'bg-gray-600' : 'bg-white';
+  const bodyBorder = highlighted ? 'border-amber-600' : hasTire ? 'border-gray-700' : 'border-gray-400 border-dashed';
+  const capBg = highlighted ? 'bg-amber-400' : hasTire ? 'bg-gray-400' : 'bg-gray-100';
+  const capBorder = highlighted ? 'border-amber-600' : hasTire ? 'border-gray-600' : 'border-gray-400';
+  const textColor = highlighted ? 'text-white' : hasTire ? 'text-white' : 'text-gray-400';
+
+  // Sizing — horizontal orientation (wider than tall)
+  const drumHeight = compact ? 'h-5' : 'h-7';
+  const drumBodyWidth = 'w-10';
+  const capWidth = 'w-2';
+  const fontSize = compact ? 'text-[9px]' : 'text-xs';
+
+  if (circular) {
+    // Spare: render as a circle
+    const circleEl = (
+      <div
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onClick={interactive ? onClick : undefined}
+        onKeyDown={
+          interactive
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') onClick?.();
+              }
+            : undefined
+        }
+        className={cn(
+          'flex flex-col items-center justify-center rounded-full border-2 font-mono select-none w-10 h-10',
+          bodyBorder,
+          bodyBg,
+          textColor,
+          interactiveClass
+        )}
+      >
+        <span className="font-bold text-xs leading-none">{position.position_number}</span>
+      </div>
+    );
+
+    const wrapped = circleEl;
+
+    if (tooltipLines.length === 0) return wrapped;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{wrapped}</TooltipTrigger>
+        <TooltipContent side="top">
+          <div className="space-y-0.5">
+            <p className="font-semibold text-xs">Posición {position.position_number}</p>
+            {tooltipLines.map((line) => (
+              <p key={line} className="text-xs">
+                {line}
+              </p>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // Drum: 3 sections — left cap, body, right cap (horizontal orientation)
+  const serialSuffix = position.tire_serial ? position.tire_serial.slice(-4) : null;
+
+  const drumEl = (
+    <div
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') onClick?.();
+            }
+          : undefined
+      }
+      className={cn('flex flex-row items-center select-none', drumHeight, interactiveClass)}
+    >
+      {/* Left cap — rounded left, straight right */}
+      <div className={cn('h-full rounded-l-lg border-2 border-r-0', capWidth, capBg, capBorder)} />
+      {/* Body — center section with position number + optional serial */}
+      <div
+        className={cn(
+          'h-full border-y-2 flex flex-col items-center justify-center font-mono gap-0',
+          drumBodyWidth,
+          bodyBg,
+          bodyBorder,
+          'border-x-0',
+          textColor
+        )}
+      >
+        <span className={cn('font-bold leading-none', fontSize)}>{position.position_number}</span>
+        {serialSuffix && (
+          <span className={cn('leading-none opacity-70', compact ? 'text-[5px]' : 'text-[6px]')}>{serialSuffix}</span>
+        )}
+      </div>
+      {/* Right cap — straight left, rounded right */}
+      <div className={cn('h-full rounded-r-lg border-2 border-l-0', capWidth, capBg, capBorder)} />
+    </div>
+  );
+
+  if (tooltipLines.length === 0) return drumEl;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{drumEl}</TooltipTrigger>
+      <TooltipContent side="top">
+        <div className="space-y-0.5">
+          <p className="font-semibold text-xs">Posición {position.position_number}</p>
+          {tooltipLines.map((line) => (
+            <p key={line} className="text-xs">
+              {line}
+            </p>
+          ))}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// ─── AxleColumn ─────────────────────────────────────────────────────────────
+// Renders one axle as a vertical column: top tires — axle bar — bottom tires.
+// The diagram is oriented horizontally (vehicle moves left→right).
+// "LEFT" side appears on top, "RIGHT" side appears on bottom.
+
+interface AxleColumnProps {
+  axle: DiagramAxle;
+  leftPositions: MergedPosition[];
+  rightPositions: MergedPosition[];
+  interactive: boolean;
+  highlightedPositions: number[];
+  onPositionClick?: (positionNumber: number) => void;
+}
+
+function AxleColumn({
+  axle,
+  leftPositions,
+  rightPositions,
+  interactive,
+  highlightedPositions,
+  onPositionClick,
+}: AxleColumnProps) {
+  const isDual = axle.tires_per_side === 2;
+
+  return (
+    <div className="flex flex-col items-center gap-0">
+      {/* Axle label */}
+      <span className="text-[9px] text-muted-foreground mb-1 font-medium whitespace-nowrap">
+        {axle.is_drive_axle ? '⚙ ' : ''}Eje {axle.axle_number}
+      </span>
+
+      {/* TOP row (LEFT side) */}
+      <div className={cn('flex flex-col items-center', isDual ? 'gap-0.5' : '')}>
+        {leftPositions.map((pos) => (
+          <TireDrum
+            key={pos.position_number}
+            position={pos}
+            interactive={interactive}
+            highlighted={highlightedPositions.includes(pos.position_number)}
+            onClick={() => onPositionClick?.(pos.position_number)}
+            compact={isDual}
+          />
+        ))}
+      </div>
+
+      {/* Axle bar connecting top and bottom tires */}
+      <div className="w-1 bg-gray-500 flex-1 min-h-[12px] rounded-full" />
+
+      {/* BOTTOM row (RIGHT side) */}
+      <div className={cn('flex flex-col items-center', isDual ? 'gap-0.5' : '')}>
+        {rightPositions.map((pos) => (
+          <TireDrum
+            key={pos.position_number}
+            position={pos}
+            interactive={interactive}
+            highlighted={highlightedPositions.includes(pos.position_number)}
+            onClick={() => onPositionClick?.(pos.position_number)}
+            compact={isDual}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────
+
+// ─── SpareAxleColumn ────────────────────────────────────────────────────────
+// Renders a spare axle inline with regular axles inside the chassis.
+
+interface SpareAxleColumnProps {
+  axle: DiagramAxle;
+  sparePosition: MergedPosition;
+  interactive: boolean;
+  highlightedPositions: number[];
+  onPositionClick?: (positionNumber: number) => void;
+}
+
+function SpareAxleColumn({
+  axle,
+  sparePosition,
+  interactive,
+  highlightedPositions,
+  onPositionClick,
+}: SpareAxleColumnProps) {
+  return (
+    <div className="flex flex-col items-center gap-0">
+      {/* Axle label */}
+      <span className="text-[9px] text-muted-foreground mb-1 font-medium whitespace-nowrap">
+        Eje {axle.axle_number}
+      </span>
+
+      {/* Spare circle centered vertically */}
+      <div className="flex flex-col items-center justify-center flex-1 py-2">
+        <TireDrum
+          position={sparePosition}
+          interactive={interactive}
+          highlighted={highlightedPositions.includes(sparePosition.position_number)}
+          onClick={() => onPositionClick?.(sparePosition.position_number)}
+          circular
+        />
+        <span className="text-[9px] text-muted-foreground mt-1 whitespace-nowrap">Auxilio</span>
+      </div>
+    </div>
+  );
+}
+
+export function TireDiagramRenderer({
+  axles,
+  positions = [],
+  interactive = false,
+  onPositionClick,
+  highlightedPositions = [],
+  label,
+}: TireDiagramRendererProps) {
+  const computed = calculatePositions(axles);
+  const merged = mergePositions(computed, positions);
+
+  // Sort ALL axles by axle_number — render in order (regular + spare interleaved)
+  const sortedAxles = [...axles].sort((a, b) => a.axle_number - b.axle_number);
+  const regularAxles = sortedAxles.filter((a) => !a.is_spare);
+
+  // Group regular merged positions by axle_number and side
+  const byAxle = new Map<number, { left: MergedPosition[]; right: MergedPosition[] }>();
+  for (const pos of merged) {
+    if (pos.side === 'SPARE') continue;
+    if (!byAxle.has(pos.axle_number)) {
+      byAxle.set(pos.axle_number, { left: [], right: [] });
+    }
+    const group = byAxle.get(pos.axle_number)!;
+    if (pos.side === 'LEFT') group.left.push(pos);
+    else group.right.push(pos);
+  }
+
+  // Group spare merged positions by axle_number
+  const bySpareAxle = new Map<number, MergedPosition>();
+  for (const pos of merged) {
+    if (pos.side === 'SPARE') {
+      bySpareAxle.set(pos.axle_number, pos);
+    }
+  }
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex flex-col gap-2 max-w-3xl mx-auto">
+        {label && <div className="text-sm font-medium text-muted-foreground">{label}</div>}
+
+        {/* Legend */}
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 h-3 rounded-sm border-2 bg-gray-600 border-gray-700" />
+            Con cubierta
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 h-3 rounded-sm border-2 border-dashed bg-white border-gray-400" />
+            Vacío
+          </span>
+          {highlightedPositions.length > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 h-3 rounded-sm border-2 bg-amber-500 border-amber-600" />
+              Intervenido
+            </span>
+          )}
+        </div>
+
+        {/* Diagram — fills 100% width of parent */}
+        <div className="flex flex-row items-center w-full">
+          {/* Direction indicator */}
+          <div className="flex flex-col items-center justify-center shrink-0 pr-2">
+            <span className="text-xs text-muted-foreground font-medium">→</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Frente</span>
+          </div>
+
+          {/* Side labels — only if there are regular axles */}
+          {regularAxles.length > 0 && (
+            <div className="flex flex-col justify-between text-[10px] text-muted-foreground pr-1.5 py-6 shrink-0">
+              <span className="whitespace-nowrap">Izq</span>
+              <span className="whitespace-nowrap">Der</span>
+            </div>
+          )}
+
+          {/* Vehicle chassis frame — ALL axles sorted by axle_number, spare inline */}
+          {sortedAxles.length > 0 && (
+            <div className="relative flex flex-row items-stretch border-2 border-slate-300 rounded-xl bg-slate-50 px-3 py-5 flex-1 min-w-0 min-h-[11rem] justify-around">
+              {/* Chassis top rail */}
+              <div className="absolute top-0 left-4 right-4 h-0.5 bg-slate-300 rounded-full" />
+              {/* Chassis bottom rail */}
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-slate-300 rounded-full" />
+
+              {sortedAxles.map((axle) => {
+                if (axle.is_spare) {
+                  const sparePos = bySpareAxle.get(axle.axle_number);
+                  if (!sparePos) return null;
+                  return (
+                    <SpareAxleColumn
+                      key={axle.id}
+                      axle={axle}
+                      sparePosition={sparePos}
+                      interactive={interactive}
+                      highlightedPositions={highlightedPositions}
+                      onPositionClick={onPositionClick}
+                    />
+                  );
+                }
+                const group = byAxle.get(axle.axle_number) ?? { left: [], right: [] };
+                return (
+                  <AxleColumn
+                    key={axle.id}
+                    axle={axle}
+                    leftPositions={group.left}
+                    rightPositions={group.right}
+                    interactive={interactive}
+                    highlightedPositions={highlightedPositions}
+                    onPositionClick={onPositionClick}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Position count summary */}
+        <div className="text-[10px] text-muted-foreground">
+          {computed.filter((p) => p.side !== 'SPARE').length} posiciones ·{' '}
+          {positions.filter((p) => p.tire_id !== null).length} con cubierta ·{' '}
+          {computed.filter((p) => p.side === 'SPARE').length} auxilio
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
