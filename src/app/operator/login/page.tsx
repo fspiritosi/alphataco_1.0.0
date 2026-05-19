@@ -1,5 +1,6 @@
 import { LoginForm } from '@/features/OperatorPanel/components/LoginForm';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 import { redirect } from 'next/navigation';
 
 export const metadata = {
@@ -14,17 +15,15 @@ export default async function OperatorLoginPage() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    // Check if this user has the operator context
     const { data: profile } = await supabase.from('profile').select('employee_id').eq('id', user.id).single();
 
     if (profile?.employee_id) {
-      const { data: employee } = await supabase
-        .from('employees')
-        .select('workshop_sector_id')
-        .eq('id', profile.employee_id)
-        .single();
+      const assigned = await prisma.employee_workshop_sectors.findFirst({
+        where: { employee_id: profile.employee_id, workshop_sectors: { is_active: true } },
+        select: { workshop_sector_id: true },
+      });
 
-      if (employee?.workshop_sector_id) {
+      if (assigned) {
         redirect('/operator/dashboard');
       }
     }

@@ -9,7 +9,7 @@ import { Logger } from '@/lib/logger';
 import InfoComponent from '@/shared/components/common/InfoComponent';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import DiagramEmployeeViewCOPI from './DiagramEmployeeViewCOPI';
 import {
   getDiagramFilterOptions,
@@ -17,41 +17,24 @@ import {
   type CategoryFilterOption,
   type DiagramEmployee,
 } from './actions/diagram-search-actions';
+import {
+  DEFAULT_FILTERS,
+  useDiagramUrlFilters,
+  type DiagramFilterState,
+} from './hooks/useDiagramUrlFilters';
 
 const logger = new Logger('Diagrams/EmployesDiagramWrapper');
 
 const PAGE_SIZE = 100;
 
-// Filter state type
-type FilterState = {
-  firstname: string;
-  lastname: string;
-  position: string[];
-  workflow: string[];
-  costCenter: string[];
-  covenant: string[];
-  guild: string[];
-  category: string[];
-  'contractor_employee.contractor_id': string[];
-  diagramType: string[];
-};
+export default function EmployesDiagramWrapper({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const { initialFilters, hasUrlFilters, syncToUrl, clearUrl } = useDiagramUrlFilters(searchParams);
 
-const defaultFilters: FilterState = {
-  firstname: '',
-  lastname: '',
-  position: [],
-  workflow: [],
-  costCenter: [],
-  covenant: [],
-  guild: [],
-  category: [],
-  'contractor_employee.contractor_id': [],
-  diagramType: [],
-};
-
-export default function EmployesDiagramWrapper() {
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [activeFilters, setActiveFilters] = useState<(keyof FilterState)[]>([]);
+  const [filters, setFilters] = useState<DiagramFilterState>(initialFilters);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -60,8 +43,19 @@ export default function EmployesDiagramWrapper() {
   // Tracks the last page we synced into accumulatedEmployees (avoids double-append)
   const [lastSyncedPage, setLastSyncedPage] = useState<number>(0);
 
-  // The committed search params sent to the server (only updated on submit)
-  const [searchParams, setSearchParams] = useState<FilterState | null>(null);
+  // The committed filters sent to the server (only updated on submit)
+  const [committedFilters, setCommittedFilters] = useState<DiagramFilterState | null>(
+    hasUrlFilters ? initialFilters : null
+  );
+
+  // Auto-submit if URL filters are present at mount time
+  const autoSubmitDone = useRef(false);
+  useEffect(() => {
+    if (hasUrlFilters && !autoSubmitDone.current) {
+      autoSubmitDone.current = true;
+      setHasSearched(true);
+    }
+  }, [hasUrlFilters]);
 
   // ── Search query ──────────────────────────────────────────────────────────
   const {
@@ -69,26 +63,26 @@ export default function EmployesDiagramWrapper() {
     isLoading: isSearching,
     isFetching,
   } = useQuery({
-    queryKey: ['diagram-search', searchParams, currentPage],
+    queryKey: ['diagram-search', committedFilters, currentPage],
     queryFn: async () => {
-      if (!searchParams) return null;
+      if (!committedFilters) return null;
       logger.debug('Fetching diagram search results', { data: { page: currentPage } });
       return searchEmployeeDiagrams({
-        firstname: searchParams.firstname,
-        lastname: searchParams.lastname,
-        positions: searchParams.position,
-        workflows: searchParams.workflow,
-        costCenters: searchParams.costCenter,
-        covenants: searchParams.covenant,
-        guilds: searchParams.guild,
-        categories: searchParams.category,
-        contractors: searchParams['contractor_employee.contractor_id'],
-        diagramTypes: searchParams.diagramType,
+        firstname: committedFilters.firstname,
+        lastname: committedFilters.lastname,
+        positions: committedFilters.position,
+        workflows: committedFilters.workflow,
+        costCenters: committedFilters.costCenter,
+        covenants: committedFilters.covenant,
+        guilds: committedFilters.guild,
+        categories: committedFilters.category,
+        contractors: committedFilters.contractor,
+        diagramTypes: committedFilters.diagramType,
         page: currentPage,
         pageSize: PAGE_SIZE,
       });
     },
-    enabled: !!searchParams,
+    enabled: !!committedFilters,
     staleTime: 0,
   });
 
@@ -159,29 +153,21 @@ export default function EmployesDiagramWrapper() {
   // ── Filter handlers ───────────────────────────────────────────────────────
   const handleFilterChange = (name: 'firstname' | 'lastname', value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
-    if (value.trim() && !activeFilters.includes(name)) {
-      setActiveFilters((prev) => [...prev, name]);
-    } else if (!value.trim() && activeFilters.includes(name)) {
-      setActiveFilters((prev) => prev.filter((f) => f !== name));
-    }
   };
 
-  const handleMultiFilterChange = (name: Exclude<keyof FilterState, 'firstname' | 'lastname'>, values: string[]) => {
+  const handleMultiFilterChange = (
+    name: Exclude<keyof DiagramFilterState, 'firstname' | 'lastname'>,
+    values: string[]
+  ) => {
     setFilters((prev) => ({ ...prev, [name]: values }));
-    if (values.length > 0 && !activeFilters.includes(name)) {
-      setActiveFilters((prev) => [...prev, name]);
-    } else if (values.length === 0 && activeFilters.includes(name)) {
-      setActiveFilters((prev) => prev.filter((f) => f !== name));
-    }
   };
 
-  const clearFilter = (name: keyof FilterState) => {
+  const clearFilter = (name: keyof DiagramFilterState) => {
     if (name === 'firstname' || name === 'lastname') {
       setFilters((prev) => ({ ...prev, [name]: '' }));
     } else {
       setFilters((prev) => ({ ...prev, [name]: [] }));
     }
-    setActiveFilters((prev) => prev.filter((f) => f !== name));
   };
 
   // ── Form submit ───────────────────────────────────────────────────────────
@@ -192,7 +178,19 @@ export default function EmployesDiagramWrapper() {
     setCurrentPage(1);
     setLastSyncedPage(0);
     setAccumulatedEmployees([]);
-    setSearchParams({ ...filters });
+    setCommittedFilters({ ...filters });
+    syncToUrl(filters);
+  };
+
+  // ── Clear all filters ─────────────────────────────────────────────────────
+  const handleClearAll = () => {
+    setFilters({ ...DEFAULT_FILTERS });
+    setHasSearched(false);
+    setCurrentPage(1);
+    setLastSyncedPage(0);
+    setAccumulatedEmployees([]);
+    setCommittedFilters(null);
+    clearUrl();
   };
 
   // ── Load more ─────────────────────────────────────────────────────────────
@@ -427,10 +425,10 @@ export default function EmployesDiagramWrapper() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label>Contratista</Label>
-                  {filters['contractor_employee.contractor_id'].length > 0 && (
+                  {filters.contractor.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => clearFilter('contractor_employee.contractor_id')}
+                      onClick={() => clearFilter('contractor')}
                       className="text-muted-foreground hover:text-black text-red-500"
                     >
                       <X size={16} />
@@ -438,14 +436,11 @@ export default function EmployesDiagramWrapper() {
                   )}
                 </div>
                 <MultiSelectCombobox
-                  options={(contractors ?? []).map((c) => ({
-                    label: c.name || 'Sin nombre',
-                    value: c.id,
-                  }))}
+                  options={(contractors ?? []).map((c) => ({ label: c.name || 'Sin nombre', value: c.id }))}
                   placeholder="Seleccionar contratistas"
                   emptyMessage="No hay contratistas"
-                  selectedValues={filters['contractor_employee.contractor_id']}
-                  onChange={(values) => handleMultiFilterChange('contractor_employee.contractor_id', values)}
+                  selectedValues={filters.contractor}
+                  onChange={(values) => handleMultiFilterChange('contractor', values)}
                   showSelectAll
                 />
               </div>
@@ -466,7 +461,7 @@ export default function EmployesDiagramWrapper() {
                 </div>
                 <MultiSelectCombobox
                   options={[
-                    { label: 'Sin diagramas asignados', value: 'sin_diagrama' },
+                    { label: 'Sin diagramas asignados', value: '__none__' },
                     ...(diagramTypes ?? []).map((t) => ({
                       label: t.name || 'Sin nombre',
                       value: t.id,
@@ -482,6 +477,11 @@ export default function EmployesDiagramWrapper() {
             </div>
 
             <div className="flex justify-end space-x-2">
+              {hasSearched && (
+                <Button type="button" variant="outline" onClick={handleClearAll}>
+                  Limpiar filtros
+                </Button>
+              )}
               <Button type="submit" disabled={isSearching}>
                 {isSearching ? 'Buscando...' : 'Buscar diagramas'}
               </Button>

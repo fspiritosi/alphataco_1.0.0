@@ -33,7 +33,7 @@ export default async function EmployesDiagram({
           tabSlug: 'old',
           content: (
             <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
-              <EmployesDiagramWrapper />
+              <EmployesDiagramWrapper searchParams={searchParams} />
             </Suspense>
           ),
         },

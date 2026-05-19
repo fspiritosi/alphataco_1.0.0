@@ -321,7 +321,9 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       accessorKey: 'date_of_admission',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de ingreso" />,
       cell: ({ row }) => (
-        <div>{row.original.date_of_admission ? moment(row.original.date_of_admission).format('DD/MM/YYYY') : '-'}</div>
+        <div>
+          {row.original.date_of_admission ? moment.utc(row.original.date_of_admission).format('DD/MM/YYYY') : '-'}
+        </div>
       ),
       meta: { title: 'Fecha de ingreso' },
     },
@@ -786,18 +788,30 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       meta: { title: 'Sindicato' },
     },
 
-    // --- Workshop Sectors ---
+    // --- Workshop Sectors (M:M) ---
     {
       id: 'workshop_sectors',
-      accessorFn: (row) => row.workshop_sectors?.name ?? '',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector de taller" />,
-      cell: ({ row }) => <div>{row.original.workshop_sectors?.name ?? '-'}</div>,
-      filterFn: (row, _id, value: string[]) => {
-        const id = row.original.workshop_sectors?.id;
-        if (id == null) return value.includes(NULL_FILTER_VALUE);
-        return value.includes(id);
+      accessorFn: (row) =>
+        row.employee_workshop_sectors
+          ?.map((ews) => ews.workshop_sectors?.name)
+          .filter(Boolean)
+          .join(', ') ?? '',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sectores de taller" />,
+      cell: ({ row }) => {
+        const names =
+          row.original.employee_workshop_sectors?.map((ews) => ews.workshop_sectors?.name).filter(Boolean) ?? [];
+        return <div>{names.length > 0 ? names.join(', ') : '-'}</div>;
       },
-      meta: { title: 'Sector de taller' },
+      enableSorting: false,
+      filterFn: (row, _id, value: string[]) => {
+        const ids =
+          (row.original.employee_workshop_sectors
+            ?.map((ews) => ews.workshop_sectors?.id)
+            .filter(Boolean) as string[]) ?? [];
+        if (ids.length === 0) return value.includes(NULL_FILTER_VALUE);
+        return ids.some((id) => value.includes(id));
+      },
+      meta: { title: 'Sectores de taller' },
     },
 
     // --- Countries (birthplace) ---
@@ -849,7 +863,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
             ),
             cell: ({ row }: { row: import('@tanstack/react-table').Row<EmployeeListItem> }) => (
               <div>
-                {row.original.termination_date ? moment(row.original.termination_date).format('DD/MM/YYYY') : '-'}
+                {row.original.termination_date ? moment.utc(row.original.termination_date).format('DD/MM/YYYY') : '-'}
               </div>
             ),
             meta: { title: 'Fecha de baja' },

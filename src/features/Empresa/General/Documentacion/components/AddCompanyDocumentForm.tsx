@@ -18,8 +18,8 @@ import { useCountriesStore } from '@/shared/store/countries';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
 import Cookies from 'js-cookie';
+import moment from 'moment';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -134,7 +134,11 @@ function AddCompanyDocumentForm({
             const { file, ...rest } = data;
             const allData = {
               ...rest,
-              validity: data.validity ? format(data.validity.replaceAll('-', '/'), 'dd/MM/yyyy') : null,
+              // Acepta DD/MM/YYYY, YYYY-MM-DD o DD-MM-YYYY; siempre persiste como DD/MM/YYYY
+              // para mantener consistencia con la convencion del proyecto (validity es String en BD).
+              validity: data.validity
+                ? moment(data.validity, ['DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'], true).format('DD/MM/YYYY')
+                : null,
               user_id: userId,
               created_at: new Date().toISOString(),
               state: 'presentado',

@@ -558,9 +558,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         mode="single"
                         selected={field.value}
                         onSelect={(selectedDate) => {
-                          if (selectedDate && selectedDate > new Date()) {
-                            return;
-                          }
+                          if (!selectedDate) return;
+                          if (selectedDate > new Date()) return;
                           field.onChange(selectedDate);
                         }}
                         initialFocus

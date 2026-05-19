@@ -19,8 +19,47 @@ import { DataTablePendingProvider } from './DataTablePendingContext';
 import { DataTableToolbar } from './DataTableToolbar';
 import { _DataTableExportButton } from './_DataTableExportButton';
 import { stateToSearchParams } from './helpers';
-import type { DataTableProps, DataTableSearchParams } from './types';
+import type { DataTableFacetedFilterConfig, DataTableProps, DataTableSearchParams } from './types';
 import { useDataTable } from './useDataTable';
+
+/**
+ * Detecta qué columnIds tienen un filtro activo en los searchParams dados.
+ * Maneja tanto filtros facetados/texto (key = columnId) como dateRange (key = columnId_from / columnId_to).
+ * Los `facetedFilters` se usan para mapear los sufijos _from/_to al columnId base.
+ */
+function getActiveFilterColumnIds(
+  searchParams: DataTableSearchParams,
+  facetedFilters: DataTableFacetedFilterConfig[]
+): Set<string> {
+  const reservedKeys = new Set(['page', 'pageSize', 'sort', 'sortBy', 'sortOrder', 'search']);
+  const active = new Set<string>();
+
+  // Construir un índice de columnas dateRange para detectar los sufijos _from/_to
+  const dateRangeColumnIds = new Set(
+    facetedFilters.filter((f) => f.type === 'dateRange').map((f) => f.columnId)
+  );
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (reservedKeys.has(key) || !value) return;
+
+    // Comprobar si es un sufijo _from o _to de un filtro dateRange
+    if (key.endsWith('_from') || key.endsWith('_to')) {
+      const suffix = key.endsWith('_from') ? '_from' : '_to';
+      const baseKey = key.slice(0, key.length - suffix.length);
+      if (dateRangeColumnIds.has(baseKey)) {
+        active.add(baseKey);
+        return;
+      }
+    }
+
+    // Filtro normal (faceted o texto): la key ES el columnId
+    if (!reservedKeys.has(key)) {
+      active.add(key);
+    }
+  });
+
+  return active;
+}
 
 /**
  * DataTable Server-Side con soporte para paginación, sorting y filtros.
@@ -46,6 +85,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   showRowSelection = false,
   enableRowSelection = false,
   onRowSelectionChange,
+  onRowSelectionIdsChange,
+  clearSelectionTrigger,
   emptyMessage = 'No se encontraron resultados.',
   pageSizeOptions,
   toolbarActions,
@@ -59,6 +100,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   initialFilterVisibility = {},
   'data-testid': dataTestId = 'data-table',
   isFetchingFacets,
+  rowClassName,
   // Client-side mode props
   queryFn,
   queryKey: queryKeyProp,
@@ -72,8 +114,26 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   // Estado de visibilidad de columnas (local, inicializado con las visibilidades por defecto)
   const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
 
-  // Estado de visibilidad de filtros
-  const [filterVisibility, setFilterVisibility] = React.useState<Record<string, boolean>>(initialFilterVisibility);
+  // Estado de visibilidad de filtros.
+  // Al inicializar, forzamos a "visible" cualquier columna que tenga un filtro activo en la URL
+  // aunque no esté en las preferencias guardadas del usuario. Esto evita el estado "fantasma"
+  // donde la tabla filtra datos pero no muestra ningún chip visible al usuario.
+  // IMPORTANTE: no se persiste en BD — solo vive en memoria mientras dure la sesión.
+  const [filterVisibility, setFilterVisibility] = React.useState<Record<string, boolean>>(() => {
+    const activeColumnIds = getActiveFilterColumnIds(searchParams ?? {}, facetedFilters);
+    if (activeColumnIds.size === 0) return initialFilterVisibility;
+
+    // Combinar: preferencias del usuario base + forzar true para columnas activas
+    const merged: Record<string, boolean> = { ...initialFilterVisibility };
+    activeColumnIds.forEach((columnId) => {
+      // Solo forzar visible si la columna existe en la configuración de filtros
+      const isKnownFilter = facetedFilters.some((f) => f.columnId === columnId);
+      if (isKnownFilter && merged[columnId] !== true) {
+        merged[columnId] = true;
+      }
+    });
+    return merged;
+  });
 
   // Hook para manejar estado sincronizado con URL
   const filterableColumns = facetedFilters.map((f) => f.columnId);
@@ -86,6 +146,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     onSortingChange,
     onColumnFiltersChange,
     onGlobalFilterChange,
+    resetFilters,
     isPending: isNavigationPending,
     startTransition,
     notifyUrlChange,
@@ -113,6 +174,13 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     const { page, pageSize, sort, sortBy, sortOrder, ...rest } = stateSearchParams;
     return rest;
   }, [stateSearchParams]);
+
+  // Detectar si hay filtros activos en el estado (incluyendo _from/_to de dateRange).
+  // Esto se usa para activar el botón "Limpiar filtros" independientemente de si las
+  // columnas están visibles en el toolbar o no.
+  const hasActiveFilters = React.useMemo(() => {
+    return Object.entries(state.filters).some(([, values]) => values.length > 0);
+  }, [state.filters]);
 
   // Notificar al padre cuando el estado cambia (para facets y queries dependientes)
   const onStateChangeRef = React.useRef(onStateChange);
@@ -155,17 +223,40 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
       columnFilters,
       pagination,
     },
+    // Row IDs estables: si el dato tiene `id`, usarlo; si no, usar el índice.
+    // Esto evita que la selección "salte" a otras filas al cambiar de página o re-fetch.
+    getRowId: (row, index) => {
+      const maybeId = (row as { id?: string | number }).id;
+      return typeof maybeId === 'string' || typeof maybeId === 'number' ? String(maybeId) : String(index);
+    },
     // Row selection
     enableRowSelection,
     onRowSelectionChange: (updater) => {
       const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
       setRowSelection(newSelection);
 
-      // Callback externo con las filas seleccionadas
+      // Callback con IDs (cross-page): las claves del map son IDs gracias a getRowId.
+      if (onRowSelectionIdsChange) {
+        const ids = Object.keys(newSelection).filter((key) => newSelection[key as keyof typeof newSelection]);
+        onRowSelectionIdsChange(ids);
+      }
+
+      // Callback con filas (solo página actual): para compatibilidad con consumers
+      // existentes que necesitan los objetos completos.
       if (onRowSelectionChange) {
-        const selectedRows = Object.keys(newSelection)
-          .filter((key) => newSelection[key as keyof typeof newSelection])
-          .map((index) => tableData[Number(index)]);
+        const rowsById = new Map<string, TData>();
+        for (const r of tableData) {
+          const maybeId = (r as { id?: string | number }).id;
+          if (typeof maybeId === 'string' || typeof maybeId === 'number') {
+            rowsById.set(String(maybeId), r);
+          }
+        }
+        const selectedRows: TData[] = [];
+        for (const key of Object.keys(newSelection)) {
+          if (!newSelection[key as keyof typeof newSelection]) continue;
+          const fromCurrentPage = rowsById.get(key);
+          if (fromCurrentPage) selectedRows.push(fromCurrentPage);
+        }
         onRowSelectionChange(selectedRows);
       }
     },
@@ -199,6 +290,17 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     return () => clearTimeout(timer);
   }, [columnVisibility, tableId]);
 
+  // Reset externo de la selección (skip initial render para no disparar al montar).
+  const skipFirstClearRef = React.useRef(true);
+  React.useEffect(() => {
+    if (clearSelectionTrigger === undefined) return;
+    if (skipFirstClearRef.current) {
+      skipFirstClearRef.current = false;
+      return;
+    }
+    setRowSelection({});
+  }, [clearSelectionTrigger]);
+
   return (
     <DataTablePendingProvider
       value={{
@@ -226,6 +328,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           facetParams={facetParams}
           onSearchChange={onGlobalFilterChange}
           searchValue={state.search}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={resetFilters}
           exportActions={
             exportConfig && showExportButton ? (
               <_DataTableExportButton columns={columns} exportConfig={exportConfig} />
@@ -260,6 +364,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                     data-testid={`table-row-${row.id}`}
+                    className={rowClassName ? rowClassName(row.original) : undefined}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>

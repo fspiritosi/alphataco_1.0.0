@@ -134,7 +134,7 @@ export const columns: ColumnDef<VehicleListItem>[] = [
     },
   },
 
-  // ─── Marca (FK BigInt nullable) ───────────────────────────────────────────
+  // ─── Marca (FK Int nullable) ──────────────────────────────────────────────
   {
     id: 'brand',
     accessorFn: (row) => row.brand_vehicles?.name ?? '',
@@ -144,13 +144,13 @@ export const columns: ColumnDef<VehicleListItem>[] = [
       <span>{row.original.brand_vehicles?.name ?? <span className="text-muted-foreground">-</span>}</span>
     ),
     filterFn: (row, _id, value: string[]) => {
-      const id = row.original.brand_vehicles?.id;
+      const id = row.original.brand;
       if (id == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(String(id));
     },
   },
 
-  // ─── Modelo (FK BigInt nullable) ──────────────────────────────────────────
+  // ─── Modelo (FK Int nullable) ─────────────────────────────────────────────
   {
     id: 'model',
     accessorFn: (row) => row.model_vehicles?.name ?? '',
@@ -160,7 +160,7 @@ export const columns: ColumnDef<VehicleListItem>[] = [
       <span>{row.original.model_vehicles?.name ?? <span className="text-muted-foreground">-</span>}</span>
     ),
     filterFn: (row, _id, value: string[]) => {
-      const id = row.original.model_vehicles?.id;
+      const id = row.original.model;
       if (id == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(String(id));
     },

@@ -55,7 +55,7 @@ export const employeeFormSchema = z.object({
   category_id: z.string().optional(),
   cost_center_id: z.string().optional(),
   cost_type: z.string().optional(),
-  workshop_sector_id: z.string().optional(),
+  workshop_sector_ids: z.array(z.string()).optional(),
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -76,18 +76,13 @@ export function EmployeeForm({ employee, mode, onSave, form, activeTab }: Employ
   const searchParams = useSearchParams();
 
   const refresh = (createdEmployeeId?: string | undefined) => {
-    if (!createdEmployeeId) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('action', 'view');
-      router.refresh();
-      router.push(`${pathname}?${params.toString()}`);
-    } else {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('action', 'view');
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('action', 'view');
+    if (createdEmployeeId) {
       params.set('employee_id', createdEmployeeId.toString());
-      router.refresh();
-      router.push(`${pathname}?${params.toString()}`);
     }
+    router.push(`${pathname}?${params.toString()}`);
+    router.refresh();
   };
 
   const onSubmit = async (data: EmployeeFormData) => {

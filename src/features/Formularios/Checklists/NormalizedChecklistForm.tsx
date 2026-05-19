@@ -17,6 +17,9 @@ import { CreateChecklistAnswer } from '@/features/Checklist';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Formularios/actions/checklist-actions';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
+import { AdditionalDeviationModal } from '@/features/Mantenimiento/shared/components/AdditionalDeviationModal';
+import { AllGoodDeviationPromptDialog } from '@/features/Mantenimiento/shared/components/AllGoodDeviationPromptDialog';
+import type { PickableSection } from '@/features/Mantenimiento/shared/components/ChecklistItemPicker';
 import { CriticalDeviationsRepairModal } from '@/features/Mantenimiento/shared/components/critical-deviations-repair-modal';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -24,7 +27,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, AlertTriangle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm, type Control, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
@@ -769,6 +772,8 @@ export function NormalizedChecklistForm({
   const [showDeviationsModal, setShowDeviationsModal] = useState(false);
   const [pendingDeviations, setPendingDeviations] = useState<Awaited<ReturnType<typeof getPendingDeviations>>>([]);
   const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>>([]);
+  const [showAllGoodPrompt, setShowAllGoodPrompt] = useState(false);
+  const [showAdditionalDeviationModal, setShowAdditionalDeviationModal] = useState(false);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
   const [createdAnswerId, setCreatedAnswerId] = useState<string | null>(null);
 
@@ -828,6 +833,27 @@ export function NormalizedChecklistForm({
   // Ordenar secciones por order_index
   const sortedSections = [...(template.checklist_template_sections || [])].sort(
     (a, b) => (a.order_index || 0) - (b.order_index || 0)
+  );
+
+  // Secciones e items adaptados al formato requerido por ChecklistItemPicker
+  const pickableSections: PickableSection[] = useMemo(
+    () =>
+      (template.checklist_template_sections ?? []).map((section) => ({
+        id: section.id,
+        code: section.code,
+        name: section.name || section.section?.name || 'Sin nombre',
+        order_index: section.order_index ?? null,
+        items: (section.checklist_template_items ?? [])
+          .slice()
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+          .map((item) => ({
+            id: item.id,
+            code: item.code,
+            label: item.label,
+            is_critical: item.is_critical ?? false,
+          })),
+      })),
+    [template]
   );
 
   // Detectar si el equipo seleccionado tiene enganche (COD-290)
@@ -972,6 +998,23 @@ export function NormalizedChecklistForm({
   const shouldShowHitchButton =
     (selectedEquipmentType?.is_tractor_unit === true && selectedEquipmentType?.has_hitch === true && !readOnly) ||
     (readOnly && selectedHitchEquipment !== null);
+
+  const redirectAfterChecklist = useCallback(
+    (equipmentId: string) => {
+      if (pathname?.includes('/dashboard/forms/')) {
+        const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+        if (formIdMatch?.[1]) {
+          router.push(`/dashboard/forms/${formIdMatch[1]}`);
+        } else {
+          router.push('/dashboard/forms');
+        }
+      } else {
+        router.push(`/maintenance/equipment/${equipmentId}/checklists`);
+      }
+      router.refresh();
+    },
+    [pathname, router]
+  );
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
     setIsSubmitting(true);
@@ -1198,22 +1241,7 @@ export function NormalizedChecklistForm({
       } else {
         const { toast } = await import('sonner');
         toast.success('Checklist guardado correctamente');
-
-        // Redirigir según la ruta de origen - a la lista de respuestas
-        setTimeout(() => {
-          if (pathname?.includes('/dashboard/forms/')) {
-            const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-            if (formIdMatch && formIdMatch[1]) {
-              router.push(`/dashboard/forms/${formIdMatch[1]}`);
-            } else {
-              router.push('/dashboard/forms');
-            }
-          } else {
-            // Si venimos de /maintenance, redirigir a la página de checklists del equipo
-            router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
-          }
-          router.refresh();
-        }, 1500);
+        setShowAllGoodPrompt(true);
       }
     } catch (error) {
       logger.error('Error al guardar el checklist', { data: { error } });
@@ -1833,6 +1861,39 @@ export function NormalizedChecklistForm({
             created_at: d.created_at ?? new Date().toISOString(),
           }))}
           equipmentId={currentEquipmentId}
+          driverEmployeeId={defaultEmployeeId}
+        />
+      )}
+
+      <AllGoodDeviationPromptDialog
+        isOpen={showAllGoodPrompt}
+        onCancel={() => {
+          setShowAllGoodPrompt(false);
+          if (currentEquipmentId) redirectAfterChecklist(currentEquipmentId);
+        }}
+        onConfirm={() => {
+          setShowAllGoodPrompt(false);
+          setShowAdditionalDeviationModal(true);
+        }}
+      />
+      {currentEquipmentId && createdAnswerId && (
+        <AdditionalDeviationModal
+          isOpen={showAdditionalDeviationModal}
+          onClose={() => {
+            setShowAdditionalDeviationModal(false);
+            redirectAfterChecklist(currentEquipmentId);
+          }}
+          onSuccess={() => {
+            setShowAdditionalDeviationModal(false);
+            redirectAfterChecklist(currentEquipmentId);
+          }}
+          checklistAnswerId={createdAnswerId}
+          equipmentId={currentEquipmentId}
+          sections={pickableSections}
+          driverEmployeeId={defaultEmployeeId}
+          employeeId={defaultEmployeeId}
+          userId={currentUser?.id}
+          kilometer={form.getValues('kilometraje')?.toString()}
         />
       )}
 

@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -13,6 +15,38 @@ const logger = new Logger('OperatorPanel/actions');
 // =============================================================================
 // AUTH
 // =============================================================================
+
+const ACTIVE_SECTOR_COOKIE = 'activeOperatorSectorId';
+
+/**
+ * Carga la lista de sectores de taller asignados a un empleado (M:N).
+ */
+async function getEmployeeAssignedSectors(employeeId: string) {
+  const rows = await prisma.employee_workshop_sectors.findMany({
+    where: { employee_id: employeeId, workshop_sectors: { is_active: true } },
+    select: {
+      workshop_sectors: {
+        select: {
+          id: true,
+          name: true,
+          workshop_id: true,
+          workshops: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { workshop_sectors: { name: 'asc' } },
+  });
+
+  return rows
+    .map((r) => r.workshop_sectors)
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .map((s) => ({
+      sectorId: s.id,
+      sectorName: s.name,
+      workshopId: s.workshop_id,
+      workshopName: s.workshops?.name ?? 'Taller',
+    }));
+}
 
 export async function operatorLogin(email: string, password: string) {
   const supabase = await supabaseServer();
@@ -38,32 +72,41 @@ export async function operatorLogin(email: string, password: string) {
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
-  // Verify employee has workshop sector
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('id, firstname, lastname, workshop_sector_id, company_id')
-    .eq('id', profile.employee_id)
-    .single();
+  // Cargar empleado + sectores asignados (M:N)
+  const employee = await prisma.employees.findUnique({
+    where: { id: profile.employee_id },
+    select: { id: true, firstname: true, lastname: true, company_id: true },
+  });
 
   if (!employee) {
     await supabase.auth.signOut();
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 
-  if (!employee.workshop_sector_id) {
+  const sectors = await getEmployeeAssignedSectors(employee.id);
+
+  if (sectors.length === 0) {
     await supabase.auth.signOut();
-    return { error: 'Tu empleado no tiene un sector de taller asignado. Contacta al administrador.' };
+    return { error: 'Tu empleado no tiene sectores de taller asignados. Contacta al administrador.' };
   }
+
+  const cookieStore = await cookies();
 
   // Set company cookie
   if (employee.company_id) {
-    const cookieStore = await cookies();
     cookieStore.set('actualComp', employee.company_id, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
     });
   }
+
+  // Setear el sector activo al primer sector asignado
+  cookieStore.set(ACTIVE_SECTOR_COOKIE, sectors[0]!.sectorId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  });
 
   return { success: true };
 }
@@ -73,13 +116,49 @@ export async function operatorLogout() {
   await supabase.auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete('actualComp');
+  cookieStore.delete(ACTIVE_SECTOR_COOKIE);
   revalidatePath('/', 'layout');
   redirect('/operator/login');
 }
 
 /**
- * Gets the full operator context: user -> profile -> employee -> sector -> workshop
- * Returns null if any step fails (no session, no employee, no sector)
+ * Cambia el sector de taller activo del operario.
+ * Valida que el sector pertenezca a la lista de sectores asignados al empleado.
+ */
+export async function setActiveOperatorSector(sectorId: string) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'No autenticado' };
+
+  const { data: profile } = await supabase.from('profile').select('employee_id').eq('id', user.id).single();
+  if (!profile?.employee_id) return { error: 'Sin empleado vinculado' };
+
+  const belongs = await prisma.employee_workshop_sectors.findFirst({
+    where: { employee_id: profile.employee_id, workshop_sector_id: sectorId },
+    select: { workshop_sector_id: true },
+  });
+
+  if (!belongs) {
+    return { error: 'El sector seleccionado no pertenece al empleado' };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_SECTOR_COOKIE, sectorId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  });
+
+  revalidatePath('/operator', 'layout');
+  return { success: true };
+}
+
+/**
+ * Gets the full operator context: user -> profile -> employee -> sectores asignados (M:N) -> sector activo (cookie).
+ * Returns null if any step fails (no session, no employee, no sectors).
  */
 export async function getOperatorContext() {
   const supabase = await supabaseServer();
@@ -94,37 +173,36 @@ export async function getOperatorContext() {
 
   if (!profile?.employee_id) return null;
 
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('id, firstname, lastname, cuil, workshop_sector_id, company_id')
-    .eq('id', profile.employee_id)
-    .single();
+  const employee = await prisma.employees.findUnique({
+    where: { id: profile.employee_id },
+    select: { id: true, firstname: true, lastname: true, cuil: true, company_id: true },
+  });
 
-  if (!employee?.workshop_sector_id) return null;
+  if (!employee) return null;
 
-  const { data: sector } = await supabase
-    .from('workshop_sectors')
-    .select('id, name, workshop_id')
-    .eq('id', employee.workshop_sector_id)
-    .single();
+  const sectors = await getEmployeeAssignedSectors(employee.id);
+  if (sectors.length === 0) return null;
 
-  if (!sector) return null;
-
-  const { data: workshop } = await supabase.from('workshops').select('id, name').eq('id', sector.workshop_id).single();
+  // Resolver sector activo desde cookie, fallback al primero
+  const cookieStore = await cookies();
+  const cookieSectorId = cookieStore.get(ACTIVE_SECTOR_COOKIE)?.value ?? null;
+  const activeSector = sectors.find((s) => s.sectorId === cookieSectorId) ?? sectors[0]!;
 
   return {
     userId: user.id,
     employeeId: employee.id,
     employeeName: `${employee.firstname} ${employee.lastname}`.trim(),
-    sectorId: sector.id,
-    sectorName: sector.name,
-    workshopId: sector.workshop_id,
-    workshopName: workshop?.name || 'Taller',
     companyId: employee.company_id,
+    sectors,
+    sectorId: activeSector.sectorId,
+    sectorName: activeSector.sectorName,
+    workshopId: activeSector.workshopId,
+    workshopName: activeSector.workshopName,
   };
 }
 
 export type OperatorContext = NonNullable<Awaited<ReturnType<typeof getOperatorContext>>>;
+export type OperatorAssignedSector = OperatorContext['sectors'][number];
 
 // =============================================================================
 // WORK ORDERS - SECTOR SEQUENCE BLOCKING
@@ -508,6 +586,19 @@ export async function startWorkOrder(workOrderId: string) {
     throw error;
   }
 
+  try {
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_STARTED,
+      performedBy: user?.id ?? null,
+      previousStatus: 'pending',
+      newStatus: 'in_progress',
+      metadata: {},
+    });
+  } catch (logErr) {
+    logger.error('Error logging wo_started', { data: { logErr } });
+  }
+
   revalidatePath('/operator');
 }
 
@@ -526,6 +617,10 @@ export async function pauseWorkOrder(workOrderId: string) {
     throw new Error('Solo se puede pausar una OT que esté en progreso');
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from('work_orders')
     .update({
@@ -536,6 +631,19 @@ export async function pauseWorkOrder(workOrderId: string) {
   if (error) {
     logger.error('Error pausing work order', { data: { error } });
     throw error;
+  }
+
+  try {
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_PAUSED,
+      performedBy: user?.id ?? null,
+      previousStatus: 'in_progress',
+      newStatus: 'paused',
+      metadata: {},
+    });
+  } catch (logErr) {
+    logger.error('Error logging wo_paused', { data: { logErr } });
   }
 
   revalidatePath('/operator');
@@ -597,6 +705,10 @@ export async function resumeWorkOrder(workOrderId: string) {
     }
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from('work_orders')
     .update({
@@ -607,6 +719,19 @@ export async function resumeWorkOrder(workOrderId: string) {
   if (error) {
     logger.error('Error resuming work order', { data: { error } });
     throw error;
+  }
+
+  try {
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_RESUMED,
+      performedBy: user?.id ?? null,
+      previousStatus: 'paused',
+      newStatus: 'in_progress',
+      metadata: {},
+    });
+  } catch (logErr) {
+    logger.error('Error logging wo_resumed', { data: { logErr } });
   }
 
   revalidatePath('/operator');
@@ -646,10 +771,34 @@ export async function completeRepair(repairId: string) {
     logger.error('Error completing repair', { data: { error } });
     throw error;
   }
+
+  try {
+    const ctx = await prisma.work_order_item_repairs.findUnique({
+      where: { id: repairId },
+      select: {
+        types_of_repairs: { select: { name: true } },
+        work_order_items: { select: { work_order_id: true } },
+      },
+    });
+    if (ctx?.work_order_items?.work_order_id) {
+      await logActivity(prisma, {
+        workOrderId: ctx.work_order_items.work_order_id,
+        actionType: ACTIVITY_LOG.REPAIR_COMPLETED,
+        performedBy: user?.id ?? null,
+        metadata: { repairId, repairTypeName: ctx.types_of_repairs?.name ?? null },
+      });
+    }
+  } catch (logErr) {
+    logger.error('Error logging repair_completed', { data: { logErr } });
+  }
 }
 
 export async function uncompleteRepair(repairId: string) {
   const supabase = await supabaseServer();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { error } = await supabase
     .from('work_order_item_repairs')
@@ -663,6 +812,26 @@ export async function uncompleteRepair(repairId: string) {
   if (error) {
     logger.error('Error uncompleting repair', { data: { error } });
     throw error;
+  }
+
+  try {
+    const ctx = await prisma.work_order_item_repairs.findUnique({
+      where: { id: repairId },
+      select: {
+        types_of_repairs: { select: { name: true } },
+        work_order_items: { select: { work_order_id: true } },
+      },
+    });
+    if (ctx?.work_order_items?.work_order_id) {
+      await logActivity(prisma, {
+        workOrderId: ctx.work_order_items.work_order_id,
+        actionType: ACTIVITY_LOG.REPAIR_UNCOMPLETED,
+        performedBy: user?.id ?? null,
+        metadata: { repairId, repairTypeName: ctx.types_of_repairs?.name ?? null },
+      });
+    }
+  } catch (logErr) {
+    logger.error('Error logging repair_uncompleted', { data: { logErr } });
   }
 }
 
@@ -682,10 +851,38 @@ export async function updateTechnicianNotes(repairId: string, notes: string) {
     logger.error('Error updating technician notes', { data: { error } });
     throw error;
   }
+
+  try {
+    const ctx = await prisma.work_order_item_repairs.findUnique({
+      where: { id: repairId },
+      select: {
+        types_of_repairs: { select: { name: true } },
+        work_order_items: { select: { work_order_id: true } },
+      },
+    });
+    if (ctx?.work_order_items?.work_order_id) {
+      await logActivity(prisma, {
+        workOrderId: ctx.work_order_items.work_order_id,
+        actionType: ACTIVITY_LOG.REPAIR_TECHNICIAN_NOTES_UPDATED,
+        performedBy: user?.id ?? null,
+        metadata: {
+          repairId,
+          repairTypeName: ctx.types_of_repairs?.name ?? null,
+          notesPreview: notes.slice(0, 100),
+        },
+      });
+    }
+  } catch (logErr) {
+    logger.error('Error logging repair_technician_notes_updated', { data: { logErr } });
+  }
 }
 
 export async function returnTask(repairId: string, returnReason: string) {
   const supabase = await supabaseServer();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { error } = await supabase
     .from('work_order_item_repairs')
@@ -698,6 +895,30 @@ export async function returnTask(repairId: string, returnReason: string) {
   if (error) {
     logger.error('Error returning task', { data: { error } });
     throw error;
+  }
+
+  try {
+    const ctx = await prisma.work_order_item_repairs.findUnique({
+      where: { id: repairId },
+      select: {
+        types_of_repairs: { select: { name: true } },
+        work_order_items: { select: { work_order_id: true } },
+      },
+    });
+    if (ctx?.work_order_items?.work_order_id) {
+      await logActivity(prisma, {
+        workOrderId: ctx.work_order_items.work_order_id,
+        actionType: ACTIVITY_LOG.REPAIR_RETURNED_TO_CHIEF,
+        performedBy: user?.id ?? null,
+        metadata: {
+          repairId,
+          repairTypeName: ctx.types_of_repairs?.name ?? null,
+          return_reason: returnReason,
+        },
+      });
+    }
+  } catch (logErr) {
+    logger.error('Error logging repair_returned_to_chief', { data: { logErr } });
   }
 }
 
@@ -808,6 +1029,20 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
     }
   } else {
     logger.warn('No maintenance_order_id found for work_order', { data: { workOrderId } });
+  }
+
+  try {
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_CLOSED,
+      performedBy: user?.id ?? null,
+      previousStatus: woData?.status ?? null,
+      newStatus: finalStatus,
+      notes: notes ?? null,
+      metadata: { status: finalStatus },
+    });
+  } catch (logErr) {
+    logger.error('Error logging wo_closed', { data: { logErr } });
   }
 
   revalidatePath('/operator');
@@ -922,6 +1157,22 @@ export async function addTaskToOwnWorkOrder(
     });
 
     logger.info('Task added to own work order', { data: { workOrderId, woItemId: result.id } });
+
+    try {
+      const supabase = await supabaseServer();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      await logActivity(prisma, {
+        workOrderId,
+        actionType: ACTIVITY_LOG.TASK_ADDED_BY_OPERATOR,
+        performedBy: user?.id ?? null,
+        metadata: { description, repairTypeId, isAutorizable },
+      });
+    } catch (logErr) {
+      logger.error('Error logging task_added_by_operator', { data: { logErr } });
+    }
+
     revalidatePath('/operator');
     return { requiresApproval: isAutorizable };
   } catch (error) {
@@ -940,6 +1191,21 @@ export async function requestTaskForOtherSector(maintenanceOrderId: string, repa
         is_diagnostico: false,
       },
     });
+
+    try {
+      const supabase = await supabaseServer();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      await logActivity(prisma, {
+        maintenanceOrderId,
+        actionType: ACTIVITY_LOG.TASK_REQUESTED_FOR_OTHER_SECTOR,
+        performedBy: user?.id ?? null,
+        metadata: { description, repairTypeId },
+      });
+    } catch (logErr) {
+      logger.error('Error logging task_requested_for_other_sector', { data: { logErr } });
+    }
 
     revalidatePath('/operator');
   } catch (error) {

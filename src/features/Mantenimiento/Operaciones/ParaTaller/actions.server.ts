@@ -65,6 +65,7 @@ const FOR_WORKSHOP_SELECT = {
       id: true,
       supervisor_id: true,
       source: true,
+      preventive_type: true,
       kilometer: true,
       created_at: true,
       profile_maintenance_requests_supervisor_idToprofile: {

@@ -11,6 +11,7 @@ import type {
 import { Logger } from '@/lib/logger';
 import { getCachedSession } from '@/shared/lib/cached-session';
 import { prisma } from '@/shared/lib/prisma';
+import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import type { EmployeeFormData } from './components/forms/employee-form';
 
@@ -68,7 +69,6 @@ export const getEmployeeByIdCached = cache(async (employeeId: string) => {
         covenants_id: true,
         category_id: true,
         cost_center_id: true,
-        workshop_sector_id: true,
         province: true,
         city: true,
         birthplace: true,
@@ -106,8 +106,13 @@ export const getEmployeeByIdCached = cache(async (employeeId: string) => {
         cost_center: {
           select: { id: true, name: true },
         },
-        workshop_sectors: {
-          select: { id: true, name: true },
+        // M:M — sectores de taller asignados
+        employee_workshop_sectors: {
+          select: {
+            workshop_sectors: {
+              select: { id: true, name: true },
+            },
+          },
         },
         // M:M — afectaciones a clientes
         contractor_employee: {
@@ -462,7 +467,7 @@ export async function createEmployee(data: EmployeeFormData) {
 
   if (!company_id) throw new Error('No se encontró la empresa activa del usuario');
 
-  const { allocated_to, aptitudes, province, city, date_of_admission, ...scalarData } = data;
+  const { allocated_to, aptitudes, workshop_sector_ids, province, city, date_of_admission, ...scalarData } = data;
 
   try {
     const employee = await prisma.$transaction(async (tx) => {
@@ -512,10 +517,23 @@ export async function createEmployee(data: EmployeeFormData) {
         });
       }
 
+      // M:M — sectores de taller asignados
+      if (workshop_sector_ids && workshop_sector_ids.length > 0) {
+        await tx.employee_workshop_sectors.createMany({
+          data: workshop_sector_ids.map((sectorId) => ({
+            employee_id: created.id,
+            workshop_sector_id: sectorId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       return created;
     });
 
     logger.info('Empleado creado exitosamente', { data: { employeeId: employee.id } });
+    revalidatePath('/dashboard/employee/action');
+    revalidatePath('/dashboard/employee');
     return employee;
   } catch (error) {
     logger.error('Error al crear empleado', { data: { error } });
@@ -538,7 +556,7 @@ export async function updateEmployee(employeeId: string, data: EmployeeFormData)
 
   if (!company_id) throw new Error('No se encontró la empresa activa del usuario');
 
-  const { allocated_to, aptitudes, province, city, date_of_admission, ...scalarData } = data;
+  const { allocated_to, aptitudes, workshop_sector_ids, province, city, date_of_admission, ...scalarData } = data;
 
   try {
     const employee = await prisma.$transaction(async (tx) => {
@@ -596,10 +614,29 @@ export async function updateEmployee(employeeId: string, data: EmployeeFormData)
         }
       }
 
+      // M:M — sectores de taller asignados: reemplazar completamente
+      if (workshop_sector_ids !== undefined) {
+        await tx.employee_workshop_sectors.deleteMany({
+          where: { employee_id: employeeId },
+        });
+
+        if (workshop_sector_ids.length > 0) {
+          await tx.employee_workshop_sectors.createMany({
+            data: workshop_sector_ids.map((sectorId) => ({
+              employee_id: employeeId,
+              workshop_sector_id: sectorId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
       return updated;
     });
 
     logger.info('Empleado actualizado exitosamente', { data: { employeeId: employee.id } });
+    revalidatePath('/dashboard/employee/action');
+    revalidatePath('/dashboard/employee');
     return employee;
   } catch (error) {
     logger.error('Error al actualizar empleado', { data: { error, employeeId } });

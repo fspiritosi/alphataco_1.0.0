@@ -7,6 +7,7 @@ import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidatio
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
+import { revalidatePath } from 'next/cache';
 import type { Database } from '../../../../../../database.types';
 
 const logger = new Logger('document-actions');
@@ -102,6 +103,9 @@ export async function toggleEmployeeStatus(
   } catch (banErr) {
     logger.error('Error en proceso de ban/unban', { data: { error: banErr, employeeId } });
   }
+
+  revalidatePath('/dashboard/employee/action');
+  revalidatePath('/dashboard/employee');
 }
 export async function uploadEmployeeDocument(
   employeeId: string,

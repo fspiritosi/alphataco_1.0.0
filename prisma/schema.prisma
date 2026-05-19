@@ -500,7 +500,7 @@ model assing_customer {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model brand_vehicles {
-  id              BigInt            @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   name            String?           @unique
   is_active       Boolean?          @default(true)
@@ -778,6 +778,111 @@ model cities {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_brands {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_brands_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_deliveries {
+  id                                                              String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_id                                                     String                    @db.Uuid
+  delivered_by_id                                                 String                    @db.Uuid
+  delivery_type                                                   clothing_delivery_type
+  signature_url                                                   String?
+  notes                                                           String?
+  delivered_at                                                    DateTime                  @db.Timestamptz(6)
+  company_id                                                      String                    @db.Uuid
+  created_at                                                      DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                      DateTime                  @default(now()) @db.Timestamptz(6)
+  employees_clothing_deliveries_employee_idToemployees            employees                 @relation("clothing_deliveries_employee_idToemployees", fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees_clothing_deliveries_delivered_by_idToemployees        employees                 @relation("clothing_deliveries_delivered_by_idToemployees", fields: [delivered_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                                                         company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_delivery_items                                         clothing_delivery_items[]
+
+  @@index([employee_id], map: "idx_clothing_deliveries_employee")
+  @@index([company_id], map: "idx_clothing_deliveries_company")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_delivery_items {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clothing_delivery_id  String               @db.Uuid
+  clothing_item_id      String               @db.Uuid
+  clothing_brand_id     String?              @db.Uuid
+  clothing_size_id      String?              @db.Uuid
+  quantity              Int                  @default(1)
+  has_certificate       Boolean              @default(false)
+  clothing_deliveries   clothing_deliveries  @relation(fields: [clothing_delivery_id], references: [id], onDelete: Cascade)
+  clothing_items        clothing_items       @relation(fields: [clothing_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_brands       clothing_brands?     @relation(fields: [clothing_brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_sizes        clothing_sizes?      @relation(fields: [clothing_size_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([clothing_delivery_id], map: "idx_clothing_delivery_items_delivery")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_item_brand_sizes {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clothing_item_id  String          @db.Uuid
+  clothing_brand_id String          @db.Uuid
+  clothing_size_id  String          @db.Uuid
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  clothing_items    clothing_items  @relation(fields: [clothing_item_id], references: [id], onDelete: Cascade)
+  clothing_brands   clothing_brands @relation(fields: [clothing_brand_id], references: [id], onDelete: Cascade)
+  clothing_sizes    clothing_sizes  @relation(fields: [clothing_size_id], references: [id], onDelete: Cascade)
+
+  @@unique([clothing_item_id, clothing_brand_id, clothing_size_id], map: "clothing_item_brand_sizes_unique_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_items {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  code                      String?
+  description               String?
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_items_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clothing_sizes {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  is_active                 Boolean                     @default(true)
+  company_id                String                      @db.Uuid
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_item_brand_sizes clothing_item_brand_sizes[]
+  clothing_delivery_items   clothing_delivery_items[]
+
+  @@unique([name, company_id], map: "clothing_sizes_name_company_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model companies_employees {
   employee_id String    @db.Uuid
   id          String    @id(map: "companies_employees_pkey1") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -810,6 +915,10 @@ model company {
   by_defect           Boolean?              @default(false)
   brand_vehicles      brand_vehicles[]
   checklist_templates checklist_templates[]
+  clothing_brands     clothing_brands[]
+  clothing_deliveries clothing_deliveries[]
+  clothing_items      clothing_items[]
+  clothing_sizes      clothing_sizes[]
   companies_employees companies_employees[]
   cities              cities                @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile             profile?              @relation(fields: [owner_id], references: [id], onDelete: Cascade)
@@ -1062,6 +1171,7 @@ model dailyreport {
   company         company                        @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_dailyreport_company_id_fkey")
   dailyreportrows dailyreportrows[]
 
+  @@unique([date, company_id], map: "dailyreport_date_company_id_key")
   @@schema("public")
 }
 
@@ -1130,10 +1240,13 @@ model dailyreportrows {
   completed_night                          Boolean?
   preparte_id                              String?                                    @unique @db.Uuid
   last_comercial_edit_at                   DateTime?                                  @db.Timestamp(6)
+  cloned_from_row_id                       String?                                    @db.Uuid
   dailyreport_customer_equipment_relations dailyreport_customer_equipment_relations[]
   dailyreportemployeerelations             dailyreportemployeerelations[]
   dailyreportequipmentrelations            dailyreportequipmentrelations[]
   service_areas                            service_areas?                             @relation(fields: [areas_service_id], references: [id], onDelete: NoAction)
+  cloned_from_row                          dailyreportrows?                           @relation("DailyReportRowClones", fields: [cloned_from_row_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  clones                                   dailyreportrows[]                          @relation("DailyReportRowClones")
   dailyreport                              dailyreport?                               @relation(fields: [daily_report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   preparte                                 preparte?                                  @relation(fields: [preparte_id], references: [id])
   service_sectors                          service_sectors?                           @relation(fields: [sector_service_id], references: [id], onDelete: NoAction)
@@ -1144,6 +1257,7 @@ model dailyreportrows {
   remitos                                  remitos[]
 
   @@index([daily_report_id], map: "idx_dailyreportrows_daily_report_id")
+  @@index([cloned_from_row_id], map: "idx_dailyreportrows_cloned_from_row_id", where: raw("(cloned_from_row_id IS NOT NULL)"))
   @@schema("public")
 }
 
@@ -1392,8 +1506,8 @@ model employees {
   company_position                                                  String?                        @db.Uuid
   type_of_contract                                                  String?                        @db.Uuid
   cost_type                                                         cost_type_enum?
-  workshop_sector_id                                                String?                        @db.Uuid
   full_name                                                         String?                        @default(dbgenerated("((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))"))
+  employee_workshop_sectors                                         employee_workshop_sectors[]
   assing_customer                                                   assing_customer[]
   category_employee                                                 category_employee[]
   checklist_answers_checklist_answers_chofer_employee_idToemployees checklist_answers[]            @relation("checklist_answers_chofer_employee_idToemployees")
@@ -1417,15 +1531,16 @@ model employees {
   provinces                                                         provinces                      @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
   types_of_contract                                                 types_of_contract?             @relation(fields: [type_of_contract], references: [id], onDelete: NoAction, onUpdate: NoAction)
   work_diagram                                                      work_diagram?                  @relation(fields: [workflow_diagram], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workshop_sectors                                                  workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
   employees_diagram                                                 employees_diagram[]
   maintenance_requests                                              maintenance_requests[]
+  maintenance_request_driver                                        maintenance_requests[] @relation("maintenance_request_driver")
   profile                                                           profile[]
   repair_solicitudes                                                repair_solicitudes[]
   repairlogs                                                        repairlogs[]
+  clothing_deliveries_received                                      clothing_deliveries[]  @relation("clothing_deliveries_employee_idToemployees")
+  clothing_deliveries_given                                         clothing_deliveries[]  @relation("clothing_deliveries_delivered_by_idToemployees")
 
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
-  @@index([workshop_sector_id], map: "idx_employees_workshop_sector_id")
   @@schema("public")
 }
 
@@ -1734,6 +1849,7 @@ model maintenance_orders {
   workshop_validated_at                                    DateTime?                  @db.Timestamptz(6)
   workshop_validation_notes                                String?
   engine_hours_at_entry                                    String?
+  preventive_type                                          String?
   maintenance_activity_log                                 maintenance_activity_log[]
   maintenance_order_items                                  maintenance_order_items[]
   profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1817,12 +1933,15 @@ model maintenance_requests {
   supervisor_id                                       String?                     @db.Uuid
   source                                              String?                     @default("checklist")
   engine_hours                                        String?
+  preventive_type                                     String?
+  driver_employee_id                                  String?                     @db.Uuid
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]
   profile_maintenance_requests_approved_byToprofile   profile?                    @relation("maintenance_requests_approved_byToprofile", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   checklist_answers                                   checklist_answers?          @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   employees                                           employees?                  @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  driver_employee                                     employees?                  @relation("maintenance_request_driver", fields: [driver_employee_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   vehicles                                            vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_maintenance_requests_rejected_byToprofile   profile?                    @relation("maintenance_requests_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_supervisor_idToprofile profile?                    @relation("maintenance_requests_supervisor_idToprofile", fields: [supervisor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1847,10 +1966,10 @@ model measure_units {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model model_vehicles {
-  id              BigInt            @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   name            String?
-  brand           BigInt?
+  brand           Int?
   is_active       Boolean?          @default(true)
   brand_vehicles  brand_vehicles?   @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_model_vehicles_brand_fkey")
   other_equipment other_equipment[]
@@ -1898,8 +2017,8 @@ model other_equipment {
   company_id                     String                           @db.Uuid
   type_id                        String                           @db.Uuid
   sub_type_id                    String?                          @db.Uuid
-  brand_id                       BigInt?
-  model_id                       BigInt?
+  brand_id                       Int?
+  model_id                       Int?
   serial_number                  String?
   year                           String?
   condition                      condition_enum?
@@ -2007,6 +2126,9 @@ model preparte {
   status                  preparte_status?
   preparteImage           String?
   confirmed_by            String?
+  rejected_by             String?                @db.Uuid
+  cancelled_by            String?                @db.Uuid
+  reprogrammed_by         String?                @db.Uuid
   subject_to_availability Boolean?               @default(false)
   dailyreportrows         dailyreportrows?
   service_areas           service_areas?         @relation(fields: [areas_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2018,10 +2140,16 @@ model preparte {
   preparte                preparte?              @relation("preparteTopreparte", fields: [reprogram], references: [id], onDelete: NoAction, onUpdate: NoAction)
   other_preparte          preparte[]             @relation("preparteTopreparte")
   service_sectors         service_sectors?       @relation(fields: [sector_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rejected_by_profile     profile?               @relation("preparte_rejected_byToprofile", fields: [rejected_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_rejected_by_fkey")
+  cancelled_by_profile    profile?               @relation("preparte_cancelled_byToprofile", fields: [cancelled_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_cancelled_by_fkey")
+  reprogrammed_by_profile profile?               @relation("preparte_reprogrammed_byToprofile", fields: [reprogrammed_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction, map: "preparte_reprogrammed_by_fkey")
   preparte_change_logs    preparte_change_logs[]
 
   @@index([cliente_id], map: "idx_preparte_cliente")
   @@index([executionDate], map: "idx_preparte_fecha_ejecucion")
+  @@index([rejected_by], map: "idx_preparte_rejected_by")
+  @@index([cancelled_by], map: "idx_preparte_cancelled_by")
+  @@index([reprogrammed_by], map: "idx_preparte_reprogrammed_by")
   @@schema("public")
 }
 
@@ -2081,6 +2209,9 @@ model profile {
   other_equipment                                                                    other_equipment[]
   password_reset_tokens                                                              password_reset_tokens[]
   preparte_change_logs                                                               preparte_change_logs[]
+  preparte_rejected_byToprofile                                                      preparte[]                  @relation("preparte_rejected_byToprofile")
+  preparte_cancelled_byToprofile                                                     preparte[]                  @relation("preparte_cancelled_byToprofile")
+  preparte_reprogrammed_byToprofile                                                  preparte[]                  @relation("preparte_reprogrammed_byToprofile")
   users_profile_credential_idTousers                                                 users?                      @relation("profile_credential_idTousers", fields: [credential_id], references: [id], onDelete: Cascade)
   employees                                                                          employees?                  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
   users_profile_idTousers                                                            users                       @relation("profile_idTousers", fields: [id], references: [id], onDelete: Cascade)
@@ -2546,8 +2677,8 @@ model vehicles {
   serie                         String?
   intern_number                 String?
   year                          String
-  brand                         BigInt?
-  model                         BigInt?
+  brand                         Int?
+  model                         Int?
   is_active                     Boolean?                        @default(true)
   termination_date              DateTime?                       @db.Date
   reason_for_termination        termination_reason_enum?
@@ -2903,6 +3034,19 @@ model work_orders {
   @@schema("public")
 }
 
+model employee_workshop_sectors {
+  employee_id        String           @db.Uuid
+  workshop_sector_id String           @db.Uuid
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  employees          employees        @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workshop_sectors   workshop_sectors @relation(fields: [workshop_sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([employee_id, workshop_sector_id])
+  @@index([employee_id], map: "idx_ews_employee_id")
+  @@index([workshop_sector_id], map: "idx_ews_workshop_sector_id")
+  @@schema("public")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model workshop_sectors {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -2913,7 +3057,7 @@ model workshop_sectors {
   is_active               Boolean                   @default(true)
   workshop_id             String                    @db.Uuid
   max_capacity            Int?
-  employees               employees[]
+  employee_workshop_sectors employee_workshop_sectors[]
   maintenance_order_items maintenance_order_items[]
   sector_repair_types     sector_repair_types[]
   work_order_item_repairs work_order_item_repairs[]
@@ -3586,4 +3730,12 @@ enum buckettype {
   VECTOR
 
   @@schema("storage")
+}
+
+enum clothing_delivery_type {
+  PLANNED_CCT
+  PLANNED_EPP
+  REPLACEMENT
+
+  @@schema("public")
 }

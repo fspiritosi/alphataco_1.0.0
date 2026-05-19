@@ -2,11 +2,12 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ClipboardList, Eye, History, LogIn, Wrench, type LucideIcon } from 'lucide-react';
+import { ClipboardList, Eye, History, LogIn, Shield, Wrench, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
 import type { ConfirmedOrderListItem } from './actions.server';
 
@@ -23,11 +24,13 @@ export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['created_at', 'date_approved
 export const SOURCE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   manual: 'Manual',
+  preventive: 'Preventivo',
 };
 
 export const SOURCE_ICONS: Record<string, LucideIcon> = {
   checklist: ClipboardList,
   manual: Wrench,
+  preventive: Shield,
 };
 
 // ============================================================================
@@ -67,9 +70,7 @@ export function getConfirmedOrderColumns({
         return (
           <div className="flex flex-col">
             <span className="font-medium">{vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar'}</span>
-            {vehicle?.intern_number && (
-              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-            )}
+            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
           </div>
         );
       },
@@ -126,13 +127,7 @@ export function getConfirmedOrderColumns({
           <div className="flex flex-col">
             <span
               className={
-                isToday
-                  ? 'font-bold text-green-600'
-                  : isPast
-                    ? 'text-red-600'
-                    : isTomorrow
-                      ? 'text-orange-600'
-                      : ''
+                isToday ? 'font-bold text-green-600' : isPast ? 'text-red-600' : isTomorrow ? 'text-orange-600' : ''
               }
             >
               {scheduledDate.format('DD/MM/YYYY')}
@@ -153,6 +148,13 @@ export function getConfirmedOrderColumns({
       header: 'Items',
       cell: ({ row }) => {
         const items = row.original.maintenance_order_items ?? [];
+        if (items.length === 0 && row.original.maintenance_requests?.source === 'preventive') {
+          return (
+            <PreventiveItemsBadge
+              preventiveType={row.original.preventive_type ?? row.original.maintenance_requests?.preventive_type ?? ''}
+            />
+          );
+        }
         return (
           <Badge variant="secondary">
             {items.length} {items.length === 1 ? 'item' : 'items'}
@@ -177,8 +179,8 @@ export function getConfirmedOrderColumns({
           operativo_condicionado: 'warning',
           en_preparacion: 'secondary',
         };
-        const label = condition ? (conditionLabels[condition] ?? condition) : 'Desconocido';
-        const variant = condition ? (variantMap[condition] ?? 'secondary') : 'secondary';
+        const label = condition ? conditionLabels[condition] ?? condition : 'Desconocido';
+        const variant = condition ? variantMap[condition] ?? 'secondary' : 'secondary';
         return <Badge variant={variant}>{label}</Badge>;
       },
       enableSorting: false,
@@ -202,14 +204,14 @@ export function getConfirmedOrderColumns({
       },
     },
 
-    // ── Origen del pedido (source de maintenance_requests) — oculto por defecto
+    // ── Origen del pedido (source de maintenance_orders, con fallback a maintenance_requests) — oculto por defecto
     {
       id: 'source',
-      accessorFn: (row) => row.maintenance_requests?.source ?? null,
+      accessorFn: (row) => row.source ?? row.maintenance_requests?.source ?? null,
       meta: { title: 'Origen' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Origen" />,
       cell: ({ row }) => {
-        const src = row.original.maintenance_requests?.source;
+        const src = row.original.source ?? row.original.maintenance_requests?.source;
         if (!src) return <span className="text-muted-foreground">—</span>;
         const label = SOURCE_LABELS[src] ?? src;
         const Icon = SOURCE_ICONS[src];
@@ -222,7 +224,7 @@ export function getConfirmedOrderColumns({
       },
       enableSorting: false,
       filterFn: (row, _id, value: string[]) => {
-        const src = row.original.maintenance_requests?.source ?? null;
+        const src = row.original.source ?? row.original.maintenance_requests?.source ?? null;
         if (src == null) return value.includes(NULL_FILTER_VALUE);
         return value.includes(src);
       },

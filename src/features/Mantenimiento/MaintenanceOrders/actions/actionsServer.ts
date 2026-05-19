@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
@@ -81,6 +83,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             kilometer: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
@@ -279,6 +282,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             kilometer: true,
             created_at: true,
             source: true,
+            preventive_type: true,
             supervisor_id: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
@@ -471,15 +475,13 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
       }
 
       // Audit log
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_order_id: orderId,
-          action_type: 'workshop_approved',
-          performed_by: profile.id,
-          previous_status: 'pending_workshop_validation',
-          new_status: 'pending_operations_validation',
-          notes: notes ?? 'Aprobado por jefe de taller',
-        },
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.WORKSHOP_APPROVED,
+        performedBy: profile.id,
+        previousStatus: 'pending_workshop_validation',
+        newStatus: 'pending_operations_validation',
+        notes: notes ?? 'Aprobado por jefe de taller',
       });
     });
 
@@ -496,6 +498,7 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
  * Workshop chief returns order to workshop (reopens work orders)
  */
 export async function workshopChiefReturnOrder(orderId: string, reason: string) {
+  const profile = await requireServerAuthProfile();
   logger.debug('Devolviendo orden al taller', { data: { orderId, reason } });
 
   try {
@@ -527,6 +530,16 @@ export async function workshopChiefReturnOrder(orderId: string, reason: string) 
           data: { status: 'in_progress', updated_at: new Date() },
         });
       }
+
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.WORKSHOP_RETURNED_ORDER,
+        performedBy: profile.id,
+        previousStatus: 'pending_workshop_validation',
+        newStatus: 'in_workshop',
+        rejectionReason: reason,
+        metadata: { reopenedWorkOrderIds: workOrders.map((wo) => wo.id) },
+      });
     });
 
     logger.info('Orden devuelta al taller', { data: { orderId, reason } });
@@ -580,15 +593,13 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
       }
 
       // Audit log
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_order_id: orderId,
-          action_type: 'operations_approved',
-          performed_by: profile.id,
-          previous_status: 'pending_operations_validation',
-          new_status: 'completed',
-          notes: notes ?? 'Aprobado por operaciones - cierre final',
-        },
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.OPERATIONS_APPROVED,
+        performedBy: profile.id,
+        previousStatus: 'pending_operations_validation',
+        newStatus: 'completed',
+        notes: notes ?? 'Aprobado por operaciones - cierre final',
       });
     });
 
@@ -717,16 +728,14 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
         };
       });
 
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_order_id: orderId,
-          action_type: 'workshop_item_rejected',
-          performed_by: profile.id,
-          previous_status: 'pending_workshop_validation',
-          new_status: 'in_workshop',
-          notes: `${rejections.length} item(s) rechazado(s) por jefe de taller`,
-          metadata: { rejected_items: rejectedItems },
-        },
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.WORKSHOP_ITEM_REJECTED,
+        performedBy: profile.id,
+        previousStatus: 'pending_workshop_validation',
+        newStatus: 'in_workshop',
+        notes: `${rejections.length} item(s) rechazado(s) por jefe de taller`,
+        metadata: { rejected_items: rejectedItems },
       });
     });
 
@@ -794,16 +803,14 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
         };
       });
 
-      await tx.maintenance_activity_log.create({
-        data: {
-          maintenance_order_id: orderId,
-          action_type: 'operations_item_rejected',
-          performed_by: profile.id,
-          previous_status: 'pending_operations_validation',
-          new_status: 'operations_rejected',
-          notes: `${rejections.length} item(s) rechazado(s) por operaciones`,
-          metadata: { rejected_items: rejectedItems },
-        },
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.OPERATIONS_ITEM_REJECTED,
+        performedBy: profile.id,
+        previousStatus: 'pending_operations_validation',
+        newStatus: 'operations_rejected',
+        notes: `${rejections.length} item(s) rechazado(s) por operaciones`,
+        metadata: { rejected_items: rejectedItems },
       });
     });
 
@@ -885,16 +892,14 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
         });
 
         // Audit log
-        await tx.maintenance_activity_log.create({
-          data: {
-            maintenance_order_id: orderId,
-            action_type: 'workshop_agreed_ops_rejection',
-            performed_by: profile.id,
-            previous_status: 'operations_rejected',
-            new_status: 'in_workshop',
-            notes: comment ?? 'Jefe de taller de acuerdo con rechazo de operaciones',
-            metadata: { original_rejected_items: rejectedItems },
-          },
+        await logActivity(tx, {
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.WORKSHOP_AGREED_OPS_REJECTION,
+          performedBy: profile.id,
+          previousStatus: 'operations_rejected',
+          newStatus: 'in_workshop',
+          notes: comment ?? 'Jefe de taller de acuerdo con rechazo de operaciones',
+          metadata: { original_rejected_items: rejectedItems },
         });
       });
 
@@ -909,15 +914,13 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
           data: { status: 'pending_operations_validation', updated_at: new Date() },
         });
 
-        await tx.maintenance_activity_log.create({
-          data: {
-            maintenance_order_id: orderId,
-            action_type: 'workshop_disagreed_ops_rejection',
-            performed_by: profile.id,
-            previous_status: 'operations_rejected',
-            new_status: 'pending_operations_validation',
-            notes: comment,
-          },
+        await logActivity(tx, {
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.WORKSHOP_DISAGREED_OPS_REJECTION,
+          performedBy: profile.id,
+          previousStatus: 'operations_rejected',
+          newStatus: 'pending_operations_validation',
+          notes: comment,
         });
       });
 
@@ -994,6 +997,7 @@ export async function updateSectorExecutionOrder(
   orderId: string,
   sectorOrders: Array<{ sectorId: string; sequenceOrder: number }>
 ) {
+  const profile = await requireServerAuthProfile();
   logger.debug('Actualizando orden de ejecucion de sectores', { data: { orderId, sectorOrders } });
 
   try {
@@ -1011,18 +1015,24 @@ export async function updateSectorExecutionOrder(
       throw new Error('Solo se puede cambiar el orden cuando la OM está en taller');
     }
 
-    // Actualizar el sector_sequence_order de cada sector en una transacción
-    await prisma.$transaction(
-      sectorOrders.map(({ sectorId, sequenceOrder }) =>
-        prisma.maintenance_order_items.updateMany({
+    await prisma.$transaction(async (tx) => {
+      for (const { sectorId, sequenceOrder } of sectorOrders) {
+        await tx.maintenance_order_items.updateMany({
           where: {
             maintenance_order_id: orderId,
             assigned_sector_id: sectorId,
           },
           data: { sector_sequence_order: sequenceOrder },
-        })
-      )
-    );
+        });
+      }
+
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.SECTOR_EXECUTION_ORDER_UPDATED,
+        performedBy: profile.id,
+        metadata: { sectorOrders },
+      });
+    });
 
     logger.info('Orden de ejecucion de sectores actualizado', { data: { orderId, sectorOrders } });
     await invalidateCacheTags(INVALIDATION_MAP.updateSectorExecutionOrder);
@@ -1062,6 +1072,14 @@ export async function completeExternalWorkOrder(workOrderId: string) {
         },
       });
 
+      await logActivity(tx, {
+        workOrderId: workOrderId,
+        actionType: ACTIVITY_LOG.EXTERNAL_WO_COMPLETED,
+        performedBy: profileId,
+        newStatus: 'completed',
+        metadata: { closedAt: new Date().toISOString() },
+      });
+
       // Obtener el maintenance_order_id a través de work_order_items → maintenance_order_items
       const woItem = await tx.work_order_items.findFirst({
         where: { work_order_id: workOrderId },
@@ -1096,6 +1114,15 @@ export async function completeExternalWorkOrder(workOrderId: string) {
 
           logger.info('Maintenance order ready for workshop validation (external WO completed)', {
             data: { maintenanceOrderId, workOrderId },
+          });
+
+          await logActivity(tx, {
+            maintenanceOrderId: maintenanceOrderId,
+            actionType: ACTIVITY_LOG.EXTERNAL_WO_COMPLETED,
+            performedBy: profileId,
+            previousStatus: 'in_workshop',
+            newStatus: 'pending_workshop_validation',
+            metadata: { triggeredByWorkOrderId: workOrderId },
           });
         }
       }

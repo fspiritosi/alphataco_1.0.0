@@ -4,821 +4,463 @@ import { FormItemDatePicker } from '@/components/ui/FormItemDatePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
+import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { Filter } from '@/shared/actions/supabase-query';
+import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Cookies from 'js-cookie';
-import { Search, X } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { CalendarRange, Sparkles } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { query, queryPaginated } from './actions/supabase-query';
+
+import {
+  checkDiagramConflicts,
+  checkNoveltyConflicts,
+  getActiveDiagramTypes,
+  getActiveWorkDiagrams,
+  getWorkDiagramNovelties,
+  type NoveltyData,
+} from './actions/diagram-massive-actions';
+import { searchEmployeeDiagrams, type DiagramEmployee } from './actions/diagram-search-actions';
+import { EMPTY_FILTERS, EmployeeFilterPanel, type FilterState } from './components/EmployeeFilterPanel';
+import { EmployeeSelectionGrid } from './components/EmployeeSelectionGrid';
+import type { ConflictData, MassiveFormData, ProcessingResult } from './types/massive-diagram';
 
 const logger = new Logger('Diagrams/DiagramMassiveForm');
 
-// Configuración de límites (fácil de ajustar)
-const DATE_RESTRICTIONS = {
-  minDate: new Date(), // Hoy
-  maxDaysRange: 90, // 3 meses máximo
-  maxEmployees: 100, // 100 empleados máximo
-};
+// ── Constants ────────────────────────────────────────────────────────────────
 
-// Schema de validación
-const formSchema = z.object({
-  employeeIds: z
-    .array(z.string())
-    .min(1, 'Selecciona al menos un empleado')
-    .max(DATE_RESTRICTIONS.maxEmployees, `Máximo ${DATE_RESTRICTIONS.maxEmployees} empleados`),
-  workDiagramId: z.string().min(1, 'Selecciona un diagrama de trabajo'),
-  activeNoveltyId: z.string().optional(), // Solo requerido si hay múltiples opciones
-  dateRange: z
-    .object({
-      from: z.date().min(DATE_RESTRICTIONS.minDate, 'Solo fechas desde hoy en adelante'),
-      to: z.date(),
-    })
-    .refine((data) => {
-      const diffDays = Math.ceil((data.to.getTime() - data.from.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays <= DATE_RESTRICTIONS.maxDaysRange;
-    }, `Máximo ${DATE_RESTRICTIONS.maxDaysRange} días permitidos`),
-});
+const MAX_EMPLOYEES = 100;
+const MAX_DAYS_RANGE = 90;
+
+// ── Zod Schema ───────────────────────────────────────────────────────────────
+
+const formSchema = z
+  .object({
+    mode: z.enum(['diagram', 'novelty']),
+    employeeIds: z
+      .array(z.string())
+      .min(1, 'Selecciona al menos un empleado')
+      .max(MAX_EMPLOYEES, `Máximo ${MAX_EMPLOYEES} empleados`),
+    workDiagramId: z.string().optional(),
+    activeNoveltyId: z.string().optional(),
+    diagramTypeId: z.string().optional(),
+    dateRange: z
+      .object({
+        from: z.date().min(new Date(), 'Solo fechas desde hoy en adelante'),
+        to: z.date(),
+      })
+      .refine((data) => {
+        const diffDays = Math.ceil((data.to.getTime() - data.from.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays <= MAX_DAYS_RANGE;
+      }, `Máximo ${MAX_DAYS_RANGE} días permitidos`),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === 'diagram' && !data.workDiagramId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Selecciona un diagrama de trabajo',
+        path: ['workDiagramId'],
+      });
+    }
+    if (data.mode === 'novelty' && !data.diagramTypeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Selecciona una novedad',
+        path: ['diagramTypeId'],
+      });
+    }
+  });
 
 type FormData = z.infer<typeof formSchema>;
 
-// Tipos para el sistema de filtros
-type FilterState = {
-  firstname: string;
-  lastname: string;
-  position: string[];
-  workflow: string[];
-  costCenter: string[];
-  covenant: string[];
-  guild: string[];
-  category: string[];
-  'contractor_employee.contractor_id': string[];
-  diagramType: string[];
-};
-
-type FilterOptions = {
-  positions: { id: string; name: string | null }[];
-  workflows: { id: string; name: string | null }[];
-  costCenters: { id: string; name: string | null }[];
-  covenants: { id: string; name: string | null }[];
-  guilds: { id: string; name: string | null }[];
-  categories: {
-    id: string;
-    name: string | null;
-    covenant: {
-      name: string | null;
-    } | null;
-  }[];
-  contractors: { id: string; name: string | null }[];
-  customers: { id: string; name: string | null }[];
-  diagramTypes: { id: string; name: string | null }[];
-};
-
-// Función para obtener empleados con filtros y paginación
-const fetchData = async ({
-  filters,
-  page,
-  pageSize,
-  company_id,
-  innerData,
-}: {
-  filters: Filter<'employees'>[];
-  page: number;
-  pageSize: number;
-  company_id: string;
-  innerData: null | Record<string, string>;
-}) => {
-  // let query =
-
-  const employeesData = await queryPaginated(
-    'employees',
-    'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)),contractor_employee(*,customers(id,name))',
-
-    {
-      filters: [...filters],
-      page: page,
-      pageSize: pageSize,
-      orderBy: 'lastname',
-      innerData,
-    }
-  );
-  return employeesData;
-};
-
-// Función para formatear empleados para el componente
-const formatEmployees = (employeesData: Awaited<ReturnType<typeof fetchData>>) => {
-  return (
-    employeesData.data?.map((employee) => ({
-      id: employee?.id,
-      firstname: employee?.firstname,
-      lastname: employee?.lastname,
-      document_number: employee?.document_number,
-      workflow_diagram: employee?.workflow_diagram,
-      employees_diagram: employee?.employees_diagram,
-      contractor_employee: employee?.contractor_employee,
-      label: `${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)} ${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)}`,
-    })) || []
-  );
-};
-
-interface ConflictRecord {
-  employee_id: string;
-  employee_name: string;
-  day: number;
-  month: number;
-  year: number;
-  date_formatted: string;
-  current_diagram_type: string;
-  current_diagram_name: string;
-  current_diagram_color: string;
-  is_used_in_operations: boolean;
-  operation_details: string;
-  can_update: boolean;
-  conflict_type: string;
-}
+// ── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onSubmit: (data: any) => void;
-  onConflictsFound: (conflicts: any, formData: any) => void;
-  onNoConflicts: () => void;
-  onProcessingComplete: (result: any) => void;
+  onConflictsFound: (conflicts: ConflictData, formData: MassiveFormData) => void;
+  onProcessingComplete: (result: ProcessingResult) => void;
   loading: boolean;
   setLoading: (loading: boolean) => void;
 }
 
-async function fetchWorkDiagrams(company_id: string) {
-  const supabase = supabaseBrowser();
+// ── Component ────────────────────────────────────────────────────────────────
 
-  const { data, error } = await supabase
-    .from('work_diagram')
-    .select('id, name, active_working_days, inactive_working_days, inactive_novelty')
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) {
-    logger.error('Error fetching work diagrams', { data: { error } });
-    return [];
-  }
-
-  return data || [];
-}
-
-async function fetchNovelties(workDiagramId: string) {
-  const supabase = supabaseBrowser();
-
-  // Cargar inactive_novelty del work_diagram
-  const { data: workDiagram, error: workDiagramError } = await supabase
-    .from('work_diagram')
-    .select('inactive_novelty, diagram_type!inactive_novelty(id, name, color)')
-    .eq('id', workDiagramId)
-    .single();
-
-  if (workDiagramError) {
-    logger.error('Error fetching work diagram', { data: { error: workDiagramError } });
-    return { inactiveNovelty: null, activeNovelties: [] };
-  }
-
-  // Cargar active_novelties
-  const { data: activeNovelties, error: activeNoveltiesError } = await supabase
-    .from('work_diagram_active_novelties')
-    .select('diagram_type_id, diagram_type(id, name, color)')
-    .eq('work_diagram_id', workDiagramId);
-
-  if (activeNoveltiesError) {
-    logger.error('Error fetching active novelties', { data: { error: activeNoveltiesError } });
-    return { inactiveNovelty: workDiagram, activeNovelties: [] };
-  }
-
-  return {
-    inactiveNovelty: workDiagram,
-    activeNovelties: activeNovelties || [],
-  };
-}
-
-export function DiagramMassiveForm({
-  onSubmit,
-  onConflictsFound,
-  onNoConflicts,
-  onProcessingComplete,
-  loading,
-  setLoading,
-}: Props) {
-  const [employees, setEmployees] = useState<ReturnType<typeof formatEmployees>>([]);
-  const [workDiagrams, setWorkDiagrams] = useState<any[]>([]);
-  const [activeNovelties, setActiveNovelties] = useState<any[]>([]);
-  const [inactiveNovelty, setInactiveNovelty] = useState<any>(null);
+export function DiagramMassiveForm({ onConflictsFound, loading, setLoading }: Props) {
+  // ── Novelty state (only used in diagram mode) ──────────────────────────────
+  const [noveltyData, setNoveltyData] = useState<NoveltyData | null>(null);
   const [showActiveNoveltySelect, setShowActiveNoveltySelect] = useState(false);
-  const [selectedEmployees, setSelectedEmployees] = useState<ReturnType<typeof formatEmployees>>([]);
-  const supabase = supabaseBrowser();
-  const company_id = Cookies.get('actualComp');
 
-  // Estados para el sistema de filtros (copiados de EmployesDiagramWrapper)
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [hasMoreData, setHasMoreData] = useState<boolean>(false);
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-  const [filters, setFilters] = useState<FilterState>({
-    firstname: '',
-    lastname: '',
-    position: [],
-    workflow: [],
-    costCenter: [],
-    covenant: [],
-    guild: [],
-    category: [],
-    'contractor_employee.contractor_id': [],
-    diagramType: [],
-  });
+  // ── Filter state ──────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [activeFilters, setActiveFilters] = useState<(keyof FilterState)[]>([]);
-  const [hasSearched, setHasSearched] = useState<boolean>(false);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    positions: [],
-    workflows: [],
-    costCenters: [],
-    covenants: [],
-    guilds: [],
-    categories: [],
-    contractors: [],
-    customers: [],
-    diagramTypes: [],
-  });
   const [showFilters, setShowFilters] = useState(false);
 
+  // ── Search / pagination state ─────────────────────────────────────────────
+  const [searchTrigger, setSearchTrigger] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [accumulatedEmployees, setAccumulatedEmployees] = useState<DiagramEmployee[]>([]);
+
+  // ── Form ──────────────────────────────────────────────────────────────────
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      mode: 'diagram',
       employeeIds: [],
       workDiagramId: '',
       activeNoveltyId: '',
+      diagramTypeId: '',
       dateRange: {
         from: new Date(),
-        to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días por defecto
+        to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     },
   });
 
-  // Función para cargar los datos basados en los filtros seleccionados (copiada de EmployesDiagramWrapper)
-  const loadData = async (page: number = 1, append: boolean = false) => {
-    const supabase = supabaseBrowser();
-    const { data, error } = await supabase
-      .from('employees')
-      .select(
-        'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)),contractor_employee!inner(*,customers(id,name))'
-      )
-      .in('workflow_diagram', ['30a94782-6d47-4eb0-be97-318f065b73ff'])
-      .in('contractor_employee.customers.id', ['c7493c97-4a23-4ea3-9ff1-65c04d7530d9']);
-
-    // Si estamos cargando la primera página, reiniciamos el estado
-    if (page === 1 && !append) {
-      setEmployees([]);
-      setCurrentPage(1);
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Construimos los filtros para la función query
-      const queryFilters: Filter<'employees'>[] = [];
-
-      // Agregar filtro por compañía
-      // if (company_id) {
-      //   queryFilters.push({
-      //     column: 'company_id',
-      //     operator: 'eq',
-      //     value: company_id,
-      //   });
-      // } else {
-      // }
-
-      // Agregar filtro por empleados activos
-      queryFilters.push({
-        column: 'is_active',
-        operator: 'eq',
-        value: true,
-      });
-
-      // Filtro por nombre (firstname)
-      if (filters.firstname && filters.firstname.trim() !== '') {
-        const searchTerm = filters.firstname.trim();
-        queryFilters.push({
-          column: 'firstname',
-          operator: 'ilike',
-          value: `%${searchTerm}%`,
-        });
-      }
-
-      // Filtro por apellido (lastname)
-      if (filters.lastname && filters.lastname.trim() !== '') {
-        const searchTerm = filters.lastname.trim();
-        queryFilters.push({
-          column: 'lastname',
-          operator: 'ilike',
-          value: `%${searchTerm}%`,
-        });
-      }
-
-      // Filtros para los demás campos
-      if (filters.position && filters.position.length > 0) {
-        queryFilters.push({
-          column: 'company_position',
-          operator: 'in',
-          value: filters.position,
-        });
-      }
-
-      if (filters.workflow && filters.workflow.length > 0) {
-        queryFilters.push({
-          column: 'workflow_diagram',
-          operator: 'in',
-          value: filters.workflow,
-        });
-      }
-
-      if (filters.costCenter && filters.costCenter.length > 0) {
-        queryFilters.push({
-          column: 'cost_center_id',
-          operator: 'in',
-          value: filters.costCenter,
-        });
-      }
-
-      if (filters.covenant && filters.covenant.length > 0) {
-        queryFilters.push({
-          column: 'covenants_id',
-          operator: 'in',
-          value: filters.covenant,
-        });
-      }
-
-      if (filters.guild && filters.guild.length > 0) {
-        queryFilters.push({
-          column: 'guild_id',
-          operator: 'in',
-          value: filters.guild,
-        });
-      }
-
-      if (filters.category && filters.category.length > 0) {
-        queryFilters.push({
-          column: 'category_id',
-          operator: 'in',
-          value: filters.category,
-        });
-      }
-      let innerData = {};
-
-      if (filters['contractor_employee.contractor_id'] && filters['contractor_employee.contractor_id'].length > 0) {
-        queryFilters.push({
-          column: 'contractor_employee.customers.id',
-          operator: 'in',
-          value: filters['contractor_employee.contractor_id'],
-        });
-        // Excluir empleados sin relación contractor_employee
-        // queryFilters.push({
-        //   column: 'contractor_employee',
-        //   operator: 'not.is',
-        //   value: null,
-        // });
-        innerData = {
-          'contractor_employee(': 'contractor_employee!inner(',
-        };
-      }
-
-      const employeesData = await fetchData({
-        filters: queryFilters,
-        page: page,
-        pageSize: 100,
-        company_id: company_id || '',
-        innerData,
-      });
-
-      // Verificar si hay más páginas disponibles
-      const totalCount = employeesData.pagination?.total || 0;
-      const loadedCount = (page - 1) * 100 + (employeesData.data?.length || 0);
-      const hasMore = loadedCount < totalCount;
-
-      setHasMoreData(hasMore);
-
-      // Formato para mostrar en el componente
-      const formattedEmployees = formatEmployees(employeesData);
-
-      if (append) {
-        setEmployees((prevEmployees) => {
-          const newList = [...prevEmployees, ...formattedEmployees];
-          return newList;
-        });
-      } else {
-        setEmployees(formattedEmployees);
-      }
-    } catch (error) {
-      logger.error('Error en loadData', { data: { error } });
-      logger.error('Error stack', { data: { stack: error instanceof Error ? error.stack : 'No stack available' } });
-      toast.error('Error al cargar empleados');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Cargar work diagrams al inicio
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        // Cargar diagramas de trabajo activos
-        const workDiagramsData = await fetchWorkDiagrams(company_id || '');
-        setWorkDiagrams(workDiagramsData);
-
-        // Cargar opciones de filtros
-        await loadFilterOptions();
-      } catch (error) {
-        logger.error('Error loading initial data', { data: { error } });
-        toast.error('Error al cargar los datos iniciales');
-      }
-    };
-
-    if (company_id) {
-      loadInitialData();
-      // Al montar el componente, reiniciamos el estado de paginación
-      setCurrentPage(1);
-      setHasMoreData(false);
-    }
-  }, [company_id]);
-
-  // Cargar opciones para los filtros (copiada de EmployesDiagramWrapper)
-  const loadFilterOptions = async () => {
-    try {
-      // Gremios - usando la función query
-      const guildsData = await query('guild', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Categorías
-      const categoriesData = await query(
-        'category',
-        'id, name,covenant(name)',
-        [{ column: 'is_active', value: true }],
-        {
-          orderBy: 'name',
-        }
-      );
-
-      // Posiciones
-      const positionsData = await query('company_positions', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Flujos de trabajo
-      const workflowsData = await query('work_diagram', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Centros de costo
-      const costCentersData = await query('cost_center', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Contratos
-      const covenantsData = await query('covenant', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Contratistas
-      const customersData = await query('customers', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Contratistas
-      const contractorsData = await query('contractors', 'id, name', [], {
-        orderBy: 'name',
-      });
-
-      // Tipos de diagrama
-      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }], {
-        orderBy: 'name',
-      });
-
-      setFilterOptions({
-        guilds: guildsData || [],
-        categories: categoriesData || [],
-        positions: positionsData || [],
-        workflows: workflowsData || [],
-        costCenters: costCentersData || [],
-        covenants: covenantsData || [],
-        contractors: contractorsData || [],
-        customers: customersData || [],
-        diagramTypes: diagramTypesData || [],
-      });
-    } catch (error) {
-      logger.error('Error al cargar opciones de filtros', { data: { error } });
-    }
-  };
-
-  // Función que maneja cambios en campos de texto (string) - copiada de EmployesDiagramWrapper
-  const handleFilterChange = (name: 'firstname' | 'lastname', value: string) => {
-    setFilters((prev) => ({ ...prev, [name]: value }));
-
-    if (value && value !== '' && !activeFilters.includes(name)) {
-      setActiveFilters((prev) => [...prev, name]);
-    } else if ((!value || value === '') && activeFilters.includes(name)) {
-      setActiveFilters((prev) => prev.filter((filter) => filter !== name));
-    }
-  };
-
-  // Función que maneja cambios en multi-select (string[]) - copiada de EmployesDiagramWrapper
-  const handleMultiFilterChange = (name: Exclude<keyof FilterState, 'firstname' | 'lastname'>, values: string[]) => {
-    setFilters((prev) => ({ ...prev, [name]: values }));
-
-    if (values && values.length > 0 && !activeFilters.includes(name)) {
-      setActiveFilters((prev) => [...prev, name]);
-    } else if ((!values || values.length === 0) && activeFilters.includes(name)) {
-      setActiveFilters((prev) => prev.filter((filter) => filter !== name));
-    }
-  };
-
-  // Función para borrar un filtro específico - copiada de EmployesDiagramWrapper
-  const clearFilter = (name: keyof FilterState) => {
-    // Restaurar el valor según el tipo de filtro
-    if (name === 'firstname' || name === 'lastname') {
-      setFilters((prev) => ({ ...prev, [name]: '' }));
-    } else {
-      setFilters((prev) => ({ ...prev, [name]: [] }));
-    }
-
-    // Remover de los filtros activos
-    if (activeFilters.includes(name)) {
-      setActiveFilters(activeFilters.filter((filter) => filter !== name));
-    }
-  };
-
-  // Función para manejar el submit del formulario de filtros - copiada de EmployesDiagramWrapper
-  const handleFilterSubmit = (e: FormEvent) => {
-    e.preventDefault();
-
-    setHasSearched(true);
-
-    loadData(1, false);
-  };
-
-  // Función para cargar más datos - copiada de EmployesDiagramWrapper
-  const loadMoreData = async () => {
-    if (isLoadingMore || !hasMoreData) return;
-
-    setIsLoadingMore(true);
-    try {
-      await loadData(currentPage + 1, true);
-      setCurrentPage((prev) => prev + 1);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  // Función para limpiar todos los filtros
-  const clearAllFilters = () => {
-    setFilters({
-      firstname: '',
-      lastname: '',
-      position: [],
-      workflow: [],
-      costCenter: [],
-      covenant: [],
-      guild: [],
-      category: [],
-      'contractor_employee.contractor_id': [],
-      diagramType: [],
-    });
-    setActiveFilters([]);
-    setHasSearched(false);
-    setEmployees([]);
-  };
-
-  // Actualizar empleados seleccionados cuando cambian los IDs
-  useEffect(() => {
-    const employeeIds = form.watch('employeeIds');
-    const selected = employees.filter((emp) => employeeIds.includes(emp.id));
-    setSelectedEmployees(selected);
-  }, [form.watch('employeeIds'), employees]);
-
-  // Función para manejar el cambio de work_diagram
-  const handleWorkDiagramChange = async (workDiagramId: string) => {
-    form.setValue('workDiagramId', workDiagramId);
-
-    try {
-      // Cargar novelties asociadas al work_diagram
-      const { inactiveNovelty, activeNovelties } = await fetchNovelties(workDiagramId);
-
-      setInactiveNovelty(inactiveNovelty);
-      setActiveNovelties(activeNovelties);
-
-      // Mostrar select solo si hay múltiples active_novelties
-      if (activeNovelties.length > 1) {
-        setShowActiveNoveltySelect(true);
-        form.setValue('activeNoveltyId', ''); // Reset selection
-      } else if (activeNovelties.length === 1) {
-        setShowActiveNoveltySelect(false);
-        form.setValue('activeNoveltyId', activeNovelties[0].diagram_type_id);
-      } else {
-        setShowActiveNoveltySelect(false);
-        form.setValue('activeNoveltyId', '');
-        toast.error('El diagrama de trabajo no tiene novedades activas configuradas');
-      }
-
-      if (!inactiveNovelty?.diagram_type) {
-        toast.error('El diagrama de trabajo no tiene novedad inactiva configurada');
-      }
-
-      // NUEVO: Configurar filtro de diagrama de trabajo (sin ejecutar búsqueda automática)
-
-      // Actualizar el filtro de workflow con el diagrama seleccionado
-      const newFilters = {
-        ...filters,
-        workflow: [workDiagramId],
-      };
-      setFilters(newFilters);
-
-      // Actualizar filtros activos si no está ya incluido
-      if (!activeFilters.includes('workflow')) {
-        setActiveFilters((prev) => [...prev, 'workflow']);
-      }
-    } catch (error) {
-      logger.error('Error cargando novelties', { data: { error } });
-      toast.error('Error al cargar las configuraciones del diagrama de trabajo');
-    }
-  };
-
-  const handleEmployeeToggle = (employeeId: string) => {
-    const currentIds = form.getValues('employeeIds');
-
-    if (currentIds.includes(employeeId)) {
-      // Si ya está seleccionado, lo removemos
-      const newIds = currentIds.filter((id) => id !== employeeId);
-      form.setValue('employeeIds', newIds);
-    } else {
-      // Si no está seleccionado, verificamos el límite antes de agregarlo
-      if (currentIds.length >= DATE_RESTRICTIONS.maxEmployees) {
-        toast.warning(`No se puede seleccionar más de ${DATE_RESTRICTIONS.maxEmployees} empleados.`);
-        return;
-      }
-
-      const newIds = [...currentIds, employeeId];
-      form.setValue('employeeIds', newIds);
-    }
-  };
-
-  const estimateRecords = (employeeCount: number, days: number) => {
-    const totalRecords = employeeCount * days;
-    const estimatedTime = Math.ceil(totalRecords / 1000) * 2; // 2 seg por cada 1000 registros
-
-    return {
-      totalRecords,
-      estimatedTime: `${estimatedTime} segundos`,
-      batches: Math.ceil(totalRecords / 1000),
-    };
-  };
-
-  const handleVerifyAndSubmit = async (data: FormData) => {
-    setLoading(true);
-
-    try {
-      // Verificar conflictos usando la función SQL actualizada
-      const { data: conflicts, error } = await supabase.rpc('check_diagram_conflicts_with_operations_v2', {
-        p_employee_ids: data.employeeIds,
-        p_work_diagram_id: data.workDiagramId,
-        p_date_from: data.dateRange.from.toISOString().split('T')[0],
-        p_date_to: data.dateRange.to.toISOString().split('T')[0],
-        p_active_novelty_id: data.activeNoveltyId || '',
-      });
-
-      if (error) {
-        logger.error('Error checking conflicts', { data: { error } });
-        toast.error('Error al verificar conflictos');
-        return;
-      }
-
-      // Acceder correctamente a los conflictos según la estructura de tu función
-      const conflictList = (conflicts as any)?.conflicts || [];
-
-      if (conflictList && conflictList.length > 0) {
-        // Separar conflictos por tipo
-        const operationConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'IN_USE');
-        const simpleConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'CAN_UPDATE');
-
-        onConflictsFound({ operationConflicts, simpleConflicts }, data);
-      } else {
-        onConflictsFound({ operationConflicts: [], simpleConflicts: [] }, data);
-      }
-    } catch (error) {
-      logger.error('Error in verification', { data: { error } });
-      toast.error('Error en la verificación');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const executeCreation = async (data: FormData) => {
-    setLoading(true);
-
-    try {
-      const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
-        p_employee_ids: data.employeeIds,
-        p_work_diagram_id: data.workDiagramId,
-        p_date_from: data.dateRange.from.toISOString().split('T')[0],
-        p_date_to: data.dateRange.to.toISOString().split('T')[0],
-        p_active_novelty_id: data.activeNoveltyId || '',
-        p_conflict_resolution: 'skip', // Por defecto, saltar conflictos
-      });
-
-      if (error) {
-        logger.error('Error creating diagrams', { data: { error } });
-        toast.error('Error al crear los diagramas');
-        return;
-      }
-
-      onProcessingComplete(result);
-      toast.success('Diagramas procesados correctamente');
-    } catch (error) {
-      logger.error('Error in creation', { data: { error } });
-      toast.error('Error en la creación');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const mode = form.watch('mode');
+
+  // ── Work diagrams query (diagram mode) ────────────────────────────────────
+  const { data: workDiagrams = [], isLoading: isLoadingDiagrams } = useQuery({
+    queryKey: ['massive-work-diagrams'],
+    queryFn: getActiveWorkDiagrams,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Diagram types query (novelty mode) ────────────────────────────────────
+  const { data: diagramTypes = [], isLoading: isLoadingDiagramTypes } = useQuery({
+    queryKey: ['massive-diagram-types'],
+    queryFn: getActiveDiagramTypes,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Employee search query ─────────────────────────────────────────────────
+  const searchParams = useMemo(
+    () => ({
+      firstname: filters.firstname || undefined,
+      lastname: filters.lastname || undefined,
+      positions: filters.position.length > 0 ? filters.position : undefined,
+      workflows: filters.workflow.length > 0 ? filters.workflow : undefined,
+      costCenters: filters.costCenter.length > 0 ? filters.costCenter : undefined,
+      covenants: filters.covenant.length > 0 ? filters.covenant : undefined,
+      guilds: filters.guild.length > 0 ? filters.guild : undefined,
+      categories: filters.category.length > 0 ? filters.category : undefined,
+      contractors: filters.contractors.length > 0 ? filters.contractors : undefined,
+      page: currentPage,
+      pageSize: 100,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchTrigger, currentPage]
+  );
+
+  const { data: employeeResult, isFetching: isSearching } = useQuery({
+    queryKey: ['massive-employees', searchParams],
+    queryFn: () => searchEmployeeDiagrams(searchParams),
+    enabled: searchTrigger > 0,
+    staleTime: 0,
+  });
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const employees = useMemo<DiagramEmployee[]>(() => {
+    if (!employeeResult) return accumulatedEmployees;
+    if (currentPage === 1) return employeeResult.data;
+    const existingIds = new Set(accumulatedEmployees.map((e) => e.value));
+    const newEmployees = employeeResult.data.filter((e) => !existingIds.has(e.value));
+    return [...accumulatedEmployees, ...newEmployees];
+  }, [employeeResult, currentPage, accumulatedEmployees]);
+
+  const hasMoreData = employeeResult?.hasMore ?? false;
+  const hasSearched = searchTrigger > 0;
 
   const watchedValues = form.watch();
-  const employeeCount = watchedValues.employeeIds?.length || 0;
+  const employeeCount = watchedValues.employeeIds?.length ?? 0;
   const dateRange = watchedValues.dateRange;
   const days =
     dateRange?.from && dateRange?.to
       ? Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
       : 0;
-  const estimate = estimateRecords(employeeCount, days);
+  const totalRecords = employeeCount * days;
+  const estimatedTime = `${Math.ceil(totalRecords / 1000) * 2} seg`;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleModeChange = useCallback(
+    (newMode: 'diagram' | 'novelty') => {
+      form.setValue('mode', newMode);
+      // Reset mode-specific fields so validation no arrastra estado del otro modo
+      form.setValue('workDiagramId', '');
+      form.setValue('activeNoveltyId', '');
+      form.setValue('diagramTypeId', '');
+      form.clearErrors(['workDiagramId', 'activeNoveltyId', 'diagramTypeId']);
+      setNoveltyData(null);
+      setShowActiveNoveltySelect(false);
+      // Quitar el filtro de workflow que se auto-aplica en modo diagrama
+      if (filters.workflow.length > 0) {
+        const cleared = { ...filters, workflow: [] };
+        setFilters(cleared);
+        setActiveFilters(activeFilters.filter((f) => f !== 'workflow'));
+      }
+    },
+    [form, filters, activeFilters]
+  );
+
+  const handleWorkDiagramChange = useCallback(
+    async (diagramId: string) => {
+      form.setValue('workDiagramId', diagramId);
+      form.setValue('activeNoveltyId', '');
+      setNoveltyData(null);
+      setShowActiveNoveltySelect(false);
+
+      if (!diagramId) return;
+
+      try {
+        const data = await getWorkDiagramNovelties(diagramId);
+        setNoveltyData(data);
+        setShowActiveNoveltySelect(data.activeNovelties.length > 1);
+
+        // Auto-set activeNoveltyId when there's exactly 1 option
+        if (data.activeNovelties.length === 1) {
+          form.setValue('activeNoveltyId', data.activeNovelties[0].diagram_type_id);
+        }
+
+        // Auto-set workflow filter to narrow down employees
+        const newFilters = { ...filters, workflow: [diagramId] };
+        setFilters(newFilters);
+        if (!activeFilters.includes('workflow')) {
+          setActiveFilters([...activeFilters, 'workflow']);
+        }
+      } catch (error) {
+        logger.error('Error loading diagram novelties', { data: { error } });
+        toast.error('Error al cargar las novedades del diagrama');
+      }
+    },
+    [filters, activeFilters, form]
+  );
+
+  const handleFilterSubmit = useCallback(() => {
+    setCurrentPage(1);
+    setAccumulatedEmployees([]);
+    setSearchTrigger((prev) => prev + 1);
+  }, []);
+
+  const loadMoreData = useCallback(() => {
+    setAccumulatedEmployees(employees);
+    setCurrentPage((prev) => prev + 1);
+    setSearchTrigger((prev) => prev + 1);
+  }, [employees]);
+
+  const clearAllFilters = useCallback(() => {
+    const resetFilters = { ...EMPTY_FILTERS, workflow: filters.workflow };
+    setFilters(resetFilters);
+    setActiveFilters(activeFilters.filter((f) => f === 'workflow'));
+    setCurrentPage(1);
+    setAccumulatedEmployees([]);
+    setSearchTrigger(0);
+    form.setValue('employeeIds', []);
+  }, [filters.workflow, activeFilters, form]);
+
+  const handleEmployeeToggle = useCallback(
+    (employeeId: string) => {
+      const current = form.getValues('employeeIds');
+      if (current.includes(employeeId)) {
+        form.setValue(
+          'employeeIds',
+          current.filter((id) => id !== employeeId)
+        );
+      } else {
+        if (current.length >= MAX_EMPLOYEES) {
+          toast.warning(`Máximo ${MAX_EMPLOYEES} empleados permitidos`);
+          return;
+        }
+        form.setValue('employeeIds', [...current, employeeId]);
+      }
+    },
+    [form]
+  );
+
+  const handleVerifyAndSubmit = useCallback(
+    async (data: FormData) => {
+      setLoading(true);
+      try {
+        const dateFrom = data.dateRange.from.toISOString().split('T')[0];
+        const dateTo = data.dateRange.to.toISOString().split('T')[0];
+
+        if (data.mode === 'diagram') {
+          const result = await checkDiagramConflicts({
+            employeeIds: data.employeeIds,
+            workDiagramId: data.workDiagramId!,
+            dateFrom,
+            dateTo,
+            activeNoveltyId: data.activeNoveltyId || undefined,
+          });
+
+          const conflictData: ConflictData = {
+            operationConflicts: result.conflicts.filter((c) => c.conflict_type === 'IN_USE'),
+            simpleConflicts: result.conflicts.filter((c) => c.conflict_type === 'CAN_UPDATE'),
+          };
+
+          onConflictsFound(conflictData, {
+            mode: 'diagram',
+            employeeIds: data.employeeIds,
+            workDiagramId: data.workDiagramId!,
+            activeNoveltyId: data.activeNoveltyId,
+            dateRange: { from: data.dateRange.from, to: data.dateRange.to },
+          });
+        } else {
+          const result = await checkNoveltyConflicts({
+            employeeIds: data.employeeIds,
+            diagramTypeId: data.diagramTypeId!,
+            dateFrom,
+            dateTo,
+          });
+
+          const conflictData: ConflictData = {
+            operationConflicts: result.conflicts.filter((c) => c.conflict_type === 'IN_USE'),
+            simpleConflicts: result.conflicts.filter((c) => c.conflict_type === 'CAN_UPDATE'),
+          };
+
+          onConflictsFound(conflictData, {
+            mode: 'novelty',
+            employeeIds: data.employeeIds,
+            diagramTypeId: data.diagramTypeId!,
+            dateRange: { from: data.dateRange.from, to: data.dateRange.to },
+          });
+        }
+      } catch (error) {
+        logger.error('Error verifying conflicts', { data: { error } });
+        toast.error('Error al verificar conflictos. Intente nuevamente.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setLoading, onConflictsFound]
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const submitLabel = mode === 'novelty' ? 'Verificar y Cargar Novedad' : 'Verificar y Crear Diagramas';
 
   return (
     <div className="space-y-6">
+      {/* ── Top form: mode selector + main selects + date range ── */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleVerifyAndSubmit)} className="space-y-6">
-          {/* Selección de diagrama de trabajo */}
+          {/* ─── Mode selector ─── */}
           <FormField
             control={form.control}
-            name="workDiagramId"
+            name="mode"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Diagrama de Trabajo</FormLabel>
-                <Select onValueChange={handleWorkDiagramChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un diagrama de trabajo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {workDiagrams.map((diagram) => (
-                      <SelectItem key={diagram.id} value={diagram.id}>
-                        <div className="flex items-center space-x-2">
-                          <span>{diagram.name}</span>
-                          <Badge variant="outline">
-                            {diagram.active_working_days}A/{diagram.inactive_working_days}I
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium leading-none">Tipo de carga</label>
+                <RadioGroup
+                  value={field.value}
+                  onValueChange={(val) => handleModeChange(val as 'diagram' | 'novelty')}
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                >
+                  <label
+                    htmlFor="mode-diagram"
+                    className={cn(
+                      'relative flex cursor-pointer items-start gap-4 rounded-lg border-2 p-4 transition-colors',
+                      'hover:bg-accent/40',
+                      field.value === 'diagram' ? 'border-primary bg-primary/5' : 'border-muted'
+                    )}
+                  >
+                    <RadioGroupItem value="diagram" id="mode-diagram" className="mt-1" />
+                    <div className="flex flex-1 flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <CalendarRange className="h-4 w-4 text-primary" />
+                        <span className="font-medium">Diagrama</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Aplica un patrón cíclico (activos/inactivos) a los empleados durante el rango.
+                      </span>
+                    </div>
+                  </label>
+                  <label
+                    htmlFor="mode-novelty"
+                    className={cn(
+                      'relative flex cursor-pointer items-start gap-4 rounded-lg border-2 p-4 transition-colors',
+                      'hover:bg-accent/40',
+                      field.value === 'novelty' ? 'border-primary bg-primary/5' : 'border-muted'
+                    )}
+                  >
+                    <RadioGroupItem value="novelty" id="mode-novelty" className="mt-1" />
+                    <div className="flex flex-1 flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="font-medium">Novedad</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Asigna la misma novedad a todos los días del rango (ej: feriado, licencia).
+                      </span>
+                    </div>
+                  </label>
+                </RadioGroup>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {/* Selección de novedad activa (solo si hay múltiples opciones) */}
-          {showActiveNoveltySelect && (
+          {/* ─── Diagram mode: work diagram select ─── */}
+          {mode === 'diagram' && (
+            <FormField
+              control={form.control}
+              name="workDiagramId"
+              render={({ field }) => (
+                <FormItem>
+                  <label className="text-sm font-medium leading-none">Diagrama de trabajo</label>
+                  {isLoadingDiagrams ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={field.value ?? ''} onValueChange={(val) => handleWorkDiagramChange(val)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar diagrama..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workDiagrams.map((wd) => (
+                          <SelectItem key={wd.id} value={wd.id}>
+                            {wd.name}
+                            {wd.active_working_days != null && wd.inactive_working_days != null && (
+                              <span className="ml-2 text-muted-foreground text-xs">
+                                ({wd.active_working_days}x{wd.inactive_working_days})
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* ─── Diagram mode: active novelty select (only when > 1 option) ─── */}
+          {mode === 'diagram' && showActiveNoveltySelect && noveltyData && (
             <FormField
               control={form.control}
               name="activeNoveltyId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Novedad Activa</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una novedad activa" />
-                      </SelectTrigger>
-                    </FormControl>
+                  <label className="text-sm font-medium leading-none">Novedad activa</label>
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar novedad activa..." />
+                    </SelectTrigger>
                     <SelectContent>
-                      {activeNovelties.map((novelty) => (
+                      {noveltyData.activeNovelties.map((novelty) => (
                         <SelectItem key={novelty.diagram_type_id} value={novelty.diagram_type_id}>
-                          <div className="flex items-center space-x-2">
-                            <div
-                              className="w-4 h-4 rounded"
-                              style={{ backgroundColor: novelty.diagram_type?.color || '#666' }}
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 rounded-full"
+                              style={{ backgroundColor: novelty.color ?? undefined }}
                             />
-                            <span>{novelty.diagram_type?.name}</span>
-                          </div>
+                            {novelty.name}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -829,391 +471,157 @@ export function DiagramMassiveForm({
             />
           )}
 
-          {/* Información de novedad activa */}
-          {(activeNovelties.length === 1 || (activeNovelties.length > 1 && form.getValues('activeNoveltyId'))) && (
-            <div className="p-3 bg-blue-50 rounded-lg mb-2">
-              <div className="text-sm font-medium text-gray-700 mb-1">Novedad para días activos:</div>
-              <div className="flex items-center space-x-2">
-                {activeNovelties.length === 1 ? (
-                  <>
-                    <div
-                      className="w-3 h-3 rounded"
-                      style={{ backgroundColor: activeNovelties[0]?.diagram_type?.color || '#666' }}
-                    />
-                    <span className="text-sm">{activeNovelties[0]?.diagram_type?.name}</span>
-                  </>
-                ) : (
-                  activeNovelties.map((novelty) => {
-                    if (novelty.diagram_type_id === form.getValues('activeNoveltyId')) {
-                      return (
-                        <div key={novelty.diagram_type_id} className="flex items-center space-x-2">
-                          <div
-                            className="w-3 h-3 rounded"
-                            style={{ backgroundColor: novelty.diagram_type?.color || '#666' }}
-                          />
-                          <span className="text-sm">{novelty.diagram_type?.name}</span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })
-                )}
-              </div>
+          {/* ─── Diagram mode: novelty info badges ─── */}
+          {mode === 'diagram' && noveltyData && (
+            <div className="flex flex-wrap gap-2">
+              {noveltyData.activeNovelties.length === 1 && (
+                <Badge
+                  style={{ backgroundColor: noveltyData.activeNovelties[0].color ?? undefined }}
+                  className="text-white"
+                >
+                  Activo: {noveltyData.activeNovelties[0].name}
+                </Badge>
+              )}
+              {noveltyData.inactiveNovelty && (
+                <Badge
+                  style={{ backgroundColor: noveltyData.inactiveNovelty.color ?? undefined }}
+                  className="text-white"
+                >
+                  Inactivo: {noveltyData.inactiveNovelty.name}
+                </Badge>
+              )}
             </div>
           )}
 
-          {/* Información de novedad inactiva */}
-          {inactiveNovelty && (
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm font-medium text-gray-700 mb-1">Novedad para días inactivos:</div>
-              <div className="flex items-center space-x-2">
-                <div
-                  className="w-3 h-3 rounded"
-                  style={{ backgroundColor: inactiveNovelty.diagram_type?.color || '#666' }}
-                />
-                <span className="text-sm">{inactiveNovelty.diagram_type?.name}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Selección de rango de fechas */}
-          <FormField
-            control={form.control}
-            name="dateRange"
-            render={({ field }) => {
-              const dateRange = form.watch('dateRange');
-              const calculateDays = () => {
-                if (dateRange?.from && dateRange?.to) {
-                  const diffTime = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir ambos días
-                  return diffDays;
-                }
-                return 0;
-              };
-              const selectedDays = calculateDays();
-
-              return (
+          {/* ─── Novelty mode: single diagram_type select ─── */}
+          {mode === 'novelty' && (
+            <FormField
+              control={form.control}
+              name="diagramTypeId"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Rango de Fechas{' '}
-                    <span className="text-blue-400">{selectedDays > 0 && `(${selectedDays} días seleccionados)`}</span>
-                  </FormLabel>
-                  <FormItemDatePicker
-                    name="dateRange"
-                    control={form.control}
-                    label="Fechas del diagrama"
-                    description="Selecciona el rango de fechas para diagrama"
-                    disabled={(date) => date < DATE_RESTRICTIONS.minDate}
-                  />
-
+                  <label className="text-sm font-medium leading-none">Novedad</label>
+                  {isLoadingDiagramTypes ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar novedad..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {diagramTypes.map((dt) => (
+                          <SelectItem key={dt.id} value={dt.id}>
+                            <span className="flex items-center gap-2">
+                              <span
+                                className="inline-block h-3 w-3 rounded-full"
+                                style={{ backgroundColor: dt.color }}
+                              />
+                              {dt.name}
+                              {dt.short_description && (
+                                <span className="ml-2 text-muted-foreground text-xs">· {dt.short_description}</span>
+                              )}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <FormMessage />
                 </FormItem>
-              );
-            }}
-          />
+              )}
+            />
+          )}
+
+          {/* ─── Date range picker + day counter ─── */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium leading-none">Rango de fechas</span>
+              {days > 0 && (
+                <Badge variant="secondary" className="font-mono">
+                  {days} {days === 1 ? 'día' : 'días'}
+                </Badge>
+              )}
+            </div>
+            <FormItemDatePicker
+              name="dateRange"
+              control={form.control}
+              label=""
+              description="Selecciona el rango de fechas para la carga masiva"
+              disabled={(date) => date < new Date()}
+            />
+          </div>
         </form>
       </Form>
 
-      {/* Filtros de empleados */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Filtros de Empleados</CardTitle>
-            <div className="flex items-center space-x-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                <Search className="h-4 w-4 mr-2" />
-                {showFilters ? 'Ocultar Filtros' : 'Mostrar Filtros'}
-              </Button>
-              {activeFilters.length > 0 && (
-                <Button type="button" variant="outline" size="sm" onClick={clearAllFilters}>
-                  <X className="h-4 w-4 mr-2" />
-                  Limpiar Todo
-                </Button>
-              )}
-            </div>
-          </div>
-          {activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {activeFilters.map((filter) => (
-                <Badge
-                  key={filter}
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-red-100"
-                  onClick={() => {
-                    if (filter !== 'workflow') {
-                      clearFilter(filter);
-                    }
-                  }}
-                >
-                  {filter === 'firstname' && 'Nombre'}
-                  {filter === 'lastname' && 'Apellido'}
-                  {filter === 'position' && 'Posición'}
-                  {filter === 'workflow' && 'Diagrama de Trabajo'}
-                  {filter === 'costCenter' && 'Centro de Costo'}
-                  {filter === 'covenant' && 'Convenio'}
-                  {filter === 'guild' && 'Gremio'}
-                  {filter === 'category' && 'Categoría'}
-                  {filter === 'contractor_employee.contractor_id' && 'Contratista'}
-                  {filter === 'diagramType' && 'Tipo de Diagrama'}
-                  {filter !== 'workflow' && <X className="h-3 w-3 ml-1" />}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardHeader>
-        {showFilters && (
-          <CardContent>
-            <form onSubmit={handleFilterSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Filtro por nombre */}
-                <div className="space-y-2">
-                  <Label htmlFor="firstname-filter">Nombre</Label>
-                  <Input
-                    id="firstname-filter"
-                    placeholder="Buscar por nombre..."
-                    value={filters.firstname}
-                    onChange={(e) => handleFilterChange('firstname', e.target.value)}
-                  />
-                </div>
+      {/* ── Employee filters ── */}
+      <EmployeeFilterPanel
+        filters={filters}
+        activeFilters={activeFilters}
+        showFilters={showFilters}
+        isSearching={isSearching}
+        onFiltersChange={setFilters}
+        onActiveFiltersChange={setActiveFilters}
+        onToggleFilters={() => setShowFilters((prev) => !prev)}
+        onSubmit={handleFilterSubmit}
+        onClearAll={clearAllFilters}
+      />
 
-                {/* Filtro por apellido */}
-                <div className="space-y-2">
-                  <Label htmlFor="lastname-filter">Apellido</Label>
-                  <Input
-                    id="lastname-filter"
-                    placeholder="Buscar por apellido..."
-                    value={filters.lastname}
-                    onChange={(e) => handleFilterChange('lastname', e.target.value)}
-                  />
-                </div>
+      {/* ── Employee grid ── */}
+      <EmployeeSelectionGrid
+        employees={employees}
+        selectedIds={form.watch('employeeIds')}
+        maxEmployees={MAX_EMPLOYEES}
+        isSearching={isSearching}
+        hasSearched={hasSearched}
+        hasMoreData={hasMoreData}
+        onToggle={handleEmployeeToggle}
+        onSelectAll={(ids) => form.setValue('employeeIds', ids)}
+        onClearSelection={() => form.setValue('employeeIds', [])}
+        onLoadMore={loadMoreData}
+      />
 
-                {/* Filtro por posición */}
-                <div className="space-y-2">
-                  <Label>Posición</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.positions.map((p) => ({ value: p.id, label: p.name || 'Sin nombre' }))}
-                    selectedValues={filters.position}
-                    onChange={(values) => handleMultiFilterChange('position', values)}
-                    placeholder="Seleccionar posiciones..."
-                    emptyMessage="No se encontraron posiciones"
-                  />
-                </div>
+      {/* ── Employee selection error ── */}
+      {form.formState.errors.employeeIds && (
+        <p className="text-sm text-destructive">{form.formState.errors.employeeIds.message}</p>
+      )}
 
-                {/* Filtro de Diagrama de Trabajo removido - ahora se aplica automáticamente desde el formulario */}
-
-                {/* Filtro por centro de costo */}
-                <div className="space-y-2">
-                  <Label>Centro de Costo</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.costCenters.map((c) => ({ value: c.id, label: c.name || 'Sin nombre' }))}
-                    selectedValues={filters.costCenter}
-                    onChange={(values) => handleMultiFilterChange('costCenter', values)}
-                    placeholder="Seleccionar centros..."
-                    emptyMessage="No se encontraron centros de costo"
-                  />
-                </div>
-
-                {/* Filtro por convenio */}
-                <div className="space-y-2">
-                  <Label>Convenio</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.covenants.map((c) => ({ value: c.id, label: c.name || 'Sin nombre' }))}
-                    selectedValues={filters.covenant}
-                    onChange={(values) => handleMultiFilterChange('covenant', values)}
-                    placeholder="Seleccionar convenios..."
-                    emptyMessage="No se encontraron convenios"
-                  />
-                </div>
-
-                {/* Filtro por gremio */}
-                <div className="space-y-2">
-                  <Label>Gremio</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.guilds.map((g) => ({ value: g.id, label: g.name || 'Sin nombre' }))}
-                    selectedValues={filters.guild}
-                    onChange={(values) => handleMultiFilterChange('guild', values)}
-                    placeholder="Seleccionar gremios..."
-                    emptyMessage="No se encontraron gremios"
-                  />
-                </div>
-
-                {/* Filtro por categoría */}
-                <div className="space-y-2">
-                  <Label>Categoría</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.categories.map((c) => ({
-                      value: c.id,
-                      label: `${c.name || 'Sin nombre'}${c.covenant?.name ? ` (${c.covenant.name})` : ''}`,
-                    }))}
-                    selectedValues={filters.category}
-                    onChange={(values) => handleMultiFilterChange('category', values)}
-                    placeholder="Seleccionar categorías..."
-                    emptyMessage="No se encontraron categorías"
-                  />
-                </div>
-
-                {/* Filtro por contratista */}
-                <div className="space-y-2">
-                  <Label>Contratista</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.contractors.map((c) => ({ value: c.id, label: c.name || 'Sin nombre' }))}
-                    selectedValues={filters['contractor_employee.contractor_id']}
-                    onChange={(values) => handleMultiFilterChange('contractor_employee.contractor_id', values)}
-                    placeholder="Seleccionar contratistas..."
-                    emptyMessage="No se encontraron contratistas"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button type="submit" variant="outline" disabled={isLoading}>
-                  <Search className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Buscando...' : 'Aplicar Filtros'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Renderizado condicional de empleados - copiado de EmployesDiagramWrapper */}
-      {isLoading && !isLoadingMore ? (
-        <div className="flex justify-center items-center p-10">
-          <p className="text-lg">Buscando empleados...</p>
-        </div>
-      ) : employees.length > 0 ? (
-        <>
-          {/* Mensaje informativo sobre datos adicionales */}
-          {hasMoreData && (
-            <div className="flex justify-center mb-2">
-              <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-                Hay más registros disponibles. Al final de la sección encontrará la opción para cargar más datos.
-              </div>
-            </div>
-          )}
-
-          {/* Selección de empleados */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleVerifyAndSubmit)} className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <FormLabel>
-                    Empleados ({form.getValues('employeeIds')?.length || 0}/{DATE_RESTRICTIONS.maxEmployees})
-                  </FormLabel>
-                  <div className="flex space-x-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const allIds = employees.map((emp) => emp.id);
-                        const limitedIds = allIds.slice(0, DATE_RESTRICTIONS.maxEmployees);
-                        form.setValue('employeeIds', limitedIds);
-
-                        if (allIds.length > DATE_RESTRICTIONS.maxEmployees) {
-                          toast.warning(
-                            `Solo se seleccionaron los primeros ${DATE_RESTRICTIONS.maxEmployees} empleados debido al límite máximo.`
-                          );
-                        }
-                      }}
-                      disabled={employees.length === 0}
-                    >
-                      Seleccionar Todos
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('employeeIds', [])}>
-                      Limpiar Selección
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {employees.map((employee) => (
-                      <div
-                        key={employee.id}
-                        className={`flex items-center space-x-2 p-3 rounded cursor-pointer hover:bg-gray-50 ${
-                          form.getValues('employeeIds').includes(employee.id)
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'border border-gray-200'
-                        }`}
-                        onClick={() => handleEmployeeToggle(employee.id)}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.getValues('employeeIds').includes(employee.id)}
-                          onChange={() => handleEmployeeToggle(employee.id)}
-                          className="rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {employee.lastname} {employee.firstname}
-                          </div>
-                          {!employee.workflow_diagram && (
-                            <div className="text-xs text-red-500">Sin diagrama de trabajo</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {form.formState.errors.employeeIds && (
-                  <div className="text-sm text-red-500">{form.formState.errors.employeeIds.message}</div>
-                )}
-              </div>
-
-              {/* Resumen y estimación */}
-              {employeeCount > 0 && days > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Resumen de la Operación</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-blue-600">{employeeCount}</div>
-                        <div className="text-sm text-muted-foreground">Empleados</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">{days}</div>
-                        <div className="text-sm text-muted-foreground">Días</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-purple-600">{estimate.totalRecords}</div>
-                        <div className="text-sm text-muted-foreground">Registros</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-orange-600">{estimate.estimatedTime}</div>
-                        <div className="text-sm text-muted-foreground">Tiempo Est.</div>
-                      </div>
+      {/* ── Bottom form: summary + submit (only when employees loaded) ── */}
+      {employees.length > 0 && (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleVerifyAndSubmit)} className="space-y-6">
+            {employeeCount > 0 && days > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Resumen de la operación</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-600">{employeeCount}</div>
+                      <div className="text-sm text-muted-foreground">Empleados</div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">{days}</div>
+                      <div className="text-sm text-muted-foreground">Días</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-purple-600">{totalRecords}</div>
+                      <div className="text-sm text-muted-foreground">Registros</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-orange-600">{estimatedTime}</div>
+                      <div className="text-sm text-muted-foreground">Tiempo Est.</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              <Button type="submit" className="w-full" disabled={loading || employeeCount === 0}>
-                {loading ? 'Verificando...' : 'Verificar y Crear Diagramas'}
-              </Button>
-            </form>
-          </Form>
-
-          {/* Botón de cargar más */}
-          {hasMoreData && (
-            <div className="flex justify-center mt-4 mb-8">
-              <Button onClick={loadMoreData} disabled={isLoadingMore} variant="outline" className="px-8">
-                {isLoadingMore ? 'Cargando más empleados...' : 'Cargar más empleados'}
-              </Button>
-            </div>
-          )}
-        </>
-      ) : hasSearched && employees.length === 0 ? (
-        <div className="p-6 bg-white rounded-lg border text-center">
-          <p>No se encontraron empleados para los filtros seleccionados.</p>
-        </div>
-      ) : (
-        <div className="p-6  rounded-lg border text-center">
-          <p>Para mostrar empleados debe aplicar al menos un filtro.</p>
-        </div>
+            <Button type="submit" className="w-full" disabled={loading || employeeCount === 0}>
+              {loading ? 'Verificando...' : submitLabel}
+            </Button>
+          </form>
+        </Form>
       )}
     </div>
   );

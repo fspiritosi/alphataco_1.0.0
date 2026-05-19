@@ -197,6 +197,7 @@ export async function getMaintenanceOperations() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -293,6 +294,7 @@ export async function getOrdersForWorkshop() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            preventive_type: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -393,6 +395,12 @@ export type MaintenanceRequestOrigin = {
     email: string | null;
   } | null;
   createdAt: string | null;
+  // Empleado conductor asociado a la solicitud (si aplica)
+  driverEmployee?: {
+    firstname: string;
+    lastname: string;
+    file: string | null;
+  } | null;
 };
 
 /**
@@ -415,6 +423,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
         select: {
           id: true,
           source: true,
+          preventive_type: true,
           created_at: true,
           checklist_answer_id: true,
           user_id: true,
@@ -433,6 +442,9 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
           },
           profile_maintenance_requests_user_idToprofile: {
             select: { id: true, fullname: true, email: true },
+          },
+          driver_employee: {
+            select: { id: true, firstname: true, lastname: true, file: true },
           },
         },
       }),
@@ -460,6 +472,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
         type: 'manual',
         manualCreator: creator ? { id: creator.id, fullname: creator.fullname, email: creator.email } : null,
         createdAt: request.created_at?.toISOString() ?? null,
+        driverEmployee: request.driver_employee ?? null,
       };
     } else {
       // Origen desde checklist
@@ -486,6 +499,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
             : null,
         },
         createdAt: request.created_at?.toISOString() ?? null,
+        driverEmployee: request.driver_employee ?? null,
       };
     }
 
@@ -522,8 +536,30 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
       maintenanceRequestId = order?.maintenance_request_id ?? undefined;
     }
 
-    // Obtener los 3 recursos en paralelo donde sea posible
-    const [requestData, requestLogsRaw, orderLogsRaw] = await Promise.all([
+    // Resolver work_orders hijas de la OM con sus datos básicos
+    const workOrdersData = await prisma.work_orders.findMany({
+      where: {
+        maintenance_order_items: {
+          some: { maintenance_order_id: orderId },
+        },
+      },
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        planned_start_date: true,
+        planned_end_date: true,
+        sector_id: true,
+        workshop_id: true,
+        workshop_sectors: { select: { id: true, name: true } },
+        workshops: { select: { id: true, name: true, type: true } },
+      },
+      orderBy: { sequence_number: 'asc' },
+    });
+
+    const workOrderIds = workOrdersData.map((wo) => wo.id);
+
+    const [requestData, requestLogsRaw, orderLogsRaw, workOrderLogsRaw] = await Promise.all([
       // 1. Origen desde la solicitud (si hay requestId)
       maintenanceRequestId
         ? prisma.maintenance_requests.findUnique({
@@ -531,6 +567,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
             select: {
               id: true,
               source: true,
+              preventive_type: true,
               created_at: true,
               checklist_answer_id: true,
               user_id: true,
@@ -550,6 +587,9 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
               profile_maintenance_requests_user_idToprofile: {
                 select: { id: true, fullname: true, email: true },
               },
+              driver_employee: {
+                select: { id: true, firstname: true, lastname: true, file: true },
+              },
             },
           })
         : Promise.resolve(null),
@@ -567,6 +607,14 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
         select: ACTIVITY_LOG_SELECT,
         orderBy: { performed_at: 'asc' },
       }),
+      // 4. Logs de TODAS las work_orders hijas (si hay)
+      workOrderIds.length > 0
+        ? prisma.maintenance_activity_log.findMany({
+            where: { work_order_id: { in: workOrderIds } },
+            select: ACTIVITY_LOG_SELECT,
+            orderBy: { performed_at: 'asc' },
+          })
+        : Promise.resolve([]),
     ]);
 
     // 4. Construir información del origen
@@ -579,6 +627,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
           type: 'manual',
           manualCreator: creator ? { id: creator.id, fullname: creator.fullname, email: creator.email } : null,
           createdAt: requestData.created_at?.toISOString() ?? null,
+          driverEmployee: requestData.driver_employee ?? null,
         };
       } else {
         const answerData = requestData.checklist_answers?.answer_data as {
@@ -604,30 +653,48 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
               : null,
           },
           createdAt: requestData.created_at?.toISOString() ?? null,
+          driverEmployee: requestData.driver_employee ?? null,
         };
       }
     }
 
-    // 5. Combinar logs, eliminar duplicados y ordenar cronológicamente
+    // 6. OM history = request + order logs (deduped, sorted) — sin events de WO
     const requestLogs = requestLogsRaw.map(mapActivityLogEntry);
     const orderLogs = orderLogsRaw.map(mapActivityLogEntry);
+    const workOrderLogs = workOrderLogsRaw.map(mapActivityLogEntry);
 
-    const logsMap = new Map<string, (typeof requestLogs)[number]>();
-
-    for (const log of requestLogs) {
-      logsMap.set(log.id, log);
-    }
+    const omLogsMap = new Map<string, (typeof requestLogs)[number]>();
+    for (const log of requestLogs) omLogsMap.set(log.id, log);
     for (const log of orderLogs) {
-      if (!logsMap.has(log.id)) {
-        logsMap.set(log.id, log);
-      }
+      if (!omLogsMap.has(log.id)) omLogsMap.set(log.id, log);
     }
-
-    const allLogs = Array.from(logsMap.values()).sort(
+    const omHistory = Array.from(omLogsMap.values()).sort(
       (a, b) => new Date(a.performed_at).getTime() - new Date(b.performed_at).getTime()
     );
 
-    return { origin, history: allLogs };
+    // 7. Group WO logs by work_order_id
+    const woHistoryByWoId = new Map<string, (typeof workOrderLogs)[number][]>();
+    for (const log of workOrderLogs) {
+      if (!log.work_order_id) continue;
+      const arr = woHistoryByWoId.get(log.work_order_id) ?? [];
+      arr.push(log);
+      woHistoryByWoId.set(log.work_order_id, arr);
+    }
+
+    // 8. Build workOrders array
+    const workOrders = workOrdersData.map((wo) => ({
+      id: wo.id,
+      orderNumber: wo.order_number,
+      status: wo.status,
+      plannedStartDate: wo.planned_start_date,
+      plannedEndDate: wo.planned_end_date,
+      sectorName: wo.workshop_sectors?.name ?? null,
+      workshopName: wo.workshops?.name ?? null,
+      isExternal: wo.workshops?.type === 'externo',
+      history: woHistoryByWoId.get(wo.id) ?? [],
+    }));
+
+    return { origin, history: omHistory, workOrders };
   } catch (error) {
     serverLogger.error('Error al obtener historial completo de pedido', { data: { error, orderId } });
     throw error;

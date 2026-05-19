@@ -19,7 +19,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
+import {
+  PREVENTIVE_TYPES,
+  PREVENTIVE_TYPE_ICONS,
+  type PreventiveType,
+} from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { getItemComments, getTechnicianComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -104,6 +110,7 @@ export function OrderDetailDialog({
   const [operationsRejectionReason, setOperationsRejectionReason] = useState('');
   const [showOperationsRejectDialog, setShowOperationsRejectDialog] = useState(false);
   const [showOpsItemRejectDialog, setShowOpsItemRejectDialog] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Fetch full order detail — ALWAYS when dialog is open (fresh data from DB)
   const resolvedOrderId = propOrderId ?? propOrder?.id;
@@ -958,6 +965,10 @@ export function OrderDetailDialog({
                           ? 'Completada'
                           : status}
             </Badge>
+            <Button variant="outline" size="sm" className="ml-auto" onClick={() => setHistoryOpen(true)}>
+              <Clock className="h-4 w-4 mr-1" />
+              Ver historial
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -998,8 +1009,28 @@ export function OrderDetailDialog({
                   <div>
                     <span className="text-xs text-muted-foreground block">Origen</span>
                     <span className="font-medium capitalize">
-                      {order.source === 'checklist' ? 'Checklist' : 'Manual'}
+                      {order.source === 'checklist'
+                        ? 'Checklist'
+                        : order.source === 'preventive'
+                          ? 'Preventivo'
+                          : 'Manual'}
                     </span>
+                    {order.source === 'preventive' &&
+                      (() => {
+                        const ptKey = (
+                          !Array.isArray(order.maintenance_requests)
+                            ? order.maintenance_requests?.preventive_type
+                            : undefined
+                        ) as PreventiveType | undefined;
+                        const PtIcon = ptKey ? PREVENTIVE_TYPE_ICONS[ptKey] : undefined;
+                        const ptLabel = ptKey ? PREVENTIVE_TYPES[ptKey] : undefined;
+                        return ptLabel ? (
+                          <Badge variant="secondary" className="mt-1 gap-1 text-xs">
+                            {PtIcon && <PtIcon className="h-3 w-3" />}
+                            {ptLabel}
+                          </Badge>
+                        ) : null;
+                      })()}
                   </div>
                 )}
               </div>
@@ -1694,6 +1725,14 @@ export function OrderDetailDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ActivityHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        maintenanceOrderId={order?.id ?? null}
+        maintenanceRequestId={order?.maintenance_request_id ?? null}
+        title={`Historial de OM ${order?.order_number ?? ''}`}
+      />
     </Dialog>
   );
 }

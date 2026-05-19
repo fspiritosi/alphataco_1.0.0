@@ -37,6 +37,119 @@ async function getCompanyId(): Promise<string> {
   return company_id;
 }
 
+// ─── Validación de duplicados ────────────────────────────────────────────────
+
+/**
+ * Verifica que serial_number e intern_number no estén duplicados
+ * dentro de la misma empresa (solo equipos activos).
+ * excludeId permite excluir el registro actual al editar.
+ */
+async function validateUniqueFields(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  companyId: string,
+  serialNumber: string | null | undefined,
+  internNumber: string | null | undefined,
+  excludeId?: string
+) {
+  const errors: string[] = [];
+
+  if (serialNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('serial_number', serialNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.push(`El N° de Serie "${serialNumber}" ya está en uso por otro equipo`);
+    }
+  }
+
+  if (internNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('intern_number', internNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.push(`El N° Interno "${internNumber}" ya está en uso por otro equipo`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join('. '));
+  }
+}
+
+/**
+ * Verifica si serial_number o intern_number ya existen en otros equipos activos.
+ * Retorna un objeto con los campos duplicados para que el form muestre errores inline.
+ */
+export async function checkOtherEquipmentDuplicates(
+  serialNumber: string | null | undefined,
+  internNumber: string | null | undefined,
+  excludeId?: string
+): Promise<{ serial_number?: string; intern_number?: string }> {
+  const supabase = await supabaseServer();
+  const company_id = await getCompanyId();
+  const errors: { serial_number?: string; intern_number?: string } = {};
+
+  if (serialNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', company_id)
+      .eq('serial_number', serialNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.serial_number = 'Este N° de Serie ya está en uso por otro equipo';
+    }
+  }
+
+  if (internNumber) {
+    let query = supabase
+      .from('other_equipment')
+      .select('id')
+      .eq('company_id', company_id)
+      .eq('intern_number', internNumber)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      errors.intern_number = 'Este N° Interno ya está en uso por otro equipo';
+    }
+  }
+
+  return errors;
+}
+
 // ─── CRUD Principal ──────────────────────────────────────────────────────────
 
 /**
@@ -88,12 +201,16 @@ export type OtherEquipmentDetail = Awaited<ReturnType<typeof getOtherEquipmentBy
 /**
  * Crea un nuevo registro de other_equipment.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo con el mismo intern_number o serial_number.
  */
 export async function createOtherEquipment(data: OtherEquipmentInsertWithContractors) {
   const supabase = await supabaseServer();
   const company_id = await getCompanyId();
 
   const { contractors, ...equipmentData } = data;
+
+  // Validar que serial_number e intern_number no estén duplicados
+  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number);
 
   const { data: created, error } = await supabase
     .from('other_equipment')
@@ -127,12 +244,17 @@ export type OtherEquipmentRow = Awaited<ReturnType<typeof createOtherEquipment>>
 /**
  * Actualiza un registro de other_equipment existente.
  * Separa los contractors del payload principal y los gestiona en la tabla pivot.
+ * Valida que no exista otro equipo activo (excluyendo el propio) con el mismo
+ * intern_number o serial_number.
  */
 export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdateWithContractors) {
   const supabase = await supabaseServer();
   const company_id = await getCompanyId();
 
   const { contractors, ...equipmentData } = data;
+
+  // Validar que serial_number e intern_number no estén duplicados (excluyendo el registro actual)
+  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number, id);
 
   const { data: updated, error } = await supabase
     .from('other_equipment')

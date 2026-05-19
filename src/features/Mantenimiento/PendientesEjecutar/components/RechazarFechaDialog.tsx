@@ -13,6 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -99,38 +100,45 @@ export function RechazarFechaDialog({ order, open, onClose }: RechazarFechaDialo
 
           {/* Lista de Items */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Items a Reparar</span>
-              <Badge variant="secondary">{items.length} items</Badge>
-            </div>
-            <div className="max-h-[150px] overflow-y-auto">
-              <div className="space-y-2 pr-2">
-                {items.map((item, index) => {
-                  const deviation = item.maintenance_request_items?.checklist_deviations;
-                  const repairType = item.types_of_repairs;
-                  const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
+            {order.maintenance_requests?.source === 'preventive' && (
+              <PreventiveInfoCard preventiveType={order.maintenance_requests?.preventive_type ?? ''} className="mb-3" />
+            )}
+            {items.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Items a Reparar</span>
+                  <Badge variant="secondary">{items.length} items</Badge>
+                </div>
+                <div className="max-h-[150px] overflow-y-auto">
+                  <div className="space-y-2 pr-2">
+                    {items.map((item, index) => {
+                      const deviation = item.maintenance_request_items?.checklist_deviations;
+                      const repairType = item.types_of_repairs;
+                      const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
-                  return (
-                    <div key={item.id || index} className="p-2 border rounded-md bg-background">
-                      <p className="text-sm font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {formattedCode && (
-                          <span className="text-xs text-muted-foreground">Código: {formattedCode}</span>
-                        )}
-                        {repairType && (
-                          <Badge variant="outline" className="text-xs">
-                            {repairType.name}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {items.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>
-                )}
-              </div>
-            </div>
+                      return (
+                        <div key={item.id || index} className="p-2 border rounded-md bg-background">
+                          <p className="text-sm font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {formattedCode && (
+                              <span className="text-xs text-muted-foreground">Código: {formattedCode}</span>
+                            )}
+                            {repairType && (
+                              <Badge variant="outline" className="text-xs">
+                                {repairType.name}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+            {items.length === 0 && order.maintenance_requests?.source !== 'preventive' && (
+              <p className="text-sm text-muted-foreground text-center py-2">No hay items registrados</p>
+            )}
           </div>
 
           <Separator />

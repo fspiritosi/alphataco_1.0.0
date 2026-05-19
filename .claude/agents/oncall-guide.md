@@ -38,7 +38,7 @@ For critical issues, consider:
 ### 5. Resolution
 
 - Implement fix following project conventions
-- Run `npm run check-types` and `npm run lint`
+- Run `npm run check-types`
 - Test thoroughly before deploying
 - Monitor after deployment
 

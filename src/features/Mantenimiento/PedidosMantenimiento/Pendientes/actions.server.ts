@@ -1,29 +1,23 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { prisma } from '@/shared/lib/prisma';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
-  parseSearchParams,
-  stateToPrismaParams,
+  buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildTextFiltersWhere,
-  buildDateRangeFiltersWhere,
+  parseSearchParams,
+  stateToPrismaParams,
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
+import { prisma } from '@/shared/lib/prisma';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('PedidosMantenimiento/Pendientes');
 
 // ── Campos válidos para ordenamiento ──────────────────────────────────────────
 // Solo campos REALES de la tabla maintenance_orders
-const VALID_SORT_FIELDS = new Set([
-  'status',
-  'created_at',
-  'scheduled_date',
-  'order_number',
-  'source',
-]);
+const VALID_SORT_FIELDS = new Set(['status', 'created_at', 'scheduled_date', 'order_number', 'source']);
 
 // ── Columnas de texto con filtro individual ────────────────────────────────────
 const TEXT_COLUMNS = ['order_number'];
@@ -35,6 +29,7 @@ const PENDING_ORDER_SELECT = {
   created_at: true,
   scheduled_date: true,
   source: true,
+  preventive_type: true,
   order_number: true,
   equipment_id: true,
   maintenance_request_id: true,
@@ -67,13 +62,14 @@ function buildWhereClause(
   supervisorId?: string | null
 ) {
   // Filtros facetados — columnas simples (status y source)
+  // Excluir 'vehicle' porque se procesa aparte con equipment_id
   const filtersWhere = buildFiltersWhere(
     state.filters,
     {
       status: 'status',
       source: 'source',
     },
-    { exclude: TEXT_COLUMNS }
+    { exclude: [...TEXT_COLUMNS, 'vehicle'] }
   );
 
   // Filtros de texto por columna individual
@@ -83,9 +79,7 @@ function buildWhereClause(
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, ['created_at', 'scheduled_date']);
 
   // Filtro de vehículo (FK por ID)
-  const vehicleFilter = state.filters.vehicle?.length
-    ? { equipment_id: { in: state.filters.vehicle } }
-    : {};
+  const vehicleFilter = state.filters.vehicle?.length ? { equipment_id: { in: state.filters.vehicle } } : {};
 
   // Búsqueda global: busca en equipo (domain, serie, intern_number) O en nro. pedido
   const searchCondition = state.search
@@ -113,9 +107,7 @@ function buildWhereClause(
     // Búsqueda global si hay término de búsqueda
     ...searchCondition,
     // Filtro de supervisor si aplica
-    ...(supervisorId
-      ? { maintenance_requests: { supervisor_id: supervisorId } }
-      : {}),
+    ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
     // Filtros del usuario (status sobrescribe el baseWhere si el usuario lo filtra)
     ...filtersWhere,
     ...textFiltersWhere,
@@ -131,10 +123,7 @@ export async function getPendingOrdersPaginated(searchParams: DataTableSearchPar
   logger_fn.debug('Obteniendo pedidos pendientes paginados');
 
   try {
-    const [companyId, filterInfo] = await Promise.all([
-      getServerCompanyId(),
-      getSupervisorFilterInfo(),
-    ]);
+    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
 
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
@@ -152,9 +141,7 @@ export async function getPendingOrdersPaginated(searchParams: DataTableSearchPar
     }
     // Default: pending_scheduling antes que scheduled, de más viejo a más reciente
     const safeOrderBy =
-      resolvedSorts.length > 0
-        ? resolvedSorts
-        : [{ status: 'desc' as const }, { created_at: 'asc' as const }];
+      resolvedSorts.length > 0 ? resolvedSorts : [{ status: 'desc' as const }, { created_at: 'asc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.maintenance_orders.findMany({
@@ -180,10 +167,7 @@ export async function getAllPendingOrdersForExport(searchParams: DataTableSearch
   logger.debug('Exportando pedidos pendientes');
 
   try {
-    const [companyId, filterInfo] = await Promise.all([
-      getServerCompanyId(),
-      getSupervisorFilterInfo(),
-    ]);
+    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
 
     const state = parseSearchParams(searchParams);
     const supervisorId = filterInfo?.shouldFilterBySupervisor ? filterInfo.userId : null;
@@ -207,10 +191,7 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
   logger.debug('Obteniendo facetas de pedidos pendientes');
 
   try {
-    const [companyId, filterInfo] = await Promise.all([
-      getServerCompanyId(),
-      getSupervisorFilterInfo(),
-    ]);
+    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
 
     const state = searchParams ? parseSearchParams(searchParams) : null;
     const supervisorId = filterInfo?.shouldFilterBySupervisor ? filterInfo.userId : null;
@@ -222,16 +203,12 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
         return {
           status: { in: ['pending_scheduling', 'scheduled'] },
           vehicles: { company_id: companyId },
-          ...(supervisorId
-            ? { maintenance_requests: { supervisor_id: supervisorId } }
-            : {}),
+          ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
         };
       }
       const stateWithout = {
         ...state,
-        filters: Object.fromEntries(
-          Object.entries(state.filters).filter(([key]) => key !== excludeColumn)
-        ),
+        filters: Object.fromEntries(Object.entries(state.filters).filter(([key]) => key !== excludeColumn)),
       };
       return buildWhereClause(companyId, stateWithout, supervisorId);
     };

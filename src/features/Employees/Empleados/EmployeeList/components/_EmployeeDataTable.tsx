@@ -342,7 +342,7 @@ export default function _EmployeeDataTable({
       { columnId: 'company_positions', title: 'Puesto', fetchFacet: makeFkFetchFacet('company_positions') },
       { columnId: 'types_of_contract', title: 'Tipo de Contrato', fetchFacet: makeFkFetchFacet('types_of_contract') },
       { columnId: 'work_diagram', title: 'Diagrama', fetchFacet: makeFkFetchFacet('work_diagram') },
-      { columnId: 'workshop_sectors', title: 'Sector de taller', fetchFacet: makeFkFetchFacet('workshop_sectors') },
+      { columnId: 'workshop_sectors', title: 'Sectores de taller', fetchFacet: makeFkFetchFacet('workshop_sectors') },
       { columnId: 'category', title: 'Categoria', fetchFacet: makeFkFetchFacet('category') },
       { columnId: 'covenant', title: 'Convenio', fetchFacet: makeFkFetchFacet('covenant') },
       { columnId: 'guild', title: 'Sindicato', fetchFacet: makeFkFetchFacet('guild') },
@@ -441,9 +441,9 @@ export default function _EmployeeDataTable({
           cost_type: (value) => getEnumLabel(value as string, costTypeLabels),
           affiliate_status: (value) => getEnumLabel(value as string, affiliateStatusLabels),
           reason_for_termination: (value) => getEnumLabel(value as string, reasonForTerminationLabels),
-          date_of_admission: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
+          date_of_admission: (value) => (value ? moment.utc(value as string | Date).format('DD/MM/YYYY') : '-'),
           created_at: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
-          termination_date: (value) => (value ? moment(value as string | Date).format('DD/MM/YYYY') : '-'),
+          termination_date: (value) => (value ? moment.utc(value as string | Date).format('DD/MM/YYYY') : '-'),
           born_date: (value) => {
             if (!value) return '-';
             const parsed = moment(value as string, ['YYYY-MM-DD', 'DD/MM/YYYY'], true);

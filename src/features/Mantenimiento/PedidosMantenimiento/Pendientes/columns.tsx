@@ -2,10 +2,11 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { type ColumnDef } from '@tanstack/react-table';
+import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench } from 'lucide-react';
 import moment from 'moment';
-import { Calendar, Clock, Eye, History, HourglassIcon, Wrench, ClipboardList } from 'lucide-react';
 import { type PendingOrderListItem } from './actions.server';
 
 // ── Labels y badges de estado ─────────────────────────────────────────────────
@@ -20,11 +21,13 @@ export const PENDING_STATUS_LABELS: Record<string, string> = {
 export const SOURCE_LABELS: Record<string, string> = {
   checklist: 'Checklist',
   manual: 'Manual',
+  preventive: 'Preventivo',
 };
 
 export const SOURCE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   checklist: ClipboardList,
   manual: Wrench,
+  preventive: Shield,
 };
 
 type StatusVariant = 'warning' | 'secondary';
@@ -52,9 +55,7 @@ export interface PendingOrdersColumnCallbacks {
 
 // ── Definición de columnas ────────────────────────────────────────────────────
 
-export function getPendingOrderColumns(
-  callbacks: PendingOrdersColumnCallbacks
-): ColumnDef<PendingOrderListItem>[] {
+export function getPendingOrderColumns(callbacks: PendingOrdersColumnCallbacks): ColumnDef<PendingOrderListItem>[] {
   return [
     // ── Estado ──────────────────────────────────────────────────────────────
     {
@@ -88,9 +89,7 @@ export function getPendingOrderColumns(
         return (
           <div className="flex flex-col">
             <span className="font-medium">{label}</span>
-            {vehicle?.intern_number && (
-              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-            )}
+            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
           </div>
         );
       },
@@ -168,6 +167,9 @@ export function getPendingOrderColumns(
       header: 'Items',
       cell: ({ row }) => {
         const count = row.original._count.maintenance_order_items;
+        if (count === 0 && row.original.source === 'preventive') {
+          return <PreventiveItemsBadge preventiveType={row.original.preventive_type ?? ''} />;
+        }
         return (
           <Badge variant="secondary">
             {count} {count === 1 ? 'item' : 'items'}
@@ -189,12 +191,7 @@ export function getPendingOrderColumns(
 
         return (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => callbacks.onView(order)}
-              title="Ver detalle"
-            >
+            <Button variant="ghost" size="icon" onClick={() => callbacks.onView(order)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
             <Button

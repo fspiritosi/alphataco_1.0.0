@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { AlertTriangle, Calendar, Clock, Gauge, Truck } from 'lucide-react';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
@@ -125,67 +126,89 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
         <Separator />
 
         {/* ── Items a reparar ──────────────────────────────────────────── */}
-        <div className="px-6 pt-3 pb-1">
-          <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-            Items a reparar
-            <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
-          </h3>
-        </div>
+        {order.maintenance_requests?.source === 'preventive' ? (
+          <>
+            <div className="px-6 pt-3 pb-1">
+              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+                Tipo de mantenimiento
+              </h3>
+            </div>
+            <div className="px-6 pb-6">
+              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
+                <Badge variant="secondary">
+                  {PREVENTIVE_TYPES[order.maintenance_requests?.preventive_type as PreventiveType] ??
+                    order.maintenance_requests?.preventive_type ??
+                    'Preventivo'}
+                </Badge>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="px-6 pt-3 pb-1">
+              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+                Items a reparar
+                <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
+              </h3>
+            </div>
 
-        <ScrollArea className="max-h-[45vh]">
-          <div className="px-6 pb-6 space-y-3">
-            {order.maintenance_order_items?.map((item, index) => {
-              const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
-              const repairTypeNames: string[] =
-                pivotRepairTypes.length > 0
-                  ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
-                  : item.types_of_repairs?.name
-                    ? [item.types_of_repairs.name]
-                    : [];
+            <ScrollArea className="max-h-[45vh]">
+              <div className="px-6 pb-6 space-y-3">
+                {order.maintenance_order_items?.map((item, index) => {
+                  const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
+                  const repairTypeNames: string[] =
+                    pivotRepairTypes.length > 0
+                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
+                      : item.types_of_repairs?.name
+                        ? [item.types_of_repairs.name]
+                        : [];
 
-              return (
-                <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2 min-w-0">
-                      <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
-                        #{index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-medium leading-snug">
-                          {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
-                        </p>
+                  return (
+                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                            #{index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium leading-snug">
+                              {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
+                            </p>
+                          </div>
+                        </div>
+                        {repairTypeNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 justify-end shrink-0">
+                            {repairTypeNames.map((name, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
+
+                      <ItemComments
+                        item={item}
+                        source={order.maintenance_requests?.source}
+                        fallbackAuthorName={
+                          order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                        }
+                      />
                     </div>
-                    {repairTypeNames.length > 0 && (
-                      <div className="flex flex-wrap gap-1 justify-end shrink-0">
-                        {repairTypeNames.map((name, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  );
+                })}
 
-                  <ItemComments
-                    item={item}
-                    source={order.maintenance_requests?.source}
-                    fallbackAuthorName={
-                      order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
-                    }
-                  />
-                </div>
-              );
-            })}
-
-            {itemCount === 0 && (
-              <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
-            )}
-          </div>
-        </ScrollArea>
+                {itemCount === 0 && (
+                  <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
+                )}
+              </div>
+            </ScrollArea>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

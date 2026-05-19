@@ -222,7 +222,7 @@ export async function createEquipmentBrand(data: { name: string; is_active: bool
   }
 }
 
-export async function updateEquipmentBrand(data: { id: bigint; name: string; is_active: boolean }) {
+export async function updateEquipmentBrand(data: { id: number; name: string; is_active: boolean }) {
   try {
     const result = await prisma.brand_vehicles.update({
       where: { id: data.id },

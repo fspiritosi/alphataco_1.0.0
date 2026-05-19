@@ -1,5 +1,8 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -285,22 +288,132 @@ export async function createMaintenanceOrderFromDeviations(input: {
   supervisorId: string;
   kilometer?: string;
   engine_hours?: string;
-  deviations: CreateDeviationFromNuevoPedido[];
+  deviations?: CreateDeviationFromNuevoPedido[];
+  source?: 'preventive';
+  preventiveType?: PreventiveType;
+  driverEmployeeId?: string;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
       equipmentId: input.equipmentId,
       supervisorId: input.supervisorId,
-      deviationsCount: input.deviations.length,
+      deviationsCount: input.deviations?.length ?? 0,
+      source: input.source,
+      preventiveType: input.preventiveType,
     },
   });
 
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
+
   const profile = await requireServerAuthProfile();
+
+  const isPreventive = input.source === 'preventive' && input.preventiveType;
+
+  if (isPreventive) {
+    const { request, order } = await prisma.$transaction(async (tx) => {
+      const request = await tx.maintenance_requests.create({
+        data: {
+          equipment_id: input.equipmentId,
+          supervisor_id: input.supervisorId,
+          status: 'approved',
+          approved_by: profile.id,
+          approved_at: new Date(),
+          user_id: profile.id,
+          kilometer: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      const order = await tx.maintenance_orders.create({
+        data: {
+          equipment_id: input.equipmentId,
+          maintenance_request_id: request.id,
+          status: 'pending_scheduling',
+          kilometer_at_entry: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      await logActivity(tx, {
+        maintenanceRequestId: request.id,
+        maintenanceOrderId: order.id,
+        actionType: ACTIVITY_LOG.CREATED,
+        performedBy: profile.id,
+        notes: `Pedido de mantenimiento preventivo creado: ${input.preventiveType}`,
+        metadata: {
+          source: 'preventive',
+          preventive_type: input.preventiveType,
+          supervisor_id: input.supervisorId,
+        },
+      });
+
+      return { request, order };
+    });
+
+    // Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+    if (input.kilometer || input.engine_hours) {
+      try {
+        const currentVehicle = await prisma.vehicles.findUnique({
+          where: { id: input.equipmentId },
+          select: { kilometer: true, engine_hours: true },
+        });
+
+        const updateData: Record<string, unknown> = {};
+
+        if (input.kilometer) {
+          const currentKm = Number(currentVehicle?.kilometer) || 0;
+          const newKm = Number(input.kilometer);
+          if (newKm >= currentKm) {
+            updateData.kilometer = input.kilometer;
+          } else {
+            serverLogger.warn('Kilometraje ignorado: menor al actual', {
+              data: { newKm, currentKm, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (input.engine_hours) {
+          const currentHours = Number(currentVehicle?.engine_hours) || 0;
+          const newHours = Number(input.engine_hours);
+          if (newHours >= currentHours) {
+            updateData.engine_hours = input.engine_hours;
+          } else {
+            serverLogger.warn('Horómetro ignorado: menor al actual', {
+              data: { newHours, currentHours, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.vehicles.update({ where: { id: input.equipmentId }, data: updateData });
+        }
+      } catch (vehicleError) {
+        serverLogger.warn('No se pudo actualizar datos del vehículo', { data: { error: vehicleError } });
+      }
+    }
+
+    serverLogger.info('Pedido preventivo creado exitosamente', {
+      data: { requestId: request.id, orderId: order.id, preventiveType: input.preventiveType },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceOrderFromDeviations);
+    return { request, order };
+  }
+
+  const deviations = input.deviations ?? [];
 
   const { request, order } = await prisma.$transaction(async (tx) => {
     // 1. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
-      input.deviations.map((d) =>
+      deviations.map((d) =>
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
@@ -327,23 +440,35 @@ export async function createMaintenanceOrderFromDeviations(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
       },
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations?.[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'approved',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Crear maintenance_order con source='manual'
@@ -362,26 +487,72 @@ export async function createMaintenanceOrderFromDeviations(input: {
       data: requestItems.map((ri, idx) => ({
         maintenance_order_id: order.id,
         maintenance_request_item_id: ri.id,
-        description: input.deviations[idx]?.comment ?? null,
-        is_critical: input.deviations[idx]?.isCritical ?? false,
+        description: deviations[idx]?.comment ?? null,
+        is_critical: deviations[idx]?.isCritical ?? false,
       })),
     });
 
     // 6. Registrar actividad en maintenance_activity_log
-    await tx.maintenance_activity_log.create({
-      data: {
-        maintenance_request_id: request.id,
-        maintenance_order_id: order.id,
-        action_type: 'created',
-        performed_by: profile.id,
-        notes: 'Pedido creado manualmente desde Nuevo Pedido',
-        metadata: {
-          source: 'manual',
-          supervisor_id: input.supervisorId,
-          deviations_count: input.deviations.length,
-        },
+    await logActivity(tx, {
+      maintenanceRequestId: request.id,
+      maintenanceOrderId: order.id,
+      actionType: ACTIVITY_LOG.CREATED,
+      performedBy: profile.id,
+      notes: 'Pedido creado manualmente desde Nuevo Pedido',
+      metadata: {
+        source: 'manual',
+        supervisor_id: input.supervisorId,
+        deviations_count: deviations.length,
       },
     });
+
+    // 7. Crear ítems manuales (texto libre, no del template)
+    if (input.manualItems && input.manualItems.length > 0) {
+      const manualDevs = await Promise.all(
+        input.manualItems
+          .filter((m) => m.label.trim().length > 0)
+          .map((m) =>
+            tx.checklist_deviations.create({
+              data: {
+                checklist_answer_id: null,
+                equipment_id: input.equipmentId,
+                item_code: 'manual',
+                item_label: m.label.trim(),
+                section_code: null,
+                is_critical: false,
+                created_by_user_id: profile.id,
+              },
+              select: { id: true },
+            })
+          )
+      );
+
+      if (manualDevs.length > 0) {
+        const manualRequestItems = await Promise.all(
+          manualDevs.map((d) =>
+            tx.maintenance_request_items.create({
+              data: {
+                maintenance_request_id: request.id,
+                checklist_deviation_id: d.id,
+                repair_type_id: null,
+                driver_comment: null,
+                status: 'pending',
+              },
+              select: { id: true },
+            })
+          )
+        );
+
+        await tx.maintenance_order_items.createMany({
+          data: manualRequestItems.map((ri) => ({
+            maintenance_order_id: order.id,
+            maintenance_request_item_id: ri.id,
+            description: null,
+            is_critical: false,
+          })),
+        });
+      }
+    }
 
     return { request, order };
   });
@@ -437,7 +608,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
     data: {
       requestId: request.id,
       orderId: order.id,
-      deviationsCount: input.deviations.length,
+      deviationsCount: deviations.length,
     },
   });
 
@@ -467,22 +638,119 @@ export async function createMaintenanceRequestPendingApproval(input: {
   supervisorId: string;
   kilometer?: string;
   engine_hours?: string;
-  deviations: CreateDeviationFromNuevoPedido[];
+  deviations?: CreateDeviationFromNuevoPedido[];
+  source?: 'preventive';
+  preventiveType?: PreventiveType;
+  driverEmployeeId?: string;
+  /** Ítems manuales (texto libre, no del template) */
+  manualItems?: Array<{ label: string }>;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
       equipmentId: input.equipmentId,
       supervisorId: input.supervisorId,
-      deviationsCount: input.deviations.length,
+      deviationsCount: input.deviations?.length ?? 0,
+      source: input.source,
+      preventiveType: input.preventiveType,
     },
   });
 
+  if (input.manualItems && input.manualItems.length > 0) {
+    serverLogger.debug('Se incluyeron ítems manuales', {
+      data: { count: input.manualItems.length },
+    });
+  }
+
   const profile = await requireServerAuthProfile();
+
+  const isPreventive = input.source === 'preventive' && input.preventiveType;
+
+  if (isPreventive) {
+    const { request } = await prisma.$transaction(async (tx) => {
+      const request = await tx.maintenance_requests.create({
+        data: {
+          equipment_id: input.equipmentId,
+          supervisor_id: input.supervisorId,
+          status: 'pending_approval',
+          user_id: profile.id,
+          kilometer: input.kilometer ?? null,
+          source: 'preventive',
+          preventive_type: input.preventiveType!,
+        },
+      });
+
+      await logActivity(tx, {
+        maintenanceRequestId: request.id,
+        actionType: ACTIVITY_LOG.CREATED,
+        performedBy: profile.id,
+        notes: `Solicitud de mantenimiento preventivo creada: ${input.preventiveType} - Pendiente de aprobación`,
+        metadata: {
+          source: 'preventive',
+          preventive_type: input.preventiveType,
+          supervisor_id: input.supervisorId,
+          requires_approval: true,
+        },
+      });
+
+      return { request };
+    });
+
+    // Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+    if (input.kilometer || input.engine_hours) {
+      try {
+        const currentVehicle = await prisma.vehicles.findUnique({
+          where: { id: input.equipmentId },
+          select: { kilometer: true, engine_hours: true },
+        });
+
+        const updateData: Record<string, unknown> = {};
+
+        if (input.kilometer) {
+          const currentKm = Number(currentVehicle?.kilometer) || 0;
+          const newKm = Number(input.kilometer);
+          if (newKm >= currentKm) {
+            updateData.kilometer = input.kilometer;
+          } else {
+            serverLogger.warn('Kilometraje ignorado: menor al actual', {
+              data: { newKm, currentKm, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (input.engine_hours) {
+          const currentHours = Number(currentVehicle?.engine_hours) || 0;
+          const newHours = Number(input.engine_hours);
+          if (newHours >= currentHours) {
+            updateData.engine_hours = input.engine_hours;
+          } else {
+            serverLogger.warn('Horómetro ignorado: menor al actual', {
+              data: { newHours, currentHours, equipmentId: input.equipmentId },
+            });
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await prisma.vehicles.update({ where: { id: input.equipmentId }, data: updateData });
+        }
+      } catch (vehicleError) {
+        serverLogger.warn('No se pudo actualizar datos del vehículo', { data: { error: vehicleError } });
+      }
+    }
+
+    serverLogger.info('Solicitud preventiva creada - Pendiente de aprobación', {
+      data: { requestId: request.id, preventiveType: input.preventiveType },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequestPendingApproval);
+    return { request, requestItems: [] };
+  }
+
+  const pendingDeviations = input.deviations ?? [];
 
   const { request, requestItems } = await prisma.$transaction(async (tx) => {
     // 1. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
-      input.deviations.map((d) =>
+      pendingDeviations.map((d) =>
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
@@ -507,41 +775,85 @@ export async function createMaintenanceRequestPendingApproval(input: {
         user_id: profile.id,
         kilometer: input.kilometer ?? null,
         source: 'manual',
+        driver_employee_id: input.driverEmployeeId ?? null,
         // Sin approved_by ni approved_at ya que está pendiente
       },
     });
 
     // 3. Crear maintenance_request_items vinculados a los desvíos
+    // Si viene driverEmployeeId, el comentario es del chofer (desde mantenimiento).
+    // Si no, es del supervisor (desde dashboard).
+    const isFromDriver = !!input.driverEmployeeId;
     const requestItems = await Promise.all(
-      createdDeviations.map((dev, idx) =>
-        tx.maintenance_request_items.create({
+      createdDeviations.map((dev, idx) => {
+        const comment = input.deviations?.[idx]?.comment ?? null;
+        return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
             checklist_deviation_id: dev.id,
             status: 'pending',
-            description: input.deviations[idx]?.comment ?? null,
-            supervisor_comment: input.deviations[idx]?.comment ?? null,
-            supervisor_comment_by: input.deviations[idx]?.comment ? profile.id : null,
+            description: comment,
+            ...(isFromDriver
+              ? {
+                  driver_comment: comment,
+                  driver_comment_by: comment ? profile.id : null,
+                }
+              : {
+                  supervisor_comment: comment,
+                  supervisor_comment_by: comment ? profile.id : null,
+                }),
           },
-        })
-      )
+        });
+      })
     );
 
     // 4. Registrar actividad en maintenance_activity_log
-    await tx.maintenance_activity_log.create({
-      data: {
-        maintenance_request_id: request.id,
-        action_type: 'created',
-        performed_by: profile.id,
-        notes: 'Solicitud creada manualmente desde Nuevo Pedido - Pendiente de aprobación del supervisor',
-        metadata: {
-          source: 'manual',
-          supervisor_id: input.supervisorId,
-          deviations_count: input.deviations.length,
-          requires_approval: true,
-        },
+    await logActivity(tx, {
+      maintenanceRequestId: request.id,
+      actionType: ACTIVITY_LOG.CREATED,
+      performedBy: profile.id,
+      notes: 'Solicitud creada manualmente desde Nuevo Pedido - Pendiente de aprobación del supervisor',
+      metadata: {
+        source: 'manual',
+        supervisor_id: input.supervisorId,
+        deviations_count: pendingDeviations.length,
+        requires_approval: true,
       },
     });
+
+    // 5. Crear ítems manuales (texto libre, no del template)
+    if (input.manualItems && input.manualItems.length > 0) {
+      const manualDevs = await Promise.all(
+        input.manualItems
+          .filter((m) => m.label.trim().length > 0)
+          .map((m) =>
+            tx.checklist_deviations.create({
+              data: {
+                checklist_answer_id: null,
+                equipment_id: input.equipmentId,
+                item_code: 'manual',
+                item_label: m.label.trim(),
+                section_code: null,
+                is_critical: false,
+                created_by_user_id: profile.id,
+              },
+              select: { id: true },
+            })
+          )
+      );
+
+      if (manualDevs.length > 0) {
+        await tx.maintenance_request_items.createMany({
+          data: manualDevs.map((d) => ({
+            maintenance_request_id: request.id,
+            checklist_deviation_id: d.id,
+            repair_type_id: null,
+            driver_comment: null,
+            status: 'pending',
+          })),
+        });
+      }
+    }
 
     return { request, requestItems };
   });
@@ -596,7 +908,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   serverLogger.info('Solicitud creada exitosamente - Pendiente de aprobación', {
     data: {
       requestId: request.id,
-      deviationsCount: input.deviations.length,
+      deviationsCount: pendingDeviations.length,
       supervisorId: input.supervisorId,
     },
   });

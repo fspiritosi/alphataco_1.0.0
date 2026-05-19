@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonIcon } from '@radix-ui/react-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Row } from '@tanstack/react-table';
 import { CalendarDays, CalendarIcon } from 'lucide-react';
 import moment from 'moment';
@@ -36,6 +37,8 @@ import { repairStateColors, repairStateIcons } from '../utils/constants';
 
 interface RepairEquipmentDialogProps {
   row: Row<RepairSolicitudListItem>;
+  /** QueryKey de la tabla padre — se invalida tras guardar cambios para refrescar la tabla */
+  tableQueryKey?: readonly unknown[];
 }
 
 // ============================================================================
@@ -108,8 +111,9 @@ function mapDbStateToPrisma(dbState: string): string {
 // COMPONENT
 // ============================================================================
 
-export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
+export function RepairEquipmentDialog({ row, tableQueryKey }: RepairEquipmentDialogProps) {
   const supabase = supabaseBrowser();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const original = row.original;
 
@@ -286,19 +290,31 @@ export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
   };
 
   const handleSaveChanges = async () => {
-    toast.promise(
-      async () => {
-        await combinedUpdate();
-      },
-      {
-        loading: 'Guardando cambios',
-        success: 'Cambios guardados',
-        error: (error) => String(error),
-      }
-    );
-    setStatus(dbState);
+    try {
+      await toast
+        .promise(combinedUpdate(), {
+          loading: 'Guardando cambios',
+          success: 'Cambios guardados',
+          error: (error) => String(error),
+        })
+        .unwrap();
+    } catch {
+      return;
+    }
 
+    setStatus(dbState);
     document.getElementById('close-modal-repair-equipment')?.click();
+
+    // Invalidar la query de la tabla padre para que se refresquen los datos.
+    // En client-side navigation mode (queryFn), router.refresh() no es suficiente
+    // porque los datos viven en React Query, no en el Server Component.
+    if (tableQueryKey) {
+      await queryClient.invalidateQueries({ queryKey: tableQueryKey });
+    } else {
+      // Fallback: invalidar todas las queries de repair-solicitudes
+      await queryClient.invalidateQueries({ queryKey: ['repair-solicitudes'] });
+    }
+    // Refrescar Server Components (ej: header del equipo que muestra la condition)
     router.refresh();
   };
 

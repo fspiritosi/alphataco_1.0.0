@@ -193,25 +193,11 @@ export default function UpdateDocuments({
         }
 
         router.refresh();
-        if (resource === 'company') {
-          router.push('/dashboard/company/actualCompany');
-        } else {
-          router.push('/dashboard/document');
-        }
         setIsOpen(false);
       },
       {
         loading: 'Renovando...',
-        success: () => {
-          router.refresh();
-          if (resource === 'company') {
-            router.push('/dashboard/company/actualCompany');
-          } else {
-            router.push('/dashboard/document');
-          }
-          setIsOpen(false);
-          return 'Documento renovado correctamente';
-        },
+        success: 'Documento renovado correctamente',
         error: (error) => {
           console.error(error);
           return error;

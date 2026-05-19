@@ -6,57 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { processMassiveDiagramCreation, processMassiveNoveltyCreation } from './actions/diagram-massive-actions';
+import type { ConflictData, MassiveFormData, ProcessingResult } from './types/massive-diagram';
 
 const logger = new Logger('Diagrams/ConflictResolutionModal');
-
-interface ConflictRecord {
-  employee_id: string;
-  employee_name: string;
-  day: number;
-  month: number;
-  year: number;
-  date_formatted: string;
-  current_diagram_type?: string;
-  current_diagram_name?: string;
-  current_diagram_color?: string;
-  new_diagram_name?: string;
-  new_diagram_color?: string;
-  is_used_in_operations: boolean;
-  operation_details?: string;
-  can_update: boolean;
-  conflict_type: string;
-}
-
-interface ConflictData {
-  operationConflicts: ConflictRecord[];
-  simpleConflicts: ConflictRecord[];
-}
-
-interface MassiveFormData {
-  employeeIds: string[];
-  workDiagramId: string;
-  activeNoveltyId?: string;
-  dateRange: {
-    from: Date;
-    to: Date;
-  };
-}
 
 interface Props {
   conflicts: ConflictData;
   formData: MassiveFormData;
-  onResolve: () => void;
   onCancel: () => void;
-  onProcessingComplete: (result: any) => void;
+  onProcessingComplete: (result: ProcessingResult) => void;
 }
 
-export function ConflictResolutionModal({ conflicts, formData, onResolve, onCancel, onProcessingComplete }: Props) {
+export function ConflictResolutionModal({ conflicts, formData, onCancel, onProcessingComplete }: Props) {
   const [processing, setProcessing] = useState(false);
-  const supabase = supabaseBrowser();
 
   const totalConflicts = conflicts.operationConflicts.length + conflicts.simpleConflicts.length;
 
@@ -64,38 +30,37 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
     setProcessing(true);
 
     try {
-      // Validar que formData existe y tiene los datos necesarios
-      if (
-        !formData ||
-        !formData.employeeIds ||
-        !formData.workDiagramId ||
-        !formData.dateRange?.from ||
-        !formData.dateRange?.to
-      ) {
-        logger.error('Error: formData is null or missing required properties', { data: { formData } });
+      if (!formData?.employeeIds?.length || !formData?.dateRange?.from || !formData?.dateRange?.to) {
+        logger.error('formData missing required properties', { data: { formData } });
         toast.error('Error: Datos del formulario no disponibles');
-        setProcessing(false);
         return;
       }
 
-      // Usar la función SQL corregida con los parámetros correctos
-      const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
-        p_employee_ids: formData.employeeIds,
-        p_work_diagram_id: formData.workDiagramId,
-        p_active_novelty_id: formData.activeNoveltyId || '',
-        p_date_from: formData.dateRange.from.toISOString().split('T')[0],
-        p_date_to: formData.dateRange.to.toISOString().split('T')[0],
-        p_conflict_resolution: 'update', // Actualizar conflictos simples
-      });
+      const dateFrom = formData.dateRange.from.toISOString().split('T')[0];
+      const dateTo = formData.dateRange.to.toISOString().split('T')[0];
 
-      if (error) {
-        logger.error('Error creating diagrams', { data: { error } });
-        toast.error('Error al crear los diagramas');
-        return;
-      }
+      const result =
+        formData.mode === 'diagram'
+          ? await processMassiveDiagramCreation({
+              employeeIds: formData.employeeIds,
+              workDiagramId: formData.workDiagramId,
+              activeNoveltyId: formData.activeNoveltyId || '',
+              dateFrom,
+              dateTo,
+              conflictResolution: 'update',
+            })
+          : await processMassiveNoveltyCreation({
+              employeeIds: formData.employeeIds,
+              diagramTypeId: formData.diagramTypeId,
+              dateFrom,
+              dateTo,
+              conflictResolution: 'update',
+            });
 
       onProcessingComplete(result);
-      toast.success('Diagramas procesados correctamente');
+      toast.success(
+        formData.mode === 'diagram' ? 'Diagramas procesados correctamente' : 'Novedad cargada correctamente'
+      );
     } catch (error) {
       logger.error('Error in creation', { data: { error } });
       toast.error('Error en la creación');
@@ -209,8 +174,8 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
             <Alert className="m-4 border-yellow-200 bg-yellow-50">
               <Info className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-700">
-                Estos registros existen pero no están en uso. Se actualizarán automáticamente con los nuevos valores
-                según el patrón de trabajo del empleado.
+                Estos registros existen pero no están en uso. Se reemplazarán automáticamente con los nuevos valores de
+                la carga masiva.
               </AlertDescription>
             </Alert>
 

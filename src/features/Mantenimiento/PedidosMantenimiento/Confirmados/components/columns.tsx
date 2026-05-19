@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -56,6 +57,9 @@ export function getColumnsConfirmados({
       header: 'Items',
       cell: ({ row }) => {
         const items = row.original.maintenance_order_items || [];
+        if (items.length === 0 && row.original.maintenance_requests?.source === 'preventive') {
+          return <PreventiveItemsBadge preventiveType={row.original.maintenance_requests?.preventive_type ?? ''} />;
+        }
         return (
           <Badge variant="secondary">
             {items.length} {items.length === 1 ? 'item' : 'items'}

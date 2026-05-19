@@ -45,6 +45,10 @@ export interface ApproveRequestItemsInput {
     /** Comentario del validador (opcional) */
     validatorComment?: string;
   }[];
+  /** Aprueba la solicitud preventiva completa como unidad (sin items) */
+  preventiveApproval?: boolean;
+  /** Comentario del validador para aprobación preventiva */
+  validatorComment?: string;
 }
 
 export interface RejectRequestInput {

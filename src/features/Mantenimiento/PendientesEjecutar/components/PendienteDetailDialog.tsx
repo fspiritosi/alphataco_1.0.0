@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { PendingExecutionListItem } from '../actions.server';
 
@@ -105,51 +106,64 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
 
             {/* Items/Desvíos */}
             <div>
-              <h4 className="font-semibold mb-2">Desvíos del Pedido ({items.length})</h4>
-              <div className="space-y-2">
-                {items.map((item, index) => {
-                  const deviation = item.maintenance_request_items?.checklist_deviations;
+              {order.maintenance_requests?.source === 'preventive' && (
+                <PreventiveInfoCard
+                  preventiveType={order.maintenance_requests?.preventive_type ?? ''}
+                  className="mb-3"
+                />
+              )}
+              {items.length > 0 && (
+                <>
+                  <h4 className="font-semibold mb-2">Desvíos del Pedido ({items.length})</h4>
+                  <div className="space-y-2">
+                    {items.map((item, index) => {
+                      const deviation = item.maintenance_request_items?.checklist_deviations;
 
-                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
-                  const repairTypeNames: string[] =
-                    pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
-                      : item.types_of_repairs?.name
-                        ? [item.types_of_repairs.name]
-                        : [];
+                      // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                      const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                      const repairTypeNames: string[] =
+                        pivotRepairTypes.length > 0
+                          ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                          : item.types_of_repairs?.name
+                            ? [item.types_of_repairs.name]
+                            : [];
 
-                  return (
-                    <div key={item.id || index} className="p-3 border rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
-                          {deviation?.section_code && (
-                            <p className="text-xs text-muted-foreground">Sección: {deviation.section_code}</p>
-                          )}
-                          {repairTypeNames.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {repairTypeNames.map((name, idx) => (
-                                <Badge key={idx} variant="outline">
-                                  {name}
-                                </Badge>
-                              ))}
+                      return (
+                        <div key={item.id || index} className="p-3 border rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
+                              {deviation?.section_code && (
+                                <p className="text-xs text-muted-foreground">Sección: {deviation.section_code}</p>
+                              )}
+                              {repairTypeNames.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {repairTypeNames.map((name, idx) => (
+                                    <Badge key={idx} variant="outline">
+                                      {name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              <ItemComments
+                                item={item}
+                                source={order.maintenance_requests?.source}
+                                fallbackAuthorName={
+                                  order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
+                                    ?.fullname
+                                }
+                              />
                             </div>
-                          )}
-                          <ItemComments
-                            item={item}
-                            source={order.maintenance_requests?.source}
-                            fallbackAuthorName={
-                              order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
-                            }
-                          />
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {items.length === 0 && <p className="text-muted-foreground text-sm">No hay desvíos registrados</p>}
-              </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {items.length === 0 && order.maintenance_requests?.source !== 'preventive' && (
+                <p className="text-muted-foreground text-sm">No hay desvíos registrados</p>
+              )}
             </div>
           </div>
         </ScrollArea>

@@ -83,7 +83,6 @@ export const transformDailyReports = (reports: getFilteredDailyReportRowsType) =
         row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) ||
         [],
       customer_equipment:
-        row.customer_equipment ||
         row.dailyreport_customer_equipment_relations?.map((rel) => {
           return {
             name: rel.equipos_clientes?.name,
@@ -92,6 +91,7 @@ export const transformDailyReports = (reports: getFilteredDailyReportRowsType) =
             relacion_id: rel.id,
           };
         }) ||
+        row.customer_equipment ||
         [],
       services: row.services || row.customer_services?.service_name,
       item: row.item || row.service_items?.item_name,

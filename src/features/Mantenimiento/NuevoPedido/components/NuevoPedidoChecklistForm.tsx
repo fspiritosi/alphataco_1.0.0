@@ -14,6 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
+import {
+  PREVENTIVE_TYPES,
+  PREVENTIVE_TYPE_DESCRIPTIONS,
+  PREVENTIVE_TYPE_ICONS,
+  type PreventiveType,
+} from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -30,6 +37,7 @@ import {
   Plus,
   Truck,
   User,
+  Wrench,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
@@ -58,12 +66,22 @@ interface NuevoPedidoChecklistFormProps {
   equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
   default_equipment_id?: string;
   onSuccess?: () => void;
+  driverEmployeeId?: string;
+  driverName?: string;
+  driverFileNumber?: string;
+  skipSupervisorQuestion?: boolean;
+  successRedirectUrl?: string;
 }
 
 export function NuevoPedidoChecklistForm({
   equipment,
   default_equipment_id,
   onSuccess,
+  driverEmployeeId,
+  driverName,
+  driverFileNumber,
+  skipSupervisorQuestion = false,
+  successRedirectUrl,
 }: NuevoPedidoChecklistFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -72,12 +90,19 @@ export function NuevoPedidoChecklistForm({
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Tipo de pedido
+  const [requestType, setRequestType] = useState<'checklist' | 'preventive'>('checklist');
+  const [selectedPreventiveType, setSelectedPreventiveType] = useState<PreventiveType | ''>('');
+
   // Paso 1: Selección de equipo
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(default_equipment_id || '');
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [kilometer, setKilometer] = useState('');
-  const [engineHours, setEngineHours] = useState('');
+
+  // Pre-fill km/hours from default equipment if provided
+  const defaultEquip = default_equipment_id ? equipment?.find((e) => e.id === default_equipment_id) : null;
+  const [kilometer, setKilometer] = useState(defaultEquip?.kilometer || '');
+  const [engineHours, setEngineHours] = useState(defaultEquip?.engine_hours || '');
 
   // Paso 2: Selección de checklist
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -85,12 +110,15 @@ export function NuevoPedidoChecklistForm({
   // Paso 3: Selección de items/desvíos
   const [selectedDeviations, setSelectedDeviations] = useState<SelectedDeviation[]>([]);
   const [deviationComments, setDeviationComments] = useState<Record<string, string>>({});
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
 
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
   const [supervisorOpen, setSupervisorOpen] = useState(false);
   // Nuevo: Estado para indicar si el usuario actual es el supervisor
-  const [isCurrentUserSupervisor, setIsCurrentUserSupervisor] = useState<boolean | null>(null);
+  const [isCurrentUserSupervisor, setIsCurrentUserSupervisor] = useState<boolean | null>(
+    skipSupervisorQuestion ? false : null
+  );
 
   // Equipo seleccionado
   const selectedEquipment = useMemo(
@@ -111,6 +139,29 @@ export function NuevoPedidoChecklistForm({
       }) || []
     );
   }, [equipment, searchTerm]);
+
+  // ============================================
+  // STEPS DINÁMICOS según requestType
+  // ============================================
+  type StepKey = 'equipment' | 'type' | 'items' | 'supervisor' | 'confirm';
+
+  const CHECKLIST_STEPS: { key: StepKey; title: string; icon: typeof Truck }[] = [
+    { key: 'equipment', title: 'Equipo', icon: Truck },
+    { key: 'type', title: 'Checklist', icon: ClipboardList },
+    { key: 'items', title: 'Items', icon: AlertTriangle },
+    { key: 'supervisor', title: 'Supervisor', icon: User },
+    { key: 'confirm', title: 'Confirmar', icon: CheckCircle },
+  ];
+
+  const PREVENTIVE_STEPS: { key: StepKey; title: string; icon: typeof Truck }[] = [
+    { key: 'equipment', title: 'Equipo', icon: Truck },
+    { key: 'type', title: 'Preventivo', icon: Wrench },
+    { key: 'supervisor', title: 'Supervisor', icon: User },
+    { key: 'confirm', title: 'Confirmar', icon: CheckCircle },
+  ];
+
+  const steps = requestType === 'preventive' ? PREVENTIVE_STEPS : CHECKLIST_STEPS;
+  const currentStepKey = steps[currentStep]?.key;
 
   // Query para templates de checklist
   const {
@@ -133,14 +184,14 @@ export function NuevoPedidoChecklistForm({
   const { data: currentUser, isLoading: isLoadingCurrentUser } = useQuery({
     queryKey: ['current-user-for-supervisor'],
     queryFn: getCurrentUserForSupervisorCheck,
-    enabled: currentStep >= 3,
+    enabled: steps.findIndex((s) => s.key === 'supervisor') <= currentStep,
   });
 
   // Query para supervisores (solo se ejecuta cuando NO es supervisor)
   const { data: supervisors = [], isLoading: isLoadingSupervisors } = useQuery({
     queryKey: ['supervisors-for-checklist'],
     queryFn: fetchSupervisorsForChecklist,
-    enabled: currentStep >= 3 && isCurrentUserSupervisor === false,
+    enabled: steps.findIndex((s) => s.key === 'supervisor') <= currentStep && isCurrentUserSupervisor === false,
   });
 
   // Supervisor seleccionado
@@ -163,6 +214,7 @@ export function NuevoPedidoChecklistForm({
         setSelectedTemplateId('');
         setSelectedDeviations([]);
         setDeviationComments({});
+        setManualItems([]);
         setSelectedSupervisorId('');
       }
       setEquipmentOpen(false);
@@ -175,6 +227,7 @@ export function NuevoPedidoChecklistForm({
     // Reset selecciones de desvíos
     setSelectedDeviations([]);
     setDeviationComments({});
+    setManualItems([]);
   }, []);
 
   const handleToggleDeviation = useCallback(
@@ -216,12 +269,35 @@ export function NuevoPedidoChecklistForm({
     );
   }, []);
 
+  const handleChangeRequestType = useCallback(
+    (type: 'checklist' | 'preventive') => {
+      if (type === requestType) return;
+      setRequestType(type);
+      setSelectedTemplateId('');
+      setSelectedPreventiveType('');
+      setSelectedDeviations([]);
+      setDeviationComments({});
+      setManualItems([]);
+      setSelectedSupervisorId('');
+      setIsCurrentUserSupervisor(null);
+    },
+    [requestType]
+  );
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
     // Validar datos según el flujo
-    if (!selectedEquipmentId || selectedDeviations.length === 0) {
+    if (!selectedEquipmentId) {
       toast.error('Faltan datos requeridos');
+      return;
+    }
+    if (requestType === 'checklist' && selectedDeviations.length === 0 && manualItems.length === 0) {
+      toast.error('Debes seleccionar al menos un desvío o agregar un ítem manual');
+      return;
+    }
+    if (requestType === 'preventive' && !selectedPreventiveType) {
+      toast.error('Debes seleccionar un programa de mantenimiento preventivo');
       return;
     }
 
@@ -245,21 +321,34 @@ export function NuevoPedidoChecklistForm({
     setIsSubmitting(true);
 
     try {
-      // Actualizar comentarios en los desvíos antes de enviar
-      const deviationsToSend = selectedDeviations.map((d) => ({
-        ...d,
-        comment: deviationComments[d.itemId] || d.comment || undefined,
-      }));
-
       if (isCurrentUserSupervisor) {
         // FLUJO 1: Usuario ES el supervisor → crear pedido directamente (aprobado automáticamente)
-        await createMaintenanceOrderFromDeviations({
-          equipmentId: selectedEquipmentId,
-          supervisorId,
-          kilometer: kilometer || undefined,
-          engine_hours: engineHours || undefined,
-          deviations: deviationsToSend,
-        });
+        if (requestType === 'preventive') {
+          await createMaintenanceOrderFromDeviations({
+            equipmentId: selectedEquipmentId,
+            supervisorId,
+            kilometer: kilometer || undefined,
+            engine_hours: engineHours || undefined,
+            source: 'preventive',
+            preventiveType: selectedPreventiveType as PreventiveType,
+            driverEmployeeId: driverEmployeeId || undefined,
+          });
+        } else {
+          // Actualizar comentarios en los desvíos antes de enviar
+          const deviationsToSend = selectedDeviations.map((d) => ({
+            ...d,
+            comment: deviationComments[d.itemId] || d.comment || undefined,
+          }));
+          await createMaintenanceOrderFromDeviations({
+            equipmentId: selectedEquipmentId,
+            supervisorId,
+            kilometer: kilometer || undefined,
+            engine_hours: engineHours || undefined,
+            deviations: deviationsToSend,
+            driverEmployeeId: driverEmployeeId || undefined,
+            manualItems: manualItems.map((m) => ({ label: m.label })),
+          });
+        }
 
         toast.success('Pedido de mantenimiento creado exitosamente');
 
@@ -267,13 +356,31 @@ export function NuevoPedidoChecklistForm({
         invalidateAllMaintenanceQueries(queryClient);
       } else {
         // FLUJO 2: Usuario NO es supervisor → crear solicitud pendiente de aprobación
-        await createMaintenanceRequestPendingApproval({
-          equipmentId: selectedEquipmentId,
-          supervisorId,
-          kilometer: kilometer || undefined,
-          engine_hours: engineHours || undefined,
-          deviations: deviationsToSend,
-        });
+        if (requestType === 'preventive') {
+          await createMaintenanceRequestPendingApproval({
+            equipmentId: selectedEquipmentId,
+            supervisorId,
+            kilometer: kilometer || undefined,
+            engine_hours: engineHours || undefined,
+            source: 'preventive',
+            preventiveType: selectedPreventiveType as PreventiveType,
+          });
+        } else {
+          // Actualizar comentarios en los desvíos antes de enviar
+          const deviationsToSend = selectedDeviations.map((d) => ({
+            ...d,
+            comment: deviationComments[d.itemId] || d.comment || undefined,
+          }));
+          await createMaintenanceRequestPendingApproval({
+            equipmentId: selectedEquipmentId,
+            supervisorId,
+            kilometer: kilometer || undefined,
+            engine_hours: engineHours || undefined,
+            deviations: deviationsToSend,
+            driverEmployeeId: driverEmployeeId || undefined,
+            manualItems: manualItems.map((m) => ({ label: m.label })),
+          });
+        }
 
         toast.success('Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos.');
 
@@ -289,13 +396,20 @@ export function NuevoPedidoChecklistForm({
       setSelectedTemplateId('');
       setSelectedDeviations([]);
       setDeviationComments({});
+      setManualItems([]);
       setSelectedSupervisorId('');
-      setIsCurrentUserSupervisor(null);
+      setIsCurrentUserSupervisor(skipSupervisorQuestion ? false : null);
+      setSelectedPreventiveType('');
+      setRequestType('checklist');
 
       router.refresh();
 
       if (onSuccess) {
         onSuccess();
+      }
+
+      if (successRedirectUrl) {
+        router.push(successRedirectUrl);
       }
     } catch (error) {
       logger.error('Error al crear pedido', { data: { error } });
@@ -309,38 +423,34 @@ export function NuevoPedidoChecklistForm({
   // VALIDACIONES DE PASOS
   // ============================================
   const canAdvanceStep = useMemo(() => {
-    switch (currentStep) {
-      case 0: // Equipo
+    switch (currentStepKey) {
+      case 'equipment':
         return !!selectedEquipmentId;
-      case 1: // Checklist
-        return !!selectedTemplateId;
-      case 2: // Items
-        return selectedDeviations.length > 0;
-      case 3: // Supervisor
-        // Si es supervisor actual: ya tiene el supervisor (él mismo)
-        // Si NO es supervisor: debe haber seleccionado uno
-        if (isCurrentUserSupervisor === null) return false; // Aún no ha respondido
-        if (isCurrentUserSupervisor) return true; // Es él mismo
-        return !!selectedSupervisorId; // Debe seleccionar supervisor
+      case 'type':
+        if (requestType === 'checklist') return !!selectedTemplateId;
+        return !!selectedPreventiveType;
+      case 'items':
+        return selectedDeviations.length > 0 || manualItems.length > 0;
+      case 'supervisor':
+        if (isCurrentUserSupervisor === null) return false;
+        if (isCurrentUserSupervisor) return true;
+        return !!selectedSupervisorId;
+      case 'confirm':
+        return false;
       default:
         return false;
     }
   }, [
-    currentStep,
+    currentStepKey,
+    requestType,
     selectedEquipmentId,
     selectedTemplateId,
+    selectedPreventiveType,
     selectedDeviations,
+    manualItems,
     selectedSupervisorId,
     isCurrentUserSupervisor,
   ]);
-
-  const steps = [
-    { title: 'Equipo', icon: Truck },
-    { title: 'Checklist', icon: ClipboardList },
-    { title: 'Items', icon: AlertTriangle },
-    { title: 'Supervisor', icon: User },
-    { title: 'Confirmar', icon: CheckCircle },
-  ];
 
   // ============================================
   // RENDER STEPS
@@ -462,43 +572,114 @@ export function NuevoPedidoChecklistForm({
     </div>
   );
 
-  const renderStep1Checklist = () => (
+  const renderStep1Type = () => (
     <div className="space-y-4">
-      <Label>Selecciona el checklist base</Label>
-
-      {isLoadingTemplates ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+      <div>
+        <Label className="text-base font-medium">Tipo de pedido</Label>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <Card
+            className={cn(
+              'cursor-pointer transition-all hover:border-primary/50',
+              requestType === 'checklist' && 'border-primary bg-primary/5'
+            )}
+            onClick={() => handleChangeRequestType('checklist')}
+          >
+            <CardContent className="p-4 flex items-start gap-3">
+              <ClipboardList className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-sm">Checklist</p>
+                <p className="text-xs text-muted-foreground">Desde desvíos de inspección</p>
+              </div>
+              {requestType === 'checklist' && <Check className="h-4 w-4 ml-auto text-primary" />}
+            </CardContent>
+          </Card>
+          <Card
+            className={cn(
+              'cursor-pointer transition-all hover:border-primary/50',
+              requestType === 'preventive' && 'border-primary bg-primary/5'
+            )}
+            onClick={() => handleChangeRequestType('preventive')}
+          >
+            <CardContent className="p-4 flex items-start gap-3">
+              <Wrench className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-sm">Mant. Preventivo</p>
+                <p className="text-xs text-muted-foreground">Programa planificado de mantenimiento</p>
+              </div>
+              {requestType === 'preventive' && <Check className="h-4 w-4 ml-auto text-primary" />}
+            </CardContent>
+          </Card>
         </div>
-      ) : templatesError ? (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg">Error al cargar los checklists</div>
-      ) : templates && templates.length > 0 ? (
-        <div className="space-y-2">
-          {templates.map((template) => (
-            <Card
-              key={template.id}
-              className={cn(
-                'cursor-pointer transition-all hover:border-primary/50',
-                selectedTemplateId === template.id && 'border-primary bg-primary/5'
-              )}
-              onClick={() => handleSelectTemplate(template.id)}
-            >
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{template.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {template.checklist_template_sections?.length || 0} secciones
-                  </p>
-                </div>
-                {selectedTemplateId === template.id && <Check className="h-5 w-5 text-primary" />}
-              </CardContent>
-            </Card>
-          ))}
+      </div>
+
+      <Separator />
+
+      {requestType === 'checklist' ? (
+        <div className="space-y-4">
+          <Label>Selecciona el checklist base</Label>
+          {isLoadingTemplates ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : templatesError ? (
+            <div className="p-4 bg-red-50 text-red-700 rounded-lg">Error al cargar los checklists</div>
+          ) : templates && templates.length > 0 ? (
+            <div className="space-y-2">
+              {templates.map((template) => (
+                <Card
+                  key={template.id}
+                  className={cn(
+                    'cursor-pointer transition-all hover:border-primary/50',
+                    selectedTemplateId === template.id && 'border-primary bg-primary/5'
+                  )}
+                  onClick={() => handleSelectTemplate(template.id)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{template.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {template.checklist_template_sections?.length || 0} secciones
+                      </p>
+                    </div>
+                    {selectedTemplateId === template.id && <Check className="h-5 w-5 text-primary" />}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 bg-muted text-center rounded-lg">
+              No hay checklists disponibles para este tipo de equipo
+            </div>
+          )}
         </div>
       ) : (
-        <div className="p-4 bg-muted text-center rounded-lg">
-          No hay checklists disponibles para este tipo de equipo
+        <div className="space-y-4">
+          <Label>Selecciona el programa</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.entries(PREVENTIVE_TYPES) as [PreventiveType, string][]).map(([key, label]) => {
+              const Icon = PREVENTIVE_TYPE_ICONS[key];
+              return (
+                <Card
+                  key={key}
+                  className={cn(
+                    'cursor-pointer transition-all hover:border-primary/50',
+                    selectedPreventiveType === key && 'border-primary bg-primary/5'
+                  )}
+                  onClick={() => setSelectedPreventiveType(key)}
+                >
+                  <CardContent className="p-4 flex flex-col items-center text-center gap-2">
+                    <Icon className="h-8 w-8 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">{label}</p>
+                      <p className="text-xs text-muted-foreground">{PREVENTIVE_TYPE_DESCRIPTIONS[key]}</p>
+                    </div>
+                    {selectedPreventiveType === key && <Check className="h-4 w-4 text-primary" />}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -584,48 +765,58 @@ export function NuevoPedidoChecklistForm({
       ) : (
         <div className="p-4 bg-muted text-center rounded-lg">No hay items en este checklist</div>
       )}
+
+      <ManualItemsInput items={manualItems} onChange={setManualItems} disabled={isSubmitting} />
     </div>
   );
 
   const renderStep3Supervisor = () => (
     <div className="space-y-4">
-      {/* Pregunta inicial: ¿Eres el supervisor? */}
+      {/* Pregunta inicial: ¿Eres el supervisor? (omitir si skipSupervisorQuestion) */}
       {isLoadingCurrentUser ? (
         <Skeleton className="h-24 w-full" />
       ) : (
         <>
-          <div className="space-y-3">
-            <Label className="text-base font-medium">¿Eres el supervisor de este pedido?</Label>
-            <p className="text-sm text-muted-foreground">
-              Si eres el supervisor, el pedido se creará directamente. Si no lo eres, el pedido deberá ser aprobado por
-              el supervisor que selecciones.
-            </p>
-            <div className="flex gap-3 mt-4">
-              <Button
-                type="button"
-                variant={isCurrentUserSupervisor === true ? 'default' : 'outline'}
-                className={cn('flex-1', isCurrentUserSupervisor === true && 'bg-green-600 hover:bg-green-700')}
-                onClick={() => {
-                  setIsCurrentUserSupervisor(true);
-                  setSelectedSupervisorId('');
-                }}
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Sí, soy el supervisor
-              </Button>
-              <Button
-                type="button"
-                variant={isCurrentUserSupervisor === false ? 'default' : 'outline'}
-                className={cn('flex-1', isCurrentUserSupervisor === false && 'bg-blue-600 hover:bg-blue-700')}
-                onClick={() => {
-                  setIsCurrentUserSupervisor(false);
-                }}
-              >
-                <User className="mr-2 h-4 w-4" />
-                No, seleccionaré uno
-              </Button>
+          {!skipSupervisorQuestion && (
+            <div className="space-y-3">
+              <Label className="text-base font-medium">¿Eres el supervisor de este pedido?</Label>
+              <p className="text-sm text-muted-foreground">
+                Si eres el supervisor, el pedido se creará directamente. Si no lo eres, el pedido deberá ser aprobado
+                por el supervisor que selecciones.
+              </p>
+              <div className="flex gap-3 mt-4">
+                <Button
+                  type="button"
+                  variant={isCurrentUserSupervisor === true ? 'default' : 'outline'}
+                  className={cn('flex-1', isCurrentUserSupervisor === true && 'bg-green-600 hover:bg-green-700')}
+                  onClick={() => {
+                    setIsCurrentUserSupervisor(true);
+                    setSelectedSupervisorId('');
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Sí, soy el supervisor
+                </Button>
+                <Button
+                  type="button"
+                  variant={isCurrentUserSupervisor === false ? 'default' : 'outline'}
+                  className={cn('flex-1', isCurrentUserSupervisor === false && 'bg-blue-600 hover:bg-blue-700')}
+                  onClick={() => {
+                    setIsCurrentUserSupervisor(false);
+                  }}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  No, seleccionaré uno
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {skipSupervisorQuestion && (
+            <div className="space-y-3">
+              <Label className="text-base font-medium">Seleccionar Supervisor</Label>
+            </div>
+          )}
 
           {/* Si ES supervisor: mostrar información del usuario actual */}
           {isCurrentUserSupervisor === true && currentUser && (
@@ -644,7 +835,8 @@ export function NuevoPedidoChecklistForm({
                   </div>
                 </div>
                 <p className="text-xs text-green-700 dark:text-green-400 mt-3">
-                  El pedido se creará directamente y aparecerá en "Pedidos de Mantenimiento" → "Pendientes".
+                  El pedido se creará directamente y aparecerá en &quot;Pedidos de Mantenimiento&quot; →
+                  &quot;Pendientes&quot;.
                 </p>
               </CardContent>
             </Card>
@@ -656,8 +848,8 @@ export function NuevoPedidoChecklistForm({
               <Label>Selecciona el supervisor de turno</Label>
               <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-lg mb-3">
                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                  La solicitud será enviada al supervisor para su aprobación. Una vez aprobada, pasará a "Pedidos de
-                  Mantenimiento".
+                  La solicitud será enviada al supervisor para su aprobación. Una vez aprobada, pasará a &quot;Pedidos
+                  de Mantenimiento&quot;.
                 </p>
               </div>
 
@@ -788,32 +980,78 @@ export function NuevoPedidoChecklistForm({
             <p className="text-sm text-muted-foreground">{selectedEquipment?.types_of_vehicles?.name}</p>
             {kilometer && <p className="text-sm">Kilometraje: {kilometer} km</p>}
             {engineHours && <p className="text-sm">Horómetro: {engineHours} hs</p>}
+            {driverName && (
+              <div className="flex items-center gap-2 mt-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Chofer:</span>
+                {driverFileNumber && (
+                  <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{driverFileNumber}</span>
+                )}
+                <span className="font-medium">{driverName}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Items con Desvío ({selectedDeviations.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {selectedDeviations.map((d) => (
-                <li key={d.itemId} className="text-sm flex items-start gap-2">
-                  <span className="text-muted-foreground">•</span>
-                  <div>
-                    <span className="font-medium">{d.itemLabel}</span>
-                    {d.isCritical && (
-                      <Badge variant="destructive" className="ml-2 text-xs">
-                        Crítico
-                      </Badge>
-                    )}
-                    {d.comment && <p className="text-xs text-muted-foreground mt-1 italic">"{d.comment}"</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        {requestType === 'preventive' ? (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Tipo de mantenimiento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1">
+                  <Wrench className="h-3 w-3" />
+                  Mantenimiento Preventivo
+                </Badge>
+              </div>
+              {selectedPreventiveType && (
+                <Card className="mt-2">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    {(() => {
+                      const Icon = PREVENTIVE_TYPE_ICONS[selectedPreventiveType as PreventiveType];
+                      return <Icon className="h-6 w-6 text-muted-foreground" />;
+                    })()}
+                    <div>
+                      <p className="font-medium text-sm">
+                        {PREVENTIVE_TYPES[selectedPreventiveType as PreventiveType]}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {PREVENTIVE_TYPE_DESCRIPTIONS[selectedPreventiveType as PreventiveType]}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Items con Desvío ({selectedDeviations.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {selectedDeviations.map((d) => (
+                  <li key={d.itemId} className="text-sm flex items-start gap-2">
+                    <span className="text-muted-foreground">•</span>
+                    <div>
+                      <span className="font-medium">{d.itemLabel}</span>
+                      {d.isCritical && (
+                        <Badge variant="destructive" className="ml-2 text-xs">
+                          Crítico
+                        </Badge>
+                      )}
+                      {d.comment && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">&quot;{d.comment}&quot;</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-2">
@@ -853,6 +1091,23 @@ export function NuevoPedidoChecklistForm({
     );
   };
 
+  const renderCurrentStep = () => {
+    switch (currentStepKey) {
+      case 'equipment':
+        return renderStep0Equipment();
+      case 'type':
+        return renderStep1Type();
+      case 'items':
+        return renderStep2Items();
+      case 'supervisor':
+        return renderStep3Supervisor();
+      case 'confirm':
+        return renderStep4Confirm();
+      default:
+        return null;
+    }
+  };
+
   // ============================================
   // RENDER PRINCIPAL
   // ============================================
@@ -876,7 +1131,7 @@ export function NuevoPedidoChecklistForm({
 
               return (
                 <div
-                  key={index}
+                  key={step.key}
                   className={cn(
                     'flex items-center gap-3 p-2 rounded-lg transition-all',
                     isCurrent && 'bg-primary/10',
@@ -908,13 +1163,7 @@ export function NuevoPedidoChecklistForm({
         <CardHeader>
           <CardTitle className="text-lg">{steps[currentStep].title}</CardTitle>
         </CardHeader>
-        <CardContent>
-          {currentStep === 0 && renderStep0Equipment()}
-          {currentStep === 1 && renderStep1Checklist()}
-          {currentStep === 2 && renderStep2Items()}
-          {currentStep === 3 && renderStep3Supervisor()}
-          {currentStep === 4 && renderStep4Confirm()}
-        </CardContent>
+        <CardContent>{renderCurrentStep()}</CardContent>
 
         <Separator />
 

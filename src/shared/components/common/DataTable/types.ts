@@ -203,8 +203,21 @@ export interface DataTableProps<TData, TValue = unknown> {
   showRowSelection?: boolean;
   /** Habilitar selección de filas (default: false) */
   enableRowSelection?: boolean;
-  /** Callback cuando cambia la selección */
+  /** Callback cuando cambia la selección — entrega las filas seleccionadas de la página actual. */
   onRowSelectionChange?: (selectedRows: TData[]) => void;
+  /**
+   * Callback cuando cambia la selección — entrega los IDs de TODAS las filas seleccionadas
+   * (acumulando entre páginas). Requiere que el dato tenga campo `id`.
+   */
+  onRowSelectionIdsChange?: (ids: string[]) => void;
+  /**
+   * Trigger externo para limpiar la selección de filas. Cada vez que este valor
+   * cambia (cualquier número distinto al anterior), el DataTable resetea su
+   * estado interno de `rowSelection`. Útil para que un padre que muestre una
+   * acción masiva pueda deseleccionar todo desde afuera sin perder otros estados
+   * (filtros, paginación, sorting).
+   */
+  clearSelectionTrigger?: number;
   /** Mensaje cuando no hay resultados */
   emptyMessage?: string;
   /** Tamaños de página disponibles */
@@ -233,6 +246,9 @@ export interface DataTableProps<TData, TValue = unknown> {
   'data-testid'?: string;
   /** Indica que los facets se están re-fetcheando (muestra skeletons en los filtros activos) */
   isFetchingFacets?: boolean;
+
+  /** Función para asignar className condicional a cada fila (ej: background por estado) */
+  rowClassName?: (row: TData) => string;
 
   // ---- Client-side navigation mode ----
 
@@ -285,6 +301,18 @@ export interface DataTableToolbarProps<TData> {
    * Se usa junto con onSearchChange para mantener sincronía con el servidor.
    */
   searchValue?: string;
+  /**
+   * Indica si hay filtros activos en el estado de la tabla (incluyendo dateRange _from/_to
+   * y filtros de columnas no visibles en el toolbar).
+   * Cuando es true, se muestra el botón "Limpiar filtros" aunque `columnFilters` de TanStack
+   * esté vacío (caso: filtro en columna oculta o filtro dateRange llegado por URL).
+   */
+  hasActiveFilters?: boolean;
+  /**
+   * Callback para limpiar TODOS los filtros activos (incluyendo dateRange y columnas ocultas).
+   * Cuando se provee, reemplaza el `table.resetColumnFilters()` por defecto.
+   */
+  onResetFilters?: () => void;
 }
 
 /**
