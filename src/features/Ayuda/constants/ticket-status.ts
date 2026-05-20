@@ -49,6 +49,13 @@ export const STATUS_BY_SLUG: Record<string, StatusDef> = {
     dotClass: 'bg-fuchsia-500',
     tintClass: 'from-fuchsia-500/10',
   },
+  resolved: {
+    label: 'Resuelto',
+    badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    borderClass: 'border-l-emerald-500',
+    dotClass: 'bg-emerald-500',
+    tintClass: 'from-emerald-500/10',
+  },
   done: {
     label: 'Resuelto',
     badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',

@@ -22,7 +22,7 @@ interface Stats {
 }
 
 const ACTIVE_SLUGS = new Set(['open', 'in_progress', 'planned', 'pending_planning', 'valued', 'blocked']);
-const RESOLVED_SLUGS = new Set(['done', 'closed', 'cancelled']);
+const RESOLVED_SLUGS = new Set(['resolved', 'done', 'closed', 'cancelled']);
 
 function computeStats(tickets: Ticket[]): Stats {
   const stats: Stats = { total: tickets.length, active: 0, resolved: 0 };
