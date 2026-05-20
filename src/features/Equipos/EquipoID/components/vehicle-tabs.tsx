@@ -218,7 +218,7 @@ export function VehicleTabs({
     },
     {
       value: 'operations',
-      label: 'Operaciones',
+      label: 'Historial de Mantenimiento',
       moduleSlug: 'mantenimiento',
       tabSlug: 'ordenes_mantenimiento',
       disabled: !showOperations,

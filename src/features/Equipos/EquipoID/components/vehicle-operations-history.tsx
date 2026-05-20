@@ -187,42 +187,40 @@ function getEquipmentOrderColumns({
         };
 
         return (
-          <TooltipProvider delayDuration={100}>
-            <div className="flex items-center gap-1">
-              {sectors.map((sector, idx) => {
-                const sStatus = getSectorStatus(sector.items);
-                const Icon = sStatus === 'completed' ? CheckCircle2 : sStatus === 'in_progress' ? Play : Circle;
-                return (
-                  <Tooltip key={sector.name + idx}>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1">
-                        {idx > 0 && <span className="text-muted-foreground text-[10px]">&rarr;</span>}
-                        <Badge
-                          variant={
-                            sStatus === 'completed' ? 'secondary' : sStatus === 'in_progress' ? 'info' : 'outline'
-                          }
-                          className={`text-[10px] gap-1 ${sStatus === 'completed' ? 'opacity-50 line-through' : ''}`}
-                        >
-                          <Icon className="h-2.5 w-2.5" />
-                          {sector.name}
-                        </Badge>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <span>
-                        {sector.name} —{' '}
-                        {sStatus === 'completed'
-                          ? 'Completado'
-                          : sStatus === 'in_progress'
-                            ? 'En progreso'
-                            : 'Pendiente'}
-                      </span>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </TooltipProvider>
+          <div className="flex items-center gap-1">
+            {sectors.map((sector, idx) => {
+              const sStatus = getSectorStatus(sector.items);
+              const Icon = sStatus === 'completed' ? CheckCircle2 : sStatus === 'in_progress' ? Play : Circle;
+              return (
+                <Tooltip key={sector.name + idx}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1">
+                      {idx > 0 && <span className="text-muted-foreground text-[10px]">&rarr;</span>}
+                      <Badge
+                        variant={
+                          sStatus === 'completed' ? 'secondary' : sStatus === 'in_progress' ? 'info' : 'outline'
+                        }
+                        className={`text-[10px] gap-1 ${sStatus === 'completed' ? 'opacity-50 line-through' : ''}`}
+                      >
+                        <Icon className="h-2.5 w-2.5" />
+                        {sector.name}
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span>
+                      {sector.name} —{' '}
+                      {sStatus === 'completed'
+                        ? 'Completado'
+                        : sStatus === 'in_progress'
+                          ? 'En progreso'
+                          : 'Pendiente'}
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
         );
       },
     },
@@ -342,7 +340,7 @@ export function VehicleOperationsHistory({ equipmentId, initialData }: VehicleOp
   }
 
   return (
-    <>
+    <TooltipProvider delayDuration={100}>
       <BaseDataTable
         columns={columns}
         data={orders || []}
@@ -382,6 +380,6 @@ export function VehicleOperationsHistory({ equipmentId, initialData }: VehicleOp
         maintenanceRequestId={historyOrder?.maintenance_requests?.id}
         title="Historial Completo"
       />
-    </>
+    </TooltipProvider>
   );
 }

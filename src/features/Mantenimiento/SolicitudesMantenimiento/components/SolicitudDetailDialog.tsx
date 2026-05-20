@@ -112,8 +112,8 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
 
           <Separator />
 
-          {/* Items (desvíos) */}
-          {request.source === 'preventive' ? (
+          {/* Tipo de mantenimiento (solo preventivo) */}
+          {request.source === 'preventive' && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Tipo de Mantenimiento</CardTitle>
@@ -129,21 +129,29 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                 </div>
               </CardContent>
             </Card>
-          ) : (
+          )}
+
+          {/* Items (desvíos / necesidades) — siempre que existan */}
+          {request.maintenance_request_items && request.maintenance_request_items.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Desvíos ({request.maintenance_request_items?.length || 0})</CardTitle>
+                <CardTitle className="text-sm">
+                  {request.source === 'preventive' ? 'Necesidades' : 'Desvíos'} (
+                  {request.maintenance_request_items.length})
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {request.maintenance_request_items?.map((item) => (
+                  {request.maintenance_request_items.map((item) => (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium">{item.checklist_deviations?.item_label || 'Sin título'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Sección: {formatSectionCode(item.checklist_deviations?.section_code)}
-                          </p>
+                          {item.checklist_deviations?.section_code && (
+                            <p className="text-sm text-muted-foreground">
+                              Sección: {formatSectionCode(item.checklist_deviations.section_code)}
+                            </p>
+                          )}
                         </div>
                         <Badge variant={itemStatusConfig[item.status]?.variant || 'secondary'}>
                           {itemStatusConfig[item.status]?.label || item.status}
@@ -171,10 +179,6 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       )}
                     </div>
                   ))}
-
-                  {(!request.maintenance_request_items || request.maintenance_request_items.length === 0) && (
-                    <p className="text-muted-foreground text-center py-4">No hay desvíos registrados</p>
-                  )}
                 </div>
               </CardContent>
             </Card>
