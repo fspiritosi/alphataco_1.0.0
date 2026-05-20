@@ -1,7 +1,7 @@
 import 'server-only';
 import { Logger } from '@/lib/logger';
 import { TaskAppError } from './errors';
-import type { CreateTicketRequest, Ticket } from './types';
+import type { Comment, CreateCommentRequest, CreateTicketRequest, Ticket, UploadResult } from './types';
 
 const logger = new Logger('shared/lib/taskapp');
 
@@ -52,10 +52,71 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+async function requestMultipart<T>(path: string, formData: FormData): Promise<T> {
+  const url = `${baseURL()}${path}`;
+  const key = apiKey();
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Project-Key': key },
+      body: formData,
+      cache: 'no-store',
+    });
+  } catch (error) {
+    logger.error('taskApp upload network error', { data: { url, error } });
+    throw new TaskAppError(0, 'network', error instanceof Error ? error.message : 'network error');
+  }
+
+  if (!res.ok) {
+    const body = await res.text();
+    logger.error('taskApp upload failed', { data: { url, status: res.status, body } });
+    throw new TaskAppError(res.status, 'http', body || res.statusText);
+  }
+
+  try {
+    return (await res.json()) as T;
+  } catch (error) {
+    logger.error('taskApp upload invalid JSON', { data: { url, error } });
+    throw new TaskAppError(res.status, 'parse', 'invalid JSON');
+  }
+}
+
 export const taskAppClient = {
   createTicket: (body: CreateTicketRequest) =>
     request<Ticket>('/tickets', { method: 'POST', body: JSON.stringify(body) }),
 
   listTicketsByReporter: (reporterEmail: string) =>
     request<Ticket[]>(`/tickets?reporter_email=${encodeURIComponent(reporterEmail)}`),
+
+  getTicketById: (id: number) =>
+    request<Ticket>(`/tickets/${id}`),
+
+  listComments: (ticketId: number) =>
+    request<Comment[]>(`/tickets/${ticketId}/comments`),
+
+  createComment: (ticketId: number, body: CreateCommentRequest) =>
+    request<Comment>(`/tickets/${ticketId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  approveTicket: (ticketId: number, approverEmail: string) =>
+    request<Ticket>(`/tickets/${ticketId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approver_email: approverEmail }),
+    }),
+
+  rejectTicket: (ticketId: number, approverEmail: string) =>
+    request<Ticket>(`/tickets/${ticketId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ approver_email: approverEmail }),
+    }),
+
+  uploadFile: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return requestMultipart<UploadResult>('/api/public/v1/upload', formData);
+  },
 };

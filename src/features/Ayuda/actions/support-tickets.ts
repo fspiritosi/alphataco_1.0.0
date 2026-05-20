@@ -18,7 +18,7 @@ export async function createSupportTicket(input: CreateSupportTicketInput): Prom
   }
 
   logger.info('Creando ticket de soporte', {
-    data: { category: input.category, email: reporter.email },
+    data: { category: input.category, priority: input.priority, email: reporter.email },
   });
 
   try {
@@ -27,6 +27,8 @@ export async function createSupportTicket(input: CreateSupportTicketInput): Prom
       description: input.description,
       reporter_email: reporter.email,
       reporter_name: reporter.name ?? undefined,
+      priority: input.priority,
+      attachments: input.attachmentKeys ?? [],
     });
   } catch (error) {
     if (error instanceof TaskAppError && error.code === 'config') {
@@ -47,4 +49,36 @@ export async function getMySupportTickets(): Promise<Ticket[]> {
     logger.error('Error listando tickets propios', { data: { error } });
     return [];
   }
+}
+
+/**
+ * Retorna el ticket si el usuario logueado es reporter o approver.
+ * Si no tiene acceso o el ticket no existe → null (sin throw, para que la UI
+ * muestre un estado "no encontrado").
+ */
+export async function getSupportTicketById(id: number): Promise<Ticket | null> {
+  const reporter = await getReporterEmail();
+  if (!reporter) {
+    logger.warn('getSupportTicketById sin usuario autenticado', { data: { id } });
+    return null;
+  }
+
+  let ticket: Ticket;
+  try {
+    ticket = await taskAppClient.getTicketById(id);
+  } catch (error) {
+    logger.error('Error obteniendo ticket', { data: { id, error } });
+    return null;
+  }
+
+  const isReporter = ticket.reporter_email === reporter.email;
+  const isApprover = ticket.approver_email === reporter.email;
+  if (!isReporter && !isApprover) {
+    logger.warn('Acceso denegado al ticket', {
+      data: { id, user: reporter.email, reporter: ticket.reporter_email, approver: ticket.approver_email },
+    });
+    return null;
+  }
+
+  return ticket;
 }

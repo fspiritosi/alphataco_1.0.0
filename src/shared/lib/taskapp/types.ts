@@ -12,15 +12,19 @@ export interface TicketLabel {
   color?: string;
 }
 
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+
 export interface Ticket {
   id: number;
   title: string;
   description: string;
   status_id: number;
   status?: TicketStatus;
-  priority: string;
+  priority: TicketPriority;
   reporter_email: string | null;
   reporter_name: string | null;
+  approver_email: string | null;
+  estimated_hours: number | null;
   attachments: string[];
   created_at: string;
   updated_at: string;
@@ -28,10 +32,29 @@ export interface Ticket {
   labels: TicketLabel[];
 }
 
+export interface Comment {
+  id: number;
+  task_id: number;
+  author_email: string | null;
+  body: string;
+  is_internal: boolean;
+  created_at: string;
+}
+
 export interface CreateTicketRequest {
   title: string;
   description: string;
   reporter_email: string;
   reporter_name?: string;
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  priority: TicketPriority;
+  attachments?: string[];
+}
+
+export interface CreateCommentRequest {
+  body: string;
+  author_email: string;
+}
+
+export interface UploadResult {
+  key: string;
 }
