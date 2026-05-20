@@ -8,10 +8,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 function Dialog({ open, ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
-  // Uncontrolled usage (open === undefined) is unaffected.
-  if (open === false) return null;
-  return <DialogPrimitive.Root data-slot="dialog" open={open} {...props} />;
+  // Force remount of the Radix Root when transitioning from open -> closed.
+  // This guarantees overlay/portal cleanup without unmounting the wrapper itself,
+  // so any internal DialogTrigger remains visible while the dialog is closed.
+  const [generation, setGeneration] = React.useState(0);
+  const prevOpenRef = React.useRef<boolean | undefined>(open);
+
+  React.useEffect(() => {
+    if (prevOpenRef.current === true && open === false) {
+      setGeneration((g) => g + 1);
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
+  return <DialogPrimitive.Root key={generation} data-slot="dialog" open={open} {...props} />;
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
