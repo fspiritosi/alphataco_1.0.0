@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { BulkDownloadBar } from '@/features/Clothing/pdf/BulkDownloadBar';
 import { clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { clothing_delivery_type } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
@@ -205,6 +206,14 @@ function DesktopDeliveriesTable({
 
   const tableQueryFn = useCallback((params: DataTableSearchParams) => getAllDeliveriesPaginated(params), []);
 
+  // ─── Bulk download — selección cross-page ─────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [clearTrigger, setClearTrigger] = useState(0);
+  const clearSelection = useCallback(() => {
+    setSelectedIds([]);
+    setClearTrigger((n) => n + 1);
+  }, []);
+
   // ─── Lazy-load facets — factories ─────────────────────────────────────────
 
   const makeEnumFetchFacet = useCallback(
@@ -333,24 +342,31 @@ function DesktopDeliveriesTable({
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-      totalRows={totalRows}
-      searchParams={searchParams}
-      paramNamespace={tableId}
-      tableId={tableId}
-      queryFn={tableQueryFn}
-      queryKey={['all-deliveries']}
-      onStateChange={handleStateChange}
-      facetedFilters={facetedFilters}
-      initialFilterVisibility={mergedFilterVisibility}
-      initialColumnVisibility={mergedColumnVisibility}
-      searchPlaceholder="Buscar en notas..."
-      showFilterToggle={true}
-      showSearch={true}
-      emptyMessage="No hay entregas registradas"
-      exportConfig={exportConfig}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={data}
+        totalRows={totalRows}
+        searchParams={searchParams}
+        paramNamespace={tableId}
+        tableId={tableId}
+        queryFn={tableQueryFn}
+        queryKey={['all-deliveries']}
+        onStateChange={handleStateChange}
+        facetedFilters={facetedFilters}
+        initialFilterVisibility={mergedFilterVisibility}
+        initialColumnVisibility={mergedColumnVisibility}
+        searchPlaceholder="Buscar en notas..."
+        showFilterToggle={true}
+        showSearch={true}
+        emptyMessage="No hay entregas registradas"
+        exportConfig={exportConfig}
+        enableRowSelection
+        showRowSelection
+        onRowSelectionIdsChange={setSelectedIds}
+        clearSelectionTrigger={clearTrigger}
+      />
+      <BulkDownloadBar selectedIds={selectedIds} onClear={clearSelection} />
+    </>
   );
 }

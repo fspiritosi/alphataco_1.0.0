@@ -1,12 +1,13 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
+import GomeriaTabContent from '@/features/Mantenimiento/Gomeria/GomeriaTabContent';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
 import MaintenanceGroupsWrapper from '@/features/Mantenimiento/TiposReparaciones/MaintenanceGroupsWrapper';
 import RepairTypeFormWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairTypeFormWrapper';
 import { WorkshopSectorsSkeleton, WorkshopViewTabContent } from '@/features/Mantenimiento/WorkshopView';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, Building2, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
+import { AlertTriangle, Building2, CircleDot, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import { OperacionesPipelineContent } from './Pipeline/OperacionesPipeline/OperacionesPipelineContent';
 import { OperacionesPipelineSkeleton } from './Pipeline/OperacionesPipeline/fallback/OperacionesPipelineSkeleton';
@@ -37,6 +38,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
       searchParams={searchParams}
       defaultTab="maint_operaciones"
       permissions={permissions}
+      dependentParams={['gomeria_tab', 'config_subtab']}
       tabs={[
         // {
         //   value: 'created_solicitudes',
@@ -162,6 +164,24 @@ export default async function MantenimientoComponent({ searchParams, permissions
           content: (
             <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
               <EquiposConDesviosTabContent />
+            </Suspense>
+          ),
+        },
+        // ============================================
+        // TAB: GOMERÍA
+        // ============================================
+        {
+          value: 'gomeria',
+          label: (
+            <span className="flex items-center gap-2">
+              <CircleDot className="h-4 w-4" /> Gomería
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'gomeria',
+          content: (
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
+              <GomeriaTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

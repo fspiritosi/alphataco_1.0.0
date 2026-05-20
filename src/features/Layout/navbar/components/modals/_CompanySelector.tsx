@@ -84,8 +84,9 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
             role="combobox"
             aria-expanded={open}
             aria-label="Selecciona una compañía"
-            className="min-w-[200px] justify-between"
+            className="min-w-50 justify-between"
           >
+            111111
             <Avatar className="mr-2 size-5">
               <AvatarImage
                 src={selectedCompany?.company_logo || ''}

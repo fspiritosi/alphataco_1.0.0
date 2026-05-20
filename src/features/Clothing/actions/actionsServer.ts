@@ -491,6 +491,85 @@ export async function getDeliveryForPdf(deliveryId: string) {
   }
 }
 
+/**
+ * Fetches data for multiple delivery receipts in a single query.
+ * Used by bulk download (ZIP of PDFs). Orders by delivered_at ascending
+ * so the generated ZIP is intuitively ordered.
+ */
+export async function getDeliveriesForPdfBulk(deliveryIds: string[]) {
+  logger.debug('Fetching deliveries for bulk PDF', { data: { count: deliveryIds.length } });
+
+  if (deliveryIds.length === 0) return [];
+
+  try {
+    const deliveries = await prisma.clothing_deliveries.findMany({
+      where: { id: { in: deliveryIds } },
+      orderBy: { delivered_at: 'asc' },
+      select: {
+        id: true,
+        delivery_type: true,
+        delivered_at: true,
+        signature_url: true,
+        notes: true,
+        clothing_delivery_items: {
+          select: {
+            quantity: true,
+            has_certificate: true,
+            clothing_items: {
+              select: { name: true, code: true, description: true },
+            },
+            clothing_brands: {
+              select: { name: true },
+            },
+            clothing_sizes: {
+              select: { name: true },
+            },
+          },
+        },
+        employees_clothing_deliveries_employee_idToemployees: {
+          select: {
+            firstname: true,
+            lastname: true,
+            document_number: true,
+            file: true,
+            cuil: true,
+            postal_code: true,
+            company_positions: {
+              select: { name: true },
+            },
+          },
+        },
+        employees_clothing_deliveries_delivered_by_idToemployees: {
+          select: {
+            firstname: true,
+            lastname: true,
+            file: true,
+          },
+        },
+        company: {
+          select: {
+            company_name: true,
+            company_cuit: true,
+            address: true,
+            company_logo: true,
+            cities: {
+              select: { name: true },
+            },
+            provinces: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return deliveries;
+  } catch (error) {
+    logger.error('Error fetching deliveries for bulk PDF', { data: { error, count: deliveryIds.length } });
+    throw error;
+  }
+}
+
 // ============================================================================
 // EXPORTED TYPES
 // ============================================================================
@@ -505,3 +584,4 @@ export type ActiveClothingBrand = Awaited<ReturnType<typeof getActiveClothingBra
 export type ActiveClothingSize = Awaited<ReturnType<typeof getActiveClothingSizes>>[number];
 
 export type DeliveryPdfData = Awaited<ReturnType<typeof getDeliveryForPdf>>;
+export type DeliveryBulkPdfData = Awaited<ReturnType<typeof getDeliveriesForPdfBulk>>[number];

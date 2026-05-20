@@ -6,8 +6,11 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+function Sheet({ open, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
+  // Uncontrolled usage (open === undefined) is unaffected.
+  if (open === false) return null;
+  return <SheetPrimitive.Root data-slot="sheet" open={open} {...props} />;
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {

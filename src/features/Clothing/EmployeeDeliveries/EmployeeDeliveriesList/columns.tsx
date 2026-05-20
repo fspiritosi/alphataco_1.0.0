@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeliveryReceiptButton } from '@/features/Clothing/pdf/DeliveryReceiptButton';
 import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
@@ -23,6 +24,31 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = ['notes'];
 
 export function getColumns(): ColumnDef<EmployeeDeliveryListItem>[] {
   return [
+    // ── select ────────────────────────────────────────────────────────────────
+    {
+      id: 'select',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Seleccionar todas las visibles"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Seleccionar entrega"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+
     // ── delivered_at ──────────────────────────────────────────────────────────
     {
       accessorKey: 'delivered_at',

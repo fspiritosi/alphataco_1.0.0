@@ -16,7 +16,7 @@ import { OrderManagementChart, type OrderChartDataPoint } from './OrderManagemen
 // Types
 // ---------------------------------------------------------------------------
 
-type Granularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
+type Granularity = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 type ActiveView = 'total' | 'confirmado' | 'pendiente' | 'rechazado' | 'cancelado';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +39,15 @@ function getBucketKey(dateStr: string, granularity: Granularity): { key: string;
     return {
       key: `week-${weekStart.format('YYYY-MM-DD')}`,
       label: `${weekStart.format('D MMM')} - ${weekEnd.format('D MMM')}`,
+    };
+  }
+
+  if (granularity === 'quarterly') {
+    const q = m.quarter();
+    const year = m.year();
+    return {
+      key: `quarter-${year}-Q${q}`,
+      label: `T${q} ${year}`,
     };
   }
 
@@ -69,6 +78,14 @@ function getDataWindow(selectedMonth: moment.Moment, granularity: Granularity): 
     return {
       start: selectedMonth.clone().subtract(5, 'months').startOf('month').format('YYYY-MM-DD'),
       end,
+    };
+  }
+
+  if (granularity === 'quarterly') {
+    // 4 trimestres (1 ano) terminando en el trimestre del mes seleccionado
+    return {
+      start: selectedMonth.clone().subtract(3, 'quarters').startOf('quarter').format('YYYY-MM-DD'),
+      end: selectedMonth.clone().endOf('quarter').format('YYYY-MM-DD'),
     };
   }
 
@@ -181,6 +198,9 @@ export function OrderManagementClient({ data }: Props) {
     } else if (granularity === 'monthly') {
       const startM = selectedMonth.clone().subtract(5, 'months');
       periodLabel = `${startM.locale('es').format('MMM YYYY')} – ${selectedMonth.clone().locale('es').format('MMM YYYY')}`;
+    } else if (granularity === 'quarterly') {
+      const startM = selectedMonth.clone().subtract(3, 'quarters');
+      periodLabel = `T${startM.quarter()} ${startM.year()} – T${selectedMonth.quarter()} ${selectedMonth.year()}`;
     } else {
       // yearly
       const startM = selectedMonth.clone().subtract(11, 'months');
@@ -306,6 +326,7 @@ export function OrderManagementClient({ data }: Props) {
                 <ToggleGroupItem value="daily">Diario</ToggleGroupItem>
                 <ToggleGroupItem value="weekly">Semanal</ToggleGroupItem>
                 <ToggleGroupItem value="monthly">Mensual</ToggleGroupItem>
+                <ToggleGroupItem value="quarterly">Trimestral</ToggleGroupItem>
                 <ToggleGroupItem value="yearly">Anual</ToggleGroupItem>
               </ToggleGroup>
 

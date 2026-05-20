@@ -63,6 +63,7 @@ interface VehicleTabsProps {
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
   operationsComponent?: React.ReactNode;
+  tiresComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;
@@ -84,6 +85,7 @@ export function VehicleTabs({
   repairsComponent,
   checklistsComponent,
   operationsComponent,
+  tiresComponent,
   typesPromise,
   subTypesPromise,
   ownersPromise,
@@ -230,6 +232,14 @@ export function VehicleTabs({
       disabled: !showChecklists,
       content: showChecklists ? <div className="space-y-4">{checklistsComponent}</div> : null,
     },
+    {
+      value: 'tires',
+      label: 'Cubiertas',
+      moduleSlug: 'equipos',
+      tabSlug: 'cubiertas-equipo',
+      disabled: mode === 'new',
+      content: tiresComponent ?? <div />,
+    },
   ] satisfies TabDefinition[];
 
   return (
@@ -238,7 +248,7 @@ export function VehicleTabs({
         paramName="tab"
         defaultTab="basicData"
         tabs={tabs}
-        listClassName="grid w-full grid-cols-7"
+        listClassName="grid w-full grid-cols-8"
         triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
       />
     </div>

@@ -13,10 +13,10 @@ import { _SidebarToggle } from './components/ui/_SidebarToggle';
  */
 function NavbarFeat() {
   return (
-    <nav className="flex flex-shrink items-center justify-end sm:justify-between dark:bg-slate-950 bg-gh text-foreground pr-4 py-4 px-7 pl-0">
+    <nav className="flex shrink items-center justify-end sm:justify-between dark:bg-slate-950 bg-gh text-foreground pr-4 py-4 px-7 pl-0">
       <div className="items-center flex gap-6">
         <_SidebarToggle />
-        <Suspense fallback={<Skeleton className="h-9 w-[220px] rounded-md" />}>
+        <Suspense fallback={<Skeleton className="h-9 w-55 rounded-md" />}>
           <CompanySelectorAsync />
         </Suspense>
       </div>
