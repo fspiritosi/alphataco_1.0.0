@@ -7,10 +7,20 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 function Sheet({ open, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
-  // Uncontrolled usage (open === undefined) is unaffected.
-  if (open === false) return null;
-  return <SheetPrimitive.Root data-slot="sheet" open={open} {...props} />;
+  // Force remount of the Radix Root when transitioning from open -> closed.
+  // This guarantees overlay/portal cleanup without unmounting the wrapper itself,
+  // so any internal SheetTrigger remains visible while the sheet is closed.
+  const [generation, setGeneration] = React.useState(0);
+  const prevOpenRef = React.useRef<boolean | undefined>(open);
+
+  React.useEffect(() => {
+    if (prevOpenRef.current === true && open === false) {
+      setGeneration((g) => g + 1);
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
+  return <SheetPrimitive.Root key={generation} data-slot="sheet" open={open} {...props} />;
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {

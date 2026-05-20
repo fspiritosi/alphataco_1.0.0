@@ -7,10 +7,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 function AlertDialog({ open, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  // Force unmount when explicitly closed to guarantee overlay/portal cleanup.
-  // Uncontrolled usage (open === undefined) is unaffected.
-  if (open === false) return null;
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" open={open} {...props} />;
+  // Force remount of the Radix Root when transitioning from open -> closed.
+  // This guarantees overlay/portal cleanup without unmounting the wrapper itself,
+  // so any internal AlertDialogTrigger remains visible while the dialog is closed.
+  const [generation, setGeneration] = React.useState(0);
+  const prevOpenRef = React.useRef<boolean | undefined>(open);
+
+  React.useEffect(() => {
+    if (prevOpenRef.current === true && open === false) {
+      setGeneration((g) => g + 1);
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
+  return <AlertDialogPrimitive.Root key={generation} data-slot="alert-dialog" open={open} {...props} />;
 }
 
 function AlertDialogTrigger({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
