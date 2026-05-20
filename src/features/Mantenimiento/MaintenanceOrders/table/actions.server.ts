@@ -82,6 +82,7 @@ const MAINTENANCE_ORDERS_SELECT = {
       assigned_sector_id: true,
       sector_sequence_order: true,
       is_diagnostico: true,
+      description: true,
       workshop_sectors: {
         select: { id: true, name: true },
       },

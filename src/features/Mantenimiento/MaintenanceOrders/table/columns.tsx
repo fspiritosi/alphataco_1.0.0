@@ -161,6 +161,29 @@ export function getMaintenanceOrdersColumns({
       },
     },
 
+    // ── Necesidades (descripciones de los items no-diagnóstico) ────────────
+    {
+      id: 'descriptions',
+      accessorFn: (row) =>
+        (row.maintenance_order_items ?? [])
+          .filter((i) => !i.is_diagnostico && i.description)
+          .map((i) => i.description)
+          .join(' • '),
+      meta: { title: 'Necesidades' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Necesidades" />,
+      cell: ({ row }) => {
+        const items = (row.original.maintenance_order_items ?? []).filter((i) => !i.is_diagnostico && i.description);
+        if (items.length === 0) return <span className="text-muted-foreground text-sm">—</span>;
+        const text = items.map((i) => i.description).join(' • ');
+        return (
+          <span className="line-clamp-2 max-w-xs text-sm" title={text}>
+            {text}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+
     // ── Sector actual (calculado desde items) ──────────────────────────────
     {
       id: 'currentSector',

@@ -67,8 +67,8 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
 
           <Separator />
 
-          {/* Items a reparar */}
-          {operation.maintenance_requests?.source === 'preventive' ? (
+          {/* Tipo de mantenimiento (solo preventivo) */}
+          {operation.maintenance_requests?.source === 'preventive' && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Tipo de Mantenimiento</CardTitle>
@@ -84,16 +84,20 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                 </div>
               </CardContent>
             </Card>
-          ) : (
+          )}
+
+          {/* Items / Necesidades — siempre que existan */}
+          {operation.maintenance_order_items && operation.maintenance_order_items.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">
-                  Items a Reparar ({operation.maintenance_order_items?.length || 0})
+                  {operation.maintenance_requests?.source === 'preventive' ? 'Necesidades' : 'Items a Reparar'} (
+                  {operation.maintenance_order_items.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {operation.maintenance_order_items?.map((item) => {
+                  {operation.maintenance_order_items.map((item) => {
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
                     const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
@@ -103,16 +107,17 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                           ? [item.types_of_repairs.name]
                           : [];
 
+                    const itemLabel = item.maintenance_request_items?.checklist_deviations?.item_label;
+                    const sectionCode = item.maintenance_request_items?.checklist_deviations?.section_code;
+
                     return (
                       <div key={item.id} className="p-3 border rounded-lg space-y-2">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-medium">
-                              {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
-                            </p>
+                            <p className="font-medium">{itemLabel || 'Sin título'}</p>
+                            {sectionCode && (
+                              <p className="text-sm text-muted-foreground">Sección: {sectionCode}</p>
+                            )}
                             <ItemComments
                               item={item}
                               source={operation.maintenance_requests?.source}
@@ -135,10 +140,6 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                       </div>
                     );
                   })}
-
-                  {(!operation.maintenance_order_items || operation.maintenance_order_items.length === 0) && (
-                    <p className="text-muted-foreground text-center py-4">No hay items registrados</p>
-                  )}
                 </div>
               </CardContent>
             </Card>
