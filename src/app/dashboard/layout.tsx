@@ -1,3 +1,4 @@
+import { SupportTicketsRealtimeProvider } from '@/features/Ayuda/components/SupportTicketsRealtimeProvider';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
 import { PasswordChangeAlertWrapper } from '@/shared/components/auth/PasswordChangeAlertWrapper';
@@ -22,10 +23,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
       <div className="min-h-0 overflow-y-auto">
         <TanstackQueryInicializador>
-          <Suspense fallback={null}>
-            <PasswordChangeAlertWrapper />
-          </Suspense>
-          <div className="px-6 pb-4">{children}</div>
+          <SupportTicketsRealtimeProvider>
+            <Suspense fallback={null}>
+              <PasswordChangeAlertWrapper />
+            </Suspense>
+            <div className="px-6 pb-4">{children}</div>
+          </SupportTicketsRealtimeProvider>
         </TanstackQueryInicializador>
       </div>
     </div>

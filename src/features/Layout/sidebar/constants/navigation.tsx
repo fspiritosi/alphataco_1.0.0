@@ -20,6 +20,8 @@ export type NavigationLink = {
   href: string;
   icon: JSX.Element;
   position: number;
+  // Conteo opcional para mostrar como badge en el sidebar (ej: tickets sin leer).
+  badgeCount?: number;
 };
 
 export const navigationLinks: NavigationLink[] = [

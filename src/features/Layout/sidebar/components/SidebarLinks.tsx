@@ -32,7 +32,13 @@ export function SidebarLinks({ accessibleModules }: SidebarProps) {
   return (
     <ul className="mt-[27px]">
       {filteredLinks.map((link) => (
-        <SidebarLink key={link.name} link={link} isActive={link.name === activeLink} isCollapsed={isActiveSidebar} />
+        <SidebarLink
+          key={link.name}
+          link={link}
+          isActive={link.name === activeLink}
+          isCollapsed={isActiveSidebar}
+          badgeCount={link.badgeCount}
+        />
       ))}
     </ul>
   );

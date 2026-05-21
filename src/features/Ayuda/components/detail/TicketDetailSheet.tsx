@@ -4,7 +4,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Ticket } from '@/shared/lib/taskapp/types';
 import { Inbox } from 'lucide-react';
+import { useEffect } from 'react';
 import { TicketDetailSheetSkeleton } from '../../fallback/TicketDetailSheetSkeleton';
+import { useMarkTicketAsReadMutation } from '../../hooks/useMarkTicketAsReadMutation';
 import { useTicketDetail } from '../../hooks/useTicketDetail';
 import { TicketApprovalBanner } from './TicketApprovalBanner';
 import { TicketDetailBody } from './TicketDetailBody';
@@ -28,6 +30,15 @@ export default function TicketDetailSheet({
   const open = ticketId != null;
   const initial = initialTicket && initialTicket.id === ticketId ? initialTicket : null;
   const { data: ticket, isLoading } = useTicketDetail(ticketId, initial);
+  const markAsReadMutation = useMarkTicketAsReadMutation();
+
+  // Marcar el ticket como leido cuando se abre el sheet (fire-and-forget)
+  useEffect(() => {
+    if (ticketId != null) {
+      markAsReadMutation.mutate(ticketId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>

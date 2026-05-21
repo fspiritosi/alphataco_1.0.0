@@ -58,3 +58,18 @@ export interface CreateCommentRequest {
 export interface UploadResult {
   key: string;
 }
+
+export type TaskAppRealtimeEvent =
+  | { type: 'connected' }
+  | { type: 'ticket.updated'; ticket_id: number }
+  | { type: 'comment.created'; ticket_id: number };
+
+export interface TicketUnreadState {
+  hasStatusChange: boolean;
+  hasNewAgentComment: boolean;
+  lastSeenAt: string | null;
+}
+
+export type TicketWithUnread = Ticket & {
+  unread: TicketUnreadState;
+};

@@ -7,9 +7,8 @@ import { CheckCircle2, Clock, HelpCircle, Inbox, Loader2, RefreshCcw } from 'luc
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Ticket } from '@/shared/lib/taskapp/types';
-import { useMyTickets } from '../hooks/useMyTickets';
-import type { MyTicketsData } from '../types';
+import type { Ticket, TicketWithUnread } from '@/shared/lib/taskapp/types';
+import { useMyTicketsWithUnread } from '../hooks/useMyTicketsWithUnread';
 import { MyTicketsList } from './MyTicketsList';
 import { TicketForm } from './TicketForm';
 
@@ -24,7 +23,7 @@ interface Stats {
 const ACTIVE_SLUGS = new Set(['open', 'in_progress', 'planned', 'pending_planning', 'valued', 'blocked']);
 const RESOLVED_SLUGS = new Set(['resolved', 'done', 'closed', 'cancelled']);
 
-function computeStats(tickets: Ticket[]): Stats {
+function computeStats(tickets: TicketWithUnread[]): Stats {
   const stats: Stats = { total: tickets.length, active: 0, resolved: 0 };
   for (const t of tickets) {
     const slug = t.status?.slug;
@@ -35,7 +34,7 @@ function computeStats(tickets: Ticket[]): Stats {
 }
 
 interface Props {
-  initialTickets: MyTicketsData;
+  initialTickets: TicketWithUnread[];
   initialTicket: Ticket | null;
   initialTicketId: number | null;
   currentUserEmail: string;
@@ -50,7 +49,7 @@ export function HelpCenter({
   currentUserName,
 }: Props) {
   const searchParams = useSearchParams();
-  const { data: tickets = [], isFetching, refetch } = useMyTickets(initialTickets);
+  const { data: tickets = [], isFetching, refetch } = useMyTicketsWithUnread(initialTickets);
   const stats = useMemo(() => computeStats(tickets), [tickets]);
 
   // Estado local para apertura instantánea del Sheet — mismo patrón que TabsManagerClient.

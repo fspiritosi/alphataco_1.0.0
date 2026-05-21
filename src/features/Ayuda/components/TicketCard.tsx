@@ -4,13 +4,13 @@ import { Card } from '@/components/ui/card';
 import { Clock, Tag } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/es';
-import type { Ticket } from '@/shared/lib/taskapp/types';
+import type { TicketWithUnread } from '@/shared/lib/taskapp/types';
 import { parseCategoryFromTitle } from '../constants/categories';
 import { statusFor } from '../constants/ticket-status';
 import { TicketPriorityBadge } from './TicketPriorityBadge';
 
 interface Props {
-  ticket: Ticket;
+  ticket: TicketWithUnread;
   onClick: (id: number) => void;
   isActive?: boolean;
 }
@@ -20,6 +20,15 @@ export function TicketCard({ ticket, onClick, isActive }: Props) {
   const status = statusFor(ticket.status?.slug, ticket.status?.name);
   const CategoryIcon = categoryDef?.icon ?? Tag;
   const isPulsing = ticket.status?.slug === 'in_progress' || ticket.status?.slug === 'open';
+
+  // Microcopy y dot de no leídos: priorizamos "Nueva respuesta" sobre "Cambio de estado"
+  const microcopy = ticket.unread.hasNewAgentComment
+    ? 'Nueva respuesta'
+    : ticket.unread.hasStatusChange
+      ? 'Cambio de estado'
+      : null;
+
+  const hasUnread = ticket.unread.hasStatusChange || ticket.unread.hasNewAgentComment;
 
   return (
     <Card
@@ -39,6 +48,18 @@ export function TicketCard({ ticket, onClick, isActive }: Props) {
                   animate-in fade-in-50 slide-in-from-top-2
                   ${isActive ? 'ring-2 ring-primary/40 shadow-md -translate-y-0.5' : ''}`}
     >
+      {hasUnread && (
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2" aria-hidden="true">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+          </span>
+          {microcopy && (
+            <span className="text-xs font-medium text-primary">{microcopy}</span>
+          )}
+        </div>
+      )}
+
       <div
         aria-hidden
         className={`pointer-events-none absolute top-0 right-0 h-24 w-32 bg-gradient-to-bl ${status.tintClass} to-transparent opacity-60`}

@@ -3,14 +3,14 @@
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Ticket } from '@/shared/lib/taskapp/types';
+import type { TicketWithUnread } from '@/shared/lib/taskapp/types';
 import { EmptyTicketsState } from './EmptyTicketsState';
 import { TicketCard } from './TicketCard';
 
 const PAGE_SIZE = 10;
 
 interface Props {
-  tickets: Ticket[];
+  tickets: TicketWithUnread[];
   activeTicketId: number | null;
   onSelect: (id: number) => void;
 }

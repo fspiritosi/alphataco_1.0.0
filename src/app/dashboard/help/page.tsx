@@ -1,5 +1,5 @@
 import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
-import { getMySupportTickets, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
+import { getMyTicketsWithUnread, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
 import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
@@ -37,7 +37,7 @@ export default async function HelpPage({ searchParams }: Props) {
   const ticketId = rawId != null && Number.isFinite(rawId) ? rawId : null;
 
   const [initialTickets, initialTicket, reporter] = await Promise.all([
-    getMySupportTickets(),
+    getMyTicketsWithUnread(),
     ticketId != null ? getSupportTicketById(ticketId) : Promise.resolve(null),
     getReporterEmail(),
   ]);
