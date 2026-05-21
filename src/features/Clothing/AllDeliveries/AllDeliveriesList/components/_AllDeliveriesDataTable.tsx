@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { BulkDownloadBar } from '@/features/Clothing/pdf/BulkDownloadBar';
 import { clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import { clothing_delivery_type } from '@/generated/prisma/enums';
@@ -11,9 +12,10 @@ import {
   type DataTableSearchParams,
   type FacetResult,
 } from '@/shared/components/common/DataTable';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -91,37 +93,92 @@ function MobileDeliveryList({
   initialTotal: number;
 }) {
   const [pageIndex, setPageIndex] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput.trim(), 500);
+  const hasSearch = debouncedSearch.length > 0;
+  // Pendiente: el usuario tipeó pero el debounce todavía no se aplicó
+  const isDebouncing = searchInput.trim() !== debouncedSearch;
 
-  const { data: result } = useQuery({
-    queryKey: ['all-deliveries-mobile', pageIndex],
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    setPageIndex(0);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchInput('');
+    setPageIndex(0);
+  }, []);
+
+  const { data: result, isFetching } = useQuery({
+    queryKey: ['all-deliveries-mobile', pageIndex, debouncedSearch],
     queryFn: () =>
       getAllDeliveriesPaginated({
         page: String(pageIndex + 1),
-        per_page: String(MOBILE_PAGE_SIZE),
+        pageSize: String(MOBILE_PAGE_SIZE),
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
       }),
-    initialData: pageIndex === 0 ? { data: initialData, total: initialTotal } : undefined,
+    initialData: pageIndex === 0 && !debouncedSearch ? { data: initialData, total: initialTotal } : undefined,
     staleTime: 30_000,
   });
 
-  const items = result?.data ?? initialData;
-  const total = result?.total ?? initialTotal;
+  const showSpinner = (isDebouncing || isFetching) && searchInput.length > 0;
+
+  const items = result?.data ?? [];
+  const total = result?.total ?? 0;
   const totalPages = Math.ceil(total / MOBILE_PAGE_SIZE);
   const canPrev = pageIndex > 0;
   const canNext = pageIndex < totalPages - 1;
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total} entrega{total !== 1 ? 's' : ''}
-        </p>
+      {/* Search */}
+      <div className="relative">
+        {showSpinner ? (
+          <Loader2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />
+        ) : (
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
+        <Input
+          type="search"
+          inputMode="search"
+          placeholder="Buscar por nombre del empleado..."
+          value={searchInput}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="pl-9 pr-9"
+          aria-label="Buscar entregas por nombre del empleado"
+        />
+        {searchInput && !showSpinner && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            aria-label="Limpiar búsqueda"
+            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {/* Counter */}
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        {showSpinner ? (
+          'Buscando…'
+        ) : hasSearch ? (
+          <>
+            {total} resultado{total !== 1 ? 's' : ''} para{' '}
+            <span className="font-medium text-foreground">&ldquo;{debouncedSearch}&rdquo;</span>
+          </>
+        ) : (
+          <>
+            {total} entrega{total !== 1 ? 's' : ''}
+          </>
+        )}
+      </p>
 
       {/* Cards */}
       {items.length === 0 ? (
         <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
-          No hay entregas registradas
+          {hasSearch ? 'No se encontraron entregas con ese nombre' : 'No hay entregas registradas'}
         </div>
       ) : (
         <div className="space-y-3">
@@ -356,7 +413,7 @@ function DesktopDeliveriesTable({
         facetedFilters={facetedFilters}
         initialFilterVisibility={mergedFilterVisibility}
         initialColumnVisibility={mergedColumnVisibility}
-        searchPlaceholder="Buscar en notas..."
+        searchPlaceholder="Buscar por nombre del empleado o notas..."
         showFilterToggle={true}
         showSearch={true}
         emptyMessage="No hay entregas registradas"
