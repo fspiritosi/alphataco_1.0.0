@@ -15,7 +15,7 @@ import {
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -94,8 +94,10 @@ function MobileDeliveryList({
 }) {
   const [pageIndex, setPageIndex] = useState(0);
   const [searchInput, setSearchInput] = useState('');
-  const debouncedSearch = useDebounce(searchInput.trim(), 300);
+  const debouncedSearch = useDebounce(searchInput.trim(), 500);
   const hasSearch = debouncedSearch.length > 0;
+  // Pendiente: el usuario tipeó pero el debounce todavía no se aplicó
+  const isDebouncing = searchInput.trim() !== debouncedSearch;
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -112,12 +114,14 @@ function MobileDeliveryList({
     queryFn: () =>
       getAllDeliveriesPaginated({
         page: String(pageIndex + 1),
-        per_page: String(MOBILE_PAGE_SIZE),
+        pageSize: String(MOBILE_PAGE_SIZE),
         ...(debouncedSearch ? { search: debouncedSearch } : {}),
       }),
     initialData: pageIndex === 0 && !debouncedSearch ? { data: initialData, total: initialTotal } : undefined,
     staleTime: 30_000,
   });
+
+  const showSpinner = (isDebouncing || isFetching) && searchInput.length > 0;
 
   const items = result?.data ?? [];
   const total = result?.total ?? 0;
@@ -129,7 +133,11 @@ function MobileDeliveryList({
     <div className="space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {showSpinner ? (
+          <Loader2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />
+        ) : (
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
         <Input
           type="search"
           inputMode="search"
@@ -139,7 +147,7 @@ function MobileDeliveryList({
           className="pl-9 pr-9"
           aria-label="Buscar entregas por nombre del empleado"
         />
-        {searchInput && (
+        {searchInput && !showSpinner && (
           <button
             type="button"
             onClick={clearSearch}
@@ -152,9 +160,9 @@ function MobileDeliveryList({
       </div>
 
       {/* Counter */}
-      <p className="text-sm text-muted-foreground">
-        {isFetching && hasSearch ? (
-          'Buscando...'
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        {showSpinner ? (
+          'Buscando…'
         ) : hasSearch ? (
           <>
             {total} resultado{total !== 1 ? 's' : ''} para{' '}
