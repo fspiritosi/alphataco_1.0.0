@@ -5,7 +5,6 @@ import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
-  buildSearchWhere,
   buildTextFiltersWhere,
   NULL_FILTER_VALUE,
   parseSearchParams,
@@ -97,7 +96,20 @@ const DELIVERY_SELECT = {
 
 /** Construye el WHERE clause compartido entre paginated, export y facets. */
 function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
-  const searchWhere = buildSearchWhere(state.search, ['notes']);
+  // Búsqueda global: notas + nombre completo del empleado destinatario
+  const searchTerm = state.search?.trim();
+  const searchWhere: Record<string, unknown> = searchTerm
+    ? {
+        OR: [
+          { notes: { contains: searchTerm, mode: 'insensitive' as const } },
+          {
+            employees_clothing_deliveries_employee_idToemployees: {
+              full_name: { contains: searchTerm, mode: 'insensitive' as const },
+            },
+          },
+        ],
+      }
+    : {};
 
   const filtersWhere = buildFiltersWhere(state.filters, {}, { exclude: MANUALLY_HANDLED_COLUMNS });
 
