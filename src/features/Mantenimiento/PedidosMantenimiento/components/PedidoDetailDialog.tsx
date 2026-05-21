@@ -125,15 +125,15 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
 
         <Separator />
 
-        {/* ── Items a reparar ──────────────────────────────────────────── */}
-        {order.maintenance_requests?.source === 'preventive' ? (
+        {/* ── Tipo de mantenimiento (solo preventivo) ─────────────────── */}
+        {order.maintenance_requests?.source === 'preventive' && (
           <>
             <div className="px-6 pt-3 pb-1">
               <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
                 Tipo de mantenimiento
               </h3>
             </div>
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-3">
               <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
                 <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
                 <Badge variant="secondary">
@@ -144,11 +144,14 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
               </div>
             </div>
           </>
-        ) : (
+        )}
+
+        {/* ── Items / Necesidades — siempre que existan ────────────────── */}
+        {itemCount > 0 && (
           <>
             <div className="px-6 pt-3 pb-1">
               <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-                Items a reparar
+                {order.maintenance_requests?.source === 'preventive' ? 'Necesidades' : 'Items a reparar'}
                 <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
               </h3>
             </div>
@@ -164,6 +167,9 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         ? [item.types_of_repairs.name]
                         : [];
 
+                  const itemLabel = item.maintenance_request_items?.checklist_deviations?.item_label;
+                  const sectionCode = item.maintenance_request_items?.checklist_deviations?.section_code;
+
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between gap-2">
@@ -172,12 +178,10 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                             #{index + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-medium leading-snug">
-                              {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
-                            </p>
+                            <p className="font-medium leading-snug">{itemLabel || 'Sin título'}</p>
+                            {sectionCode && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{formatSectionCode(sectionCode)}</p>
+                            )}
                           </div>
                         </div>
                         {repairTypeNames.length > 0 && (
@@ -201,10 +205,6 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                     </div>
                   );
                 })}
-
-                {itemCount === 0 && (
-                  <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
-                )}
               </div>
             </ScrollArea>
           </>
