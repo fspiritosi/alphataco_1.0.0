@@ -62,9 +62,9 @@ export function MyTicketsList({ tickets, activeTicketId, onSelect }: Props) {
     <div className="space-y-4">
       <div
         ref={listRef}
-        // Padding generoso + margenes negativos compensatorios para que la sombra del hover
-        // y el border-l-4 de las cards no se vean cortados por overflow-y-auto.
-        className="flex flex-col gap-3 max-h-[65vh] overflow-y-auto px-3 py-2 -mx-3 -my-2"
+        // px-1 da espacio para la sombra del hover sin chocar con el scrollbar.
+        // pb-3 evita que la última card aparezca pegada al borde inferior del Card padre.
+        className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto px-1 pb-3"
       >
         {visible.map((t) => (
           <TicketCard
