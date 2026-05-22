@@ -62,7 +62,9 @@ export function MyTicketsList({ tickets, activeTicketId, onSelect }: Props) {
     <div className="space-y-4">
       <div
         ref={listRef}
-        className="flex flex-col gap-3 max-h-[65vh] overflow-y-auto pr-1 -mr-1"
+        // Padding generoso + margenes negativos compensatorios para que la sombra del hover
+        // y el border-l-4 de las cards no se vean cortados por overflow-y-auto.
+        className="flex flex-col gap-3 max-h-[65vh] overflow-y-auto px-3 py-2 -mx-3 -my-2"
       >
         {visible.map((t) => (
           <TicketCard
