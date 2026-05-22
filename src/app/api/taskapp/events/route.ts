@@ -2,9 +2,6 @@ import { NextRequest } from 'next/server';
 import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
 import { Logger } from '@/lib/logger';
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 const logger = new Logger('api/taskapp/events');
 
 export async function GET(req: NextRequest) {

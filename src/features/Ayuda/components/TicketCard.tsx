@@ -21,11 +21,11 @@ export function TicketCard({ ticket, onClick, isActive }: Props) {
   const CategoryIcon = categoryDef?.icon ?? Tag;
   const isPulsing = ticket.status?.slug === 'in_progress' || ticket.status?.slug === 'open';
 
-  // Microcopy y dot de no leídos: priorizamos "Nueva respuesta" sobre "Cambio de estado"
+  // Microcopy y dot de no leídos: priorizamos respuesta del agente sobre cambio de estado
   const microcopy = ticket.unread.hasNewAgentComment
-    ? 'Nueva respuesta'
+    ? 'Te respondieron'
     : ticket.unread.hasStatusChange
-      ? 'Cambio de estado'
+      ? 'Estado actualizado'
       : null;
 
   const hasUnread = ticket.unread.hasStatusChange || ticket.unread.hasNewAgentComment;
@@ -48,18 +48,6 @@ export function TicketCard({ ticket, onClick, isActive }: Props) {
                   animate-in fade-in-50 slide-in-from-top-2
                   ${isActive ? 'ring-2 ring-primary/40 shadow-md -translate-y-0.5' : ''}`}
     >
-      {hasUnread && (
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2" aria-hidden="true">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-          </span>
-          {microcopy && (
-            <span className="text-xs font-medium text-primary">{microcopy}</span>
-          )}
-        </div>
-      )}
-
       <div
         aria-hidden
         className={`pointer-events-none absolute top-0 right-0 h-24 w-32 bg-gradient-to-bl ${status.tintClass} to-transparent opacity-60`}
@@ -79,7 +67,18 @@ export function TicketCard({ ticket, onClick, isActive }: Props) {
           ) : (
             <span aria-hidden />
           )}
-          <TicketPriorityBadge slug={ticket.priority} />
+          <div className="flex items-center gap-2 shrink-0">
+            {hasUnread && microcopy && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                </span>
+                {microcopy}
+              </span>
+            )}
+            <TicketPriorityBadge slug={ticket.priority} />
+          </div>
         </div>
 
         <div className="space-y-1.5">
