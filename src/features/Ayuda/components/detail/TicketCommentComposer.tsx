@@ -91,7 +91,9 @@ export function TicketCommentComposer({ ticketId, currentUserEmail }: Props) {
       // 1. Subir archivos en paralelo
       let uploadedKeys: string[] = [];
       if (filesToSend.length > 0) {
-        const results = await Promise.all(filesToSend.map((p) => uploadMutation.mutateAsync(p.file)));
+        const results = await Promise.all(
+          filesToSend.map((p) => uploadMutation.mutateAsync({ file: p.file, ticketId }))
+        );
         uploadedKeys = results.map((r) => r.key);
         // 2. Asociar las keys al ticket
         await appendSupportTicketAttachments(ticketId, uploadedKeys);

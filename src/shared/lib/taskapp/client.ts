@@ -120,9 +120,13 @@ export const taskAppClient = {
       body: JSON.stringify({ reporter_email: reporterEmail, keys }),
     }),
 
-  uploadFile: (file: File) => {
+  uploadFile: (file: File, ticketId?: number) => {
     const formData = new FormData();
     formData.append('file', file);
-    return requestMultipart<UploadResult>('/api/public/v1/upload', formData);
+    const path =
+      ticketId != null
+        ? `/api/public/v1/upload?ticket_id=${ticketId}`
+        : '/api/public/v1/upload';
+    return requestMultipart<UploadResult>(path, formData);
   },
 };

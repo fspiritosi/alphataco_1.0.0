@@ -82,7 +82,10 @@ export function TicketForm() {
     try {
       const attachmentKeys: string[] = [];
       for (const file of files) {
-        const { key } = await uploadAttachment.mutateAsync(file);
+        // El ticket todavia no existe aca, asi que no pasamos ticketId.
+        // El archivo queda en <project_slug>/<uuid>.<ext> y se asocia al
+        // ticket recien al hacer createTicket.
+        const { key } = await uploadAttachment.mutateAsync({ file });
         attachmentKeys.push(key);
       }
 

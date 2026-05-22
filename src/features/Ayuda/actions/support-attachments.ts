@@ -29,13 +29,20 @@ export async function uploadSupportTicketAttachment(formData: FormData): Promise
     throw new Error('Formato no permitido. Solo imagen o PDF.');
   }
 
+  // ticket_id es opcional: cuando se envia desde el composer de un ticket
+  // existente, el archivo queda en <project_slug>/ticket-<id>/. Si no, queda
+  // en <project_slug>/ (caso del form de creacion del ticket).
+  const rawTicketId = formData.get('ticket_id');
+  const ticketId =
+    typeof rawTicketId === 'string' && /^\d+$/.test(rawTicketId) ? Number(rawTicketId) : undefined;
+
   try {
-    return await taskAppClient.uploadFile(raw);
+    return await taskAppClient.uploadFile(raw, ticketId);
   } catch (error) {
     if (error instanceof TaskAppError && error.code === 'config') {
       throw new Error('El servicio de soporte no está configurado');
     }
-    logger.error('Error subiendo adjunto', { data: { name: raw.name, size: raw.size, error } });
+    logger.error('Error subiendo adjunto', { data: { name: raw.name, size: raw.size, ticketId, error } });
     throw new Error('No pudimos subir el archivo. Probá de nuevo.');
   }
 }
