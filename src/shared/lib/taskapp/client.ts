@@ -114,6 +114,12 @@ export const taskAppClient = {
       body: JSON.stringify({ approver_email: approverEmail }),
     }),
 
+  attachToTicket: (ticketId: number, reporterEmail: string, keys: string[]) =>
+    request<Ticket>(`/tickets/${ticketId}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify({ reporter_email: reporterEmail, keys }),
+    }),
+
   uploadFile: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

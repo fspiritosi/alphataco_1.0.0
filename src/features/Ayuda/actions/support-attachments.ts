@@ -39,3 +39,28 @@ export async function uploadSupportTicketAttachment(formData: FormData): Promise
     throw new Error('No pudimos subir el archivo. Probá de nuevo.');
   }
 }
+
+/**
+ * Asocia archivos ya subidos (storage keys) a un ticket existente del reporter actual.
+ * El backend valida que el reporter sea el dueno del ticket y deduplica las keys.
+ */
+export async function appendSupportTicketAttachments(
+  ticketId: number,
+  keys: string[]
+): Promise<void> {
+  if (keys.length === 0) return;
+  const reporter = await getReporterEmail();
+  if (!reporter) throw new Error('No hay usuario autenticado');
+
+  try {
+    await taskAppClient.attachToTicket(ticketId, reporter.email, keys);
+  } catch (error) {
+    if (error instanceof TaskAppError && error.code === 'config') {
+      throw new Error('El servicio de soporte no está configurado');
+    }
+    logger.error('Error asociando adjuntos al ticket', {
+      data: { ticketId, count: keys.length, error },
+    });
+    throw new Error('No pudimos adjuntar los archivos al ticket');
+  }
+}
