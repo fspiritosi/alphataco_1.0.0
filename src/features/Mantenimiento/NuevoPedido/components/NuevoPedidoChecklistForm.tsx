@@ -93,6 +93,7 @@ export function NuevoPedidoChecklistForm({
   // Tipo de pedido
   const [requestType, setRequestType] = useState<'checklist' | 'preventive'>('checklist');
   const [selectedPreventiveType, setSelectedPreventiveType] = useState<PreventiveType | ''>('');
+  const [preventiveDescription, setPreventiveDescription] = useState<string>('');
 
   // Paso 1: Selección de equipo
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(default_equipment_id || '');
@@ -275,6 +276,7 @@ export function NuevoPedidoChecklistForm({
       setRequestType(type);
       setSelectedTemplateId('');
       setSelectedPreventiveType('');
+      setPreventiveDescription('');
       setSelectedDeviations([]);
       setDeviationComments({});
       setManualItems([]);
@@ -332,6 +334,7 @@ export function NuevoPedidoChecklistForm({
             source: 'preventive',
             preventiveType: selectedPreventiveType as PreventiveType,
             driverEmployeeId: driverEmployeeId || undefined,
+            description: preventiveDescription.trim() || undefined,
           });
         } else {
           // Actualizar comentarios en los desvíos antes de enviar
@@ -364,6 +367,7 @@ export function NuevoPedidoChecklistForm({
             engine_hours: engineHours || undefined,
             source: 'preventive',
             preventiveType: selectedPreventiveType as PreventiveType,
+            description: preventiveDescription.trim() || undefined,
           });
         } else {
           // Actualizar comentarios en los desvíos antes de enviar
@@ -400,6 +404,7 @@ export function NuevoPedidoChecklistForm({
       setSelectedSupervisorId('');
       setIsCurrentUserSupervisor(skipSupervisorQuestion ? false : null);
       setSelectedPreventiveType('');
+      setPreventiveDescription('');
       setRequestType('checklist');
 
       router.refresh();
@@ -679,6 +684,17 @@ export function NuevoPedidoChecklistForm({
                 </Card>
               );
             })}
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="preventive-description">Descripción (opcional)</Label>
+            <Textarea
+              id="preventive-description"
+              placeholder="Agrega detalles del mantenimiento preventivo (motivo, observaciones, etc.)"
+              value={preventiveDescription}
+              onChange={(e) => setPreventiveDescription(e.target.value)}
+              rows={3}
+            />
           </div>
         </div>
       )}
@@ -1022,6 +1038,12 @@ export function NuevoPedidoChecklistForm({
                     </div>
                   </CardContent>
                 </Card>
+              )}
+              {preventiveDescription.trim() && (
+                <div className="space-y-1 pt-1">
+                  <p className="text-xs font-medium text-muted-foreground">Descripción</p>
+                  <p className="text-sm whitespace-pre-line">{preventiveDescription.trim()}</p>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -294,6 +294,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
   driverEmployeeId?: string;
   /** Ítems manuales (texto libre, no del template) */
   manualItems?: Array<{ label: string }>;
+  /** Descripción libre del pedido (utilizada cuando el origen es preventivo) */
+  description?: string;
 }) {
   serverLogger.info('Creando pedido desde Nuevo Pedido', {
     data: {
@@ -328,6 +330,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
           kilometer: input.kilometer ?? null,
           source: 'preventive',
           preventive_type: input.preventiveType!,
+          description: input.description?.trim() || null,
         },
       });
 
@@ -644,6 +647,8 @@ export async function createMaintenanceRequestPendingApproval(input: {
   driverEmployeeId?: string;
   /** Ítems manuales (texto libre, no del template) */
   manualItems?: Array<{ label: string }>;
+  /** Descripción libre de la solicitud (utilizada cuando el origen es preventivo) */
+  description?: string;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento pendiente de aprobación', {
     data: {
@@ -676,6 +681,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
           kilometer: input.kilometer ?? null,
           source: 'preventive',
           preventive_type: input.preventiveType!,
+          description: input.description?.trim() || null,
         },
       });
 
