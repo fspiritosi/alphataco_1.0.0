@@ -1,5 +1,6 @@
 'use server';
 
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
@@ -289,6 +290,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
   kilometer?: string;
   engine_hours?: string;
   deviations?: CreateDeviationFromNuevoPedido[];
+  /** ID del template del checklist desde donde se eligieron los desvíos. Usado para detectar items no-propagables. */
+  templateId?: string;
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
@@ -485,15 +488,37 @@ export async function createMaintenanceOrderFromDeviations(input: {
       },
     });
 
-    // 5. Crear maintenance_order_items vinculados a request_items
-    await tx.maintenance_order_items.createMany({
-      data: requestItems.map((ri, idx) => ({
-        maintenance_order_id: order.id,
-        maintenance_request_item_id: ri.id,
-        description: deviations[idx]?.comment ?? null,
-        is_critical: deviations[idx]?.isCritical ?? false,
-      })),
-    });
+    // 5. Crear maintenance_order_items vinculados a request_items.
+    //    Filtramos los items "no propagables" (matriz checklist × item): los desvíos
+    //    quedan creados como registro pero no generan trabajo de taller.
+    const propagatingOrderItems = requestItems
+      .map((ri, idx) => {
+        const itemCode = deviations[idx]?.itemCode ?? null;
+        const isNonPropagating = isNonPropagatingChecklistItem(input.templateId ?? null, itemCode);
+        return isNonPropagating
+          ? null
+          : {
+              maintenance_order_id: order.id,
+              maintenance_request_item_id: ri.id,
+              description: deviations[idx]?.comment ?? null,
+              is_critical: deviations[idx]?.isCritical ?? false,
+            };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null);
+
+    if (propagatingOrderItems.length < requestItems.length) {
+      serverLogger.info('Filtrando items no propagables al crear pedido (Nuevo Pedido / supervisor)', {
+        data: {
+          total: requestItems.length,
+          propagating: propagatingOrderItems.length,
+          skipped: requestItems.length - propagatingOrderItems.length,
+        },
+      });
+    }
+
+    if (propagatingOrderItems.length > 0) {
+      await tx.maintenance_order_items.createMany({ data: propagatingOrderItems });
+    }
 
     // 6. Registrar actividad en maintenance_activity_log
     await logActivity(tx, {
@@ -642,6 +667,9 @@ export async function createMaintenanceRequestPendingApproval(input: {
   kilometer?: string;
   engine_hours?: string;
   deviations?: CreateDeviationFromNuevoPedido[];
+  /** ID del template del checklist desde donde se eligieron los desvíos. Necesario para que el
+   * filtro de items "no propagables" (matriz checklist × item) funcione al aprobar en validate. */
+  templateId?: string;
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
@@ -754,7 +782,29 @@ export async function createMaintenanceRequestPendingApproval(input: {
   const pendingDeviations = input.deviations ?? [];
 
   const { request, requestItems } = await prisma.$transaction(async (tx) => {
-    // 1. Crear checklist_deviations con Promise.all para obtener los IDs
+    // 1a. Crear checklist_answers "stub" para vincular los desvíos al template.
+    //     Esto permite que el filtro de items "no propagables" pueda inferir el
+    //     template_id al aprobar la solicitud en validate (paso 1 de Operaciones).
+    //     `result='M'` porque hay desvíos (constraint de BD: solo 'B'|'M'). El
+    //     campo `observations` deja constancia de que es un stub, no una respuesta
+    //     real del checklist, para distinguirlo en reportes/auditorías.
+    let stubAnswerId: string | null = null;
+    if (input.templateId && pendingDeviations.length > 0) {
+      const stub = await tx.checklist_answers.create({
+        data: {
+          template_id: input.templateId,
+          equipment_id: input.equipmentId,
+          user_id: profile.id,
+          answer_data: {},
+          result: 'M',
+          observations: 'Stub generado desde Nuevo Pedido (sin respuesta real al checklist).',
+        },
+        select: { id: true },
+      });
+      stubAnswerId = stub.id;
+    }
+
+    // 1b. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
       pendingDeviations.map((d) =>
         tx.checklist_deviations.create({
@@ -766,7 +816,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
             is_critical: d.isCritical,
             driver_comment: d.comment ?? null,
             created_by_user_id: profile.id,
-            // Sin checklist_answer_id porque es manual
+            checklist_answer_id: stubAnswerId,
           },
         })
       )

@@ -200,15 +200,20 @@ export function VehicleTabs({
       disabled: !showDocuments,
       content: showDocuments ? <div className="space-y-4">{documentsComponent}</div> : null,
     },
-    {
-      value: 'repairs',
-      label: 'Reparaciones',
-      // Hereda permisos de equipos/type_of_repairs
-      moduleSlug: 'equipos',
-      tabSlug: 'type_of_repairs',
-      disabled: !showRepairs,
-      content: showRepairs ? <div className="space-y-4">{repairsComponent}</div> : null,
-    },
+    // ============================================
+    // Tab "Reparaciones" — DESACTIVADA (dejará de existir).
+    // Se conserva comentada para referencia y por si se necesita reactivar.
+    // El permiso heredado equipos/type_of_repairs sigue vivo porque lo usan otras pantallas.
+    // ============================================
+    // {
+    //   value: 'repairs',
+    //   label: 'Reparaciones',
+    //   // Hereda permisos de equipos/type_of_repairs
+    //   moduleSlug: 'equipos',
+    //   tabSlug: 'type_of_repairs',
+    //   disabled: !showRepairs,
+    //   content: showRepairs ? <div className="space-y-4">{repairsComponent}</div> : null,
+    // },
     {
       value: 'qr',
       label: 'QR',

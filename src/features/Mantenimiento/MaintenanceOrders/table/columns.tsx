@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Eye, Settings2 } from 'lucide-react';
+import { Eye, Settings2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOrderListItem } from './actions.server';
 
@@ -62,6 +62,7 @@ export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['created_at'];
 interface ColumnCallbacks {
   onViewDetail: (order: MaintenanceOrderListItem) => void;
   onManageOrder?: (order: MaintenanceOrderListItem) => void;
+  onViewItems?: (order: MaintenanceOrderListItem) => void;
 }
 
 // ============================================================================
@@ -116,6 +117,7 @@ function getCurrentSector(order: MaintenanceOrderListItem): string | null {
 export function getMaintenanceOrdersColumns({
   onViewDetail,
   onManageOrder,
+  onViewItems,
 }: ColumnCallbacks): ColumnDef<MaintenanceOrderListItem>[] {
   return [
     // ── N° Orden ───────────────────────────────────────────────────────────
@@ -269,15 +271,29 @@ export function getMaintenanceOrdersColumns({
                 <Eye className="h-4 w-4 mr-1" />
                 Detalle
               </Button>
+              {onViewItems && (
+                <Button variant="ghost" size="sm" onClick={() => onViewItems(order)} title="Ver ítems solicitados">
+                  <Wrench className="h-4 w-4 mr-1" />
+                  Ítems
+                </Button>
+              )}
             </div>
           );
         }
 
         return (
-          <Button variant="ghost" size="sm" onClick={() => onViewDetail(order)} title="Ver detalle">
-            <Eye className="h-4 w-4 mr-1" />
-            Ver detalle
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => onViewDetail(order)} title="Ver detalle">
+              <Eye className="h-4 w-4 mr-1" />
+              Ver detalle
+            </Button>
+            {onViewItems && (
+              <Button variant="ghost" size="sm" onClick={() => onViewItems(order)} title="Ver ítems solicitados">
+                <Wrench className="h-4 w-4 mr-1" />
+                Ítems
+              </Button>
+            )}
+          </div>
         );
       },
     },

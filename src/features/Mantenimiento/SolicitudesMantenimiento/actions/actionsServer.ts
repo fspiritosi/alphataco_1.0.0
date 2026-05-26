@@ -1,5 +1,6 @@
 'use server';
 
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
@@ -101,6 +102,7 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
           section_code: true,
           is_critical: true,
           driver_comment: true,
+          checklist_answers: { select: { template_id: true } },
         },
       },
       types_of_repairs: {
@@ -445,8 +447,48 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         },
       });
 
-      // 5. Crear pedido de mantenimiento si hay items aprobados
-      if (input.approvedItems.length > 0) {
+      // 5. Filtrar items "no propagables" según matriz checklist × item.
+      //    Estos items SI quedan aprobados como maintenance_request_items (paso 1),
+      //    pero NO generan maintenance_order_items, por lo que no llegan al taller.
+      const approvedItemContexts = await tx.maintenance_request_items.findMany({
+        where: { id: { in: input.approvedItems.map((i) => i.itemId) } },
+        select: {
+          id: true,
+          checklist_deviations: {
+            select: {
+              item_code: true,
+              checklist_answers: { select: { template_id: true } },
+            },
+          },
+        },
+      });
+
+      const propagatingItemIds = new Set(
+        approvedItemContexts
+          .filter(
+            (ctx) =>
+              !isNonPropagatingChecklistItem(
+                ctx.checklist_deviations?.checklist_answers?.template_id ?? null,
+                ctx.checklist_deviations?.item_code ?? null
+              )
+          )
+          .map((ctx) => ctx.id)
+      );
+
+      const propagatingApprovedItems = input.approvedItems.filter((i) => propagatingItemIds.has(i.itemId));
+
+      if (propagatingApprovedItems.length < input.approvedItems.length) {
+        serverLogger.info('Filtrando items no propagables al crear pedido', {
+          data: {
+            approved: input.approvedItems.length,
+            propagating: propagatingApprovedItems.length,
+            skipped: input.approvedItems.length - propagatingApprovedItems.length,
+          },
+        });
+      }
+
+      // 6. Crear pedido de mantenimiento si hay items propagables
+      if (propagatingApprovedItems.length > 0) {
         const order = await tx.maintenance_orders.create({
           data: {
             maintenance_request_id: input.requestId,
@@ -458,7 +500,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
 
         serverLogger.info('Pedido de mantenimiento creado', { data: { orderId: order.id } });
 
-        // 6. Actualizar el kilometraje del vehículo si la solicitud tiene km
+        // 7. Actualizar el kilometraje del vehículo si la solicitud tiene km
         if (request.kilometer) {
           try {
             await tx.vehicles.update({
@@ -472,9 +514,9 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
           }
         }
 
-        // 7. Crear items del pedido SIN tipos de reparación
+        // 8. Crear items del pedido SIN tipos de reparación
         await tx.maintenance_order_items.createMany({
-          data: input.approvedItems.map((item) => ({
+          data: propagatingApprovedItems.map((item) => ({
             maintenance_order_id: order.id,
             maintenance_request_item_id: item.itemId,
             repair_type_id: null,

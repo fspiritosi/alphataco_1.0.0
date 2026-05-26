@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
 import {
   PREVENTIVE_TYPES,
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   ClipboardList,
+  Info,
   Loader2,
   Plus,
   Truck,
@@ -348,6 +350,7 @@ export function NuevoPedidoChecklistForm({
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
+            templateId: selectedTemplateId || undefined,
             driverEmployeeId: driverEmployeeId || undefined,
             manualItems: manualItems.map((m) => ({ label: m.label })),
           });
@@ -381,6 +384,7 @@ export function NuevoPedidoChecklistForm({
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
+            templateId: selectedTemplateId || undefined,
             driverEmployeeId: driverEmployeeId || undefined,
             manualItems: manualItems.map((m) => ({ label: m.label })),
           });
@@ -728,6 +732,7 @@ export function NuevoPedidoChecklistForm({
                       ?.sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
                       .map((item) => {
                         const isSelected = selectedDeviations.some((d) => d.itemId === item.id);
+                        const isNonPropagating = isNonPropagatingChecklistItem(selectedTemplateId, item.code);
                         return (
                           <div
                             key={item.id}
@@ -747,11 +752,21 @@ export function NuevoPedidoChecklistForm({
                             >
                               <Checkbox checked={isSelected} className="mt-0.5" />
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm">{item.label}</span>
                                   {item.is_critical && (
                                     <Badge variant="destructive" className="text-xs">
                                       Crítico
+                                    </Badge>
+                                  )}
+                                  {isNonPropagating && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] gap-1 border-dashed font-normal"
+                                      title="Si marcás este desvío, queda registrado pero no genera trabajo en taller."
+                                    >
+                                      <Info className="h-3 w-3" />
+                                      Solo informativo · No viaja a taller
                                     </Badge>
                                   )}
                                 </div>
