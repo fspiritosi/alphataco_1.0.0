@@ -118,7 +118,7 @@ export function _VehicleExpiringDocsDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    const allFilterIds = ['state', 'document_type', 'validity', 'created_at'];
+    const allFilterIds = ['state', 'document_type', 'validity', 'created_at', 'vehicle'];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
 
@@ -179,6 +179,14 @@ export function _VehicleExpiringDocsDataTable({
         columnId: 'created_at',
         title: 'Subido el',
         type: 'dateRange' as const,
+      },
+
+      // Dominio (texto libre — busca en vehicles.domain)
+      {
+        columnId: 'vehicle',
+        title: 'Dominio',
+        type: 'text' as const,
+        placeholder: 'Buscar por dominio...',
       },
     ],
     [makeEnumFetchFacet, makeFkFetchFacet]

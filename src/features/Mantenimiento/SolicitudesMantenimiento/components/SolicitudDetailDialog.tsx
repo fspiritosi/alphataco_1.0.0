@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
+import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface SolicitudDetailDialogProps {
@@ -142,43 +144,96 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {request.maintenance_request_items.map((item) => (
-                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{item.checklist_deviations?.item_label || 'Sin título'}</p>
-                          {item.checklist_deviations?.section_code && (
-                            <p className="text-sm text-muted-foreground">
-                              Sección: {formatSectionCode(item.checklist_deviations.section_code)}
+                  {request.maintenance_request_items.map((item) => {
+                    const templateId =
+                      (item.checklist_deviations as { checklist_answers?: { template_id?: string | null } | null } | null)
+                        ?.checklist_answers?.template_id ?? null;
+                    const itemCode = item.checklist_deviations?.item_code ?? null;
+                    const isNonPropagating = isNonPropagatingChecklistItem(templateId, itemCode);
+                    const isCritical = item.checklist_deviations?.is_critical ?? false;
+
+                    // Card "Solo informativo" — sin badge de estado, banner explícito.
+                    if (isNonPropagating) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="overflow-hidden rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2 border-b border-muted-foreground/20 bg-muted/60 px-3 py-1.5">
+                            <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                              No requiere decisión — no viaja a taller
                             </p>
-                          )}
+                          </div>
+                          <div className="space-y-1.5 p-3">
+                            <div className="flex items-start gap-2">
+                              {isCritical ? (
+                                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                              ) : (
+                                <AlertTriangle
+                                  className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60"
+                                  aria-hidden
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-muted-foreground">
+                                  {item.checklist_deviations?.item_label || 'Sin título'}
+                                </p>
+                                {item.checklist_deviations?.section_code && (
+                                  <p className="text-sm text-muted-foreground/80">
+                                    Sección: {formatSectionCode(item.checklist_deviations.section_code)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <ItemComments
+                              item={{ maintenance_request_items: item }}
+                              source={request.source}
+                              fallbackAuthorName={request.profile_maintenance_requests_supervisor_idToprofile?.fullname}
+                            />
+                          </div>
                         </div>
-                        <Badge variant={itemStatusConfig[item.status]?.variant || 'secondary'}>
-                          {itemStatusConfig[item.status]?.label || item.status}
-                        </Badge>
+                      );
+                    }
+
+                    return (
+                      <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">{item.checklist_deviations?.item_label || 'Sin título'}</p>
+                            {item.checklist_deviations?.section_code && (
+                              <p className="text-sm text-muted-foreground">
+                                Sección: {formatSectionCode(item.checklist_deviations.section_code)}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant={itemStatusConfig[item.status]?.variant || 'secondary'}>
+                            {itemStatusConfig[item.status]?.label || item.status}
+                          </Badge>
+                        </div>
+
+                        {item.types_of_repairs && (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Tipo de reparación: </span>
+                            <Badge variant="secondary">{item.types_of_repairs.name}</Badge>
+                          </div>
+                        )}
+
+                        <ItemComments
+                          item={{ maintenance_request_items: item }}
+                          source={request.source}
+                          fallbackAuthorName={request.profile_maintenance_requests_supervisor_idToprofile?.fullname}
+                        />
+
+                        {item.status === 'rejected' && item.rejection_reason && (
+                          <div className="text-sm p-2 bg-red-50 rounded">
+                            <span className="text-red-800 font-medium">Motivo: </span>
+                            <span className="text-red-700">{item.rejection_reason}</span>
+                          </div>
+                        )}
                       </div>
-
-                      {item.types_of_repairs && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Tipo de reparación: </span>
-                          <Badge variant="secondary">{item.types_of_repairs.name}</Badge>
-                        </div>
-                      )}
-
-                      <ItemComments
-                        item={{ maintenance_request_items: item }}
-                        source={request.source}
-                        fallbackAuthorName={request.profile_maintenance_requests_supervisor_idToprofile?.fullname}
-                      />
-
-                      {item.status === 'rejected' && item.rejection_reason && (
-                        <div className="text-sm p-2 bg-red-50 rounded">
-                          <span className="text-red-800 font-medium">Motivo: </span>
-                          <span className="text-red-700">{item.rejection_reason}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

@@ -999,8 +999,25 @@ export function NormalizedChecklistForm({
     (selectedEquipmentType?.is_tractor_unit === true && selectedEquipmentType?.has_hitch === true && !readOnly) ||
     (readOnly && selectedHitchEquipment !== null);
 
+  // Limpia el form y los estados de UI después de un submit exitoso.
+  // Necesario porque Next.js cachea esta ruta y si el usuario vuelve al `/new`
+  // los datos anteriores siguen presentes, mezclándose con la nueva respuesta.
+  const resetFormAfterSubmit = useCallback(() => {
+    form.reset(defaultValues);
+    setCriticalItemsFailed([]);
+    setPendingDeviations([]);
+    setCreatedAnswerId(null);
+    setCurrentEquipmentId(defaultEquipmentId);
+    setSelectedHitchEquipment(defaultHitchEquipmentId || null);
+    setKilometerError(null);
+    setEngineHoursError(null);
+    setMinKilometer(null);
+    setMinEngineHours(null);
+  }, [form, defaultValues, defaultEquipmentId, defaultHitchEquipmentId]);
+
   const redirectAfterChecklist = useCallback(
     (equipmentId: string) => {
+      resetFormAfterSubmit();
       if (pathname?.includes('/dashboard/forms/')) {
         const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
         if (formIdMatch?.[1]) {
@@ -1013,7 +1030,7 @@ export function NormalizedChecklistForm({
       }
       router.refresh();
     },
-    [pathname, router]
+    [pathname, router, resetFormAfterSubmit]
   );
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
@@ -1822,6 +1839,7 @@ export function NormalizedChecklistForm({
           isOpen={showDeviationsModal}
           onClose={() => {
             setShowDeviationsModal(false);
+            resetFormAfterSubmit();
             // Redirigir a la lista de respuestas con delay para que el Dialog termine su animación
             setTimeout(() => {
               if (pathname?.includes('/dashboard/forms/')) {
@@ -1839,6 +1857,7 @@ export function NormalizedChecklistForm({
           }}
           onComplete={() => {
             setShowDeviationsModal(false);
+            resetFormAfterSubmit();
             // Redirigir a la lista de respuestas
             // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
             if (pathname?.includes('/dashboard/forms/')) {

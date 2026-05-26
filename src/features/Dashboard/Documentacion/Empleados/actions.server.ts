@@ -42,6 +42,9 @@ const COLUMN_MAP: Record<string, string> = {
   document_type: 'id_document_types',
 };
 
+/** Columnas con filtro de texto libre (manejadas manualmente por ser campos de relaciones) */
+const TEXT_FILTER_COLUMNS = ['fileNumber'] as const;
+
 // ============================================================================
 // WHERE CLAUSE BUILDER
 // ============================================================================
@@ -57,13 +60,19 @@ async function buildWhereClause(
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const nextMonth = moment().add(EXPIRY_WINDOW_DAYS, 'days').endOf('day').toDate();
 
-  // Filtros facetados
+  // Filtros facetados (excluir columnas de texto manejadas manualmente)
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+    exclude: [
+      ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+      ...TEXT_FILTER_COLUMNS,
+    ],
   });
 
   // Filtros de rango de fechas
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
+
+  // Filtro de legajo (campo anidado en la relación employees — coincidencia exacta)
+  const fileNumberFilter = state.filters['fileNumber']?.[0];
 
   const validityFilter: Prisma.DateTimeNullableFilter = {
     not: null,
@@ -78,6 +87,7 @@ async function buildWhereClause(
     employees: {
       is_active: true,
       company_id: companyId,
+      ...(fileNumberFilter ? { file: { equals: fileNumberFilter } } : {}),
     },
     document_types: {
       is_it_montlhy: false,
@@ -249,15 +259,25 @@ export async function getEmployeeExpiringDocsSingleFacet(
 
       const crossState = { ...state, filters: filtersWithoutExcluded };
       const filtersWhere = buildFiltersWhere(crossState.filters, COLUMN_MAP, {
-        exclude: DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+        exclude: [
+          ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+          ...TEXT_FILTER_COLUMNS,
+        ],
       });
       const dateFiltersWhere = buildDateRangeFiltersWhere(crossState.filters, DATE_RANGE_COLUMNS);
+
+      // Filtro de legajo (campo anidado en la relación employees — coincidencia exacta)
+      const fileNumberFilter = crossState.filters['fileNumber']?.[0];
 
       const userValidityFilter = (dateFiltersWhere as Record<string, unknown>).validity;
       const userCreatedAtFilter = (dateFiltersWhere as Record<string, unknown>).created_at;
 
       return {
         ...baseWhere,
+        employees: {
+          ...(baseWhere.employees as object),
+          ...(fileNumberFilter ? { file: { equals: fileNumberFilter } } : {}),
+        },
         ...(userValidityFilter !== undefined ? { validity: userValidityFilter as Prisma.DateTimeNullableFilter } : {}),
         ...(userCreatedAtFilter !== undefined ? { created_at: userCreatedAtFilter as Prisma.DateTimeFilter } : {}),
         ...(filtersWhere as Prisma.documents_employeesWhereInput),

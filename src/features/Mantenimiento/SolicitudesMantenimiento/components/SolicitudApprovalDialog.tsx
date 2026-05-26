@@ -14,9 +14,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { cn } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Check, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, Info, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
@@ -36,6 +37,7 @@ type DeviationItem = {
   section_code: string | null;
   driver_comment: string | null;
   is_critical: boolean;
+  is_non_propagating: boolean;
 };
 
 // Estado simplificado: solo aprobado o rechazado con motivo
@@ -52,33 +54,43 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     return (
       request.maintenance_request_items
         ?.filter((item) => item.status === 'pending')
-        .map((item) => ({
-          id: item.checklist_deviation_id,
-          itemId: item.id,
-          item_code: item.checklist_deviations?.item_code || '',
-          item_label: item.checklist_deviations?.item_label || 'Sin título',
-          section_code: item.checklist_deviations?.section_code || null,
-          driver_comment: item.driver_comment || item.checklist_deviations?.driver_comment || null,
-          is_critical: item.checklist_deviations?.is_critical ?? false,
-        })) || []
+        .map((item) => {
+          const templateId =
+            (item.checklist_deviations as { checklist_answers?: { template_id?: string | null } | null } | null)
+              ?.checklist_answers?.template_id ?? null;
+          const itemCode = item.checklist_deviations?.item_code || '';
+          return {
+            id: item.checklist_deviation_id,
+            itemId: item.id,
+            item_code: itemCode,
+            item_label: item.checklist_deviations?.item_label || 'Sin título',
+            section_code: item.checklist_deviations?.section_code || null,
+            driver_comment: item.driver_comment || item.checklist_deviations?.driver_comment || null,
+            is_critical: item.checklist_deviations?.is_critical ?? false,
+            is_non_propagating: isNonPropagatingChecklistItem(templateId, itemCode),
+          };
+        }) || []
     );
   }, [request.maintenance_request_items]);
 
   // Estado de decisiones por item
   const [decisions, setDecisions] = useState<Record<string, ItemDecision>>({});
 
-  // Inicializar decisiones cuando se abre el dialog
+  // Inicializar decisiones cuando se abre el dialog.
+  // Solo se crean decisiones para items "decidibles": los no-propagables son lectura.
   useEffect(() => {
     if (open) {
       const initialDecisions: Record<string, ItemDecision> = {};
-      pendingItems.forEach((item) => {
-        initialDecisions[item.itemId] = {
-          status: 'pending',
-          rejectionReason: '',
-          validatorComment: '',
-          showCommentField: false,
-        };
-      });
+      pendingItems
+        .filter((item) => !item.is_non_propagating)
+        .forEach((item) => {
+          initialDecisions[item.itemId] = {
+            status: 'pending',
+            rejectionReason: '',
+            validatorComment: '',
+            showCommentField: false,
+          };
+        });
       setDecisions(initialDecisions);
     }
   }, [open, pendingItems]);
@@ -190,6 +202,13 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
         validatorComment: d.validatorComment?.trim() || undefined,
       }));
 
+    // Items "no propagables" se incluyen como aprobados automáticamente.
+    // Quedan registrados en la solicitud, pero el server action los filtra al
+    // crear `maintenance_order_items` por la matriz, así no llegan al taller.
+    const nonPropagatingItems = pendingItems
+      .filter((item) => item.is_non_propagating)
+      .map((item) => ({ itemId: item.itemId, validatorComment: undefined as string | undefined }));
+
     const rejectedItems = Object.entries(decisions)
       .filter(([_, d]) => d.status === 'rejected')
       .map(([itemId, d]) => ({
@@ -201,15 +220,22 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     try {
       await approveMutation.mutateAsync({
         requestId: request.id,
-        approvedItems,
+        approvedItems: [...approvedItems, ...nonPropagatingItems],
         rejectedItems,
       });
 
       const approvedCount = approvedItems.length;
       const rejectedCount = rejectedItems.length;
+      const informationalCount = nonPropagatingItems.length;
+
+      const descriptionParts = [
+        `${approvedCount} aprobado(s)`,
+        `${rejectedCount} rechazado(s)`,
+        ...(informationalCount > 0 ? [`${informationalCount} solo informativo(s)`] : []),
+      ];
 
       toast.success('Solicitud procesada', {
-        description: `${approvedCount} aprobado(s), ${rejectedCount} rechazado(s)`,
+        description: descriptionParts.join(', '),
       });
       onClose();
     } catch {
@@ -242,11 +268,12 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     }
   };
 
-  // Separar items críticos y no críticos
-  const criticalItems = pendingItems.filter((i) => i.is_critical);
-  const nonCriticalItems = pendingItems.filter((i) => !i.is_critical);
+  // Separar items: decidibles (críticos / no críticos) vs solo informativos (no propagables).
+  const criticalItems = pendingItems.filter((i) => i.is_critical && !i.is_non_propagating);
+  const nonCriticalItems = pendingItems.filter((i) => !i.is_critical && !i.is_non_propagating);
+  const informationalItems = pendingItems.filter((i) => i.is_non_propagating);
 
-  // Contadores
+  // Contadores — solo cuentan los items que requieren decisión.
   const approvedCount = Object.values(decisions).filter((d) => d.status === 'approved').length;
   const rejectedCount = Object.values(decisions).filter((d) => d.status === 'rejected').length;
   const pendingCount = Object.values(decisions).filter((d) => d.status === 'pending').length;
@@ -371,11 +398,31 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                 </Card>
               )}
 
+              {/* Items Solo Informativos — NO requieren decisión, NO viajan a taller */}
+              {informationalItems.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2 text-muted-foreground">
+                      <Info className="h-5 w-5" />
+                      Solo informativos ({informationalItems.length})
+                    </CardTitle>
+                    <CardDescription>
+                      Estos items quedan registrados en la solicitud pero no requieren decisión y no viajan a taller.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {informationalItems.map((item) => (
+                      <InformationalItemCard key={item.itemId} item={item} />
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
               <Separator />
 
               {/* Resumen */}
               <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
-                <div className="flex gap-4 text-sm">
+                <div className="flex gap-4 text-sm flex-wrap">
                   <span>
                     <span className="text-green-600 dark:text-green-400 font-medium">{approvedCount}</span> aprobados
                   </span>
@@ -386,6 +433,11 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                     <span>
                       <span className="text-yellow-600 dark:text-yellow-400 font-medium">{pendingCount}</span>{' '}
                       pendientes
+                    </span>
+                  )}
+                  {informationalItems.length > 0 && (
+                    <span className="text-muted-foreground">
+                      <span className="font-medium">{informationalItems.length}</span> solo informativo(s)
                     </span>
                   )}
                 </div>
@@ -495,7 +547,7 @@ function ItemCard({
       {/* Header del item */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {item.is_critical ? (
               <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
             ) : (
@@ -608,6 +660,51 @@ function ItemCard({
         >
           {isApproved ? 'Aprobado' : isRejected ? 'Rechazado' : 'Pendiente de decisión'}
         </Badge>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Card de lectura para items "no propagables".
+ * No tiene botones, no entra al conteo de pendientes, no genera trabajo en taller.
+ * Queda como registro histórico de la solicitud.
+ */
+function InformationalItemCard({ item }: { item: DeviationItem }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30">
+      {/* Banner: separa visualmente del modo decisión */}
+      <div className="flex items-center gap-2 border-b border-muted-foreground/20 bg-muted/60 px-4 py-2">
+        <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          No requiere decisión — no viaja a taller
+        </p>
+      </div>
+
+      {/* Cuerpo */}
+      <div className="space-y-2 p-4">
+        <div className="flex items-start gap-2">
+          {item.is_critical ? (
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60" aria-hidden />
+          ) : (
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60" aria-hidden />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-muted-foreground">{item.item_label}</p>
+            {item.section_code && (
+              <p className="mt-0.5 text-sm text-muted-foreground/80 capitalize">
+                Sección: {item.section_code.replace('_', ' ')}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {item.driver_comment && (
+          <div className="rounded-md bg-background/50 p-2 text-sm">
+            <p className="text-xs text-muted-foreground/80">Comentario del chofer</p>
+            <p className="mt-0.5 italic text-muted-foreground">{item.driver_comment}</p>
+          </div>
+        )}
       </div>
     </div>
   );

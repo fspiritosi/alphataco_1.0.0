@@ -1935,6 +1935,7 @@ model maintenance_requests {
   engine_hours                                        String?
   preventive_type                                     String?
   driver_employee_id                                  String?                     @db.Uuid
+  description                                         String?
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]
