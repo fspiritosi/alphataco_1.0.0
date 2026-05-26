@@ -2,7 +2,9 @@ import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
 import { getMyTicketsWithUnread, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
 import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { checkPermissionServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function generateMetadata() {
   const cookiesStore = await cookies();
@@ -32,6 +34,9 @@ interface Props {
 }
 
 export default async function HelpPage({ searchParams }: Props) {
+  const canView = await checkPermissionServer('ayuda', 'tickets', 'view');
+  if (!canView) redirect('/dashboard');
+
   const params = await searchParams;
   const rawId = params.ticket ? Number(params.ticket) : null;
   const ticketId = rawId != null && Number.isFinite(rawId) ? rawId : null;

@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Wrench } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/es';
 import type { Comment } from '@/shared/lib/taskapp/types';
@@ -9,27 +10,37 @@ interface Props {
   currentUserName: string;
 }
 
-function initialsFrom(name: string | null, email: string | null): string {
-  const source = name?.trim() || email || '?';
-  const parts = source.split(/\s|@|\./).filter(Boolean);
-  return (
-    parts
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? '')
-      .join('') || '?'
-  );
+function initialsFromName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  // Si parece email, tomar la parte antes del @ y separar por puntos
+  const source = trimmed.includes('@') ? trimmed.split('@')[0] : trimmed;
+  const parts = source.split(/[\s._-]+/).filter(Boolean);
+  const letters = parts
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
+  return letters || trimmed[0]?.toUpperCase() || '';
 }
 
 export function TicketCommentItem({ comment, currentUserEmail, currentUserName }: Props) {
   const isMine = comment.author_email === currentUserEmail;
-  const displayName = isMine ? currentUserName : (comment.author_email ?? 'Soporte');
-  const initials = initialsFrom(isMine ? currentUserName : null, comment.author_email);
+  const displayName = isMine ? currentUserName : 'Soporte';
   const isOptimistic = comment.id < 0;
+  const myInitials = initialsFromName(currentUserName);
 
   return (
     <div className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
       <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        <AvatarFallback
+          className={
+            isMine
+              ? 'text-xs'
+              : 'bg-primary/10 text-primary'
+          }
+        >
+          {isMine ? myInitials : <Wrench className="h-4 w-4" aria-label="Soporte" />}
+        </AvatarFallback>
       </Avatar>
       <div
         className={`max-w-[80%] space-y-1 ${isMine ? 'items-end' : 'items-start'} flex flex-col`}

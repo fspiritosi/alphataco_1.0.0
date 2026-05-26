@@ -1,6 +1,5 @@
 'use client';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Ticket } from '@/shared/lib/taskapp/types';
 import { Inbox } from 'lucide-react';
@@ -47,15 +46,17 @@ export default function TicketDetailSheet({
           <TicketDetailSheetSkeleton />
         ) : ticket ? (
           <>
-            <TicketDetailHeader ticket={ticket} />
-            <TicketApprovalBanner ticket={ticket} currentUserEmail={currentUserEmail} />
-            <ScrollArea className="flex-1">
+            <div className="shrink-0">
+              <TicketDetailHeader ticket={ticket} />
+              <TicketApprovalBanner ticket={ticket} currentUserEmail={currentUserEmail} />
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <TicketDetailBody
                 ticket={ticket}
                 currentUserEmail={currentUserEmail}
                 currentUserName={currentUserName}
               />
-            </ScrollArea>
+            </div>
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
