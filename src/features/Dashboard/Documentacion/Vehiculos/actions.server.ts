@@ -42,6 +42,9 @@ const COLUMN_MAP: Record<string, string> = {
   document_type: 'id_document_types',
 };
 
+/** Columnas con filtro de texto libre (manejadas manualmente por ser campos de relaciones) */
+const TEXT_FILTER_COLUMNS = ['vehicle'] as const;
+
 // ============================================================================
 // WHERE CLAUSE BUILDER
 // ============================================================================
@@ -59,11 +62,17 @@ async function buildWhereClause(
 
   // Filtros facetados
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+    exclude: [
+      ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+      ...TEXT_FILTER_COLUMNS,
+    ],
   });
 
   // Filtros de rango de fechas
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
+
+  // Filtro de texto libre: dominio del vehículo (campo anidado en la relación)
+  const vehicleTextFilter = state.filters['vehicle']?.[0];
 
   const validityFilter: Prisma.DateTimeNullableFilter = {
     not: null,
@@ -77,6 +86,7 @@ async function buildWhereClause(
     vehicles: {
       company_id: companyId,
       is_active: true,
+      ...(vehicleTextFilter ? { domain: { contains: vehicleTextFilter, mode: 'insensitive' } } : {}),
     },
     document_types: {
       is_it_montlhy: false,
@@ -250,15 +260,25 @@ export async function getVehicleExpiringDocsSingleFacet(
 
       const crossState = { ...state, filters: filtersWithoutExcluded };
       const filtersWhere = buildFiltersWhere(crossState.filters, COLUMN_MAP, {
-        exclude: DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+        exclude: [
+          ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+          ...TEXT_FILTER_COLUMNS,
+        ],
       });
       const dateFiltersWhere = buildDateRangeFiltersWhere(crossState.filters, DATE_RANGE_COLUMNS);
+
+      // Filtro de texto libre: dominio del vehículo (campo anidado en la relación)
+      const vehicleTextFilter = crossState.filters['vehicle']?.[0];
 
       const userValidityFilter = (dateFiltersWhere as Record<string, unknown>).validity;
       const userCreatedAtFilter = (dateFiltersWhere as Record<string, unknown>).created_at;
 
       return {
         ...baseWhere,
+        vehicles: {
+          ...(baseWhere.vehicles as object),
+          ...(vehicleTextFilter ? { domain: { contains: vehicleTextFilter, mode: 'insensitive' } } : {}),
+        },
         ...(userValidityFilter !== undefined ? { validity: userValidityFilter as Prisma.DateTimeNullableFilter } : {}),
         ...(userCreatedAtFilter !== undefined ? { created_at: userCreatedAtFilter as Prisma.DateTimeFilter } : {}),
         ...(filtersWhere as Prisma.documents_equipmentWhereInput),
