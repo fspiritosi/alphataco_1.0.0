@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageSquare } from 'lucide-react';
+import { Lock, MessageSquare } from 'lucide-react';
 import { TicketCommentsThreadSkeleton } from '../../fallback/TicketCommentsThreadSkeleton';
 import { useTicketComments } from '../../hooks/useTicketComments';
 import { TicketCommentComposer } from './TicketCommentComposer';
@@ -10,9 +10,15 @@ interface Props {
   ticketId: number;
   currentUserEmail: string;
   currentUserName: string;
+  isCompleted: boolean;
 }
 
-export function TicketCommentsThread({ ticketId, currentUserEmail, currentUserName }: Props) {
+export function TicketCommentsThread({
+  ticketId,
+  currentUserEmail,
+  currentUserName,
+  isCompleted,
+}: Props) {
   const { data: comments = [], isLoading } = useTicketComments(ticketId);
 
   return (
@@ -38,7 +44,14 @@ export function TicketCommentsThread({ ticketId, currentUserEmail, currentUserNa
         </ul>
       )}
 
-      <TicketCommentComposer ticketId={ticketId} currentUserEmail={currentUserEmail} />
+      {isCompleted ? (
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 shrink-0" />
+          <span>Este ticket está cerrado. No se pueden agregar comentarios.</span>
+        </div>
+      ) : (
+        <TicketCommentComposer ticketId={ticketId} currentUserEmail={currentUserEmail} />
+      )}
     </div>
   );
 }
