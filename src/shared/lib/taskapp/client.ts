@@ -120,6 +120,21 @@ export const taskAppClient = {
       body: JSON.stringify({ reporter_email: reporterEmail, keys }),
     }),
 
+  requestTicketReopen: (
+    ticketId: number,
+    reporterEmail: string,
+    reason: string,
+    attachmentKeys: string[]
+  ) =>
+    request<Ticket>(`/tickets/${ticketId}/request-reopen`, {
+      method: 'POST',
+      body: JSON.stringify({
+        reporter_email: reporterEmail,
+        reason,
+        attachments: attachmentKeys,
+      }),
+    }),
+
   uploadFile: (file: File, ticketId?: number) => {
     const formData = new FormData();
     formData.append('file', file);

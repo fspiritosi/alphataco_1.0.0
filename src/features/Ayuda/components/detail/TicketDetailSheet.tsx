@@ -10,6 +10,7 @@ import { useTicketDetail } from '../../hooks/useTicketDetail';
 import { TicketApprovalBanner } from './TicketApprovalBanner';
 import { TicketDetailBody } from './TicketDetailBody';
 import { TicketDetailHeader } from './TicketDetailHeader';
+import { TicketReopenRequestBanner } from './TicketReopenRequestBanner';
 
 interface Props {
   ticketId: number | null;
@@ -49,6 +50,7 @@ export default function TicketDetailSheet({
             <div className="shrink-0">
               <TicketDetailHeader ticket={ticket} />
               <TicketApprovalBanner ticket={ticket} currentUserEmail={currentUserEmail} />
+              <TicketReopenRequestBanner ticket={ticket} currentUserEmail={currentUserEmail} />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <TicketDetailBody

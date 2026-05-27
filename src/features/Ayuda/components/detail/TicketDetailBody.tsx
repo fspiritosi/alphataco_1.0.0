@@ -2,6 +2,8 @@ import type { Ticket } from '@/shared/lib/taskapp/types';
 import { TicketAttachmentsList } from './TicketAttachmentsList';
 import { TicketCommentsThread } from './TicketCommentsThread';
 
+const COMPLETED_STATUSES = new Set(['resolved', 'done', 'closed', 'cancelled']);
+
 interface Props {
   ticket: Ticket;
   currentUserEmail: string;
@@ -9,6 +11,8 @@ interface Props {
 }
 
 export function TicketDetailBody({ ticket, currentUserEmail, currentUserName }: Props) {
+  const isCompleted = ticket.status != null && COMPLETED_STATUSES.has(ticket.status.slug);
+
   return (
     <div className="space-y-6 p-6">
       {ticket.description && (
@@ -26,6 +30,7 @@ export function TicketDetailBody({ ticket, currentUserEmail, currentUserName }: 
           ticketId={ticket.id}
           currentUserEmail={currentUserEmail}
           currentUserName={currentUserName}
+          isCompleted={isCompleted}
         />
       </section>
     </div>

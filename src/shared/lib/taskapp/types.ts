@@ -30,6 +30,10 @@ export interface Ticket {
   updated_at: string;
   resolved_at: string | null;
   labels: TicketLabel[];
+  reopen_status: 'pending' | null;
+  reopen_reason: string | null;
+  reopen_attachments: string[];
+  reopen_requested_at: string | null;
 }
 
 export interface Comment {
