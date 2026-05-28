@@ -735,6 +735,32 @@ export async function linkEmployeeToProfile(profileId: string, employeeId: strin
   }
 }
 
+// ── Actualizar fullname del perfil ────────────────────────────────────────────
+export async function updateProfileFullname(profileId: string, fullname: string) {
+  logger.debug('Actualizando fullname del perfil', { data: { profileId } });
+
+  const trimmed = fullname.trim();
+  if (!trimmed) {
+    throw new Error('El nombre no puede estar vacío.');
+  }
+  if (trimmed.length > 150) {
+    throw new Error('El nombre no puede superar los 150 caracteres.');
+  }
+
+  try {
+    await prisma.profile.update({
+      where: { id: profileId },
+      data: { fullname: trimmed },
+    });
+
+    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+    logger.info('Fullname actualizado exitosamente', { data: { profileId } });
+  } catch (error) {
+    logger.error('Error actualizando fullname del perfil', { data: { error, profileId } });
+    throw error;
+  }
+}
+
 // ── Facet individual (lazy-load) ─────────────────────────────────────────────
 export type CompanyUserFacetResult = {
   counts: Map<string, number>;
