@@ -1,5 +1,6 @@
 'use client';
 
+import { useUnreadSupportTicketsCount } from '@/features/Ayuda/hooks/useUnreadSupportTicketsCount';
 import { useMemo } from 'react';
 import { navigationLinks } from '../constants/navigation';
 
@@ -17,13 +18,18 @@ interface AccessibleModule {
  * @returns Array de links filtrados y ordenados
  */
 export function useSidebarLinks(accessibleModules: AccessibleModule[]) {
+  // Conteo de tickets de soporte sin leer para el badge del módulo Ayuda.
+  const ayudaUnreadCount = useUnreadSupportTicketsCount();
+
   return useMemo(() => {
-    // Filtrar links según módulos accesibles
+    // Filtrar links según módulos accesibles (incluido 'ayuda', que requiere permiso explícito).
     const filtered = navigationLinks.filter((link) =>
       accessibleModules.some((mod) => mod.module_slug === link.moduleSlug)
     );
 
-    // Ordenar por position
-    return filtered.sort((a, b) => a.position - b.position);
-  }, [accessibleModules]);
+    // Ordenar por position e inyectar badgeCount solo en el item de Ayuda.
+    return filtered
+      .sort((a, b) => a.position - b.position)
+      .map((link) => (link.moduleSlug === 'ayuda' ? { ...link, badgeCount: ayudaUnreadCount } : link));
+  }, [accessibleModules, ayudaUnreadCount]);
 }

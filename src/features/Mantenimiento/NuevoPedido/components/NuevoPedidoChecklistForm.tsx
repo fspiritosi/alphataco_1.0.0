@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
 import {
   PREVENTIVE_TYPES,
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   ClipboardList,
+  Info,
   Loader2,
   Plus,
   Truck,
@@ -93,6 +95,7 @@ export function NuevoPedidoChecklistForm({
   // Tipo de pedido
   const [requestType, setRequestType] = useState<'checklist' | 'preventive'>('checklist');
   const [selectedPreventiveType, setSelectedPreventiveType] = useState<PreventiveType | ''>('');
+  const [preventiveDescription, setPreventiveDescription] = useState<string>('');
 
   // Paso 1: Selección de equipo
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(default_equipment_id || '');
@@ -275,6 +278,7 @@ export function NuevoPedidoChecklistForm({
       setRequestType(type);
       setSelectedTemplateId('');
       setSelectedPreventiveType('');
+      setPreventiveDescription('');
       setSelectedDeviations([]);
       setDeviationComments({});
       setManualItems([]);
@@ -332,6 +336,7 @@ export function NuevoPedidoChecklistForm({
             source: 'preventive',
             preventiveType: selectedPreventiveType as PreventiveType,
             driverEmployeeId: driverEmployeeId || undefined,
+            description: preventiveDescription.trim() || undefined,
           });
         } else {
           // Actualizar comentarios en los desvíos antes de enviar
@@ -345,6 +350,7 @@ export function NuevoPedidoChecklistForm({
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
+            templateId: selectedTemplateId || undefined,
             driverEmployeeId: driverEmployeeId || undefined,
             manualItems: manualItems.map((m) => ({ label: m.label })),
           });
@@ -364,6 +370,7 @@ export function NuevoPedidoChecklistForm({
             engine_hours: engineHours || undefined,
             source: 'preventive',
             preventiveType: selectedPreventiveType as PreventiveType,
+            description: preventiveDescription.trim() || undefined,
           });
         } else {
           // Actualizar comentarios en los desvíos antes de enviar
@@ -377,6 +384,7 @@ export function NuevoPedidoChecklistForm({
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
             deviations: deviationsToSend,
+            templateId: selectedTemplateId || undefined,
             driverEmployeeId: driverEmployeeId || undefined,
             manualItems: manualItems.map((m) => ({ label: m.label })),
           });
@@ -400,6 +408,7 @@ export function NuevoPedidoChecklistForm({
       setSelectedSupervisorId('');
       setIsCurrentUserSupervisor(skipSupervisorQuestion ? false : null);
       setSelectedPreventiveType('');
+      setPreventiveDescription('');
       setRequestType('checklist');
 
       router.refresh();
@@ -680,6 +689,17 @@ export function NuevoPedidoChecklistForm({
               );
             })}
           </div>
+
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="preventive-description">Descripción (opcional)</Label>
+            <Textarea
+              id="preventive-description"
+              placeholder="Agrega detalles del mantenimiento preventivo (motivo, observaciones, etc.)"
+              value={preventiveDescription}
+              onChange={(e) => setPreventiveDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -712,6 +732,7 @@ export function NuevoPedidoChecklistForm({
                       ?.sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
                       .map((item) => {
                         const isSelected = selectedDeviations.some((d) => d.itemId === item.id);
+                        const isNonPropagating = isNonPropagatingChecklistItem(selectedTemplateId, item.code);
                         return (
                           <div
                             key={item.id}
@@ -731,11 +752,21 @@ export function NuevoPedidoChecklistForm({
                             >
                               <Checkbox checked={isSelected} className="mt-0.5" />
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm">{item.label}</span>
                                   {item.is_critical && (
                                     <Badge variant="destructive" className="text-xs">
                                       Crítico
+                                    </Badge>
+                                  )}
+                                  {isNonPropagating && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] gap-1 border-dashed font-normal"
+                                      title="Si marcás este desvío, queda registrado pero no genera trabajo en taller."
+                                    >
+                                      <Info className="h-3 w-3" />
+                                      Solo informativo · No viaja a taller
                                     </Badge>
                                   )}
                                 </div>
@@ -1022,6 +1053,12 @@ export function NuevoPedidoChecklistForm({
                     </div>
                   </CardContent>
                 </Card>
+              )}
+              {preventiveDescription.trim() && (
+                <div className="space-y-1 pt-1">
+                  <p className="text-xs font-medium text-muted-foreground">Descripción</p>
+                  <p className="text-sm whitespace-pre-line">{preventiveDescription.trim()}</p>
+                </div>
               )}
             </CardContent>
           </Card>

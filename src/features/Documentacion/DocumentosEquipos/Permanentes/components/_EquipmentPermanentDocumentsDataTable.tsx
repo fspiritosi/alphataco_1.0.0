@@ -336,10 +336,10 @@ export function _EquipmentPermanentDocumentsDataTable({
         fetchFacet: makeEnumFetchFacet('state', Object.keys(stateLabels), stateLabels, stateIcons),
       },
 
-      // Equipo (texto libre — busca por dominio, serie o número interno)
+      // Dominio (texto libre — busca por dominio, serie o número interno)
       {
         columnId: 'vehicle',
-        title: 'Equipo',
+        title: 'Dominio',
         type: 'text' as const,
         placeholder: 'Buscar por dominio, serie o N° interno...',
       },

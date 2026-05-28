@@ -641,7 +641,17 @@ export async function getUserDetailById(shareUserId: string) {
             id: true,
             fullname: true,
             email: true,
+            avatar: true,
             credential_id: true,
+            employee_id: true,
+            employees: {
+              select: {
+                id: true,
+                full_name: true,
+                file: true,
+                picture: true,
+              },
+            },
           },
         },
       },
@@ -653,6 +663,8 @@ export async function getUserDetailById(shareUserId: string) {
     throw error;
   }
 }
+
+export type UserDetailData = Awaited<ReturnType<typeof getUserDetailById>>;
 
 /**
  * Establece (upsert) un permiso custom de usuario.

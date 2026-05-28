@@ -1935,6 +1935,7 @@ model maintenance_requests {
   engine_hours                                        String?
   preventive_type                                     String?
   driver_employee_id                                  String?                     @db.Uuid
+  description                                         String?
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]
@@ -2506,6 +2507,19 @@ model sub_type_compatible_items {
   @@schema("public")
 }
 
+model support_ticket_views {
+  user_id             String   @db.Uuid
+  taskapp_ticket_id   BigInt
+  last_seen_at        DateTime @default(now()) @db.Timestamptz(6)
+  last_seen_status_id BigInt
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, taskapp_ticket_id])
+  @@index([user_id], map: "idx_support_ticket_views_user_id")
+  @@schema("public")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model tabs {
   id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -2714,6 +2728,7 @@ model vehicles {
   other_equipment               other_equipment[]
   repair_solicitudes            repair_solicitudes[]
   vehicle_tire_positions        vehicle_tire_positions[]
+  vehicle_axle_tire_sizes       vehicle_axle_tire_sizes[]
   tire_service_orders_vehicle   tire_service_orders[]           @relation("tire_service_vehicle")
   tire_service_orders_trailer   tire_service_orders[]           @relation("tire_service_trailer")
   tire_service_items            tire_service_items[]
@@ -2819,7 +2834,7 @@ model tire_template_axles {
   template_id    String   @db.Uuid
   axle_number    Int
   tires_per_side Int
-  tire_size      String
+  tire_size      String?
   is_drive_axle  Boolean  @default(false)
   is_spare       Boolean  @default(false)
   created_at     DateTime @default(now()) @db.Timestamptz(6)
@@ -2847,6 +2862,21 @@ model vehicle_tire_positions {
   tire          tires?              @relation(fields: [tire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([vehicle_id, position_number])
+  @@schema("public")
+}
+
+model vehicle_axle_tire_sizes {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vehicle_id  String   @db.Uuid
+  axle_number Int
+  tire_size   String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  vehicle vehicles @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+
+  @@unique([vehicle_id, axle_number])
+  @@index([vehicle_id])
   @@schema("public")
 }
 

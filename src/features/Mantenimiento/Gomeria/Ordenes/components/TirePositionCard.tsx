@@ -49,7 +49,7 @@ export function TirePositionCard({
   onActionComplete,
 }: TirePositionCardProps) {
   const hasTire = position.tire_id !== null;
-  const tireSize = position.template_axle?.tire_size ?? '';
+  const tireSize = position.effective_tire_size ?? position.template_axle?.tire_size ?? '';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -374,7 +374,9 @@ function TireActionsWithTire({
       {/* ─── Repair ────────────────────────────────────────────────────── */}
       <TabsContent value="repair" className="space-y-3 pt-2">
         <div>
-          <Label className="text-xs mb-1 block">Cubierta de reemplazo ({tireSize})</Label>
+          <Label className="text-xs mb-1 block">
+            {tireSize ? `Cubierta de reemplazo (${tireSize})` : 'Cubierta de reemplazo (medida no configurada)'}
+          </Label>
           <TireReplacePicker
             tireSize={tireSize}
             companyId={companyId}
@@ -399,7 +401,9 @@ function TireActionsWithTire({
       {/* ─── Replace ───────────────────────────────────────────────────── */}
       <TabsContent value="replace" className="space-y-3 pt-2">
         <div>
-          <Label className="text-xs mb-1 block">Cubierta nueva ({tireSize})</Label>
+          <Label className="text-xs mb-1 block">
+            {tireSize ? `Cubierta nueva (${tireSize})` : 'Cubierta nueva (medida no configurada)'}
+          </Label>
           <TireReplacePicker
             tireSize={tireSize}
             companyId={companyId}
@@ -606,7 +610,13 @@ function EmptyPositionAssign({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Seleccione la cubierta a instalar en esta posición (medida {tireSize}):
+        {tireSize ? (
+          <>Seleccione la cubierta a instalar en esta posición (medida {tireSize}):</>
+        ) : (
+          <span className="italic">
+            Medida no configurada para este eje. Configurelas en la tab Cubiertas del equipo.
+          </span>
+        )}
       </p>
       <TireReplacePicker
         tireSize={tireSize}

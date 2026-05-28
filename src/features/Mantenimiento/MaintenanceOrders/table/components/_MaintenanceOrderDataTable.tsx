@@ -19,6 +19,7 @@ import moment from 'moment';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OrderDetailDialog } from '../../components/OrderDetailDialog';
+import { RequestedItemsDialog } from '../../components/RequestedItemsDialog';
 import {
   getAllMaintenanceOrdersForExport,
   getMaintenanceOrdersFacets,
@@ -87,6 +88,20 @@ export function _MaintenanceOrderDataTable({
   const [manageDialogOpen, setManageDialogOpen] = useState(false);
   const [loadingManageOrder, setLoadingManageOrder] = useState(false);
 
+  // ─── Requested Items dialog state ───────────────────────────────────────
+  const [itemsOrder, setItemsOrder] = useState<MaintenanceOrderListItem | null>(null);
+  const [itemsDialogOpen, setItemsDialogOpen] = useState(false);
+
+  const handleViewItems = (order: MaintenanceOrderListItem) => {
+    setItemsOrder(order);
+    setItemsDialogOpen(true);
+  };
+
+  const handleCloseItems = () => {
+    setItemsDialogOpen(false);
+    setItemsOrder(null);
+  };
+
   const handleManageOrder = async (order: MaintenanceOrderListItem) => {
     setLoadingManageOrder(true);
     try {
@@ -137,6 +152,7 @@ export function _MaintenanceOrderDataTable({
       getMaintenanceOrdersColumns({
         onViewDetail: handleViewDetail,
         onManageOrder: handleManageOrder,
+        onViewItems: handleViewItems,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -346,6 +362,9 @@ export function _MaintenanceOrderDataTable({
         onLoaded={() => setLoadingDetail(false)}
         context="workshop"
       />
+
+      {/* Dialog con la lista de items solicitados */}
+      <RequestedItemsDialog order={itemsOrder} open={itemsDialogOpen} onClose={handleCloseItems} />
 
       {/* Loading overlay para carga de datos de gestión */}
       {loadingManageOrder && (

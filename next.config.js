@@ -4,6 +4,11 @@ const nextConfig = {
   experimental: {
     staleTimes: {
       dynamic: 60
+    },
+    serverActions: {
+      // Subimos el limite del body para soportar adjuntos de hasta 10MB
+      // (el default de Next.js es 1MB y rompe upload de imagenes grandes).
+      bodySizeLimit: '10mb'
     }
   },
   logging: {

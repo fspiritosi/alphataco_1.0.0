@@ -73,7 +73,7 @@ export function VehicleAxleEditor({
   const [axles, setAxles] = useState<PlantillasAxleInput[]>(
     currentAxles.length > 0
       ? currentAxles.map(toPlantillasAxle)
-      : [{ axle_number: 1, tires_per_side: 1, tire_size: '', is_drive_axle: false, is_spare: false }]
+      : [{ axle_number: 1, tires_per_side: 1, tire_size: null, is_drive_axle: false, is_spare: false }]
   );
   const [isSaving, setIsSaving] = useState(false);
   const [displacedTires, setDisplacedTires] = useState<DisplacedTireInfo[]>([]);
@@ -85,7 +85,7 @@ export function VehicleAxleEditor({
       setAxles(
         currentAxles.length > 0
           ? currentAxles.map(toPlantillasAxle)
-          : [{ axle_number: 1, tires_per_side: 1, tire_size: '', is_drive_axle: false, is_spare: false }]
+          : [{ axle_number: 1, tires_per_side: 1, tire_size: null, is_drive_axle: false, is_spare: false }]
       );
     }
   }, [open, currentAxles]);
@@ -98,10 +98,6 @@ export function VehicleAxleEditor({
 
   function validate(): string | null {
     if (axles.length === 0) return 'Debe configurar al menos un eje.';
-    const missingSizes = axles.filter((a) => !a.tire_size.trim());
-    if (missingSizes.length > 0) {
-      return `Complete la medida de todos los ejes (faltan ${missingSizes.length}).`;
-    }
     return null;
   }
 

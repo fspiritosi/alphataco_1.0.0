@@ -1616,3 +1616,49 @@ export async function setupAndGenerateWorkOrders(
     throw error;
   }
 }
+
+/**
+ * Devuelve los Grupos de Tareas activos con sus tipos de reparacion asociados.
+ * Se utiliza en el dialogo de agregar items para que el usuario pueda elegir un
+ * grupo y pre-tildar todas sus tareas, con la posibilidad de destildar las que
+ * no quiera cargar antes de confirmar.
+ */
+export async function getMaintenanceTaskGroupsWithRepairTypes() {
+  logger.debug('Obteniendo grupos de tareas con repair_types');
+
+  try {
+    const groups = await prisma.maintenance_request_groups.findMany({
+      where: { is_active: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        maintenance_group_type_of_repairs: {
+          select: {
+            types_of_repairs: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      repairTypes: g.maintenance_group_type_of_repairs
+        .map((rel) => rel.types_of_repairs)
+        .filter((rt): rt is { id: string; name: string } => rt !== null),
+    }));
+  } catch (error) {
+    logger.error('Error al obtener grupos de tareas', { data: { error } });
+    throw error;
+  }
+}
+
+export type MaintenanceTaskGroupsWithRepairTypes = Awaited<
+  ReturnType<typeof getMaintenanceTaskGroupsWithRepairTypes>
+>;
+export type MaintenanceTaskGroupWithRepairTypes = MaintenanceTaskGroupsWithRepairTypes[number];

@@ -1,6 +1,10 @@
-import { ReportAnIssue } from '@/features/Ayuda/components/ReportAnIssue';
+import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
+import { getMyTicketsWithUnread, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
+import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { checkPermissionServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function generateMetadata() {
   const cookiesStore = await cookies();
@@ -8,59 +12,51 @@ export async function generateMetadata() {
   if (companyName) {
     return {
       title: `Ayuda | ${companyName}`,
-      description: `Página de ayuda de ${companyName} con información general, comercial, HR y equipos`,
+      description: `Centro de ayuda de ${companyName}`,
     };
-  } else {
-    const companyName = await getCompanyName();
-    if (companyName) {
-      return {
-        title: `Ayuda | ${companyName.company_name}`,
-        description: `Página de ayuda de ${companyName.company_name} con información general, comercial, HR y equipos`,
-      };
-    }
   }
+  const fetched = await getCompanyName();
+  if (fetched) {
+    return {
+      title: `Ayuda | ${fetched.company_name}`,
+      description: `Centro de ayuda de ${fetched.company_name}`,
+    };
+  }
+  return { title: 'Ayuda' };
 }
-export default function page() {
-  //  return <VehicleInspectionForm />;
-  return <ReportAnIssue />;
-  // return (
-  //   <Viewcomponent
-  //     viewData={
-  //       {
-  //         defaulValue: "general",
-  //         tabsValues:[
-  //           {
-  //             value: "general",
-  //             name:"General",
-  //             restricted: ["usuario"],
-  //             content:{
-  //               title: "Empresa",
-  //               description: "Datos generales de la compañía",
-  //               component: <div>Hola Yordan</div>,
-  //             }
-  //           },
-  //           {
-  //             value: "documents",
-  //             name:"Documentacion",
-  //             restricted: [] ,
-  //             content:{
-  //             title: "Documentación",
-  //             description: "Documentos generales de la compañía",
-  //             component: <TypesDocumentsView equipos personas />,
-  //           }},
-  //           {
-  //             value: "clients",
-  //             name:"Clientes",
-  //             restricted: [] ,
-  //             content:{
-  //             title: "Clientes",
-  //             description: "Documentos generales de la Clientes",
-  //             component: <Customers />,
 
-  //           }},
-  //         ]
-  //       }
-  //     }
-  //   />
-  // )
+interface SearchParams {
+  ticket?: string;
+}
+
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function HelpPage({ searchParams }: Props) {
+  const canView = await checkPermissionServer('ayuda', 'tickets', 'view');
+  if (!canView) redirect('/dashboard');
+
+  const params = await searchParams;
+  const rawId = params.ticket ? Number(params.ticket) : null;
+  const ticketId = rawId != null && Number.isFinite(rawId) ? rawId : null;
+
+  const [initialTickets, initialTicket, reporter] = await Promise.all([
+    getMyTicketsWithUnread(),
+    ticketId != null ? getSupportTicketById(ticketId) : Promise.resolve(null),
+    getReporterEmail(),
+  ]);
+
+  const currentUserEmail = reporter?.email ?? '';
+  const currentUserName = reporter?.name ?? reporter?.email ?? 'Usuario';
+
+  return (
+    <HelpCenter
+      initialTickets={initialTickets}
+      initialTicket={initialTicket}
+      initialTicketId={ticketId}
+      currentUserEmail={currentUserEmail}
+      currentUserName={currentUserName}
+    />
+  );
 }

@@ -14,11 +14,24 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Search, Wrench, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { CheckCircle2, Layers, Search, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { getMaintenanceTaskGroupsWithRepairTypes } from '../actions/actionsServer';
+
+const NONE_GROUP_VALUE = '__none__';
 
 interface AddItemDialogProps {
   open: boolean;
@@ -31,6 +44,14 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
   const [description, setDescription] = useState('');
   const [selectedRepairTypeIds, setSelectedRepairTypeIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(NONE_GROUP_VALUE);
+
+  const { data: groups, isLoading: isLoadingGroups } = useQuery({
+    queryKey: ['maintenance-task-groups-with-repair-types'],
+    queryFn: () => getMaintenanceTaskGroupsWithRepairTypes(),
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const filteredRepairTypes = useMemo(() => {
     const normalized = searchQuery.trim().toLowerCase();
@@ -46,6 +67,11 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
     [selectedRepairTypeIds, repairTypes]
   );
 
+  const selectedGroup = useMemo(
+    () => groups?.find((g) => g.id === selectedGroupId),
+    [groups, selectedGroupId]
+  );
+
   const handleToggleRepairType = (repairTypeId: string) => {
     setSelectedRepairTypeIds((prev) =>
       prev.includes(repairTypeId) ? prev.filter((id) => id !== repairTypeId) : [...prev, repairTypeId]
@@ -54,6 +80,27 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
 
   const handleClearSelection = () => {
     setSelectedRepairTypeIds([]);
+    setSelectedGroupId(NONE_GROUP_VALUE);
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedGroupId(groupId);
+    if (groupId === NONE_GROUP_VALUE) return;
+    const group = groups?.find((g) => g.id === groupId);
+    if (!group) return;
+    const availableIds = new Set(repairTypes.map((rt) => rt.id));
+    const groupRepairTypeIds = group.repairTypes.map((rt) => rt.id).filter((id) => availableIds.has(id));
+    setSelectedRepairTypeIds((prev) => {
+      const next = new Set(prev);
+      groupRepairTypeIds.forEach((id) => next.add(id));
+      return Array.from(next);
+    });
+    if (groupRepairTypeIds.length === 0) {
+      toast.info('El grupo no tiene tareas disponibles para esta orden');
+    } else if (groupRepairTypeIds.length < group.repairTypes.length) {
+      const omitted = group.repairTypes.length - groupRepairTypeIds.length;
+      toast.info(`Se cargaron ${groupRepairTypeIds.length} tareas (${omitted} no disponibles para esta orden)`);
+    }
   };
 
   const handleSubmit = () => {
@@ -69,12 +116,14 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
     setDescription('');
     setSelectedRepairTypeIds([]);
     setSearchQuery('');
+    setSelectedGroupId(NONE_GROUP_VALUE);
     onClose();
   };
 
   const totalCount = repairTypes.length;
   const selectedCount = selectedRepairTypeIds.length;
   const filteredCount = filteredRepairTypes.length;
+  const groupsAvailable = (groups?.length ?? 0) > 0;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -97,6 +146,43 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
               rows={3}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2" htmlFor="task-group">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              Grupo de tareas (opcional)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Al elegir un grupo se tildan automáticamente sus tareas. Podés destildar las que no quieras cargar.
+            </p>
+            {isLoadingGroups ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={selectedGroupId} onValueChange={handleSelectGroup} disabled={!groupsAvailable}>
+                <SelectTrigger id="task-group">
+                  <SelectValue
+                    placeholder={groupsAvailable ? 'Seleccionar un grupo de tareas' : 'No hay grupos disponibles'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_GROUP_VALUE}>Sin grupo</SelectItem>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                      {group.repairTypes.length > 0 && (
+                        <span className="ml-1 text-xs text-muted-foreground">({group.repairTypes.length})</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedGroup?.description && (
+              <p className="text-xs text-muted-foreground italic">{selectedGroup.description}</p>
+            )}
+          </div>
+
+          <Separator />
 
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">

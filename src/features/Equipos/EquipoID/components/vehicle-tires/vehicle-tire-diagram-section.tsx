@@ -28,6 +28,7 @@ import {
   resetVehicleToSubTypeTemplate,
 } from './actions.server';
 import { VehicleAxleEditor, type TirePositionSummary } from './vehicle-axle-editor';
+import { VehicleAxleSizesForm } from './vehicle-axle-sizes-form';
 
 // ============================================================================
 // TYPES
@@ -117,7 +118,7 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
         tire_id: pos.tire_id,
         tire_serial: pos.tire?.serial_number ?? undefined,
         tire_brand: pos.tire?.brand?.name ?? undefined,
-        tire_size: pos.tire?.tire_type?.size ?? undefined,
+        tire_size: pos.effective_tire_size ?? pos.tire?.tire_type?.size ?? undefined,
       });
     }
   }
@@ -276,6 +277,17 @@ export function VehicleTireDiagramSection({ vehicleId, canUpdate }: VehicleTireD
           )}
         </CardContent>
       </Card>
+
+      {/* Vehicle axle sizes form — overrides per axle.
+          Uses template axles directly (independent of position generation) so
+          the form is available before the first service order is created. */}
+      {templateInfo.templateAxles.length > 0 && (
+        <VehicleAxleSizesForm
+          vehicleId={vehicleId}
+          axles={templateInfo.templateAxles}
+          hasGeometricOverride={templateInfo.sourceType === 'vehicle'}
+        />
+      )}
 
       {/* Axle Editor */}
       <VehicleAxleEditor

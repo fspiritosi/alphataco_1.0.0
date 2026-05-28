@@ -75,14 +75,24 @@ const MAINTENANCE_ORDERS_SELECT = {
       source: true,
     },
   },
-  // Items para calcular progreso y sector actual
+  // Items para calcular progreso y sector actual, y mostrar items solicitados
   maintenance_order_items: {
     select: {
       id: true,
       assigned_sector_id: true,
       sector_sequence_order: true,
       is_diagnostico: true,
+      is_critical: true,
       description: true,
+      types_of_repairs: { select: { id: true, name: true } },
+      maintenance_order_item_repair_types: {
+        select: { types_of_repairs: { select: { id: true, name: true } } },
+      },
+      maintenance_request_items: {
+        select: {
+          checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
+        },
+      },
       workshop_sectors: {
         select: { id: true, name: true },
       },

@@ -24,7 +24,7 @@ function createDefaultAxle(axleNumber: number, isSpare = false): AxleInput {
   return {
     axle_number: axleNumber,
     tires_per_side: isSpare ? 1 : 1,
-    tire_size: '',
+    tire_size: null,
     is_drive_axle: false,
     is_spare: isSpare,
   };
@@ -112,9 +112,12 @@ export function AxleConfigurator({ value: axles, onChange }: AxleConfiguratorPro
 
           {/* tire_size */}
           <Input
-            placeholder="Ej: 295/80R22.5"
-            value={axle.tire_size}
-            onChange={(e) => updateAxle(index, { tire_size: e.target.value })}
+            placeholder="Ej: 295/80R22.5 (opcional)"
+            value={axle.tire_size ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              updateAxle(index, { tire_size: val.trim() === '' ? null : val });
+            }}
             className="h-8 text-xs"
           />
 

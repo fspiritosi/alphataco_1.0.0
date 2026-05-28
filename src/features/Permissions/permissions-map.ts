@@ -793,7 +793,16 @@ export const PERMISSIONS = {
     slug: 'ayuda',
     name: 'Ayuda',
     moduleId: '7785379f-1e5f-692f-da2d-fccf9ee5af39',
-    tabs: {},
+    tabs: {
+      tickets: {
+        slug: 'tickets',
+        name: 'Tickets de Soporte',
+        tabId: 'a0000000-0000-0000-0000-000000000001',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+    },
   },
 
   // ============================================

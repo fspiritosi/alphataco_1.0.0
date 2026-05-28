@@ -15,9 +15,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { cn } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertCircle, AlertTriangle, Info, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 import { useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
@@ -34,8 +35,24 @@ export function SolicitudRejectDialog({ request, open, onClose }: SolicitudRejec
   const rejectMutation = useRejectMaintenanceRequestItems();
   const isPreventive = request.source === 'preventive';
 
-  // Items pendientes de la solicitud
-  const pendingItems = request.maintenance_request_items?.filter((item) => item.status === 'pending') || [];
+  // Items pendientes de la solicitud, divididos en decidibles (rechazables) e informativos.
+  const allPending = request.maintenance_request_items?.filter((item) => item.status === 'pending') || [];
+  const { pendingItems, informationalItems } = useMemo(() => {
+    const decidable: typeof allPending = [];
+    const info: typeof allPending = [];
+    for (const item of allPending) {
+      const templateId =
+        (item.checklist_deviations as { checklist_answers?: { template_id?: string | null } | null } | null)
+          ?.checklist_answers?.template_id ?? null;
+      const itemCode = item.checklist_deviations?.item_code ?? null;
+      if (isNonPropagatingChecklistItem(templateId, itemCode)) {
+        info.push(item);
+      } else {
+        decidable.push(item);
+      }
+    }
+    return { pendingItems: decidable, informationalItems: info };
+  }, [allPending]);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -172,6 +189,52 @@ export function SolicitudRejectDialog({ request, open, onClose }: SolicitudRejec
                   <div className="text-center py-8 text-muted-foreground">No hay items pendientes para rechazar</div>
                 )}
               </div>
+
+              {/* Items informativos (no rechazables, sólo lectura) */}
+              {informationalItems.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <Info className="h-3.5 w-3.5" aria-hidden />
+                    Solo informativos ({informationalItems.length}) — no se pueden rechazar
+                  </div>
+                  <div className="space-y-2">
+                    {informationalItems.map((item) => {
+                      const deviation = item.checklist_deviations;
+                      const isCritical = deviation?.is_critical ?? false;
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            {isCritical ? (
+                              <AlertCircle
+                                className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60"
+                                aria-hidden
+                              />
+                            ) : (
+                              <AlertTriangle
+                                className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/60"
+                                aria-hidden
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {deviation?.item_label || 'Item sin descripción'}
+                              </p>
+                              {deviation?.section_code && (
+                                <p className="text-xs text-muted-foreground/80 capitalize mt-0.5">
+                                  Sección: {deviation.section_code.replace('_', ' ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
