@@ -86,7 +86,7 @@ export function TireDiagram({ vehicleId, serviceOrderId, companyId, label, onInt
     tire_id: p.tire_id,
     tire_serial: p.tire?.serial_number,
     tire_brand: p.tire?.brand?.name,
-    tire_size: p.tire?.tire_type?.size,
+    tire_size: p.effective_tire_size ?? p.tire?.tire_type?.size ?? undefined,
   }));
 
   function handlePositionClick(positionNumber: number) {

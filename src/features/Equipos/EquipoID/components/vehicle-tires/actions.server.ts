@@ -24,7 +24,7 @@ const logger = new Logger('features/Equipos/VehicleTires');
 export type AxleInput = {
   axle_number: number;
   tires_per_side: number;
-  tire_size: string;
+  tire_size: string | null;
   is_drive_axle: boolean;
   is_spare: boolean;
 };
@@ -42,43 +42,57 @@ export async function getVehicleTirePositionsWithDetails(vehicleId: string) {
   logger.debug('Getting vehicle tire positions with details', { data: { vehicleId } });
 
   try {
-    const positions = await prisma.vehicle_tire_positions.findMany({
-      where: { vehicle_id: vehicleId },
-      include: {
-        tire: {
-          select: {
-            id: true,
-            serial_number: true,
-            status: true,
-            tread_depth: true,
-            is_new: true,
-            retread_level: true,
-            brand: { select: { id: true, name: true } },
-            tire_type: { select: { id: true, size: true, tread_type: true } },
+    const [positions, overrides] = await Promise.all([
+      prisma.vehicle_tire_positions.findMany({
+        where: { vehicle_id: vehicleId },
+        include: {
+          tire: {
+            select: {
+              id: true,
+              serial_number: true,
+              status: true,
+              tread_depth: true,
+              is_new: true,
+              retread_level: true,
+              brand: { select: { id: true, name: true } },
+              tire_type: { select: { id: true, size: true, tread_type: true } },
+            },
+          },
+          template_axle: {
+            select: {
+              id: true,
+              axle_number: true,
+              tires_per_side: true,
+              tire_size: true,
+              is_drive_axle: true,
+              is_spare: true,
+            },
           },
         },
-        template_axle: {
-          select: {
-            id: true,
-            axle_number: true,
-            tires_per_side: true,
-            tire_size: true,
-            is_drive_axle: true,
-            is_spare: true,
-          },
-        },
-      },
-      orderBy: { position_number: 'asc' },
-    });
+        orderBy: { position_number: 'asc' },
+      }),
+      prisma.vehicle_axle_tire_sizes.findMany({
+        where: { vehicle_id: vehicleId },
+        select: { axle_number: true, tire_size: true },
+      }),
+    ]);
 
-    return positions;
+    const overrideMap = new Map(overrides.map((o) => [o.axle_number, o.tire_size]));
+
+    return positions.map((pos) => ({
+      ...pos,
+      effective_tire_size:
+        overrideMap.get(pos.axle_number) ?? pos.template_axle?.tire_size ?? null,
+    }));
   } catch (error) {
     logger.error('Error getting vehicle tire positions', { data: { error, vehicleId } });
     throw error;
   }
 }
 
-export type VehicleTirePositionWithDetails = Awaited<ReturnType<typeof getVehicleTirePositionsWithDetails>>[number];
+export type VehicleTirePositionWithDetails = Awaited<
+  ReturnType<typeof getVehicleTirePositionsWithDetails>
+>[number];
 
 export async function getVehicleTemplateInfo(vehicleId: string) {
   logger.debug('Getting vehicle template info', { data: { vehicleId } });
@@ -113,8 +127,20 @@ export async function getVehicleTemplateInfo(vehicleId: string) {
         sourceType: 'none' as const,
         subTypeName: vehicle.sub_type?.name ?? null,
         subTypeHasTemplate: !!vehicle.sub_type?.tire_template_id,
+        templateAxles: [] as Array<{
+          axle_number: number;
+          tire_size: string | null;
+          is_drive_axle: boolean;
+          is_spare: boolean;
+        }>,
       };
     }
+
+    const templateAxles = await prisma.tire_template_axles.findMany({
+      where: { template_id: effectiveTemplateId },
+      orderBy: { axle_number: 'asc' },
+      select: { axle_number: true, tire_size: true, is_drive_axle: true, is_spare: true },
+    });
 
     return {
       hasOverride,
@@ -125,6 +151,7 @@ export async function getVehicleTemplateInfo(vehicleId: string) {
       sourceType: hasOverride ? ('vehicle' as const) : ('sub_type' as const),
       subTypeName: vehicle.sub_type?.name ?? null,
       subTypeHasTemplate: !!vehicle.sub_type?.tire_template_id,
+      templateAxles,
     };
   } catch (error) {
     logger.error('Error getting vehicle template info', { data: { error, vehicleId } });
@@ -207,6 +234,15 @@ async function rebuildPositionsPreservingTires(
       })),
     });
   }
+
+  // 6.5 Cleanup: borrar overrides de medida cuyo axle_number ya no existe
+  const newAxleNumbers = new Set(newAxles.map((a) => a.axle_number));
+  await tx.vehicle_axle_tire_sizes.deleteMany({
+    where: {
+      vehicle_id: vehicleId,
+      axle_number: { notIn: [...newAxleNumbers] },
+    },
+  });
 
   // 7. Apply destination for displaced tires
   if (displacedTireIds.size > 0) {
@@ -567,6 +603,65 @@ export async function getVehicleTireOrderSingleFacet(
     return { counts: new Map<string, number>() };
   } catch (error) {
     logger.error('Error getting tire order facet', { data: { error, vehicleId, columnId } });
+    throw error;
+  }
+}
+
+// ============================================================================
+// VEHICLE AXLE SIZE OVERRIDES
+// ============================================================================
+
+export async function getVehicleAxleSizeOverrides(vehicleId: string) {
+  logger.debug('Getting vehicle axle size overrides', { data: { vehicleId } });
+
+  try {
+    const overrides = await prisma.vehicle_axle_tire_sizes.findMany({
+      where: { vehicle_id: vehicleId },
+      select: { axle_number: true, tire_size: true },
+      orderBy: { axle_number: 'asc' },
+    });
+    return overrides;
+  } catch (error) {
+    logger.error('Error getting vehicle axle size overrides', { data: { error, vehicleId } });
+    throw error;
+  }
+}
+
+/**
+ * Upsert/delete bulk de overrides de medida por vehículo.
+ * - tire_size string no vacío → upsert
+ * - tire_size null o '' → delete
+ */
+export async function bulkUpdateVehicleAxleSizes(
+  vehicleId: string,
+  updates: Array<{ axle_number: number; tire_size: string | null }>
+) {
+  logger.debug('Bulk updating vehicle axle sizes', {
+    data: { vehicleId, count: updates.length },
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const { axle_number, tire_size } of updates) {
+        const cleaned = tire_size?.trim() ?? '';
+        if (cleaned === '') {
+          await tx.vehicle_axle_tire_sizes.deleteMany({
+            where: { vehicle_id: vehicleId, axle_number },
+          });
+        } else {
+          await tx.vehicle_axle_tire_sizes.upsert({
+            where: {
+              vehicle_id_axle_number: { vehicle_id: vehicleId, axle_number },
+            },
+            update: { tire_size: cleaned },
+            create: { vehicle_id: vehicleId, axle_number, tire_size: cleaned },
+          });
+        }
+      }
+    });
+    logger.info('Bulk updated vehicle axle sizes', { data: { vehicleId } });
+  } catch (error) {
+    logger.error('Error bulk updating vehicle axle sizes', { data: { error, vehicleId } });
     throw error;
   }
 }

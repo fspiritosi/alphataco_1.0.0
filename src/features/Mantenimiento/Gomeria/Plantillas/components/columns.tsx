@@ -120,6 +120,36 @@ export function getColumns(
       meta: { title: 'Posiciones' },
     },
 
+    // --- Sizes Status (virtual) ---
+    {
+      id: 'sizes_status',
+      accessorFn: (row) => {
+        const axles = row.axles ?? [];
+        if (axles.length === 0) return 'empty';
+        const withSize = axles.filter((a) => a.tire_size && a.tire_size.trim() !== '').length;
+        if (withSize === 0) return 'none';
+        if (withSize === axles.length) return 'all';
+        return 'partial';
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Medidas" />,
+      cell: ({ row }) => {
+        const axles = row.original.axles ?? [];
+        if (axles.length === 0) {
+          return <Badge variant="outline">—</Badge>;
+        }
+        const withSize = axles.filter((a) => a.tire_size && a.tire_size.trim() !== '').length;
+        if (withSize === axles.length) {
+          return <Badge variant="success">Todas</Badge>;
+        }
+        if (withSize === 0) {
+          return <Badge variant="outline">Por vehículo</Badge>;
+        }
+        return <Badge variant="yellow">Parciales</Badge>;
+      },
+      enableSorting: false,
+      meta: { title: 'Medidas' },
+    },
+
     // --- Created At ---
     {
       id: 'created_at',

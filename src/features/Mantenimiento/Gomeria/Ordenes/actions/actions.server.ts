@@ -1,8 +1,10 @@
 'use server';
 
+import { checkVehicleTireReadiness } from '@/features/Mantenimiento/Gomeria/shared/check-vehicle-tire-readiness';
 import { resolveVehicleTireTemplateId } from '@/features/Mantenimiento/Gomeria/shared/resolve-template';
 import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
 import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
+import { TIRE_READINESS_MESSAGES } from '@/features/Mantenimiento/Gomeria/shared/tire-readiness-messages';
 import type { TireOldDestination, TireServiceOrderStatus } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -356,6 +358,42 @@ export async function createServiceOrder(data: {
   logger.debug('Creating service order', { data: { vehicle_id: data.vehicle_id } });
 
   try {
+    // Validar readiness del vehículo
+    const vehicleData = await prisma.vehicles.findUnique({
+      where: { id: data.vehicle_id },
+      select: { domain: true },
+    });
+    const vehicleDomain = vehicleData?.domain ?? data.vehicle_id;
+
+    const vehicleReadiness = await checkVehicleTireReadiness(data.vehicle_id);
+    if (!vehicleReadiness.ready) {
+      if (vehicleReadiness.reason === 'no_template') {
+        throw new Error(TIRE_READINESS_MESSAGES.no_template(vehicleDomain));
+      }
+      throw new Error(
+        TIRE_READINESS_MESSAGES.missing_sizes(vehicleDomain, vehicleReadiness.missingAxles)
+      );
+    }
+
+    // Validar readiness del trailer si aplica
+    if (data.trailer_vehicle_id) {
+      const trailerData = await prisma.vehicles.findUnique({
+        where: { id: data.trailer_vehicle_id },
+        select: { domain: true },
+      });
+      const trailerDomain = trailerData?.domain ?? data.trailer_vehicle_id;
+
+      const trailerReadiness = await checkVehicleTireReadiness(data.trailer_vehicle_id);
+      if (!trailerReadiness.ready) {
+        if (trailerReadiness.reason === 'no_template') {
+          throw new Error(TIRE_READINESS_MESSAGES.no_template(trailerDomain));
+        }
+        throw new Error(
+          TIRE_READINESS_MESSAGES.missing_sizes(trailerDomain, trailerReadiness.missingAxles)
+        );
+      }
+    }
+
     // Snapshot current tire positions for historical diagram reconstruction
     const vehiclePositions = await getVehicleTirePositions(data.vehicle_id);
     let trailerPositions: Awaited<ReturnType<typeof getVehicleTirePositions>> = [];
@@ -624,6 +662,11 @@ export async function getAvailableTiresForAxle(tireSize: string) {
   logger.debug('Fetching available tires for axle', { data: { tireSize } });
 
   try {
+    if (!tireSize || tireSize.trim() === '') {
+      logger.warn('getAvailableTiresForAxle called with empty tireSize, returning empty array');
+      return [];
+    }
+
     const tires = await prisma.tires.findMany({
       where: {
         status: { in: ['AVAILABLE', 'MISSING'] },
@@ -988,15 +1031,65 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
       take: 10,
     });
 
-    return vehicles.map((v) => ({
-      id: v.id,
-      domain: v.domain,
-      intern_number: v.intern_number,
-      tire_template_id: resolveVehicleTireTemplateId(v),
-      sub_type_id: v.sub_type?.id ?? null,
-      sub_type_name: v.sub_type?.name ?? null,
-      type_id: v.type ?? null,
-    }));
+    // Enriquecer cada resultado con has_all_axle_sizes (batch — sin N+1)
+    const vehicleIds = vehicles.map((v) => v.id);
+    const effectiveTemplateByVehicle = new Map<string, string>();
+    for (const v of vehicles) {
+      const effectiveTemplateId = resolveVehicleTireTemplateId(v);
+      if (effectiveTemplateId) effectiveTemplateByVehicle.set(v.id, effectiveTemplateId);
+    }
+    const templateIds = [...new Set(effectiveTemplateByVehicle.values())];
+
+    const [allAxles, allOverrides] = await Promise.all([
+      templateIds.length > 0
+        ? prisma.tire_template_axles.findMany({
+            where: { template_id: { in: templateIds } },
+            select: { template_id: true, axle_number: true, tire_size: true },
+          })
+        : Promise.resolve([] as Array<{ template_id: string; axle_number: number; tire_size: string | null }>),
+      vehicleIds.length > 0
+        ? prisma.vehicle_axle_tire_sizes.findMany({
+            where: { vehicle_id: { in: vehicleIds } },
+            select: { vehicle_id: true, axle_number: true, tire_size: true },
+          })
+        : Promise.resolve([] as Array<{ vehicle_id: string; axle_number: number; tire_size: string }>),
+    ]);
+
+    const overridesByVehicle = new Map<string, Map<number, string>>();
+    for (const o of allOverrides) {
+      if (!overridesByVehicle.has(o.vehicle_id)) overridesByVehicle.set(o.vehicle_id, new Map());
+      overridesByVehicle.get(o.vehicle_id)!.set(o.axle_number, o.tire_size);
+    }
+
+    const axlesByTemplate = new Map<string, Array<{ axle_number: number; tire_size: string | null }>>();
+    for (const a of allAxles) {
+      if (!axlesByTemplate.has(a.template_id)) axlesByTemplate.set(a.template_id, []);
+      axlesByTemplate.get(a.template_id)!.push({ axle_number: a.axle_number, tire_size: a.tire_size });
+    }
+
+    return vehicles.map((v) => {
+      const effectiveTemplateId = effectiveTemplateByVehicle.get(v.id) ?? null;
+      let hasAllAxleSizes = false;
+      let missingAxlesCount = 0;
+      if (effectiveTemplateId) {
+        const axles = axlesByTemplate.get(effectiveTemplateId) ?? [];
+        const overrides = overridesByVehicle.get(v.id) ?? new Map<number, string>();
+        const missing = axles.filter((a) => !(overrides.get(a.axle_number) ?? a.tire_size));
+        hasAllAxleSizes = missing.length === 0;
+        missingAxlesCount = missing.length;
+      }
+      return {
+        id: v.id,
+        domain: v.domain,
+        intern_number: v.intern_number,
+        tire_template_id: effectiveTemplateId,
+        sub_type_id: v.sub_type?.id ?? null,
+        sub_type_name: v.sub_type?.name ?? null,
+        type_id: v.type ?? null,
+        has_all_axle_sizes: hasAllAxleSizes,
+        missing_axles_count: missingAxlesCount,
+      };
+    });
   } catch (error) {
     logger.error('Error searching vehicle by domain', { data: { error, domain } });
     throw error;
@@ -1098,15 +1191,65 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
       orderBy: { domain: 'asc' },
     });
 
-    return vehicles.map((v) => ({
-      id: v.id,
-      domain: v.domain,
-      intern_number: v.intern_number,
-      tire_template_id: resolveVehicleTireTemplateId(v),
-      sub_type_id: v.sub_type?.id ?? null,
-      sub_type_name: v.sub_type?.name ?? null,
-      type_id: v.type ?? null,
-    }));
+    // Enriquecer cada resultado con has_all_axle_sizes (batch — sin N+1)
+    const vehicleIds = vehicles.map((v) => v.id);
+    const effectiveTemplateByVehicle = new Map<string, string>();
+    for (const v of vehicles) {
+      const effectiveTemplateId = resolveVehicleTireTemplateId(v);
+      if (effectiveTemplateId) effectiveTemplateByVehicle.set(v.id, effectiveTemplateId);
+    }
+    const templateIds = [...new Set(effectiveTemplateByVehicle.values())];
+
+    const [allAxles, allOverrides] = await Promise.all([
+      templateIds.length > 0
+        ? prisma.tire_template_axles.findMany({
+            where: { template_id: { in: templateIds } },
+            select: { template_id: true, axle_number: true, tire_size: true },
+          })
+        : Promise.resolve([] as Array<{ template_id: string; axle_number: number; tire_size: string | null }>),
+      vehicleIds.length > 0
+        ? prisma.vehicle_axle_tire_sizes.findMany({
+            where: { vehicle_id: { in: vehicleIds } },
+            select: { vehicle_id: true, axle_number: true, tire_size: true },
+          })
+        : Promise.resolve([] as Array<{ vehicle_id: string; axle_number: number; tire_size: string }>),
+    ]);
+
+    const overridesByVehicle = new Map<string, Map<number, string>>();
+    for (const o of allOverrides) {
+      if (!overridesByVehicle.has(o.vehicle_id)) overridesByVehicle.set(o.vehicle_id, new Map());
+      overridesByVehicle.get(o.vehicle_id)!.set(o.axle_number, o.tire_size);
+    }
+
+    const axlesByTemplate = new Map<string, Array<{ axle_number: number; tire_size: string | null }>>();
+    for (const a of allAxles) {
+      if (!axlesByTemplate.has(a.template_id)) axlesByTemplate.set(a.template_id, []);
+      axlesByTemplate.get(a.template_id)!.push({ axle_number: a.axle_number, tire_size: a.tire_size });
+    }
+
+    return vehicles.map((v) => {
+      const effectiveTemplateId = effectiveTemplateByVehicle.get(v.id) ?? null;
+      let hasAllAxleSizes = false;
+      let missingAxlesCount = 0;
+      if (effectiveTemplateId) {
+        const axles = axlesByTemplate.get(effectiveTemplateId) ?? [];
+        const overrides = overridesByVehicle.get(v.id) ?? new Map<number, string>();
+        const missing = axles.filter((a) => !(overrides.get(a.axle_number) ?? a.tire_size));
+        hasAllAxleSizes = missing.length === 0;
+        missingAxlesCount = missing.length;
+      }
+      return {
+        id: v.id,
+        domain: v.domain,
+        intern_number: v.intern_number,
+        tire_template_id: effectiveTemplateId,
+        sub_type_id: v.sub_type?.id ?? null,
+        sub_type_name: v.sub_type?.name ?? null,
+        type_id: v.type ?? null,
+        has_all_axle_sizes: hasAllAxleSizes,
+        missing_axles_count: missingAxlesCount,
+      };
+    });
   } catch (error) {
     logger.error('Error searching compatible hitch vehicles', { data: { error, tractorId, domain } });
     return [];
@@ -1126,6 +1269,36 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
   logger.debug('Ensuring vehicle tire positions', { data: { vehicleId } });
 
   try {
+    const readiness = await checkVehicleTireReadiness(vehicleId);
+    if (!readiness.ready) {
+      const vehicleData = await prisma.vehicles.findUnique({
+        where: { id: vehicleId },
+        select: { domain: true },
+      });
+      const domain = vehicleData?.domain ?? vehicleId;
+      if (readiness.reason === 'no_template') {
+        throw new Error(TIRE_READINESS_MESSAGES.no_template(domain));
+      }
+      throw new Error(TIRE_READINESS_MESSAGES.missing_sizes(domain, readiness.missingAxles));
+    }
+
+    // Load vehicle-level axle size overrides once for enrichment of returned positions.
+    const sizeOverrides = await prisma.vehicle_axle_tire_sizes.findMany({
+      where: { vehicle_id: vehicleId },
+      select: { axle_number: true, tire_size: true },
+    });
+    const overrideMap = new Map(sizeOverrides.map((o) => [o.axle_number, o.tire_size]));
+
+    function enrich<T extends { axle_number: number; template_axle: { tire_size: string | null } | null }>(
+      positions: T[]
+    ): Array<T & { effective_tire_size: string | null }> {
+      return positions.map((pos) => ({
+        ...pos,
+        effective_tire_size:
+          overrideMap.get(pos.axle_number) ?? pos.template_axle?.tire_size ?? null,
+      }));
+    }
+
     // 1. Check if vehicle already has positions
     const existingPositions = await prisma.vehicle_tire_positions.findMany({
       where: { vehicle_id: vehicleId },
@@ -1157,7 +1330,7 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
     });
 
     if (existingPositions.length > 0) {
-      return existingPositions;
+      return enrich(existingPositions);
     }
 
     // 2. No positions — need to generate from vehicle's effective template
@@ -1252,7 +1425,7 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
       data: { vehicleId, count: newPositions.length, templateId },
     });
 
-    return newPositions;
+    return enrich(newPositions);
   } catch (error) {
     logger.error('Error ensuring vehicle tire positions', { data: { error, vehicleId } });
     throw error;
