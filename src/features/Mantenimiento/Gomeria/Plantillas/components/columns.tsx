@@ -10,6 +10,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
 import { CarFront, Pencil, Trash2 } from 'lucide-react';
 import moment from 'moment';
+import type { ReactNode } from 'react';
 import type { TemplateListItem } from '../actions/actions.server';
 
 // ============================================================================
@@ -118,6 +119,56 @@ export function getColumns(
       },
       enableSorting: false,
       meta: { title: 'Posiciones' },
+    },
+
+    // --- Sizes Status (virtual) ---
+    {
+      id: 'sizes_status',
+      accessorFn: (row) => {
+        const axles = row.axles ?? [];
+        if (axles.length === 0) return 'empty';
+        const withSize = axles.filter((a) => a.tire_size && a.tire_size.trim() !== '').length;
+        if (withSize === 0) return 'none';
+        if (withSize === axles.length) return 'all';
+        return 'partial';
+      },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Medidas" />,
+      cell: ({ row }) => {
+        const axles = row.original.axles ?? [];
+        if (axles.length === 0) {
+          return <Badge variant="outline">—</Badge>;
+        }
+        const withSize = axles.filter((a) => a.tire_size && a.tire_size.trim() !== '').length;
+
+        let badge: ReactNode;
+        let tooltipText: string;
+
+        if (withSize === axles.length) {
+          badge = <Badge variant="success">Todas</Badge>;
+          tooltipText = `Los ${axles.length} ejes tienen medida cargada en la plantilla. Cada vehículo puede sobrescribirla individualmente desde su tab Cubiertas.`;
+        } else if (withSize === 0) {
+          badge = <Badge variant="outline">Por vehículo</Badge>;
+          tooltipText = `Ningún eje tiene medida en la plantilla. Cada vehículo que la use debe configurar las medidas en su tab Cubiertas antes de poder iniciar órdenes de gomería.`;
+        } else {
+          badge = <Badge variant="yellow">Parciales</Badge>;
+          tooltipText = `${withSize} de ${axles.length} ejes con medida cargada en la plantilla. Los ${axles.length - withSize} restantes deben configurarse por vehículo desde su tab Cubiertas.`;
+        }
+
+        return (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block cursor-help">{badge}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-xs leading-relaxed">{tooltipText}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      enableSorting: false,
+      meta: { title: 'Medidas' },
     },
 
     // --- Created At ---

@@ -21,7 +21,7 @@ const logger = new Logger('features/Mantenimiento/Gomeria/Plantillas');
 export interface AxleInput {
   axle_number: number;
   tires_per_side: number;
-  tire_size: string;
+  tire_size: string | null;
   is_drive_axle: boolean;
   is_spare: boolean;
 }

@@ -1,3 +1,4 @@
+import { UserProfileCard } from '@/features/Empresa/Usuarios/components/UserProfileCard';
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import {
   getAllRolePermissions,
@@ -63,7 +64,8 @@ async function User({ params }: { params: Promise<{ id: string }> }) {
     ]);
 
   return (
-    <section className="md:mx-7 py-4">
+    <section className="md:mx-7 py-4 space-y-4">
+      {shareUser.profile && <UserProfileCard profile={shareUser.profile} canEdit={canUpdate} />}
       <UserPermissionsManager
         userId={authUserId}
         userName={userName}

@@ -41,11 +41,22 @@ export function TireReplacePicker({ tireSize, companyId, onSelect, selectedTireI
   const [search, setSearch] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
+  const hasTireSize = !!tireSize && tireSize.trim() !== '';
+
   const { data: tires = [], isLoading } = useQuery({
     queryKey: ['available-tires', tireSize],
     queryFn: () => getAvailableTiresForAxle(tireSize),
+    enabled: hasTireSize,
     staleTime: 30 * 1000,
   });
+
+  if (!hasTireSize) {
+    return (
+      <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground italic">
+        Configurá la medida de este eje en la tab Cubiertas del equipo antes de asignar una cubierta.
+      </div>
+    );
+  }
 
   const filtered = tires.filter(
     (t) =>

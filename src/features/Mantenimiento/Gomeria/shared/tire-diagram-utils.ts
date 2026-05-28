@@ -6,7 +6,7 @@ export interface DiagramAxle {
   id: string;
   axle_number: number;
   tires_per_side: number; // 1 (single) or 2 (dual)
-  tire_size: string;
+  tire_size: string | null;
   is_drive_axle: boolean;
   is_spare: boolean;
 }

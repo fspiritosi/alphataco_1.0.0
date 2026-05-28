@@ -126,14 +126,8 @@ export function TemplateForm({ open, onOpenChange, companyId, template, queryKey
 
   // ─── Submit handler ───────────────────────────────────────────────────────
   function onSubmit(values: TemplateFormValues) {
-    // Validate axles
     if (axles.length === 0) {
       toast.error('Debe configurar al menos un eje');
-      return;
-    }
-    const missingSize = axles.find((a) => !a.tire_size.trim());
-    if (missingSize) {
-      toast.error(`El eje ${missingSize.axle_number} no tiene medida de cubierta configurada`);
       return;
     }
     mutation.mutate(values);
@@ -204,6 +198,9 @@ export function TemplateForm({ open, onOpenChange, companyId, template, queryKey
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">Configuración de ejes</h3>
               <AxleConfigurator value={axles} onChange={setAxles} />
+              <p className="text-xs text-muted-foreground italic">
+                Si no cargás la medida de un eje, se podrá configurar por vehículo en la tab Cubiertas del equipo.
+              </p>
             </div>
 
             <Separator />
