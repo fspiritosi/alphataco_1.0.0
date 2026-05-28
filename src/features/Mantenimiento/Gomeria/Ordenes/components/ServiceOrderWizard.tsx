@@ -328,11 +328,13 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
         <p className="text-sm text-muted-foreground text-center py-2">No se encontraron vehículos</p>
       )}
 
-      {results.length > 0 && (
+      {results.filter((v) => v.id !== selectedVehicle?.id).length > 0 && (
         <div className="space-y-1 max-h-40 overflow-y-auto">
-          {results.map((v) => (
-            <VehicleRow key={v.id} vehicle={v} selected={selectedVehicle?.id === v.id} onSelect={onSelect} />
-          ))}
+          {results
+            .filter((v) => v.id !== selectedVehicle?.id)
+            .map((v) => (
+              <VehicleRow key={v.id} vehicle={v} selected={false} onSelect={onSelect} />
+            ))}
         </div>
       )}
 
@@ -372,7 +374,7 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
         <p className="text-xs text-destructive">
           Este vehículo tiene la plantilla asignada pero faltan medidas de cubierta.{' '}
           <a
-            href={`/maintenance/equipment/${selectedVehicle.id}?tab=tires`}
+            href={`/dashboard/equipment/action?action=view&id=${selectedVehicle.id}&tab=tires`}
             target="_blank"
             rel="noopener noreferrer"
             className="underline font-medium"
@@ -424,11 +426,13 @@ function TrailerSearchSection({ tractorId, companyId, selectedTrailer, onSelect 
         <p className="text-xs text-muted-foreground">No se encontraron vehículos</p>
       )}
 
-      {results.length > 0 && (
+      {results.filter((v) => v.id !== selectedTrailer?.id).length > 0 && (
         <div className="space-y-1 max-h-32 overflow-y-auto">
-          {results.map((v) => (
-            <VehicleRow key={v.id} vehicle={v} selected={selectedTrailer?.id === v.id} onSelect={onSelect} />
-          ))}
+          {results
+            .filter((v) => v.id !== selectedTrailer?.id)
+            .map((v) => (
+              <VehicleRow key={v.id} vehicle={v} selected={false} onSelect={onSelect} />
+            ))}
         </div>
       )}
 
@@ -444,7 +448,7 @@ function TrailerSearchSection({ tractorId, companyId, selectedTrailer, onSelect 
           <span>
             El enganche tiene plantilla pero faltan medidas.{' '}
             <a
-              href={`/maintenance/equipment/${selectedTrailer.id}?tab=tires`}
+              href={`/dashboard/equipment/action?action=view&id=${selectedTrailer.id}&tab=tires`}
               target="_blank"
               rel="noopener noreferrer"
               className="underline font-medium"
