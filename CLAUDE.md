@@ -192,6 +192,14 @@ src/
 
 ## Learned Corrections
 
+### Columnas UUID/FK opcionales: enviar `null`, nunca string vacío
+
+Al persistir en Supabase/Postgres, una columna `@db.Uuid` (o `Int`) que recibe `''` provoca **400 invalid input syntax**. Los forms suelen inicializar FKs opcionales como `vehicle?.campo || ''`; ese `''` debe convertirse a `null` antes del `insert`/`update`. Normalizar en la **server action** (límite contra la BD), no campo por campo en el form. NO convertir columnas de texto ni `NOT NULL` (ej. `engine`). Referencia: `normalizeVehicleFkFields()` en `vehicle-actions.ts`.
+
+### Diagnóstico: ir al error real, no al ruido
+
+Si un error de servidor aparece enmascarado por una capa secundaria (ej. PostHog/instrumentación que falla al capturar la excepción), ignorar esa capa y rastrear el error de origen (el `400`/`500` real de la query). No perseguir issues tangenciales de entorno salvo que el usuario lo pida.
+
 ### Permisos: 3 roles de acceso completo
 
 Al insertar nuevas tabs o `role_permissions`, SIEMPRE incluir los 3 roles: `admin`, `administrador`, y `full-access-provisional`. No solo `admin`.
