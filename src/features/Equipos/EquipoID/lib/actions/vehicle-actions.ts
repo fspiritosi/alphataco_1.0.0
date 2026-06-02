@@ -10,6 +10,35 @@ import { cookies } from 'next/headers';
 
 const logger = new Logger('features/Equipos/vehicle-actions');
 
+/**
+ * Columnas FK / UUID / numéricas opcionales de `vehicles`. Un string vacío proveniente del
+ * formulario debe persistirse como `null`: Postgres rechaza `''` en columnas uuid/integer (error 400).
+ */
+const NULLABLE_VEHICLE_FK_FIELDS = [
+  'subType',
+  'owner_id',
+  'cost_center_id',
+  'sector',
+  'brand',
+  'model',
+  'type_operative_id',
+  'tire_template_id',
+] as const;
+
+/**
+ * Convierte a `null` los strings vacíos de las columnas FK/UUID/numéricas opcionales.
+ * No toca el resto de los campos para no alterar columnas de texto ni NOT NULL.
+ */
+function normalizeVehicleFkFields<T extends Record<string, unknown>>(vehicleData: T): T {
+  const normalized = { ...vehicleData };
+  for (const field of NULLABLE_VEHICLE_FK_FIELDS) {
+    if (normalized[field] === '') {
+      (normalized as Record<string, unknown>)[field] = null;
+    }
+  }
+  return normalized;
+}
+
 export async function getVehicleById(id: string) {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
@@ -105,7 +134,7 @@ export async function createVehicle(vehicleData: any) {
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
-      ...vehicleData,
+      ...normalizeVehicleFkFields(vehicleData),
       company_id,
       // Solo los vehículos (no "Otros") nacen en "en preparacion"
       condition,
@@ -147,7 +176,7 @@ export async function updateVehicle(id: string, vehicleData: any) {
   const { data, error } = await supabase
     .from('vehicles')
     .update({
-      ...vehicleData,
+      ...normalizeVehicleFkFields(vehicleData),
       allocated_to: undefined, // Remove this as it's handled separately
     })
     .eq('id', id)
