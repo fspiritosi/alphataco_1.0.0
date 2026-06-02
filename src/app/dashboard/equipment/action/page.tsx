@@ -104,7 +104,9 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           )}
 
           {/* Formulario del equipo */}
+          {/* key ligada al id: fuerza re-montaje al navegar entre equipos para que RHF reinicialice los defaultValues */}
           <OtherEquipmentForm
+            key={equipment?.id ?? 'new'}
             equipmentId={equipment?.id}
             mode={actualMode as 'view' | 'edit' | 'new'}
             equipment={equipment}
@@ -169,7 +171,9 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
         )}
 
         {/* Vehicle Form */}
+        {/* key ligada al id: fuerza re-montaje al navegar entre equipos para que RHF reinicialice los defaultValues */}
         <VehicleForm
+          key={vehicle?.id ?? 'new'}
           vehicleId={vehicle?.id}
           mode={mode}
           vehicle={vehicle}
