@@ -745,7 +745,7 @@ export const PERMISSIONS = {
         name: 'Preparte',
         tabId: '70000000-0000-0000-0000-000000000001',
         parent: null,
-        allowedActions: ['view', 'create', 'update'],
+        allowedActions: ['view', 'create', 'update', 'delete'],
         subtabs: {},
       },
       dailyreportstable: {
