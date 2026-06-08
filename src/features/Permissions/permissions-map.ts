@@ -29,6 +29,7 @@ export const ACTIONS = {
   view_all_requests: { slug: 'view_all_requests', name: 'Ver todas las solicitudes' },
   view_private: { slug: 'view_private', name: 'Ver privados' },
   upload_private: { slug: 'upload_private', name: 'Subir privados' },
+  assign_resources: { slug: 'assign_resources', name: 'Asignar Recursos' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -761,7 +762,7 @@ export const PERMISSIONS = {
         name: 'Detalle de Parte Diario',
         tabId: '70000000-0000-0000-0000-000000000003',
         parent: null,
-        allowedActions: ['view', 'create', 'update', 'delete'],
+        allowedActions: ['view', 'create', 'update', 'delete', 'assign_resources'],
         subtabs: {},
       },
     },

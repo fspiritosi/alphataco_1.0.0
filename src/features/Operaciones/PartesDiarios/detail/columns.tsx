@@ -12,7 +12,7 @@ import {
   dailyReportTypeServiceLabels,
 } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, UserCog } from 'lucide-react';
 import moment from 'moment';
 import type { EmployeeDeviation, EquipmentDeviation } from '../actions/actions';
 import type { DailyReportDetailRow } from './types';
@@ -34,6 +34,7 @@ const NON_SELECTABLE_STATUSES = new Set(['sin_recursos_asignados', 'reprogramado
 type Permissions = {
   canUpdate: boolean;
   canDelete: boolean;
+  canAssignResources: boolean;
 };
 
 // ============================================================================
@@ -43,6 +44,7 @@ type Permissions = {
 export type RowActionHandlers = {
   onViewDetail: (row: DailyReportDetailRow) => void;
   onEdit: (row: DailyReportDetailRow) => void;
+  onAssignResources: (row: DailyReportDetailRow) => void;
   onHistory: (row: DailyReportDetailRow) => void;
   onDelete: (row: DailyReportDetailRow) => void;
 };
@@ -909,6 +911,9 @@ function RowActionsCell({
   const isFutureDate = moment(reportDate).isAfter(moment(), 'day');
   // Editar: no permitir si ejecutado (salvo hoy) ni en_certificacion
   const canEdit = permissions.canUpdate && row.status !== 'en_certificacion' && (row.status !== 'ejecutado' || isToday);
+  // Asignar recursos: misma elegibilidad que editar, pero gobernada por su propio permiso
+  const canAssignResources =
+    permissions.canAssignResources && row.status !== 'en_certificacion' && (row.status !== 'ejecutado' || isToday);
   // Eliminar: solo si fecha hoy, futura, o status sin_recursos_asignados
   const canDelete = permissions.canDelete && (isToday || isFutureDate || row.status === 'sin_recursos_asignados');
 
@@ -961,6 +966,19 @@ function RowActionsCell({
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
+        </button>
+      )}
+
+      {/* Asignar recursos — solo con el permiso assign_resources (Supervisor de Operaciones) */}
+      {canAssignResources && (
+        <button
+          type="button"
+          title="Asignar recursos"
+          className="rounded p-1 text-cyan-600 hover:bg-accent hover:text-cyan-700"
+          onClick={() => handlers.onAssignResources(row)}
+        >
+          <span className="sr-only">Asignar recursos</span>
+          <UserCog width={14} height={14} />
         </button>
       )}
 

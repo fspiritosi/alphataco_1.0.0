@@ -42,8 +42,12 @@ export function ScheduleSection({
 
   return (
     <div className="space-y-4">
-      {/* Status — solo en modo edición */}
-      {isEditMode && (
+      {/* Bloque bloqueable: en modo "solo recursos" (disabled) todos estos
+          controles quedan deshabilitados. El motivo de reasignación queda fuera
+          del fieldset porque debe poder completarse al reasignar recursos. */}
+      <fieldset disabled={disabled} className="space-y-4 disabled:opacity-70">
+        {/* Status — solo en modo edición */}
+        {isEditMode && (
         <FormField
           control={form.control}
           name="status"
@@ -255,7 +259,10 @@ export function ScheduleSection({
         )}
       />
 
-      {/* Motivo de reasignación — solo cuando se removieron/reemplazaron empleados o equipos */}
+      </fieldset>
+
+      {/* Motivo de reasignación — solo cuando se removieron/reemplazaron empleados o equipos.
+          Editable también en modo "solo recursos". */}
       {showReasigmentReason && (
         <FormField
           control={form.control}
