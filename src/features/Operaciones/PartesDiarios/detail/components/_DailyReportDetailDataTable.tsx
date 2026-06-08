@@ -94,6 +94,7 @@ interface Props {
   dailyReportStatus: string;
   canUpdate: boolean;
   canDelete: boolean;
+  canAssignResources: boolean;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
 }
@@ -112,6 +113,7 @@ export function _DailyReportDetailDataTable({
   dailyReportStatus,
   canUpdate,
   canDelete,
+  canAssignResources,
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
@@ -188,6 +190,7 @@ export function _DailyReportDetailDataTable({
     () => ({
       onViewDetail: (row) => setDetailRowId(row.id),
       onEdit: (row) => openForm(row.id),
+      onAssignResources: (row) => openForm(row.id, 'resources'),
       onHistory: (row) => setHistoryRowId(row.id),
       onDelete: (row) => setDeleteRow(row),
     }),
@@ -195,7 +198,10 @@ export function _DailyReportDetailDataTable({
   );
 
   // ── Permissions ───────────────────────────────────────────────────────────
-  const permissions = useMemo(() => ({ canUpdate, canDelete }), [canUpdate, canDelete]);
+  const permissions = useMemo(
+    () => ({ canUpdate, canDelete, canAssignResources }),
+    [canUpdate, canDelete, canAssignResources]
+  );
 
   // ── Deviation getters (estables para el memo de columnas) ─────────────────
   const deviationGetters = useMemo(

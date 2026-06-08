@@ -78,9 +78,13 @@ export function DailyReportRowForm({
   otherEquipment,
   onSuccess,
 }: DailyReportRowFormProps) {
-  const { isOpen, editingRowId, open, close } = useDailyReportDetailFormStore();
+  const { isOpen, editingRowId, mode, close } = useDailyReportDetailFormStore();
   const queryClient = useQueryClient();
   const [isLoadingRow, setIsLoadingRow] = useState(false);
+
+  // Modo "solo recursos": el supervisor de operaciones únicamente puede asignar
+  // personal y equipos; el resto de los campos se muestra pero queda bloqueado.
+  const resourcesOnly = mode === 'resources';
 
   // Snapshots originales para detectar cambios en empleados/equipos al editar
   const originalEmployeeIdsRef = useRef<string[]>([]);
@@ -344,11 +348,15 @@ export function DailyReportRowForm({
     >
       <SheetContent className="sm:max-w-screen-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{isEditMode ? 'Editar' : 'Agregar'} Fila del Parte Diario</SheetTitle>
+          <SheetTitle>
+            {resourcesOnly ? 'Asignar Recursos' : `${isEditMode ? 'Editar' : 'Agregar'} Fila del Parte Diario`}
+          </SheetTitle>
           <SheetDescription>
-            {isEditMode
-              ? 'Actualice los campos necesarios para modificar la fila.'
-              : 'Complete los campos para agregar una nueva fila al parte diario.'}
+            {resourcesOnly
+              ? 'Asigne el personal y los equipos de esta línea. El resto de los campos no se puede modificar.'
+              : isEditMode
+                ? 'Actualice los campos necesarios para modificar la fila.'
+                : 'Complete los campos para agregar una nueva fila al parte diario.'}
           </SheetDescription>
         </SheetHeader>
 
@@ -361,9 +369,13 @@ export function DailyReportRowForm({
           <div className="grid gap-4 py-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <CustomerServiceSection form={form} customers={customers} isEditMode={isEditMode} />
+                {/* En modo "solo recursos" estas secciones se muestran pero quedan
+                    bloqueadas: el fieldset deshabilita todos sus controles. */}
+                <fieldset disabled={resourcesOnly} className="space-y-4 disabled:opacity-70">
+                  <CustomerServiceSection form={form} customers={customers} isEditMode={isEditMode} />
 
-                <JornadaSection form={form} />
+                  <JornadaSection form={form} />
+                </fieldset>
 
                 {itemNeedsPersonnel && (
                   <EmployeeSection
@@ -401,6 +413,7 @@ export function DailyReportRowForm({
                   isEditMode={isEditMode}
                   reportDate={reportDate}
                   showReasigmentReason={showReasigmentReason}
+                  disabled={resourcesOnly}
                 />
 
                 <div className="flex justify-end space-x-4 pt-4">
@@ -409,7 +422,7 @@ export function DailyReportRowForm({
                   </Button>
                   <Button type="submit" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isEditMode ? 'Actualizar' : 'Crear'}
+                    {resourcesOnly ? 'Guardar' : isEditMode ? 'Actualizar' : 'Crear'}
                   </Button>
                 </div>
               </form>
