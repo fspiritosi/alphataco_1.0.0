@@ -18,6 +18,7 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import InfoComponent from '@/shared/components/common/InfoComponent';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDownIcon, ArrowUpIcon, FileDown } from 'lucide-react';
+import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -49,6 +50,15 @@ type EmployeeWithDiagrams = {
   value: string;
   label: string;
   diagrams: DiagramType[];
+  // Datos del empleado para el export a Excel (opcionales para retrocompatibilidad)
+  position?: string;
+  sector?: string;
+  dateOfAdmission?: string | null;
+  workDiagram?: string;
+  costCenter?: string;
+  category?: string;
+  covenant?: string;
+  guild?: string;
 };
 
 function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWithDiagrams[] }) {
@@ -153,11 +163,26 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
       return;
     }
 
+    // Columnas fijas de informacion del empleado (antes de los dias)
+    const columnasEmpleado = [
+      'Empleado',
+      'Puesto',
+      'Sector',
+      'Fecha de ingreso',
+      'Diagrama',
+      'Centro de Costo',
+      'Categoría',
+      'Convenio',
+      'Sindicato',
+    ];
+    // Cantidad de columnas fijas: define el offset donde empiezan los dias
+    const COLUMNAS_FIJAS = columnasEmpleado.length;
+
     // Datos para el Excel
     const datosExcel = [];
 
     // Encabezados (primera fila)
-    const encabezados = ['Empleado', ...diasMostrados.map((day) => format(day, 'dd/MM', { locale: es }))];
+    const encabezados = [...columnasEmpleado, ...diasMostrados.map((day) => format(day, 'dd/MM', { locale: es }))];
     datosExcel.push(encabezados);
 
     // Filtrar empleados según selección
@@ -168,7 +193,17 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
 
     // Datos de cada empleado
     empleadosFiltrados.forEach((employee) => {
-      const filaDatos = [employee.label];
+      const filaDatos = [
+        employee.label,
+        employee.position || '',
+        employee.sector || '',
+        employee.dateOfAdmission ? moment(employee.dateOfAdmission).format('DD/MM/YYYY') : '',
+        employee.workDiagram || '',
+        employee.costCenter || '',
+        employee.category || '',
+        employee.covenant || '',
+        employee.guild || '',
+      ];
 
       diasMostrados.forEach((day) => {
         const diaNro = day.getDate();
@@ -189,7 +224,7 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
     // Añadir estilos de color según los diagramas
     empleadosFiltrados.forEach((employee, rowIndex) => {
       diasMostrados.forEach((day, colIndex) => {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex + 1 });
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex + COLUMNAS_FIJAS });
         const diaNro = day.getDate();
         const mesNro = day.getMonth() + 1;
         const anioNro = day.getFullYear();

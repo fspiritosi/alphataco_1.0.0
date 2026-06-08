@@ -96,6 +96,15 @@ export async function searchEmployeeDiagrams(params: {
           lastname: true,
           document_number: true,
           file: true,
+          date_of_admission: true,
+          // FK relations resueltas para enriquecer el export a Excel
+          company_positions: { select: { id: true, name: true } },
+          hierarchy: { select: { id: true, name: true } },
+          work_diagram: { select: { id: true, name: true } },
+          cost_center: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+          covenant: { select: { id: true, name: true } },
+          guild: { select: { id: true, name: true } },
           employees_diagram: {
             select: {
               id: true,
@@ -139,6 +148,15 @@ export async function searchEmployeeDiagrams(params: {
         value: emp.id,
         label: `${emp.lastname?.charAt(0).toUpperCase()}${emp.lastname?.slice(1)} ${emp.firstname?.charAt(0).toUpperCase()}${emp.firstname?.slice(1)}`,
         file: emp.file,
+        // Datos del empleado para enriquecer el export a Excel
+        position: emp.company_positions?.name ?? '',
+        sector: emp.hierarchy?.name ?? '',
+        dateOfAdmission: emp.date_of_admission ? emp.date_of_admission.toISOString() : null,
+        workDiagram: emp.work_diagram?.name ?? '',
+        costCenter: emp.cost_center?.name ?? '',
+        category: emp.category?.name ?? '',
+        covenant: emp.covenant?.name ?? '',
+        guild: emp.guild?.name ?? '',
         // Convert Prisma Decimal fields to number for downstream compatibility
         diagrams: emp.employees_diagram.map((d) => {
           const dt = d.diagram_type_employees_diagram_diagram_typeTodiagram_type;
