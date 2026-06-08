@@ -1,116 +1,121 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { format, setMonth, setYear } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { es } from "date-fns/locale"
+import { Calendar as CalendarIcon } from 'lucide-react';
+import moment from 'moment';
+import * as React from 'react';
+import { es } from 'date-fns/locale';
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+
+const DATE_FORMAT = 'DD/MM/YYYY';
 
 interface DatePickerProps {
-  date?: Date
-  setDate?: (date: Date | undefined) => void
+  /** Fecha actual. Acepta Date o ISO string (compatibilidad con react-hook-form). */
+  date?: Date | string;
+  setDate?: (date: Date | undefined) => void;
+  /** Fecha minima seleccionable/escribible (ej: hoy para vencimientos). Opcional. */
+  minDate?: Date;
+  placeholder?: string;
+  className?: string;
 }
 
-export function EnhancedDatePicker({ date, setDate }: DatePickerProps) {
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date)
-  const [isOpen, setIsOpen] = React.useState(false)
+/** Normaliza el valor entrante (Date | ISO string) a un Date valido o undefined. */
+function normalizeDate(value?: Date | string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = moment(value);
+  return parsed.isValid() ? parsed.toDate() : undefined;
+}
 
-  const years = Array.from({ length: 10 }, (_, i) => (selectedDate?.getFullYear() || new Date().getFullYear()) - 5 + i)
-  const months = Array.from({ length: 12 }, (_, i) => i)
+/**
+ * Date picker con escritura directa: el usuario puede tipear la fecha en formato
+ * DD/MM/YYYY o seleccionarla desde el calendario (boton con icono). Equivalente al
+ * input nativo type="date" pero con componentes de shadcn/ui.
+ */
+export function EnhancedDatePicker({ date, setDate, minDate, placeholder = DATE_FORMAT, className }: DatePickerProps) {
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(() => normalizeDate(date));
+  const [inputValue, setInputValue] = React.useState<string>(() => {
+    const initial = normalizeDate(date);
+    return initial ? moment(initial).format(DATE_FORMAT) : '';
+  });
+  const [inputError, setInputError] = React.useState('');
+  const [calendarMonth, setCalendarMonth] = React.useState<Date>(() => normalizeDate(date) ?? new Date());
+  const [isOpen, setIsOpen] = React.useState(false);
 
-  const handleDateChange = (newDate: Date | undefined) => {
-    setSelectedDate(newDate)
-    if (setDate) {
-      setDate(newDate)
+  const commitDate = (newDate: Date | undefined) => {
+    setSelectedDate(newDate);
+    setDate?.(newDate);
+  };
+
+  const handleInputChange = (raw: string) => {
+    setInputValue(raw);
+
+    if (raw === '') {
+      setInputError('');
+      commitDate(undefined);
+      return;
     }
-  }
 
-  const handleYearChange = (year: string) => {
-    if (selectedDate) {
-      handleDateChange(setYear(selectedDate, parseInt(year)))
-    } else {
-      handleDateChange(setYear(new Date(), parseInt(year)))
-    }
-  }
+    const parsed = moment(raw, DATE_FORMAT, true);
 
-  const handleMonthChange = (month: string) => {
-    if (selectedDate) {
-      handleDateChange(setMonth(selectedDate, parseInt(month)))
-    } else {
-      handleDateChange(setMonth(new Date(), parseInt(month)))
+    if (!parsed.isValid()) {
+      setInputError('Formato invalido. Use DD/MM/YYYY');
+      commitDate(undefined);
+      return;
     }
-  }
+
+    if (minDate && parsed.isBefore(moment(minDate), 'day')) {
+      setInputError(`La fecha debe ser igual o posterior a ${moment(minDate).format(DATE_FORMAT)}`);
+      commitDate(undefined);
+      return;
+    }
+
+    setInputError('');
+    setCalendarMonth(parsed.toDate());
+    commitDate(parsed.toDate());
+  };
+
+  const handleCalendarSelect = (newDate: Date | undefined) => {
+    if (!newDate) return;
+    setInputValue(moment(newDate).format(DATE_FORMAT));
+    setInputError('');
+    commitDate(newDate);
+    setIsOpen(false);
+  };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant={"outline"}
-          className={cn(
-            " justify-start text-left font-normal",
-            !selectedDate && "text-muted-foreground"
-          )}
-          onClick={() => setIsOpen(true)}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="grid grid-cols-2 gap-2 p-2 border-b">
-          <Select
-            value={selectedDate?.getFullYear().toString()}
-            onValueChange={handleYearChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Año" />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={selectedDate?.getMonth().toString()}
-            onValueChange={handleMonthChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Mes" />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((month) => (
-                <SelectItem key={month} value={month.toString()}>
-                  {format(setMonth(new Date(), month), "MMMM", { locale: es })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={(newDate) => {
-            handleDateChange(newDate)
-            setIsOpen(false)
-          }}
-          month={selectedDate || undefined}
-          onMonthChange={handleDateChange}
-          initialFocus
-          locale={es}
+    <div className={cn('flex flex-col gap-1', className)}>
+      <div className="flex gap-2">
+        <Input
+          placeholder={placeholder}
+          value={inputValue}
+          onChange={(e) => handleInputChange(e.target.value)}
+          className={cn(inputError && 'border-destructive')}
         />
-      </PopoverContent>
-    </Popover>
-  )
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" size="icon" className="shrink-0" aria-label="Abrir calendario">
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="end">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              onSelect={handleCalendarSelect}
+              fromDate={minDate}
+              locale={es}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      {inputError && <p className="text-sm font-medium text-destructive">{inputError}</p>}
+    </div>
+  );
 }

@@ -8,19 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { handleSupabaseError } from '@/lib/errorHandler';
-import { cn } from '@/lib/utils';
-import { CalendarIcon, InfoCircledIcon } from '@radix-ui/react-icons';
-import { addMonths, format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { InfoCircledIcon } from '@radix-ui/react-icons';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 // import { supabase } from '../../supabase/supabase';
-import { Calendar } from '@/components/ui/calendar';
+import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 
 export default function UpdateDocuments({
@@ -55,14 +50,6 @@ export default function UpdateDocuments({
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const today = new Date();
-  const nextMonth = addMonths(new Date(), 1);
-  const [month, setMonth] = useState<Date>(nextMonth);
-
-  const yearsAhead = Array.from({ length: 20 }, (_, index) => {
-    const year = today.getFullYear() + index + 1;
-    return year;
-  });
-  const [years, setYear] = useState(today.getFullYear().toString());
   async function onSubmit(filename: z.infer<typeof FormSchema>) {
     if (!file) {
       form.setError('new_document', {
@@ -248,65 +235,14 @@ export default function UpdateDocuments({
                       render={({ field }) => (
                         <FormItem className="flex flex-col mt-4">
                           <FormLabel>Fecha de vencimiento</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant={'outline'}
-                                  className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                                >
-                                  {field.value ? (
-                                    format(field.value, 'PPP', { locale: es })
-                                  ) : (
-                                    <span>Seleccionar fecha de vencimiento</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2" align="center">
-                              <Select
-                                onValueChange={(e) => {
-                                  setMonth(new Date(e));
-                                  setYear(e);
-                                  const newYear = parseInt(e, 10);
-                                  const dateWithNewYear = new Date(field.value || '');
-                                  dateWithNewYear.setFullYear(newYear);
-                                  field.onChange(dateWithNewYear);
-                                  setMonth(dateWithNewYear);
-                                }}
-                                value={years || today.getFullYear().toString()}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Elegir año" />
-                                </SelectTrigger>
-                                <SelectContent position="popper">
-                                  <SelectItem
-                                    value={today.getFullYear().toString()}
-                                    disabled={years === today.getFullYear().toString()}
-                                  >
-                                    {today.getFullYear().toString()}
-                                  </SelectItem>
-                                  {yearsAhead?.map((year) => (
-                                    <SelectItem key={year} value={`${year}`}>
-                                      {year}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Calendar
-                                month={month}
-                                onMonthChange={setMonth}
-                                fromDate={today}
-                                locale={es}
-                                mode="single"
-                                selected={new Date(field.value || '')}
-                                onSelect={(e) => {
-                                  field.onChange(e);
-                                }}
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <FormControl>
+                            <EnhancedDatePicker
+                              date={field.value as Date | string | undefined}
+                              setDate={(value) => field.onChange(value)}
+                              minDate={today}
+                              placeholder="DD/MM/YYYY"
+                            />
+                          </FormControl>
                           <FormDescription>La fecha de vencimiento del documento</FormDescription>
                           <FormMessage />
                         </FormItem>
