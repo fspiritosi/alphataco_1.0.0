@@ -25,11 +25,12 @@ export async function DailyReportDetailTable({ uuid, searchParams }: Props) {
       : String(rawDate).slice(0, 10);
   const dailyReportStatus = header?.status ?? 'abierto';
 
-  const [{ data, total }, preferences, canUpdate, canDelete] = await Promise.all([
+  const [{ data, total }, preferences, canUpdate, canDelete, canAssignResources] = await Promise.all([
     getDailyReportDetailPaginated(uuid, tableParams, reportDate),
     getTablePreferences(TABLE_ID),
     checkPermissionServer('operaciones', 'detalle-parte-diario', 'update'),
     checkPermissionServer('operaciones', 'detalle-parte-diario', 'delete'),
+    checkPermissionServer('operaciones', 'detalle-parte-diario', 'assign_resources'),
   ]);
 
   return (
@@ -45,6 +46,7 @@ export async function DailyReportDetailTable({ uuid, searchParams }: Props) {
           dailyReportStatus={dailyReportStatus}
           canUpdate={canUpdate}
           canDelete={canDelete}
+          canAssignResources={canAssignResources}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
         />

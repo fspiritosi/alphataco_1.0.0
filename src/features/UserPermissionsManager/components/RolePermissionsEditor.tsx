@@ -23,6 +23,7 @@ import {
   Trash2,
   Truck,
   Upload,
+  UserCog,
   Users,
   UsersRound,
   Wrench,
@@ -51,6 +52,7 @@ const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   view_all_requests: UsersRound,
   view_private: EyeOff,
   upload_private: Upload,
+  assign_resources: UserCog,
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -61,6 +63,7 @@ const ACTION_LABELS: Record<string, string> = {
   view_all_requests: 'Ver Todas',
   view_private: 'Ver Privados',
   upload_private: 'Subir Privados',
+  assign_resources: 'Asignar Recursos',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -71,6 +74,7 @@ const ACTION_COLORS: Record<string, string> = {
   view_all_requests: 'text-purple-600',
   view_private: 'text-indigo-600',
   upload_private: 'text-teal-600',
+  assign_resources: 'text-cyan-600',
 };
 
 const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
