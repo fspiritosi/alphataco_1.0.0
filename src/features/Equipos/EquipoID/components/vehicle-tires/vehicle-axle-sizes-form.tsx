@@ -165,13 +165,13 @@ export function VehicleAxleSizesForm({
       </CardHeader>
       <CardContent className="space-y-4">
         {missingCount > 0 && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-            <p className="text-xs text-destructive">
+          <div className="rounded-md border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-500">
               {missingCount === 1
-                ? 'Falta 1 medida.'
-                : `Faltan ${missingCount} medidas.`}{' '}
-              No podrás iniciar órdenes de gomería para este equipo hasta completarlas.
+                ? 'Falta 1 medida (opcional).'
+                : `Faltan ${missingCount} medidas (opcional).`}{' '}
+              Cargarlas acá las deja precargadas; si no, se define la medida al cargar la cubierta dentro de la orden.
             </p>
           </div>
         )}

@@ -22,14 +22,13 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { getAvailableTiresForAxle, type AvailableTire } from '../actions/actions.server';
+import { getAvailableTires, type AvailableTire } from '../actions/actions.server';
 
 const logger = new Logger('TireReplacePicker');
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface TireReplacePickerProps {
-  tireSize: string;
   companyId: string;
   onSelect: (tire: AvailableTire) => void;
   selectedTireId?: string;
@@ -37,32 +36,22 @@ interface TireReplacePickerProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function TireReplacePicker({ tireSize, companyId, onSelect, selectedTireId }: TireReplacePickerProps) {
+export function TireReplacePicker({ companyId, onSelect, selectedTireId }: TireReplacePickerProps) {
   const [search, setSearch] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const hasTireSize = !!tireSize && tireSize.trim() !== '';
-
   const { data: tires = [], isLoading } = useQuery({
-    queryKey: ['available-tires', tireSize],
-    queryFn: () => getAvailableTiresForAxle(tireSize),
-    enabled: hasTireSize,
+    queryKey: ['available-tires'],
+    queryFn: () => getAvailableTires(),
     staleTime: 30 * 1000,
   });
-
-  if (!hasTireSize) {
-    return (
-      <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground italic">
-        Configurá la medida de este eje en la tab Cubiertas del equipo antes de asignar una cubierta.
-      </div>
-    );
-  }
 
   const filtered = tires.filter(
     (t) =>
       search.trim() === '' ||
       t.serial_number.toLowerCase().includes(search.toLowerCase()) ||
-      (t.brand?.name ?? '').toLowerCase().includes(search.toLowerCase())
+      (t.brand?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.tire_type?.size ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
   if (isLoading) {
@@ -79,7 +68,7 @@ export function TireReplacePicker({ tireSize, companyId, onSelect, selectedTireI
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <Input
-          placeholder="Buscar por serie o marca..."
+          placeholder="Buscar por serie, marca o medida..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 text-sm flex-1"
@@ -98,9 +87,7 @@ export function TireReplacePicker({ tireSize, companyId, onSelect, selectedTireI
 
       {tires.length === 0 && !showCreateDialog ? (
         <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground space-y-2">
-          <p>
-            No hay cubiertas disponibles con medida <strong>{tireSize}</strong>
-          </p>
+          <p>No hay cubiertas disponibles en stock</p>
           <Button type="button" variant="outline" size="sm" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Crear cubierta
@@ -124,7 +111,6 @@ export function TireReplacePicker({ tireSize, companyId, onSelect, selectedTireI
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         companyId={companyId}
-        tireSize={tireSize}
         onCreated={(newTire) => {
           onSelect(newTire);
           setShowCreateDialog(false);
@@ -220,11 +206,10 @@ interface QuickCreateTireDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
-  tireSize: string;
   onCreated: (tire: AvailableTire) => void;
 }
 
-function QuickCreateTireDialog({ open, onOpenChange, companyId, tireSize, onCreated }: QuickCreateTireDialogProps) {
+function QuickCreateTireDialog({ open, onOpenChange, companyId, onCreated }: QuickCreateTireDialogProps) {
   const queryClient = useQueryClient();
 
   const form = useForm<QuickTireValues>({
@@ -252,10 +237,6 @@ function QuickCreateTireDialog({ open, onOpenChange, companyId, tireSize, onCrea
     staleTime: 5 * 60 * 1000,
   });
 
-  // Pre-filter types matching the axle size
-  const matchingTypes = tireTypes.filter((tt) => tt.size === tireSize);
-  const otherTypes = tireTypes.filter((tt) => tt.size !== tireSize);
-
   const mutation = useMutation({
     mutationFn: (values: QuickTireValues) =>
       createTire({
@@ -270,7 +251,7 @@ function QuickCreateTireDialog({ open, onOpenChange, companyId, tireSize, onCrea
     onSuccess: async (newTire) => {
       toast.success(`Cubierta ${newTire.serial_number} creada`);
       // Invalidate available tires so the new one appears
-      await queryClient.invalidateQueries({ queryKey: ['available-tires', tireSize] });
+      await queryClient.invalidateQueries({ queryKey: ['available-tires'] });
       form.reset();
       // Build an AvailableTire-compatible object for auto-selection
       const brandId = form.getValues('brand_id');
@@ -286,7 +267,7 @@ function QuickCreateTireDialog({ open, onOpenChange, companyId, tireSize, onCrea
         brand: { id: selectedBrand?.id ?? brandId, name: selectedBrand?.name ?? '' },
         tire_type: {
           id: selectedType?.id ?? newTire.tire_type_id,
-          size: selectedType?.size ?? tireSize,
+          size: selectedType?.size ?? '',
           tread_type: selectedType?.tread_type ?? 'SMOOTH',
         },
       });
@@ -358,25 +339,11 @@ function QuickCreateTireDialog({ open, onOpenChange, companyId, tireSize, onCrea
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Seleccionar tipo..." />
+                          <SelectValue placeholder="Seleccionar medida / tipo..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {matchingTypes.length > 0 && (
-                          <>
-                            {matchingTypes.map((tt) => (
-                              <SelectItem key={tt.id} value={tt.id}>
-                                {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
-                              </SelectItem>
-                            ))}
-                            {otherTypes.length > 0 && (
-                              <div className="px-2 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wide border-t mt-1 pt-1.5">
-                                Otras medidas
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {otherTypes.map((tt) => (
+                        {tireTypes.map((tt) => (
                           <SelectItem key={tt.id} value={tt.id}>
                             {tt.size} — {tireTreadTypeLabels[tt.tread_type] ?? tt.tread_type}
                           </SelectItem>
