@@ -1,8 +1,8 @@
 'use server';
 
 import { prisma } from '@/shared/lib/prisma';
-import { supabaseServer } from '@/lib/supabase/server';
 import { Logger } from '@/lib/logger';
+import { getReporterEmail } from './getReporterEmail';
 import { getSupportTicketById } from './support-tickets';
 
 const logger = new Logger('features/Ayuda/support-ticket-views');
@@ -14,11 +14,8 @@ const logger = new Logger('features/Ayuda/support-ticket-views');
  */
 export async function markSupportTicketAsRead(taskappTicketId: number): Promise<void> {
   try {
-    const supabase = await supabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    const reporter = await getReporterEmail();
+    if (!reporter) {
       logger.warn('No authenticated user, skipping markAsRead');
       return;
     }
@@ -33,12 +30,12 @@ export async function markSupportTicketAsRead(taskappTicketId: number): Promise<
     await prisma.support_ticket_views.upsert({
       where: {
         user_id_taskapp_ticket_id: {
-          user_id: user.id,
+          user_id: reporter.userId,
           taskapp_ticket_id: BigInt(taskappTicketId),
         },
       },
       create: {
-        user_id: user.id,
+        user_id: reporter.userId,
         taskapp_ticket_id: BigInt(taskappTicketId),
         last_seen_at: now,
         last_seen_status_id: BigInt(ticket.status_id),

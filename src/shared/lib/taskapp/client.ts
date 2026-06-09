@@ -52,6 +52,69 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+export interface PagedTickets {
+  tickets: Ticket[];
+  /** Total de tickets sin paginar (header X-Total-Count). */
+  total: number;
+  /** Cuántos del total están en un estado completado (header X-Completed-Count). */
+  completed: number;
+}
+
+export interface PageOpts {
+  limit?: number;
+  offset?: number;
+  /** Filtro opcional por slug de estado (solo for-approver). */
+  status?: string;
+}
+
+function pageQuery(opts?: PageOpts): string {
+  const params = new URLSearchParams();
+  if (opts?.limit && opts.limit > 0) {
+    params.set('limit', String(opts.limit));
+    params.set('offset', String(opts.offset ?? 0));
+  }
+  if (opts?.status) params.set('status', opts.status);
+  const qs = params.toString();
+  return qs ? `&${qs}` : '';
+}
+
+/** Como request(), pero además lee los headers de totales para paginación. */
+async function requestPaged(path: string): Promise<PagedTickets> {
+  const url = `${baseURL()}/api/public/v1${path}`;
+  const key = apiKey();
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', 'X-Project-Key': key },
+      cache: 'no-store',
+    });
+  } catch (error) {
+    if (error instanceof TaskAppError) throw error;
+    logger.error('taskApp network error', { data: { url, error } });
+    throw new TaskAppError(0, 'network', error instanceof Error ? error.message : 'network error');
+  }
+
+  if (!res.ok) {
+    const body = await res.text();
+    logger.error('taskApp request failed', { data: { url, status: res.status, body } });
+    throw new TaskAppError(res.status, 'http', body || res.statusText);
+  }
+
+  let tickets: Ticket[];
+  try {
+    tickets = (await res.json()) as Ticket[];
+  } catch (error) {
+    logger.error('taskApp invalid JSON', { data: { url, error } });
+    throw new TaskAppError(res.status, 'parse', 'invalid JSON');
+  }
+
+  // Backends viejos no mandan los headers: degradamos al length de la página.
+  const total = Number(res.headers.get('X-Total-Count') ?? tickets.length);
+  const completed = Number(res.headers.get('X-Completed-Count') ?? 0);
+  return { tickets, total: Number.isFinite(total) ? total : tickets.length, completed: Number.isFinite(completed) ? completed : 0 };
+}
+
 async function requestMultipart<T>(path: string, formData: FormData): Promise<T> {
   const url = `${baseURL()}${path}`;
   const key = apiKey();
@@ -87,8 +150,16 @@ export const taskAppClient = {
   createTicket: (body: CreateTicketRequest) =>
     request<Ticket>('/tickets', { method: 'POST', body: JSON.stringify(body) }),
 
-  listTicketsByReporter: (reporterEmail: string) =>
-    request<Ticket[]>(`/tickets?reporter_email=${encodeURIComponent(reporterEmail)}`),
+  // Tickets del reporter, más recientes primero. Con opts.limit pagina
+  // server-side y devuelve los totales en PagedTickets.
+  listTicketsByReporter: (reporterEmail: string, opts?: PageOpts) =>
+    requestPaged(`/tickets?reporter_email=${encodeURIComponent(reporterEmail)}${pageQuery(opts)}`),
+
+  // Listado para un aprobador: todos los TKT externos del proyecto + los internos
+  // ya valorizados, más recientes primero. Requiere que el email sea uno de los
+  // aprobadores del proyecto. Soporta paginación server-side y filtro por estado.
+  listTicketsForApprover: (approverEmail: string, opts?: PageOpts) =>
+    requestPaged(`/tickets/for-approver?approver_email=${encodeURIComponent(approverEmail)}${pageQuery(opts)}`),
 
   getTicketById: (id: number) =>
     request<Ticket>(`/tickets/${id}`),

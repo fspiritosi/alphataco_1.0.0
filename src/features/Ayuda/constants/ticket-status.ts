@@ -14,6 +14,20 @@ export const STATUS_BY_SLUG: Record<string, StatusDef> = {
     dotClass: 'bg-blue-500',
     tintClass: 'from-blue-500/10',
   },
+  pendiente_aprobacion: {
+    label: 'Pendiente de aprobación',
+    badgeClass: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    borderClass: 'border-l-yellow-500',
+    dotClass: 'bg-yellow-500',
+    tintClass: 'from-yellow-500/10',
+  },
+  aprobado_cliente: {
+    label: 'Aprobado',
+    badgeClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    borderClass: 'border-l-green-500',
+    dotClass: 'bg-green-500',
+    tintClass: 'from-green-500/10',
+  },
   in_progress: {
     label: 'En curso',
     badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',

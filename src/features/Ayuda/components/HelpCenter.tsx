@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle2, Clock, HelpCircle, Inbox, Loader2, RefreshCcw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Ticket, TicketWithUnread } from '@/shared/lib/taskapp/types';
-import { useMyTicketsWithUnread } from '../hooks/useMyTicketsWithUnread';
+import { useMyTicketsPage } from '../hooks/useMyTicketsPage';
+import { ApproverAllTickets } from './ApproverAllTickets';
+import { ApproverInbox } from './ApproverInbox';
 import { MyTicketsList } from './MyTicketsList';
 import { TicketForm } from './TicketForm';
 
@@ -18,19 +20,6 @@ interface Stats {
   total: number;
   active: number;
   resolved: number;
-}
-
-const ACTIVE_SLUGS = new Set(['open', 'in_progress', 'planned', 'pending_planning', 'valued', 'blocked']);
-const RESOLVED_SLUGS = new Set(['resolved', 'done', 'closed', 'cancelled']);
-
-function computeStats(tickets: TicketWithUnread[]): Stats {
-  const stats: Stats = { total: tickets.length, active: 0, resolved: 0 };
-  for (const t of tickets) {
-    const slug = t.status?.slug;
-    if (slug && RESOLVED_SLUGS.has(slug)) stats.resolved += 1;
-    else if (slug && ACTIVE_SLUGS.has(slug)) stats.active += 1;
-  }
-  return stats;
 }
 
 interface Props {
@@ -49,8 +38,33 @@ export function HelpCenter({
   currentUserName,
 }: Props) {
   const searchParams = useSearchParams();
-  const { data: tickets = [], isFetching, refetch } = useMyTicketsWithUnread(initialTickets);
-  const stats = useMemo(() => computeStats(tickets), [tickets]);
+
+  // "Mis tickets" paginado server-side; los totales del backend alimentan las
+  // estadísticas del hero sin traer toda la lista.
+  const [myPage, setMyPage] = useState(1);
+  const {
+    data: myTicketsPage,
+    isLoading: myTicketsLoading,
+    isFetching,
+    isPlaceholderData: myTicketsTransition,
+    refetch,
+  } = useMyTicketsPage(myPage, initialTickets);
+  const tickets = myTicketsPage?.tickets ?? [];
+  const ticketsTotal = myTicketsPage?.total ?? 0;
+  const ticketsCompleted = myTicketsPage?.completed ?? 0;
+  const stats: Stats = {
+    total: ticketsTotal,
+    active: Math.max(0, ticketsTotal - ticketsCompleted),
+    resolved: ticketsCompleted,
+  };
+
+  // Al crear un ticket nuevo (sube el total), volvemos a página 1 para que el
+  // usuario lo vea primerito.
+  const prevTotal = useRef(ticketsTotal);
+  useEffect(() => {
+    if (ticketsTotal > prevTotal.current && myPage !== 1) setMyPage(1);
+    prevTotal.current = ticketsTotal;
+  }, [ticketsTotal, myPage]);
 
   // Estado local para apertura instantánea del Sheet — mismo patrón que TabsManagerClient.
   // Evita el round-trip al server cada vez que el usuario clickea una card.
@@ -97,13 +111,18 @@ export function HelpCenter({
     <section className="space-y-6 pt-2">
       <HelpHero stats={stats} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <ApproverInbox onSelect={handleSelect} />
+
+      {/* Alturas unificadas por grid stretch: el form (altura natural, sin
+          scroll) define la altura de la fila y la card de tickets se estira a
+          esa misma altura. La lista pagina de a pocos para no cortar cards. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
         <Card className="overflow-hidden">
           <TicketForm />
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b flex flex-row items-center justify-between gap-3">
+        <Card className="overflow-hidden lg:flex lg:flex-col">
+          <CardHeader className="border-b flex flex-row items-center justify-between gap-3 shrink-0">
             <div className="space-y-1 min-w-0">
               <CardTitle className="flex items-center gap-2">
                 <Inbox className="h-5 w-5 text-muted-foreground" />
@@ -132,15 +151,22 @@ export function HelpCenter({
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             <MyTicketsList
               tickets={tickets}
+              total={ticketsTotal}
+              page={myPage}
+              onPageChange={setMyPage}
               activeTicketId={activeTicketId}
               onSelect={handleSelect}
+              isLoading={myTicketsLoading && !myTicketsPage}
+              isPageTransition={myTicketsTransition}
             />
           </CardContent>
         </Card>
       </div>
+
+      <ApproverAllTickets onSelect={handleSelect} />
 
       <TicketDetailSheet
         ticketId={activeTicketId}

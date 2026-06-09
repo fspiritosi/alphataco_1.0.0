@@ -8,6 +8,8 @@ export type { PriorityDef, PrioritySlug } from '../constants/ticket-priority';
 export interface ReporterIdentity {
   email: string;
   name: string | null;
+  /** ID estable del usuario en auth. Usado como FK en support_ticket_views. */
+  userId: string;
 }
 
 export interface CreateSupportTicketInput {
