@@ -124,6 +124,10 @@ export default function ReplaceDocument({
             document_path: finalDocument?.path,
             validity: filename.validity ? new Date(filename.validity).toISOString() : null,
             created_at: new Date().toISOString(),
+            // Al reemplazar un documento, resetear el estado a 'presentado' (pendiente de
+            // aprobacion). Sin esto, un documento previamente 'vencido' quedaba pegado en
+            // ese estado aunque la nueva validez fuera futura.
+            state: 'presentado',
           })
           .eq('id', appliesId || '');
 
