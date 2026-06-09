@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function MyTicketsListSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      {[0, 1, 2].map((i) => (
+      {[0, 1, 2, 3].map((i) => (
         <Card key={i} className="p-4 border-l-4 border-l-muted">
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-5 w-3/5" />

@@ -21,6 +21,7 @@ export interface Ticket {
   status_id: number;
   status?: TicketStatus;
   priority: TicketPriority;
+  origin?: 'internal' | 'external';
   reporter_email: string | null;
   reporter_name: string | null;
   approver_email: string | null;
@@ -29,6 +30,7 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  valorized_at: string | null;
   labels: TicketLabel[];
   reopen_status: 'pending' | null;
   reopen_reason: string | null;
@@ -65,8 +67,9 @@ export interface UploadResult {
 
 export type TaskAppRealtimeEvent =
   | { type: 'connected' }
-  | { type: 'ticket.updated'; ticket_id: number }
-  | { type: 'comment.created'; ticket_id: number };
+  | { type: 'ticket.created'; id: number }
+  | { type: 'ticket.updated'; id: number }
+  | { type: 'comment.created'; id: number };
 
 export interface TicketUnreadState {
   hasStatusChange: boolean;

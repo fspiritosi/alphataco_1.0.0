@@ -34,7 +34,7 @@ const schema = z.object({
     .trim()
     .min(20, 'Contanos un poco más, mínimo 20 caracteres')
     .max(2000, 'Máximo 2000 caracteres'),
-  attachments: z.array(z.instanceof(File)).max(3).optional().default([]),
+  attachments: z.array(z.instanceof(File)).max(3),
 });
 
 type FormValues = z.infer<typeof schema>;
