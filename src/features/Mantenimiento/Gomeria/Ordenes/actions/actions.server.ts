@@ -367,12 +367,7 @@ export async function createServiceOrder(data: {
 
     const vehicleReadiness = await checkVehicleTireReadiness(data.vehicle_id);
     if (!vehicleReadiness.ready) {
-      if (vehicleReadiness.reason === 'no_template') {
-        throw new Error(TIRE_READINESS_MESSAGES.no_template(vehicleDomain));
-      }
-      throw new Error(
-        TIRE_READINESS_MESSAGES.missing_sizes(vehicleDomain, vehicleReadiness.missingAxles)
-      );
+      throw new Error(TIRE_READINESS_MESSAGES.no_template(vehicleDomain));
     }
 
     // Validar readiness del trailer si aplica
@@ -385,12 +380,7 @@ export async function createServiceOrder(data: {
 
       const trailerReadiness = await checkVehicleTireReadiness(data.trailer_vehicle_id);
       if (!trailerReadiness.ready) {
-        if (trailerReadiness.reason === 'no_template') {
-          throw new Error(TIRE_READINESS_MESSAGES.no_template(trailerDomain));
-        }
-        throw new Error(
-          TIRE_READINESS_MESSAGES.missing_sizes(trailerDomain, trailerReadiness.missingAxles)
-        );
+        throw new Error(TIRE_READINESS_MESSAGES.no_template(trailerDomain));
       }
     }
 
@@ -655,23 +645,24 @@ export async function getVehicleTirePositions(vehicleId: string) {
 }
 
 // ============================================================================
-// GET AVAILABLE TIRES FOR AXLE
+// GET AVAILABLE TIRES
 // ============================================================================
 
-export async function getAvailableTiresForAxle(tireSize: string) {
-  logger.debug('Fetching available tires for axle', { data: { tireSize } });
+/**
+ * Devuelve todo el stock de cubiertas disponibles (y extraviadas) de la empresa.
+ *
+ * Ya NO se filtra por la medida del eje: el operario elige la cubierta que
+ * corresponde (su medida es visible en cada fila) o crea una nueva indicando el
+ * tipo de rueda. Ordenadas por medida y luego por serie para facilitar la búsqueda.
+ */
+export async function getAvailableTires() {
+  logger.debug('Fetching available tires');
 
   try {
-    if (!tireSize || tireSize.trim() === '') {
-      logger.warn('getAvailableTiresForAxle called with empty tireSize, returning empty array');
-      return [];
-    }
-
     const tires = await prisma.tires.findMany({
       where: {
         status: { in: ['AVAILABLE', 'MISSING'] },
         is_active: true,
-        tire_type: { size: tireSize },
       },
       select: {
         id: true,
@@ -683,11 +674,11 @@ export async function getAvailableTiresForAxle(tireSize: string) {
         brand: { select: { id: true, name: true } },
         tire_type: { select: { id: true, size: true, tread_type: true } },
       },
-      orderBy: [{ status: 'asc' }, { serial_number: 'asc' }],
+      orderBy: [{ tire_type: { size: 'asc' } }, { status: 'asc' }, { serial_number: 'asc' }],
     });
     return tires;
   } catch (error) {
-    logger.error('Error fetching available tires for axle', { data: { error, tireSize } });
+    logger.error('Error fetching available tires', { data: { error } });
     throw error;
   }
 }
@@ -1031,63 +1022,15 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
       take: 10,
     });
 
-    // Enriquecer cada resultado con has_all_axle_sizes (batch — sin N+1)
-    const vehicleIds = vehicles.map((v) => v.id);
-    const effectiveTemplateByVehicle = new Map<string, string>();
-    for (const v of vehicles) {
-      const effectiveTemplateId = resolveVehicleTireTemplateId(v);
-      if (effectiveTemplateId) effectiveTemplateByVehicle.set(v.id, effectiveTemplateId);
-    }
-    const templateIds = [...new Set(effectiveTemplateByVehicle.values())];
-
-    const [allAxles, allOverrides] = await Promise.all([
-      templateIds.length > 0
-        ? prisma.tire_template_axles.findMany({
-            where: { template_id: { in: templateIds } },
-            select: { template_id: true, axle_number: true, tire_size: true },
-          })
-        : Promise.resolve([] as Array<{ template_id: string; axle_number: number; tire_size: string | null }>),
-      vehicleIds.length > 0
-        ? prisma.vehicle_axle_tire_sizes.findMany({
-            where: { vehicle_id: { in: vehicleIds } },
-            select: { vehicle_id: true, axle_number: true, tire_size: true },
-          })
-        : Promise.resolve([] as Array<{ vehicle_id: string; axle_number: number; tire_size: string }>),
-    ]);
-
-    const overridesByVehicle = new Map<string, Map<number, string>>();
-    for (const o of allOverrides) {
-      if (!overridesByVehicle.has(o.vehicle_id)) overridesByVehicle.set(o.vehicle_id, new Map());
-      overridesByVehicle.get(o.vehicle_id)!.set(o.axle_number, o.tire_size);
-    }
-
-    const axlesByTemplate = new Map<string, Array<{ axle_number: number; tire_size: string | null }>>();
-    for (const a of allAxles) {
-      if (!axlesByTemplate.has(a.template_id)) axlesByTemplate.set(a.template_id, []);
-      axlesByTemplate.get(a.template_id)!.push({ axle_number: a.axle_number, tire_size: a.tire_size });
-    }
-
     return vehicles.map((v) => {
-      const effectiveTemplateId = effectiveTemplateByVehicle.get(v.id) ?? null;
-      let hasAllAxleSizes = false;
-      let missingAxlesCount = 0;
-      if (effectiveTemplateId) {
-        const axles = axlesByTemplate.get(effectiveTemplateId) ?? [];
-        const overrides = overridesByVehicle.get(v.id) ?? new Map<number, string>();
-        const missing = axles.filter((a) => !(overrides.get(a.axle_number) ?? a.tire_size));
-        hasAllAxleSizes = missing.length === 0;
-        missingAxlesCount = missing.length;
-      }
       return {
         id: v.id,
         domain: v.domain,
         intern_number: v.intern_number,
-        tire_template_id: effectiveTemplateId,
+        tire_template_id: resolveVehicleTireTemplateId(v),
         sub_type_id: v.sub_type?.id ?? null,
         sub_type_name: v.sub_type?.name ?? null,
         type_id: v.type ?? null,
-        has_all_axle_sizes: hasAllAxleSizes,
-        missing_axles_count: missingAxlesCount,
       };
     });
   } catch (error) {
@@ -1191,63 +1134,15 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
       orderBy: { domain: 'asc' },
     });
 
-    // Enriquecer cada resultado con has_all_axle_sizes (batch — sin N+1)
-    const vehicleIds = vehicles.map((v) => v.id);
-    const effectiveTemplateByVehicle = new Map<string, string>();
-    for (const v of vehicles) {
-      const effectiveTemplateId = resolveVehicleTireTemplateId(v);
-      if (effectiveTemplateId) effectiveTemplateByVehicle.set(v.id, effectiveTemplateId);
-    }
-    const templateIds = [...new Set(effectiveTemplateByVehicle.values())];
-
-    const [allAxles, allOverrides] = await Promise.all([
-      templateIds.length > 0
-        ? prisma.tire_template_axles.findMany({
-            where: { template_id: { in: templateIds } },
-            select: { template_id: true, axle_number: true, tire_size: true },
-          })
-        : Promise.resolve([] as Array<{ template_id: string; axle_number: number; tire_size: string | null }>),
-      vehicleIds.length > 0
-        ? prisma.vehicle_axle_tire_sizes.findMany({
-            where: { vehicle_id: { in: vehicleIds } },
-            select: { vehicle_id: true, axle_number: true, tire_size: true },
-          })
-        : Promise.resolve([] as Array<{ vehicle_id: string; axle_number: number; tire_size: string }>),
-    ]);
-
-    const overridesByVehicle = new Map<string, Map<number, string>>();
-    for (const o of allOverrides) {
-      if (!overridesByVehicle.has(o.vehicle_id)) overridesByVehicle.set(o.vehicle_id, new Map());
-      overridesByVehicle.get(o.vehicle_id)!.set(o.axle_number, o.tire_size);
-    }
-
-    const axlesByTemplate = new Map<string, Array<{ axle_number: number; tire_size: string | null }>>();
-    for (const a of allAxles) {
-      if (!axlesByTemplate.has(a.template_id)) axlesByTemplate.set(a.template_id, []);
-      axlesByTemplate.get(a.template_id)!.push({ axle_number: a.axle_number, tire_size: a.tire_size });
-    }
-
     return vehicles.map((v) => {
-      const effectiveTemplateId = effectiveTemplateByVehicle.get(v.id) ?? null;
-      let hasAllAxleSizes = false;
-      let missingAxlesCount = 0;
-      if (effectiveTemplateId) {
-        const axles = axlesByTemplate.get(effectiveTemplateId) ?? [];
-        const overrides = overridesByVehicle.get(v.id) ?? new Map<number, string>();
-        const missing = axles.filter((a) => !(overrides.get(a.axle_number) ?? a.tire_size));
-        hasAllAxleSizes = missing.length === 0;
-        missingAxlesCount = missing.length;
-      }
       return {
         id: v.id,
         domain: v.domain,
         intern_number: v.intern_number,
-        tire_template_id: effectiveTemplateId,
+        tire_template_id: resolveVehicleTireTemplateId(v),
         sub_type_id: v.sub_type?.id ?? null,
         sub_type_name: v.sub_type?.name ?? null,
         type_id: v.type ?? null,
-        has_all_axle_sizes: hasAllAxleSizes,
-        missing_axles_count: missingAxlesCount,
       };
     });
   } catch (error) {
@@ -1276,10 +1171,7 @@ export async function ensureVehicleTirePositions(vehicleId: string) {
         select: { domain: true },
       });
       const domain = vehicleData?.domain ?? vehicleId;
-      if (readiness.reason === 'no_template') {
-        throw new Error(TIRE_READINESS_MESSAGES.no_template(domain));
-      }
-      throw new Error(TIRE_READINESS_MESSAGES.missing_sizes(domain, readiness.missingAxles));
+      throw new Error(TIRE_READINESS_MESSAGES.no_template(domain));
     }
 
     // Load vehicle-level axle size overrides once for enrichment of returned positions.
@@ -1442,7 +1334,7 @@ export type ServiceOrderDetail = Awaited<ReturnType<typeof getServiceOrderById>>
 
 export type VehicleTirePosition = Awaited<ReturnType<typeof getVehicleTirePositions>>[number];
 
-export type AvailableTire = Awaited<ReturnType<typeof getAvailableTiresForAxle>>[number];
+export type AvailableTire = Awaited<ReturnType<typeof getAvailableTires>>[number];
 
 export type VehicleSearchResult = Awaited<ReturnType<typeof searchVehicleByDomain>>[number];
 

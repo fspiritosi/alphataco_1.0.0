@@ -134,10 +134,8 @@ export function ServiceOrderWizard({
   // ─── Can proceed to operation ──────────────────────────────────────────────
   const canProceed =
     !!activeVehicleId &&
-    (skipVehicleSearch ||
-      (!!selectedVehicle?.tire_template_id && selectedVehicle?.has_all_axle_sizes === true)) &&
-    (!hasTrailer ||
-      (!!selectedTrailer?.tire_template_id && selectedTrailer?.has_all_axle_sizes === true));
+    (skipVehicleSearch || !!selectedVehicle?.tire_template_id) &&
+    (!hasTrailer || !!selectedTrailer?.tire_template_id);
 
   // ─── Step: Setup ───────────────────────────────────────────────────────────
   if (step === 'setup') {
@@ -355,11 +353,6 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Sin plantilla
               </div>
-            ) : !selectedVehicle.has_all_axle_sizes ? (
-              <div className="flex items-center gap-1 text-yellow-600 text-xs">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Faltan medidas
-              </div>
             ) : null}
           </div>
         </div>
@@ -368,20 +361,6 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
       {selectedVehicle && !selectedVehicle.tire_template_id && (
         <p className="text-xs text-destructive">
           Este vehículo no tiene plantilla de cubiertas asignada y no puede ser utilizado para una orden de gomería.
-        </p>
-      )}
-      {selectedVehicle && selectedVehicle.tire_template_id && !selectedVehicle.has_all_axle_sizes && (
-        <p className="text-xs text-destructive">
-          Este vehículo tiene la plantilla asignada pero faltan medidas de cubierta.{' '}
-          <a
-            href={`/dashboard/equipment/action?action=view&id=${selectedVehicle.id}&tab=tires`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline font-medium"
-          >
-            Configurar en la tab Cubiertas
-          </a>{' '}
-          antes de iniciar la orden.
         </p>
       )}
     </div>
@@ -442,23 +421,6 @@ function TrailerSearchSection({ tractorId, companyId, selectedTrailer, onSelect 
           El enganche no tiene plantilla de cubiertas asignada
         </div>
       )}
-      {selectedTrailer && selectedTrailer.tire_template_id && !selectedTrailer.has_all_axle_sizes && (
-        <div className="flex items-start gap-1.5 text-destructive text-xs rounded-md border border-destructive/30 bg-destructive/5 p-2">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span>
-            El enganche tiene plantilla pero faltan medidas.{' '}
-            <a
-              href={`/dashboard/equipment/action?action=view&id=${selectedTrailer.id}&tab=tires`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline font-medium"
-            >
-              Configurar en la tab Cubiertas
-            </a>
-            .
-          </span>
-        </div>
-      )}
     </div>
   );
 }
@@ -487,10 +449,6 @@ function VehicleRow({ vehicle, selected, onSelect }: VehicleRowProps) {
         {!vehicle.tire_template_id ? (
           <Badge variant="destructive" className="text-[10px]">
             Sin plantilla
-          </Badge>
-        ) : !vehicle.has_all_axle_sizes ? (
-          <Badge variant="yellow" className="text-[10px]">
-            Faltan medidas
           </Badge>
         ) : (
           <Badge variant="success" className="text-[10px]">

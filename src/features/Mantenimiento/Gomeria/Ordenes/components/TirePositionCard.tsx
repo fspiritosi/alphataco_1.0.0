@@ -49,7 +49,6 @@ export function TirePositionCard({
   onActionComplete,
 }: TirePositionCardProps) {
   const hasTire = position.tire_id !== null;
-  const tireSize = position.effective_tire_size ?? position.template_axle?.tire_size ?? '';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -75,7 +74,6 @@ export function TirePositionCard({
               serviceOrderId={serviceOrderId}
               vehicleId={vehicleId}
               companyId={companyId}
-              tireSize={tireSize}
               onActionComplete={onActionComplete}
               onClose={() => onOpenChange(false)}
             />
@@ -85,7 +83,6 @@ export function TirePositionCard({
               serviceOrderId={serviceOrderId}
               vehicleId={vehicleId}
               companyId={companyId}
-              tireSize={tireSize}
               onActionComplete={onActionComplete}
               onClose={() => onOpenChange(false)}
             />
@@ -161,7 +158,6 @@ interface ActionProps {
   serviceOrderId: string;
   vehicleId: string;
   companyId: string;
-  tireSize: string;
   onActionComplete: () => void;
   onClose: () => void;
 }
@@ -171,7 +167,6 @@ function TireActionsWithTire({
   serviceOrderId,
   vehicleId,
   companyId,
-  tireSize,
   onActionComplete,
   onClose,
 }: ActionProps) {
@@ -374,11 +369,8 @@ function TireActionsWithTire({
       {/* ─── Repair ────────────────────────────────────────────────────── */}
       <TabsContent value="repair" className="space-y-3 pt-2">
         <div>
-          <Label className="text-xs mb-1 block">
-            {tireSize ? `Cubierta de reemplazo (${tireSize})` : 'Cubierta de reemplazo (medida no configurada)'}
-          </Label>
+          <Label className="text-xs mb-1 block">Cubierta de reemplazo</Label>
           <TireReplacePicker
-            tireSize={tireSize}
             companyId={companyId}
             selectedTireId={repairNewTire?.id}
             onSelect={setRepairNewTire}
@@ -401,11 +393,8 @@ function TireActionsWithTire({
       {/* ─── Replace ───────────────────────────────────────────────────── */}
       <TabsContent value="replace" className="space-y-3 pt-2">
         <div>
-          <Label className="text-xs mb-1 block">
-            {tireSize ? `Cubierta nueva (${tireSize})` : 'Cubierta nueva (medida no configurada)'}
-          </Label>
+          <Label className="text-xs mb-1 block">Cubierta nueva</Label>
           <TireReplacePicker
-            tireSize={tireSize}
             companyId={companyId}
             selectedTireId={replaceNewTire?.id}
             onSelect={setReplaceNewTire}
@@ -567,7 +556,6 @@ interface EmptyPositionAssignProps {
   serviceOrderId: string;
   vehicleId: string;
   companyId: string;
-  tireSize: string;
   onActionComplete: () => void;
   onClose: () => void;
 }
@@ -577,7 +565,6 @@ function EmptyPositionAssign({
   serviceOrderId,
   vehicleId,
   companyId,
-  tireSize,
   onActionComplete,
   onClose,
 }: EmptyPositionAssignProps) {
@@ -610,16 +597,9 @@ function EmptyPositionAssign({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        {tireSize ? (
-          <>Seleccione la cubierta a instalar en esta posición (medida {tireSize}):</>
-        ) : (
-          <span className="italic">
-            Medida no configurada para este eje. Configurelas en la tab Cubiertas del equipo.
-          </span>
-        )}
+        Seleccione la cubierta a instalar en esta posición:
       </p>
       <TireReplacePicker
-        tireSize={tireSize}
         companyId={companyId}
         selectedTireId={selectedTire?.id}
         onSelect={setSelectedTire}
