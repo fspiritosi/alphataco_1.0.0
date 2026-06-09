@@ -1,7 +1,6 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
 import { prisma } from '@/shared/lib/prisma';
 import { taskAppClient } from '@/shared/lib/taskapp/client';
 import { TaskAppError } from '@/shared/lib/taskapp/errors';
@@ -13,6 +12,10 @@ import { listSupportTicketComments } from './support-comments';
 
 const logger = new Logger('features/Ayuda/support-tickets');
 const notifLogger = new Logger('features/Ayuda/notifications');
+
+// Estados terminales: en ellos no esperamos respuestas nuevas de agente, así que
+// se pueden omitir del fetch de comments para acotar llamadas a la API.
+const RESOLVED_STATUS_SLUGS = new Set(['resolved', 'done', 'closed', 'cancelled']);
 
 export async function createSupportTicket(input: CreateSupportTicketInput): Promise<Ticket> {
   const reporter = await getReporterEmail();
@@ -45,20 +48,14 @@ export async function createSupportTicket(input: CreateSupportTicketInput): Prom
 
   // Crear view inicial para que el creador no vea su propio ticket como "no leído"
   try {
-    const supabase = await supabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await prisma.support_ticket_views.create({
-        data: {
-          user_id: user.id,
-          taskapp_ticket_id: BigInt(ticket.id),
-          last_seen_at: new Date(),
-          last_seen_status_id: BigInt(ticket.status_id),
-        },
-      });
-    }
+    await prisma.support_ticket_views.create({
+      data: {
+        user_id: reporter.userId,
+        taskapp_ticket_id: BigInt(ticket.id),
+        last_seen_at: new Date(),
+        last_seen_status_id: BigInt(ticket.status_id),
+      },
+    });
   } catch (error) {
     notifLogger.warn('Failed to create initial ticket view (non-fatal)', {
       data: { ticketId: ticket.id, error },
@@ -73,7 +70,7 @@ export async function getMySupportTickets(): Promise<Ticket[]> {
   if (!reporter) return [];
 
   try {
-    return await taskAppClient.listTicketsByReporter(reporter.email);
+    return (await taskAppClient.listTicketsByReporter(reporter.email)).tickets;
   } catch (error) {
     logger.error('Error listando tickets propios', { data: { error } });
     return [];
@@ -101,15 +98,22 @@ export async function getSupportTicketById(id: number): Promise<Ticket | null> {
   }
 
   const isReporter = ticket.reporter_email === reporter.email;
-  const isApprover = ticket.approver_email === reporter.email;
-  if (!isReporter && !isApprover) {
-    logger.warn('Acceso denegado al ticket', {
-      data: { id, user: reporter.email, reporter: ticket.reporter_email, approver: ticket.approver_email },
-    });
-    return null;
+  if (isReporter) return ticket;
+
+  // No es el reporter: puede verlo igual si es aprobador del proyecto. La
+  // autorización real la hace el backend: el listado for-approver solo devuelve
+  // tickets si el email está en el array de aprobadores (si no, 403 → []).
+  try {
+    const approverTickets = await taskAppClient.listTicketsForApprover(reporter.email);
+    if (approverTickets.tickets.some((t) => t.id === ticket.id)) return ticket;
+  } catch {
+    // no es aprobador — cae al deny de abajo
   }
 
-  return ticket;
+  logger.warn('Acceso denegado al ticket', {
+    data: { id, user: reporter.email, reporter: ticket.reporter_email },
+  });
+  return null;
 }
 
 /**
@@ -118,31 +122,59 @@ export async function getSupportTicketById(id: number): Promise<Ticket | null> {
  * - hasNewAgentComment: hay comentarios de otros (no el reporter) creados después del last_seen_at
  */
 export async function getMyTicketsWithUnread(): Promise<TicketWithUnread[]> {
-  // Profile del usuario actual
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    notifLogger.warn('No authenticated user, returning empty');
-    return [];
-  }
-
   const reporter = await getReporterEmail();
   if (!reporter) {
-    notifLogger.warn('No reporter email, returning empty');
+    notifLogger.warn('No authenticated user, returning empty');
     return [];
   }
 
   const tickets = await getMySupportTickets();
   if (tickets.length === 0) return [];
 
-  // Views del usuario (degrada elegante si Supabase falla)
+  return enrichWithUnread(tickets, reporter);
+}
+
+export interface MyTicketsPage {
+  tickets: TicketWithUnread[];
+  total: number;
+  completed: number;
+}
+
+/**
+ * Página de tickets del usuario (server-side, más recientes primero) enriquecida
+ * con no-leídos. `total`/`completed` vienen del backend sin paginar, para la
+ * navegación y las estadísticas.
+ */
+export async function getMyTicketsPageWithUnread(page: number, pageSize: number): Promise<MyTicketsPage> {
+  const reporter = await getReporterEmail();
+  if (!reporter) {
+    notifLogger.warn('No authenticated user, returning empty page');
+    return { tickets: [], total: 0, completed: 0 };
+  }
+
+  try {
+    const { tickets, total, completed } = await taskAppClient.listTicketsByReporter(reporter.email, {
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    const enriched = tickets.length > 0 ? await enrichWithUnread(tickets, reporter) : [];
+    return { tickets: enriched, total, completed };
+  } catch (error) {
+    logger.error('Error listando página de tickets propios', { data: { page, error } });
+    return { tickets: [], total: 0, completed: 0 };
+  }
+}
+
+async function enrichWithUnread(
+  tickets: Ticket[],
+  reporter: NonNullable<Awaited<ReturnType<typeof getReporterEmail>>>
+): Promise<TicketWithUnread[]> {
+  // Views del usuario (degrada elegante si la DB falla)
   let viewsMap = new Map<number, { lastSeenAt: Date; lastSeenStatusId: bigint }>();
   try {
     const views = await prisma.support_ticket_views.findMany({
       where: {
-        user_id: user.id,
+        user_id: reporter.userId,
         taskapp_ticket_id: { in: tickets.map((t) => BigInt(t.id)) },
       },
       select: { taskapp_ticket_id: true, last_seen_at: true, last_seen_status_id: true },
@@ -154,18 +186,26 @@ export async function getMyTicketsWithUnread(): Promise<TicketWithUnread[]> {
       ])
     );
   } catch (error) {
-    notifLogger.error('Failed to fetch ticket views from Supabase', { data: { error } });
+    notifLogger.error('Failed to fetch ticket views from DB', { data: { error } });
     return tickets.map((t) => ({
       ...t,
       unread: { hasStatusChange: false, hasNewAgentComment: false, lastSeenAt: null },
     }));
   }
 
-  // Identificar tickets que requieren fetch de comments
+  // Identificar tickets que requieren fetch de comments.
+  // NO dependemos solo de updated_at: crear un comentario en el backend NO
+  // bumpea tasks.updated_at, así que filtrar por updated_at perdería las
+  // respuestas nuevas de agente. Traemos comments de los tickets sin view,
+  // de los actualizados, y de todos los que NO están resueltos (donde una
+  // respuesta de agente es esperable). Los resueltos se omiten para acotar
+  // llamadas a la API.
   const ticketsNeedingComments = tickets.filter((t) => {
     const view = viewsMap.get(t.id);
     if (!view) return true;
-    return new Date(t.updated_at) > view.lastSeenAt;
+    if (new Date(t.updated_at) > view.lastSeenAt) return true;
+    const slug = t.status?.slug;
+    return !slug || !RESOLVED_STATUS_SLUGS.has(slug);
   });
 
   // Fetch comments en paralelo con failure aislado

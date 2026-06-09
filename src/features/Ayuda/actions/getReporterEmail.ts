@@ -21,5 +21,5 @@ export async function getReporterEmail(): Promise<ReporterIdentity | null> {
   else if (fullName) name = fullName;
   else if (firstname) name = firstname;
 
-  return { email: user.email, name };
+  return { email: user.email, name, userId: user.id };
 }

@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { MY_TICKETS_WITH_UNREAD_QUERY_KEY } from './useMyTicketsWithUnread';
+import { MY_TICKETS_PAGE_QUERY_KEY } from './useMyTicketsPage';
+import { APPROVER_TICKETS_QUERY_KEY } from './useApproverTickets';
 import type { TaskAppRealtimeEvent } from '@/shared/lib/taskapp/types';
 import { Logger } from '@/lib/logger';
 
@@ -24,17 +26,29 @@ export function useSupportTicketsRealtimeSync() {
     source.onmessage = (msg) => {
       try {
         const event = JSON.parse(msg.data) as TaskAppRealtimeEvent;
-        if (event.type === 'ticket.updated' || event.type === 'comment.created') {
+        if (
+          event.type === 'ticket.created' ||
+          event.type === 'ticket.updated' ||
+          event.type === 'comment.created'
+        ) {
           queryClient.invalidateQueries({ queryKey: MY_TICKETS_WITH_UNREAD_QUERY_KEY });
+          queryClient.invalidateQueries({ queryKey: MY_TICKETS_PAGE_QUERY_KEY });
+          queryClient.invalidateQueries({ queryKey: APPROVER_TICKETS_QUERY_KEY });
         }
       } catch (error) {
         logger.warn('Failed to parse SSE event', { data: { error } });
       }
     };
 
+    // Refetch de cortesía al reconectar, THROTTLEADO: si el SSE falla en loop
+    // (backend caído, rate limit), invalidar en cada error genera una tormenta
+    // de requests que agrava el problema. Como máximo un refetch cada 15s.
+    let lastErrorRefetch = 0;
     source.onerror = () => {
-      // EventSource reintenta solo. Refetch de cortesía por si perdimos eventos.
       logger.debug('SSE error / reconnecting');
+      const now = Date.now();
+      if (now - lastErrorRefetch < 15_000) return;
+      lastErrorRefetch = now;
       queryClient.invalidateQueries({ queryKey: MY_TICKETS_WITH_UNREAD_QUERY_KEY });
     };
 

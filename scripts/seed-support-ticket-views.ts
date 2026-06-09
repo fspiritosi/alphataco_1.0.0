@@ -25,7 +25,7 @@ async function main() {
     if (!profile.email) continue;
 
     try {
-      const tickets = await taskAppClient.listTicketsByReporter(profile.email);
+      const { tickets } = await taskAppClient.listTicketsByReporter(profile.email);
       if (tickets.length === 0) continue;
 
       const data = tickets.map((t) => ({
