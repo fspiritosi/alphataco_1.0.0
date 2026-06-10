@@ -529,22 +529,23 @@ export function getColumns(
       },
     },
 
-    // ── Ayudante Día (rol de empleado — jornada 12h o 24h) ───────────────────
+    // ── Ayudante Día (rol de empleado — jornada 12h o 24h, admite varios) ────
     {
       id: 'ayudante_dia',
-      accessorFn: (row) => {
-        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia');
-        if (!rel?.employees) return '';
-        return buildEmployeeLabel(rel.employees);
-      },
+      accessorFn: (row) =>
+        row.dailyreportemployeerelations
+          .filter((r) => r.role === 'ayudante_dia' && r.employees)
+          .map((r) => buildEmployeeLabel(r.employees!))
+          .join(', '),
       meta: { title: 'Ayudante Día' },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
-        const a =
-          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia')?.employees?.lastname ?? '';
-        const b =
-          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia')?.employees?.lastname ?? '';
-        return a.localeCompare(b);
+        const firstLastname = (row: typeof rowA) =>
+          row.original.dailyreportemployeerelations
+            .filter((r) => r.role === 'ayudante_dia')
+            .map((r) => r.employees?.lastname ?? '')
+            .sort()[0] ?? '';
+        return firstLastname(rowA).localeCompare(firstLastname(rowB));
       },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ayudante Día" />,
       cell: ({ row }) => {
@@ -552,18 +553,22 @@ export function getColumns(
         if (wday !== 'jornada 12 horas' && wday !== 'jornada 24 horas') {
           return <span className="text-muted-foreground text-xs">—</span>;
         }
-        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_dia');
-        if (!rel?.employees) {
+        const rels = row.original.dailyreportemployeerelations.filter((r) => r.role === 'ayudante_dia' && r.employees);
+        if (rels.length === 0) {
           return <span className="text-muted-foreground text-xs italic">Opcional</span>;
         }
-        const emp = rel.employees;
-        const label = buildEmployeeLabel(emp);
-        return renderEmployeeBadge(
-          rel.employee_id ?? '',
-          label,
-          row.original.id,
-          deviations,
-          `ayudante_dia_${rel.employee_id ?? rel.id}`
+        return (
+          <div className="flex flex-col gap-1">
+            {rels.map((rel) =>
+              renderEmployeeBadge(
+                rel.employee_id ?? '',
+                buildEmployeeLabel(rel.employees!),
+                row.original.id,
+                deviations,
+                `ayudante_dia_${rel.employee_id ?? rel.id}`
+              )
+            )}
+          </div>
         );
       },
     },
@@ -607,24 +612,23 @@ export function getColumns(
       },
     },
 
-    // ── Ayudante Noche (rol de empleado — solo jornada 24h) ──────────────────
+    // ── Ayudante Noche (rol de empleado — solo jornada 24h, admite varios) ───
     {
       id: 'ayudante_noche',
-      accessorFn: (row) => {
-        const rel = row.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche');
-        if (!rel?.employees) return '';
-        return buildEmployeeLabel(rel.employees);
-      },
+      accessorFn: (row) =>
+        row.dailyreportemployeerelations
+          .filter((r) => r.role === 'ayudante_noche' && r.employees)
+          .map((r) => buildEmployeeLabel(r.employees!))
+          .join(', '),
       meta: { title: 'Ayudante Noche' },
       enableSorting: true,
       sortingFn: (rowA, rowB) => {
-        const a =
-          rowA.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche')?.employees?.lastname ??
-          '';
-        const b =
-          rowB.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche')?.employees?.lastname ??
-          '';
-        return a.localeCompare(b);
+        const firstLastname = (row: typeof rowA) =>
+          row.original.dailyreportemployeerelations
+            .filter((r) => r.role === 'ayudante_noche')
+            .map((r) => r.employees?.lastname ?? '')
+            .sort()[0] ?? '';
+        return firstLastname(rowA).localeCompare(firstLastname(rowB));
       },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ayudante Noche" />,
       cell: ({ row }) => {
@@ -632,18 +636,24 @@ export function getColumns(
         if (wday !== 'jornada 24 horas') {
           return <span className="text-muted-foreground text-xs">—</span>;
         }
-        const rel = row.original.dailyreportemployeerelations.find((r) => r.role === 'ayudante_noche');
-        if (!rel?.employees) {
+        const rels = row.original.dailyreportemployeerelations.filter(
+          (r) => r.role === 'ayudante_noche' && r.employees
+        );
+        if (rels.length === 0) {
           return <span className="text-muted-foreground text-xs italic">Opcional</span>;
         }
-        const emp = rel.employees;
-        const label = buildEmployeeLabel(emp);
-        return renderEmployeeBadge(
-          rel.employee_id ?? '',
-          label,
-          row.original.id,
-          deviations,
-          `ayudante_noche_${rel.employee_id ?? rel.id}`
+        return (
+          <div className="flex flex-col gap-1">
+            {rels.map((rel) =>
+              renderEmployeeBadge(
+                rel.employee_id ?? '',
+                buildEmployeeLabel(rel.employees!),
+                row.original.id,
+                deviations,
+                `ayudante_noche_${rel.employee_id ?? rel.id}`
+              )
+            )}
+          </div>
         );
       },
     },

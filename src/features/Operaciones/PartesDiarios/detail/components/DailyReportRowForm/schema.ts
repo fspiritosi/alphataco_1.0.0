@@ -14,8 +14,9 @@ export const dailyReportRowSchema = z
     // Campos para empleados con roles (jornadas 12/24 hrs)
     chofer_dia: z.string().optional(),
     chofer_noche: z.string().optional(),
-    ayudante_dia: z.string().optional(),
-    ayudante_noche: z.string().optional(),
+    // Los ayudantes (ATG) admiten múltiples empleados por turno
+    ayudante_dia: z.array(z.string()).default([]).optional(),
+    ayudante_noche: z.array(z.string()).default([]).optional(),
     type_service: z
       .enum(['mensual', 'adicional', 'adicional_permanente'], {
         required_error: 'Debe seleccionar un tipo de servicio',
