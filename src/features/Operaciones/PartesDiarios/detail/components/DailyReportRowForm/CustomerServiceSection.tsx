@@ -315,8 +315,8 @@ export function CustomerServiceSection({
                                     form.setValue('employees', []);
                                     form.setValue('chofer_dia', '');
                                     form.setValue('chofer_noche', '');
-                                    form.setValue('ayudante_dia', '');
-                                    form.setValue('ayudante_noche', '');
+                                    form.setValue('ayudante_dia', []);
+                                    form.setValue('ayudante_noche', []);
                                   }
                                   if (!item.needs_equipment) {
                                     form.setValue('equipment', []);
