@@ -63,8 +63,8 @@ const EMPTY_FORM_VALUES: DailyReportRowFormValues = {
   type_service: undefined,
   chofer_dia: undefined,
   chofer_noche: undefined,
-  ayudante_dia: undefined,
-  ayudante_noche: undefined,
+  ayudante_dia: [],
+  ayudante_noche: [],
   completed_day: false,
   completed_night: false,
 };
@@ -115,6 +115,8 @@ export function DailyReportRowForm({
         const employeeRels = row.dailyreportemployeerelations ?? [];
         type Role = 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche';
         const findRole = (role: Role) => employeeRels.find((e) => e.role === role)?.employee_id ?? undefined;
+        const filterRole = (role: Role) =>
+          employeeRels.filter((e) => e.role === role).map((e) => e.employee_id ?? '').filter(Boolean);
 
         const anyHasRole = employeeRels.some((e) =>
           ['chofer_dia', 'chofer_noche', 'ayudante_dia', 'ayudante_noche'].includes(e.role ?? '')
@@ -158,8 +160,8 @@ export function DailyReportRowForm({
           employees: isRoleBased && anyHasRole ? [] : employeeRels.map((e) => e.employee_id ?? '').filter(Boolean),
           chofer_dia: isRoleBased && anyHasRole ? findRole('chofer_dia') : undefined,
           chofer_noche: isRoleBased && anyHasRole ? findRole('chofer_noche') : undefined,
-          ayudante_dia: isRoleBased && anyHasRole ? findRole('ayudante_dia') : undefined,
-          ayudante_noche: isRoleBased && anyHasRole ? findRole('ayudante_noche') : undefined,
+          ayudante_dia: isRoleBased && anyHasRole ? filterRole('ayudante_dia') : [],
+          ayudante_noche: isRoleBased && anyHasRole ? filterRole('ayudante_noche') : [],
           reasigment_reason: '',
           reprogram_date: undefined,
         });
@@ -193,9 +195,9 @@ export function DailyReportRowForm({
 
     if (isRoleBased) {
       if (data.chofer_dia) employeesWithRoles.push({ id: data.chofer_dia, role: 'chofer_dia' });
-      if (data.ayudante_dia) employeesWithRoles.push({ id: data.ayudante_dia, role: 'ayudante_dia' });
+      (data.ayudante_dia ?? []).forEach((id) => employeesWithRoles.push({ id, role: 'ayudante_dia' }));
       if (data.chofer_noche) employeesWithRoles.push({ id: data.chofer_noche, role: 'chofer_noche' });
-      if (data.ayudante_noche) employeesWithRoles.push({ id: data.ayudante_noche, role: 'ayudante_noche' });
+      (data.ayudante_noche ?? []).forEach((id) => employeesWithRoles.push({ id, role: 'ayudante_noche' }));
     }
 
     const employeeIds = isRoleBased ? employeesWithRoles : (data.employees ?? []).map((id) => ({ id }));
@@ -313,9 +315,12 @@ export function DailyReportRowForm({
     const wdLower = watchedWorkingDay?.toLowerCase() ?? '';
     const isRoleBased = wdLower === 'jornada 12 horas' || wdLower === 'jornada 24 horas';
     const currentEmployeeIds = isRoleBased
-      ? [watchedChoferDia, watchedAyudanteDia, watchedChoferNoche, watchedAyudanteNoche].filter((x): x is string =>
-          Boolean(x)
-        )
+      ? [
+          watchedChoferDia,
+          watchedChoferNoche,
+          ...(watchedAyudanteDia ?? []),
+          ...(watchedAyudanteNoche ?? []),
+        ].filter((x): x is string => Boolean(x))
       : watchedEmployees ?? [];
     const currentEquipmentIds = watchedEquipment ?? [];
 
