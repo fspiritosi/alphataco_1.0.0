@@ -129,6 +129,12 @@ function ApproverRow({ ticket, onSelect }: { ticket: Ticket; onSelect?: (id: num
             <Clock className="h-3 w-3" />
             {moment(ticket.created_at).locale('es').fromNow()}
           </span>
+          {ticket.estimated_hours != null && (
+            <span className="inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400">
+              <Clock className="h-3 w-3" />
+              {ticket.estimated_hours} h valorizadas
+            </span>
+          )}
         </div>
       </button>
       <div className="flex shrink-0 items-center gap-2">
