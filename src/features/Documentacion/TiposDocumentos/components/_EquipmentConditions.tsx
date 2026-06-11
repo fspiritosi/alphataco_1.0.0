@@ -46,20 +46,28 @@ export function _EquipmentConditions({
         <div className="space-y-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Relaciones</p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {RELATION_CONDITIONS.map((config) => (
-              <_MultiSelectField
-                key={config.key}
-                label={config.label}
-                icon={config.icon}
-                placeholder={`Buscar ${config.label.toLowerCase()}...`}
-                searchFn={(query) => searchCatalogForConditions(config.catalogTable as CatalogKey, query)}
-                queryKey={['doc-type-condition', 'equipment', config.key]}
-                selected={conditions[config.key] ?? []}
-                onChange={(ids) => onConditionsChange({ [config.key]: ids })}
-                disabled={disabled}
-                initialOptionsMap={initialNamesMap?.[config.key]}
-              />
-            ))}
+            {RELATION_CONDITIONS.map((config) => {
+              // Catálogos dependientes: filtrar por los IDs de la condición padre
+              // (ej: subtipos acotados por el/los tipo(s) elegido(s)).
+              const parentIds = config.dependsOnKey ? (conditions[config.dependsOnKey] ?? []) : undefined;
+
+              return (
+                <_MultiSelectField
+                  key={config.key}
+                  label={config.label}
+                  icon={config.icon}
+                  placeholder={`Buscar ${config.label.toLowerCase()}...`}
+                  searchFn={(query) =>
+                    searchCatalogForConditions(config.catalogTable as CatalogKey, query, parentIds)
+                  }
+                  queryKey={['doc-type-condition', 'equipment', config.key, ...(parentIds ?? [])]}
+                  selected={conditions[config.key] ?? []}
+                  onChange={(ids) => onConditionsChange({ [config.key]: ids })}
+                  disabled={disabled}
+                  initialOptionsMap={initialNamesMap?.[config.key]}
+                />
+              );
+            })}
           </div>
         </div>
       )}

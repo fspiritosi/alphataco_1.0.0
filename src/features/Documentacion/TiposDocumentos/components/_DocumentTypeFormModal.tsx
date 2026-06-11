@@ -58,6 +58,7 @@ const formSchema = z.object({
   private: z.boolean(),
   down_document: z.boolean(),
   multiresource: z.boolean(),
+  has_policy_number: z.boolean(),
   description: z.string().optional(),
 });
 
@@ -125,11 +126,13 @@ export function _DocumentTypeFormModal({
       private: false,
       down_document: false,
       multiresource: false,
+      has_policy_number: false,
       description: '',
     },
   });
 
   const applies = form.watch('applies');
+  const multiresource = form.watch('multiresource');
 
   // --- Lazy-load condiciones en modo edición ---
   const hydratedForIdRef = useRef<string | null>(null);
@@ -158,6 +161,7 @@ export function _DocumentTypeFormModal({
       private: editData.private ?? false,
       down_document: editData.down_document ?? false,
       multiresource: editData.multiresource,
+      has_policy_number: editData.has_policy_number ?? false,
       description: editData.description ?? '',
     });
 
@@ -249,6 +253,7 @@ export function _DocumentTypeFormModal({
       private: false,
       down_document: false,
       multiresource: false,
+      has_policy_number: false,
       description: '',
     });
     setIsSpecial(false);
@@ -263,6 +268,10 @@ export function _DocumentTypeFormModal({
       // Reset multiresource si cambia a Empresa
       if (value === 'Empresa') {
         form.setValue('multiresource', false);
+      }
+      // N° de póliza solo aplica a Equipos: limpiar si cambia a otro recurso
+      if (value !== 'Equipos') {
+        form.setValue('has_policy_number', false);
       }
       // Reset condiciones al cambiar tipo
       setConditions(createEmptyConditionsState(value));
@@ -291,6 +300,8 @@ export function _DocumentTypeFormModal({
         explired: values.explired,
         special: isSpecial,
         multiresource: values.multiresource,
+        // El flag solo es válido para tipos de Equipos multirecurso
+        has_policy_number: values.applies === 'Equipos' && values.multiresource ? values.has_policy_number : false,
         is_it_montlhy: values.is_it_montlhy,
         private: values.private,
         down_document: values.down_document,
@@ -483,9 +494,34 @@ export function _DocumentTypeFormModal({
                             render={({ field }) => (
                               <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl>
-                                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={(checked) => {
+                                      field.onChange(checked);
+                                      // N° de póliza depende de multirecurso: limpiar al destildar
+                                      if (!checked) {
+                                        form.setValue('has_policy_number', false);
+                                      }
+                                    }}
+                                  />
                                 </FormControl>
                                 <FormLabel className="font-normal text-sm">Es multirrecurso</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        {/* N° de póliza: solo para tipos de Equipos multirecurso */}
+                        {applies === 'Equipos' && multiresource && (
+                          <FormField
+                            control={form.control}
+                            name="has_policy_number"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                                <FormLabel className="font-normal text-sm">Lleva N° de póliza</FormLabel>
                               </FormItem>
                             )}
                           />

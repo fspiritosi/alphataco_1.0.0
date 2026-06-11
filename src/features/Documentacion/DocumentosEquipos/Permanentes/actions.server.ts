@@ -24,21 +24,43 @@ const VALID_SORT_FIELDS = new Set([
   'created_at',
   'validity',
   'state',
+  'policy_number',
   // FK columns (sorted via relation)
   'vehicle',
   'document_type',
+  // Nuevos campos del equipo
+  'vehicle_type',
+  'vehicle_subtype',
+  'vehicle_brand',
+  'vehicle_year',
+  'vehicle_owner',
+  'vehicle_sector',
+  'vehicle_chassis',
+  'vehicle_engine',
+  'vehicle_contract_type',
+  'vehicle_contract_expiration',
 ]);
 
 /** Mapeo de columnId → orderBy de Prisma para columnas FK */
 const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
   vehicle: (dir) => ({ vehicles: { domain: dir } }),
   document_type: (dir) => ({ document_types: { name: dir } }),
+  vehicle_type: (dir) => ({ vehicles: { type_vehicles_typeTotype: { name: dir } } }),
+  vehicle_subtype: (dir) => ({ vehicles: { sub_type: { name: dir } } }),
+  vehicle_brand: (dir) => ({ vehicles: { brand_vehicles: { name: dir } } }),
+  vehicle_year: (dir) => ({ vehicles: { year: dir } }),
+  vehicle_owner: (dir) => ({ vehicles: { equipment_owners: { name: dir } } }),
+  vehicle_sector: (dir) => ({ vehicles: { hierarchy: { name: dir } } }),
+  vehicle_chassis: (dir) => ({ vehicles: { chassis: dir } }),
+  vehicle_engine: (dir) => ({ vehicles: { engine: dir } }),
+  vehicle_contract_type: (dir) => ({ vehicles: { type_of_contract: dir } }),
+  vehicle_contract_expiration: (dir) => ({ vehicles: { contract_expiration_date: dir } }),
 };
 
 /** Columnas con filtro de texto libre */
-const TEXT_FILTER_COLUMNS: string[] = ['vehicle', 'deny_reason', 'serie'];
+const TEXT_FILTER_COLUMNS: string[] = ['vehicle', 'deny_reason', 'serie', 'policy_number', 'vehicle_year', 'vehicle_chassis', 'vehicle_engine'];
 
-/** Columnas con filtro de rango de fechas */
+/** Columnas con filtro de rango de fechas (solo campos directos de documents_equipment) */
 const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
 
 /** Mapping de columnId (URL) → campo real en Prisma */
@@ -55,6 +77,7 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
   state: true,
   is_active: true,
   deny_reason: true,
+  policy_number: true,
   document_path: true,
   applies: true,
   id_document_types: true,
@@ -65,6 +88,34 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
       serie: true,
       intern_number: true,
       is_active: true,
+      // Nuevos campos escalares del equipo
+      year: true,
+      chassis: true,
+      engine: true,
+      type_of_contract: true,
+      contract_expiration_date: true,
+      // FKs del equipo (para filterFn client-side)
+      type: true,
+      subType: true,
+      brand: true,
+      owner_id: true,
+      sector: true,
+      // Relaciones del equipo resueltas para las columnas
+      type_vehicles_typeTotype: {
+        select: { id: true, name: true },
+      },
+      sub_type: {
+        select: { id: true, name: true },
+      },
+      brand_vehicles: {
+        select: { id: true, name: true },
+      },
+      equipment_owners: {
+        select: { id: true, name: true },
+      },
+      hierarchy: {
+        select: { id: true, name: true },
+      },
       contractor_equipment: {
         select: {
           id: true,
@@ -106,11 +157,20 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
-      ...TEXT_FILTER_COLUMNS,
+      ...TEXT_FILTER_COLUMNS,  // includes 'policy_number', 'serie', 'vehicle', 'deny_reason', etc.
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
       'mandatory',
       'multiresource',
       'contractor',
+      // Nuevos filtros de vehicles (manejados explícitamente abajo)
+      'vehicle_type',
+      'vehicle_subtype',
+      'vehicle_brand',
+      'vehicle_owner',
+      'vehicle_sector',
+      'vehicle_contract_type',
+      'vehicle_contract_expiration_from',
+      'vehicle_contract_expiration_to',
     ],
   });
 
@@ -189,7 +249,7 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
     });
   }
 
-  // Filtro texto de serie (campo directo del vehículo)
+  // Filtro texto de serie / N° de póliza (campo directo del vehículo)
   const serieTextVal = state.filters['serie']?.[0];
   if (serieTextVal) {
     searchConditions.push({
@@ -202,6 +262,38 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
   if (denyReasonTextVal) {
     searchConditions.push({
       deny_reason: { contains: denyReasonTextVal, mode: 'insensitive' },
+    });
+  }
+
+  // Filtro texto de N° de póliza (campo directo en documents_equipment)
+  const policyNumberTextVal = state.filters['policy_number']?.[0];
+  if (policyNumberTextVal) {
+    searchConditions.push({
+      policy_number: { contains: policyNumberTextVal, mode: 'insensitive' },
+    });
+  }
+
+  // Filtro texto de año del equipo (campo directo en vehicles)
+  const yearTextVal = state.filters['vehicle_year']?.[0];
+  if (yearTextVal) {
+    searchConditions.push({
+      vehicles: { year: { contains: yearTextVal, mode: 'insensitive' } },
+    });
+  }
+
+  // Filtro texto de chasis del equipo
+  const chassisTextVal = state.filters['vehicle_chassis']?.[0];
+  if (chassisTextVal) {
+    searchConditions.push({
+      vehicles: { chassis: { contains: chassisTextVal, mode: 'insensitive' } },
+    });
+  }
+
+  // Filtro texto de motor del equipo
+  const engineTextVal = state.filters['vehicle_engine']?.[0];
+  if (engineTextVal) {
+    searchConditions.push({
+      vehicles: { engine: { contains: engineTextVal, mode: 'insensitive' } },
     });
   }
 
@@ -240,6 +332,111 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
     } else if (hasNullMr) {
       andConditions.push({ document_types: { multiresource: null } });
     }
+  }
+
+  // ─── Filtros facetados de vehicles (FK/enum que apuntan a la relación) ─────
+
+  // Tipo (vehicles.type → UUID NOT NULL, vehicles tiene type como campo obligatorio)
+  const vehicleTypeValues = state.filters['vehicle_type'];
+  if (vehicleTypeValues?.length) {
+    const hasNull = vehicleTypeValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleTypeValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({ OR: [{ vehicles: { type: { in: realValues } } }] });
+    } else if (!hasNull) {
+      andConditions.push({ vehicles: { type: { in: realValues } } });
+    }
+    // solo NULL: no aplica (type es NOT NULL en vehicles)
+  }
+
+  // Subtipo (vehicles.subType → UUID nullable)
+  const vehicleSubtypeValues = state.filters['vehicle_subtype'];
+  if (vehicleSubtypeValues?.length) {
+    const hasNull = vehicleSubtypeValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleSubtypeValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({ OR: [{ vehicles: { subType: { in: realValues } } }, { vehicles: { subType: null } }] });
+    } else if (hasNull) {
+      andConditions.push({ vehicles: { subType: null } });
+    } else {
+      andConditions.push({ vehicles: { subType: { in: realValues } } });
+    }
+  }
+
+  // Marca (vehicles.brand → Int nullable, los valores en el filtro son strings del id)
+  const vehicleBrandValues = state.filters['vehicle_brand'];
+  if (vehicleBrandValues?.length) {
+    const hasNull = vehicleBrandValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleBrandValues
+      .filter((v) => v !== NULL_FILTER_VALUE)
+      .map(Number)
+      .filter((n) => !isNaN(n));
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({ OR: [{ vehicles: { brand: { in: realValues } } }, { vehicles: { brand: null } }] });
+    } else if (hasNull) {
+      andConditions.push({ vehicles: { brand: null } });
+    } else if (realValues.length > 0) {
+      andConditions.push({ vehicles: { brand: { in: realValues } } });
+    }
+  }
+
+  // Propietario (vehicles.owner_id → UUID nullable)
+  const vehicleOwnerValues = state.filters['vehicle_owner'];
+  if (vehicleOwnerValues?.length) {
+    const hasNull = vehicleOwnerValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleOwnerValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({ OR: [{ vehicles: { owner_id: { in: realValues } } }, { vehicles: { owner_id: null } }] });
+    } else if (hasNull) {
+      andConditions.push({ vehicles: { owner_id: null } });
+    } else {
+      andConditions.push({ vehicles: { owner_id: { in: realValues } } });
+    }
+  }
+
+  // Sector (vehicles.sector → UUID nullable)
+  const vehicleSectorValues = state.filters['vehicle_sector'];
+  if (vehicleSectorValues?.length) {
+    const hasNull = vehicleSectorValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleSectorValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({ OR: [{ vehicles: { sector: { in: realValues } } }, { vehicles: { sector: null } }] });
+    } else if (hasNull) {
+      andConditions.push({ vehicles: { sector: null } });
+    } else {
+      andConditions.push({ vehicles: { sector: { in: realValues } } });
+    }
+  }
+
+  // Tipo de contrato (vehicles.type_of_contract → enum nullable)
+  const vehicleContractTypeValues = state.filters['vehicle_contract_type'];
+  if (vehicleContractTypeValues?.length) {
+    const hasNull = vehicleContractTypeValues.includes(NULL_FILTER_VALUE);
+    const realValues = vehicleContractTypeValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      andConditions.push({
+        OR: [
+          { vehicles: { type_of_contract: { in: realValues as import('@/generated/prisma/enums').contract_type_vehicles_enum[] } } },
+          { vehicles: { type_of_contract: null } },
+        ],
+      });
+    } else if (hasNull) {
+      andConditions.push({ vehicles: { type_of_contract: null } });
+    } else {
+      andConditions.push({
+        vehicles: { type_of_contract: { in: realValues as import('@/generated/prisma/enums').contract_type_vehicles_enum[] } },
+      });
+    }
+  }
+
+  // Vencimiento de contrato (vehicles.contract_expiration_date → Date nullable, rango manual)
+  const contractExpirationFrom = state.filters['vehicle_contract_expiration_from']?.[0];
+  const contractExpirationTo = state.filters['vehicle_contract_expiration_to']?.[0];
+  if (contractExpirationFrom || contractExpirationTo) {
+    const dateCondition: Record<string, unknown> = {};
+    if (contractExpirationFrom) dateCondition.gte = new Date(contractExpirationFrom);
+    if (contractExpirationTo) dateCondition.lte = new Date(contractExpirationTo);
+    andConditions.push({ vehicles: { contract_expiration_date: dateCondition } });
   }
 
   return {
@@ -507,6 +704,182 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
         }
         const resolvedOptions = Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name }));
         return { counts: countMap, resolvedOptions };
+      }
+
+      case 'vehicle_type': {
+        const where = await crossWhere('vehicle_type');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: {
+                type: true,
+                type_vehicles_typeTotype: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const typeId = row.vehicles?.type;
+          const typeName = row.vehicles?.type_vehicles_typeTotype?.name ?? null;
+          if (!typeId) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            countMap.set(typeId, (countMap.get(typeId) ?? 0) + 1);
+            if (typeName) optionsMap.set(typeId, typeName);
+          }
+        }
+        return {
+          counts: countMap,
+          resolvedOptions: Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name })),
+        };
+      }
+
+      case 'vehicle_subtype': {
+        const where = await crossWhere('vehicle_subtype');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: {
+                subType: true,
+                sub_type: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const subTypeId = row.vehicles?.subType;
+          const subTypeName = row.vehicles?.sub_type?.name ?? null;
+          if (!subTypeId) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            countMap.set(subTypeId, (countMap.get(subTypeId) ?? 0) + 1);
+            if (subTypeName) optionsMap.set(subTypeId, subTypeName);
+          }
+        }
+        return {
+          counts: countMap,
+          resolvedOptions: Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name })),
+        };
+      }
+
+      case 'vehicle_brand': {
+        const where = await crossWhere('vehicle_brand');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: {
+                brand: true,
+                brand_vehicles: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const brandId = row.vehicles?.brand;
+          const brandName = row.vehicles?.brand_vehicles?.name ?? null;
+          if (brandId == null) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            // brand es Int, usar String para la key del Map
+            const key = String(brandId);
+            countMap.set(key, (countMap.get(key) ?? 0) + 1);
+            if (brandName) optionsMap.set(key, brandName);
+          }
+        }
+        return {
+          counts: countMap,
+          resolvedOptions: Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name })),
+        };
+      }
+
+      case 'vehicle_owner': {
+        const where = await crossWhere('vehicle_owner');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: {
+                owner_id: true,
+                equipment_owners: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const ownerId = row.vehicles?.owner_id;
+          const ownerName = row.vehicles?.equipment_owners?.name ?? null;
+          if (!ownerId) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            countMap.set(ownerId, (countMap.get(ownerId) ?? 0) + 1);
+            if (ownerName) optionsMap.set(ownerId, ownerName);
+          }
+        }
+        return {
+          counts: countMap,
+          resolvedOptions: Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name })),
+        };
+      }
+
+      case 'vehicle_sector': {
+        const where = await crossWhere('vehicle_sector');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: {
+                sector: true,
+                hierarchy: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const sectorId = row.vehicles?.sector;
+          const sectorName = row.vehicles?.hierarchy?.name ?? null;
+          if (!sectorId) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            countMap.set(sectorId, (countMap.get(sectorId) ?? 0) + 1);
+            if (sectorName) optionsMap.set(sectorId, sectorName);
+          }
+        }
+        return {
+          counts: countMap,
+          resolvedOptions: Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name })),
+        };
+      }
+
+      case 'vehicle_contract_type': {
+        const where = await crossWhere('vehicle_contract_type');
+        const rowsData = await prisma.documents_equipment.findMany({
+          where,
+          select: {
+            vehicles: {
+              select: { type_of_contract: true },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        for (const row of rowsData) {
+          const val = row.vehicles?.type_of_contract;
+          const key = val == null ? NULL_FILTER_VALUE : String(val);
+          countMap.set(key, (countMap.get(key) ?? 0) + 1);
+        }
+        return { counts: countMap };
       }
 
       default:

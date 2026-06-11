@@ -32,6 +32,7 @@ const VALID_SORT_FIELDS = new Set([
   'explired',
   'special',
   'multiresource',
+  'has_policy_number',
   'is_it_montlhy',
   'private',
   'down_document',
@@ -56,6 +57,7 @@ const BOOLEAN_FILTER_COLUMNS = [
   'explired',
   'special',
   'multiresource',
+  'has_policy_number',
   'is_it_montlhy',
   'private',
   'down_document',
@@ -73,6 +75,7 @@ const DOC_TYPE_SELECT = {
   name: true,
   applies: true,
   multiresource: true,
+  has_policy_number: true,
   mandatory: true,
   explired: true,
   special: true,
@@ -279,6 +282,7 @@ export interface CreateDocumentTypeInput {
   explired: boolean;
   special: boolean;
   multiresource: boolean;
+  has_policy_number?: boolean;
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
@@ -305,6 +309,7 @@ export async function createDocumentType(data: CreateDocumentTypeInput) {
         explired: data.explired,
         special: data.special,
         multiresource: data.multiresource,
+        has_policy_number: data.has_policy_number ?? false,
         is_it_montlhy: data.is_it_montlhy ?? false,
         private: data.private ?? false,
         down_document: data.down_document ?? false,
@@ -330,6 +335,7 @@ export interface UpdateDocumentTypeInput {
   explired?: boolean;
   special?: boolean;
   multiresource?: boolean;
+  has_policy_number?: boolean;
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
@@ -362,6 +368,7 @@ export async function updateDocumentType(id: string, data: UpdateDocumentTypeInp
     if (data.explired !== undefined) updatePayload.explired = data.explired;
     if (data.special !== undefined) updatePayload.special = data.special;
     if (data.multiresource !== undefined) updatePayload.multiresource = data.multiresource;
+    if (data.has_policy_number !== undefined) updatePayload.has_policy_number = data.has_policy_number;
     if (data.is_it_montlhy !== undefined) updatePayload.is_it_montlhy = data.is_it_montlhy;
     if (data.private !== undefined) updatePayload.private = data.private;
     if (data.down_document !== undefined) updatePayload.down_document = data.down_document;
@@ -387,7 +394,11 @@ export async function updateDocumentType(id: string, data: UpdateDocumentTypeInp
 // ============================================================================
 
 type CatalogEntry = {
-  find: (query: string, companyId: string) => Promise<{ id: string; name: string }[]>;
+  /**
+   * @param parentIds - IDs de la condición padre (catálogos dependientes, ej: subtipos
+   *   filtrados por los tipos elegidos). La mayoría de catálogos lo ignoran.
+   */
+  find: (query: string, companyId: string, parentIds?: string[]) => Promise<{ id: string; name: string }[]>;
 };
 
 const CATALOG_MAP: Record<string, CatalogEntry> = {
@@ -628,6 +639,24 @@ const CATALOG_MAP: Record<string, CatalogEntry> = {
       return rows.map((r) => ({ id: r.id, name: r.name }));
     },
   },
+  sub_type: {
+    // 'sub_type' = vehicle subtype. Si se reciben parentIds (tipos elegidos),
+    // filtra los subtipos por su columna escalar 'type' (FK -> type.id).
+    find: async (query, companyId, parentIds) => {
+      const rows = await prisma.sub_type.findMany({
+        where: {
+          company_id: companyId,
+          is_active: true,
+          name: { contains: query, mode: 'insensitive' },
+          ...(parentIds && parentIds.length > 0 ? { type: { in: parentIds } } : {}),
+        },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        take: 20,
+      });
+      return rows.map((r) => ({ id: r.id, name: r.name }));
+    },
+  },
 };
 
 export type CatalogKey = keyof typeof CATALOG_MAP;
@@ -638,7 +667,8 @@ export type CatalogKey = keyof typeof CATALOG_MAP;
  */
 export async function searchCatalogForConditions(
   catalogKey: CatalogKey,
-  query: string
+  query: string,
+  parentIds?: string[]
 ): Promise<{ id: string; name: string }[]> {
   const companyId = await getServerCompanyId();
 
@@ -651,7 +681,7 @@ export async function searchCatalogForConditions(
       return [];
     }
 
-    return await entry.find(query, companyId);
+    return await entry.find(query, companyId, parentIds);
   } catch (error) {
     logger.error('Error al buscar en catálogo', { data: { error, catalogKey } });
     return [];
