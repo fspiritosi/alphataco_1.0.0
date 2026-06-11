@@ -8,6 +8,7 @@ import SimpleDocument from '@/features/Documentacion/shared/components/SimpleDoc
 import { PermissionGuard } from '@/features/Permissions';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { contractTypeVehiclesLabels } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from 'lucide-react';
 import moment from 'moment';
@@ -20,7 +21,22 @@ import type { EquipmentPermanentDocumentListItem } from './actions.server';
 // ============================================================================
 
 /** Columnas ocultas por defecto (visibles al hacer toggle) */
-export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['deny_reason', 'multiresource', 'serie'];
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = [
+  'deny_reason',
+  'multiresource',
+  'serie',
+  // Nuevas columnas de datos del equipo (ocultas por defecto)
+  'vehicle_type',
+  'vehicle_subtype',
+  'vehicle_brand',
+  'vehicle_year',
+  'vehicle_owner',
+  'vehicle_sector',
+  'vehicle_chassis',
+  'vehicle_engine',
+  'vehicle_contract_type',
+  'vehicle_contract_expiration',
+];
 
 // ============================================================================
 // ICONS — Estado
@@ -136,7 +152,7 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
     enableSorting: true,
   },
 
-  // ─── Serie ────────────────────────────────────────────────────────────────
+  // ─── Serie (vehicles.serie) ──────────────────────────────────────────────
   {
     id: 'serie',
     accessorFn: (row) => row.vehicles?.serie ?? '',
@@ -148,6 +164,20 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
       </span>
     ),
     enableSorting: false,
+  },
+
+  // ─── N° de Póliza (documents_equipment.policy_number) ────────────────────
+  {
+    id: 'policy_number',
+    accessorKey: 'policy_number',
+    meta: { title: 'N° de Póliza' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="N° de Póliza" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.policy_number ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    enableSorting: true,
   },
 
   // ─── Tipo de documento ────────────────────────────────────────────────────
@@ -332,6 +362,184 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo de rechazo" />,
     cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.deny_reason ?? '-'}</span>,
     enableSorting: false,
+  },
+
+  // ─── Tipo (vehicles.type → type_vehicles_typeTotype) ─────────────────────
+  {
+    id: 'vehicle_type',
+    accessorFn: (row) => row.vehicles?.type_vehicles_typeTotype?.name ?? '',
+    meta: { title: 'Tipo' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.type_vehicles_typeTotype?.name ?? (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.vehicles?.type;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
+    enableSorting: true,
+  },
+
+  // ─── Subtipo (vehicles.subType → sub_type) ────────────────────────────────
+  {
+    id: 'vehicle_subtype',
+    accessorFn: (row) => row.vehicles?.sub_type?.name ?? '',
+    meta: { title: 'Subtipo' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Subtipo" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.sub_type?.name ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.vehicles?.subType;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
+    enableSorting: true,
+  },
+
+  // ─── Marca (vehicles.brand → brand_vehicles, id es Int) ───────────────────
+  {
+    id: 'vehicle_brand',
+    accessorFn: (row) => row.vehicles?.brand_vehicles?.name ?? '',
+    meta: { title: 'Marca' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Marca" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.brand_vehicles?.name ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const brandId = row.original.vehicles?.brand;
+      if (brandId == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(String(brandId));
+    },
+    enableSorting: true,
+  },
+
+  // ─── Año (vehicles.year, string directo) ─────────────────────────────────
+  {
+    id: 'vehicle_year',
+    accessorFn: (row) => row.vehicles?.year ?? '',
+    meta: { title: 'Año' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Año" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.year ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    enableSorting: true,
+  },
+
+  // ─── Propietario (vehicles.owner_id → equipment_owners) ──────────────────
+  {
+    id: 'vehicle_owner',
+    accessorFn: (row) => row.vehicles?.equipment_owners?.name ?? '',
+    meta: { title: 'Propietario' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.equipment_owners?.name ?? (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.vehicles?.owner_id;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
+    enableSorting: true,
+  },
+
+  // ─── Sector (vehicles.sector → hierarchy) ────────────────────────────────
+  {
+    id: 'vehicle_sector',
+    accessorFn: (row) => row.vehicles?.hierarchy?.name ?? '',
+    meta: { title: 'Sector' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.hierarchy?.name ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.vehicles?.sector;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
+    enableSorting: true,
+  },
+
+  // ─── Chasis (vehicles.chassis, string opcional directo) ──────────────────
+  {
+    id: 'vehicle_chassis',
+    accessorFn: (row) => row.vehicles?.chassis ?? '',
+    meta: { title: 'Chasis' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Chasis" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.chassis ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    enableSorting: true,
+  },
+
+  // ─── Motor (vehicles.engine, string directo) ─────────────────────────────
+  {
+    id: 'vehicle_engine',
+    accessorFn: (row) => row.vehicles?.engine ?? '',
+    meta: { title: 'Motor' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motor" />,
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.vehicles?.engine ?? <span className="text-muted-foreground">-</span>}
+      </span>
+    ),
+    enableSorting: true,
+  },
+
+  // ─── Tipo de contrato (vehicles.type_of_contract, enum) ──────────────────
+  {
+    id: 'vehicle_contract_type',
+    accessorFn: (row) => {
+      const val = row.vehicles?.type_of_contract;
+      if (!val) return '';
+      return contractTypeVehiclesLabels[val] ?? val;
+    },
+    meta: { title: 'Tipo de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de contrato" />,
+    cell: ({ row }) => {
+      const val = row.original.vehicles?.type_of_contract;
+      if (!val) return <span className="text-muted-foreground">-</span>;
+      return <span className="text-sm">{contractTypeVehiclesLabels[val] ?? val}</span>;
+    },
+    filterFn: (row, _id, value: string[]) => {
+      const val = row.original.vehicles?.type_of_contract;
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val);
+    },
+    enableSorting: true,
+  },
+
+  // ─── Vencimiento de contrato (vehicles.contract_expiration_date, fecha) ──
+  {
+    id: 'vehicle_contract_expiration',
+    accessorFn: (row) => row.vehicles?.contract_expiration_date ?? null,
+    meta: { title: 'Venc. de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Venc. de contrato" />,
+    cell: ({ row }) => {
+      const date = row.original.vehicles?.contract_expiration_date;
+      if (!date) return <span className="text-muted-foreground">-</span>;
+      return <span className="text-sm">{moment(date).format('DD/MM/YYYY')}</span>;
+    },
+    enableSorting: true,
   },
 
   // ─── Acciones ─────────────────────────────────────────────────────────────

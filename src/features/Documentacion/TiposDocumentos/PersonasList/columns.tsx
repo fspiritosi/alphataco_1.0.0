@@ -164,6 +164,19 @@ export function getDocTypeColumns(
         return value.includes(val);
       },
     });
+
+    // ── N° de Póliza (SOLO tabla Equipos, multirecurso) ──────────────────────
+    cols.push({
+      accessorKey: 'has_policy_number',
+      id: 'has_policy_number',
+      meta: { title: 'N° de Póliza' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="N° de Póliza" />,
+      cell: ({ row }) => <BoolBadge value={row.original.has_policy_number} />,
+      filterFn: (row, id, value: string[]) => {
+        const val = (row.getValue(id) as boolean | null) ?? false;
+        return value.includes(String(val));
+      },
+    });
   }
 
   // ── Estado (Activo/Inactivo) ────────────────────────────────────────────
@@ -228,4 +241,11 @@ export function getDocTypeColumns(
 // HIDDEN COLUMNS BY DEFAULT
 // ============================================================================
 
-export const HIDDEN_COLUMNS_BY_DEFAULT = ['multiresource', 'is_it_montlhy', 'private', 'down_document', 'description'];
+export const HIDDEN_COLUMNS_BY_DEFAULT = [
+  'multiresource',
+  'has_policy_number',
+  'is_it_montlhy',
+  'private',
+  'down_document',
+  'description',
+];
