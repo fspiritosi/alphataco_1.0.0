@@ -196,6 +196,7 @@ export const uploadDocument = async (
     user_id: string;
     period?: string | undefined;
     validity?: string | undefined;
+    policy_number?: string | undefined;
   },
   mandatory: boolean,
   tableName: 'documents_equipment' | 'documents_employees',

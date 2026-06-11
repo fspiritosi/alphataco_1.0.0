@@ -98,6 +98,7 @@ export default function _EquiposDataTable({
       'explired',
       'special',
       'multiresource',
+      'has_policy_number',
       'is_it_montlhy',
       'private',
       'down_document',
@@ -169,6 +170,11 @@ export default function _EquiposDataTable({
         fetchFacet: makeBoolFetchFacet('multiresource'),
       },
       {
+        columnId: 'has_policy_number',
+        title: 'N° de Póliza',
+        fetchFacet: makeBoolFetchFacet('has_policy_number'),
+      },
+      {
         columnId: 'is_it_montlhy',
         title: 'Mensual',
         fetchFacet: makeBoolFetchFacet('is_it_montlhy'),
@@ -238,6 +244,7 @@ export default function _EquiposDataTable({
             explired: (value) => (value ? 'Sí' : 'No'),
             special: (value) => (value ? 'Sí' : 'No'),
             multiresource: (value) => (value ? 'Sí' : 'No'),
+            has_policy_number: (value) => (value ? 'Sí' : 'No'),
             is_it_montlhy: (value) => (value ? 'Sí' : 'No'),
             private: (value) => (value ? 'Sí' : 'No'),
             down_document: (value) => (value ? 'Sí' : 'No'),

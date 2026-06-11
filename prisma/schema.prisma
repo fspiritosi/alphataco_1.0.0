@@ -1336,6 +1336,7 @@ model document_types {
   is_it_montlhy       Boolean?
   private             Boolean?
   down_document       Boolean?
+  has_policy_number   Boolean?              @default(false)
   conditions          Json[]
   equipment_type      String?               @db.VarChar(20)
   company             company?              @relation(fields: [company_id], references: [id], onDelete: Cascade)
@@ -1429,6 +1430,7 @@ model documents_equipment {
   deny_reason              String?
   document_path            String?
   period                   String?
+  policy_number            String?
   vehicles                 vehicles?                  @relation(fields: [applies], references: [id], onDelete: Cascade)
   document_types           document_types?            @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
   profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)

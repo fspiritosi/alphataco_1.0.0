@@ -1970,6 +1970,7 @@ export type Database = {
           down_document: boolean | null;
           equipment_type: string | null;
           explired: boolean;
+          has_policy_number: boolean | null;
           id: string;
           is_active: boolean;
           is_it_montlhy: boolean | null;
@@ -1988,6 +1989,7 @@ export type Database = {
           down_document?: boolean | null;
           equipment_type?: string | null;
           explired: boolean;
+          has_policy_number?: boolean | null;
           id?: string;
           is_active?: boolean;
           is_it_montlhy?: boolean | null;
@@ -2006,6 +2008,7 @@ export type Database = {
           down_document?: boolean | null;
           equipment_type?: string | null;
           explired?: boolean;
+          has_policy_number?: boolean | null;
           id?: string;
           is_active?: boolean;
           is_it_montlhy?: boolean | null;
@@ -2228,6 +2231,7 @@ export type Database = {
           id_document_types: string | null;
           is_active: boolean | null;
           period: string | null;
+          policy_number: string | null;
           state: Database['public']['Enums']['state'] | null;
           user_id: string | null;
           validity: string | null;
@@ -2241,6 +2245,7 @@ export type Database = {
           id_document_types?: string | null;
           is_active?: boolean | null;
           period?: string | null;
+          policy_number?: string | null;
           state?: Database['public']['Enums']['state'] | null;
           user_id?: string | null;
           validity?: string | null;
@@ -2254,6 +2259,7 @@ export type Database = {
           id_document_types?: string | null;
           is_active?: boolean | null;
           period?: string | null;
+          policy_number?: string | null;
           state?: Database['public']['Enums']['state'] | null;
           user_id?: string | null;
           validity?: string | null;

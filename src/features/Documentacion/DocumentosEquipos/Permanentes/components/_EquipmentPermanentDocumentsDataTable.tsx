@@ -26,6 +26,7 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { Check, CheckCircle2, CircleOff, Download, X } from 'lucide-react';
+import { contractTypeVehiclesLabels } from '@/shared/utils/mappers';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -270,6 +271,18 @@ export function _EquipmentPermanentDocumentsDataTable({
       'created_at',
       'deny_reason',
       'serie',
+      'policy_number',
+      // Nuevos filtros de datos del equipo
+      'vehicle_type',
+      'vehicle_subtype',
+      'vehicle_brand',
+      'vehicle_year',
+      'vehicle_owner',
+      'vehicle_sector',
+      'vehicle_chassis',
+      'vehicle_engine',
+      'vehicle_contract_type',
+      'vehicle_contract_expiration',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -394,12 +407,98 @@ export function _EquipmentPermanentDocumentsDataTable({
         placeholder: 'Buscar por motivo de rechazo...',
       },
 
-      // Serie (texto libre — campo del vehículo)
+      // Serie (vehicles.serie — texto libre)
       {
         columnId: 'serie',
         title: 'Serie',
         type: 'text' as const,
         placeholder: 'Buscar por serie del equipo...',
+      },
+
+      // N° de Póliza (documents_equipment.policy_number — texto libre)
+      {
+        columnId: 'policy_number',
+        title: 'N° de Póliza',
+        type: 'text' as const,
+        placeholder: 'Buscar por N° de póliza...',
+      },
+
+      // Tipo del equipo (vehicles.type → type_vehicles_typeTotype)
+      {
+        columnId: 'vehicle_type',
+        title: 'Tipo',
+        fetchFacet: makeFkFetchFacet('vehicle_type', 'Sin tipo'),
+      },
+
+      // Subtipo del equipo (vehicles.subType → sub_type)
+      {
+        columnId: 'vehicle_subtype',
+        title: 'Subtipo',
+        fetchFacet: makeFkFetchFacet('vehicle_subtype', 'Sin subtipo'),
+      },
+
+      // Marca del equipo (vehicles.brand → brand_vehicles, Int)
+      {
+        columnId: 'vehicle_brand',
+        title: 'Marca',
+        fetchFacet: makeFkFetchFacet('vehicle_brand', 'Sin marca'),
+      },
+
+      // Año del equipo (vehicles.year — texto libre)
+      {
+        columnId: 'vehicle_year',
+        title: 'Año',
+        type: 'text' as const,
+        placeholder: 'Buscar por año del equipo...',
+      },
+
+      // Propietario del equipo (vehicles.owner_id → equipment_owners)
+      {
+        columnId: 'vehicle_owner',
+        title: 'Propietario',
+        fetchFacet: makeFkFetchFacet('vehicle_owner', 'Sin propietario'),
+      },
+
+      // Sector del equipo (vehicles.sector → hierarchy)
+      {
+        columnId: 'vehicle_sector',
+        title: 'Sector',
+        fetchFacet: makeFkFetchFacet('vehicle_sector', 'Sin sector'),
+      },
+
+      // Chasis del equipo (vehicles.chassis — texto libre)
+      {
+        columnId: 'vehicle_chassis',
+        title: 'Chasis',
+        type: 'text' as const,
+        placeholder: 'Buscar por chasis del equipo...',
+      },
+
+      // Motor del equipo (vehicles.engine — texto libre)
+      {
+        columnId: 'vehicle_engine',
+        title: 'Motor',
+        type: 'text' as const,
+        placeholder: 'Buscar por motor del equipo...',
+      },
+
+      // Tipo de contrato (vehicles.type_of_contract — enum nullable)
+      {
+        columnId: 'vehicle_contract_type',
+        title: 'Tipo de contrato',
+        fetchFacet: makeEnumFetchFacet(
+          'vehicle_contract_type',
+          Object.keys(contractTypeVehiclesLabels),
+          contractTypeVehiclesLabels,
+          {}
+        ),
+      },
+
+      // Vencimiento de contrato (vehicles.contract_expiration_date — rango de fechas)
+      {
+        columnId: 'vehicle_contract_expiration',
+        title: 'Venc. de contrato',
+        type: 'dateRange' as const,
       },
     ],
     [makeEnumFetchFacet, makeFkFetchFacet, makeBoolFetchFacet]
@@ -444,6 +543,19 @@ export function _EquipmentPermanentDocumentsDataTable({
           validity: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           deny_reason: (val) => String(val ?? '-'),
+          policy_number: (val) => String(val ?? ''),
+          // Nuevas columnas del equipo
+          vehicle_type: (val) => String(val ?? ''),
+          vehicle_subtype: (val) => String(val ?? ''),
+          vehicle_brand: (val) => String(val ?? ''),
+          vehicle_year: (val) => String(val ?? ''),
+          vehicle_owner: (val) => String(val ?? ''),
+          vehicle_sector: (val) => String(val ?? ''),
+          vehicle_chassis: (val) => String(val ?? ''),
+          vehicle_engine: (val) => String(val ?? ''),
+          vehicle_contract_type: (val) =>
+            val ? (contractTypeVehiclesLabels[val as string] ?? String(val)) : '',
+          vehicle_contract_expiration: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         },
       }}
     />

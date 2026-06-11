@@ -1,5 +1,6 @@
 import {
   Award,
+  Boxes,
   Briefcase,
   Building2,
   Car,
@@ -60,6 +61,16 @@ export interface ConditionFieldConfig {
 
   /** Opciones disponibles (solo type='enum') */
   enumOptions?: { value: string; label: string }[];
+
+  // --- Para catálogos dependientes (filtrado en cascada) ---
+
+  /**
+   * Key de otra condición de la que depende este catálogo. Si está presente,
+   * el catálogo se filtra por los IDs seleccionados en esa condición padre
+   * (ej: 'vehicleSubType' depende de 'vehicleType' para mostrar solo los
+   * subtipos del/los tipo(s) elegido(s)).
+   */
+  dependsOnKey?: string;
 }
 
 /** Estado de condiciones del formulario: key → array de IDs/valores seleccionados */
@@ -432,6 +443,21 @@ export const EQUIPMENT_CONDITIONS: ConditionFieldConfig[] = [
     columnOnEntity: null,
     columnOnRelation: null,
     catalogTable: 'type',
+  },
+  {
+    key: 'vehicleSubType',
+    propertyKey: 'subType',
+    label: 'Subtipo',
+    icon: Boxes,
+    type: 'relation',
+    filterColumn: 'subType',
+    relationType: 'one_to_many',
+    relationTable: null,
+    columnOnEntity: null,
+    columnOnRelation: null,
+    catalogTable: 'sub_type',
+    // El catálogo de subtipos se filtra por el/los tipo(s) elegido(s)
+    dependsOnKey: 'vehicleType',
   },
   {
     key: 'typeOfVehicle',

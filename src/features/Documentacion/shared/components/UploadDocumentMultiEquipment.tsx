@@ -70,6 +70,8 @@ function UploadDocumentMultiEquipment({
           required_error: 'Este campo es requerido',
         })
       : z.string().optional(),
+    // N° de póliza: siempre opcional, solo visible si el tipo lo lleva
+    policy_number: z.string().optional(),
   });
   const router = useRouter();
 
@@ -101,7 +103,7 @@ function UploadDocumentMultiEquipment({
 
   return (
     <div>
-      <CardTitle className="mb-3">Documento no multirecurso</CardTitle>
+      <CardTitle className="mb-3">Documento multirecurso</CardTitle>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 overflow-y-auto max-h-[80vh]">
           <FormField
@@ -164,7 +166,7 @@ function UploadDocumentMultiEquipment({
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <FormDescription>Seleccione el tipo de documento que desea cargar al empleado</FormDescription>
+                <FormDescription>Seleccione el tipo de documento que desea cargar al equipo</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -233,6 +235,22 @@ function UploadDocumentMultiEquipment({
                     />
                   </FormControl>
                   <FormDescription>Seleccione el período del documento</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          {selectedDocumentType?.has_policy_number && (
+            <FormField
+              control={form.control}
+              name="policy_number"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>N° de póliza</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ingrese el N° de póliza (opcional)" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormDescription>Identificador opcional del documento (ej: número de póliza del seguro)</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
