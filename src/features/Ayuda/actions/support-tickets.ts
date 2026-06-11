@@ -98,22 +98,37 @@ export async function getSupportTicketById(id: number): Promise<Ticket | null> {
   }
 
   const isReporter = ticket.reporter_email === reporter.email;
-  if (isReporter) return ticket;
 
-  // No es el reporter: puede verlo igual si es aprobador del proyecto. La
-  // autorización real la hace el backend: el listado for-approver solo devuelve
-  // tickets si el email está en el array de aprobadores (si no, 403 → []).
-  try {
-    const approverTickets = await taskAppClient.listTicketsForApprover(reporter.email);
-    if (approverTickets.tickets.some((t) => t.id === ticket.id)) return ticket;
-  } catch {
-    // no es aprobador — cae al deny de abajo
+  // ¿Es aprobador del proyecto? El listado for-approver solo devuelve este ticket
+  // si el email está en el array de aprobadores (si no, 403 → []). Lo necesitamos
+  // para dos cosas: autorizar a los no-reporters y decidir si puede ver las horas
+  // valorizadas. Si es reporter y el ticket no tiene horas cargadas, evitamos la
+  // llamada extra a la API (caso común sin nada que ocultar).
+  let isApprover = false;
+  if (!isReporter || ticket.estimated_hours != null) {
+    try {
+      const approverTickets = await taskAppClient.listTicketsForApprover(reporter.email);
+      isApprover = approverTickets.tickets.some((t) => t.id === ticket.id);
+    } catch {
+      // no es aprobador — isApprover queda en false
+    }
   }
 
-  logger.warn('Acceso denegado al ticket', {
-    data: { id, user: reporter.email, reporter: ticket.reporter_email },
-  });
-  return null;
+  if (!isReporter && !isApprover) {
+    logger.warn('Acceso denegado al ticket', {
+      data: { id, user: reporter.email, reporter: ticket.reporter_email },
+    });
+    return null;
+  }
+
+  // Las horas valorizadas (estimated_hours) son información interna del proyecto:
+  // solo el aprobador puede verlas. Para el resto las ocultamos en el servidor,
+  // antes de que el dato salga al cliente — no basta con esconderlas en la UI.
+  if (!isApprover && ticket.estimated_hours != null) {
+    return { ...ticket, estimated_hours: null };
+  }
+
+  return ticket;
 }
 
 /**
