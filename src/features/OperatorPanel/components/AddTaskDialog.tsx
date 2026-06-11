@@ -5,13 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
+import { RepairTypeCombobox } from '@/features/OperatorPanel/components/RepairTypeCombobox';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -297,28 +297,13 @@ export function AddTaskDialog({
                   </div>
                 ) : (
                   <>
-                    <Select value={ownRepairTypeId} onValueChange={handleOwnRepairTypeChange}>
-                      <SelectTrigger
-                        id="own-repair-type"
-                        className={cn('h-11', ownErrors.repairType && 'border-destructive ring-destructive/20 ring-2')}
-                      >
-                        <SelectValue placeholder="Seleccionar tipo de reparacion" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectorRepairTypes.map((rt) => (
-                          <SelectItem key={rt.id} value={rt.id}>
-                            <div className="flex items-center gap-2">
-                              {rt.name}
-                              {rt.autorizable && (
-                                <Badge variant="warning" className="text-[10px] px-1.5 py-0">
-                                  Autorizable
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <RepairTypeCombobox
+                      id="own-repair-type"
+                      repairTypes={sectorRepairTypes}
+                      value={ownRepairTypeId}
+                      onValueChange={handleOwnRepairTypeChange}
+                      hasError={!!ownErrors.repairType}
+                    />
                     {ownErrors.repairType && (
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
@@ -421,24 +406,13 @@ export function AddTaskDialog({
                   </div>
                 ) : (
                   <>
-                    <Select value={otherRepairTypeId} onValueChange={handleOtherRepairTypeChange}>
-                      <SelectTrigger
-                        id="other-repair-type"
-                        className={cn(
-                          'h-11',
-                          otherErrors.repairType && 'border-destructive ring-destructive/20 ring-2'
-                        )}
-                      >
-                        <SelectValue placeholder="Seleccionar tipo de reparacion" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allRepairTypes.map((rt) => (
-                          <SelectItem key={rt.id} value={rt.id}>
-                            {rt.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <RepairTypeCombobox
+                      id="other-repair-type"
+                      repairTypes={allRepairTypes}
+                      value={otherRepairTypeId}
+                      onValueChange={handleOtherRepairTypeChange}
+                      hasError={!!otherErrors.repairType}
+                    />
                     {otherErrors.repairType && (
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />

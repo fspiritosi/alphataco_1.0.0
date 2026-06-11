@@ -1088,6 +1088,9 @@ export async function getAllRepairTypes() {
   return data || [];
 }
 
+// Tipo inferido del retorno — compartido por ambos selectores de tipo de reparacion
+export type OperatorRepairType = Awaited<ReturnType<typeof getRepairTypesForSector>>[number];
+
 export async function addTaskToOwnWorkOrder(
   workOrderId: string,
   repairTypeId: string,
