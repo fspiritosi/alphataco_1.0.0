@@ -65,10 +65,15 @@ export function TicketApprovalBanner({ ticket, currentUserEmail }: Props) {
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 h-5 w-5 text-amber-600" />
           <div>
-            <p className="text-sm font-medium">Este ticket necesita tu aprobación</p>
+            <p className="text-sm font-medium">Aprobá la valorización de este ticket</p>
             <p className="text-xs text-muted-foreground">
-              Aprobalo para que el equipo pueda avanzar, o rechazalo si no corresponde.
+              El equipo valorizó este ticket. Aprobá para que pase a planificación, o rechazalo si no corresponde.
             </p>
+            {ticket.estimated_hours != null && (
+              <p className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                Horas valorizadas: {ticket.estimated_hours} h
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
