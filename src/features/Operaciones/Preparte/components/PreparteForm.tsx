@@ -713,7 +713,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                                       mode="single"
                                       selected={field.value}
                                       onSelect={field.onChange}
-                                      disabled={(date) => moment(date).isBefore(moment())}
+                                      disabled={(date) => moment(date).isBefore(moment().startOf('day'))}
                                       initialFocus
                                     />
                                   </PopoverContent>
