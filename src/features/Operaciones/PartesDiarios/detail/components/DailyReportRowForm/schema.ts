@@ -11,6 +11,9 @@ export const dailyReportRowSchema = z
     equipment: z.array(z.string()).default([]).optional(),
     other_equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
+    // Turno seleccionado para la jornada 12h (excluyente). Se persiste para
+    // recordar el turno aunque la fila no tenga personal asignado.
+    shift_12h: z.enum(['dia', 'noche']).optional(),
     // Campos para empleados con roles (jornadas 12/24 hrs)
     chofer_dia: z.string().optional(),
     chofer_noche: z.string().optional(),

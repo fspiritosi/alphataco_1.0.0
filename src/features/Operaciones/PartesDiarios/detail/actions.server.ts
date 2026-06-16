@@ -1083,6 +1083,8 @@ export interface DailyReportRowInput {
   item_id: string;
   status: string;
   working_day: string;
+  /** Turno seleccionado para jornada 12h (excluyente). Null para otras jornadas. */
+  shift_12h?: 'dia' | 'noche' | null;
   type_service?: 'mensual' | 'adicional' | 'adicional_permanente' | null;
   start_time?: string | null;
   end_time?: string | null;
@@ -1228,6 +1230,7 @@ export async function createDailyReportRowPrisma(data: DailyReportRowInput & { d
           item_id: data.item_id,
           status: resolvedStatus,
           working_day: data.working_day,
+          shift_12h: data.shift_12h ?? null,
           type_service: data.type_service ?? null,
           start_time: data.start_time ? new Date(`1970-01-01T${data.start_time}`) : null,
           end_time: data.end_time ? new Date(`1970-01-01T${data.end_time}`) : null,
@@ -1285,6 +1288,7 @@ export async function updateDailyReportRowPrisma(rowId: string, data: DailyRepor
           item_id: data.item_id,
           status: resolvedStatus,
           working_day: data.working_day,
+          shift_12h: data.shift_12h ?? null,
           type_service: data.type_service ?? null,
           start_time: data.start_time ? new Date(`1970-01-01T${data.start_time}`) : null,
           end_time: data.end_time ? new Date(`1970-01-01T${data.end_time}`) : null,
@@ -2062,6 +2066,7 @@ export async function getDailyReportRowForForm(rowId: string) {
         item_id: true,
         status: true,
         working_day: true,
+        shift_12h: true,
         start_time: true,
         end_time: true,
         description: true,

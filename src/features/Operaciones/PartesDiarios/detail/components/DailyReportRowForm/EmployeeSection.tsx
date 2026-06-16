@@ -258,19 +258,11 @@ export function EmployeeSection({
   onOpenEmployeeSelector,
   disabled = false,
 }: EmployeeSectionProps) {
-  // El turno (Día/Noche) de la jornada 12h no se persiste como campo propio: se
-  // deriva de qué personal quedó cargado. Al editar una fila, el form ya viene
-  // reseteado con los datos cuando esta sección se monta (mientras carga se muestra
-  // un loader y la sección no se renderiza), por lo que el estado inicial se puede
-  // derivar acá sin useEffect. Si hay personal de noche y no de día → arranca en
-  // "noche"; en cualquier otro caso (incluido alta nueva) arranca en "día".
-  const [shiftSelection, setShiftSelection] = useState<'dia' | 'noche'>(() => {
-    const hasNoche =
-      !!form.getValues('chofer_noche') || (form.getValues('ayudante_noche')?.length ?? 0) > 0;
-    const hasDia =
-      !!form.getValues('chofer_dia') || (form.getValues('ayudante_dia')?.length ?? 0) > 0;
-    return hasNoche && !hasDia ? 'noche' : 'dia';
-  });
+  // El turno (Día/Noche) de la jornada 12h se persiste como campo propio del form
+  // (`shift_12h`), por lo que se recuerda aunque la fila no tenga personal asignado.
+  // El valor lo carga el form al editar (ver index.tsx); acá solo lo leemos/escribimos.
+  const shiftSelection: 'dia' | 'noche' = form.watch('shift_12h') ?? 'dia';
+  const setShiftSelection = (value: 'dia' | 'noche') => form.setValue('shift_12h', value);
 
   const workingDayValue = form.watch('working_day')?.toLowerCase() ?? '';
   const is12Hours = workingDayValue === 'jornada 12 horas';

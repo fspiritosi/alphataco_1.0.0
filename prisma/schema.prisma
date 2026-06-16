@@ -1230,6 +1230,7 @@ model dailyreportrows {
   updated_at                               DateTime?                                  @default(now()) @db.Timestamp(6)
   status                                   daily_report_status                        @default(pendiente)
   working_day                              String?
+  shift_12h                                daily_report_shift?
   document_path                            String?
   sector_service_id                        String?                                    @db.Uuid
   areas_service_id                         String?                                    @db.Uuid
@@ -3484,6 +3485,15 @@ enum employee_daily_report_role {
   chofer_noche
   ayudante_dia
   ayudante_noche
+
+  @@schema("public")
+}
+
+/// Turno seleccionado para filas de jornada 12 horas (excluyente: dia o noche).
+/// Se persiste para recordar el turno aunque la fila no tenga personal asignado.
+enum daily_report_shift {
+  dia
+  noche
 
   @@schema("public")
 }
