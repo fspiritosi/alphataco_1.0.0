@@ -101,11 +101,11 @@ export function CategorySection({
     });
   }, [vehicles, selectedTypeIds, selectedStatuses, patenteFilter]);
 
-  // Equipos UNICOS en mantenimiento (dominios) dentro del filtro actual: cuenta
-  // vehiculos con al menos un proceso abierto. Cuenta filas-vehiculo (1 por
-  // dominio), nunca registros de solicitudes/ordenes (ticket 233).
+  // Equipos UNICOS "en el taller" dentro del filtro actual: criterio = estado
+  // no_operativo Y con solicitudes/procesos de mantenimiento abiertos. Cuenta
+  // filas-vehiculo (1 por dominio), nunca registros de solicitudes (ticket 233).
   const inMaintenanceCount = React.useMemo(
-    () => filteredVehicles.filter((v) => v.workflows.total > 0).length,
+    () => filteredVehicles.filter((v) => v.status === 'no_operativo' && v.workflows.total > 0).length,
     [filteredVehicles]
   );
 
