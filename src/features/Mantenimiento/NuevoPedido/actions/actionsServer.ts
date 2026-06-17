@@ -30,6 +30,8 @@ export type CreateMaintenanceOrderDirectInput = {
   equipment_id: string;
   kilometer?: string;
   engine_hours?: string;
+  /** Descripción libre del pedido (campo "Descripción (opcional)" del Nuevo Pedido) */
+  description?: string;
   items: CreateMaintenanceOrderItemInput[];
 };
 
@@ -52,6 +54,7 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
         status: 'pending_scheduling',
         kilometer_at_entry: input.kilometer ?? null,
         engine_hours_at_entry: input.engine_hours ?? null,
+        description: input.description?.trim() || null,
       },
     });
 
@@ -345,6 +348,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
           kilometer_at_entry: input.kilometer ?? null,
           source: 'preventive',
           preventive_type: input.preventiveType!,
+          description: input.description?.trim() || null,
         },
       });
 

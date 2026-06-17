@@ -134,6 +134,7 @@ export function _ConfirmedOrderDataTable({
       'condition',
       'source',
       'order_number',
+      'description',
       'scheduled_date',
       'created_at',
       'date_approved_at',
@@ -217,6 +218,14 @@ export function _ConfirmedOrderDataTable({
         placeholder: 'Buscar por número de pedido...',
       },
 
+      // Descripción del pedido (texto libre)
+      {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+        placeholder: 'Buscar por descripción...',
+      },
+
       // Fecha planificada (dateRange)
       {
         columnId: 'scheduled_date',
@@ -277,6 +286,8 @@ export function _ConfirmedOrderDataTable({
           return vehicle?.intern_number ? `${label} (#${vehicle.intern_number})` : label;
         },
         order_number: (val: unknown) => String(val ?? ''),
+        description: (_val: unknown, row: ConfirmedOrderListItem) =>
+          row.description ?? row.maintenance_requests?.description ?? '',
         date_approved_at: (val: unknown) =>
           val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '',
         scheduled_date: (val: unknown) =>

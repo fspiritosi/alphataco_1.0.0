@@ -41,6 +41,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
   const internNumber = order.vehicles?.intern_number;
   const statusInfo = STATUS_CONFIG[order.status] ?? { label: order.status, variant: 'secondary' as const };
   const itemCount = order.maintenance_order_items?.length ?? 0;
+  const description = order.description ?? order.maintenance_requests?.description ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -124,6 +125,19 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
         </div>
 
         <Separator />
+
+        {/* ── Descripción del pedido ──────────────────────────────────── */}
+        {description && (
+          <>
+            <div className="px-6 pt-3 pb-1">
+              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Descripción</h3>
+            </div>
+            <div className="px-6 pb-3">
+              <p className="text-sm whitespace-pre-wrap break-words">{description}</p>
+            </div>
+            <Separator />
+          </>
+        )}
 
         {/* ── Tipo de mantenimiento (solo preventivo) ─────────────────── */}
         {order.maintenance_requests?.source === 'preventive' && (

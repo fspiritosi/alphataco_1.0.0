@@ -45,6 +45,7 @@ interface VehicleInfo {
   serie?: string | null;
   intern_number?: string | null;
   kilometer?: number | null;
+  engine_hours?: number | null;
   sub_type?: { name: string | null } | null;
 }
 
@@ -195,6 +196,15 @@ export function WorkOrderHeader({
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span className="text-xs text-muted-foreground">Km</span>
                   <span className="font-semibold">{vehicle.kilometer.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            {vehicle.engine_hours != null && (
+              <>
+                <span className="text-muted-foreground/40">|</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-muted-foreground">Hs</span>
+                  <span className="font-semibold">{vehicle.engine_hours.toLocaleString()}</span>
                 </div>
               </>
             )}

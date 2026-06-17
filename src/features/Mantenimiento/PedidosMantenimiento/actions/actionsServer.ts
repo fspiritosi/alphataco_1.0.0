@@ -144,6 +144,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -170,6 +171,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
             source: true,
             preventive_type: true,
             supervisor_id: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -421,6 +423,7 @@ export async function getMaintenanceOrderById(orderId: string) {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -447,6 +450,7 @@ export async function getMaintenanceOrderById(orderId: string) {
             source: true,
             preventive_type: true,
             supervisor_id: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },

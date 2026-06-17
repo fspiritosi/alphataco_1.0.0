@@ -74,6 +74,22 @@ export function getColumns({
       enableSorting: false,
     },
     {
+      accessorKey: 'description',
+      id: 'Descripción',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción" />,
+      cell: ({ row }) => {
+        const value = row.original.description ?? '';
+        if (!value) return <span className="text-muted-foreground">-</span>;
+        const truncated = value.length > 60 ? `${value.slice(0, 60)}…` : value;
+        return (
+          <span title={value} className="block max-w-[240px] truncate">
+            {truncated}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: 'checklist_answers',
       id: 'Chofer',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,

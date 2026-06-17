@@ -125,6 +125,7 @@ export function _PendingExecutionDataTable({
       'domain',
       'serie',
       'intern_number',
+      'description',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -215,6 +216,14 @@ export function _PendingExecutionDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por numero interno...',
       },
+
+      // Descripcion del pedido (texto libre)
+      {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+        placeholder: 'Buscar por descripción...',
+      },
     ],
     [facets]
   );
@@ -250,6 +259,8 @@ export function _PendingExecutionDataTable({
           const km = row.maintenance_requests?.kilometer;
           return km ? `${Number(km).toLocaleString()} km` : '';
         },
+        description: (_val: unknown, row: PendingExecutionListItem) =>
+          row.description ?? row.maintenance_requests?.description ?? '',
       },
     }),
     [searchParams]

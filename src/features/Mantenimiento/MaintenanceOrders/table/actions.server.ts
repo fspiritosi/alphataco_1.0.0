@@ -40,7 +40,7 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number'];
 
 /** Columnas con filtro de texto libre en la tabla principal */
-const TEXT_FILTER_COLUMNS = ['order_number'];
+const TEXT_FILTER_COLUMNS = ['order_number', 'description'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['workshop_entry_date', 'created_at'];
@@ -53,6 +53,7 @@ const MAINTENANCE_ORDERS_SELECT = {
   id: true,
   order_number: true,
   status: true,
+  description: true,
   workshop_entry_date: true,
   created_at: true,
   equipment_id: true,
@@ -73,6 +74,7 @@ const MAINTENANCE_ORDERS_SELECT = {
       kilometer: true,
       created_at: true,
       source: true,
+      description: true,
     },
   },
   // Items para calcular progreso y sector actual, y mostrar items solicitados

@@ -102,6 +102,18 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
               </div>
             </div>
 
+            {(order.description ?? order.maintenance_requests?.description) && (
+              <>
+                <Separator />
+                <div>
+                  <span className="text-sm text-muted-foreground">Descripción</span>
+                  <p className="font-medium whitespace-pre-wrap break-words">
+                    {order.description ?? order.maintenance_requests?.description}
+                  </p>
+                </div>
+              </>
+            )}
+
             <Separator />
 
             {/* Items/Desvíos */}

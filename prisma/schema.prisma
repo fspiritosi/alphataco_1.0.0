@@ -1853,6 +1853,7 @@ model maintenance_orders {
   workshop_validation_notes                                String?
   engine_hours_at_entry                                    String?
   preventive_type                                          String?
+  description                                              String?
   maintenance_activity_log                                 maintenance_activity_log[]
   maintenance_order_items                                  maintenance_order_items[]
   profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)

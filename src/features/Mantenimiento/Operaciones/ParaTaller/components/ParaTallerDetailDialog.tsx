@@ -19,9 +19,11 @@ interface OrderForDialog {
     engine_hours?: string | null;
   } | null;
   scheduled_date?: string | Date | null;
+  description?: string | null;
   maintenance_requests?: {
     source?: string | null;
     preventive_type?: string | null;
+    description?: string | null;
     profile_maintenance_requests_supervisor_idToprofile?: { fullname?: string | null } | null;
   } | null;
   maintenance_order_items?: Array<{
@@ -107,6 +109,14 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                   <div>
                     <span className="text-sm text-muted-foreground">Horómetro:</span>
                     <p className="font-medium">{order.vehicles.engine_hours} hs</p>
+                  </div>
+                )}
+                {(order.description ?? order.maintenance_requests?.description) && (
+                  <div className="col-span-2">
+                    <span className="text-sm text-muted-foreground">Descripción:</span>
+                    <p className="font-medium whitespace-pre-wrap break-words">
+                      {order.description ?? order.maintenance_requests?.description}
+                    </p>
                   </div>
                 )}
               </div>

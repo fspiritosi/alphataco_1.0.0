@@ -145,6 +145,11 @@ export function _WorkshopTrackingDataTable({
         title: 'N° Interno',
         type: 'text' as const,
       },
+      {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+      },
     ];
   }, [facets]);
 

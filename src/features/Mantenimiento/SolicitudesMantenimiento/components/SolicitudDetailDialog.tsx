@@ -101,6 +101,12 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                     <p className="font-medium">{request.engine_hours} hs</p>
                   </div>
                 )}
+                {request.description && (
+                  <div className="col-span-2">
+                    <span className="text-sm text-muted-foreground">Descripción:</span>
+                    <p className="font-medium whitespace-pre-wrap break-words">{request.description}</p>
+                  </div>
+                )}
               </div>
 
               {request.status === 'rejected' && request.rejection_reason && (

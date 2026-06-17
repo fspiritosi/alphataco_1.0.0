@@ -43,7 +43,7 @@ const IGNORED_PARAMS = new Set(['tab', 'subtab', 'operations_subtab', 'taller_su
 const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number'];
 
 /** Columnas con filtro de texto libre en maintenance_orders */
-const TEXT_COLUMNS = ['order_number'];
+const TEXT_COLUMNS = ['order_number', 'description'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'scheduled_date', 'date_approved_at'];
@@ -63,6 +63,7 @@ const CONFIRMED_ORDERS_SELECT = {
   created_at: true,
   date_approved_at: true,
   order_number: true,
+  description: true,
   source: true,
   preventive_type: true,
   // FK relations
@@ -85,6 +86,7 @@ const CONFIRMED_ORDERS_SELECT = {
       source: true,
       preventive_type: true,
       supervisor_id: true,
+      description: true,
     },
   },
   maintenance_order_items: {

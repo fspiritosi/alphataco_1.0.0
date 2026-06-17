@@ -66,6 +66,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
         operations_validated_at: true,
         operations_validation_notes: true,
         engine_hours_at_entry: true,
+        description: true,
         vehicles: {
           select: {
             id: true,
@@ -85,6 +86,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             source: true,
             preventive_type: true,
             supervisor_id: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -265,6 +267,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
         operations_validated_at: true,
         operations_validation_notes: true,
         engine_hours_at_entry: true,
+        description: true,
         vehicles: {
           select: {
             id: true,
@@ -284,6 +287,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             source: true,
             preventive_type: true,
             supervisor_id: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },

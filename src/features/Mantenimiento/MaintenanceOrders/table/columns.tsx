@@ -129,6 +129,25 @@ export function getMaintenanceOrdersColumns({
       cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.order_number ?? '-'}</span>,
     },
 
+    // ── Descripción del pedido (maintenance_orders.description) ────────────
+    {
+      id: 'description',
+      accessorFn: (row) => row.description ?? row.maintenance_requests?.description ?? '',
+      meta: { title: 'Descripción' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción" />,
+      cell: ({ row }) => {
+        const value = row.original.description ?? row.original.maintenance_requests?.description ?? '';
+        if (!value) return <span className="text-muted-foreground text-sm">—</span>;
+        const truncated = value.length > 60 ? `${value.slice(0, 60)}…` : value;
+        return (
+          <span className="block max-w-[280px] truncate text-sm" title={value}>
+            {truncated}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+
     // ── Equipo / Vehículo (FK → vehicles) ──────────────────────────────────
     {
       id: 'vehicle',
