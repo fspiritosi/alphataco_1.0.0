@@ -741,6 +741,13 @@ export function ManageOrderWizard({
               <span className="text-muted-foreground">
                 Km: <span className="text-foreground font-medium">{String(vehicle?.kilometer || '-')}</span>
               </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span className="text-muted-foreground">
+                Hs:{' '}
+                <span className="text-foreground font-medium">
+                  {vehicle?.engine_hours != null ? String(vehicle.engine_hours) : '-'}
+                </span>
+              </span>
             </div>
 
             {/* Step indicator */}
