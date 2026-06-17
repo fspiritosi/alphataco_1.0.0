@@ -587,13 +587,25 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
         },
       });
 
-      // Restaurar condición del vehículo a 'operativo' tras validación final
+      // Condición del vehículo tras validación final: si el equipo todavía tiene
+      // OTRA orden de mantenimiento dentro del taller (status in_workshop), sigue
+      // no_operativo; solo vuelve a operativo cuando no le quedan órdenes en taller.
       if (order.equipment_id) {
+        const remainingInWorkshop = await tx.maintenance_orders.count({
+          where: {
+            equipment_id: order.equipment_id,
+            status: 'in_workshop',
+            id: { not: orderId },
+          },
+        });
+        const nextCondition = remainingInWorkshop > 0 ? 'no_operativo' : 'operativo';
         await tx.vehicles.update({
           where: { id: order.equipment_id },
-          data: { condition: 'operativo' },
+          data: { condition: nextCondition },
         });
-        logger.info('Vehículo restaurado a operativo', { data: { equipmentId: order.equipment_id } });
+        logger.info('Condición del vehículo actualizada tras validación', {
+          data: { equipmentId: order.equipment_id, nextCondition, remainingInWorkshop },
+        });
       }
 
       // Audit log
