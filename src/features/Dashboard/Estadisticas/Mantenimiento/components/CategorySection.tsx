@@ -101,6 +101,14 @@ export function CategorySection({
     });
   }, [vehicles, selectedTypeIds, selectedStatuses, patenteFilter]);
 
+  // Equipos UNICOS en mantenimiento (dominios) dentro del filtro actual: cuenta
+  // vehiculos con al menos un proceso abierto. Cuenta filas-vehiculo (1 por
+  // dominio), nunca registros de solicitudes/ordenes (ticket 233).
+  const inMaintenanceCount = React.useMemo(
+    () => filteredVehicles.filter((v) => v.workflows.total > 0).length,
+    [filteredVehicles]
+  );
+
   // Workdays del acordeon: suma de dias trabajados / posibles (cap a daysElapsed).
   const workdays = React.useMemo(() => {
     if (filteredVehicles.length === 0) return { worked: 0, possible: 0 };
@@ -150,6 +158,15 @@ export function CategorySection({
                     : vehicles.length
                   : totalCount}
               </Badge>
+              {open && vehicles && inMaintenanceCount > 0 && (
+                <Badge
+                  variant="outline"
+                  className="ml-1 tabular-nums border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400"
+                  title="Equipos únicos en mantenimiento"
+                >
+                  {inMaintenanceCount} en mant.
+                </Badge>
+              )}
               {open && vehicles && daysElapsed > 0 && filteredVehicles.length > 0 && (
                 <span className="ml-2 text-xs text-muted-foreground hidden md:inline tabular-nums">
                   {workdays.worked.toLocaleString('es-AR')}
