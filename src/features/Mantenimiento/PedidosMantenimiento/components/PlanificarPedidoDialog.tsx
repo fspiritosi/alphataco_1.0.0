@@ -147,6 +147,16 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
             </div>
           )}
 
+          {/* ── Descripción del pedido ──────────────────────────────────── */}
+          {(order.description ?? order.maintenance_requests?.description) && (
+            <div className="space-y-1">
+              <h3 className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">Descripción</h3>
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {order.description ?? order.maintenance_requests?.description}
+              </p>
+            </div>
+          )}
+
           {/* ── Selector de fecha (escritura directa) ──────────────────── */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Fecha de recepción en taller</Label>

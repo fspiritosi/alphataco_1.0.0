@@ -308,6 +308,12 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                 </div>
               )}
             </div>
+            {request.description && (
+              <div className="pt-1">
+                <span className="text-sm text-muted-foreground">Descripción: </span>
+                <p className="font-medium whitespace-pre-wrap break-words">{request.description}</p>
+              </div>
+            )}
           </div>
 
           {isPreventive ? (
