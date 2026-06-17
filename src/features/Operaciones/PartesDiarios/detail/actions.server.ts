@@ -2269,6 +2269,7 @@ export async function getDailyReportRowDetail(rowId: string) {
         description: true,
         status: true,
         working_day: true,
+        shift_12h: true,
         start_time: true,
         end_time: true,
         remit_number: true,
