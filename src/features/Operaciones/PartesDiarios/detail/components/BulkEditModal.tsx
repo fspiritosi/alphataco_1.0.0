@@ -122,7 +122,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const tomorrow = useMemo(() => moment().add(1, 'day').startOf('day').toDate(), []);
+  const minRescheduleDate = useMemo(() => moment().startOf('day').toDate(), []);
 
   // ── Mutación genérica que recibe sección + payload ───────────────────────
   const mutation = useMutation({
@@ -238,7 +238,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
             isFlashing={completedFlash === '24hs'}
             isSaving={savingSection === '24hs'}
             isValid={isValid(section24h)}
-            tomorrow={tomorrow}
+            minRescheduleDate={minRescheduleDate}
             onSave={() => handleSave('24hs', section24h, groups.jornadas24hs)}
           />
         )}
@@ -256,7 +256,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
             isFlashing={completedFlash === 'completar-diurno'}
             isSaving={savingSection === 'completar-diurno'}
             isValid={isValid(sectionDiurno)}
-            tomorrow={tomorrow}
+            minRescheduleDate={minRescheduleDate}
             onSave={() => handleSave('completar-diurno', sectionDiurno, groups.completarDiurno)}
           />
         )}
@@ -274,7 +274,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
             isFlashing={completedFlash === 'completar-nocturno'}
             isSaving={savingSection === 'completar-nocturno'}
             isValid={isValid(sectionNocturno)}
-            tomorrow={tomorrow}
+            minRescheduleDate={minRescheduleDate}
             onSave={() => handleSave('completar-nocturno', sectionNocturno, groups.completarNocturno)}
           />
         )}
@@ -292,7 +292,7 @@ export function BulkEditModal({ open, onOpenChange, selectedRows, dailyReportId,
             isFlashing={completedFlash === 'otras'}
             isSaving={savingSection === 'otras'}
             isValid={isValid(sectionOtras)}
-            tomorrow={tomorrow}
+            minRescheduleDate={minRescheduleDate}
             onSave={() => handleSave('otras', sectionOtras, groups.otrasJornadas)}
           />
         )}
@@ -322,7 +322,7 @@ interface SectionBlockProps {
   isFlashing: boolean;
   isSaving: boolean;
   isValid: boolean;
-  tomorrow: Date;
+  minRescheduleDate: Date;
   onSave: () => void;
 }
 
@@ -337,7 +337,7 @@ function SectionBlock({
   isFlashing,
   isSaving,
   isValid,
-  tomorrow,
+  minRescheduleDate,
   onSave,
 }: SectionBlockProps) {
   return (
@@ -444,7 +444,7 @@ function SectionBlock({
             </Label>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <AlertTriangle className="h-3 w-3" />
-              <span>La fecha debe ser a partir de mañana</span>
+              <span>La fecha debe ser hoy o posterior</span>
             </div>
             <Popover>
               <PopoverTrigger asChild>
@@ -461,7 +461,7 @@ function SectionBlock({
                   mode="single"
                   selected={state.rescheduleDate}
                   onSelect={(d) => setState({ ...state, rescheduleDate: d ?? undefined })}
-                  disabled={(date) => date < tomorrow}
+                  disabled={(date) => date < minRescheduleDate}
                   captionLayout="dropdown"
                   initialFocus
                 />
