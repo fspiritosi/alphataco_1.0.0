@@ -258,7 +258,11 @@ export function EmployeeSection({
   onOpenEmployeeSelector,
   disabled = false,
 }: EmployeeSectionProps) {
-  const [shiftSelection, setShiftSelection] = useState<'dia' | 'noche'>('dia');
+  // El turno (Día/Noche) de la jornada 12h se persiste como campo propio del form
+  // (`shift_12h`), por lo que se recuerda aunque la fila no tenga personal asignado.
+  // El valor lo carga el form al editar (ver index.tsx); acá solo lo leemos/escribimos.
+  const shiftSelection: 'dia' | 'noche' = form.watch('shift_12h') ?? 'dia';
+  const setShiftSelection = (value: 'dia' | 'noche') => form.setValue('shift_12h', value);
 
   const workingDayValue = form.watch('working_day')?.toLowerCase() ?? '';
   const is12Hours = workingDayValue === 'jornada 12 horas';

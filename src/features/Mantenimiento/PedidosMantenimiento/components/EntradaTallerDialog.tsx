@@ -176,6 +176,14 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                 {isPreventive && items.length === 0 ? 'Preventivo' : items.length}
               </span>
             </div>
+            {(order.description ?? order.maintenance_requests?.description) && (
+              <div className="pt-1 border-t">
+                <span className="text-sm text-muted-foreground">Descripción:</span>
+                <p className="font-medium whitespace-pre-wrap break-words">
+                  {order.description ?? order.maintenance_requests?.description}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Preventive info */}

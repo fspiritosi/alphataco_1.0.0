@@ -142,6 +142,12 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
               <span className="text-sm text-muted-foreground">Items a reparar:</span>
               <span className="font-medium">{items.length}</span>
             </div>
+            {request.description && (
+              <div className="pt-1 border-t">
+                <span className="text-sm text-muted-foreground">Descripción:</span>
+                <p className="font-medium whitespace-pre-wrap break-words">{request.description}</p>
+              </div>
+            )}
           </div>
 
           {/* Lista de items */}

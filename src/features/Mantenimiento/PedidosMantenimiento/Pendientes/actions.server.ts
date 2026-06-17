@@ -20,7 +20,7 @@ const logger = new Logger('PedidosMantenimiento/Pendientes');
 const VALID_SORT_FIELDS = new Set(['status', 'created_at', 'scheduled_date', 'order_number', 'source']);
 
 // ── Columnas de texto con filtro individual ────────────────────────────────────
-const TEXT_COLUMNS = ['order_number'];
+const TEXT_COLUMNS = ['order_number', 'description'];
 
 // ── Select de campos compartido ───────────────────────────────────────────────
 const PENDING_ORDER_SELECT = {
@@ -31,6 +31,7 @@ const PENDING_ORDER_SELECT = {
   source: true,
   preventive_type: true,
   order_number: true,
+  description: true,
   equipment_id: true,
   maintenance_request_id: true,
   vehicles: {
@@ -45,6 +46,7 @@ const PENDING_ORDER_SELECT = {
     select: {
       id: true,
       supervisor_id: true,
+      description: true,
     },
   },
   _count: {

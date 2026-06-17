@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { fetchMaintenanceGroupsActionType } from '@/features/Mantenimiento/TiposReparaciones/actions/maintenanceGroupActions';
 import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import { Logger } from '@/lib/logger';
@@ -35,8 +36,11 @@ const FormSchema = z.object({
   }),
   kilometer: z.string().optional(),
   engine_hours: z.string().optional(),
+  description: z.string().max(255, 'La descripción no puede superar los 255 caracteres').optional(),
   repair_types: z.array(z.string()).min(1, 'Debes seleccionar al menos un tipo de reparación'),
 });
+
+const DESCRIPTION_MAX_LENGTH = 255;
 
 type FormValues = z.infer<typeof FormSchema>;
 
@@ -74,6 +78,7 @@ export function NuevoPedidoForm({
       equipment_id: default_equipment_id || '',
       kilometer: defaultEquipment?.kilometer || '',
       engine_hours: defaultEquipment?.engine_hours || '',
+      description: '',
       repair_types: [],
     },
   });
@@ -205,6 +210,7 @@ export function NuevoPedidoForm({
         equipment_id: data.equipment_id,
         kilometer: data.kilometer || undefined,
         engine_hours: data.engine_hours || undefined,
+        description: data.description?.trim() || undefined,
         items,
       });
 
@@ -213,6 +219,7 @@ export function NuevoPedidoForm({
         equipment_id: default_equipment_id || '',
         kilometer: defaultEquipment?.kilometer || '',
         engine_hours: defaultEquipment?.engine_hours || '',
+        description: '',
         repair_types: [],
       });
       router.refresh();
@@ -371,6 +378,30 @@ export function NuevoPedidoForm({
                   )}
                 />
               </div>
+
+              {/* Descripción (opcional) */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        value={field.value ?? ''}
+                        placeholder="Agrega una descripción del pedido (visible en todas las solapas de Operaciones y Taller)"
+                        maxLength={DESCRIPTION_MAX_LENGTH}
+                        rows={3}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground text-right">
+                      {(field.value?.length ?? 0)}/{DESCRIPTION_MAX_LENGTH}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <Separator />
 

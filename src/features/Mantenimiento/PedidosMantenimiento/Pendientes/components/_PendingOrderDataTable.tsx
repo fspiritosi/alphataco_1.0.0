@@ -156,6 +156,11 @@ export function _PendingOrderDataTable({
         type: 'text' as const,
       },
       {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+      },
+      {
         columnId: 'created_at',
         title: 'Fecha Aprobación',
         type: 'dateRange' as const,
@@ -190,6 +195,7 @@ export function _PendingOrderDataTable({
         status: (val) => PENDING_STATUS_LABELS[val as string] || String(val),
         source: (val) => SOURCE_LABELS[val as string] || String(val ?? ''),
         order_number: (val) => String(val ?? ''),
+        description: (val) => String(val ?? ''),
         created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
         scheduled_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         items: (val) => (val != null ? String(val) : ''),

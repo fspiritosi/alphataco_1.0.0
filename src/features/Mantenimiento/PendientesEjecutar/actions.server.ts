@@ -46,6 +46,7 @@ const PENDING_EXECUTION_SELECT = {
   scheduled_date: true,
   created_at: true,
   order_number: true,
+  description: true,
   vehicles: {
     select: {
       id: true,
@@ -63,6 +64,7 @@ const PENDING_EXECUTION_SELECT = {
       created_at: true,
       source: true,
       preventive_type: true,
+      description: true,
       supervisor_id: true,
       profile_maintenance_requests_supervisor_idToprofile: {
         select: { id: true, fullname: true },
@@ -117,6 +119,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
       'condition',
       'vehicle',
+      'description',
     ],
   });
 
@@ -171,6 +174,18 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
   }
 
   const extraAndConditions: Record<string, unknown>[] = [...vehicleTextConditions];
+
+  // Filtro text de descripción del pedido (order o solicitud vinculada)
+  const descriptionValues = state.filters['description'];
+  if (descriptionValues?.length && typeof descriptionValues[0] === 'string') {
+    const term = descriptionValues[0];
+    extraAndConditions.push({
+      OR: [
+        { description: { contains: term, mode: 'insensitive' } },
+        { maintenance_requests: { description: { contains: term, mode: 'insensitive' } } },
+      ],
+    });
+  }
 
   if (vehicleValues?.length) {
     const hasNull = vehicleValues.includes(NULL_FILTER_VALUE);

@@ -1036,6 +1036,21 @@ export function OrderDetailDialog({
               </div>
             </div>
 
+            {/* Descripción del pedido */}
+            {(() => {
+              const orderDescription =
+                order.description ??
+                (!Array.isArray(order.maintenance_requests) ? order.maintenance_requests?.description : null) ??
+                null;
+              if (!orderDescription) return null;
+              return (
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <span className="text-xs text-muted-foreground block mb-1">Descripción</span>
+                  <p className="text-sm whitespace-pre-wrap break-words">{orderDescription}</p>
+                </div>
+              );
+            })()}
+
             <Separator />
 
             {/* Timeline de sectores */}

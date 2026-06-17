@@ -146,6 +146,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         serie?: string;
         intern_number?: string;
         kilometer?: number;
+        engine_hours?: number;
         sub_type?: { name: string | null } | null;
       } | null;
     } | null;

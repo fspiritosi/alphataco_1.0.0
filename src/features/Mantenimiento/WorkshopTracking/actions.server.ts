@@ -73,6 +73,7 @@ const WORKSHOP_TRACKING_SELECT = {
   created_at: true,
   kilometer_at_entry: true,
   engine_hours_at_entry: true,
+  description: true,
   // FK: vehicle
   vehicles: {
     select: {
@@ -82,6 +83,13 @@ const WORKSHOP_TRACKING_SELECT = {
       intern_number: true,
       kilometer: true,
       condition: true,
+    },
+  },
+  // Solicitud vinculada (fallback de descripción)
+  maintenance_requests: {
+    select: {
+      id: true,
+      description: true,
     },
   },
   // Items con sectores, work orders y repairs (para "Recorrido Sectores" y progreso)
@@ -142,6 +150,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
       ...VEHICLE_TEXT_FILTER_COLUMNS,
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
       'vehicle', // manejado manualmente (FK)
+      'description', // manejado manualmente (OR order/solicitud)
     ],
   });
 
@@ -179,6 +188,18 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
   if (internNumberValues?.length && typeof internNumberValues[0] === 'string') {
     vehicleTextConditions.push({
       vehicles: { intern_number: { contains: internNumberValues[0], mode: 'insensitive' } },
+    });
+  }
+
+  // ─── Filtro de texto de descripción del pedido (order o solicitud) ───────
+  const descriptionValues = state.filters['description'];
+  if (descriptionValues?.length && typeof descriptionValues[0] === 'string') {
+    const term = descriptionValues[0];
+    vehicleTextConditions.push({
+      OR: [
+        { description: { contains: term, mode: 'insensitive' } },
+        { maintenance_requests: { description: { contains: term, mode: 'insensitive' } } },
+      ],
     });
   }
 

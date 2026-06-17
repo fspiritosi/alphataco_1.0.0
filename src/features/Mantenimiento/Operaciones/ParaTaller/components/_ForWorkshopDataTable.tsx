@@ -157,6 +157,12 @@ export function _ForWorkshopDataTable({
         title: 'Fecha de Creación',
         type: 'dateRange' as const,
       },
+      {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+        placeholder: 'Buscar por descripción...',
+      },
     ];
   }, [vehicleOptions, conditionOptions, facets]);
 
@@ -198,6 +204,8 @@ export function _ForWorkshopDataTable({
         },
         order_number: (val: unknown) => String(val ?? '-'),
         created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY') : '-'),
+        description: (_val: unknown, row: ForWorkshopOrderListItem) =>
+          row.description ?? row.maintenance_requests?.description ?? '',
       },
     }),
     [searchParams]

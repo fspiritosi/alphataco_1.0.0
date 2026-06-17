@@ -49,6 +49,7 @@ const FOR_WORKSHOP_SELECT = {
   equipment_id: true,
   maintenance_request_id: true,
   source: true,
+  description: true,
   vehicles: {
     select: {
       id: true,
@@ -68,6 +69,7 @@ const FOR_WORKSHOP_SELECT = {
       preventive_type: true,
       kilometer: true,
       created_at: true,
+      description: true,
       profile_maintenance_requests_supervisor_idToprofile: {
         select: { id: true, fullname: true },
       },
@@ -171,6 +173,18 @@ function buildWhereClause(
     } else {
       andConditions.push({ vehicles: { condition: { in: realValues } } });
     }
+  }
+
+  // Filtro de texto de descripción del pedido (order o solicitud vinculada)
+  const descriptionFilter = excludeColumn !== 'description' ? state.filters['description'] : undefined;
+  if (descriptionFilter?.length && typeof descriptionFilter[0] === 'string') {
+    const term = descriptionFilter[0];
+    andConditions.push({
+      OR: [
+        { description: { contains: term, mode: 'insensitive' } },
+        { maintenance_requests: { description: { contains: term, mode: 'insensitive' } } },
+      ],
+    });
   }
 
   // Filtro de supervisor — solo ve los propios si no tiene permiso view_all

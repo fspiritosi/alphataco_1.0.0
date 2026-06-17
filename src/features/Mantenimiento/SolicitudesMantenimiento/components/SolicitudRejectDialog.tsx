@@ -238,6 +238,16 @@ export function SolicitudRejectDialog({ request, open, onClose }: SolicitudRejec
             </>
           )}
 
+          {request.description && (
+            <>
+              <Separator />
+              <div className="p-3 bg-muted rounded-lg">
+                <span className="text-sm text-muted-foreground">Descripción: </span>
+                <p className="font-medium whitespace-pre-wrap break-words">{request.description}</p>
+              </div>
+            </>
+          )}
+
           <Separator />
 
           {/* Motivo de rechazo */}

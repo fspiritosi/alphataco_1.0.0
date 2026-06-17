@@ -86,6 +86,14 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
                   {scheduledDate ? scheduledDate.format('dddd DD [de] MMMM [de] YYYY') : '-'}
                 </p>
               </div>
+              {(order.description ?? order.maintenance_requests?.description) && (
+                <div>
+                  <span className="text-sm text-muted-foreground">Descripción</span>
+                  <p className="font-medium whitespace-pre-wrap break-words">
+                    {order.description ?? order.maintenance_requests?.description}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

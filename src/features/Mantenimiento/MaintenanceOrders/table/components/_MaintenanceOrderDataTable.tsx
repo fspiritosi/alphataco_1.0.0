@@ -178,6 +178,7 @@ export function _MaintenanceOrderDataTable({
       'serie',
       'intern_number',
       'order_number',
+      'description',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -266,6 +267,14 @@ export function _MaintenanceOrderDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por N° orden...',
       },
+
+      // Descripción del pedido (texto libre)
+      {
+        columnId: 'description',
+        title: 'Descripción',
+        type: 'text' as const,
+        placeholder: 'Buscar por descripción...',
+      },
     ],
     [facets]
   );
@@ -281,6 +290,8 @@ export function _MaintenanceOrderDataTable({
           const label = vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar';
           return vehicle?.intern_number ? `${label} (#${vehicle.intern_number})` : label;
         },
+        description: (_val: unknown, row: MaintenanceOrderListItem) =>
+          row.description ?? row.maintenance_requests?.description ?? '',
         workshop_entry_date: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
         status: (val: unknown) => {

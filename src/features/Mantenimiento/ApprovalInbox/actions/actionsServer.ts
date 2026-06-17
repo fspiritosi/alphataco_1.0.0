@@ -209,6 +209,7 @@ export async function getOrdersPendingValidation() {
         id: true,
         order_number: true,
         status: true,
+        description: true,
         workshop_entry_date: true,
         updated_at: true,
         equipment_id: true,
@@ -218,6 +219,12 @@ export async function getOrdersPendingValidation() {
             domain: true,
             intern_number: true,
             serie: true,
+          },
+        },
+        maintenance_requests: {
+          select: {
+            id: true,
+            description: true,
           },
         },
         maintenance_order_items: {

@@ -61,6 +61,7 @@ const EMPTY_FORM_VALUES: DailyReportRowFormValues = {
   reprogram_date: undefined,
   reasigment_reason: '',
   type_service: undefined,
+  shift_12h: undefined,
   chofer_dia: undefined,
   chofer_noche: undefined,
   ayudante_dia: [],
@@ -122,6 +123,18 @@ export function DailyReportRowForm({
           ['chofer_dia', 'chofer_noche', 'ayudante_dia', 'ayudante_noche'].includes(e.role ?? '')
         );
 
+        // Turno de la jornada 12h: se usa el valor persistido (shift_12h). Para
+        // filas viejas anteriores a la columna (shift_12h null) se deriva del
+        // personal cargado como fallback: hay gente de noche y no de día → 'noche'.
+        const shift12h: 'dia' | 'noche' | undefined = is12Hours
+          ? row.shift_12h ??
+            (findRole('chofer_noche') || filterRole('ayudante_noche').length > 0
+            ? findRole('chofer_dia') || filterRole('ayudante_dia').length > 0
+              ? 'dia'
+              : 'noche'
+            : 'dia')
+          : undefined;
+
         // Equipment ids
         const equipmentRels = row.dailyreportequipmentrelations ?? [];
         const vehicleIds = equipmentRels.filter((r) => r.equipment_id != null).map((r) => r.equipment_id!);
@@ -151,6 +164,7 @@ export function DailyReportRowForm({
           remit_number: row.remit_number ?? '',
           cancel_reason: row.cancel_reason ?? '',
           type_service: (row.type_service as DailyReportRowFormValues['type_service']) ?? undefined,
+          shift_12h: shift12h,
           completed_day: row.completed_day ?? false,
           completed_night: row.completed_night ?? false,
           equipos_cliente: customerEqIds,
@@ -236,6 +250,8 @@ export function DailyReportRowForm({
       item_id: data.item,
       status: data.completed_day && data.completed_night ? 'ejecutado' : data.status,
       working_day: data.working_day,
+      // El turno solo aplica a jornada 12h; en el resto se persiste null.
+      shift_12h: is12Hours ? data.shift_12h ?? 'dia' : null,
       start_time: data.start_time || null,
       end_time: data.end_time || null,
       description: data.description ?? null,

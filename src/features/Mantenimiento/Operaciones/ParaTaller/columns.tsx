@@ -178,6 +178,25 @@ export function getForWorkshopColumns({
       },
     },
 
+    // ── Descripción del pedido (oculta por defecto) ────────────────────────
+    {
+      id: 'description',
+      accessorFn: (row) => row.description ?? row.maintenance_requests?.description ?? '',
+      meta: { title: 'Descripción' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción" />,
+      cell: ({ row }) => {
+        const value = row.original.description ?? row.original.maintenance_requests?.description ?? '';
+        if (!value) return <span className="text-muted-foreground">-</span>;
+        const truncated = value.length > 60 ? `${value.slice(0, 60)}…` : value;
+        return (
+          <span title={value} className="block max-w-[240px] truncate">
+            {truncated}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+
     // ── Acciones ────────────────────────────────────────────────────────────
     {
       id: 'actions',
