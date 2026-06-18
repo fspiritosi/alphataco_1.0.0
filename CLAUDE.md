@@ -225,6 +225,10 @@ Si una tarea requiere capturar datos secundarios u opcionales después de una ac
 
 Siempre consultar `/frontend-design:frontend-design` antes de implementar para distribuir el form correctamente.
 
+### Al revisar un ticket, leer SIEMPRE los comentarios (no solo la descripción)
+
+La descripción del ticket suele ser el sintoma percibido por el usuario final; los **comentarios** (`manage_task_comments` action=list) contienen el diagnostico real del equipo. Ej: ticket 292 describia "no puedo asignar recurso empleado", pero el comentario de Fabricio aclaraba "al asignar uno nuevo me borra los anteriores, desde comercial". Leer comentarios ANTES de invertir en investigacion de codigo: reorienta la causa raiz y evita perseguir la hipotesis equivocada.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
