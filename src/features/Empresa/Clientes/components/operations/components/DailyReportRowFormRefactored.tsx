@@ -10,6 +10,8 @@ import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
 import React from 'react';
+import type { FieldErrors } from 'react-hook-form';
+import { toast } from 'sonner';
 
 // Importar secciones del formulario
 import {
@@ -212,6 +214,16 @@ export function DailyReportRowFormRefactored() {
   // 10. Manejar envío
   const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient, serviceItems);
 
+  // 10.b Feedback visible cuando la validación bloquea el guardado. Sin esto, los
+  // mensajes de error quedan en campos fuera de vista (arriba del form) y el usuario
+  // presiona "Actualizar" sin que pase nada ni aparezca aviso alguno.
+  const handleInvalid = (errors: FieldErrors) => {
+    const firstMessage = Object.values(errors).find((error) => error?.message)?.message;
+    toast.error(
+      typeof firstMessage === 'string' ? firstMessage : 'Complete los campos requeridos antes de guardar.'
+    );
+  };
+
   // 11. Obtener fecha del parte diario
   const formDate = form.watch('date');
   const reportDate = React.useMemo(() => {
@@ -270,7 +282,7 @@ export function DailyReportRowFormRefactored() {
 
         <div className="grid gap-4 py-4">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, handleInvalid)} className="space-y-4">
               {/* Sección 1: Datos del Cliente */}
               <CustomerDataSection
                 form={form}

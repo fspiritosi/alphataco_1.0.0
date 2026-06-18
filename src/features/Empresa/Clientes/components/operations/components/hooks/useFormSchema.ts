@@ -14,8 +14,8 @@ export function useFormSchema(isCreating: boolean) {
       equipment: z.array(z.string()).optional(),
       equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').optional(), // Opcional
       observations: z.string().optional(),
-      sector_service_id: z.string().min(1, 'El sector es requerido'), // Obligatorio
-      areas_service_id: z.string().min(1, 'El área es requerida'), // Obligatorio
+      sector_service_id: z.string().optional(), // Opcional — no todos los servicios tienen sectores
+      areas_service_id: z.string().optional(), // Opcional — no todos los servicios tienen áreas
     };
 
     if (isCreating) {
