@@ -355,3 +355,71 @@ export async function getMaintenanceCategoryVehicles(
     throw error;
   }
 }
+
+// ============================================================================
+// BREAKDOWN PREVENTIVO vs CORRECTIVO POR TIPO (ticket 233)
+// ============================================================================
+
+export type MaintenanceTypeBreakdownData = {
+  typeName: string;
+  preventivo: number;
+  correctivo: number;
+}[];
+
+/**
+ * Para el mes dado, cuenta EQUIPOS UNICOS (dominios) por tipo de equipo que
+ * tuvieron al menos una orden de mantenimiento preventiva y correctiva. Un
+ * equipo con varias ordenes cuenta 1; si tuvo de ambos tipos, suma 1 en cada
+ * clase. Clasificacion canonica: maintenance_orders.source === 'preventive' es
+ * Preventivo; cualquier otro valor (checklist/manual/null) es Correctivo.
+ * Fecha de corte: workshop_entry_date (entrada fisica al taller).
+ */
+export async function getMaintenanceTypeBreakdown(monthKey: string): Promise<MaintenanceTypeBreakdownData> {
+  const companyId = await getServerCompanyId();
+  logger.debug('Fetching maintenance type breakdown', { data: { companyId, monthKey } });
+
+  try {
+    const monthStart = moment(monthKey, 'YYYY-MM').startOf('month');
+    if (!monthStart.isValid()) {
+      throw new Error(`Invalid monthKey: ${monthKey}`);
+    }
+    const monthEnd = monthStart.clone().add(1, 'month').startOf('month');
+
+    const orders = await prisma.maintenance_orders.findMany({
+      where: {
+        workshop_entry_date: { gte: monthStart.toDate(), lt: monthEnd.toDate() },
+        vehicles: { company_id: companyId, is_active: true },
+      },
+      select: {
+        equipment_id: true,
+        source: true,
+        vehicles: { select: { type_vehicles_typeTotype: { select: { name: true } } } },
+      },
+    });
+
+    // Dedup por equipo: Set de equipment_id por tipo y por clase de mantenimiento.
+    const byType = new Map<string, { preventivo: Set<string>; correctivo: Set<string> }>();
+    for (const o of orders) {
+      if (!o.equipment_id) continue;
+      const typeName = o.vehicles?.type_vehicles_typeTotype?.name ?? 'Sin tipo';
+      let entry = byType.get(typeName);
+      if (!entry) {
+        entry = { preventivo: new Set(), correctivo: new Set() };
+        byType.set(typeName, entry);
+      }
+      if (o.source === 'preventive') entry.preventivo.add(o.equipment_id);
+      else entry.correctivo.add(o.equipment_id);
+    }
+
+    return Array.from(byType.entries())
+      .map(([typeName, sets]) => ({
+        typeName,
+        preventivo: sets.preventivo.size,
+        correctivo: sets.correctivo.size,
+      }))
+      .sort((a, b) => b.preventivo + b.correctivo - (a.preventivo + a.correctivo));
+  } catch (error) {
+    logger.error('Error fetching maintenance type breakdown', { data: { error, monthKey } });
+    throw error;
+  }
+}

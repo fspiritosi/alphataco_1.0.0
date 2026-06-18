@@ -17,6 +17,7 @@ import {
   type WorkdaysAggregate,
 } from '../types';
 import { CategorySection } from './CategorySection';
+import { MaintenanceTypeBarChart } from './MaintenanceTypeBarChart';
 import { OwnershipDonutChart } from './OwnershipDonutChart';
 
 const MONTH_KEY_FORMAT = 'YYYY-MM';
@@ -278,6 +279,9 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
           />
         </CardContent>
       </Card>
+
+      {/* Preventivo vs Correctivo por tipo de equipo (ticket 233) */}
+      <MaintenanceTypeBarChart monthKey={monthKey} monthLabel={monthLabel} />
 
       {/* 3 secciones — cada una se autoabastece via useQuery cuando esta abierta */}
       {OWNERSHIP_CATEGORIES.map((category) => (
