@@ -283,7 +283,7 @@ export function CustomerDataSection({
           name="sector_service_id"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Sector del Cliente *</FormLabel>
+              <FormLabel>Sector del Cliente</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -348,7 +348,7 @@ export function CustomerDataSection({
           name="areas_service_id"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Área del Cliente *</FormLabel>
+              <FormLabel>Área del Cliente</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
