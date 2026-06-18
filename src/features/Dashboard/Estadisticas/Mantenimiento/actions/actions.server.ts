@@ -357,26 +357,39 @@ export async function getMaintenanceCategoryVehicles(
 }
 
 // ============================================================================
-// BREAKDOWN PREVENTIVO vs CORRECTIVO POR TIPO (ticket 233)
+// EQUIPOS EN MANTENIMIENTO POR TIPO (ticket 233)
 // ============================================================================
 
-export type MaintenanceTypeBreakdownData = {
+export type MaintenanceTypeVehicle = {
+  id: string;
+  domain: string | null;
+  internNumber: string | null;
+  status: VehicleStatus;
+  kilometer: string | null;
+  engineHours: string | null;
+  /** Solicitudes/ordenes/OT/reparaciones abiertas (no terminales) del equipo. */
+  openCount: number;
+};
+
+export type MaintenanceByTypeGroup = {
+  typeId: string;
   typeName: string;
-  preventivo: number;
-  correctivo: number;
-}[];
+  /** Equipos unicos (dominios) de este tipo en mantenimiento en el mes. */
+  count: number;
+  vehicles: MaintenanceTypeVehicle[];
+};
 
 /**
- * Para el mes dado, cuenta EQUIPOS UNICOS (dominios) por tipo de equipo que
- * tuvieron al menos una orden de mantenimiento preventiva y correctiva. Un
- * equipo con varias ordenes cuenta 1; si tuvo de ambos tipos, suma 1 en cada
- * clase. Clasificacion canonica: maintenance_orders.source === 'preventive' es
- * Preventivo; cualquier otro valor (checklist/manual/null) es Correctivo.
- * Fecha de corte: workshop_entry_date (entrada fisica al taller).
+ * Para el mes dado, agrupa por TIPO de equipo los equipos UNICOS (dominios) que
+ * estuvieron en mantenimiento ese mes — definido como equipos que entraron al
+ * taller (maintenance_orders.workshop_entry_date dentro del mes). Cada equipo
+ * aparece una sola vez (findMany de vehicles = 1 fila por dominio) e incluye sus
+ * solicitudes/procesos abiertos ACTUALES (openCount) para el detalle. Ordenado
+ * por cantidad de equipos desc.
  */
-export async function getMaintenanceTypeBreakdown(monthKey: string): Promise<MaintenanceTypeBreakdownData> {
+export async function getMaintenanceByTypeForMonth(monthKey: string): Promise<MaintenanceByTypeGroup[]> {
   const companyId = await getServerCompanyId();
-  logger.debug('Fetching maintenance type breakdown', { data: { companyId, monthKey } });
+  logger.debug('Fetching maintenance by type for month', { data: { companyId, monthKey } });
 
   try {
     const monthStart = moment(monthKey, 'YYYY-MM').startOf('month');
@@ -385,41 +398,64 @@ export async function getMaintenanceTypeBreakdown(monthKey: string): Promise<Mai
     }
     const monthEnd = monthStart.clone().add(1, 'month').startOf('month');
 
-    const orders = await prisma.maintenance_orders.findMany({
+    const vehiclesRaw = await prisma.vehicles.findMany({
       where: {
-        workshop_entry_date: { gte: monthStart.toDate(), lt: monthEnd.toDate() },
-        vehicles: { company_id: companyId, is_active: true },
+        company_id: companyId,
+        is_active: true,
+        maintenance_orders: {
+          some: { workshop_entry_date: { gte: monthStart.toDate(), lt: monthEnd.toDate() } },
+        },
       },
       select: {
-        equipment_id: true,
-        source: true,
-        vehicles: { select: { type_vehicles_typeTotype: { select: { name: true } } } },
+        id: true,
+        domain: true,
+        intern_number: true,
+        condition: true,
+        kilometer: true,
+        engine_hours: true,
+        type_vehicles_typeTotype: { select: { id: true, name: true } },
+        _count: {
+          select: {
+            maintenance_requests: { where: { status: { notIn: TERMINAL_REQUEST_STATUSES } } },
+            maintenance_orders: { where: { status: { notIn: TERMINAL_ORDER_STATUSES } } },
+            repair_solicitudes: { where: { state: { notIn: TERMINAL_REPAIR_STATES } } },
+            work_orders: { where: { status: { notIn: TERMINAL_WORK_ORDER_STATUSES } } },
+          },
+        },
       },
+      orderBy: { domain: 'asc' },
     });
 
-    // Dedup por equipo: Set de equipment_id por tipo y por clase de mantenimiento.
-    const byType = new Map<string, { preventivo: Set<string>; correctivo: Set<string> }>();
-    for (const o of orders) {
-      if (!o.equipment_id) continue;
-      const typeName = o.vehicles?.type_vehicles_typeTotype?.name ?? 'Sin tipo';
-      let entry = byType.get(typeName);
-      if (!entry) {
-        entry = { preventivo: new Set(), correctivo: new Set() };
-        byType.set(typeName, entry);
+    // Agrupar por tipo. Cada vehiculo es un dominio unico (1 fila por equipo).
+    const byType = new Map<string, MaintenanceByTypeGroup>();
+    for (const v of vehiclesRaw) {
+      const typeId = v.type_vehicles_typeTotype?.id ?? 'sin-tipo';
+      const typeName = v.type_vehicles_typeTotype?.name ?? 'Sin tipo';
+      let group = byType.get(typeId);
+      if (!group) {
+        group = { typeId, typeName, count: 0, vehicles: [] };
+        byType.set(typeId, group);
       }
-      if (o.source === 'preventive') entry.preventivo.add(o.equipment_id);
-      else entry.correctivo.add(o.equipment_id);
+      const openCount =
+        v._count.maintenance_requests +
+        v._count.maintenance_orders +
+        v._count.repair_solicitudes +
+        v._count.work_orders;
+      group.vehicles.push({
+        id: v.id,
+        domain: v.domain,
+        internNumber: v.intern_number,
+        status: (v.condition as VehicleStatus | null) ?? 'operativo',
+        kilometer: v.kilometer,
+        engineHours: v.engine_hours,
+        openCount,
+      });
+      group.count += 1;
     }
 
-    return Array.from(byType.entries())
-      .map(([typeName, sets]) => ({
-        typeName,
-        preventivo: sets.preventivo.size,
-        correctivo: sets.correctivo.size,
-      }))
-      .sort((a, b) => b.preventivo + b.correctivo - (a.preventivo + a.correctivo));
+    return Array.from(byType.values()).sort((a, b) => b.count - a.count);
   } catch (error) {
-    logger.error('Error fetching maintenance type breakdown', { data: { error, monthKey } });
+    logger.error('Error fetching maintenance by type for month', { data: { error, monthKey } });
     throw error;
   }
 }
