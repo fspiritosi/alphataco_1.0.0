@@ -297,20 +297,26 @@ export const uploadDocument = async (
   }
 };
 
-export const getAllDocumentsByIdDocumentTypeCientSide = async (selectedValue: string, company_id: string) => {
+export const getAllDocumentsByIdDocumentTypeCientSide = async (
+  selectedValue: string,
+  company_id: string,
+  tableName: 'documents_employees' | 'documents_equipment' = 'documents_employees'
+): Promise<{ applies: string | null }[]> => {
   if (!company_id) return [];
   const supabase = supabaseBrowser();
+  // Consultar la tabla correcta segun el tipo de recurso. El combobox solo necesita
+  // `applies` para deshabilitar los recursos que ya tienen el documento.
   const { data, error } = await supabase
-    .from('documents_employees')
-    .select('*')
+    .from(tableName)
+    .select('applies')
     .eq('id_document_types', selectedValue)
     .neq('document_path', null);
 
   if (error) {
-    //console.error('error', error);
+    documentsLogger.error('Error al obtener documentos por tipo de documento', { data: { error, tableName } });
     return [];
   }
-  return data;
+  return data ?? [];
 };
 
 export const getOpenRepairsSolicitudesByArrayClientSide = async (

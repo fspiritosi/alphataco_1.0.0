@@ -20,7 +20,7 @@ interface MultiSelectComboboxProps {
   selectedValues: string | string[];
   onChange: (values: string[]) => void;
   disabled?: boolean;
-  selectedResourceDocuments?: EmployeeDocument[];
+  selectedResourceDocuments?: { applies: string | null }[];
   showSelectAll?: boolean;
   maxSelections?: null | number;
   'data-testid'?: string;

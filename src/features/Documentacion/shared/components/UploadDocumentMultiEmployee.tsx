@@ -112,7 +112,7 @@ function UploadDocumentMultiEmployee({
     }
   }
   const [selectedFileName, setSelectedFileName] = useState<string>('');
-  const [selectedResourceDocuments, setSelectedResourceDocuments] = useState<EmployeeDocument[]>([]);
+  const [selectedResourceDocuments, setSelectedResourceDocuments] = useState<{ applies: string | null }[]>([]);
 
   return (
     <div>

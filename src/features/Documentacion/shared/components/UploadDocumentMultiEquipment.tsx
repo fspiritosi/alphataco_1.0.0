@@ -114,7 +114,7 @@ function UploadDocumentMultiEquipment({
     }
   }
   const [selectedFileName, setSelectedFileName] = useState<string>('');
-  const [selectedResourceDocuments, setSelectedResourceDocuments] = useState<EmployeeDocument[]>([]);
+  const [selectedResourceDocuments, setSelectedResourceDocuments] = useState<{ applies: string | null }[]>([]);
 
   return (
     <div>
@@ -157,7 +157,8 @@ function UploadDocumentMultiEquipment({
                               onSelect={async (selectedValue) => {
                                 const data = await getAllDocumentsByIdDocumentTypeCientSide(
                                   selectedValue,
-                                  documentType.company_id ?? ''
+                                  documentType.company_id ?? '',
+                                  'documents_equipment'
                                 );
                                 setSelectedResourceDocuments(data);
                                 form.setValue('id_document_types', documentType.id);
