@@ -38,7 +38,7 @@ interface OtherEquipmentQuickActionsProps {
 }
 
 const terminationSchema = z.object({
-  reason_for_termination: z.string({ required_error: 'La razón de baja es requerida.' }),
+  reason_for_termination: z.string({ required_error: 'La razón de baja es requerida.' }).min(1, 'La razón de baja es requerida.'),
   termination_date: z.date({ required_error: 'La fecha de baja es requerida.' }),
 });
 
@@ -183,9 +183,9 @@ export function OtherEquipmentQuickActions({ equipmentId, isActive }: OtherEquip
                   )}
                 />
                 <div className="flex gap-4 justify-end">
-                  <AlertDialogAction type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending}>
                     {isPending ? 'Dando de baja...' : 'Dar de baja'}
-                  </AlertDialogAction>
+                  </Button>
                   <AlertDialogCancel onClick={() => setShowDeactivateDialog(false)}>Cancelar</AlertDialogCancel>
                 </div>
               </form>
