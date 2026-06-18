@@ -93,6 +93,7 @@ export async function toggleVehicleStatus(
     throw new Error('Failed to toggle vehicle status');
   }
 
+  revalidatePath('/dashboard/equipment');
   return data;
 }
 

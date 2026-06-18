@@ -17,6 +17,7 @@ import {
   type WorkdaysAggregate,
 } from '../types';
 import { CategorySection } from './CategorySection';
+import { MaintenanceByTypeCard } from './MaintenanceByTypeCard';
 import { OwnershipDonutChart } from './OwnershipDonutChart';
 
 const MONTH_KEY_FORMAT = 'YYYY-MM';
@@ -278,6 +279,9 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
           />
         </CardContent>
       </Card>
+
+      {/* Equipos en mantenimiento por tipo (ticket 233) — autonomo, con su propio mes */}
+      <MaintenanceByTypeCard />
 
       {/* 3 secciones — cada una se autoabastece via useQuery cuando esta abierta */}
       {OWNERSHIP_CATEGORIES.map((category) => (

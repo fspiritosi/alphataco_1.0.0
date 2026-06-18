@@ -132,7 +132,7 @@ export function ScheduleSection({
                               mode="single"
                               selected={f.value}
                               onSelect={f.onChange}
-                              disabled={(date) => moment(date).isBefore(moment())}
+                              disabled={(date) => moment(date).isBefore(moment(), 'day')}
                               initialFocus
                             />
                           </PopoverContent>

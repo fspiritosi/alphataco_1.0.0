@@ -160,6 +160,13 @@ export function ServiceDetailDialog({ open, onOpenChange, rowId }: Props) {
             {/* Detalles de jornada y estado */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Jornada">{row.working_day ?? <EmptyValue />}</Field>
+              <Field label="Turno">
+                {row.shift_12h ? (
+                  <Badge variant="outline">{row.shift_12h === 'noche' ? 'Noche' : 'Día'}</Badge>
+                ) : (
+                  <EmptyValue />
+                )}
+              </Field>
               <Field label="Horario inicio">{formatTime(row.start_time) ?? <EmptyValue />}</Field>
               <Field label="Horario fin">{formatTime(row.end_time) ?? <EmptyValue />}</Field>
               <Field label="Estado">

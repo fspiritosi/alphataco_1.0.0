@@ -40,7 +40,7 @@ interface VehicleQuickActionsProps {
 }
 
 const terminationSchema = z.object({
-  reason_for_termination: z.string({ required_error: 'La razón de baja es requerida.' }),
+  reason_for_termination: z.string({ required_error: 'La razón de baja es requerida.' }).min(1, 'La razón de baja es requerida.'),
   termination_date: z.date({ required_error: 'La fecha de baja es requerida.' }),
 });
 
@@ -67,8 +67,6 @@ export function VehicleQuickActions({ equipmentId, isActive, condition }: Vehicl
     });
   };
 
-  if (!equipmentId) return null;
-
   const form = useForm<z.infer<typeof terminationSchema>>({
     resolver: zodResolver(terminationSchema),
     defaultValues: {
@@ -76,6 +74,8 @@ export function VehicleQuickActions({ equipmentId, isActive, condition }: Vehicl
       termination_date: undefined,
     },
   });
+
+  if (!equipmentId) return null;
 
   async function onSubmit(values: z.infer<typeof terminationSchema>) {
     startTransition(async () => {
@@ -195,9 +195,9 @@ export function VehicleQuickActions({ equipmentId, isActive, condition }: Vehicl
                   )}
                 />
                 <div className="flex gap-4 justify-end">
-                  <AlertDialogAction type="submit" disabled={isPending}>
+                  <Button type="submit" disabled={isPending}>
                     {isPending ? 'Dando de baja...' : 'Dar de baja'}
-                  </AlertDialogAction>
+                  </Button>
                   <AlertDialogCancel onClick={() => setShowDeactivateDialog(false)}>Cancelar</AlertDialogCancel>
                 </div>
               </form>
