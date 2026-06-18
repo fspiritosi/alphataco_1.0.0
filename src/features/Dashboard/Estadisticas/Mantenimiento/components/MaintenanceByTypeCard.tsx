@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Loader2, Wrench } from 'lucide-react';
@@ -61,7 +61,8 @@ export function MaintenanceByTypeCard({ monthKey, monthLabel }: Props) {
   const isEmpty = !isFetching && groups.length === 0;
 
   return (
-    <Card className="py-0">
+    <TooltipProvider delayDuration={150}>
+      <Card className="py-0">
       <CardHeader className="px-6 pt-4 pb-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -175,6 +176,7 @@ export function MaintenanceByTypeCard({ monthKey, monthLabel }: Props) {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </TooltipProvider>
   );
 }
