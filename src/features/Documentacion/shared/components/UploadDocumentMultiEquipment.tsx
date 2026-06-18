@@ -15,6 +15,7 @@ import {
   uploadDocument,
   uploadDocumentFile,
 } from '@/lib/utils';
+import { Logger } from '@/lib/logger';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -23,7 +24,10 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
+
+const logger = new Logger('Documentacion/UploadDocumentMultiEquipment');
 
 function UploadDocumentMultiEquipment({
   equipments,
@@ -83,11 +87,21 @@ function UploadDocumentMultiEquipment({
   });
   const [documenTypes, setDocumentTypes] = useState<typeof allDocumentTypes>(allDocumentTypes);
   async function onSubmit(data: z.infer<typeof uploadDocumentSchema>) {
-    if (!selectedFile) return;
+    if (!selectedFile) {
+      toast.error('Debe seleccionar un archivo');
+      return;
+    }
+    if (!data.applies?.length) {
+      toast.error('Debe seleccionar al menos un recurso');
+      return;
+    }
     const selectedDocumentType = allDocumentTypes.find((documentType) => documentType.id === data.id_document_types);
     try {
+      // Subir primero el archivo al storage (upsert: documento compartido por varios recursos),
+      // y solo si tuvo exito persistir las filas. Asi no quedan registros apuntando a un archivo inexistente.
+      await uploadDocumentFile(selectedFile, data.document_path, true);
       await uploadDocument(data, selectedDocumentType?.mandatory!, 'documents_equipment', true);
-      await uploadDocumentFile(selectedFile, data.document_path);
+      toast.success('Documento cargado correctamente');
       //Cerrar el modal y resetear el formulario y estados
       form.reset();
       setSelectedFile(undefined);
@@ -95,7 +109,8 @@ function UploadDocumentMultiEquipment({
       router.refresh();
       document.getElementById('close-create-document-modal')?.click();
     } catch (error) {
-      console.error('error', error);
+      logger.error('Error al cargar documento multirecurso de equipos', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'No se pudo cargar el documento');
     }
   }
   const [selectedFileName, setSelectedFileName] = useState<string>('');

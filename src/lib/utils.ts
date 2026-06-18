@@ -3,8 +3,11 @@ import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
 import { clsx, type ClassValue } from 'clsx';
 import moment from 'moment';
 import { twMerge } from 'tailwind-merge';
+import { Logger } from './logger';
 import { supabaseBrowser } from './supabase/browser';
 import { supabaseServer } from './supabase/server';
+
+const documentsLogger = new Logger('lib/utils/documents');
 // eslint-disable-next-line react-hooks/rules-of-hooks
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -173,16 +176,17 @@ export async function verifyDuplicatedDocument(
 
   return false;
 }
-export const uploadDocumentFile = async (file: File, path: string) => {
+export const uploadDocumentFile = async (file: File, path: string, upsert = false) => {
   const supabase = supabaseBrowser();
   const { data, error } = await supabase.storage.from('document-files').upload(path, file, {
     cacheControl: '3600',
-    upsert: false,
+    upsert,
     contentType: file.type,
   });
   if (error) {
-    console.error('error', error);
-    return [];
+    documentsLogger.error('Error al subir el archivo del documento al storage', { data: { error, path } });
+    // Propagar el error para que el formulario no cierre el modal como si hubiera funcionado
+    throw new Error(error.message || 'No se pudo subir el archivo del documento');
   }
   return data;
 };
@@ -205,50 +209,80 @@ export const uploadDocument = async (
   const supabase = supabaseBrowser();
   if (mandatory) {
     if (multipleResources) {
-      //Hacer un update de todos los registros donde coincida el algun elemento del array de applies y el valor de id_document_types
+      // Multirecurso obligatorio: garantizar que TODOS los recursos seleccionados queden con fila.
+      // Se actualizan los registros que ya existen y se insertan los que falten (upsert manual),
+      // para que ningun recurso seleccionado se quede sin el documento.
       const { applies, ...rest } = dataToUpdate;
-      const { data, error } = await supabase
+
+      const { data: existingRows, error: fetchError } = await supabase
         .from(tableName)
-        .update(rest)
+        .select('applies')
         .in('applies', applies)
         .eq('id_document_types', dataToUpdate.id_document_types);
-      if (error) {
-        //console.error('error', error);
-        return [];
+
+      if (fetchError) {
+        documentsLogger.error('Error al consultar documentos existentes (multirecurso obligatorio)', {
+          data: { fetchError, id_document_types: dataToUpdate.id_document_types },
+        });
+        throw new Error(fetchError.message || 'No se pudieron consultar los documentos existentes');
+      }
+
+      const existingApplies = new Set((existingRows ?? []).map((row) => row.applies));
+      const existing = applies.filter((apply: string) => existingApplies.has(apply));
+      const missing = applies.filter((apply: string) => !existingApplies.has(apply));
+
+      if (existing.length > 0) {
+        const { error: updateError } = await supabase
+          .from(tableName)
+          .update(rest)
+          .in('applies', existing)
+          .eq('id_document_types', dataToUpdate.id_document_types);
+        if (updateError) {
+          documentsLogger.error('Error al actualizar documentos (multirecurso obligatorio)', { data: { updateError } });
+          throw new Error(updateError.message || 'No se pudieron actualizar los documentos');
+        }
+      }
+
+      if (missing.length > 0) {
+        const dataToInsert = missing.map((apply: string) => ({ ...rest, applies: apply }));
+        const { error: insertError } = await supabase.from(tableName).insert(dataToInsert);
+        if (insertError) {
+          documentsLogger.error('Error al crear documentos faltantes (multirecurso obligatorio)', {
+            data: { insertError },
+          });
+          throw new Error(insertError.message || 'No se pudieron crear los documentos faltantes');
+        }
       }
     } else {
       const { applies, ...rest } = dataToUpdate;
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(tableName)
         .update(rest)
         .eq('applies', applies)
         .eq('id_document_types', dataToUpdate.id_document_types);
 
       if (error) {
-        //console.error('error', error);
-        return [];
+        documentsLogger.error('Error al actualizar documento obligatorio', { data: { error } });
+        throw new Error(error.message || 'No se pudo actualizar el documento');
       }
     }
-
-    // await uploadDocumentFile(file, dataToUpdate.document_path);
   } else {
     // Crear el documento
 
     if (multipleResources) {
-      //Insertar un nuevo registro por cada elemento del array de applies sin hacer un bucle, formatear y luego hacer un insert del array de objetos
+      // Insertar un registro por cada recurso seleccionado, todos apuntando al mismo document_path.
       const { applies, ...rest } = dataToUpdate;
-      const dataToInsert = applies.map((apply: any) => ({
+      const dataToInsert = applies.map((apply: string) => ({
         ...rest,
         applies: apply,
       }));
-      const { data, error } = await supabase.from(tableName).insert(dataToInsert);
+      const { error } = await supabase.from(tableName).insert(dataToInsert);
       if (error) {
-        //console.error('error', error);
-        return [];
+        documentsLogger.error('Error al crear documentos (multirecurso)', { data: { error } });
+        throw new Error(error.message || 'No se pudieron crear los documentos');
       }
     } else {
-      const { applies, ...rest } = dataToUpdate;
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(tableName)
         .insert({
           ...dataToUpdate,
@@ -256,11 +290,10 @@ export const uploadDocument = async (
         })
         .select('*');
       if (error) {
-        //console.error('error', error);
-        return [];
+        documentsLogger.error('Error al crear documento', { data: { error } });
+        throw new Error(error.message || 'No se pudo crear el documento');
       }
     }
-    // await uploadDocumentFile(file, dataToUpdate.document_path);
   }
 };
 
