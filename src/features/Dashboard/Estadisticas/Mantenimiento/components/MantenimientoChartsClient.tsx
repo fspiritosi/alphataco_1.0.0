@@ -280,8 +280,8 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
         </CardContent>
       </Card>
 
-      {/* Equipos en mantenimiento por tipo (ticket 233) */}
-      <MaintenanceByTypeCard key={monthKey} monthKey={monthKey} monthLabel={monthLabel} />
+      {/* Equipos en mantenimiento por tipo (ticket 233) — autonomo, con su propio mes */}
+      <MaintenanceByTypeCard />
 
       {/* 3 secciones — cada una se autoabastece via useQuery cuando esta abierta */}
       {OWNERSHIP_CATEGORIES.map((category) => (
