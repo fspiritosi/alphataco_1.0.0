@@ -1,9 +1,11 @@
 'use client';
 
-import { cn } from '@/lib/utils';
+import { calculateNameOFDocument, cn, uploadDocument, uploadDocumentFile } from '@/lib/utils';
+import { Logger } from '@/lib/logger';
+import { useQueryClient } from '@tanstack/react-query';
 import { CaretSortIcon } from '@radix-ui/react-icons';
 import { CheckIcon } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 // import type React from 'react';
 import { Button } from '@/components/ui/button';
 import { CardDescription } from '@/components/ui/card';
@@ -28,23 +30,32 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import React from 'react';
 
+const logger = new Logger('Documentacion/SimpleDocument');
+
 export default function SimpleDocument({
   resource,
   handleOpen,
   defaultDocumentId,
   document,
   numberDocument,
+  onUploaded,
 }: {
   resource: string | undefined;
   handleOpen: () => void;
   defaultDocumentId?: string;
   document?: string;
   numberDocument?: string;
+  /**
+   * Refresco extra tras subir. Las tablas nuevas (React Query) ya se refrescan con
+   * invalidateQueries(); las tablas del sistema viejo (BaseDataTable SSR, ej. detalle
+   * de equipo) deben pasar `() => router.refresh()` aqui para verse actualizadas.
+   */
+  onUploaded?: () => void;
 }) {
   const supabase = supabaseBrowser();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const router = useRouter();
   const documentDrawerEmployees = useLoggedUserStore((state) => state.documentDrawerEmployees);
   const documentDrawerVehicles = useLoggedUserStore((state) => state.documentDrawerVehicles);
   const [actualCompany, setActualCompany] = useState<Awaited<ReturnType<typeof fetchCurrentCompany>>>(null);
@@ -72,10 +83,16 @@ export default function SimpleDocument({
     const appliesUser =
       (employees?.find(
         (employee: any) => employee.document === documentResource || employee.document === numberDocument
-      ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
+      ) as string) ||
+      // Algunas tablas pasan el id del vehiculo, otras el serie/domain (vehicle.document),
+      // y el detalle de equipo lo trae en el searchParam `id` de la URL.
+      (vehicles?.find(
+        (vehicle: any) =>
+          vehicle.id === numberDocument || vehicle.document === numberDocument || vehicle.id === id
+      ) as string);
 
     setIdAppliesUser(appliesUser);
-  }, [numberDocument, employees, documentResource, vehicles]);
+  }, [numberDocument, employees, documentResource, vehicles, id]);
 
   const form = useForm({
     defaultValues: {
@@ -98,19 +115,23 @@ export default function SimpleDocument({
   } = form;
 
   useEffect(() => {
-    // Solo cuando hay datos y numberDocument/documentResource
-    if (numberDocument || documentResource) {
+    // Preseleccion del recurso: numberDocument (id o serie/domain), documentResource,
+    // o el `id` del searchParam (detalle de equipo trae el id del vehiculo ahi).
+    if (numberDocument || documentResource || id) {
       const empleado = employees?.find(
         (employee: any) => employee.document === numberDocument || employee.document === documentResource
       );
-      const vehiculo = vehicles?.find((vehicle: any) => vehicle.id === numberDocument);
+      const vehiculo = vehicles?.find(
+        (vehicle: any) =>
+          vehicle.id === numberDocument || vehicle.document === numberDocument || vehicle.id === id
+      );
       if (empleado) {
         setValue('applies', empleado.id.toString());
       } else if (vehiculo) {
         setValue('applies', vehiculo.id.toString());
       }
     }
-  }, [employees, vehicles, numberDocument, documentResource, setValue]);
+  }, [employees, vehicles, numberDocument, documentResource, id, setValue]);
 
   const [loading, setLoading] = useState(false);
   const [allTypesDocuments, setAllTypesDocuments] = useState<any[] | null>([]);
@@ -139,6 +160,68 @@ export default function SimpleDocument({
     toast.promise(
       async () => {
         setLoading(true);
+
+        // ─── Documento multirecurso: aplicar a TODOS los recursos ACTIVOS ─────────
+        // La lista de recursos (employees/vehicles) ya viene filtrada por is_active,
+        // por lo que los dados de baja quedan excluidos. Sus documentos existentes NO
+        // se tocan: uploadDocument solo opera sobre los ids recibidos en `applies`.
+        const selectedDocType = documenTypes?.find((doc) => doc.id === formData.id_document_types);
+        if (selectedDocType?.multiresource === true && (resource === 'empleado' || resource === 'equipo')) {
+          const companyName = actualCompany?.[0]?.company_name || '';
+          const companyCuit = actualCompany?.[0]?.company_cuit || '';
+          const documentName = selectedDocType?.name;
+          const fileExtension = selectedFile.name.split('.').pop();
+          if (!documentName || !fileExtension) {
+            setLoading(false);
+            throw new Error('Faltan datos para subir el documento');
+          }
+
+          const multiTableName = resource === 'empleado' ? 'documents_employees' : 'documents_equipment';
+          const resourceList = resource === 'empleado' ? employees : vehicles;
+          const allActiveIds = (resourceList ?? []).map((res: any) => res.id).filter(Boolean);
+          if (!allActiveIds.length) {
+            setLoading(false);
+            throw new Error('No se encontraron recursos activos para vincular el documento');
+          }
+
+          const appliesPathName = resource === 'equipo' ? 'equipos' : 'persona';
+          const expiredDate = formData.validity ? moment(formData.validity).format('DD-MM-YYYY') : null;
+          const hasExpiredVersion = expiredDate || formData.period || 'v0';
+          const sharedPath = calculateNameOFDocument(
+            companyName,
+            companyCuit,
+            appliesPathName,
+            documentName,
+            hasExpiredVersion,
+            fileExtension,
+            'multirecursos'
+          );
+
+          // Subir primero el archivo (upsert: documento compartido por varios recursos),
+          // y solo si tuvo exito persistir las filas. Asi no quedan registros huerfanos.
+          await uploadDocumentFile(selectedFile, sharedPath, true);
+          await uploadDocument(
+            {
+              created_at: new Date().toISOString(),
+              applies: allActiveIds,
+              document_path: sharedPath,
+              id_document_types: formData.id_document_types,
+              state: 'presentado',
+              // Columna uuid nullable: enviar undefined (→ null), NUNCA '' (provoca 400 invalid uuid)
+              user_id: user || undefined,
+              period: formData.period || undefined,
+              validity: formData.validity
+                ? moment(formData.validity).utc().format('YYYY-MM-DD HH:mm:ss+00')
+                : undefined,
+            },
+            selectedDocType?.mandatory === true,
+            multiTableName,
+            true
+          );
+
+          setLoading(false);
+          return;
+        }
 
         const idApplies =
           id ||
@@ -190,7 +273,7 @@ export default function SimpleDocument({
           });
 
         if (errorList) {
-          console.error(errorList);
+          logger.error('Error al listar archivos del documento en storage', { data: { errorList } });
         }
 
         if (data?.length && data?.length > 0) {
@@ -227,7 +310,7 @@ export default function SimpleDocument({
 
         if (error) {
           setLoading(false);
-          console.error(error);
+          logger.error('Error al subir el archivo del documento al storage', { data: { error } });
           throw new Error(handleSupabaseError(error.message));
         }
 
@@ -249,7 +332,7 @@ export default function SimpleDocument({
 
           if (error) {
             setLoading(false);
-            console.error(error);
+            logger.error('Error al actualizar el documento en la base de datos', { data: { error } });
             //Eliminar el documento
             await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al subir los documentos a la base de datos');
@@ -268,7 +351,7 @@ export default function SimpleDocument({
 
           if (error) {
             setLoading(false);
-            console.error(error);
+            logger.error('Error al guardar el documento en la base de datos', { data: { error } });
             //Eliminar el documento
             await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al guardar el documento');
@@ -282,7 +365,6 @@ export default function SimpleDocument({
         if (id) {
           documentDrawerVehicles(id);
         }
-        router.refresh();
         handleOpen();
       },
       {
@@ -290,7 +372,10 @@ export default function SimpleDocument({
         success: () => {
           handleOpen();
           setLoading(false);
-          router.refresh();
+          // Refrescar solo la data de las tablas montadas (React Query), sin recargar la ruta
+          queryClient.invalidateQueries();
+          // Refresco extra para consumidores del sistema viejo (SSR) que no usan React Query
+          onUploaded?.();
           // Reset file input correctly
           if (fileInputRef.current) {
             fileInputRef.current.value = '';
