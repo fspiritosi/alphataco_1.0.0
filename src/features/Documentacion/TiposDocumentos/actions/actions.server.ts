@@ -1618,10 +1618,15 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
           mandatory: true,
           special: true,
           conditions: true,
+          down_document: true,
         },
       });
 
       if (!docType) throw new Error('Tipo de documento no encontrado o ya esta activo');
+
+      // Los tipos "Documento de baja" generan alertas tambien para recursos dados de
+      // baja; el resto solo para recursos activos.
+      const onlyActive = !docType.down_document;
 
       await tx.document_types.update({
         where: { id: docTypeId },
@@ -1636,6 +1641,7 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
             `
             SELECT e.id FROM employees e
             WHERE e.company_id = $1
+              ${onlyActive ? 'AND e.is_active = true' : ''}
               AND NOT EXISTS (
                 SELECT 1 FROM documents_employees de
                 WHERE de.id_document_types = $2 AND de.applies = e.id
@@ -1661,6 +1667,7 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
             `
             SELECT v.id FROM vehicles v
             WHERE v.company_id = $1
+              ${onlyActive ? 'AND v.is_active = true' : ''}
               AND NOT EXISTS (
                 SELECT 1 FROM documents_equipment de
                 WHERE de.id_document_types = $2 AND de.applies = v.id

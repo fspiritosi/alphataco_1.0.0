@@ -92,7 +92,10 @@ export const fetchSimpleDataEmployee = async () => {
   const { data, error } = await supabase
     .from('employees')
     .select('id,firstname,lastname,cuil')
-    .eq('company_id', company_id);
+    .eq('company_id', company_id)
+    // Solo empleados activos: los dados de baja no deben figurar para crear nuevas
+    // alertas/documentos. Sus documentos existentes se conservan, no se tocan aqui.
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching employees:', error);

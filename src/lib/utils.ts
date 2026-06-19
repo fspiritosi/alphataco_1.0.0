@@ -197,7 +197,7 @@ export const uploadDocument = async (
     document_path: string;
     id_document_types: string;
     state: 'presentado' | 'rechazado' | 'aprobado' | 'vencido' | 'pendiente';
-    user_id: string;
+    user_id?: string | null;
     period?: string | undefined;
     validity?: string | undefined;
     policy_number?: string | undefined;
@@ -207,6 +207,11 @@ export const uploadDocument = async (
   multipleResources: boolean
 ) => {
   const supabase = supabaseBrowser();
+  // Defensa: columna uuid nullable. Un '' provoca 400 (invalid input syntax for type uuid).
+  // Quitar la clave cuando viene vacia para que Postgres reciba null, no ''.
+  if (!dataToUpdate.user_id) {
+    delete (dataToUpdate as { user_id?: string | null }).user_id;
+  }
   if (mandatory) {
     if (multipleResources) {
       // Multirecurso obligatorio: garantizar que TODOS los recursos seleccionados queden con fila.

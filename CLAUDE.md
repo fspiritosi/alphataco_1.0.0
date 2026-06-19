@@ -229,6 +229,18 @@ Siempre consultar `/frontend-design:frontend-design` antes de implementar para d
 
 La descripción del ticket suele ser el sintoma percibido por el usuario final; los **comentarios** (`manage_task_comments` action=list) contienen el diagnostico real del equipo. Ej: ticket 292 describia "no puedo asignar recurso empleado", pero el comentario de Fabricio aclaraba "al asignar uno nuevo me borra los anteriores, desde comercial". Leer comentarios ANTES de invertir en investigacion de codigo: reorienta la causa raiz y evita perseguir la hipotesis equivocada.
 
+### Alertas de documentos: excluir bajas SALVO los tipos "Documento de baja"
+
+Al excluir empleados/equipos dados de baja (`is_active = false`) de la generacion de alertas de documentos pendientes, los tipos marcados como **"Documento de baja"** (`document_types.down_document = true`) **DEBEN seguir generando alertas a los recursos dados de baja** (son la documentacion de egreso). Regla: crear/mantener alerta `<=> (down_document = true) OR (recurso is_active = true)`. Los **documentos reales** (con `document_path`) de bajas NUNCA se borran; la limpieza solo elimina filas `state='pendiente'` **sin archivo**. La generacion vive en triggers SQL de Postgres (`controlar_alertas_single_document_all_employees/vehicles`, `controlar_alertas_documentos_single_employee/vehicle`) — modificarlos es migracion Prisma, no MCP.
+
+### Entornos de BD: `.env` local apunta a DEV, prod es otra BD
+
+El `.env` local apunta al proyecto **dev** Supabase (`ref pdrylqbztmpgawsfdsbr`). `DIRECT_URL_MAIN` (prod) NO esta en el `.env` local, asi que `prisma db execute`/`migrate` desde local solo tocan dev (prod corre por el pipeline de deploy). MCP `horizonte-prod` = prod (solo lectura); `horizonte-dev` = dev. Verificar SIEMPRE el target antes de ejecutar migraciones.
+
+### Modal `SimpleDocument` != flujo `UploadDocumentMulti*`
+
+El boton "Subir documento" de las tablas de documentos abre `SimpleDocument.tsx` (flujo propio, persistencia inline), DISTINTO de los forms `UploadDocumentMultiEmployee/Equipment` (que usan `uploadDocument(..., multipleResources)` de `utils.ts`). Si un fix "multirecurso" se hace en uno, verificar el otro: `SimpleDocument` no tenia logica multirecurso (subia a un solo recurso) y usaba `router.refresh()` (recarga toda la ruta) en vez de `queryClient.invalidateQueries()` (refresca solo la tabla en client-side mode).
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

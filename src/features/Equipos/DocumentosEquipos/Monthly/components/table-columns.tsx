@@ -11,6 +11,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { fetchMonthlyEquipmentDocumentsData } from './lib/actions/actions';
 
 // 🔑 CRÍTICO: Tipo inferido automáticamente del retorno de Supabase
@@ -208,6 +209,7 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
       const role = useLoggedUserStore?.getState?.().roleActualCompany;
 
       const [open, setOpen] = useState(false);
+      const router = useRouter();
 
       const handleOpen = () => setOpen(!open);
 
@@ -229,6 +231,7 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
                           defaultDocumentId={row.original.id_document_types!}
                           // document={document}
                           numberDocument={row.original.vehicles?.serie || undefined}
+                          onUploaded={() => router.refresh()}
                         />
                       </div>
                     </div>

@@ -11,6 +11,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { fetchPermanentEquipmentDocumentsData } from './lib/actions/actions';
 
 // 🔑 CRÍTICO: Tipo inferido automáticamente del retorno de Supabase
@@ -241,6 +242,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
       const role = useLoggedUserStore?.getState?.().roleActualCompany;
 
       const [open, setOpen] = useState(false);
+      const router = useRouter();
 
       const handleOpen = () => setOpen(!open);
 
@@ -262,6 +264,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
                           defaultDocumentId={row.original.id_document_types!}
                           // document={document}
                           numberDocument={row.original.vehicles?.id || undefined}
+                          onUploaded={() => router.refresh()}
                         />
                       </div>
                     </div>
