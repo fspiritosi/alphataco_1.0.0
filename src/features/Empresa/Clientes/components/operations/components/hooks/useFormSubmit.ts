@@ -41,6 +41,7 @@ type FormData = {
   observations?: string; // Campo del formulario
   sector_service_id?: string;
   areas_service_id?: string;
+  type_service?: 'mensual' | 'adicional' | 'adicional_permanente';
 };
 
 export function useFormSubmit(
@@ -107,6 +108,7 @@ export function useFormSubmit(
         description: data.observations || null,
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
+        type_service: data.type_service || null,
         completed_day: is24Hours ? true : null,
         completed_night: is24Hours ? true : null,
       };

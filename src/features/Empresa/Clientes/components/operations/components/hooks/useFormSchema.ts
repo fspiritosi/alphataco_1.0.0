@@ -16,6 +16,9 @@ export function useFormSchema(isCreating: boolean) {
       observations: z.string().optional(),
       sector_service_id: z.string().optional(), // Opcional — no todos los servicios tienen sectores
       areas_service_id: z.string().optional(), // Opcional — no todos los servicios tienen áreas
+      // Tipo de servicio: se arrastra desde la fila de origen al clonar/editar para
+      // no perderlo en el insert. No tiene control propio en este formulario.
+      type_service: z.enum(['mensual', 'adicional', 'adicional_permanente']).optional(),
     };
 
     if (isCreating) {
@@ -25,6 +28,11 @@ export function useFormSchema(isCreating: boolean) {
           ...baseSchema,
           date: z.date({ required_error: 'La fecha es requerida' }),
           remit_number: z.string().optional(),
+          // En creación el tipo de servicio es obligatorio (evita filas sin tipo).
+          type_service: z.enum(['mensual', 'adicional', 'adicional_permanente'], {
+            required_error: 'Debe seleccionar un tipo de servicio',
+            invalid_type_error: 'Debe seleccionar un tipo de servicio',
+          }),
         })
         .refine(
           (data) => {
