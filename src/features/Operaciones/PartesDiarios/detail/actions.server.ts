@@ -1289,7 +1289,9 @@ export async function updateDailyReportRowPrisma(rowId: string, data: DailyRepor
           status: resolvedStatus,
           working_day: data.working_day,
           shift_12h: data.shift_12h ?? null,
-          type_service: data.type_service ?? null,
+          // No sobreescribir el tipo de servicio a null si el input no lo trae:
+          // así una edición parcial (ej. asignar recursos) nunca borra un tipo ya guardado.
+          ...(data.type_service != null ? { type_service: data.type_service } : {}),
           start_time: data.start_time ? new Date(`1970-01-01T${data.start_time}`) : null,
           end_time: data.end_time ? new Date(`1970-01-01T${data.end_time}`) : null,
           description: data.description ?? null,

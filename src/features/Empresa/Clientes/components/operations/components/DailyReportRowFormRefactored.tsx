@@ -20,6 +20,7 @@ import {
   ObservationsSection,
   ResourcesSection,
   StatusSection,
+  TypeServiceSection,
 } from './form-sections';
 
 // Importar hooks personalizados
@@ -58,6 +59,7 @@ export function DailyReportRowFormRefactored() {
       observations: '',
       sector_service_id: '',
       areas_service_id: '',
+      type_service: undefined,
     }),
     [isCreating]
   );
@@ -140,6 +142,8 @@ export function DailyReportRowFormRefactored() {
           observations: selectedRow.description || '', // Cargar description en observations
           sector_service_id: selectedRow.data_to_clone?.sector_service_id || '',
           areas_service_id: selectedRow.data_to_clone?.areas_service_id || '',
+          // Arrastrar el tipo de servicio de la fila de origen para no perderlo al clonar/editar.
+          type_service: selectedRow.data_to_clone?.type_service || undefined,
           completed_day: selectedRow.completed_day || false,
           completed_night: selectedRow.completed_night || false,
         });
@@ -300,6 +304,9 @@ export function DailyReportRowFormRefactored() {
                 handleServiceChange={handleServiceChange}
                 disabled={isLoadingCustomers}
               />
+
+              {/* Sección 1.b: Tipo de servicio (obligatorio en creación) */}
+              <TypeServiceSection form={form} disabled={false} />
 
               {/* Sección 2: Fecha y Horarios */}
               <DateTimeSection form={form} isCreating={isCreating} disabled={false} />

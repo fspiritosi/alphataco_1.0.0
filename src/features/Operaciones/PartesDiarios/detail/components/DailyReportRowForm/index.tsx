@@ -216,6 +216,17 @@ export function DailyReportRowForm({
 
     const employeeIds = isRoleBased ? employeesWithRoles : (data.employees ?? []).map((id) => ({ id }));
 
+    // El tipo de servicio es obligatorio al crear/editar la fila. En modo "solo
+    // recursos" el campo está bloqueado (el supervisor no puede tocarlo), así que
+    // se respeta el valor ya guardado de la fila y no se exige re-seleccionarlo.
+    if (!resourcesOnly && !data.type_service) {
+      form.setError('type_service', {
+        type: 'manual',
+        message: 'Debe seleccionar un tipo de servicio',
+      });
+      return;
+    }
+
     // Validación: motivo de reasignación obligatorio si en edición se removieron/reemplazaron
     // empleados o equipos respecto al estado original (replicado de prod)
     if (isEditMode) {
