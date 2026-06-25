@@ -17,6 +17,7 @@ import {
   EmployeeForForm,
   OtherEquipmentItem,
   VehicleForForm,
+  bulkUpdateRowStatus,
   createDailyReportRowPrisma,
   getDailyReportRowForForm,
   updateDailyReportRowPrisma,
@@ -279,9 +280,21 @@ export function DailyReportRowForm({
       customer_equipment: data.equipos_cliente ?? [],
     };
 
+    // Reprogramación: cuando el usuario marca la fila como 'reprogramado' y elige
+    // una fecha destino, NO basta con actualizar el status. Hay que clonar la fila
+    // a la fecha destino (creando el parte si no existe) y marcar la original como
+    // 'reprogramado'. Reusamos bulkUpdateRowStatus para mantener exactamente la
+    // misma lógica que el BulkEditModal (clona sin recursos).
+    const isReprogramming = isEditMode && !!editingRowId && data.status === 'reprogramado' && !!data.reprogram_date;
+
     toast.promise(
       async () => {
-        if (isEditMode && editingRowId) {
+        if (isEditMode && editingRowId && data.status === 'reprogramado' && data.reprogram_date) {
+          await bulkUpdateRowStatus([editingRowId], {
+            status: 'reprogramado',
+            reschedule_date: moment(data.reprogram_date).format('YYYY-MM-DD'),
+          });
+        } else if (isEditMode && editingRowId) {
           await updateDailyReportRowPrisma(editingRowId, rowInput);
         } else {
           await createDailyReportRowPrisma({ ...rowInput, daily_report_id: dailyReportId });
@@ -296,9 +309,21 @@ export function DailyReportRowForm({
         onSuccess?.();
       },
       {
-        loading: isEditMode ? 'Actualizando fila del parte...' : 'Creando fila del parte...',
-        success: isEditMode ? 'Fila del parte actualizada exitosamente' : 'Fila del parte creada exitosamente',
-        error: isEditMode ? 'Error al actualizar la fila' : 'Error al crear la fila',
+        loading: isReprogramming
+          ? 'Reprogramando fila del parte...'
+          : isEditMode
+            ? 'Actualizando fila del parte...'
+            : 'Creando fila del parte...',
+        success: isReprogramming
+          ? 'Fila reprogramada exitosamente'
+          : isEditMode
+            ? 'Fila del parte actualizada exitosamente'
+            : 'Fila del parte creada exitosamente',
+        error: isReprogramming
+          ? 'Error al reprogramar la fila'
+          : isEditMode
+            ? 'Error al actualizar la fila'
+            : 'Error al crear la fila',
       }
     );
   };
