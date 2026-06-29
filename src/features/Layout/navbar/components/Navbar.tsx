@@ -2,7 +2,6 @@ import { ModeToggle } from '@/components/ui/ToogleDarkButton';
 import { Button } from '@/components/ui/button';
 import { NavbarClientProps } from '../types/navbar.types';
 import { _CompanySelector } from './modals/_CompanySelector';
-// import { _NotificationsModal } from './modals/_NotificationsModal'; // COMMENTED OUT — notifications unused
 import { _SidebarToggle } from './ui/_SidebarToggle';
 import { _UserMenu } from './ui/_UserMenu';
 
@@ -25,7 +24,6 @@ export function Navbar({ user, companies }: NavbarClientProps) {
           </Button>
         ) : null}
 
-        {/* <_NotificationsModal notifications={notifications} /> */}
         <ModeToggle />
         <_UserMenu user={user} />
       </div>

@@ -1,6 +1,6 @@
 import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
 import { Company, SharedCompanies, Vehicle } from '@/shared/schemas/schemas';
-import { Notifications, SharedUser, VehiclesAPI, profileUser } from '@/shared/types/legacy';
+import { SharedUser, VehiclesAPI, profileUser } from '@/shared/types/legacy';
 import { User } from '@supabase/supabase-js';
 import cookies from 'js-cookie';
 import moment from 'moment';
@@ -70,8 +70,6 @@ interface State {
     employees: Document[];
     vehicles: Document[];
   };
-  notifications: Notifications[];
-  markAllAsRead: () => void;
   resetDefectCompanies: (company: Company[0]) => void;
   sharedUsers: SharedUser[];
   vehiclesToShow: any;
@@ -403,7 +401,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
       setActivesEmployees();
       fetchVehicles();
       documetsFetch();
-      allNotifications();
       FetchSharedUsers();
       handleActualCompanyRole();
     }
@@ -455,46 +452,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
       console.error('Error al obtener los empleados no avalados:', error);
     } else {
       set({ employeesToShow: setEmployeesToShow(data) || [] });
-    }
-  };
-
-  const allNotifications = async () => {
-    let { data: notifications, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('company_id', get()?.actualCompany?.id!);
-
-    await documetsFetch();
-
-    const document = notifications?.map((doc: any) => {
-      const findDocument =
-        get()?.allDocumentsToShow?.employees?.find((document) => document.id === doc.document_id) ||
-        get()?.allDocumentsToShow?.vehicles?.find((document) => document.id === doc.document_id);
-      if (findDocument) {
-        return { ...doc, document: findDocument };
-      } else {
-        return doc;
-      }
-    });
-
-    if (error) {
-      console.error('Error al obtener las notificaciones:', error);
-    }
-
-    const tipedData = document?.sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ) as Notifications[];
-
-    set({ notifications: tipedData });
-  };
-
-  const markAllAsRead = async () => {
-    const { error } = await supabase.from('notifications').delete().eq('company_id', get()?.actualCompany?.id!);
-
-    if (error) {
-      console.error('Error al marcar todas las notificaciones como leídas:', error);
-    } else {
-      allNotifications();
     }
   };
 
@@ -1002,13 +959,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
   //   })
   //   .subscribe();
 
-  // const realTimeNotification = supabase
-  //   .channel('custom-all-channel')
-  //   .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
-  //     allNotifications();
-  //   })
-  //   .subscribe();
-
   // const realTimeEmployees = supabase
   //   .channel('custom-update-channel')
   //   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'employees' }, (payload) => {
@@ -1092,8 +1042,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
     setShowLastMonthDocuments,
     lastMonthDocuments: get()?.lastMonthDocuments,
     pendingDocuments: get()?.pendingDocuments,
-    notifications: get()?.notifications,
-    markAllAsRead,
     allDocumentsToShow: get()?.allDocumentsToShow,
     resetDefectCompanies,
     sharedUsers: get()?.sharedUsers,
