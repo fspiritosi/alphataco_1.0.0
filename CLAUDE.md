@@ -241,6 +241,18 @@ El `.env` local apunta al proyecto **dev** Supabase (`ref pdrylqbztmpgawsfdsbr`)
 
 El boton "Subir documento" de las tablas de documentos abre `SimpleDocument.tsx` (flujo propio, persistencia inline), DISTINTO de los forms `UploadDocumentMultiEmployee/Equipment` (que usan `uploadDocument(..., multipleResources)` de `utils.ts`). Si un fix "multirecurso" se hace en uno, verificar el otro: `SimpleDocument` no tenia logica multirecurso (subia a un solo recurso) y usaba `router.refresh()` (recarga toda la ruta) en vez de `queryClient.invalidateQueries()` (refresca solo la tabla en client-side mode).
 
+### "Cerrar una tarea" / "ponle un cierre" = resumen interno, NUNCA comentario al cliente
+
+Cuando el usuario pide "cerrar la tarea", "ponle un cierre", "dale cierre al ticket", se refiere al **cierre interno**: completar el campo `completion_summary` (qué se hizo, causa raíz, fix, commits/PRs, datos tocados) y/o pasar el estado a Resuelto. **NUNCA** significa escribir un comentario de cara al cliente. Los comentarios públicos (`manage_task_comments` con `is_internal: false`) son visibles al reporter externo y **NO** se redactan salvo pedido explícito e inequívoco. Ojo adicional: el estado "Resuelto" (id 6) tiene `triggers_resolved_email: true` → al pasar a Resuelto se dispara un email automático al cliente; tenerlo presente antes de cambiar estado. Ante la duda sobre algo que impacte al cliente (comentario público, email, cambio de estado que notifica), preguntar primero.
+
+### Tras subir documentos: invalidar React Query, no solo `router.refresh()`
+
+Las tablas de documentos (empleados/equipos) corren en **client-side mode con React Query**. Tras subir un documento (flujo masivo `UploadDocumentMultiEmployee/Equipment` o individual `SimpleDocument`), `router.refresh()` por sí solo **NO** actualiza la tabla de fondo (solo refresca Server Components/SSR). SIEMPRE llamar también `queryClient.invalidateQueries()`. Patrón: `queryClient.invalidateQueries(); router.refresh();` (el invalidate para las tablas React Query; router.refresh para las tablas SSR del sistema viejo). Extiende la regla de "Modal SimpleDocument != flujo UploadDocumentMulti*".
+
+### Carga masiva multirecurso: persistir server-side (Prisma), nunca `.in([cientos])` client-side
+
+Subir un documento multirecurso a cientos de recursos con `supabaseBrowser().in('applies', [cientos de ids])` (client-side) **muere por timeout**: arma una URL gigante y dispara la cadena de triggers `update_status_trigger` (row-level) → `UPDATE employees/vehicles` → `controlar_alertas_*` → recálculo completo de alertas, **por cada fila** (N×N×M). Solución: server action Prisma con `$transaction` (`updateMany` faltantes-pendientes + `createMany` ausentes, ignorando los ya presentados) + compensación del storage si la transacción falla. Y los triggers de documentos deben ser **statement-level** (`REFERENCING NEW TABLE ... FOR EACH STATEMENT`, un trigger por evento porque Postgres no admite transition tables con `INSERT OR UPDATE` juntos) con `UPDATE ... SET status = (CASE ... END)::status_type` (la columna `status` es enum, requiere cast explícito). Los `controlar_alertas_*` de employees/vehicles deben tener guarda `WHEN (OLD.is_active IS DISTINCT FROM NEW.is_active OR OLD.company_id IS DISTINCT FROM NEW.company_id)` para no recalcular alertas en cambios de `status`.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

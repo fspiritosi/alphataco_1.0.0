@@ -1,6 +1,7 @@
 'use client';
 
-import { calculateNameOFDocument, cn, uploadDocument, uploadDocumentFile } from '@/lib/utils';
+import { calculateNameOFDocument, cn } from '@/lib/utils';
+import { uploadMultiResourceDocument } from '@/features/Documentacion/shared/actions/upload-multiresource-document';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { CaretSortIcon } from '@radix-ui/react-icons';
@@ -176,7 +177,6 @@ export default function SimpleDocument({
             throw new Error('Faltan datos para subir el documento');
           }
 
-          const multiTableName = resource === 'empleado' ? 'documents_employees' : 'documents_equipment';
           const resourceList = resource === 'empleado' ? employees : vehicles;
           const allActiveIds = (resourceList ?? []).map((res: any) => res.id).filter(Boolean);
           if (!allActiveIds.length) {
@@ -197,27 +197,23 @@ export default function SimpleDocument({
             'multirecursos'
           );
 
-          // Subir primero el archivo (upsert: documento compartido por varios recursos),
-          // y solo si tuvo exito persistir las filas. Asi no quedan registros huerfanos.
-          await uploadDocumentFile(selectedFile, sharedPath, true);
-          await uploadDocument(
-            {
-              created_at: new Date().toISOString(),
-              applies: allActiveIds,
-              document_path: sharedPath,
-              id_document_types: formData.id_document_types,
-              state: 'presentado',
-              // Columna uuid nullable: enviar undefined (→ null), NUNCA '' (provoca 400 invalid uuid)
-              user_id: user || undefined,
-              period: formData.period || undefined,
-              validity: formData.validity
-                ? moment(formData.validity).utc().format('YYYY-MM-DD HH:mm:ss+00')
-                : undefined,
-            },
-            selectedDocType?.mandatory === true,
-            multiTableName,
-            true
-          );
+          // Persistencia server-side (Prisma + transaccion): mismo flujo eficiente que el masivo.
+          // Evita el .in([cientos]) client-side que moria por timeout y completa solo los faltantes.
+          const fd = new FormData();
+          fd.append('file', selectedFile);
+          fd.append('resource', resource);
+          fd.append('documentTypeId', formData.id_document_types);
+          fd.append('appliesIds', JSON.stringify(allActiveIds));
+          fd.append('sharedPath', sharedPath);
+          if (user) fd.append('userId', user);
+          if (formData.validity) fd.append('validity', moment(formData.validity).utc().format());
+          if (formData.period) fd.append('period', formData.period);
+
+          const multiRes = await uploadMultiResourceDocument(fd);
+          if (!multiRes.ok) {
+            setLoading(false);
+            throw new Error(multiRes.error);
+          }
 
           setLoading(false);
           return;

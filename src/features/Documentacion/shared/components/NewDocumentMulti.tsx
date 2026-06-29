@@ -81,8 +81,8 @@ async function NewDocumentMulti({
             />
           </TabsContent>
         </Tabs>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="hidden" id="close-create-document-modal" />
+        <AlertDialogFooter className="hidden">
+          <AlertDialogCancel id="close-create-document-modal">Cerrar</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
