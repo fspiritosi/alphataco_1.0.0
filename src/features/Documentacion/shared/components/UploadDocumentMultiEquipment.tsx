@@ -8,13 +8,8 @@ import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { YearMonthPicker } from '@/components/ui/year-month-picker';
-import {
-  calculateNameOFDocument,
-  cn,
-  getAllDocumentsByIdDocumentTypeCientSide,
-  uploadDocument,
-  uploadDocumentFile,
-} from '@/lib/utils';
+import { calculateNameOFDocument, cn, getAllDocumentsByIdDocumentTypeCientSide } from '@/lib/utils';
+import { uploadMultiResourceDocument } from '@/features/Documentacion/shared/actions/upload-multiresource-document';
 import { Logger } from '@/lib/logger';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,6 +17,7 @@ import { format } from 'date-fns';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -65,10 +61,6 @@ function UploadDocumentMultiEquipment({
         required_error: 'Este campo es requerido',
       })
       .uuid(),
-    user_id: z
-      .string()
-      .uuid()
-      .default(user_id || ''),
     period: selectedDocumentType?.is_it_montlhy
       ? z.string({
           required_error: 'Este campo es requerido',
@@ -78,6 +70,7 @@ function UploadDocumentMultiEquipment({
     policy_number: z.string().optional(),
   });
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const form = useForm<z.infer<typeof uploadDocumentSchema>>({
     resolver: zodResolver(uploadDocumentSchema),
@@ -86,6 +79,7 @@ function UploadDocumentMultiEquipment({
     },
   });
   const [documenTypes, setDocumentTypes] = useState<typeof allDocumentTypes>(allDocumentTypes);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   async function onSubmit(data: z.infer<typeof uploadDocumentSchema>) {
     if (!selectedFile) {
       toast.error('Debe seleccionar un archivo');
@@ -95,22 +89,44 @@ function UploadDocumentMultiEquipment({
       toast.error('Debe seleccionar al menos un recurso');
       return;
     }
-    const selectedDocumentType = allDocumentTypes.find((documentType) => documentType.id === data.id_document_types);
+
+    setIsSubmitting(true);
     try {
-      // Subir primero el archivo al storage (upsert: documento compartido por varios recursos),
-      // y solo si tuvo exito persistir las filas. Asi no quedan registros apuntando a un archivo inexistente.
-      await uploadDocumentFile(selectedFile, data.document_path, true);
-      await uploadDocument(data, selectedDocumentType?.mandatory!, 'documents_equipment', true);
-      toast.success('Documento cargado correctamente');
-      //Cerrar el modal y resetear el formulario y estados
+      // Persistencia server-side (Prisma + transaccion): evita la URL gigante de .in([cientos])
+      // y completa solo los recursos faltantes. La server action sube el archivo y, si la
+      // transaccion falla, lo revierte (compensacion).
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      fd.append('resource', 'equipo');
+      fd.append('documentTypeId', data.id_document_types);
+      fd.append('appliesIds', JSON.stringify(data.applies));
+      fd.append('sharedPath', data.document_path);
+      if (user_id) fd.append('userId', user_id);
+      if (data.validity) fd.append('validity', data.validity);
+      if (data.period) fd.append('period', data.period);
+      if (data.policy_number) fd.append('policyNumber', data.policy_number);
+
+      const res = await uploadMultiResourceDocument(fd);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+
+      toast.success(`Documento cargado (${res.updated + res.created} recursos)`);
       form.reset();
       setSelectedFile(undefined);
       setSelectedDocumentType(undefined);
+      setSelectedFileName('');
+      // Refrescar la tabla de fondo: invalidar React Query (client-side mode) ademas
+      // de router.refresh() para las tablas del sistema viejo (SSR).
+      queryClient.invalidateQueries();
       router.refresh();
       document.getElementById('close-create-document-modal')?.click();
     } catch (error) {
       logger.error('Error al cargar documento multirecurso de equipos', { data: { error } });
       toast.error(error instanceof Error ? error.message : 'No se pudo cargar el documento');
+    } finally {
+      setIsSubmitting(false);
     }
   }
   const [selectedFileName, setSelectedFileName] = useState<string>('');
@@ -336,7 +352,9 @@ function UploadDocumentMultiEquipment({
           />
           <div className="flex justify-around">
             <Button
+              type="button"
               variant={'destructive'}
+              disabled={isSubmitting}
               onClick={() => {
                 form.reset();
                 setSelectedFile(undefined);
@@ -346,7 +364,9 @@ function UploadDocumentMultiEquipment({
             >
               Cancelar
             </Button>
-            <Button type="submit">Enviar</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Enviando…' : 'Enviar'}
+            </Button>
           </div>
         </form>
       </Form>

@@ -21,18 +21,6 @@ export type LoggedUser = {
   } | null;
 };
 
-export type Notifications = {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  company_id: string;
-  created_at: Date;
-  document_id: string;
-  reference: string;
-  document: DocumentInsert;
-};
-
 export type DocumentInsert = {
   date: string;
   allocated_to: string;

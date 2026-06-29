@@ -9,7 +9,6 @@ export type CompanyGroup = {
 
 export type NavbarClientProps = {
   user: UserProfile | null;
-  // notifications: FormattedNotifications[]; // COMMENTED OUT — notifications unused
   companies: {
     sharedCompanies: Company[];
     allCompanies: Company[];
@@ -22,14 +21,6 @@ export type CompanySelectorProps = {
   allCompanies: Company[];
   currentCompany: Company[];
 };
-export type NotificationsModalProps = {
-  notifications: FormattedNotifications[];
-};
-export type NotificationItemProps = {
-  notification: FormattedNotifications;
-  formattedDate: string;
-};
-
 export type UserMenuProps = {
   user: UserProfile | null;
 };
@@ -44,15 +35,3 @@ export interface EquipmentDocumentWithDocumentTypes extends Omit<EquipmentDocume
   applies: Vehicle;
 }
 
-export type FormattedNotifications = {
-  id: string;
-  description: string;
-  category: string;
-  created_at: string;
-  document: {
-    id: number;
-    documentName: string;
-    resource: string;
-    reference: 'employee' | 'vehicle';
-  };
-};
