@@ -83,6 +83,8 @@ async function buildWhereClause(
   const userCreatedAtFilter = (dateFiltersWhere as Record<string, unknown>).created_at;
 
   return {
+    // Excluir documentos archivados (archived_at no nulo = historial / no vigente)
+    archived_at: null,
     vehicles: {
       company_id: companyId,
       is_active: true,
@@ -234,6 +236,8 @@ export async function getVehicleExpiringDocsSingleFacet(
     const nextMonth = moment().add(EXPIRY_WINDOW_DAYS, 'days').endOf('day').toDate();
 
     const baseWhere: Prisma.documents_equipmentWhereInput = {
+      // Excluir documentos archivados (archived_at no nulo = historial / no vigente)
+      archived_at: null,
       vehicles: {
         company_id: companyId,
         is_active: true,

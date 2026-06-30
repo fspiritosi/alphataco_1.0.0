@@ -528,6 +528,11 @@ export async function createEmployee(data: EmployeeFormData) {
         });
       }
 
+      // 358 / M:M: generar los documentos requeridos con el estado FINAL. Los contratistas/aptitudes
+      // se insertan DESPUES del INSERT escalar, por lo que el trigger AFTER INSERT los ve vacios.
+      // Este recalculo explicito usa el estado ya completo.
+      await tx.$queryRaw`SELECT controlar_alertas_documentos_single_employee(${created.id}::uuid, ${company_id}::uuid)`;
+
       return created;
     });
 
@@ -630,6 +635,13 @@ export async function updateEmployee(employeeId: string, data: EmployeeFormData)
           });
         }
       }
+
+      // 358 / M:M: re-evaluar los documentos requeridos con el estado FINAL del empleado.
+      // Las condiciones many-to-many (contratistas/aptitudes) se reemplazan despues del update
+      // escalar, por lo que el trigger automatico (que corre en el update escalar) las ve viejas.
+      // Este recalculo explicito usa el estado ya actualizado. Es 1 solo recurso (barato) y su
+      // UPDATE de status no dispara cascada (status no esta en la guarda de controlar_alertas).
+      await tx.$queryRaw`SELECT controlar_alertas_documentos_single_employee(${employeeId}::uuid, ${company_id}::uuid)`;
 
       return updated;
     });

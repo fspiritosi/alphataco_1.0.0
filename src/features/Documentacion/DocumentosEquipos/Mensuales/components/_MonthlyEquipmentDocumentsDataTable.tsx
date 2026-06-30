@@ -104,7 +104,9 @@ function buildFkFacetResult(
 function MonthlyEquipmentDocumentsDownloadButton({ tableRows }: { tableRows: MonthlyEquipmentDocumentListItem[] }) {
   const supabase = supabaseBrowser();
 
-  const downloadableRows = tableRows.filter((row) => row.state !== 'pendiente' && row.document_path);
+  const downloadableRows = tableRows.filter(
+    (row) => row.state !== 'pendiente' && row.document_path && row.archived_at == null
+  );
   const pendingRows = tableRows.filter((row) => row.state === 'pendiente');
 
   const getVehicleLabel = (row: MonthlyEquipmentDocumentListItem) => {
@@ -438,7 +440,8 @@ export function _MonthlyEquipmentDocumentsDataTable({
           vehicle: (val) => String(val ?? ''),
           documentType: (val) => String(val ?? ''),
           contractor: (val) => String(val ?? ''),
-          state: (val) => stateLabels[val as string] ?? String(val ?? ''),
+          state: (val, row) =>
+            row.archived_at != null ? 'Ya no aplica (historial)' : stateLabels[val as string] ?? String(val ?? ''),
           mandatory: (val) => (val === true || val === 'true' ? 'Sí' : val === false || val === 'false' ? 'No' : ''),
           multiresource: (val) =>
             val === true || val === 'true' ? 'Sí' : val === false || val === 'false' ? 'No' : '',

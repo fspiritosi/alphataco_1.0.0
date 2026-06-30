@@ -1371,43 +1371,56 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
     if (!docType) throw new Error('Tipo de documento no encontrado');
 
     let uploadedCount = 0;
+    // 358: documentos con archivo INCLUYENDO archivados — solo para canHardDelete (borrar el tipo
+    // borraria esos archivos via cascade). El display al usuario usa uploadedCount (solo vigentes).
+    let uploadedWithFileTotal = 0;
     let emptyAlertCount = 0;
     let missingAlertCount = 0;
 
     if (docType.applies === document_applies.Persona) {
-      const [uploaded, empty, totalActive] = await Promise.all([
+      const [uploadedVigente, uploadedWithFile, empty, totalActive] = await Promise.all([
+        // Vigentes con archivo (display): excluye archivados (358)
+        prisma.documents_employees.count({
+          where: { id_document_types: docTypeId, document_path: { not: null }, archived_at: null },
+        }),
+        // Todos los que tienen archivo, incl. archivados (para canHardDelete)
         prisma.documents_employees.count({
           where: { id_document_types: docTypeId, document_path: { not: null } },
         }),
         prisma.documents_employees.count({
-          where: { id_document_types: docTypeId, document_path: null },
+          where: { id_document_types: docTypeId, document_path: null, archived_at: null },
         }),
         prisma.employees.count({
           where: { company_id: companyId },
         }),
       ]);
-      uploadedCount = uploaded;
+      uploadedCount = uploadedVigente;
+      uploadedWithFileTotal = uploadedWithFile;
       emptyAlertCount = empty;
       const withAlert = await prisma.documents_employees.count({
-        where: { id_document_types: docTypeId },
+        where: { id_document_types: docTypeId, archived_at: null },
       });
       missingAlertCount = Math.max(0, totalActive - withAlert);
     } else if (docType.applies === document_applies.Equipos) {
-      const [uploaded, empty, totalActive] = await Promise.all([
+      const [uploadedVigente, uploadedWithFile, empty, totalActive] = await Promise.all([
+        prisma.documents_equipment.count({
+          where: { id_document_types: docTypeId, document_path: { not: null }, archived_at: null },
+        }),
         prisma.documents_equipment.count({
           where: { id_document_types: docTypeId, document_path: { not: null } },
         }),
         prisma.documents_equipment.count({
-          where: { id_document_types: docTypeId, document_path: null },
+          where: { id_document_types: docTypeId, document_path: null, archived_at: null },
         }),
         prisma.vehicles.count({
           where: { company_id: companyId },
         }),
       ]);
-      uploadedCount = uploaded;
+      uploadedCount = uploadedVigente;
+      uploadedWithFileTotal = uploadedWithFile;
       emptyAlertCount = empty;
       const withAlert = await prisma.documents_equipment.count({
-        where: { id_document_types: docTypeId },
+        where: { id_document_types: docTypeId, archived_at: null },
       });
       missingAlertCount = Math.max(0, totalActive - withAlert);
     } else {
@@ -1419,6 +1432,7 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
       if (doc) {
         if (doc.document_path) {
           uploadedCount = 1;
+          uploadedWithFileTotal = 1;
         } else {
           emptyAlertCount = 1;
         }
@@ -1440,7 +1454,7 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
       emptyAlertCount,
       totalResources: uploadedCount + emptyAlertCount,
       missingAlertCount,
-      canHardDelete: uploadedCount === 0,
+      canHardDelete: uploadedWithFileTotal === 0,
     };
   } catch (error) {
     logger.error('Error al analizar impacto de tipo de documento', { data: { error, docTypeId } });

@@ -58,6 +58,7 @@ const MONTHLY_DOCS_SELECT = {
   document_path: true,
   deny_reason: true,
   applies: true,
+  archived_at: true,
   id_document_types: true,
   // Empleado (FK → employees)
   employees: {
@@ -106,7 +107,15 @@ const MONTHLY_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(
+  companyId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  employeeId?: string,
+  includeArchived = false
+) {
+  // En la vista de detalle de un empleado (employeeId presente) se incluyen los
+  // documentos archivados como historial; en la tabla general del módulo se ocultan.
+  const showArchived = includeArchived || !!employeeId;
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -216,6 +225,8 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
     { employees: { company_id: companyId } },
     // Filtro base: solo tipos de documento mensuales y activos
     { document_types: { is_it_montlhy: true, is_active: true, ...(!canViewPrivate && { private: { not: true } }) } },
+    // Excluir documentos archivados (historial / no vigente) salvo en la vista de detalle
+    ...(showArchived ? [] : [{ archived_at: null }]),
     // Filtro opcional por empleado específico (para vista de detalle)
     ...(employeeId ? [{ applies: employeeId }] : []),
   ];
@@ -395,6 +406,7 @@ export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTable
         AND: [
           { employees: { company_id: companyId } },
           { document_types: { ...baseDocumentTypesWhere, ...(!canViewPrivate && { private: { not: true } }) } },
+          ...(employeeId ? [] : [{ archived_at: null }]),
           ...(employeeId ? [{ applies: employeeId }] : []),
         ],
       };
@@ -656,6 +668,7 @@ export async function getMonthlyEmployeeDocumentsSingleFacet(
               ...(!canViewPrivate && { private: { not: true } }),
             },
           },
+          ...(employeeId ? [] : [{ archived_at: null }]),
           ...(employeeId ? [{ applies: employeeId }] : []),
         ],
       };

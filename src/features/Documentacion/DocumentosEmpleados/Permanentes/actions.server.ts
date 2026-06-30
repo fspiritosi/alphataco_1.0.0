@@ -61,6 +61,7 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
   validity: true,
   state: true,
   is_active: true,
+  archived_at: true,
   deny_reason: true,
   document_path: true,
   applies: true,
@@ -91,7 +92,15 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
+async function buildWhereClause(
+  companyId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  employeeId?: string,
+  includeArchived = false
+) {
+  // En la vista de detalle de un empleado (employeeId presente) se incluyen los
+  // documentos archivados como historial; en la tabla general del módulo se ocultan.
+  const showArchived = includeArchived || !!employeeId;
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -174,6 +183,8 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
   return {
     // Solo documentos permanentes (no mensuales) con empleados activos de la compañía
     ...(employeeId ? { applies: employeeId } : {}),
+    // Excluir documentos archivados (historial / no vigente) salvo en la vista de detalle
+    ...(showArchived ? {} : { archived_at: null }),
     employees: {
       company_id: companyId,
       is_active: true,
@@ -289,6 +300,7 @@ export async function getEmployeePermanentDocumentsSingleFacet(
       const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
       return {
         ...(employeeId ? { applies: employeeId } : {}),
+        ...(employeeId ? {} : { archived_at: null }),
         employees: { company_id: companyId, is_active: true },
         document_types: { is_it_montlhy: false, ...(!canViewPrivate && { private: { not: true } }) },
       };
