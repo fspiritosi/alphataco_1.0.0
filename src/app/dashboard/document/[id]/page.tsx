@@ -17,7 +17,7 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 import BackButton from '@/shared/components/common/BackButton';
-import { Building2, FileText, User, Wrench } from 'lucide-react';
+import { Archive, Building2, FileText, User, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { Suspense } from 'react';
 
@@ -30,6 +30,7 @@ type DocumentRecord = {
   validity?: string | null;
   period?: string | null;
   created_at?: string | null;
+  archived_at?: string | null;
   document_types?: {
     id?: string;
     name?: string;
@@ -107,6 +108,8 @@ export default async function page({
   const documentUrl = url.publicUrl;
   const docTypes = doc?.document_types;
   const isCompanyDoc = resource === 'company';
+  // 358: documento archivado = ya no aplica al recurso; se muestra como historial, sin estado de vigencia.
+  const isArchived = doc?.archived_at != null;
 
   // Obtener permisos
   const permissions = await getUserPermissionsMapServer();
@@ -688,6 +691,15 @@ export default async function page({
   return (
     <section className="md:mx-2">
       <Card className="p-4 px-2">
+        {isArchived && (
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            <Archive className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Este documento <strong>ya no aplica</strong> al recurso (cambió su función o condición). Se conserva a modo
+              de <strong>historial</strong>: no se solicita ni cuenta para la documentación vigente.
+            </span>
+          </div>
+        )}
         <div className="grid lg:grid-cols-3 grid-cols-1 gap-col-3">
           <div className="lg:max-w-[30vw] col-span-1">
             <div className="flex flex-col">
@@ -695,37 +707,43 @@ export default async function page({
                 <CardHeader>
                   <CardTitle className="text-2xl">{docTypes?.name}</CardTitle>
 
-                  {doc?.state && (
-                    <div className="flex flex-col">
-                      <Badge
-                        variant={
-                          doc.state === 'rechazado'
-                            ? 'destructive'
-                            : doc.state === 'aprobado'
-                              ? 'success'
-                              : doc.state === 'vencido'
-                                ? 'yellow'
-                                : 'default'
-                        }
-                        className="mb-3 capitalize w-fit"
-                      >
-                        {doc.state}
-                      </Badge>
-                      {doc.deny_reason && (
+                  {isArchived ? (
+                    <Badge variant="secondary" className="mb-3 w-fit flex items-center gap-1">
+                      <Archive className="h-3 w-3" /> Ya no aplica · Historial
+                    </Badge>
+                  ) : (
+                    doc?.state && (
+                      <div className="flex flex-col">
                         <Badge
                           variant={
-                            doc.state === 'rechazado' || doc.state === 'vencido'
+                            doc.state === 'rechazado'
                               ? 'destructive'
                               : doc.state === 'aprobado'
                                 ? 'success'
-                                : 'default'
+                                : doc.state === 'vencido'
+                                  ? 'yellow'
+                                  : 'default'
                           }
                           className="mb-3 capitalize w-fit"
                         >
-                          {doc.deny_reason}
+                          {doc.state}
                         </Badge>
-                      )}
-                    </div>
+                        {doc.deny_reason && (
+                          <Badge
+                            variant={
+                              doc.state === 'rechazado' || doc.state === 'vencido'
+                                ? 'destructive'
+                                : doc.state === 'aprobado'
+                                  ? 'success'
+                                  : 'default'
+                            }
+                            className="mb-3 capitalize w-fit"
+                          >
+                            {doc.deny_reason}
+                          </Badge>
+                        )}
+                      </div>
+                    )
                   )}
                 </CardHeader>
               </div>

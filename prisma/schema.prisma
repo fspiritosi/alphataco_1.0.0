@@ -1400,6 +1400,7 @@ model documents_employees {
   deny_reason              String?
   document_path            String?
   period                   String?
+  archived_at              DateTime?                  @db.Timestamptz(6)
   employees                employees?                 @relation(fields: [applies], references: [id], onDelete: Cascade)
   document_types           document_types?            @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
   profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -1432,6 +1433,7 @@ model documents_equipment {
   document_path            String?
   period                   String?
   policy_number            String?
+  archived_at              DateTime?                  @db.Timestamptz(6)
   vehicles                 vehicles?                  @relation(fields: [applies], references: [id], onDelete: Cascade)
   document_types           document_types?            @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
   profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)

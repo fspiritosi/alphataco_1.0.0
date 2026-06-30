@@ -76,6 +76,7 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
   validity: true,
   state: true,
   is_active: true,
+  archived_at: true,
   deny_reason: true,
   policy_number: true,
   document_path: true,
@@ -153,7 +154,15 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+async function buildWhereClause(
+  companyId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  equipmentId?: string,
+  includeArchived = false
+) {
+  // En la vista de detalle de un equipo (equipmentId presente) se incluyen los
+  // documentos archivados como historial; en la tabla general del módulo se ocultan.
+  const showArchived = includeArchived || !!equipmentId;
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -442,6 +451,8 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
   return {
     // Solo documentos de equipos activos de la compañía
     ...(equipmentId ? { applies: equipmentId } : {}),
+    // Excluir documentos archivados (historial / no vigente) salvo en la vista de detalle
+    ...(showArchived ? {} : { archived_at: null }),
     vehicles: {
       company_id: companyId,
       is_active: true,
@@ -558,6 +569,7 @@ export async function getEquipmentPermanentDocumentsSingleFacet(
       const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       return {
         ...(equipmentId ? { applies: equipmentId } : {}),
+        ...(equipmentId ? {} : { archived_at: null }),
         vehicles: { company_id: companyId, is_active: true },
         document_types: { is_it_montlhy: false, is_active: true, ...(!canViewPrivate && { private: { not: true } }) },
       };
@@ -916,6 +928,7 @@ export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTa
       const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
       return {
         ...(equipmentId ? { applies: equipmentId } : {}),
+        ...(equipmentId ? {} : { archived_at: null }),
         vehicles: { company_id: companyId, is_active: true },
         document_types: { is_it_montlhy: false, is_active: true, ...(!canViewPrivate && { private: { not: true } }) },
       };

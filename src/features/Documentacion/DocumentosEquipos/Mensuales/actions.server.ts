@@ -59,6 +59,7 @@ const MONTHLY_EQUIPMENT_DOCS_SELECT = {
   document_path: true,
   deny_reason: true,
   applies: true,
+  archived_at: true,
   id_document_types: true,
   // Vehículo / Equipo (FK → vehicles)
   vehicles: {
@@ -106,7 +107,15 @@ const MONTHLY_EQUIPMENT_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
+async function buildWhereClause(
+  companyId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  equipmentId?: string,
+  includeArchived = false
+) {
+  // En la vista de detalle de un equipo (equipmentId presente) se incluyen los
+  // documentos archivados como historial; en la tabla general del módulo se ocultan.
+  const showArchived = includeArchived || !!equipmentId;
   const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -225,6 +234,8 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
     { document_types: { is_it_montlhy: true, is_active: true, ...(!canViewPrivate && { private: { not: true } }) } },
     // Filtro base: solo vehículos activos
     { vehicles: { is_active: true } },
+    // Excluir documentos archivados (historial / no vigente) salvo en la vista de detalle
+    ...(showArchived ? [] : [{ archived_at: null }]),
     // Filtro opcional por equipo específico (para vista de detalle)
     ...(equipmentId ? [{ applies: equipmentId }] : []),
   ];
@@ -393,6 +404,7 @@ export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTabl
             },
           },
           { vehicles: { is_active: true } },
+          ...(equipmentId ? [] : [{ archived_at: null }]),
           ...(equipmentId ? [{ applies: equipmentId }] : []),
         ],
       };
@@ -656,6 +668,7 @@ export async function getMonthlyEquipmentDocumentsSingleFacet(
             },
           },
           { vehicles: { is_active: true } },
+          ...(equipmentId ? [] : [{ archived_at: null }]),
           ...(equipmentId ? [{ applies: equipmentId }] : []),
         ],
       };

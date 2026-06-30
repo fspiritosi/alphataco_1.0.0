@@ -1,6 +1,8 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
+import { cookies } from 'next/headers';
 
 export async function assignEquipmentsToCustomer(customerId: string, equipmentIds: string[]) {
   const supabase = await supabaseServer();
@@ -109,6 +111,20 @@ export async function assignEquipmentsToCustomer(customerId: string, equipmentId
       }
     }
 
+    // 358 / M:M: re-verificar los documentos de los equipos afectados (asignados Y desasignados).
+    // Sus documentos especiales pueden depender de la afectacion a cliente; cambiarla debe
+    // generar/archivar los que corresponda. Un solo round-trip via unnest.
+    const affectedEquipments = Array.from(new Set([...toDelete, ...toAdd])).filter(Boolean);
+    if (affectedEquipments.length > 0) {
+      const cookiesStore = await cookies();
+      const company_id = cookiesStore.get('actualComp')?.value;
+      if (company_id) {
+        await prisma.$queryRaw`
+          SELECT controlar_alertas_documentos_single_vehicle(equipment_id, ${company_id}::uuid)
+          FROM unnest(${affectedEquipments}::uuid[]) AS equipment_id`;
+      }
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error en assignEquipmentsToCustomer:', error);
@@ -196,6 +212,22 @@ export async function assignEmployeesToCustomer(customerId: string, employeeIds:
       if (insertError) {
         console.error('Error al insertar asignaciones:', insertError);
         throw insertError;
+      }
+    }
+
+    // 358 / M:M: re-verificar los documentos de los empleados afectados (asignados Y desasignados).
+    // Sus documentos especiales pueden depender de la afectacion a cliente; cambiarla debe
+    // generar/archivar los que corresponda. Un solo round-trip via unnest.
+    const affectedEmployees = Array.from(new Set([...assignmentsToDelete, ...assignmentsToAdd])).filter(
+      (id): id is string => Boolean(id)
+    );
+    if (affectedEmployees.length > 0) {
+      const cookiesStore = await cookies();
+      const company_id = cookiesStore.get('actualComp')?.value;
+      if (company_id) {
+        await prisma.$queryRaw`
+          SELECT controlar_alertas_documentos_single_employee(employee_id, ${company_id}::uuid)
+          FROM unnest(${affectedEmployees}::uuid[]) AS employee_id`;
       }
     }
 

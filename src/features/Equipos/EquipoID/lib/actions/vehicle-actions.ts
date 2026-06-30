@@ -195,6 +195,11 @@ export async function updateVehicle(id: string, vehicleData: any) {
     await updateContractorRelationships(id, vehicleData.allocated_to);
   }
 
+  // 358 / M:M: re-evaluar los documentos requeridos del equipo con el estado FINAL (incluye
+  // afectaciones a contratistas, que se actualizan despues del update). 1 solo recurso (barato);
+  // su UPDATE de status no dispara cascada (status no esta en la guarda de controlar_alertas).
+  await prisma.$queryRaw`SELECT controlar_alertas_documentos_single_vehicle(${id}::uuid, ${company_id}::uuid)`;
+
   revalidatePath('/dashboard/equipment');
   return data;
 }

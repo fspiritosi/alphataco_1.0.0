@@ -315,7 +315,8 @@ export const getAllDocumentsByIdDocumentTypeCientSide = async (
     .from(tableName)
     .select('applies')
     .eq('id_document_types', selectedValue)
-    .neq('document_path', null);
+    .neq('document_path', null)
+    .is('archived_at', null);
 
   if (error) {
     documentsLogger.error('Error al obtener documentos por tipo de documento', { data: { error, tableName } });
