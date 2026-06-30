@@ -85,7 +85,9 @@ export async function fetchPermanentEquipmentDocumentsData(options: FetchPermane
   }
 
   // Filtros permanentes: documentos permanentes activos con equipos activos
+  // Excluir documentos archivados (archived_at no nulo = historial / no vigente)
   query = query
+    .is('archived_at', null)
     .eq('document_types.is_it_montlhy', false)
     .eq('document_types.is_active', true)
     .eq('vehicles.is_active', true)

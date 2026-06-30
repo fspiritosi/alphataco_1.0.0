@@ -10,7 +10,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable/Data
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { LucideIcon } from 'lucide-react';
-import { AlertCircle, CheckCircle2, Clock, FileText, HelpCircle, XCircle } from 'lucide-react';
+import { AlertCircle, Archive, CheckCircle2, Clock, FileText, HelpCircle, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -185,6 +185,16 @@ export const columns: ColumnDef<EmployeePermanentDocumentListItem>[] = [
     meta: { title: 'Estado' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
+      // Documento archivado: historial / no vigente (solo visible en el detalle del empleado)
+      if (row.original.archived_at != null) {
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            <Archive className="h-3 w-3" />
+            Ya no aplica
+          </Badge>
+        );
+      }
+
       const state = row.original.state as string | null;
       if (!state) return <Badge variant="outline">Sin estado</Badge>;
 
@@ -252,6 +262,11 @@ export const columns: ColumnDef<EmployeePermanentDocumentListItem>[] = [
     meta: { title: 'Vencimiento' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento" />,
     cell: ({ row }) => {
+      // Documento archivado: no aplica estado de vigencia/vencimiento
+      if (row.original.archived_at != null) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+
       const hasExpiration = row.original.document_types?.explired;
       if (!hasExpiration) {
         return <Badge variant="outline">No vence</Badge>;

@@ -108,7 +108,8 @@ function UploadDocumentEquipment({
         .from('documents_equipment')
         .select('*')
         .eq('applies', default_id)
-        .neq('document_path', null);
+        .neq('document_path', null)
+        .is('archived_at', null);
 
       if (error) {
         console.error('error', error);
@@ -179,7 +180,8 @@ function UploadDocumentEquipment({
                                   .from('documents_equipment')
                                   .select('*')
                                   .eq('applies', equipment.value)
-                                  .neq('document_path', null);
+                                  .neq('document_path', null)
+                                  .is('archived_at', null);
 
                                 if (error) {
                                   console.error('error', error);

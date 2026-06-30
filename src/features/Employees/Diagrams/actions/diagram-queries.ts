@@ -44,7 +44,8 @@ export const fetchSingEmployee = async (employeesId: string) => {
     .eq('id_document_types', data?.id || '')
     .eq('applies', employeesId)
     .not('document_path', 'is', null)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .is('archived_at', null);
 
   if (error) {
     logger.error('Error fetching document type', { data: { error } });

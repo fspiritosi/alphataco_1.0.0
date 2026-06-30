@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       applies(*,type(*),type_of_vehicle(*),model(*),brand(*))
   `
       )
+      .is('archived_at', null)
       .eq('applies.company_id', company_id || '')
       .not('applies', 'is', null);
 

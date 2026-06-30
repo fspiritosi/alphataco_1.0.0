@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     document_types:document_types(*)
   `
       )
+      .is('archived_at', null)
       .not('employees', 'is', null)
       .eq('employees.company_id', company_id || '');
 

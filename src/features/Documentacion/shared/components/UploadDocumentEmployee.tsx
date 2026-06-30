@@ -111,7 +111,8 @@ function UploadDocumentEmployee({
         .from('documents_employees')
         .select('*')
         .eq('applies', default_id)
-        .neq('document_path', null);
+        .neq('document_path', null)
+        .is('archived_at', null);
 
       if (error) {
         console.error('error', error);
@@ -168,7 +169,8 @@ function UploadDocumentEmployee({
                                   .from('documents_employees')
                                   .select('*')
                                   .eq('applies', employee.value)
-                                  .neq('document_path', null);
+                                  .neq('document_path', null)
+                                  .is('archived_at', null);
 
                                 if (error) {
                                   console.error('error', error);
