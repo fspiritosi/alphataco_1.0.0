@@ -42,7 +42,19 @@ npx prisma generate      # Regenerate Prisma client
 # Testing (E2E only — no unit tests yet)
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
+
+# Sincronizar dev con datos de PROD (clonar prod -> dev para replicar bugs con el ambiente real)
+bash scripts/sync-prod-to-dev.sh   # requiere Docker corriendo; pide confirmar con 'CLONAR'
 ```
+
+### Sincronizar dev con datos de prod
+
+`bash scripts/sync-prod-to-dev.sh` clona los datos de **producción a dev** (para replicar/depurar un bug con el ambiente real, sin tocar prod). Repetible cada vez que reportan un error.
+
+- **Requiere Docker corriendo** — usa `pg_dump`/`psql` dentro de un contenedor `postgres:15`, no instala nada local.
+- Lee las connection strings del `.env`: **DEV** = línea activa `DIRECT_URL` (ref `pdrylqbztmpgawsfdsbr`); **PROD** = línea comentada `DIRECT_URL` (ref `vvrckjjyrwqzpbaatemz`). Usa el puerto 5432 (directo), no el pooler `:6543`.
+- **Solo LEE prod** (`pg_dump`); **reemplaza** el schema `public` de dev y trae `auth.users`/`identities` con upsert (FK desactivadas durante la carga, conserva los logins de dev). Pide confirmar escribiendo `CLONAR` y muestra progreso tabla por tabla.
+- **NO** copia los archivos físicos del Storage (los "Ver documento" dan 404 en dev). Para clonar datos, dev y prod deben tener el mismo esquema (mismas migraciones).
 
 ## Slash Commands
 
@@ -260,6 +272,14 @@ Antes de modificar la guarda `WHEN` o el nivel de un trigger row-level (ej. `con
 ### "No solicitar documentos que ya no aplican" (cambio de función): archivar, no borrar
 
 Cuando un documento deja de aplicar a un recurso (cambió `company_position`/categoría/cliente/aptitud), si tiene archivo subido NO se borra: se **archiva** (columna `archived_at`, NULL=vigente) para conservarlo como HISTORIAL, y se excluye de status, listas, alertas, descargas y estadísticas. Solo se muestra en el DETALLE del recurso marcado "Ya no aplica". Las alertas vacías (sin archivo) que dejan de aplicar sí se borran. La re-evaluación se dispara ante el UPDATE del RECURSO (no del documento): por trigger si cambian columnas directas, y por llamada explícita a `controlar_alertas_documentos_single_employee/_vehicle` para las M:M (contratistas/aptitudes, que no tienen trigger en la pivote) desde las server actions de edición/creación y de asignación a cliente. Cobertura "en todo lugar" = mutaciones + mostrar + calcular status + estadísticas.
+
+### Funciones SQL que retornan `void`: usar `$executeRaw`, NUNCA `$queryRaw`
+
+`$queryRaw` **deserializa** el resultado de cada columna; si llamás una función Postgres que retorna `void` (ej. `SELECT controlar_alertas_documentos_single_employee(...)`), Prisma falla en runtime con `UnsupportedNativeDataType: void` / *"Failed to deserialize column of type 'void'"* (código `P2010`). Usar **`$executeRaw`** (ejecuta sin deserializar, retorna el count de filas). Aplica a TODA invocación de función void via Prisma raw, incluido el patrón `SELECT fn(x) FROM unnest(...)`. **El error NO aparece en `check-types` ni al correr la función por psql/MCP** — solo en el flujo real de la app (editar/crear empleado o equipo, asignar a cliente). Por eso: tras agregar una llamada raw a una función void, **probar el flujo de UI real**, no solo el SQL. Bug introducido en el 358 (los recálculos M:M de `updateEmployee`/`createEmployee`/`updateVehicle`/`assign*ToCustomer`).
+
+### La config de los `document_types` la define el CLIENTE — nos adaptamos, no la cuestionamos
+
+Las condiciones de un tipo de documento (`special`, `conditions` por `company_position`/`guild`/`category`/etc.) son **decisión del cliente**. Si el cliente configuró `Apto Medico GH` como especial para 9 funciones, **así debe ser**: los empleados de otras funciones que lo tengan cargado **ya no lo requieren** y archivarlos es **correcto** — aunque intuitivamente "un apto médico debería aplicar a todos". NO asumir que una config "está mal" ni proponer corregirla salvo que el usuario/cliente lo pida explícitamente. Al validar el backfill o cualquier re-evaluación de alertas, el criterio de verdad es: *"¿el recurso cumple las conditions que el cliente definió?"* — si no las cumple, el doc no le aplica, punto. La función `controlar_alertas_documentos_single_*` es fiel a esas conditions; un archivado masivo "sorprendente" (ej. 142 aptos médicos) refleja la config del cliente, no un bug. Extiende [[archivado docs por cambio de función]].
 
 ---
 
