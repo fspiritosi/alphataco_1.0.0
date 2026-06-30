@@ -119,7 +119,7 @@ export async function assignEquipmentsToCustomer(customerId: string, equipmentId
       const cookiesStore = await cookies();
       const company_id = cookiesStore.get('actualComp')?.value;
       if (company_id) {
-        await prisma.$queryRaw`
+        await prisma.$executeRaw`
           SELECT controlar_alertas_documentos_single_vehicle(equipment_id, ${company_id}::uuid)
           FROM unnest(${affectedEquipments}::uuid[]) AS equipment_id`;
       }
@@ -225,7 +225,7 @@ export async function assignEmployeesToCustomer(customerId: string, employeeIds:
       const cookiesStore = await cookies();
       const company_id = cookiesStore.get('actualComp')?.value;
       if (company_id) {
-        await prisma.$queryRaw`
+        await prisma.$executeRaw`
           SELECT controlar_alertas_documentos_single_employee(employee_id, ${company_id}::uuid)
           FROM unnest(${affectedEmployees}::uuid[]) AS employee_id`;
       }
