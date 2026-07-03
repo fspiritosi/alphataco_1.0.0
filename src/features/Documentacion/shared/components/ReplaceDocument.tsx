@@ -128,6 +128,8 @@ export default function ReplaceDocument({
             // aprobacion). Sin esto, un documento previamente 'vencido' quedaba pegado en
             // ese estado aunque la nueva validez fuera futura.
             state: 'presentado',
+            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
+            archived_at: null,
           })
           .eq('id', appliesId || '');
 

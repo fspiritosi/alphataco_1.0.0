@@ -83,6 +83,8 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
               validity,
               period,
               user_id: userId ?? null,
+              // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
+              archived_at: null,
               // Reflejar el momento real de la subida (estas filas existían como `pendiente`,
               // su created_at original era el de la alerta, no el de la carga del documento).
               created_at: new Date(),
@@ -135,6 +137,8 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
             period,
             user_id: userId ?? null,
             policy_number: policyNumber ?? null,
+            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
+            archived_at: null,
             // Reflejar el momento real de la subida (estas filas existían como `pendiente`,
             // su created_at original era el de la alerta, no el de la carga del documento).
             created_at: new Date(),
