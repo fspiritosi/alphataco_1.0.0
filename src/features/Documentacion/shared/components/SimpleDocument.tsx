@@ -318,6 +318,8 @@ export default function SimpleDocument({
             document_path: response?.path,
             state: 'presentado',
             period: updateEntry.period || null,
+            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
+            archived_at: null,
           };
 
           const { error, data: userupdated } = await supabase
