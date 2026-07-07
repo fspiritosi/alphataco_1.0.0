@@ -73,7 +73,7 @@ export async function OperacionesPipelineContent({ searchParams }: OperacionesPi
       id: 'approve_date',
       content: (
         <Suspense fallback={<PendientesEjecutarSkeleton />}>
-          <PendientesEjecutarTabContent />
+          <PendientesEjecutarTabContent searchParams={searchParams} />
         </Suspense>
       ),
     },
