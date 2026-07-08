@@ -11,6 +11,11 @@ const VehiclesOnRepairDialog = dynamic(() => import('./VehiclesOnRepairDialog'),
   ssr: false,
 });
 
+// bundle-dynamic-imports — dialog loads only when opened
+const AvailableVehiclesDialog = dynamic(() => import('./AvailableVehiclesDialog'), {
+  ssr: false,
+});
+
 interface Props {
   totalActive: number;
   totalNotAvailable: number;
@@ -25,6 +30,8 @@ interface Props {
   motorFleet: number;
   motorAvailabilityPercent: number;
   motorUsagePercent: number;
+  // Tipos "motora" (Chasis & Tractor) — para filtrar el modal de disponibles
+  motorTypeIds: string[];
 }
 
 function DonutWithCenter({
@@ -81,8 +88,11 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
   motorFleet,
   motorAvailabilityPercent,
   motorUsagePercent,
+  motorTypeIds,
 }: Props) {
   const [repairDialogOpen, setRepairDialogOpen] = React.useState(false);
+  // Qué variante del modal de disponibles está abierta: 'all' (toda la flota) o 'motor' (Chasis & Tractor)
+  const [availableDialog, setAvailableDialog] = React.useState<'all' | 'motor' | null>(null);
 
   const availabilityConfig = React.useMemo<ChartConfig>(
     () => ({
@@ -220,12 +230,16 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                       <p className="text-lg font-bold tabular-nums">{motorInUse.toLocaleString('es-AR')}</p>
                       <p className="text-[10px] text-muted-foreground">En Operaciones</p>
                     </div>
-                    <div className="rounded-lg border p-2">
+                    <button
+                      type="button"
+                      onClick={motorActive - motorInUse > 0 ? () => setAvailableDialog('motor') : undefined}
+                      className="rounded-lg border p-2 hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
                       <p className="text-lg font-bold tabular-nums">
                         {(motorActive - motorInUse).toLocaleString('es-AR')}
                       </p>
                       <p className="text-[10px] text-muted-foreground">Disponible / Sin asignar</p>
-                    </div>
+                    </button>
                     <div className="rounded-lg border p-2">
                       <p className="text-lg font-bold tabular-nums">{motorActive.toLocaleString('es-AR')}</p>
                       <p className="text-[10px] text-muted-foreground">Total operativos</p>
@@ -265,7 +279,7 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                 <button
                   type="button"
                   onClick={totalNotAvailable > 0 ? () => setRepairDialogOpen(true) : undefined}
-                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <p className="text-lg font-bold tabular-nums">{totalNotAvailable.toLocaleString('es-AR')}</p>
                   <p className="text-[10px] text-muted-foreground">En reparacion</p>
@@ -301,10 +315,14 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
                   <p className="text-lg font-bold tabular-nums">{totalInUse.toLocaleString('es-AR')}</p>
                   <p className="text-[10px] text-muted-foreground">En Operaciones</p>
                 </div>
-                <div className="rounded-lg border p-2">
+                <button
+                  type="button"
+                  onClick={totalActive - totalInUse > 0 ? () => setAvailableDialog('all') : undefined}
+                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors cursor-pointer"
+                >
                   <p className="text-lg font-bold tabular-nums">{(totalActive - totalInUse).toLocaleString('es-AR')}</p>
                   <p className="text-[10px] text-muted-foreground">Disponible / Sin asignar</p>
-                </div>
+                </button>
                 <div className="rounded-lg border p-2">
                   <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
                   <p className="text-[10px] text-muted-foreground">Operativos</p>
@@ -326,6 +344,23 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
 
       {repairDialogOpen && (
         <VehiclesOnRepairDialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen} count={totalNotAvailable} />
+      )}
+
+      {availableDialog === 'motor' && (
+        <AvailableVehiclesDialog
+          open
+          onOpenChange={(open) => !open && setAvailableDialog(null)}
+          count={motorActive - motorInUse}
+          typeIds={motorTypeIds}
+        />
+      )}
+
+      {availableDialog === 'all' && (
+        <AvailableVehiclesDialog
+          open
+          onOpenChange={(open) => !open && setAvailableDialog(null)}
+          count={totalActive - totalInUse}
+        />
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { getEquipmentIndicators } from '../actions/actions.server';
+import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/actions.server';
 import { EquipmentFleetClient } from './EquipmentFleetClient';
 
 const MOTOR_UNIT_TYPES = ['chasis', 'tractor'];
@@ -7,7 +7,12 @@ export async function EquipmentFleetSection() {
   // getEquipmentIndicators is wrapped with React.cache() so it deduplicates
   // with EquipmentOperationSection's call in the same render.
   // vehiclesOnRepair loads lazily in dialog via useQuery (bundle-dynamic-imports)
-  const equipmentData = await getEquipmentIndicators();
+  const [equipmentData, vehicleTypes] = await Promise.all([getEquipmentIndicators(), getAllVehicleTypes()]);
+
+  // IDs de los tipos "motora" (Chasis & Tractor) — para filtrar el modal de disponibles
+  const motorTypeIds = vehicleTypes
+    .filter((t) => MOTOR_UNIT_TYPES.includes((t.name ?? '').toLowerCase()))
+    .map((t) => t.id);
 
   // Pre-compute fleet metrics with SINGLE LOOP (not 4 separate .reduce())
   let totalActive = 0;
@@ -54,6 +59,7 @@ export async function EquipmentFleetSection() {
       motorFleet={motorFleet}
       motorAvailabilityPercent={motorAvailabilityPercent}
       motorUsagePercent={motorUsagePercent}
+      motorTypeIds={motorTypeIds}
     />
   );
 }
