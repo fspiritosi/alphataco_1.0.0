@@ -145,7 +145,7 @@ export function EquipmentOperationClient({
                   key={stat.label}
                   type="button"
                   onClick={stat.onClick}
-                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <p className="text-lg font-bold tabular-nums">{stat.value.toLocaleString('es-AR')}</p>
                   <p className="text-[10px] text-muted-foreground">{stat.label}</p>
