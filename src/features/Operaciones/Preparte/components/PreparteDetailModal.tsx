@@ -17,10 +17,22 @@ interface PreparteDetailModalProps {
   preparteData: PreparteItem;
   Customers: Cliente[];
   contratos: Contrato[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
 }
 
-export function PreparteDetailModal({ preparteData, Customers, contratos }: PreparteDetailModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function PreparteDetailModal({
+  preparteData,
+  Customers,
+  contratos,
+  open,
+  onOpenChange,
+  showTrigger = true,
+}: PreparteDetailModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
+  const setIsOpen = onOpenChange ?? setInternalOpen;
 
   // Solo fetchea cuando el modal está abierto
   const { data: changeLogs = [], isLoading: isLoadingChangeLogs } = usePreparteChangeLogs(preparteData?.id, isOpen);
@@ -57,8 +69,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
 
   // Obtener nombre del item del JOIN (service_items viene resuelto de la query)
   const getItemName = () => {
-    const serviceItem = (preparteData as Record<string, unknown>).service_items as { item_name?: string } | null;
-    return serviceItem?.item_name || preparteData.item || 'No especificado';
+    return preparteData.service_items?.item_name || 'No especificado';
   };
 
   // Obtener sector
@@ -66,19 +77,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
     const sectorServiceId = preparteData.sector_service_id;
     if (!sectorServiceId) return 'No especificado';
 
-    const service = cliente?.customer_services?.find((s) => s.id === preparteData.contrato_id);
-    const sectorLink = service?.service_sectors?.find(
-      (ss) => ss.id === sectorServiceId || ss?.sectors?.id === sectorServiceId
-    );
-
-    if (!sectorLink?.sectors?.name) {
-      const sc = cliente?.sector_customer?.find(
-        (x: any) => x.id === sectorServiceId || x.sector_id === sectorServiceId
-      );
-      return sc?.sectors?.name || 'No especificado';
-    }
-
-    return sectorLink?.sectors?.name || 'No especificado';
+    return preparteData.service_sectors?.sectors?.name || 'No especificado';
   };
 
   // Obtener área
@@ -86,45 +85,27 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
     const areaServiceId = preparteData.areas_service_id;
     if (!areaServiceId) return 'No especificado';
 
-    const service = cliente?.customer_services?.find((s) => s.id === preparteData.contrato_id);
-    const areaLink = service?.service_areas?.find(
-      (sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId
-    );
-
-    return areaLink?.areas_cliente?.nombre || 'No especificado';
+    return preparteData.service_areas?.areas_cliente?.nombre || 'No especificado';
   };
 
   // Obtener equipos del cliente
   const getEquiposCliente = () => {
-    const value = preparteData.equipos_cliente;
-    if (!value) return [];
-
-    const equiposCatalog: Array<{ id: string; name: string; type?: string }> = cliente?.equipos_clientes || [];
-
-    const toEquipo = (id: string) => {
-      const equipo = equiposCatalog.find((e) => e.id === id);
-      return equipo
-        ? { name: equipo.name, type: equipo.type || 'No especificado', id }
-        : { name: id, type: 'No especificado', id };
-    };
-
-    if (Array.isArray(value)) {
-      return value.length ? value.map((id) => toEquipo(id)) : [];
-    }
-
-    return typeof value === 'string' ? [toEquipo(value)] : [];
+    if (!preparteData.equipos_cliente) return [];
+    const catalogItem = cliente?.equipos_clientes?.find((item) => item.id === preparteData.equipos_cliente);
+    return [
+      {
+        name: preparteData.equipos_clientes?.name || catalogItem?.name || 'Equipo no encontrado',
+        type: 'No especificado',
+        id: preparteData.equipos_cliente,
+      },
+    ];
   };
 
   // Determinar si hay motivo de cancelación, rechazo o reprogramación
   // Siempre se renderiza el banner cuando el estado lo requiere — si el motivo
   // no está cargado, se muestra "Sin motivo registrado"
   const getReason = () => {
-    const data = preparteData as typeof preparteData & {
-      rejected_by_profile?: { fullname?: string | null } | null;
-      cancelled_by_profile?: { fullname?: string | null } | null;
-      reprogrammed_by_profile?: { fullname?: string | null } | null;
-    };
-    const { status, cancel_reason, rejected_reason, reprogram_reason } = data;
+    const { status, cancel_reason, rejected_reason, reprogram_reason } = preparteData;
     const fallback = 'Sin motivo registrado';
 
     if (status === 'cancelado') {
@@ -132,21 +113,21 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
         title: 'Motivo de cancelación',
         content: cancel_reason?.trim() || fallback,
         actorLabel: 'Cancelado por',
-        actor: data.cancelled_by_profile?.fullname?.trim() || null,
+        actor: preparteData.cancelled_by_profile?.fullname?.trim() || null,
       };
     } else if (status === 'rechazado') {
       return {
         title: 'Motivo de rechazo',
         content: rejected_reason?.trim() || fallback,
         actorLabel: 'Rechazado por',
-        actor: data.rejected_by_profile?.fullname?.trim() || null,
+        actor: preparteData.rejected_by_profile?.fullname?.trim() || null,
       };
     } else if (status === 'reprogramado') {
       return {
         title: 'Motivo de reprogramación',
         content: reprogram_reason?.trim() || fallback,
         actorLabel: 'Reprogramado por',
-        actor: data.reprogrammed_by_profile?.fullname?.trim() || null,
+        actor: preparteData.reprogrammed_by_profile?.fullname?.trim() || null,
       };
     } else if (status === 'vencido') {
       return {
@@ -164,11 +145,13 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <EyeIcon className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <EyeIcon className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
@@ -188,7 +171,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
               {preparteData.executionDate && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Calendar className="h-4 w-4" />
-                  <span>Ejecución: {formatDate((preparteData as any).executionDate)}</span>
+                  <span>Ejecución: {formatDate(preparteData.executionDate)}</span>
                 </div>
               )}
               <div className="flex items-center gap-2">
@@ -375,7 +358,11 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
                 <h3 className="font-semibold text-lg">Imagen/Documento Adjunto</h3>
                 <div className="bg-gray-50 rounded-lg p-3 flex justify-center">
                   {preparteData.preparteImage.toLowerCase().includes('.pdf') ? (
-                    <iframe src={preparteData.preparteImage} className="w-full h-[300px]" />
+                    <iframe
+                      src={preparteData.preparteImage}
+                      title="Documento adjunto del pedido"
+                      className="w-full h-[300px]"
+                    />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

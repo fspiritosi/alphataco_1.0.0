@@ -1,5 +1,6 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
 import CardInfo from '@/shared/components/cards/CardInfo';
+import { prisma } from '@/shared/lib/prisma';
 
 export type Status = 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado' | 'vencido';
 
@@ -15,23 +16,13 @@ interface StatusCardServerProps {
  * Hace fetch directo con supabaseServer() (no server actions)
  */
 export async function StatusCardServer({ status, label, color }: StatusCardServerProps) {
-  const supabase = await supabaseServer();
-
-  // Hacer COUNT query directamente en el componente servidor
-  let count = 0;
-
-  if (status === null) {
-    // Count total
-    const { count: totalCount } = await supabase.from('preparte').select('*', { count: 'exact', head: true });
-    count = totalCount || 0;
-  } else {
-    // Count por estado
-    const { count: statusCount } = await supabase
-      .from('preparte')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', status);
-    count = statusCount || 0;
-  }
+  const companyId = await getServerCompanyId();
+  const count = await prisma.preparte.count({
+    where: {
+      OR: [{ company_id: companyId }, { company_id: null }],
+      ...(status ? { status } : {}),
+    },
+  });
 
   return <CardInfo title={label} value={count} valueClassname={color} />;
 }

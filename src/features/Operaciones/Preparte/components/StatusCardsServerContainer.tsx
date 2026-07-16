@@ -14,7 +14,7 @@ const statusConfig: Record<Status, { label: string; color: string }> = {
 
 /**
  * Server Component que renderiza las StatusCards con COUNT queries
- * El estado y clicks se manejan vía StatusFilterContext (cliente)
+ * El estado y clicks se sincronizan con el filtro namespaced de la tabla.
  * Cada card se carga independientemente con su propio Suspense
  */
 export function StatusCardsServerContainer() {

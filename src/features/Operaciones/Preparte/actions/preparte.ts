@@ -10,10 +10,17 @@ import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
+import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
 const logger = new Logger('preparte-actions');
+
+function getPreparteCompanyScope(companyId: string) {
+  return {
+    OR: [{ company_id: companyId }, { company_id: null }],
+  };
+}
 
 export type Preparte = {
   id?: string;
@@ -470,97 +477,6 @@ export async function getLastOrderNumber() {
   return (data as string) || 'PED-0000';
 }
 
-export async function fetchPrepartes({
-  pageIndex = 0,
-  pageSize = 10,
-  sorting = [],
-  columnFilters = [],
-}: {
-  pageIndex: number;
-  pageSize: number;
-  sorting: any[];
-  columnFilters: any[];
-}) {
-  const supabase = await supabaseServer();
-
-  try {
-    // Construir la consulta base
-    let query = supabase.from('preparte').select(
-      `*,
-         service_items(id, item_name),
-         rejected_by_profile:profile!preparte_rejected_by_fkey(credential_id, fullname),
-         cancelled_by_profile:profile!preparte_cancelled_by_fkey(credential_id, fullname),
-         reprogrammed_by_profile:profile!preparte_reprogrammed_by_fkey(credential_id, fullname)`,
-      { count: 'exact' }
-    );
-
-    // Aplicar ordenamiento
-    if (sorting.length > 0) {
-      const { id, desc } = sorting[0];
-      query = query.order(id, { ascending: !desc });
-    } else {
-      query = query.order('created_at', { ascending: false });
-    }
-
-    // Aplicar filtros
-    const toStartOfDay = (d: unknown) => {
-      const m = moment(d as string | number | Date);
-      return m.isValid() ? m.startOf('day').format('YYYY-MM-DD') : undefined;
-    };
-    const toEndOfDay = (d: unknown) => {
-      const m = moment(d as string | number | Date);
-      return m.isValid() ? m.endOf('day').format('YYYY-MM-DD') : undefined;
-    };
-
-    for (const filter of columnFilters || []) {
-      const { id, value } = filter || {};
-      if (value == null || value === '') continue;
-
-      // Rango de fechas: { from?: Date|string|null, to?: Date|string|null }
-      if (typeof value === 'object' && value !== null && ('from' in value || 'to' in value)) {
-        const fromDate = (value as any)?.from ? toStartOfDay((value as any).from) : undefined;
-        const toDate = (value as any)?.to ? toEndOfDay((value as any).to) : undefined;
-        if (fromDate) query = query.gte(id, fromDate);
-        if (toDate) query = query.lte(id, toDate);
-        continue;
-      }
-
-      // Filtros facetados: array de valores
-      if (Array.isArray(value)) {
-        const vals = value.filter((v) => v !== undefined && v !== null && v !== '');
-        if (vals.length > 0) {
-          query = query.in(id, vals);
-        }
-        continue;
-      }
-
-      // Fallback: igualdad simple
-      query = query.eq(id, value);
-    }
-
-    // Aplicar paginación
-    const from = pageIndex * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await query.range(from, to);
-
-    if (error) throw error;
-
-    return {
-      rows: data || [],
-      pageCount: Math.ceil((count || 0) / pageSize),
-      rowCount: count || 0,
-    };
-  } catch (error) {
-    logger.error('Error al cargar prepartes', { data: { error } });
-    return {
-      rows: [],
-      pageCount: 0,
-      rowCount: 0,
-    };
-  }
-}
-
 // Mueve un archivo ya subido en el bucket a la ruta final y retorna la URL pública final
 export async function movePreparteFile(
   fromPublicUrl: string,
@@ -698,6 +614,20 @@ export async function updateMultiplePreparteStatus(
   }
 ) {
   const supabase = await supabaseServer();
+  const companyId = await getServerCompanyId();
+  const eligibleRows = await prisma.preparte.findMany({
+    where: {
+      id: { in: ids },
+      ...getPreparteCompanyScope(companyId),
+      status: { in: [preparte_status.pendiente, preparte_status.reprogramado] },
+    },
+    select: { id: true },
+  });
+  const eligibleIds = new Set(eligibleRows.map((row) => row.id));
+  const ineligibleIds = ids.filter((id) => !eligibleIds.has(id));
+  if (ineligibleIds.length > 0) {
+    throw new Error('Solo se pueden modificar masivamente pedidos pendientes o reprogramados.');
+  }
 
   // Para acciones que requieren actor, obtener credential_id del usuario logueado.
   let actorPayload: Record<string, string> = {};
@@ -849,9 +779,14 @@ async function _confirmSinglePreparte(
  * Usado desde handleConfirm (individual) en PreparteManager.
  *
  * @param overrideExecutionDate - ISO string de fecha override (para vencidos con nueva fecha)
+ * @param confirmedBy - Nombre de quien confirma
  */
-export async function confirmPreparteToDailyReport(preparteId: string, overrideExecutionDate?: string) {
-  return _confirmSinglePreparte(preparteId, overrideExecutionDate);
+export async function confirmPreparteToDailyReport(
+  preparteId: string,
+  overrideExecutionDate?: string,
+  confirmedBy?: string
+) {
+  return _confirmSinglePreparte(preparteId, overrideExecutionDate, confirmedBy);
 }
 
 /**
@@ -864,8 +799,22 @@ export async function confirmMultiplePrepartesToDailyReport(preparteIds: string[
   let succeeded = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const companyId = await getServerCompanyId();
+  const eligibleRows = await prisma.preparte.findMany({
+    where: {
+      id: { in: preparteIds },
+      ...getPreparteCompanyScope(companyId),
+      status: { in: [preparte_status.pendiente, preparte_status.reprogramado] },
+    },
+    select: { id: true },
+  });
+  const eligibleIds = new Set(eligibleRows.map((row) => row.id));
 
   for (const id of preparteIds) {
+    if (!eligibleIds.has(id)) {
+      errors.push(`${id}: solo se pueden confirmar masivamente pedidos pendientes o reprogramados`);
+      continue;
+    }
     try {
       const result = await _confirmSinglePreparte(id, undefined, confirmedBy, dailyReportCache);
       if (result.alreadyExisted) {
@@ -1160,6 +1109,7 @@ export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reas
   });
 
   const profile = await getServerAuthProfile();
+  const companyId = await getServerCompanyId();
   const reprogrammedBy = profile?.credentialId ?? null;
 
   if (!ids.length) {
@@ -1174,13 +1124,19 @@ export async function bulkReschedulePrepartes(ids: string[], newDate: Date, reas
 
   try {
     const originals = await prisma.preparte.findMany({
-      where: { id: { in: ids } },
+      where: {
+        id: { in: ids },
+        ...getPreparteCompanyScope(companyId),
+        status: { in: [preparte_status.pendiente, preparte_status.reprogramado] },
+      },
     });
 
     const foundIds = new Set(originals.map((p) => p.id));
     const missingIds = ids.filter((id) => !foundIds.has(id));
     if (missingIds.length > 0) {
-      throw new Error(`No se encontraron ${missingIds.length} pedido(s) seleccionado(s) en la base de datos.`);
+      throw new Error(
+        `${missingIds.length} pedido(s) no existen o ya no están pendientes/reprogramados.`
+      );
     }
 
     const fechaHoy = moment().format('DD/MM/YYYY');
