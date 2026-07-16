@@ -7,45 +7,50 @@ import {
   confirmPreparteToDailyReport,
   createPreparte,
   deletePreparte,
-  fetchPrepartes,
   getLastOrderNumber,
-  listPrepartes,
   movePreparteFile,
   updatePreparte,
   type Preparte,
 } from '@/features/Operaciones/Preparte/actions/preparte';
 import { PermissionGuard } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { VisibilityState } from '@tanstack/react-table';
 import moment from 'moment';
 
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import type { PreparteListItem } from '../list/actions.server';
+import { _PreparteDataTable } from '../list/components/_PreparteDataTable';
+import type { PreparteConfirmation, PreparteTableCallbacks } from '../list/columns';
+import { PreparteBulkStatusModal } from './PreparteBulkStatusModal';
+import { PreparteDetailModal } from './PreparteDetailModal';
 import { PreparteForm, type PreparteFormData } from './PreparteForm';
 import { PreparteReportModal } from './PreparteReportModal';
-import { PreparteTable } from './PreparteTable';
 
 import { fetchAllContracts } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { fetchCustomersWithRelations } from '../actions/actions';
-import type { Status } from './StatusCardServer';
 
 const logger = new Logger('PreparteManager');
 
 // Inferred types from server actions
 export type Cliente = Awaited<ReturnType<typeof fetchCustomersWithRelations>>[number];
 export type Contrato = Awaited<ReturnType<typeof fetchAllContracts>>[number];
-export type PreparteItem = Awaited<ReturnType<typeof listPrepartes>>[number];
+export type PreparteItem = PreparteListItem;
 
 interface PreparteManagerProps {
   Customers: Cliente[];
   contratos: Contrato[];
   prepartes: PreparteItem[];
+  totalRows: number;
+  searchParams: DataTableSearchParams;
+  tableId: string;
+  permissionsMap: Record<string, boolean>;
+  initialColumnVisibility: Record<string, boolean>;
+  initialFilterVisibility: Record<string, boolean>;
   statusCards?: React.ReactNode;
-  statusFilter?: Status | null;
-  onStatusFilterChange?: (status: Status | null) => void;
 }
 
 // Helper para parsear fechas de BD (timestamptz guardadas como UTC midnight)
@@ -72,16 +77,22 @@ export function PreparteManager({
   Customers,
   contratos,
   prepartes,
+  totalRows,
+  searchParams,
+  tableId,
+  permissionsMap,
+  initialColumnVisibility,
+  initialFilterVisibility,
   statusCards,
-  statusFilter,
-  onStatusFilterChange,
 }: PreparteManagerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
-  const [savedVisibility] = useState<VisibilityState>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<PreparteItem | null>(null);
+  const [selectedRows, setSelectedRows] = useState<PreparteItem[]>([]);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
 
   // PP-3: formData ya no tiene jornada, tipo, observaciones, executionDate ni subject_to_availability a nivel global
   // Estos campos ahora están dentro de cada item
@@ -105,18 +116,8 @@ export function PreparteManager({
   // Función para invalidar las queries de la tabla y refrescar los datos
   // Usamos router.refresh() para revalidar los datos del Server Component
   const refreshTable = () => {
-    // Invalidar todas las queries relacionadas con preparte
-    // El queryKey de BaseDataTable tiene formato: [queryKey, pageIndex, pageSize, sorting, filters]
-    // donde queryKey es 'preparte-table-{status}' (ej: 'preparte-table-all', 'preparte-table-confirmado')
-    queryClient.invalidateQueries({
-      predicate: (query) => {
-        const key = query.queryKey;
-        if (Array.isArray(key) && typeof key[0] === 'string') {
-          return key[0].startsWith('preparte-table');
-        }
-        return false;
-      },
-    });
+    queryClient.invalidateQueries({ queryKey: ['preparte-list'] });
+    queryClient.invalidateQueries({ queryKey: ['preparte-list-facets'] });
     queryClient.invalidateQueries({ queryKey: ['prepartes'] });
     // Invalidar los logs de cambios para que el detalle muestre datos actualizados
     queryClient.invalidateQueries({ queryKey: ['preparte-change-logs'] });
@@ -125,7 +126,7 @@ export function PreparteManager({
     router.refresh();
   };
 
-  const handleInputChange = (field: keyof PreparteFormData, value: any) => {
+  const handleInputChange = (field: keyof PreparteFormData, value: PreparteFormData[keyof PreparteFormData]) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -372,17 +373,7 @@ export function PreparteManager({
               subject_to_availability: existingSubjectToAvailability,
             },
           ]
-        : (item.item || []).map((i: any) => ({
-            id: i.id || i,
-            quantity: i.quantity || 1,
-            jornada: i.jornada || item.jornada || '',
-            tipo: i.tipo || item.tipo || '',
-            observaciones: i.observaciones || item.observaciones || '',
-            start_time: i.start_time || item.start_time || '',
-            end_time: i.end_time || item.end_time || '',
-            executionDate: i.executionDate || existingExecutionDate,
-            subject_to_availability: i.subject_to_availability ?? existingSubjectToAvailability,
-          }));
+        : [];
 
     // Normalize sector/area/equipos for edit UI
     const cliente = Customers.find((c) => c.id === item.cliente_id);
@@ -398,7 +389,7 @@ export function PreparteManager({
           sectorForForm = bySectorId.id;
         } else {
           const sc = cliente?.sector_customer?.find(
-            (x: any) => x.id === sectorForForm || x.sector_id === sectorForForm
+            (entry) => entry.id === sectorForForm || entry.sector_id === sectorForForm
           );
           if (sc?.sector_id) {
             const via = service.service_sectors.find((ss) => ss.sectors?.id === sc.sector_id);
@@ -419,11 +410,7 @@ export function PreparteManager({
     }
 
     // Equipos mapping -> ensure array for multiselect
-    const equiposForForm = Array.isArray(item.equipos_cliente)
-      ? item.equipos_cliente
-      : item.equipos_cliente
-        ? [item.equipos_cliente as unknown as string]
-        : [];
+    const equiposForForm = item.equipos_cliente ? [item.equipos_cliente] : [];
 
     // PP-3: jornada, tipo, observaciones, fecha y subject_to_availability ahora están en el itemArray
     setFormData({
@@ -449,10 +436,10 @@ export function PreparteManager({
     setOpen(true);
   };
 
-  const handleConfirm = async (item: PreparteItem) => {
+  const handleConfirm = async (item: PreparteItem, confirmation: PreparteConfirmation) => {
     try {
-      // executionDate puede venir como string YYYY-MM-DD de la BD o como Date
-      const execDate = item.executionDate ? moment.utc(item.executionDate) : null;
+      const requestedDate = confirmation.executionDate || item.executionDate;
+      const execDate = requestedDate ? moment.utc(requestedDate) : null;
 
       // Verificar si está sujeto a disponibilidad y no tiene fecha
       if (item.subject_to_availability && !execDate?.isValid()) {
@@ -472,7 +459,11 @@ export function PreparteManager({
       }
 
       // Confirmar y migrar al parte diario via server action
-      await confirmPreparteToDailyReport(item.id, execDate.format('YYYY-MM-DD'));
+      await confirmPreparteToDailyReport(
+        item.id,
+        execDate.format('YYYY-MM-DD'),
+        confirmation.confirmedBy
+      );
 
       refreshTable();
       toast.success('Pedido confirmado y enviado al parte diario');
@@ -495,22 +486,19 @@ export function PreparteManager({
     }
   };
 
-  const handleFetchData = async (opciones: {
-    pageIndex: number;
-    pageSize: number;
-    sorting: any[];
-    columnFilters: any[];
-  }) => {
-    try {
-      setIsLoading(true);
-      return await fetchPrepartes(opciones);
-    } catch (error) {
-      logger.error('Error al cargar datos', { data: { error } });
-      return { rows: [], pageCount: 0, rowCount: 0 };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const tableCallbacks = useMemo<PreparteTableCallbacks>(
+    () => ({
+      onView: setDetailItem,
+      onEdit: handleEdit,
+      onDelete: handleDelete,
+      onConfirm: handleConfirm,
+      onBulkStatus: (items) => {
+        setSelectedRows(items);
+        setIsBulkStatusModalOpen(true);
+      },
+    }),
+    [Customers, contratos]
+  );
 
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
@@ -595,22 +583,45 @@ export function PreparteManager({
 
       <Card className="w-full">
         <CardContent className="p-2">
-          <PreparteTable
+          {statusCards}
+          <_PreparteDataTable
             data={prepartes}
-            Customers={Customers}
-            contratos={contratos}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onConfirm={handleConfirm}
-            savedVisibility={savedVisibility}
-            fetchData={handleFetchData}
-            isLoading={isLoading}
-            statusCards={statusCards}
-            statusFilter={statusFilter}
-            onStatusFilterChange={onStatusFilterChange}
+            totalRows={totalRows}
+            searchParams={searchParams}
+            tableId={tableId}
+            permissionsMap={permissionsMap}
+            initialColumnVisibility={initialColumnVisibility}
+            initialFilterVisibility={initialFilterVisibility}
+            callbacks={tableCallbacks}
+            clearSelectionTrigger={clearSelectionTrigger}
           />
         </CardContent>
       </Card>
+
+      {detailItem && (
+        <PreparteDetailModal
+          preparteData={detailItem}
+          Customers={Customers}
+          contratos={contratos}
+          open={Boolean(detailItem)}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setDetailItem(null);
+          }}
+          showTrigger={false}
+        />
+      )}
+
+      <PreparteBulkStatusModal
+        isOpen={isBulkStatusModalOpen}
+        onClose={() => setIsBulkStatusModalOpen(false)}
+        selectedRows={selectedRows}
+        onSuccess={() => {
+          setSelectedRows([]);
+          setIsBulkStatusModalOpen(false);
+          setClearSelectionTrigger((value) => value + 1);
+          refreshTable();
+        }}
+      />
 
       <PreparteReportModal open={reportModalOpen} onOpenChange={setReportModalOpen} customers={Customers} />
     </div>

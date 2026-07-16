@@ -202,7 +202,7 @@ export interface DataTableProps<TData, TValue = unknown> {
   /** Mostrar contador de selección (default: false) */
   showRowSelection?: boolean;
   /** Habilitar selección de filas (default: false) */
-  enableRowSelection?: boolean;
+  enableRowSelection?: boolean | ((row: Row<TData>) => boolean);
   /** Callback cuando cambia la selección — entrega las filas seleccionadas de la página actual. */
   onRowSelectionChange?: (selectedRows: TData[]) => void;
   /**

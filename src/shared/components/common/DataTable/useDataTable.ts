@@ -2,7 +2,7 @@
 
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 
 import { DEFAULT_PAGE_SIZE, PARAM_SEPARATOR, parseSearchParams, stateToSearchParams } from './helpers';
 import type { DataTableSearchParams, DataTableState } from './types';
@@ -70,6 +70,9 @@ interface UseDataTableReturn {
   isClientSide: boolean;
 }
 
+/** Evento para notificar cambios de URL originados fuera del DataTable en modo client-side. */
+export const DATA_TABLE_URL_CHANGE_EVENT = 'data-table:url-change';
+
 /**
  * Hook para manejar el estado del DataTable sincronizado con la URL.
  *
@@ -89,6 +92,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const [isPendingTransition, startTransition] = useTransition();
 
   // Prefijo para namespacing de params en la URL (vacío = sin namespace)
@@ -100,6 +104,18 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const notifyUrlChange = useCallback(() => {
     setUrlVersion((v) => v + 1);
   }, []);
+
+  useEffect(() => {
+    if (!clientSideNavigation) return;
+
+    const handleExternalUrlChange = () => notifyUrlChange();
+    window.addEventListener(DATA_TABLE_URL_CHANGE_EVENT, handleExternalUrlChange);
+    window.addEventListener('popstate', handleExternalUrlChange);
+    return () => {
+      window.removeEventListener(DATA_TABLE_URL_CHANGE_EVENT, handleExternalUrlChange);
+      window.removeEventListener('popstate', handleExternalUrlChange);
+    };
+  }, [clientSideNavigation, notifyUrlChange]);
 
   // Parsear estado actual
   // - Server mode: lee de useSearchParams() (reactivo a router.push)
@@ -121,7 +137,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
       });
     } else {
       // Server mode: usar useSearchParams de Next.js
-      searchParams.forEach((value, key) => {
+      new URLSearchParams(searchParamsString).forEach((value, key) => {
         if (prefix) {
           if (key.startsWith(prefix)) {
             params[key.slice(prefix.length)] = value;
@@ -139,7 +155,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     const hasPageSize =
       clientSideNavigation && typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).has(pageSizeKey)
-        : searchParams.has(pageSizeKey);
+        : new URLSearchParams(searchParamsString).has(pageSizeKey);
 
     if (!hasPageSize) {
       parsed.pageSize = defaultPageSize;
@@ -147,7 +163,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
 
     return parsed;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- urlVersion triggers re-read in client-side mode
-  }, [searchParams, urlVersion, defaultPageSize, prefix, clientSideNavigation]);
+  }, [searchParamsString, urlVersion, defaultPageSize, prefix, clientSideNavigation]);
 
   // Convertir a formatos de TanStack Table
   const pagination: PaginationState = useMemo(
@@ -183,8 +199,8 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     if (clientSideNavigation && typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search);
     }
-    return new URLSearchParams(searchParams.toString());
-  }, [clientSideNavigation, searchParams]);
+    return new URLSearchParams(searchParamsString);
+  }, [clientSideNavigation, searchParamsString]);
 
   // Función helper para actualizar URL
   const updateURL = useCallback(
@@ -220,7 +236,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
         // Actualización silenciosa de URL (NO navega, NO re-renderiza server components)
         const url = queryString ? `${pathname}?${queryString}` : pathname;
         window.history.replaceState(window.history.state, '', url);
-        notifyUrlChange();
+        window.dispatchEvent(new Event(DATA_TABLE_URL_CHANGE_EVENT));
       } else {
         // Navegación del servidor (comportamiento actual para tablas no migradas)
         startTransition(() => {
@@ -230,7 +246,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
         });
       }
     },
-    [state, pathname, router, startTransition, prefix, clientSideNavigation, notifyUrlChange, getCurrentSearchParams]
+    [state, pathname, router, startTransition, prefix, clientSideNavigation, getCurrentSearchParams]
   );
 
   // Handlers
@@ -307,7 +323,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
       } else {
         window.history.replaceState(window.history.state, '', pathname);
       }
-      notifyUrlChange();
+      window.dispatchEvent(new Event(DATA_TABLE_URL_CHANGE_EVENT));
     } else {
       if (prefix) {
         // Solo quitar params de esta tabla, mantener el resto
@@ -334,7 +350,6 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     searchParams,
     prefix,
     clientSideNavigation,
-    notifyUrlChange,
     getCurrentSearchParams,
   ]);
 

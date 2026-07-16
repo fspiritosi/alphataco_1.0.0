@@ -35,7 +35,7 @@ export default async function OperacionesComponent({
             tabSlug: 'preparte',
             content: (
               <Suspense fallback={<PreparteSkeleton />}>
-                <PreparteTabContent />
+                <PreparteTabContent searchParams={searchParams} permissionsMap={permissions} />
               </Suspense>
             ),
           },

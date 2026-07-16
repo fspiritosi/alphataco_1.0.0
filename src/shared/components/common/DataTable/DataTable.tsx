@@ -387,7 +387,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           table={table}
           totalRows={tableTotalRows}
           pageSizeOptions={pageSizeOptions}
-          showRowSelection={showRowSelection && enableRowSelection}
+          showRowSelection={showRowSelection && Boolean(enableRowSelection)}
         />
       </div>
     </DataTablePendingProvider>
