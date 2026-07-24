@@ -542,7 +542,7 @@ export const PERMISSIONS = {
           },
           others: {
             slug: 'others',
-            name: 'Otros',
+            name: 'Equipamiento',
             tabId: '30000000-0000-0000-0000-000000000012',
             parent: 'equipos',
             allowedActions: ['view', 'create'],
