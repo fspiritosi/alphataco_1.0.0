@@ -318,6 +318,12 @@ git commit -m "feat(dashboard): 516 - agregar subtipo y propietario
 
 Aplica a TODOS los commits, sin importar el tamaño del cambio. Formato: `tipo(scope): <nro ticket si aplica> - descripción breve`. Ver también las reglas de `git-rules.md` (conventional commits, cero atribución a herramientas, nunca commitear sin pedido explícito).
 
+### Implementación: usar `/feature-dev:feature-dev`, no las skills de superpowers
+
+Para **implementar** una feature, el flujo preferido del usuario es la skill `feature-dev:feature-dev` (discovery → exploración con agentes → preguntas → arquitectura → implementación → review), **no** `superpowers:writing-plans` / `superpowers:executing-plans` / `superpowers:subagent-driven-development`.
+
+`superpowers:brainstorming` sigue siendo válido para la etapa previa de exploración de la idea y definición de alcance; el cambio aplica al momento de pasar a construir.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
