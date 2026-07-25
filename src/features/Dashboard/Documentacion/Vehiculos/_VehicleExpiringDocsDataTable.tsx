@@ -36,7 +36,7 @@ interface Props {
 // CONSTANTS
 // ============================================================================
 
-const DEFAULT_VISIBLE_FILTER_IDS = ['state', 'document_type', 'validity'];
+const DEFAULT_VISIBLE_FILTER_IDS = ['state', 'document_type', 'validity', 'vehicle'];
 
 const stateIcons: Record<string, LucideIcon | undefined> = {
   presentado: CheckCircle2,
@@ -118,7 +118,7 @@ export function _VehicleExpiringDocsDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    const allFilterIds = ['state', 'document_type', 'validity', 'created_at', 'vehicle'];
+    const allFilterIds = ['state', 'document_type', 'validity', 'created_at', 'vehicle', 'sub_type', 'owner'];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
 
@@ -165,6 +165,21 @@ export function _VehicleExpiringDocsDataTable({
         columnId: 'document_type',
         title: 'Tipo de Documento',
         fetchFacet: makeFkFetchFacet('document_type', 'Sin tipo'),
+      },
+
+      // Subtipo del equipo (FK UUID nullable → sub_type) — lazy-load
+      {
+        columnId: 'sub_type',
+        title: 'Subtipo',
+        fetchFacet: makeFkFetchFacet('sub_type'),
+      },
+
+      // Propietario del equipo (FK UUID nullable → equipment_owners) — lazy-load.
+      // Los null son unidades sin titular externo: en su mayoría de contrato "Propio".
+      {
+        columnId: 'owner',
+        title: 'Propietario',
+        fetchFacet: makeFkFetchFacet('owner', 'Propio / Sin asignar'),
       },
 
       // Vencimiento (rango de fechas)

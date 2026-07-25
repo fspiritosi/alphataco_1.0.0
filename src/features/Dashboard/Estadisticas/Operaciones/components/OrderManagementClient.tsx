@@ -286,6 +286,12 @@ export function OrderManagementClient({ data }: Props) {
                   ({selectedCustomerIds.length} {selectedCustomerIds.length === 1 ? 'cliente' : 'clientes'})
                 </span>
               )}
+              {/*
+                Los pedidos cancelados, rechazados y vencidos nunca llegan a tener un parte
+                asociado, que es el unico camino hacia el centro de costo. Filtrarlos por ese
+                criterio vaciaria justamente los estados que este KPI mide.
+              */}
+              <span className="ml-1 text-xs italic">— no responde al filtro de centro de costo</span>
             </CardDescription>
 
             {/* Controls row */}
