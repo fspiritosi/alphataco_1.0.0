@@ -40,6 +40,27 @@ type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_templa
 type ChecklistTemplateItem = ChecklistTemplateSection['checklist_template_items'][number];
 
 /**
+ * Tercera opción de respuesta, para items que no corresponden a la unidad revisada
+ * (ej. "Conector de ABS (para acoplado o semi)" en un vehículo liviano).
+ *
+ * Un item en este estado NO cuenta como falla: los cálculos de resultado, items
+ * críticos fallados y desvíos comparan estrictamente contra 'M', por lo que este
+ * valor queda excluido de todos ellos sin lógica adicional.
+ *
+ * Se agrega desde el código y no desde `checklist_template_items.options` para que
+ * aplique a todas las plantillas, incluidas las que se creen en el futuro.
+ */
+const NOT_APPLICABLE_VALUE = 'NA';
+const NOT_APPLICABLE_LABEL = 'No aplica';
+
+/** Opciones de respuesta por defecto (items sin `options` propias en la plantilla) */
+const DEFAULT_ANSWER_OPTIONS = ['B', 'M', NOT_APPLICABLE_VALUE];
+
+/** Agrega "No aplica" a las opciones de un item sin duplicarla si ya viniera de la BD */
+const withNotApplicable = (options: string[]): string[] =>
+  options.includes(NOT_APPLICABLE_VALUE) ? options : [...options, NOT_APPLICABLE_VALUE];
+
+/**
  * Determina si un item debe tratarse como "doble lado" (izquierda/derecha).
  * Importante: un `input_type === 'date'` NUNCA debe mapearse como double_side,
  * aunque por error venga con `requires_side_validation = true` desde la BD.
@@ -158,23 +179,25 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
         schema[leftFieldName] = z
           .string({ required_error: `${item.label || 'Este campo'} (izquierda) es requerido` })
           .min(1, `${item.label || 'Este campo'} (izquierda) es requerido`)
-          .refine((val) => val === 'B' || val === 'M', {
-            message: `${item.label || 'Este campo'} (izquierda) debe ser "Bueno" o "Malo"`,
+          .refine((val) => DEFAULT_ANSWER_OPTIONS.includes(val), {
+            message: `${item.label || 'Este campo'} (izquierda) debe ser "Bueno", "Malo" o "${NOT_APPLICABLE_LABEL}"`,
           });
         schema[rightFieldName] = z
           .string({ required_error: `${item.label || 'Este campo'} (derecha) es requerido` })
           .min(1, `${item.label || 'Este campo'} (derecha) es requerido`)
-          .refine((val) => val === 'B' || val === 'M', {
-            message: `${item.label || 'Este campo'} (derecha) debe ser "Bueno" o "Malo"`,
+          .refine((val) => DEFAULT_ANSWER_OPTIONS.includes(val), {
+            message: `${item.label || 'Este campo'} (derecha) debe ser "Bueno", "Malo" o "${NOT_APPLICABLE_LABEL}"`,
           });
       } else if (item.input_type === 'select' && item.options) {
         // Campo select con opciones
         const options = Array.isArray(item.options) ? item.options : JSON.parse(item.options as string);
         if (options.length > 0 && typeof options[0] === 'string') {
+          // "No aplica" es válido aunque la plantilla en BD solo declare ["B","M"]
+          const validOptions = withNotApplicable(options as string[]);
           schema[fieldName] = z
             .string({ required_error: `${item.label || 'Este campo'} es requerido` })
             .min(1, `${item.label || 'Este campo'} es requerido`)
-            .refine((val) => (options as string[]).includes(val), {
+            .refine((val) => validOptions.includes(val), {
               message: `${item.label || 'Este campo'} debe ser una opción válida`,
             });
         } else {
@@ -194,12 +217,12 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
             message: 'Debe ser un número válido',
           });
       } else {
-        // Por defecto, campo select con opciones B/M
+        // Por defecto, campo select con opciones B / M / No aplica
         schema[fieldName] = z
           .string({ required_error: `${item.label || 'Este campo'} es requerido` })
           .min(1, `${item.label || 'Este campo'} es requerido`)
-          .refine((val) => val === 'B' || val === 'M', {
-            message: `${item.label || 'Este campo'} debe ser "Bueno" o "Malo"`,
+          .refine((val) => DEFAULT_ANSWER_OPTIONS.includes(val), {
+            message: `${item.label || 'Este campo'} debe ser "Bueno", "Malo" o "${NOT_APPLICABLE_LABEL}"`,
           });
       }
     });
@@ -355,31 +378,33 @@ const cleanLabel = (label: string): string => {
 
 /**
  * Obtiene el label visible para una opción de select
- * Mapea "B" a "Bueno" y "M" a "Malo", manteniendo otros valores sin cambios
+ * Mapea los codigos a su texto legible, manteniendo otros valores sin cambios
  */
 const getOptionLabel = (option: string): string => {
   const labelMap: Record<string, string> = {
     B: 'Bueno',
     M: 'Malo',
+    [NOT_APPLICABLE_VALUE]: NOT_APPLICABLE_LABEL,
   };
   return labelMap[option] || option;
 };
 
 /**
  * Convierte el label visible de vuelta al valor original
- * Mapea "Bueno" a "B" y "Malo" a "M", manteniendo otros valores sin cambios
+ * Mapea el texto legible a su codigo, manteniendo otros valores sin cambios
  */
 const getOptionValue = (label: string): string => {
   const valueMap: Record<string, string> = {
     Bueno: 'B',
     Malo: 'M',
+    [NOT_APPLICABLE_LABEL]: NOT_APPLICABLE_VALUE,
   };
   return valueMap[label] || label;
 };
 
 /**
- * Normaliza un valor a 'B' o 'M', transformando "Bueno"/"Malo" si es necesario
- * Retorna undefined si el valor está vacío o es inválido
+ * Normaliza un valor a su codigo ('B' | 'M' | 'NA'), transformando el texto legible
+ * si es necesario. Retorna '' si el valor está vacío o es inválido
  */
 const normalizeChecklistValue = (value: unknown): string => {
   if (value === null || value === undefined) return '';
@@ -387,6 +412,7 @@ const normalizeChecklistValue = (value: unknown): string => {
   if (!str) return '';
   if (str === 'Bueno') return 'B';
   if (str === 'Malo') return 'M';
+  if (str === NOT_APPLICABLE_LABEL) return NOT_APPLICABLE_VALUE;
   return str;
 };
 
@@ -431,11 +457,14 @@ const ChecklistItemField = ({
       </Badge>
     ) : null;
 
-  // Parsear opciones si es un select
-  let options: string[] = ['B', 'M']; // Por defecto
+  // Parsear opciones si es un select. "No aplica" se suma siempre: además de permitir
+  // elegirla, hace que un valor ya guardado se muestre al ver la respuesta (un valor
+  // fuera del listado deja el campo en blanco).
+  let options: string[] = DEFAULT_ANSWER_OPTIONS;
   if (item.input_type === 'select' && item.options) {
     try {
-      options = Array.isArray(item.options) ? item.options : JSON.parse(item.options as string);
+      const parsed = Array.isArray(item.options) ? item.options : JSON.parse(item.options as string);
+      options = withNotApplicable(parsed as string[]);
     } catch (e) {
       logger.error('Error parsing options', { data: { error: e } });
     }

@@ -471,7 +471,7 @@ function formatAnswer(answer?: string): FormattedAnswer {
     };
   }
 
-  // Mapear valores comunes a B/M/NC
+  // Mapear valores comunes a B/M/NA
   const lowerAnswer = answer.toLowerCase();
   if (lowerAnswer === 'bien' || lowerAnswer === 'b' || lowerAnswer === 'ok' || lowerAnswer === 'si') {
     return { text: 'B', backgroundColor: colors.goodBg };
@@ -479,8 +479,16 @@ function formatAnswer(answer?: string): FormattedAnswer {
   if (lowerAnswer === 'mal' || lowerAnswer === 'm' || lowerAnswer === 'no') {
     return { text: 'M', backgroundColor: colors.badBg };
   }
-  if (lowerAnswer === 'nc' || lowerAnswer === 'no corresponde' || lowerAnswer === 'n/a') {
-    return { text: 'NC' };
+  // "No aplica": sin color de fondo, no es ni bueno ni malo. Se contemplan las
+  // variantes históricas ('nc', 'no corresponde') por si quedaron respuestas viejas.
+  if (
+    lowerAnswer === 'na' ||
+    lowerAnswer === 'no aplica' ||
+    lowerAnswer === 'n/a' ||
+    lowerAnswer === 'nc' ||
+    lowerAnswer === 'no corresponde'
+  ) {
+    return { text: 'NA' };
   }
 
   // Si es otro valor, mostrar las primeras 3 letras
@@ -816,7 +824,7 @@ export const NormalizedChecklistPDFLayout = ({
         {/* Línea de referencias */}
         <View style={styles.referencesRow}>
           <Text style={styles.referencesText}>
-            REFERENCIAS ESTADO TERMINOLOGIA A UTILIZAR: B (Bien) - M (Mal) - NC (No Corresponde)
+            REFERENCIAS ESTADO TERMINOLOGIA A UTILIZAR: B (Bien) - M (Mal) - NA (No Aplica)
           </Text>
         </View>
 
