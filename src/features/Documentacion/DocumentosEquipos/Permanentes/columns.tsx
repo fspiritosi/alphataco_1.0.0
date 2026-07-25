@@ -77,6 +77,21 @@ export const stateLabels: Record<string, string> = {
 };
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Retorna el propietario a mostrar. Las unidades de contrato "Propio" no tienen titular
+ * externo cargado (owner_id null): en ese caso el propietario es la empresa, no un dato faltante.
+ * Retorna string vacío cuando no hay dato, para que la celda renderice el guión habitual.
+ */
+function getOwnerDisplayName(vehicle: EquipmentPermanentDocumentListItem['vehicles']): string {
+  if (!vehicle) return '';
+  if (vehicle.equipment_owners?.name) return vehicle.equipment_owners.name;
+  return vehicle.type_of_contract === 'Propio' ? 'Propio' : '';
+}
+
+// ============================================================================
 // ACTIONS CELL — separate component (uses hooks)
 // ============================================================================
 
@@ -173,9 +188,7 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
     meta: { title: 'N° de Póliza' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="N° de Póliza" />,
     cell: ({ row }) => (
-      <span className="text-sm">
-        {row.original.policy_number ?? <span className="text-muted-foreground">-</span>}
-      </span>
+      <span className="text-sm">{row.original.policy_number ?? <span className="text-muted-foreground">-</span>}</span>
     ),
     enableSorting: true,
   },
@@ -387,9 +400,7 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => (
       <span className="text-sm">
-        {row.original.vehicles?.type_vehicles_typeTotype?.name ?? (
-          <span className="text-muted-foreground">-</span>
-        )}
+        {row.original.vehicles?.type_vehicles_typeTotype?.name ?? <span className="text-muted-foreground">-</span>}
       </span>
     ),
     filterFn: (row, _id, value: string[]) => {
@@ -445,9 +456,7 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
     meta: { title: 'Año' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Año" />,
     cell: ({ row }) => (
-      <span className="text-sm">
-        {row.original.vehicles?.year ?? <span className="text-muted-foreground">-</span>}
-      </span>
+      <span className="text-sm">{row.original.vehicles?.year ?? <span className="text-muted-foreground">-</span>}</span>
     ),
     enableSorting: true,
   },
@@ -455,16 +464,13 @@ export const columns: ColumnDef<EquipmentPermanentDocumentListItem>[] = [
   // ─── Propietario (vehicles.owner_id → equipment_owners) ──────────────────
   {
     id: 'vehicle_owner',
-    accessorFn: (row) => row.vehicles?.equipment_owners?.name ?? '',
+    accessorFn: (row) => getOwnerDisplayName(row.vehicles),
     meta: { title: 'Propietario' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
-    cell: ({ row }) => (
-      <span className="text-sm">
-        {row.original.vehicles?.equipment_owners?.name ?? (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const owner = getOwnerDisplayName(row.original.vehicles);
+      return <span className="text-sm">{owner || <span className="text-muted-foreground">-</span>}</span>;
+    },
     filterFn: (row, _id, value: string[]) => {
       const id = row.original.vehicles?.owner_id;
       if (id == null) return value.includes(NULL_FILTER_VALUE);
