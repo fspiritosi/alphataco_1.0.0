@@ -102,6 +102,9 @@ function getDataWindow(selectedMonth: moment.Moment, granularity: Granularity): 
 // Component
 // ---------------------------------------------------------------------------
 
+/** Opción del filtro para partes cuyos equipos no tienen centro de costo asignado */
+const UNASSIGNED_COST_CENTER = '__null__';
+
 interface Props {
   data: OperationsChartData;
 }
@@ -110,7 +113,17 @@ export function OperacionesChartsClient({ data }: Props) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => moment().startOf('month'));
   const [granularity, setGranularity] = React.useState<Granularity>('daily');
   const [selectedCustomerIds, setSelectedCustomerIds] = React.useState<string[]>([]);
+  const [selectedCostCenterIds, setSelectedCostCenterIds] = React.useState<string[]>([]);
   const [activeView, setActiveView] = React.useState<ActiveView>('total');
+
+  // Opciones del filtro de centro de costo — "Sin asignar" solo si existen partes sin centro
+  const costCenterOptions = React.useMemo(() => {
+    const options = data.costCenters.map((cc) => ({ label: cc.name, value: cc.id }));
+    if (data.rows.some((row) => row.costCenterIds.length === 0)) {
+      options.push({ label: 'Sin asignar', value: UNASSIGNED_COST_CENTER });
+    }
+    return options;
+  }, [data.costCenters, data.rows]);
 
   // Determine the earliest month we have data for (to disable left arrow)
   const earliestMonth = React.useMemo(() => {
@@ -127,6 +140,18 @@ export function OperacionesChartsClient({ data }: Props) {
 
     const { start, end } = getDataWindow(selectedMonth, granularity);
     const customerFilter = selectedCustomerIds.length > 0 ? new Set(selectedCustomerIds) : null;
+    const costCenterFilter = selectedCostCenterIds.length > 0 ? new Set(selectedCostCenterIds) : null;
+
+    /**
+     * Una fila pasa el filtro si alguno de sus centros está seleccionado, o si no tiene
+     * centro y se eligió "Sin asignar". Cada parte vive en una sola fila (agrupada por su
+     * conjunto exacto de centros), así que nunca se cuenta dos veces.
+     */
+    const matchesCostCenter = (rowCostCenterIds: string[]) => {
+      if (!costCenterFilter) return true;
+      if (rowCostCenterIds.length === 0) return costCenterFilter.has(UNASSIGNED_COST_CENTER);
+      return rowCostCenterIds.some((id) => costCenterFilter.has(id));
+    };
 
     // Bucket map: key -> { label, mensual, adicional, breakdownMap }
     const buckets = new Map<
@@ -148,6 +173,7 @@ export function OperacionesChartsClient({ data }: Props) {
     for (const row of data.rows) {
       if (row.date < start || row.date > end) continue;
       if (customerFilter && !customerFilter.has(row.customerId)) continue;
+      if (!matchesCostCenter(row.costCenterIds)) continue;
 
       const { key: bucketKey, label: bucketLabel } = getBucketKey(row.date, granularity);
 
@@ -220,7 +246,7 @@ export function OperacionesChartsClient({ data }: Props) {
       clientRanking,
       periodLabel,
     };
-  }, [data.rows, selectedMonth, granularity, selectedCustomerIds]);
+  }, [data.rows, selectedMonth, granularity, selectedCustomerIds, selectedCostCenterIds]);
 
   // Capitalize first letter for month display
   const monthDisplay = selectedMonth.clone().locale('es').format('MMMM YYYY');
@@ -239,6 +265,12 @@ export function OperacionesChartsClient({ data }: Props) {
               {selectedCustomerIds.length > 0 && (
                 <span className="ml-1">
                   ({selectedCustomerIds.length} {selectedCustomerIds.length === 1 ? 'cliente' : 'clientes'})
+                </span>
+              )}
+              {selectedCostCenterIds.length > 0 && (
+                <span className="ml-1">
+                  ({selectedCostCenterIds.length}{' '}
+                  {selectedCostCenterIds.length === 1 ? 'centro de costo' : 'centros de costo'})
                 </span>
               )}
             </CardDescription>
@@ -293,6 +325,18 @@ export function OperacionesChartsClient({ data }: Props) {
                   emptyMessage="No se encontraron clientes"
                   selectedValues={selectedCustomerIds}
                   onChange={setSelectedCustomerIds}
+                  showSelectAll
+                />
+              </div>
+
+              {/* Cost center filter — se resuelve por los equipos afectados al parte */}
+              <div className="w-[220px]">
+                <MultiSelectCombobox
+                  options={costCenterOptions}
+                  placeholder="Todos los centros de costo"
+                  emptyMessage="No se encontraron centros de costo"
+                  selectedValues={selectedCostCenterIds}
+                  onChange={setSelectedCostCenterIds}
                   showSelectAll
                 />
               </div>
