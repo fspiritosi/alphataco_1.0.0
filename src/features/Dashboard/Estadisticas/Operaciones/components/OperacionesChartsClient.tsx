@@ -102,6 +102,9 @@ function getDataWindow(selectedMonth: moment.Moment, granularity: Granularity): 
 // Component
 // ---------------------------------------------------------------------------
 
+/** Opción del filtro para partes cuyos equipos no tienen centro de costo asignado */
+const UNASSIGNED_COST_CENTER = '__null__';
+
 interface Props {
   data: OperationsChartData;
 }
@@ -110,7 +113,17 @@ export function OperacionesChartsClient({ data }: Props) {
   const [selectedMonth, setSelectedMonth] = React.useState(() => moment().startOf('month'));
   const [granularity, setGranularity] = React.useState<Granularity>('daily');
   const [selectedCustomerIds, setSelectedCustomerIds] = React.useState<string[]>([]);
+  const [selectedCostCenterIds, setSelectedCostCenterIds] = React.useState<string[]>([]);
   const [activeView, setActiveView] = React.useState<ActiveView>('total');
+
+  // Opciones del filtro de centro de costo — "Sin asignar" solo si existen partes sin centro
+  const costCenterOptions = React.useMemo(() => {
+    const options = data.costCenters.map((cc) => ({ label: cc.name, value: cc.id }));
+    if (data.rows.some((row) => row.costCenterIds.length === 0)) {
+      options.push({ label: 'Sin asignar', value: UNASSIGNED_COST_CENTER });
+    }
+    return options;
+  }, [data.costCenters, data.rows]);
 
   // Determine the earliest month we have data for (to disable left arrow)
   const earliestMonth = React.useMemo(() => {
@@ -127,8 +140,20 @@ export function OperacionesChartsClient({ data }: Props) {
 
     const { start, end } = getDataWindow(selectedMonth, granularity);
     const customerFilter = selectedCustomerIds.length > 0 ? new Set(selectedCustomerIds) : null;
+    const costCenterFilter = selectedCostCenterIds.length > 0 ? new Set(selectedCostCenterIds) : null;
 
-    // Bucket map: key -> { label, mensual, adicional, breakdownMap }
+    /**
+     * Una fila pasa el filtro si alguno de sus centros está seleccionado, o si no tiene
+     * centro y se eligió "Sin asignar". Cada parte vive en una sola fila (agrupada por su
+     * conjunto exacto de centros), así que nunca se cuenta dos veces.
+     */
+    const matchesCostCenter = (rowCostCenterIds: string[]) => {
+      if (!costCenterFilter) return true;
+      if (rowCostCenterIds.length === 0) return costCenterFilter.has(UNASSIGNED_COST_CENTER);
+      return rowCostCenterIds.some((id) => costCenterFilter.has(id));
+    };
+
+    // Bucket map: key -> { label, mensual, adicional, breakdownMap, byCostCenter }
     const buckets = new Map<
       string,
       {
@@ -136,6 +161,7 @@ export function OperacionesChartsClient({ data }: Props) {
         mensual: number;
         adicional: number;
         breakdownMap: Map<string, { name: string; mensual: number; adicional: number }>;
+        byCostCenter: Map<string, { mensual: number; adicional: number }>;
       }
     >();
 
@@ -148,13 +174,20 @@ export function OperacionesChartsClient({ data }: Props) {
     for (const row of data.rows) {
       if (row.date < start || row.date > end) continue;
       if (customerFilter && !customerFilter.has(row.customerId)) continue;
+      if (!matchesCostCenter(row.costCenterIds)) continue;
 
       const { key: bucketKey, label: bucketLabel } = getBucketKey(row.date, granularity);
 
       // Bucket aggregation
       let bucket = buckets.get(bucketKey);
       if (!bucket) {
-        bucket = { label: bucketLabel, mensual: 0, adicional: 0, breakdownMap: new Map() };
+        bucket = {
+          label: bucketLabel,
+          mensual: 0,
+          adicional: 0,
+          breakdownMap: new Map(),
+          byCostCenter: new Map(),
+        };
         buckets.set(bucketKey, bucket);
       }
 
@@ -162,6 +195,29 @@ export function OperacionesChartsClient({ data }: Props) {
       bucket.adicional += row.adicional;
       totalMensual += row.mensual;
       totalAdicional += row.adicional;
+
+      /**
+       * Desglose por centro de costo — alimenta una linea por centro seleccionado.
+       * Un parte cuyos equipos pertenecen a varios centros suma en CADA uno de ellos,
+       * porque cada linea responde "cuantos servicios toco este sector". Por eso la
+       * suma de las lineas puede superar el total (pasa en ~1,4% de los partes) y se
+       * aclara en la UI.
+       */
+      if (costCenterFilter) {
+        const rowKeys = row.costCenterIds.length === 0 ? [UNASSIGNED_COST_CENTER] : row.costCenterIds;
+
+        for (const key of rowKeys) {
+          if (!costCenterFilter.has(key)) continue;
+
+          let centerEntry = bucket.byCostCenter.get(key);
+          if (!centerEntry) {
+            centerEntry = { mensual: 0, adicional: 0 };
+            bucket.byCostCenter.set(key, centerEntry);
+          }
+          centerEntry.mensual += row.mensual;
+          centerEntry.adicional += row.adicional;
+        }
+      }
 
       // Per-client breakdown within bucket (for tooltip)
       let clientInBucket = bucket.breakdownMap.get(row.customerId);
@@ -190,6 +246,7 @@ export function OperacionesChartsClient({ data }: Props) {
         mensual: bucket.mensual,
         adicional: bucket.adicional,
         _breakdown: Array.from(bucket.breakdownMap.values()) as ClientBreakdown[],
+        _byCostCenter: Object.fromEntries(bucket.byCostCenter),
       }));
 
     // Client ranking sorted by total descending
@@ -220,7 +277,52 @@ export function OperacionesChartsClient({ data }: Props) {
       clientRanking,
       periodLabel,
     };
-  }, [data.rows, selectedMonth, granularity, selectedCustomerIds]);
+  }, [data.rows, selectedMonth, granularity, selectedCustomerIds, selectedCostCenterIds]);
+
+  /**
+   * Una serie (linea) por centro de costo seleccionado. Sin seleccion no hay series y el
+   * grafico mantiene su comportamiento original (areas apiladas Mensual/Adicional).
+   */
+  const costCenterSeries = React.useMemo(() => {
+    if (selectedCostCenterIds.length === 0) return [];
+
+    const nameById = new Map(data.costCenters.map((cc) => [cc.id, cc.name]));
+
+    return selectedCostCenterIds.map((id, index) => ({
+      key: id,
+      dataKey: `cc_${id}`,
+      name: id === UNASSIGNED_COST_CENTER ? 'Sin asignar' : nameById.get(id) ?? 'Sin nombre',
+      // La paleta de shadcn tiene 5 colores; con mas centros se reutilizan
+      color: `var(--chart-${(index % 5) + 1})`,
+    }));
+  }, [selectedCostCenterIds, data.costCenters]);
+
+  /**
+   * Agrega al dataset una clave por serie con el valor del boton activo (Total, Mensual o
+   * Adicional). Se calcula aparte del loop principal para no recorrer los partes de nuevo
+   * cada vez que se cambia de boton.
+   */
+  const chartDataWithSeries = React.useMemo(() => {
+    if (costCenterSeries.length === 0) return chartData;
+
+    return chartData.map((point) => {
+      const byCenter = (point._byCostCenter ?? {}) as Record<string, { mensual: number; adicional: number }>;
+      const enriched: ChartDataPoint = { ...point };
+
+      for (const serie of costCenterSeries) {
+        const entry = byCenter[serie.key];
+        enriched[serie.dataKey] = !entry
+          ? 0
+          : activeView === 'mensual'
+            ? entry.mensual
+            : activeView === 'adicional'
+              ? entry.adicional
+              : entry.mensual + entry.adicional;
+      }
+
+      return enriched;
+    });
+  }, [chartData, costCenterSeries, activeView]);
 
   // Capitalize first letter for month display
   const monthDisplay = selectedMonth.clone().locale('es').format('MMMM YYYY');
@@ -239,6 +341,12 @@ export function OperacionesChartsClient({ data }: Props) {
               {selectedCustomerIds.length > 0 && (
                 <span className="ml-1">
                   ({selectedCustomerIds.length} {selectedCustomerIds.length === 1 ? 'cliente' : 'clientes'})
+                </span>
+              )}
+              {selectedCostCenterIds.length > 0 && (
+                <span className="ml-1">
+                  ({selectedCostCenterIds.length}{' '}
+                  {selectedCostCenterIds.length === 1 ? 'centro de costo' : 'centros de costo'})
                 </span>
               )}
             </CardDescription>
@@ -296,6 +404,18 @@ export function OperacionesChartsClient({ data }: Props) {
                   showSelectAll
                 />
               </div>
+
+              {/* Cost center filter — se resuelve por los equipos afectados al parte */}
+              <div className="w-[220px]">
+                <MultiSelectCombobox
+                  options={costCenterOptions}
+                  placeholder="Todos los centros de costo"
+                  emptyMessage="No se encontraron centros de costo"
+                  selectedValues={selectedCostCenterIds}
+                  onChange={setSelectedCostCenterIds}
+                  showSelectAll
+                />
+              </div>
             </div>
           </div>
 
@@ -319,7 +439,18 @@ export function OperacionesChartsClient({ data }: Props) {
           </div>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <ServiceHistoryAreaChart chartData={chartData} activeView={activeView} />
+          <ServiceHistoryAreaChart
+            chartData={chartDataWithSeries}
+            activeView={activeView}
+            costCenterSeries={costCenterSeries}
+          />
+          {/* Un parte con equipos de varios centros suma en la linea de cada uno */}
+          {costCenterSeries.length > 1 && (
+            <p className="mt-2 px-2 text-xs text-muted-foreground sm:px-0">
+              Cada linea cuenta los servicios en los que participo ese centro de costo. Un servicio con equipos de
+              varios centros aparece en la linea de cada uno, por lo que la suma de las lineas puede superar el total.
+            </p>
+          )}
         </CardContent>
       </Card>
 

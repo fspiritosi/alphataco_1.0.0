@@ -259,7 +259,7 @@ Cuando el usuario pide "cerrar la tarea", "ponle un cierre", "dale cierre al tic
 
 ### Tras subir documentos: invalidar React Query, no solo `router.refresh()`
 
-Las tablas de documentos (empleados/equipos) corren en **client-side mode con React Query**. Tras subir un documento (flujo masivo `UploadDocumentMultiEmployee/Equipment` o individual `SimpleDocument`), `router.refresh()` por sí solo **NO** actualiza la tabla de fondo (solo refresca Server Components/SSR). SIEMPRE llamar también `queryClient.invalidateQueries()`. Patrón: `queryClient.invalidateQueries(); router.refresh();` (el invalidate para las tablas React Query; router.refresh para las tablas SSR del sistema viejo). Extiende la regla de "Modal SimpleDocument != flujo UploadDocumentMulti*".
+Las tablas de documentos (empleados/equipos) corren en **client-side mode con React Query**. Tras subir un documento (flujo masivo `UploadDocumentMultiEmployee/Equipment` o individual `SimpleDocument`), `router.refresh()` por sí solo **NO** actualiza la tabla de fondo (solo refresca Server Components/SSR). SIEMPRE llamar también `queryClient.invalidateQueries()`. Patrón: `queryClient.invalidateQueries(); router.refresh();` (el invalidate para las tablas React Query; router.refresh para las tablas SSR del sistema viejo). Extiende la regla de "Modal SimpleDocument != flujo UploadDocumentMulti\*".
 
 ### Carga masiva multirecurso: persistir server-side (Prisma), nunca `.in([cientos])` client-side
 
@@ -275,15 +275,54 @@ Cuando un documento deja de aplicar a un recurso (cambió `company_position`/cat
 
 ### Funciones SQL que retornan `void`: usar `$executeRaw`, NUNCA `$queryRaw`
 
-`$queryRaw` **deserializa** el resultado de cada columna; si llamás una función Postgres que retorna `void` (ej. `SELECT controlar_alertas_documentos_single_employee(...)`), Prisma falla en runtime con `UnsupportedNativeDataType: void` / *"Failed to deserialize column of type 'void'"* (código `P2010`). Usar **`$executeRaw`** (ejecuta sin deserializar, retorna el count de filas). Aplica a TODA invocación de función void via Prisma raw, incluido el patrón `SELECT fn(x) FROM unnest(...)`. **El error NO aparece en `check-types` ni al correr la función por psql/MCP** — solo en el flujo real de la app (editar/crear empleado o equipo, asignar a cliente). Por eso: tras agregar una llamada raw a una función void, **probar el flujo de UI real**, no solo el SQL. Bug introducido en el 358 (los recálculos M:M de `updateEmployee`/`createEmployee`/`updateVehicle`/`assign*ToCustomer`).
+`$queryRaw` **deserializa** el resultado de cada columna; si llamás una función Postgres que retorna `void` (ej. `SELECT controlar_alertas_documentos_single_employee(...)`), Prisma falla en runtime con `UnsupportedNativeDataType: void` / _"Failed to deserialize column of type 'void'"_ (código `P2010`). Usar **`$executeRaw`** (ejecuta sin deserializar, retorna el count de filas). Aplica a TODA invocación de función void via Prisma raw, incluido el patrón `SELECT fn(x) FROM unnest(...)`. **El error NO aparece en `check-types` ni al correr la función por psql/MCP** — solo en el flujo real de la app (editar/crear empleado o equipo, asignar a cliente). Por eso: tras agregar una llamada raw a una función void, **probar el flujo de UI real**, no solo el SQL. Bug introducido en el 358 (los recálculos M:M de `updateEmployee`/`createEmployee`/`updateVehicle`/`assign*ToCustomer`).
 
 ### La config de los `document_types` la define el CLIENTE — nos adaptamos, no la cuestionamos
 
-Las condiciones de un tipo de documento (`special`, `conditions` por `company_position`/`guild`/`category`/etc.) son **decisión del cliente**. Si el cliente configuró `Apto Medico GH` como especial para 9 funciones, **así debe ser**: los empleados de otras funciones que lo tengan cargado **ya no lo requieren** y archivarlos es **correcto** — aunque intuitivamente "un apto médico debería aplicar a todos". NO asumir que una config "está mal" ni proponer corregirla salvo que el usuario/cliente lo pida explícitamente. Al validar el backfill o cualquier re-evaluación de alertas, el criterio de verdad es: *"¿el recurso cumple las conditions que el cliente definió?"* — si no las cumple, el doc no le aplica, punto. La función `controlar_alertas_documentos_single_*` es fiel a esas conditions; un archivado masivo "sorprendente" (ej. 142 aptos médicos) refleja la config del cliente, no un bug. Extiende [[archivado docs por cambio de función]].
+Las condiciones de un tipo de documento (`special`, `conditions` por `company_position`/`guild`/`category`/etc.) son **decisión del cliente**. Si el cliente configuró `Apto Medico GH` como especial para 9 funciones, **así debe ser**: los empleados de otras funciones que lo tengan cargado **ya no lo requieren** y archivarlos es **correcto** — aunque intuitivamente "un apto médico debería aplicar a todos". NO asumir que una config "está mal" ni proponer corregirla salvo que el usuario/cliente lo pida explícitamente. Al validar el backfill o cualquier re-evaluación de alertas, el criterio de verdad es: _"¿el recurso cumple las conditions que el cliente definió?"_ — si no las cumple, el doc no le aplica, punto. La función `controlar_alertas_documentos_single_*` es fiel a esas conditions; un archivado masivo "sorprendente" (ej. 142 aptos médicos) refleja la config del cliente, no un bug. Extiende [[archivado docs por cambio de función]].
 
 ### Reconciliacion de documentos: hay DOS funciones (por-recurso vs por-tipo); la "all" estaba rota para tipos globales
 
 Al re-evaluar que documentos aplican hay DOS caminos: `controlar_alertas_documentos_single_employee/_vehicle` (por-RECURSO, se dispara al cambiar el recurso: company_position, guild, category, etc.) y `controlar_alertas_single_document_all_employees/_vehicles` (por-TIPO, se dispara al editar `conditions`/`mandatory` del `document_type` via `trg_document_types_update`). Bug del ticket 411: la version "all" tenia DOS defectos: (a) filtraba `WHERE company_id = doc.company_id` y como los tipos afectados son GLOBALES (`company_id NULL`, ej. Apto Medico GH) no iteraba a NINGUN recurso -> editar sus conditions nunca reconciliaba; y (b) en la rama "vuelve a cumplir" solo hacia `INSERT ... WHERE NOT EXISTS`, sin el `UPDATE ... SET archived_at = NULL` -> los documentos archivados por el 358 quedaban trabados en "Ya no aplica" para siempre aunque el recurso volviera a cumplir la condicion (la version por-recurso SI tenia el des-archivado; por eso los cambios de funcion individuales si reactivaban, pero no la edicion de conditions del tipo). Ademas, el flujo de subida (`SimpleDocument`, `ReplaceDocument`, `upload-multiresource-document`) no limpiaba `archived_at` al subir -> re-subir el documento no lo des-archivaba. **Modelo real de empresas**: es efectivamente MONO-EMPRESA — solo GRUPO HORIZONTE SRL (`be4119b0`) tiene recursos (652 empleados, 377 vehiculos); las otras 3 empresas (La Nueva gh 1, Empresa 2, InfinityBrozz) estan vacias (0 recursos, 0 tipos); los `document_types` son globales (`company_id NULL`) o de GH. Por eso la reconciliacion aplica a TODOS los recursos sin filtrar por empresa (el filtro por company_id solo agregaria complejidad para empresas que nunca tendran recursos). La reparacion de datos (des-archivar los que hoy cumplen) va EMBEBIDA en la migracion para que el deploy corrija prod. Extiende [[archivado docs por cambio de funcion]] y [[config document_types cliente]].
+
+### Toda modificación exige analizar el IMPACTO en lo vinculado — nunca tratar una entidad como aislada
+
+Antes de implementar cualquier cambio (edición, alta, baja, integración), **mapear las relaciones y el flujo real de la funcionalidad** y determinar qué MÁS se ve afectado. Una entidad casi nunca vive sola: modificarla suele tener consecuencias en otras tablas, módulos, cálculos o estados derivados.
+
+**Ejemplo del criterio** (no existe en este proyecto, ilustra la idea): en un módulo de stock, editar una _solicitud de materiales_ — agregar o quitar materiales — no es solo actualizar la solicitud: **impacta el stock** (reservas, disponibilidad, movimientos). Implementar solo el UPDATE de la solicitud dejaría el stock inconsistente.
+
+**Cómo aplicarlo:**
+
+1. **Antes de codear**: leer bien la funcionalidad y sus relaciones (schema Prisma, FKs, tablas pivote, triggers SQL, server actions que tocan lo mismo, cálculos de estado/status, alertas, estadísticas, exportaciones, PDFs).
+2. **Listar los efectos colaterales** que el cambio debería producir para que el flujo quede correcto y consistente.
+3. **Si hay duda sobre si algo DEBE verse afectado o no, PREGUNTAR al usuario** antes de implementar. No asumir ni por exceso (tocar de más) ni por defecto (dejar datos inconsistentes).
+4. **Al reportar**, explicitar qué se tocó y qué quedó deliberadamente afuera.
+
+Casos típicos en este proyecto donde esto aplica: documentos ↔ alertas/status del recurso ↔ triggers SQL; recursos dados de baja ↔ documentación de egreso; asignaciones M:M (contratistas, aptitudes, clientes) ↔ re-evaluación de qué documentos aplican; cambios en DataTables ↔ filtros + facets + export + sorting + permisos. Extiende [[cambiar guardas/triggers row-level]].
+
+### Mensajes de commit: SOLO la línea de asunto, sin cuerpo
+
+Un commit se describe con **una sola línea** en formato conventional commit. **NUNCA** agregar cuerpo, bullets, explicaciones, detalle de archivos ni justificaciones. Si el cambio parece necesitar más explicación, esa explicación va en el PR o en la conversación, no en el commit.
+
+```bash
+# ✅ CORRECTO — una línea y nada más
+git commit -m "feat(dashboard): 516 - agregar subtipo y propietario al reporte de vencimientos de equipos"
+
+# ❌ INCORRECTO — cuerpo con detalle
+git commit -m "feat(dashboard): 516 - agregar subtipo y propietario
+
+- Se suman las columnas X e Y
+- Los filtros viven en la relación vehicles
+- ..."
+```
+
+Aplica a TODOS los commits, sin importar el tamaño del cambio. Formato: `tipo(scope): <nro ticket si aplica> - descripción breve`. Ver también las reglas de `git-rules.md` (conventional commits, cero atribución a herramientas, nunca commitear sin pedido explícito).
+
+### Implementación: usar `/feature-dev:feature-dev`, no las skills de superpowers
+
+Para **implementar** una feature, el flujo preferido del usuario es la skill `feature-dev:feature-dev` (discovery → exploración con agentes → preguntas → arquitectura → implementación → review), **no** `superpowers:writing-plans` / `superpowers:executing-plans` / `superpowers:subagent-driven-development`.
+
+`superpowers:brainstorming` sigue siendo válido para la etapa previa de exploración de la idea y definición de alcance; el cambio aplica al momento de pasar a construir.
 
 ---
 
