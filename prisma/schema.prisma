@@ -768,10 +768,11 @@ model cities {
   created_at  DateTime    @default(now()) @db.Timestamptz(6)
   province_id BigInt
   name        String
-  provinces   provinces   @relation(fields: [province_id], references: [id], onDelete: NoAction)
-  company     company[]
-  employees   employees[]
-  workshops   workshops[]
+  provinces     provinces       @relation(fields: [province_id], references: [id], onDelete: NoAction)
+  company       company[]
+  employees     employees[]
+  workshops     workshops[]
+  pre_employees pre_employees[]
 
   @@index([province_id])
   @@schema("public")
@@ -954,6 +955,7 @@ model company {
   tire_templates      tire_templates[]
   tire_types          tire_types[]
   tire_service_orders tire_service_orders[]
+  pre_employees       pre_employees[]
 
   @@schema("public")
 }
@@ -967,6 +969,7 @@ model company_positions {
   id                         String                       @id(map: "company_position_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   aptitudes_tecnicas_puestos aptitudes_tecnicas_puestos[]
   employees                  employees[]
+  pre_employees              pre_employees[]
 
   @@schema("public")
 }
@@ -1054,10 +1057,11 @@ model cost_center {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model countries {
-  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at DateTime    @default(now()) @db.Timestamptz(6)
-  name       String
-  employees  employees[]
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  name          String
+  employees     employees[]
+  pre_employees pre_employees[]
 
   @@schema("public")
 }
@@ -1340,10 +1344,13 @@ model document_types {
   has_policy_number   Boolean?              @default(false)
   conditions          Json[]
   equipment_type      String?               @db.VarChar(20)
+  /// Habilita el tipo para el checklist de documentos de un pre legajo (postulante en proceso de ingreso)
+  available_for_pre_file Boolean            @default(false)
   company             company?              @relation(fields: [company_id], references: [id], onDelete: Cascade)
   documents_company   documents_company[]
   documents_employees documents_employees[]
   documents_equipment documents_equipment[]
+  documents_pre_employees documents_pre_employees[]
 
   @@index([equipment_type], map: "idx_document_types_equipment_type")
   @@schema("public")
@@ -1544,6 +1551,7 @@ model employees {
   repairlogs                                                        repairlogs[]
   clothing_deliveries_received                                      clothing_deliveries[]  @relation("clothing_deliveries_employee_idToemployees")
   clothing_deliveries_given                                         clothing_deliveries[]  @relation("clothing_deliveries_delivered_by_idToemployees")
+  pre_employees                                                     pre_employees?
 
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
   @@schema("public")
@@ -1653,6 +1661,7 @@ model hierarchy {
   employees       employees[]
   other_equipment other_equipment[]
   vehicles        vehicles[]
+  pre_employees   pre_employees[]
 
   @@schema("public")
 }
@@ -2180,6 +2189,89 @@ model preparte_change_logs {
   @@schema("public")
 }
 
+/// Pre legajo: postulante en proceso de ingreso. Espeja la nullability de `employees`
+/// para los datos personales y de contacto; de los datos laborales solo tiene el sector
+/// y el puesto propuestos. Al aprobarse se materializa un `employees` y queda como historial.
+model pre_employees {
+  id                             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                     DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+  company_id                     String                    @db.Uuid
+  pre_file_number                String
+  status                         pre_employee_status_enum  @default(en_proceso)
+
+  // Datos personales (misma nullability que employees)
+  firstname                      String
+  lastname                       String
+  cuil                           String
+  document_type                  document_type_enum?
+  document_number                String
+  born_date                      String?
+  nationality                    nationality_enum?
+  birthplace                     String                    @db.Uuid
+  gender                         gender_enum?
+  marital_status                 marital_status_enum?
+  level_of_education             level_of_education_enum?
+  picture                        String?
+
+  // Datos de contacto (misma nullability que employees)
+  street                         String
+  street_number                  String
+  province                       BigInt
+  city                           BigInt?
+  postal_code                    String?
+  phone                          String
+  email                          String?
+
+  // Datos laborales propuestos (unicos dos campos laborales del pre legajo)
+  proposed_hierarchical_position String?                   @db.Uuid
+  proposed_company_position      String?                   @db.Uuid
+
+  // Revision y conversion
+  rejection_reason               String?
+  reviewed_by                    String?                   @db.Uuid
+  reviewed_at                    DateTime?                 @db.Timestamptz(6)
+  created_by                     String?                   @db.Uuid
+  employee_id                    String?                   @unique @db.Uuid
+
+  company                        company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  countries                      countries                 @relation(fields: [birthplace], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  provinces                      provinces                 @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cities                         cities?                   @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hierarchy                      hierarchy?                @relation(fields: [proposed_hierarchical_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company_positions              company_positions?        @relation(fields: [proposed_company_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees                      employees?                @relation(fields: [employee_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  created_by_profile             profile?                  @relation("pre_employees_created_byToprofile", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewed_by_profile            profile?                  @relation("pre_employees_reviewed_byToprofile", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  documents_pre_employees        documents_pre_employees[]
+
+  @@unique([company_id, pre_file_number])
+  @@index([company_id, status])
+  @@schema("public")
+}
+
+/// Checklist de documentos de un pre legajo. Solo existen filas para documentos
+/// efectivamente subidos: no hay estados ni alertas (el motor de alertas es exclusivo
+/// de los empleados reales).
+model documents_pre_employees {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  pre_employee_id  String        @db.Uuid
+  document_type_id String        @db.Uuid
+  document_path    String
+  validity         DateTime?     @db.Timestamptz(6)
+  uploaded_at      DateTime      @default(now()) @db.Timestamptz(6)
+  user_id          String?       @db.Uuid
+
+  pre_employees    pre_employees  @relation(fields: [pre_employee_id], references: [id], onDelete: Cascade)
+  document_types   document_types @relation(fields: [document_type_id], references: [id], onDelete: Cascade)
+  profile          profile?       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([pre_employee_id, document_type_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model profile {
   id                                                                                 String                      @id @db.Uuid
   created_at                                                                         DateTime?                   @default(now()) @db.Timestamptz(6)
@@ -2239,6 +2331,9 @@ model profile {
   work_orders_work_orders_paused_byToprofile                                         work_orders[]               @relation("work_orders_paused_byToprofile")
   work_orders_work_orders_started_byToprofile                                        work_orders[]               @relation("work_orders_started_byToprofile")
   tire_service_orders                                                                tire_service_orders[]
+  pre_employees_pre_employees_created_byToprofile                                    pre_employees[]             @relation("pre_employees_created_byToprofile")
+  pre_employees_pre_employees_reviewed_byToprofile                                   pre_employees[]             @relation("pre_employees_reviewed_byToprofile")
+  documents_pre_employees                                                            documents_pre_employees[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
@@ -2254,6 +2349,7 @@ model provinces {
   company       company[]
   employees     employees[]
   workshops     workshops[]
+  pre_employees pre_employees[]
 
   @@schema("public")
 }
@@ -3572,6 +3668,18 @@ enum notification_categories {
   advertencia
   aprobado
   rechazado
+
+  @@schema("public")
+}
+
+/// Estados del pre legajo. Transiciones permitidas:
+/// en_proceso -> pre_ingreso | rechazado; pre_ingreso -> legajo | rechazado; rechazado -> en_proceso.
+/// `legajo` es terminal: el pre legajo ya se convirtio en un empleado real.
+enum pre_employee_status_enum {
+  en_proceso
+  pre_ingreso
+  rechazado
+  legajo
 
   @@schema("public")
 }

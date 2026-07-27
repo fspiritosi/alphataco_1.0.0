@@ -13,7 +13,8 @@ import { getCachedSession } from '@/shared/lib/cached-session';
 import { prisma } from '@/shared/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
-import type { EmployeeFormData } from './components/forms/employee-form';
+import { createEmployeeCore } from './lib/create-employee-core';
+import type { EmployeeFormData } from './schemas/employee-schema';
 
 const logger = new Logger('features/EmpleadoID');
 
@@ -467,74 +468,10 @@ export async function createEmployee(data: EmployeeFormData) {
 
   if (!company_id) throw new Error('No se encontró la empresa activa del usuario');
 
-  const { allocated_to, aptitudes, workshop_sector_ids, province, city, date_of_admission, ...scalarData } = data;
-
   try {
-    const employee = await prisma.$transaction(async (tx) => {
-      // Crear el empleado principal
-      const created = await tx.employees.create({
-        data: {
-          ...scalarData,
-          company_id,
-          province: BigInt(province),
-          city: city != null ? BigInt(city) : null,
-          // date_of_admission es requerido en BD (NOT NULL); el form lo tiene como optional
-          // para el modo edit, pero en create siempre llega. Fallback a fecha actual.
-          date_of_admission: date_of_admission ? new Date(date_of_admission) : new Date(),
-          // Castings de enums: el formulario usa string, Prisma espera los tipos de enum
-          nationality: scalarData.nationality as nationality_enum,
-          document_type: scalarData.document_type as document_type_enum,
-          gender: scalarData.gender as gender_enum,
-          marital_status: scalarData.marital_status as marital_status_enum,
-          level_of_education: scalarData.level_of_education as level_of_education_enum,
-          cost_type: scalarData.cost_type ? (scalarData.cost_type as cost_type_enum) : undefined,
-          // allocated_to es un array denormalizado en BD; se mantiene en sincronía
-          // con la tabla pivot contractor_employee que es la fuente de verdad para M:M
-          allocated_to: allocated_to ?? [],
-        },
-        select: { id: true },
-      });
-
-      // M:M — afectaciones a contratistas
-      if (allocated_to && allocated_to.length > 0) {
-        await tx.contractor_employee.createMany({
-          data: allocated_to.map((contractorId) => ({
-            employee_id: created.id,
-            contractor_id: contractorId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      // M:M — aptitudes técnicas
-      if (aptitudes && aptitudes.length > 0) {
-        await tx.empleado_aptitudes.createMany({
-          data: aptitudes.map((aptitudId) => ({
-            empleado_id: created.id,
-            aptitud_id: aptitudId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      // M:M — sectores de taller asignados
-      if (workshop_sector_ids && workshop_sector_ids.length > 0) {
-        await tx.employee_workshop_sectors.createMany({
-          data: workshop_sector_ids.map((sectorId) => ({
-            employee_id: created.id,
-            workshop_sector_id: sectorId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      // 358 / M:M: generar los documentos requeridos con el estado FINAL. Los contratistas/aptitudes
-      // se insertan DESPUES del INSERT escalar, por lo que el trigger AFTER INSERT los ve vacios.
-      // Este recalculo explicito usa el estado ya completo.
-      await tx.$executeRaw`SELECT controlar_alertas_documentos_single_employee(${created.id}::uuid, ${company_id}::uuid)`;
-
-      return created;
-    });
+    // La creacion vive en createEmployeeCore para que la comparta la conversion de un
+    // pre legajo en legajo (ticket 505) y ambos flujos creen al empleado igual.
+    const employee = await prisma.$transaction((tx) => createEmployeeCore(tx, data, company_id));
 
     logger.info('Empleado creado exitosamente', { data: { employeeId: employee.id } });
     revalidatePath('/dashboard/employee/action');
