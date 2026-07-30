@@ -220,6 +220,10 @@ Al insertar nuevas tabs o `role_permissions`, SIEMPRE incluir los 3 roles: `admi
 WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
 ```
 
+**Y SOLO esos 3.** Los roles custom de la empresa (`roles.slug IS NULL`: "Usuario de RR.HH.", "Usuario Control Documental", "Administrador Operaciones", etc.) NO se cargan por migración aunque sean los que más usuarios tienen — se asignan **manualmente** desde el editor de permisos. Si al revisar una tab nueva ves que los roles operativos no la tienen, eso es lo esperado, no un bug de la migración.
+
+Para que la asignación manual funcione, la tab DEBE estar declarada en `permissions-map.ts` con sus `allowedActions`: el editor arma las acciones cruzando `allowedActions` con la tabla `actions`, y una tab ausente del mapa se muestra sin ninguna acción tildeable.
+
 ### Legajo: columna separada en DataTables
 
 El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
