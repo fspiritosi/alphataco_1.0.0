@@ -220,6 +220,10 @@ Al insertar nuevas tabs o `role_permissions`, SIEMPRE incluir los 3 roles: `admi
 WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
 ```
 
+**Y SOLO esos 3.** Los roles custom de la empresa (`roles.slug IS NULL`: "Usuario de RR.HH.", "Usuario Control Documental", "Administrador Operaciones", etc.) NO se cargan por migración aunque sean los que más usuarios tienen — se asignan **manualmente** desde el editor de permisos. Si al revisar una tab nueva ves que los roles operativos no la tienen, eso es lo esperado, no un bug de la migración.
+
+Para que la asignación manual funcione, la tab DEBE estar declarada en `permissions-map.ts` con sus `allowedActions`: el editor arma las acciones cruzando `allowedActions` con la tabla `actions`, y una tab ausente del mapa se muestra sin ninguna acción tildeable.
+
 ### Legajo: columna separada en DataTables
 
 El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
@@ -323,6 +327,20 @@ Aplica a TODOS los commits, sin importar el tamaño del cambio. Formato: `tipo(s
 Para **implementar** una feature, el flujo preferido del usuario es la skill `feature-dev:feature-dev` (discovery → exploración con agentes → preguntas → arquitectura → implementación → review), **no** `superpowers:writing-plans` / `superpowers:executing-plans` / `superpowers:subagent-driven-development`.
 
 `superpowers:brainstorming` sigue siendo válido para la etapa previa de exploración de la idea y definición de alcance; el cambio aplica al momento de pasar a construir.
+
+### Schemas Zod compartidos server/client: NUNCA definirlos en un archivo `'use client'`
+
+Si una server action importa un schema Zod que vive en un archivo con `'use client'`, Next entrega ese módulo como **referencia de cliente** y el objeto Zod no existe en el servidor: falla en runtime con `X.parse is not a function`. **No lo detecta `npm run check-types`** (los tipos resuelven perfecto) — solo aparece al ejecutar el flujo real.
+
+Regla: los schemas Zod que se usan de los dos lados van en un módulo **sin directiva** (ej. `features/{X}/schemas/*.ts`); el componente de cliente los importa de ahí (y puede re-exportarlos para no romper imports existentes, pero **el consumidor server debe importar del módulo de schemas, no del componente**). Mismo criterio que [[funciones SQL void con executeRaw]]: tras conectar un módulo nuevo entre server y client, **probar el flujo de UI real**, no alcanza con que compile. Bug encontrado en el 505 (`employeeFormSchema` definido en `employee-form.tsx`, importado por `approvePreEmployee`).
+
+### Obligatoriedad de campos: la define el TICKET, no la conveniencia de implementación
+
+Si las notas del ticket especifican que una sección de datos va **completa** (ej. ticket 505: "Datos personales => completo, Datos de Contacto => completo, Datos Laboral => Sector y Puesto Propuestos (solo estos campos)"), esa obligatoriedad es **requisito**, no sugerencia. NO relajarla a `nullable`/opcional porque una decisión de UX (guardado parcial, borrador, wizard por pasos) lo haría más cómodo de implementar.
+
+Cuando una decisión de UX entra en conflicto con una especificación explícita del ticket, **plantear la contradicción al usuario y dejar que él la resuelva** — nunca resolverla unilateralmente en el diseño y menos aún sin mencionarlo. Ojo con el detalle del enunciado: en el 505 el "ir cargando" del pedido original se refiere a **los documentos** ("que julia pueda ir cargando del personal que esta en proceso de ingreso **sus documentos**"), no a los datos personales — leer QUÉ es lo que se carga progresivamente antes de asumir que todo el formulario es un borrador.
+
+Regla práctica al modelar una entidad espejo de otra (pre legajo ↔ empleado): **espejar EXACTAMENTE la nullability de la tabla original** — ni relajar ni endurecer. Si en `employees` la columna es NOT NULL, en la tabla espejo también; si en `employees` admite NULL (`gender`, `email`, `city`, `postal_code`, `born_date`, `document_type`, `nationality`, `marital_status`, `level_of_education`, `picture`…), en la espejo también, **aunque el formulario los exija a todos**. En este proyecto la capa Zod es deliberadamente más estricta que la BD: la obligatoriedad "de negocio" vive en el schema del form, no en el DDL. No "mejorar" el modelo poniendo NOT NULL donde el original no lo tiene. Extiende [[analizar impacto en lo vinculado]].
 
 ---
 

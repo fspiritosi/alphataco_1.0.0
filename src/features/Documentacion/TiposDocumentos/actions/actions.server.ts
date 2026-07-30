@@ -85,6 +85,7 @@ const DOC_TYPE_SELECT = {
   is_it_montlhy: true,
   private: true,
   down_document: true,
+  available_for_pre_file: true,
   equipment_type: true,
   created_at: true,
 } as const;
@@ -286,6 +287,8 @@ export interface CreateDocumentTypeInput {
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
+  /** Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo */
+  available_for_pre_file?: boolean;
   description?: string;
   conditions?: Prisma.JsonValue[];
 }
@@ -313,6 +316,7 @@ export async function createDocumentType(data: CreateDocumentTypeInput) {
         is_it_montlhy: data.is_it_montlhy ?? false,
         private: data.private ?? false,
         down_document: data.down_document ?? false,
+        available_for_pre_file: data.available_for_pre_file ?? false,
         description: data.description ?? null,
         conditions: (data.conditions ?? []) as Prisma.InputJsonValue[],
       },
@@ -339,6 +343,8 @@ export interface UpdateDocumentTypeInput {
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
+  /** Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo */
+  available_for_pre_file?: boolean;
   description?: string | null;
   conditions?: Prisma.JsonValue[];
 }
@@ -372,6 +378,7 @@ export async function updateDocumentType(id: string, data: UpdateDocumentTypeInp
     if (data.is_it_montlhy !== undefined) updatePayload.is_it_montlhy = data.is_it_montlhy;
     if (data.private !== undefined) updatePayload.private = data.private;
     if (data.down_document !== undefined) updatePayload.down_document = data.down_document;
+    if (data.available_for_pre_file !== undefined) updatePayload.available_for_pre_file = data.available_for_pre_file;
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.conditions !== undefined) updatePayload.conditions = data.conditions as Prisma.InputJsonValue[];
 

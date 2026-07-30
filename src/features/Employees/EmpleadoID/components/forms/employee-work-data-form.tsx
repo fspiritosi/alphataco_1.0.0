@@ -8,7 +8,7 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
-import type { UseFormReturn } from 'react-hook-form';
+import { useFormContext } from 'react-hook-form';
 import {
   getAllAptitudeOptions,
   getAllCategoryOptions,
@@ -22,13 +22,15 @@ import {
   getAllWorkDiagramOptions,
   getAllWorkshopSectorOptions,
 } from '../../actions.server';
-import type { EmployeeFormData } from './employee-form';
+import type { EmployeeWorkDataValues } from './employee-form';
 
-interface EmployeeWorkDataFormProps {
-  form: UseFormReturn<EmployeeFormData>;
-}
-
-export function EmployeeWorkDataForm({ form }: EmployeeWorkDataFormProps) {
+/**
+ * Datos laborales del legajo. Toma el form del contexto para poder reutilizarse tal cual
+ * en dos lugares: la ficha del empleado y la aprobación de un pre legajo (ticket 505),
+ * donde son exactamente los campos que se completan al dar el OK.
+ */
+export function EmployeeWorkDataForm() {
+  const form = useFormContext<EmployeeWorkDataValues>();
   // ─── Catálogos base (siempre cargados) ─────────────────────────────────────
   const { data: hierarchicalPositions = [], isLoading: loadingHierarchy } = useQuery({
     queryKey: ['catalog', 'hierarchy'],

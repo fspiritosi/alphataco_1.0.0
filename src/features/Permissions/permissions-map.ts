@@ -30,6 +30,7 @@ export const ACTIONS = {
   view_private: { slug: 'view_private', name: 'Ver privados' },
   upload_private: { slug: 'upload_private', name: 'Subir privados' },
   assign_resources: { slug: 'assign_resources', name: 'Asignar Recursos' },
+  approve: { slug: 'approve', name: 'Aprobar' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -460,6 +461,16 @@ export const PERMISSIONS = {
       // 'tipos-de-documentos': HEREDA permisos de 'documentacion/tipos-de-documentos'
       // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
       // Ver implementación en: src/app/dashboard/employee/page.tsx
+      'pre-legajos': {
+        slug: 'pre-legajos',
+        name: 'Pre Legajos',
+        tabId: '20000000-0000-0000-0000-000000000007',
+        parent: null,
+        // 'approve' habilita aprobar y rechazar: es la decisión de gerencia,
+        // separada de la carga y edición que hace RRHH con 'create'/'update'.
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
       covenant: {
         slug: 'covenant',
         name: 'CCT',

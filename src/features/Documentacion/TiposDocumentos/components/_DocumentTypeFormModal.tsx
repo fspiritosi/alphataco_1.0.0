@@ -57,6 +57,8 @@ const formSchema = z.object({
   is_it_montlhy: z.boolean(),
   private: z.boolean(),
   down_document: z.boolean(),
+  // Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo
+  available_for_pre_file: z.boolean(),
   multiresource: z.boolean(),
   has_policy_number: z.boolean(),
   description: z.string().optional(),
@@ -125,6 +127,7 @@ export function _DocumentTypeFormModal({
       is_it_montlhy: false,
       private: false,
       down_document: false,
+      available_for_pre_file: false,
       multiresource: false,
       has_policy_number: false,
       description: '',
@@ -160,6 +163,7 @@ export function _DocumentTypeFormModal({
       is_it_montlhy: editData.is_it_montlhy ?? false,
       private: editData.private ?? false,
       down_document: editData.down_document ?? false,
+      available_for_pre_file: editData.available_for_pre_file ?? false,
       multiresource: editData.multiresource,
       has_policy_number: editData.has_policy_number ?? false,
       description: editData.description ?? '',
@@ -252,6 +256,7 @@ export function _DocumentTypeFormModal({
       is_it_montlhy: false,
       private: false,
       down_document: false,
+      available_for_pre_file: false,
       multiresource: false,
       has_policy_number: false,
       description: '',
@@ -305,6 +310,8 @@ export function _DocumentTypeFormModal({
         is_it_montlhy: values.is_it_montlhy,
         private: values.private,
         down_document: values.down_document,
+        // Solo tiene sentido en documentos de personas (el pre legajo es de un postulante)
+        available_for_pre_file: values.applies === 'Persona' ? values.available_for_pre_file : false,
         description: values.description || undefined,
         conditions: conditionsPayload as Parameters<typeof createDocumentType>[0]['conditions'],
       };
@@ -486,6 +493,24 @@ export function _DocumentTypeFormModal({
                             </FormItem>
                           )}
                         />
+
+                        {/* Ticket 505: habilita el tipo en el checklist de un pre legajo */}
+                        {applies === 'Persona' && (
+                          <FormField
+                            control={form.control}
+                            name="available_for_pre_file"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                                <FormLabel className="font-normal text-sm">
+                                  Puede cargarse desde un pre legajo
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         {applies !== 'Empresa' && (
                           <FormField

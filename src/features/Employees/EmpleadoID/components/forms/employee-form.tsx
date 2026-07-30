@@ -8,57 +8,23 @@ import { Logger } from '@/lib/logger';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
+import { ContactDataFields } from '../../../shared/forms/ContactDataFields';
+import { PersonalDataFields } from '../../../shared/forms/PersonalDataFields';
 import { createEmployee, getEmployeeByIdCached, updateEmployee } from '../../actions.server';
-import { EmployeeContactDataForm } from './employee-contact-data-form';
-import { EmployeePersonalDataForm } from './employee-personal-data-form';
+import type { EmployeeFormData } from '../../schemas/employee-schema';
 import { EmployeeWorkDataForm } from './employee-work-data-form';
 
 const logger = new Logger('EmployeeForm');
 
-export const employeeFormSchema = z.object({
-  // Datos Personales
-  firstname: z.string().min(1, 'Nombre es requerido'),
-  lastname: z.string().min(1, 'Apellido es requerido'),
-  nationality: z.string().min(1, 'Nacionalidad es requerida'),
-  born_date: z.string().min(1, 'Fecha de nacimiento es requerida'),
-  cuil: z.string().min(1, 'CUIL es requerido'),
-  document_type: z.string().min(1, 'Tipo de documento es requerido'),
-  document_number: z.string().min(1, 'Número de documento es requerido'),
-  birthplace: z.string().min(1, 'País de nacimiento es requerido'),
-  gender: z.string().min(1, 'Sexo es requerido'),
-  marital_status: z.string().min(1, 'Estado civil es requerido'),
-  level_of_education: z.string().min(1, 'Nivel de instrucción es requerido'),
-  picture: z.string().optional(),
-
-  // Datos de Contacto
-  street: z.string().min(1, 'Calle es requerida'),
-  street_number: z.string().min(1, 'Altura es requerida'),
-  province: z.number().min(1, 'Provincia es requerida'),
-  city: z.number().min(1, 'Ciudad es requerida'),
-  postal_code: z.string().min(1, 'Código postal es requerido'),
-  phone: z.string().min(1, 'Teléfono es requerido'),
-  email: z.string().email('Email inválido').min(1, 'Email es requerido'),
-
-  // Datos Laborales
-  file: z.string().min(1, 'Legajo es requerido'),
-  hierarchical_position: z.string().min(1, 'Sector es requerido'),
-  company_position: z.string().min(1, 'Puesto en la empresa es requerido'),
-  workflow_diagram: z.string().min(1, 'Diagrama de trabajo es requerido'),
-  normal_hours: z.string().optional(),
-  type_of_contract: z.string().optional(),
-  aptitudes: z.array(z.string()).optional(),
-  allocated_to: z.array(z.string()).optional(),
-  date_of_admission: z.string().optional(),
-  guild_id: z.string().optional(),
-  covenants_id: z.string().optional(),
-  category_id: z.string().optional(),
-  cost_center_id: z.string().optional(),
-  cost_type: z.string().optional(),
-  workshop_sector_ids: z.array(z.string()).optional(),
-});
-
-export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
+// Los schemas viven en `../../schemas/employee-schema` (modulo sin 'use client') para que
+// tambien puedan usarse desde el servidor. Se re-exportan para no romper los imports de
+// componentes de cliente que ya los tomaban desde aca.
+export {
+  employeeFormSchema,
+  employeeWorkDataSchema,
+  type EmployeeFormData,
+  type EmployeeWorkDataValues,
+} from '../../schemas/employee-schema';
 
 interface EmployeeFormProps {
   employee: Awaited<ReturnType<typeof getEmployeeByIdCached>> | null;
@@ -111,15 +77,15 @@ export function EmployeeForm({ employee, mode, onSave, form, activeTab }: Employ
         <Tabs defaultValue={activeTab} className="w-full">
           {/* Tab Datos Personales */}
           <TabsContent value="personalData" className="px-2 py-2">
-            <EmployeePersonalDataForm form={form} />
+            <PersonalDataFields />
           </TabsContent>
 
           <TabsContent value="contactData" className="px-2 py-2">
-            <EmployeeContactDataForm form={form} />
+            <ContactDataFields />
           </TabsContent>
 
           <TabsContent value="workData" className="px-2 py-2">
-            <EmployeeWorkDataForm form={form} />
+            <EmployeeWorkDataForm />
           </TabsContent>
         </Tabs>
         {/* Botón de envío visible en todas las tabs del formulario */}

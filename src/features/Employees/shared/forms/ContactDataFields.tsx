@@ -9,15 +9,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import type { UseFormReturn } from 'react-hook-form';
-import { getAllProvinceOptions, getCitiesByProvince } from '../../actions.server';
-import type { EmployeeFormData } from './employee-form';
+import { useFormContext } from 'react-hook-form';
+import { getAllProvinceOptions, getCitiesByProvince } from '../../EmpleadoID/actions.server';
+import type { ContactDataValues } from '../schemas/person-data-schemas';
 
-interface EmployeeContactDataFormProps {
-  form: UseFormReturn<EmployeeFormData>;
-}
+/**
+ * Campos de datos de contacto de una persona (domicilio, telefono, email).
+ * Compartidos entre el legajo de empleado y el pre legajo: toman el form del contexto
+ * (`<Form {...form}>` de shadcn ya es un FormProvider).
+ */
+export function ContactDataFields() {
+  const form = useFormContext<ContactDataValues>();
 
-export function EmployeeContactDataForm({ form }: EmployeeContactDataFormProps) {
   const { data: provinces = [], isLoading: loadingProvinces } = useQuery({
     queryKey: ['catalog', 'provinces'],
     queryFn: () => getAllProvinceOptions(),

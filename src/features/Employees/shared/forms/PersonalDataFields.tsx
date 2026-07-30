@@ -10,15 +10,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { Upload, X } from 'lucide-react';
 import { useState } from 'react';
-import type { UseFormReturn } from 'react-hook-form';
-import { getAllCountryOptions } from '../../actions.server';
-import type { EmployeeFormData } from './employee-form';
+import { useFormContext } from 'react-hook-form';
+import { getAllCountryOptions } from '../../EmpleadoID/actions.server';
+import type { PersonalDataValues } from '../schemas/person-data-schemas';
 
-interface EmployeePersonalDataFormProps {
-  form: UseFormReturn<EmployeeFormData>;
+interface PersonalDataFieldsProps {
+  /** Oculta el bloque de foto (el pre legajo no la carga). */
+  hidePicture?: boolean;
 }
 
-export function EmployeePersonalDataForm({ form }: EmployeePersonalDataFormProps) {
+/**
+ * Campos de datos personales de una persona. Los consume tanto el legajo de empleado
+ * como el pre legajo: toma el form del contexto (`<Form {...form}>` de shadcn ya es un
+ * FormProvider), asi que ambos formularios comparten estos campos sin duplicar JSX.
+ */
+export function PersonalDataFields({ hidePicture = false }: PersonalDataFieldsProps) {
+  const form = useFormContext<PersonalDataValues>();
   const [imagePreview, setImagePreview] = useState<string | null>(form.getValues('picture') || null);
 
   const { data: countries = [], isLoading: loadingCountries } = useQuery({
@@ -48,39 +55,45 @@ export function EmployeePersonalDataForm({ form }: EmployeePersonalDataFormProps
   return (
     <div className="space-y-6">
       {/* Foto del empleado */}
-      <div className="space-y-2">
-        <FormLabel>Foto del empleado</FormLabel>
-        <div className="flex items-center space-x-4">
-          {imagePreview ? (
-            <div className="relative">
-              <img
-                src={imagePreview || '/placeholder.svg'}
-                alt="Preview"
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-              />
+      {!hidePicture && (
+        <div className="space-y-2">
+          <FormLabel>Foto del empleado</FormLabel>
+          <div className="flex items-center space-x-4">
+            {imagePreview ? (
+              <div className="relative">
+                <img
+                  src={imagePreview || '/placeholder.svg'}
+                  alt="Preview"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                  onClick={removeImage}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="w-24 h-24 rounded-full  border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <Upload className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+            <div>
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="picture-upload" />
               <Button
                 type="button"
-                variant="destructive"
-                size="sm"
-                className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                onClick={removeImage}
+                variant="outline"
+                onClick={() => document.getElementById('picture-upload')?.click()}
               >
-                <X className="h-3 w-3" />
+                {imagePreview ? 'Cambiar foto' : 'Subir foto'}
               </Button>
             </div>
-          ) : (
-            <div className="w-24 h-24 rounded-full  border-2 border-dashed border-gray-300 flex items-center justify-center">
-              <Upload className="h-8 w-8 text-gray-400" />
-            </div>
-          )}
-          <div>
-            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="picture-upload" />
-            <Button type="button" variant="outline" onClick={() => document.getElementById('picture-upload')?.click()}>
-              {imagePreview ? 'Cambiar foto' : 'Subir foto'}
-            </Button>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Nombre */}
