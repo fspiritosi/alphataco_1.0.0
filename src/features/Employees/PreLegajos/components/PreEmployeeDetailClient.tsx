@@ -110,6 +110,10 @@ export function PreEmployeeDetailClient({ preEmployee, mode }: PreEmployeeDetail
   };
 
   const onSubmit = async (values: PreEmployeeFormData) => {
+    // El estado no admite edición: no hay botón de guardar, así que un submit acá solo puede
+    // venir de un control ajeno al formulario (ej. la tab de documentos)
+    if (!canEditData) return;
+
     try {
       if (isNew) {
         const created = await createPreEmployee(values);

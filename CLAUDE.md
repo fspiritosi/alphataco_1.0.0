@@ -342,6 +342,14 @@ Cuando una decisión de UX entra en conflicto con una especificación explícita
 
 Regla práctica al modelar una entidad espejo de otra (pre legajo ↔ empleado): **espejar EXACTAMENTE la nullability de la tabla original** — ni relajar ni endurecer. Si en `employees` la columna es NOT NULL, en la tabla espejo también; si en `employees` admite NULL (`gender`, `email`, `city`, `postal_code`, `born_date`, `document_type`, `nationality`, `marital_status`, `level_of_education`, `picture`…), en la espejo también, **aunque el formulario los exija a todos**. En este proyecto la capa Zod es deliberadamente más estricta que la BD: la obligatoriedad "de negocio" vive en el schema del form, no en el DDL. No "mejorar" el modelo poniendo NOT NULL donde el original no lo tiene. Extiende [[analizar impacto en lo vinculado]].
 
+### Todo `<Button>` dentro de un `<form>` que NO guarda lleva `type="button"`
+
+El `Button` de shadcn (`src/components/ui/button.tsx`) **no fija `type`**, así que dentro de un `<form>` el default del HTML es `type="submit"`: cualquier botón de acción (ver, subir, eliminar, abrir modal, agregar fila) **dispara el submit del formulario** además de su propio `onClick`. El síntoma no se parece a la causa — se ve como "la acción X ejecuta la mutación del form" (bug del 505: tocar "Ver" un documento en la tab Documentos del pre legajo ejecutaba `updatePreEmployee` y tiraba _"El pre legajo ya fue convertido en legajo y no se puede modificar"_).
+
+Regla: al meter cualquier sección interactiva dentro de un `<form>` (tabs, listados, checklists, acciones inline), **todos** sus botones llevan `type="button"` explícito. Excepción: los envueltos por un trigger de Radix con `asChild` (`PopoverTrigger`, `DialogTrigger`, `DropdownMenuTrigger`) — Radix ya inyecta `type="button"`.
+
+Complemento (defensa en profundidad): el handler de submit debe cortar temprano si el estado no admite edición (`if (!canEditData) return;`). Un `<fieldset disabled>` NO alcanza: solo cubre los controles que envuelve, y no impide que un botón fuera de él submitee. Y `check-types` no detecta nada de esto — se ve solo probando el flujo real de UI. Extiende [[analizar impacto en lo vinculado]].
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
