@@ -141,8 +141,15 @@ export function PreEmployeeDocumentChecklist({ preEmployeeId, readOnly = false }
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+              {/* type="button": el checklist se renderiza dentro del <form> del detalle y sin
+                  esto cada click submitearía el formulario del pre legajo */}
               {item.document && (
-                <Button variant="ghost" size="sm" onClick={() => handleView(item.document!.document_path)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleView(item.document!.document_path)}
+                >
                   <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Ver</span>
                 </Button>
@@ -150,13 +157,14 @@ export function PreEmployeeDocumentChecklist({ preEmployeeId, readOnly = false }
 
               {!readOnly && (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => setUploadTarget(item)}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setUploadTarget(item)}>
                     {item.document ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
                     <span className="hidden sm:inline">{item.document ? 'Reemplazar' : 'Subir'}</span>
                   </Button>
 
                   {item.document && (
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => deleteMutation.mutate(item.document!.id)}
