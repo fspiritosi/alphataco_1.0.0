@@ -120,7 +120,7 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
       });
     },
     onSuccess: () => {
-      toast.success('Certificación creada correctamente');
+      toast.success('Documento creado correctamente');
       queryClient.invalidateQueries({ queryKey: [...CERTIFICATIONS_QUERY_KEY, equipmentId] });
       form.reset();
       setSelectedFile(null);
@@ -128,21 +128,21 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
       setOpenCreate(false);
     },
     onError: (error: unknown) => {
-      logger.error('Error al crear certificación', { data: { error } });
-      toast.error('Error al crear la certificación');
+      logger.error('Error al crear documento', { data: { error } });
+      toast.error('Error al crear el documento');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteOtherEquipmentCertification(id),
     onSuccess: () => {
-      toast.success('Certificación eliminada correctamente');
+      toast.success('Documento eliminado correctamente');
       queryClient.invalidateQueries({ queryKey: [...CERTIFICATIONS_QUERY_KEY, equipmentId] });
       setCertToDelete(null);
     },
     onError: (error) => {
-      logger.error('Error al eliminar certificación', { data: { error } });
-      toast.error('Error al eliminar la certificación');
+      logger.error('Error al eliminar documento', { data: { error } });
+      toast.error('Error al eliminar el documento');
     },
   });
 
@@ -185,17 +185,17 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Certificaciones</h3>
+        <h3 className="text-lg font-semibold">Documentos</h3>
         <Dialog open={openCreate} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Agregar certificación
+              Agregar documento
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nueva Certificación</DialogTitle>
+              <DialogTitle>Nuevo Documento</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -206,7 +206,7 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
                     <FormItem>
                       <FormLabel>Nombre *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Nombre de la certificación" />
+                        <Input {...field} placeholder="Nombre del documento" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -277,7 +277,7 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? 'Subiendo...' : 'Crear certificación'}
+                    {createMutation.isPending ? 'Subiendo...' : 'Crear documento'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -289,7 +289,7 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
       {certifications.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">No hay certificaciones registradas</p>
+            <p className="text-center text-muted-foreground">No hay documentos registrados</p>
           </CardContent>
         </Card>
       ) : (
@@ -350,9 +350,9 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
       <AlertDialog open={!!certToDelete} onOpenChange={(open) => !open && setCertToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar certificación?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará la certificación &quot;{certToDelete?.name}&quot;. Esta acción no se puede deshacer.
+              Esta acción eliminará el documento &quot;{certToDelete?.name}&quot;. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

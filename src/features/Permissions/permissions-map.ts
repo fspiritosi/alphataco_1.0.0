@@ -680,7 +680,7 @@ export const PERMISSIONS = {
           },
           'certificaciones-otro': {
             slug: 'certificaciones-otro',
-            name: 'Certificaciones',
+            name: 'Documentos',
             tabId: 'b635efcb-e558-4709-8037-f5d3f3761c84',
             parent: 'detalle-otro-equipo',
             allowedActions: ['view'],

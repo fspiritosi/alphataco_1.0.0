@@ -181,7 +181,7 @@ export function OtherEquipmentTabs({
     },
     {
       value: 'certifications',
-      label: 'Certificaciones',
+      label: 'Documentos',
       moduleSlug: 'equipos',
       tabSlug: 'certificaciones-otro',
       disabled: !showExtraContent,
