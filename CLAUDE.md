@@ -350,6 +350,27 @@ Regla: al meter cualquier sección interactiva dentro de un `<form>` (tabs, list
 
 Complemento (defensa en profundidad): el handler de submit debe cortar temprano si el estado no admite edición (`if (!canEditData) return;`). Un `<fieldset disabled>` NO alcanza: solo cubre los controles que envuelve, y no impide que un botón fuera de él submitee. Y `check-types` no detecta nada de esto — se ve solo probando el flujo real de UI. Extiende [[analizar impacto en lo vinculado]].
 
+### NUNCA aplicar una migración a dev antes de que el usuario valide el alcance
+
+Aplicar una migración a dev **no es "ir adelantando trabajo"**: dev es el entorno donde el usuario está probando la app en ese mismo momento. En el 546 diseñé y apliqué una migración (rename de tabla, enum de categorías, backfill, `DROP COLUMN`) mientras el usuario usaba el sistema: la ficha de otros equipos dejó de cargar, el usuario intentó subir un documento y falló con un `404` de tabla inexistente, y hubo que revertir todo.
+
+Reglas:
+
+1. **La migración se escribe, se muestra, y se aplica recién con el OK explícito.** El paso `prisma db execute` no se ejecuta "para avanzar".
+2. **Antes de diseñar esquema, buscar si la capacidad YA existe y solo está mal nombrada o mal ubicada.** El 546 ("necesito adjuntar documentos a las piletas") se resolvió renombrando el label de una tab que ya hacía exactamente eso. El camino más corto suele ser texto, no DDL.
+3. **Si el usuario dice "es simple" o "no requiere migraciones", eso es un dato de alcance, no una subestimación a corregir.** Ajustar la solución hacia abajo, no defender el diseño grande.
+4. Si hay que revertir: reconstruir el estado original consultando **PROD** los valores que la migración pisó (`tabs.name`, `description`, `role_permissions`), no adivinarlos. Y borrar la fila de `_prisma_migrations` para dejar el historial limpio.
+
+Extiende [[analizar impacto en lo vinculado]] — el impacto también incluye el entorno de trabajo del usuario, no solo las tablas.
+
+### Mandar un fix aislado a `main` cuando `dev` tiene trabajo sin liberar
+
+`dev` suele acumular features que todavía no deben salir. Si el usuario pide mandar un fix puntual a `main`, **NO** abrir un PR `dev` → `main`: arrastra todo lo pendiente.
+
+Flujo correcto: `git switch -c fix/<ticket>-<desc> origin/main` → `git cherry-pick <commit>` → push de esa rama → PR de esa rama a `main`. Verificar SIEMPRE con `gh pr view <n> --json files` (contra GitHub, no contra la copia local) que el PR contenga solo los archivos esperados.
+
+Ojo con el orden de las migraciones: un fix con timestamp posterior que llega a `main` antes que las migraciones más viejas de `dev` se aplica primero. No rompe nada si es independiente (Prisma aplica todas las pendientes), pero hay que verificar que no dependa de las que quedaron atrás.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
