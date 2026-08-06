@@ -41,7 +41,7 @@ export async function KpiCardsRow() {
       value: kpis.operativityPercentage,
       subtitle: 'activos / flota total',
       label: 'Operatividad',
-      tooltip: `(Equipos activos / Flota total) × 100 = (${kpis.activeVehicles} / ${kpis.totalFleet}) × 100`,
+      tooltip: `(Equipos activos / Flota total) × 100 = (${kpis.operativeVehicles} / ${kpis.totalFleet}) × 100`,
       colorClass: cn(
         kpis.operativityPercentage >= 75
           ? 'text-emerald-600 bg-emerald-50/60'
