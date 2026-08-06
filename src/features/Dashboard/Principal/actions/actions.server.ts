@@ -142,6 +142,9 @@ export async function getDashboardKpis() {
     return {
       activeEmployees,
       activeVehicles,
+      // Numerador de la operatividad: los activos que ademas estan operativos.
+      // Distinto de `activeVehicles`, que cuenta TODOS los activos y coincide con `totalFleet`.
+      operativeVehicles: totalActive,
       totalFleet,
       fleetMinusRepair,
       totalServices,
