@@ -38,7 +38,10 @@ export default async function PreLegajoPage({ searchParams }: PreLegajoPageProps
 
   return (
     <div className="p-6">
-      <PreEmployeeDetailClient preEmployee={preEmployee} mode={mode} />
+      {/* La key fuerza el remontaje al cambiar de pre legajo (o al pasar a "nuevo"): sin ella
+          Next reutiliza el componente entre searchParams y react-hook-form conserva los
+          defaultValues del anterior, arrastrando los datos del ultimo abierto. */}
+      <PreEmployeeDetailClient key={preEmployee?.id ?? 'new'} preEmployee={preEmployee} mode={mode} />
     </div>
   );
 }
