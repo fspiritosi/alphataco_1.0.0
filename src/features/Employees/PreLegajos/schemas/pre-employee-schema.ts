@@ -18,14 +18,9 @@ export const preEmployeeWorkDataSchema = z.object({
   proposed_company_position: z.string().min(1, 'Puesto propuesto es requerido'),
 });
 
-export const preEmployeeFormSchema = personalDataSchema
-  .merge(contactDataSchema)
-  .merge(preEmployeeWorkDataSchema)
-  .merge(
-    z.object({
-      pre_file_number: z.string().min(1, 'N° de Pre Legajo es requerido'),
-    })
-  );
+// El N° de pre legajo no viaja en el formulario: lo asigna la base al crear
+// (`next_pre_file_number`) y despues es de solo lectura.
+export const preEmployeeFormSchema = personalDataSchema.merge(contactDataSchema).merge(preEmployeeWorkDataSchema);
 
 export type PreEmployeeFormData = z.infer<typeof preEmployeeFormSchema>;
 

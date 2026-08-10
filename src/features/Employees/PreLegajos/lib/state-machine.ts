@@ -1,3 +1,4 @@
+import type { BadgeProps } from '@/components/ui/badge';
 import type { pre_employee_status_enum } from '@/generated/prisma/client';
 
 /**
@@ -118,9 +119,10 @@ export const STATUS_LABELS: Record<PreEmployeeStatus, string> = {
   legajo: 'Legajo creado',
 };
 
-export const STATUS_VARIANTS: Record<PreEmployeeStatus, 'secondary' | 'default' | 'destructive' | 'outline'> = {
-  en_proceso: 'secondary',
-  pre_ingreso: 'default',
+/** Un color por etapa del circuito: en curso (amarillo), a decidir (azul), alta (verde), rechazo (rojo). */
+export const STATUS_VARIANTS: Record<PreEmployeeStatus, NonNullable<BadgeProps['variant']>> = {
+  en_proceso: 'warning',
+  pre_ingreso: 'info',
   rechazado: 'destructive',
-  legajo: 'outline',
+  legajo: 'success',
 };

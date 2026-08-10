@@ -51,7 +51,6 @@ function buildDefaultValues(preEmployee: PreEmployeeDetailData | null): DefaultV
   if (!preEmployee) return {};
 
   return {
-    pre_file_number: preEmployee.pre_file_number,
     firstname: preEmployee.firstname,
     lastname: preEmployee.lastname,
     nationality: preEmployee.nationality ?? undefined,
@@ -245,15 +244,16 @@ export function PreEmployeeDetailClient({ preEmployee, mode }: PreEmployeeDetail
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="pre_file_number">N° de Pre Legajo *</Label>
+                          <Label htmlFor="pre_file_number">N° de Pre Legajo</Label>
+                          {/* Lo asigna la base al crear (PL-0001 en adelante): nunca se edita a mano */}
                           <Input
                             id="pre_file_number"
-                            placeholder="Ingrese el N° de pre legajo"
-                            {...form.register('pre_file_number')}
+                            readOnly
+                            disabled
+                            className="font-mono"
+                            value={preEmployee?.pre_file_number ?? ''}
+                            placeholder="Se asignará automáticamente al crear el pre legajo"
                           />
-                          {formErrors.pre_file_number && (
-                            <p className="text-sm text-destructive">{formErrors.pre_file_number.message}</p>
-                          )}
                         </div>
                       </div>
 

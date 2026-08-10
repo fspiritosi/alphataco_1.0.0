@@ -148,7 +148,7 @@ export type PreEmployeeIdentityCheck = Awaited<ReturnType<typeof checkPreEmploye
 
 /** Crea un pre legajo. Los datos personales y de contacto llegan completos (ticket 505). */
 export async function createPreEmployee(data: PreEmployeeFormData) {
-  logger.debug('Creando pre legajo', { data: { pre_file_number: data.pre_file_number } });
+  logger.debug('Creando pre legajo', { data: { document_number: data.document_number } });
 
   const [companyId, profile] = await Promise.all([getActiveCompanyId(), requireServerAuthProfile()]);
 
@@ -160,16 +160,27 @@ export async function createPreEmployee(data: PreEmployeeFormData) {
   }
 
   try {
-    const created = await prisma.pre_employees.create({
-      data: {
-        ...toPrismaData(data),
-        company_id: companyId,
-        created_by: profile.id,
-      },
-      select: { id: true },
+    // El numero se toma y se usa dentro de la misma transaccion: el advisory lock de
+    // next_pre_file_number solo cubre a los concurrentes mientras esta abierta.
+    const created = await prisma.$transaction(async (tx) => {
+      const [{ next_pre_file_number: preFileNumber }] = await tx.$queryRaw<{ next_pre_file_number: string }[]>`
+        SELECT next_pre_file_number(${companyId}::uuid)
+      `;
+
+      return tx.pre_employees.create({
+        data: {
+          ...toPrismaData(data),
+          pre_file_number: preFileNumber,
+          company_id: companyId,
+          created_by: profile.id,
+        },
+        select: { id: true, pre_file_number: true },
+      });
     });
 
-    logger.info('Pre legajo creado', { data: { preEmployeeId: created.id } });
+    logger.info('Pre legajo creado', {
+      data: { preEmployeeId: created.id, preFileNumber: created.pre_file_number },
+    });
     revalidatePath(PRE_LEGAJOS_ROUTE);
     return created;
   } catch (error) {
