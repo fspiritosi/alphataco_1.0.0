@@ -220,6 +220,10 @@ Al insertar nuevas tabs o `role_permissions`, SIEMPRE incluir los 3 roles: `admi
 WHERE r.slug IN ('admin', 'administrador', 'full-access-provisional')
 ```
 
+**Y SOLO esos 3.** Los roles custom de la empresa (`roles.slug IS NULL`: "Usuario de RR.HH.", "Usuario Control Documental", "Administrador Operaciones", etc.) NO se cargan por migración aunque sean los que más usuarios tienen — se asignan **manualmente** desde el editor de permisos. Si al revisar una tab nueva ves que los roles operativos no la tienen, eso es lo esperado, no un bug de la migración.
+
+Para que la asignación manual funcione, la tab DEBE estar declarada en `permissions-map.ts` con sus `allowedActions`: el editor arma las acciones cruzando `allowedActions` con la tabla `actions`, y una tab ausente del mapa se muestra sin ninguna acción tildeable.
+
 ### Legajo: columna separada en DataTables
 
 El legajo (`employees.file`) SIEMPRE debe ser una columna separada con su propio filtro `text`. NUNCA embeber el legajo dentro de la columna de nombre (ej: `[123] Apellido Nombre` está MAL). Columna de legajo ANTES de la columna de nombre. En comboboxes/selectores SÍ se puede combinar.
@@ -323,6 +327,49 @@ Aplica a TODOS los commits, sin importar el tamaño del cambio. Formato: `tipo(s
 Para **implementar** una feature, el flujo preferido del usuario es la skill `feature-dev:feature-dev` (discovery → exploración con agentes → preguntas → arquitectura → implementación → review), **no** `superpowers:writing-plans` / `superpowers:executing-plans` / `superpowers:subagent-driven-development`.
 
 `superpowers:brainstorming` sigue siendo válido para la etapa previa de exploración de la idea y definición de alcance; el cambio aplica al momento de pasar a construir.
+
+### Schemas Zod compartidos server/client: NUNCA definirlos en un archivo `'use client'`
+
+Si una server action importa un schema Zod que vive en un archivo con `'use client'`, Next entrega ese módulo como **referencia de cliente** y el objeto Zod no existe en el servidor: falla en runtime con `X.parse is not a function`. **No lo detecta `npm run check-types`** (los tipos resuelven perfecto) — solo aparece al ejecutar el flujo real.
+
+Regla: los schemas Zod que se usan de los dos lados van en un módulo **sin directiva** (ej. `features/{X}/schemas/*.ts`); el componente de cliente los importa de ahí (y puede re-exportarlos para no romper imports existentes, pero **el consumidor server debe importar del módulo de schemas, no del componente**). Mismo criterio que [[funciones SQL void con executeRaw]]: tras conectar un módulo nuevo entre server y client, **probar el flujo de UI real**, no alcanza con que compile. Bug encontrado en el 505 (`employeeFormSchema` definido en `employee-form.tsx`, importado por `approvePreEmployee`).
+
+### Obligatoriedad de campos: la define el TICKET, no la conveniencia de implementación
+
+Si las notas del ticket especifican que una sección de datos va **completa** (ej. ticket 505: "Datos personales => completo, Datos de Contacto => completo, Datos Laboral => Sector y Puesto Propuestos (solo estos campos)"), esa obligatoriedad es **requisito**, no sugerencia. NO relajarla a `nullable`/opcional porque una decisión de UX (guardado parcial, borrador, wizard por pasos) lo haría más cómodo de implementar.
+
+Cuando una decisión de UX entra en conflicto con una especificación explícita del ticket, **plantear la contradicción al usuario y dejar que él la resuelva** — nunca resolverla unilateralmente en el diseño y menos aún sin mencionarlo. Ojo con el detalle del enunciado: en el 505 el "ir cargando" del pedido original se refiere a **los documentos** ("que julia pueda ir cargando del personal que esta en proceso de ingreso **sus documentos**"), no a los datos personales — leer QUÉ es lo que se carga progresivamente antes de asumir que todo el formulario es un borrador.
+
+Regla práctica al modelar una entidad espejo de otra (pre legajo ↔ empleado): **espejar EXACTAMENTE la nullability de la tabla original** — ni relajar ni endurecer. Si en `employees` la columna es NOT NULL, en la tabla espejo también; si en `employees` admite NULL (`gender`, `email`, `city`, `postal_code`, `born_date`, `document_type`, `nationality`, `marital_status`, `level_of_education`, `picture`…), en la espejo también, **aunque el formulario los exija a todos**. En este proyecto la capa Zod es deliberadamente más estricta que la BD: la obligatoriedad "de negocio" vive en el schema del form, no en el DDL. No "mejorar" el modelo poniendo NOT NULL donde el original no lo tiene. Extiende [[analizar impacto en lo vinculado]].
+
+### Todo `<Button>` dentro de un `<form>` que NO guarda lleva `type="button"`
+
+El `Button` de shadcn (`src/components/ui/button.tsx`) **no fija `type`**, así que dentro de un `<form>` el default del HTML es `type="submit"`: cualquier botón de acción (ver, subir, eliminar, abrir modal, agregar fila) **dispara el submit del formulario** además de su propio `onClick`. El síntoma no se parece a la causa — se ve como "la acción X ejecuta la mutación del form" (bug del 505: tocar "Ver" un documento en la tab Documentos del pre legajo ejecutaba `updatePreEmployee` y tiraba _"El pre legajo ya fue convertido en legajo y no se puede modificar"_).
+
+Regla: al meter cualquier sección interactiva dentro de un `<form>` (tabs, listados, checklists, acciones inline), **todos** sus botones llevan `type="button"` explícito. Excepción: los envueltos por un trigger de Radix con `asChild` (`PopoverTrigger`, `DialogTrigger`, `DropdownMenuTrigger`) — Radix ya inyecta `type="button"`.
+
+Complemento (defensa en profundidad): el handler de submit debe cortar temprano si el estado no admite edición (`if (!canEditData) return;`). Un `<fieldset disabled>` NO alcanza: solo cubre los controles que envuelve, y no impide que un botón fuera de él submitee. Y `check-types` no detecta nada de esto — se ve solo probando el flujo real de UI. Extiende [[analizar impacto en lo vinculado]].
+
+### NUNCA aplicar una migración a dev antes de que el usuario valide el alcance
+
+Aplicar una migración a dev **no es "ir adelantando trabajo"**: dev es el entorno donde el usuario está probando la app en ese mismo momento. En el 546 diseñé y apliqué una migración (rename de tabla, enum de categorías, backfill, `DROP COLUMN`) mientras el usuario usaba el sistema: la ficha de otros equipos dejó de cargar, el usuario intentó subir un documento y falló con un `404` de tabla inexistente, y hubo que revertir todo.
+
+Reglas:
+
+1. **La migración se escribe, se muestra, y se aplica recién con el OK explícito.** El paso `prisma db execute` no se ejecuta "para avanzar".
+2. **Antes de diseñar esquema, buscar si la capacidad YA existe y solo está mal nombrada o mal ubicada.** El 546 ("necesito adjuntar documentos a las piletas") se resolvió renombrando el label de una tab que ya hacía exactamente eso. El camino más corto suele ser texto, no DDL.
+3. **Si el usuario dice "es simple" o "no requiere migraciones", eso es un dato de alcance, no una subestimación a corregir.** Ajustar la solución hacia abajo, no defender el diseño grande.
+4. Si hay que revertir: reconstruir el estado original consultando **PROD** los valores que la migración pisó (`tabs.name`, `description`, `role_permissions`), no adivinarlos. Y borrar la fila de `_prisma_migrations` para dejar el historial limpio.
+
+Extiende [[analizar impacto en lo vinculado]] — el impacto también incluye el entorno de trabajo del usuario, no solo las tablas.
+
+### Mandar un fix aislado a `main` cuando `dev` tiene trabajo sin liberar
+
+`dev` suele acumular features que todavía no deben salir. Si el usuario pide mandar un fix puntual a `main`, **NO** abrir un PR `dev` → `main`: arrastra todo lo pendiente.
+
+Flujo correcto: `git switch -c fix/<ticket>-<desc> origin/main` → `git cherry-pick <commit>` → push de esa rama → PR de esa rama a `main`. Verificar SIEMPRE con `gh pr view <n> --json files` (contra GitHub, no contra la copia local) que el PR contenga solo los archivos esperados.
+
+Ojo con el orden de las migraciones: un fix con timestamp posterior que llega a `main` antes que las migraciones más viejas de `dev` se aplica primero. No rompe nada si es independiente (Prisma aplica todas las pendientes), pero hay que verificar que no dependa de las que quedaron atrás.
 
 ---
 

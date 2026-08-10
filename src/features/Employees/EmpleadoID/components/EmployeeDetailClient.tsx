@@ -17,41 +17,24 @@ import type React from 'react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useForm, type DefaultValues } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ContactDataFields } from '../../shared/forms/ContactDataFields';
+import { PersonalDataFields } from '../../shared/forms/PersonalDataFields';
+import { CONTACT_DATA_FIELD_NAMES, PERSONAL_DATA_FIELD_NAMES } from '../../shared/schemas/person-data-schemas';
 import type { EmployeeDetailData } from '../actions.server';
 import { createEmployee, updateEmployee } from '../actions.server';
 import { EmployeeViewDisplay } from './EmployeeViewDisplay';
 import { EmployeeQuickActions } from './employee-quick-actions';
-import { EmployeeContactDataForm } from './forms/employee-contact-data-form';
 import { employeeFormSchema, type EmployeeFormData } from './forms/employee-form';
-import { EmployeePersonalDataForm } from './forms/employee-personal-data-form';
 import { EmployeeWorkDataForm } from './forms/employee-work-data-form';
 
 const logger = new Logger('EmployeeDetailClient');
 
 // ─── Fields agrupados por tab (para derivar errores sin useEffect) ───────────
-const PERSONAL_DATA_FIELDS: (keyof EmployeeFormData)[] = [
-  'firstname',
-  'lastname',
-  'nationality',
-  'born_date',
-  'cuil',
-  'document_type',
-  'document_number',
-  'birthplace',
-  'gender',
-  'marital_status',
-  'level_of_education',
-];
+// Personales y contacto se derivan de los schemas compartidos con el pre legajo:
+// si se agrega un campo alla, el indicador de errores de la tab lo toma solo.
+const PERSONAL_DATA_FIELDS: (keyof EmployeeFormData)[] = PERSONAL_DATA_FIELD_NAMES;
 
-const CONTACT_DATA_FIELDS: (keyof EmployeeFormData)[] = [
-  'street',
-  'street_number',
-  'province',
-  'city',
-  'postal_code',
-  'phone',
-  'email',
-];
+const CONTACT_DATA_FIELDS: (keyof EmployeeFormData)[] = CONTACT_DATA_FIELD_NAMES;
 
 const WORK_DATA_FIELDS: (keyof EmployeeFormData)[] = [
   'file',
@@ -265,7 +248,7 @@ export function EmployeeDetailClient({
       moduleSlug: 'empleados' as const,
       tabSlug: 'datos-personales' as const,
       content: isFormMode ? (
-        <EmployeePersonalDataForm form={form} />
+        <PersonalDataFields />
       ) : employee ? (
         <EmployeeViewDisplay employee={employee} activeTab="personalData" />
       ) : null,
@@ -276,7 +259,7 @@ export function EmployeeDetailClient({
       moduleSlug: 'empleados' as const,
       tabSlug: 'datos-contacto' as const,
       content: isFormMode ? (
-        <EmployeeContactDataForm form={form} />
+        <ContactDataFields />
       ) : employee ? (
         <EmployeeViewDisplay employee={employee} activeTab="contactData" />
       ) : null,
@@ -287,7 +270,7 @@ export function EmployeeDetailClient({
       moduleSlug: 'empleados' as const,
       tabSlug: 'datos-laborales' as const,
       content: isFormMode ? (
-        <EmployeeWorkDataForm form={form} />
+        <EmployeeWorkDataForm />
       ) : employee ? (
         <EmployeeViewDisplay employee={employee} activeTab="workData" />
       ) : null,

@@ -9,12 +9,25 @@ import EmployesDiagram from '@/features/Employees/Diagrams/EmployesDiagram';
 import { DiagramsSkeleton } from '@/features/Employees/Diagrams/fallback/DiagramsSkeleton';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
+import { PreEmployeeTableSkeleton } from '@/features/Employees/PreLegajos/components/PreEmployeeList/fallback/PreEmployeeTableSkeleton';
+import PreLegajosTabContent from '@/features/Employees/PreLegajos/PreLegajosTabContent';
 import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
 import { CovenantTreeSkeleton } from '@/features/Empresa/CCT/fallback/CovenantTreeSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
+import {
+  Calendar,
+  FileArchive,
+  FileCheck,
+  FileText,
+  FileType,
+  GitBranch,
+  UserCheck,
+  UserPlus,
+  Users,
+  UserX,
+} from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 
@@ -105,6 +118,22 @@ export default async function EmployeePage({
                 },
               ]}
             />
+          ),
+        },
+        {
+          value: 'pre-legajos',
+          label: (
+            <span className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Pre Legajos
+            </span>
+          ),
+          moduleSlug: 'empleados' as const,
+          tabSlug: 'pre-legajos' as const,
+          content: (
+            <Suspense fallback={<PreEmployeeTableSkeleton />}>
+              <PreLegajosTabContent searchParams={resolvedSearchParams} />
+            </Suspense>
           ),
         },
         {
