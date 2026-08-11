@@ -30,6 +30,8 @@ type diagram = {
   day: number;
   month: number;
   year: number;
+  /** Comentario opcional cargado junto con la novedad */
+  comments?: string | null;
 };
 
 export function DiagramDetailEmployeeView({

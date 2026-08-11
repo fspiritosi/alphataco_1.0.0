@@ -18,6 +18,7 @@ type Colum = {
   day: number;
   month: number;
   year: number;
+  comments?: string | null;
 };
 
 export const DetailDiagramColums: ColumnDef<Colum>[] = [
@@ -55,6 +56,21 @@ export const DetailDiagramColums: ColumnDef<Colum>[] = [
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'comments',
+    id: 'Comentario',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Comentario" />,
+    cell: ({ row }) => {
+      const comment = row.original.comments;
+      if (!comment) return <span className="text-muted-foreground">-</span>;
+      // Los comentarios son texto libre: se trunca y el texto completo queda en el title.
+      return (
+        <span className="block max-w-[240px] truncate" title={comment}>
+          {comment}
+        </span>
+      );
     },
   },
 ];

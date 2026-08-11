@@ -415,6 +415,7 @@ export async function getEmployeeDiagrams(employeeId: string) {
         month: true,
         year: true,
         is_active: true,
+        comments: true,
         diagram_type_employees_diagram_diagram_typeTodiagram_type: {
           select: {
             id: true,
