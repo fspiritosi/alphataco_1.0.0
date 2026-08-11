@@ -44,6 +44,7 @@ export async function EmployeeDiagramsSection({ employeeId, companyId, employee,
       day: Number(d.day),
       month: Number(d.month),
       year: Number(d.year),
+      comments: d.comments,
       diagram_type: {
         id: dt?.id ?? '',
         name: dt?.name ?? '',

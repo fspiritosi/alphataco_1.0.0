@@ -106,6 +106,7 @@ export default function _DiagramReportsDataTable({
       'month',
       'year',
       'created_at',
+      'comments',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -194,6 +195,14 @@ export default function _DiagramReportsDataTable({
         columnId: 'created_at',
         title: 'Fecha de registro',
         type: 'dateRange' as const,
+      },
+
+      // ── Text: comentario ─────────────────────────────────────────────────────
+      {
+        columnId: 'comments',
+        title: 'Comentario',
+        type: 'text' as const,
+        placeholder: 'Buscar en comentarios...',
       },
     ],
     [makeFkFetchFacet]

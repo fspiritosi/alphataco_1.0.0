@@ -22,6 +22,7 @@ const VALID_SORT_FIELDS = new Set([
   'month',
   'year',
   'created_at',
+  'comments',
   // FK columns (sorted via FK_SORT_MAP)
   'employee',
   'diagramType',
@@ -47,6 +48,7 @@ const DIAGRAM_REPORT_SELECT = {
   is_active: true,
   employee_id: true,
   diagram_type: true,
+  comments: true,
   employees: {
     select: {
       id: true,
@@ -154,6 +156,14 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   if (fileNumberFilter) {
     andConditions.push({
       employees: { file: { equals: fileNumberFilter, mode: 'insensitive' as const } },
+    });
+  }
+
+  // ── Filtro de texto en comentario (campo directo) ────────────────────────
+  const commentsFilter = state.filters['comments']?.[0];
+  if (commentsFilter) {
+    andConditions.push({
+      comments: { contains: commentsFilter, mode: 'insensitive' as const },
     });
   }
 
