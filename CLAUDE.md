@@ -371,6 +371,12 @@ Flujo correcto: `git switch -c fix/<ticket>-<desc> origin/main` → `git cherry-
 
 Ojo con el orden de las migraciones: un fix con timestamp posterior que llega a `main` antes que las migraciones más viejas de `dev` se aplica primero. No rompe nada si es independiente (Prisma aplica todas las pendientes), pero hay que verificar que no dependa de las que quedaron atrás.
 
+### Cambios en componentes compartidos: el mecanismo va al shared, la activación es opt-in
+
+Cuando un ticket pide cambiar el comportamiento de UNA pantalla pero la implementación vive en un componente compartido (`DataTable`, forms genéricos, helpers de `shared/`), el mecanismo se escribe en el shared **pero se activa con un flag opt-in** (`persistViewPreferences={true}` en el 547) y se conecta SOLO en la tabla/pantalla del ticket. Habilitar el comportamiento nuevo para todo el sistema "de paso" toca pantallas que nadie pidió revisar, no se puede validar entero, y las regresiones aparecen lejos del ticket.
+
+Práctica: props opcionales + booleana con default `false`, conectar la pantalla del ticket, documentar en el `DOCS.md` del componente cómo se engancha el resto, y al reportar decir explícitamente qué quedó afuera. Si el cambio compartido no admite opt-in y altera a todos, preguntar ANTES de escribirlo. Extiende [[analizar impacto en lo vinculado]].
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

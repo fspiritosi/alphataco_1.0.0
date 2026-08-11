@@ -29,14 +29,18 @@ export {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   PARAM_SEPARATOR,
+  applyTablePreferences,
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildSearchWhere,
   buildTextFiltersWhere,
   parseSearchParams,
+  parseSortString,
+  serializeSorting,
   stateToPrismaParams,
   stateToSearchParams,
   stripPrefixFromSearchParams,
+  type TablePreferences,
 } from './helpers';
 
 // Types
