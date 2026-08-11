@@ -24,6 +24,7 @@ import {
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
+import { VEHICLE_TYPE_OF_VEHICLE_ID } from '../lib/utils/vehicle-utils';
 import { VehicleFormData, VehicleTabs } from './vehicle-tabs';
 
 const logger = new Logger('VehicleForm');
@@ -234,7 +235,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
   const form = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
-      type_of_vehicle: vehicle?.types_of_vehicles?.id?.toString() || '',
+      // Unico valor posible en este form: los otros equipos se cargan desde su propia pantalla
+      type_of_vehicle: vehicle?.types_of_vehicles?.id?.toString() || VEHICLE_TYPE_OF_VEHICLE_ID,
       brand: vehicle?.brand_vehicles?.id?.toString() || '',
       model: vehicle?.model_vehicles?.id?.toString() || null,
       year: vehicle?.year || '',

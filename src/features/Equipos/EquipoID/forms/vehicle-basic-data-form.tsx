@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { CalendarIcon, Check, ChevronsUpDown, Upload, X } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/es';
-import { use, useState } from 'react';
+import { use, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { VehicleFormData } from '../components/vehicle-tabs';
 import {
@@ -23,7 +23,7 @@ import {
   getVehicleOwnersType,
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
-import { getVehicleTypeFields } from '../lib/utils/vehicle-utils';
+import { VEHICLE_TYPE_OF_VEHICLE_ID, getVehicleTypeFields } from '../lib/utils/vehicle-utils';
 
 const logger = new Logger('VehicleBasicDataForm');
 
@@ -52,7 +52,14 @@ export function VehicleBasicDataForm({
 }: VehicleBasicDataFormProps) {
   const brands = use(brandsPromise);
   const modelsInitial = use(modelsPromise);
-  const typesOfVehicles = use(typesOfVehiclesPromise);
+  const typesOfVehiclesAll = use(typesOfVehiclesPromise);
+  // "Otros" (id 2) ya no se da de alta desde aca: los otros equipos (piletas, contenedores,
+  // trailers, etc.) tienen su propia entidad y su propio form. Ofrecerlo dejaba el alta
+  // trabada, porque el catalogo de tipos de este form solo trae los de `applies_to = 'vehicle'`.
+  const typesOfVehicles = useMemo(
+    () => typesOfVehiclesAll.filter((type) => type.id.toString() === VEHICLE_TYPE_OF_VEHICLE_ID),
+    [typesOfVehiclesAll]
+  );
   const [models, setModels] = useState<typeof modelsInitial>(modelsInitial);
   const [loadingModels, setLoadingModels] = useState(false);
   const ownersInitial = use(ownersPromise);

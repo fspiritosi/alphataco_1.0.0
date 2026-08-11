@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
@@ -8,14 +9,17 @@ import {
   type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { useQuery } from '@tanstack/react-query';
 import { Check, CircleOff, Truck, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import EquipmentTypesForm from '../types/equipmentTypesForm';
 import {
   getAllEquipmentTypesForExport,
+  getChecklistIdsForType,
   getEquipmentTypeSingleFacet,
   getEquipmentTypesPaginated,
+  getHitchTypeIdsForType,
   type EquipmentTypeListItem,
 } from './actions.server';
 import { APPLIES_TO_LABELS, HIDDEN_COLUMNS_BY_DEFAULT, getColumns } from './columns';
@@ -294,6 +298,26 @@ function EquipmentTypesFormWrapper({
   onReset: () => void;
 }) {
   const equipmentType = useEquipmentTypeStore((state) => state.equipmentType);
+  const typeId = equipmentType?.id ?? null;
+
+  // Relaciones existentes del tipo. El form las toma en `defaultValues`, que solo se evaluan
+  // al montar: por eso se espera a que las queries resuelvan y se remonta con `key`.
+  // Sin esto el form abre vacio y, como el guardado hace delete + insert, borra las relaciones.
+  const { data: checklistIds = [], isLoading: isLoadingChecklists } = useQuery({
+    queryKey: ['type-checklists', typeId],
+    queryFn: () => getChecklistIdsForType(typeId!),
+    enabled: !!typeId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: hitchTypeIds = [], isLoading: isLoadingHitchTypes } = useQuery({
+    queryKey: ['type-hitch-types', typeId],
+    queryFn: () => getHitchTypeIdsForType(typeId!),
+    enabled: !!typeId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // Memoizar para evitar re-renders infinitos (estos objetos se pasan como props)
   const formInitialData = useMemo(
@@ -336,12 +360,31 @@ function EquipmentTypesFormWrapper({
     [allActiveTypes]
   );
 
+  if (isLoadingChecklists || isLoadingHitchTypes) {
+    return <FormRelationsSkeleton />;
+  }
+
   return (
     <EquipmentTypesForm
+      key={typeId ?? 'create'}
       initialData={formInitialData}
       isEditing={!!equipmentType}
       onReset={onReset}
       allTypes={formAllTypes}
+      initialChecklistIds={checklistIds}
+      initialHitchTypeIds={hitchTypeIds}
     />
+  );
+}
+
+/** Placeholder mientras se cargan las relaciones del tipo seleccionado. */
+function FormRelationsSkeleton() {
+  return (
+    <div className="space-y-4 p-1">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-2/3" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-9 w-1/2" />
+    </div>
   );
 }
