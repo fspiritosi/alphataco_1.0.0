@@ -1098,33 +1098,55 @@ const AVAILABLE_EMP_FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<
   company_positions: (dir) => ({ company_positions: { name: dir } }),
 };
 
-const AVAILABLE_EMPLOYEE_SELECT = {
-  id: true,
-  firstname: true,
-  lastname: true,
-  cuil: true,
-  file: true,
-  company_position: true,
-  company_positions: { select: { id: true, name: true } },
-  contractor_employee: {
-    select: { contractor_id: true, customers: { select: { id: true, name: true } } },
-  },
-  employees_diagram: {
-    select: {
-      diagram_type: true,
-      diagram_type_employees_diagram_diagram_typeTodiagram_type: {
-        select: { short_description: true, color: true },
-      },
+/** Fecha de hoy en la zona horaria de la operacion (UTC-3), partida en dia/mes/anio. */
+function getTodayParts() {
+  const now = moment().utcOffset(-3);
+  return { day: now.date(), month: now.month() + 1, year: now.year() };
+}
+
+/**
+ * Select de empleados disponibles.
+ *
+ * El diagrama anidado se filtra por la fecha de HOY: sin ese filtro la relacion
+ * devuelve cualquier diagrama activo del historial del empleado (`take: 1` sin
+ * orden), y las columnas "Diagrama" y "Comentario" terminan mostrando una novedad
+ * de otro dia.
+ */
+function buildAvailableEmployeeSelect() {
+  const { day, month, year } = getTodayParts();
+
+  return {
+    id: true,
+    firstname: true,
+    lastname: true,
+    cuil: true,
+    file: true,
+    company_position: true,
+    company_positions: { select: { id: true, name: true } },
+    contractor_employee: {
+      select: { contractor_id: true, customers: { select: { id: true, name: true } } },
     },
-    where: {
-      diagram_type_employees_diagram_diagram_typeTodiagram_type: {
-        work_active: true,
-        is_active: true,
+    employees_diagram: {
+      select: {
+        diagram_type: true,
+        comments: true,
+        diagram_type_employees_diagram_diagram_typeTodiagram_type: {
+          select: { short_description: true, color: true },
+        },
       },
+      where: {
+        day,
+        month,
+        year,
+        diagram_type_employees_diagram_diagram_typeTodiagram_type: {
+          work_active: true,
+          is_active: true,
+        },
+      },
+      take: 1,
     },
-    take: 1,
-  },
-} as const;
+  } as const;
+}
 
 /**
  * Construye el WHERE de empleados disponibles:
@@ -1257,7 +1279,7 @@ export async function getAvailableEmployeesPaginated(searchParams: DataTableSear
     const safeOrderBy = [...resolvedSorts, { lastname: 'asc' as const }];
 
     const [data, total] = await Promise.all([
-      prisma.employees.findMany({ where, skip, take, orderBy: safeOrderBy, select: AVAILABLE_EMPLOYEE_SELECT }),
+      prisma.employees.findMany({ where, skip, take, orderBy: safeOrderBy, select: buildAvailableEmployeeSelect() }),
       prisma.employees.count({ where }),
     ]);
 
@@ -1285,7 +1307,7 @@ export async function getAllAvailableEmployeesForExport(searchParams: DataTableS
     return prisma.employees.findMany({
       where,
       orderBy: [{ lastname: 'asc' }],
-      select: AVAILABLE_EMPLOYEE_SELECT,
+      select: buildAvailableEmployeeSelect(),
     });
   } catch (error) {
     logger.error('Error al exportar empleados disponibles', { data: { error } });

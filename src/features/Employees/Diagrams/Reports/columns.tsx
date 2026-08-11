@@ -3,7 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Calendar, FileText, User } from 'lucide-react';
+import { Calendar, FileText, MessageSquare, User } from 'lucide-react';
 import moment from 'moment';
 import type { DiagramReportListItem } from './actions.server';
 
@@ -11,7 +11,7 @@ import type { DiagramReportListItem } from './actions.server';
 // COLUMNS HIDDEN BY DEFAULT
 // ============================================================================
 
-export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['created_at', 'cuil'];
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['created_at', 'cuil', 'comments'];
 
 // ============================================================================
 // COLUMN DEFINITIONS
@@ -144,6 +144,24 @@ export function getColumns(): ColumnDef<DiagramReportListItem>[] {
           >
             {dt.short_description}
           </Badge>
+        );
+      },
+    },
+
+    // ── Comentario (texto libre, cargado desde Cargar Diagrama) ───────────────
+    {
+      id: 'comments',
+      accessorKey: 'comments',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Comentario" />,
+      meta: { title: 'Comentario' },
+      cell: ({ row }) => {
+        const comment = row.original.comments;
+        if (!comment) return <span className="text-muted-foreground">-</span>;
+        return (
+          <div className="flex max-w-[240px] items-center gap-2" title={comment}>
+            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm">{comment}</span>
+          </div>
         );
       },
     },

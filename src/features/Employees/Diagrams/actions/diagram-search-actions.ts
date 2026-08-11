@@ -114,6 +114,7 @@ export async function searchEmployeeDiagrams(params: {
               is_active: true,
               created_at: true,
               employee_id: true,
+              comments: true,
               diagram_type_employees_diagram_diagram_typeTodiagram_type: {
                 select: {
                   id: true,
@@ -168,6 +169,7 @@ export async function searchEmployeeDiagrams(params: {
             day: Number(d.day),
             month: Number(d.month),
             year: Number(d.year),
+            comments: d.comments,
             diagram_type: {
               id: dt.id,
               name: dt.name,

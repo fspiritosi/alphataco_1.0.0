@@ -24,6 +24,7 @@ import type { DataTableToolbarProps } from './types';
  */
 export function DataTableToolbar<TData>({
   table,
+  enableColumnReorder = false,
   searchPlaceholder = 'Buscar...',
   searchColumn,
   facetedFilters = [],
@@ -163,7 +164,7 @@ export function DataTableToolbar<TData>({
             />
           )}
 
-          {showColumnToggle && <DataTableViewOptions table={table} />}
+          {showColumnToggle && <DataTableViewOptions table={table} enableColumnReorder={enableColumnReorder} />}
 
           {toolbarActions}
         </div>

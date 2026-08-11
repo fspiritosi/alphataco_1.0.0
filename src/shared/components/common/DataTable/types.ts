@@ -249,6 +249,13 @@ export interface DataTableProps<TData, TValue = unknown> {
    * Sin eso, la tabla guardaría una vista que nunca vuelve a usar.
    */
   persistViewPreferences?: boolean;
+  /**
+   * Permite al usuario reordenar las columnas y persiste ese orden (requiere `tableId`).
+   * Opt-in: solo las tablas que lo habilitan muestran la interacción de reordenamiento.
+   */
+  enableColumnReorder?: boolean;
+  /** Orden de columnas guardado por el usuario (ids de izquierda a derecha) */
+  initialColumnOrder?: string[];
   /** ID único de la tabla para persistir preferencias por usuario */
   tableId?: string;
   /** Namespace para aislar params de URL entre DataTables en la misma página.
@@ -293,6 +300,8 @@ export interface DataTableProps<TData, TValue = unknown> {
  */
 export interface DataTableToolbarProps<TData> {
   table: Table<TData>;
+  /** Habilita reordenar columnas desde el menu de columnas */
+  enableColumnReorder?: boolean;
   searchPlaceholder?: string;
   searchColumn?: string;
   facetedFilters?: DataTableFacetedFilterConfig[];
@@ -379,6 +388,8 @@ export interface DataTableFacetedFilterProps<TData, TValue> {
  */
 export interface DataTableViewOptionsProps<TData> {
   table: Table<TData>;
+  /** Habilita la interaccion para reordenar columnas dentro del menu */
+  enableColumnReorder?: boolean;
 }
 
 // ============================================================================

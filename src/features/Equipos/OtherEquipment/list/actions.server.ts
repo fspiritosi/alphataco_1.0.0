@@ -35,6 +35,7 @@ const VALID_SORT_FIELDS = new Set([
   'currency',
   'purchase_date',
   'cost_type',
+  'type_of_contract',
   'reason_for_termination',
   'termination_date',
   'created_at',
@@ -114,6 +115,7 @@ const OTHER_EQUIPMENT_SELECT = {
   currency: true,
   purchase_date: true,
   cost_type: true,
+  type_of_contract: true,
   reason_for_termination: true,
   termination_date: true,
   created_at: true,
@@ -562,6 +564,7 @@ export async function getOtherEquipmentSingleFacet(
       status: 'status',
       cost_type: 'cost_type',
       currency: 'currency',
+      type_of_contract: 'type_of_contract',
       reason_for_termination: 'reason_for_termination',
     };
 

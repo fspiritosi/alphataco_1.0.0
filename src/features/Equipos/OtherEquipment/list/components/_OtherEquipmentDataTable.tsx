@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import {
   condition_enum,
+  contract_type_vehicles_enum,
   cost_type_enum,
   currency_enum,
   status_type,
@@ -19,6 +20,7 @@ import {
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
   conditionLabels,
+  contractTypeVehiclesLabels,
   costTypeLabels,
   currencyLabels,
   otherEquipmentStatusLabels,
@@ -53,6 +55,8 @@ interface Props {
   initialPageSize?: number;
   /** Ordenamiento guardado por el usuario (undefined = orden por defecto del server) */
   initialSorting?: SortItem[];
+  /** Orden de columnas guardado por el usuario (undefined = orden de definición) */
+  initialColumnOrder?: string[];
 }
 
 // ============================================================================
@@ -108,6 +112,7 @@ export function _OtherEquipmentDataTable({
   initialFilterVisibility,
   initialPageSize,
   initialSorting,
+  initialColumnOrder,
 }: Props) {
   // ─── Client-side navigation: estado reactivo para queries dependientes ──────
   const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
@@ -148,6 +153,7 @@ export function _OtherEquipmentDataTable({
       'contractor_other_equipment',
       'cost_type',
       'currency',
+      'type_of_contract',
       'reason_for_termination',
       'serial_number',
       'intern_number',
@@ -228,6 +234,16 @@ export function _OtherEquipmentDataTable({
           'reason_for_termination',
           Object.values(termination_reason_enum),
           terminationReasonEquipmentLabels,
+          {}
+        ),
+      },
+      {
+        columnId: 'type_of_contract',
+        title: 'Tipo de contrato',
+        fetchFacet: makeEnumFetchFacet(
+          'type_of_contract',
+          Object.values(contract_type_vehicles_enum),
+          contractTypeVehiclesLabels,
           {}
         ),
       },
@@ -330,6 +346,8 @@ export function _OtherEquipmentDataTable({
       initialPageSize={initialPageSize}
       initialSorting={initialSorting}
       persistViewPreferences={true}
+      enableColumnReorder={true}
+      initialColumnOrder={initialColumnOrder}
       searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
       showFilterToggle={true}
       toolbarActions={toolbarActions}
@@ -347,6 +365,7 @@ export function _OtherEquipmentDataTable({
           status: (val) => otherEquipmentStatusLabels[val as string] ?? String(val ?? ''),
           cost_type: (val) => costTypeLabels[val as string] ?? String(val ?? ''),
           currency: (val) => currencyLabels[val as string] ?? String(val ?? ''),
+          type_of_contract: (val) => contractTypeVehiclesLabels[val as string] ?? String(val ?? ''),
           reason_for_termination: (val) => terminationReasonEquipmentLabels[val as string] ?? String(val ?? ''),
           purchase_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           termination_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),

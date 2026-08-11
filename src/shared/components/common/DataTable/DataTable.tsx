@@ -12,13 +12,17 @@ import * as React from 'react';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { saveTableColumnVisibility, saveTableViewPreferences } from '@/shared/actions/table-preferences';
+import {
+  saveTableColumnOrder,
+  saveTableColumnVisibility,
+  saveTableViewPreferences,
+} from '@/shared/actions/table-preferences';
 
 import { DataTablePagination } from './DataTablePagination';
 import { DataTablePendingProvider } from './DataTablePendingContext';
 import { DataTableToolbar } from './DataTableToolbar';
 import { _DataTableExportButton } from './_DataTableExportButton';
-import { DEFAULT_PAGE_SIZE, serializeSorting, stateToSearchParams } from './helpers';
+import { DEFAULT_PAGE_SIZE, reconcileColumnOrder, serializeSorting, stateToSearchParams } from './helpers';
 import type { DataTableFacetedFilterConfig, DataTableProps, DataTableSearchParams } from './types';
 import { useDataTable } from './useDataTable';
 
@@ -95,6 +99,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   initialPageSize,
   initialSorting,
   persistViewPreferences = false,
+  enableColumnReorder = false,
+  initialColumnOrder,
   tableId,
   paramNamespace,
   showFilterToggle = false,
@@ -114,6 +120,17 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
 
   // Estado de visibilidad de columnas (local, inicializado con las visibilidades por defecto)
   const [columnVisibility, setColumnVisibility] = React.useState(initialColumnVisibility);
+
+  // Orden de columnas: parte del guardado del usuario, reconciliado con las columnas
+  // que existen hoy (una columna agregada después va al final, una eliminada se descarta).
+  const allColumnIds = React.useMemo(
+    () => columns.map((column) => (column.id ?? (column as { accessorKey?: string }).accessorKey ?? '') as string),
+    [columns]
+  );
+
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(() =>
+    enableColumnReorder ? reconcileColumnOrder(initialColumnOrder, allColumnIds) : []
+  );
 
   // Estado de visibilidad de filtros.
   // Al inicializar, forzamos a "visible" cualquier columna que tenga un filtro activo en la URL
@@ -234,7 +251,9 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
       rowSelection,
       columnFilters,
       pagination,
+      ...(enableColumnReorder ? { columnOrder } : {}),
     },
+    onColumnOrderChange: setColumnOrder,
     // Row IDs estables: si el dato tiene `id`, usarlo; si no, usar el índice.
     // Esto evita que la selección "salte" a otras filas al cambiar de página o re-fetch.
     getRowId: (row, index) => {
@@ -321,6 +340,23 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     return () => clearTimeout(timer);
   }, [state.pageSize, state.sorting, tableId, persistViewPreferences]);
 
+  // Persistir el orden de columnas con debounce de 1 segundo (solo si el usuario lo cambió).
+  const savedColumnOrderRef = React.useRef(columnOrder.join(','));
+
+  React.useEffect(() => {
+    if (!tableId || !enableColumnReorder) return;
+
+    const timer = setTimeout(() => {
+      const serialized = columnOrder.join(',');
+      if (serialized === savedColumnOrderRef.current) return;
+
+      savedColumnOrderRef.current = serialized;
+      saveTableColumnOrder(tableId, columnOrder);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [columnOrder, tableId, enableColumnReorder]);
+
   // Reset externo de la selección (skip initial render para no disparar al montar).
   const skipFirstClearRef = React.useRef(true);
   React.useEffect(() => {
@@ -346,6 +382,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
         {/* Toolbar */}
         <DataTableToolbar
           table={table}
+          enableColumnReorder={enableColumnReorder}
           searchPlaceholder={searchPlaceholder}
           searchColumn={searchColumn}
           facetedFilters={facetedFilters}

@@ -43,6 +43,8 @@ type DiagramType = {
   id: string;
   month: number;
   year: number;
+  /** Comentario opcional cargado junto con la novedad */
+  comments?: string | null;
 };
 
 // Tipo para un empleado con sus diagramas
@@ -423,6 +425,13 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
                           (d) => d.day === diaNro && d.month === mesNro && d.year === anioNro
                         );
 
+                        // En la grilla no entra una columna de comentario: se muestra
+                        // junto a la novedad en el tooltip de la celda.
+                        const nombreNovedad = diagrama?.diagram_type?.name || 'Sin diagrama';
+                        const tooltipCelda = diagrama?.comments
+                          ? `${nombreNovedad} — ${diagrama.comments}`
+                          : nombreNovedad;
+
                         return (
                           <TableCell
                             key={`celda-${idxEmp}-${idxDia}`}
@@ -431,7 +440,7 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
                               backgroundColor: diagrama?.diagram_type?.color || 'transparent',
                               color: diagrama?.diagram_type?.color ? '#fff' : 'inherit',
                             }}
-                            title={diagrama?.diagram_type?.name || 'Sin diagrama'}
+                            title={tooltipCelda}
                           >
                             {diagrama?.diagram_type?.short_description || ''}
                           </TableCell>
