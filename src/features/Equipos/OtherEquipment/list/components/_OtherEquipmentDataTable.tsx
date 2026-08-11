@@ -55,6 +55,8 @@ interface Props {
   initialPageSize?: number;
   /** Ordenamiento guardado por el usuario (undefined = orden por defecto del server) */
   initialSorting?: SortItem[];
+  /** Orden de columnas guardado por el usuario (undefined = orden de definición) */
+  initialColumnOrder?: string[];
 }
 
 // ============================================================================
@@ -110,6 +112,7 @@ export function _OtherEquipmentDataTable({
   initialFilterVisibility,
   initialPageSize,
   initialSorting,
+  initialColumnOrder,
 }: Props) {
   // ─── Client-side navigation: estado reactivo para queries dependientes ──────
   const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
@@ -343,6 +346,8 @@ export function _OtherEquipmentDataTable({
       initialPageSize={initialPageSize}
       initialSorting={initialSorting}
       persistViewPreferences={true}
+      enableColumnReorder={true}
+      initialColumnOrder={initialColumnOrder}
       searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
       showFilterToggle={true}
       toolbarActions={toolbarActions}

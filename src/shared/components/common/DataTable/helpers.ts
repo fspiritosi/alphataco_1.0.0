@@ -195,7 +195,27 @@ export type TablePreferences = {
   pageSize?: number;
   /** Ordenamiento (multi-sort) elegido por el usuario */
   sorting?: { id: string; desc: boolean }[];
+  /** Orden de las columnas elegido por el usuario (ids de columna, de izquierda a derecha) */
+  columnOrder?: string[];
 };
+
+/**
+ * Reconcilia el orden guardado con las columnas que existen hoy.
+ *
+ * Necesario porque el orden se persiste como una lista de ids: si después se agrega
+ * una columna nueva al sistema, no está en la preferencia del usuario y quedaría
+ * fuera; y si se elimina una, quedaría un id fantasma. Las columnas nuevas se
+ * agregan al final, respetando el orden que el usuario ya había elegido.
+ */
+export function reconcileColumnOrder(savedOrder: string[] | undefined, currentColumnIds: string[]): string[] {
+  if (!savedOrder?.length) return currentColumnIds;
+
+  const current = new Set(currentColumnIds);
+  const kept = savedOrder.filter((id) => current.has(id));
+  const added = currentColumnIds.filter((id) => !kept.includes(id));
+
+  return [...kept, ...added];
+}
 
 /**
  * Aplica las preferencias guardadas del usuario a los searchParams de la tabla.

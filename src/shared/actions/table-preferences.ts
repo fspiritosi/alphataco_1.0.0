@@ -95,3 +95,14 @@ export async function saveTableViewPreferences(
     logger.error('Error saving table view preferences', { data: { error, tableId } });
   }
 }
+
+/**
+ * Persiste el orden de las columnas (ids de izquierda a derecha) para el usuario actual.
+ */
+export async function saveTableColumnOrder(tableId: string, columnOrder: string[]): Promise<void> {
+  try {
+    await mergeTablePreferences(tableId, { columnOrder });
+  } catch (error) {
+    logger.error('Error saving column order', { data: { error, tableId } });
+  }
+}
