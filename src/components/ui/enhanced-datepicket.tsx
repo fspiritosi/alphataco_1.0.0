@@ -1,9 +1,9 @@
 'use client';
 
+import { es } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import moment from 'moment';
 import * as React from 'react';
-import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 
 const DATE_FORMAT = 'DD/MM/YYYY';
 
-interface DatePickerProps {
+interface DatePickerProps extends Pick<React.ComponentProps<'input'>, 'id' | 'name' | 'aria-label'> {
   /** Fecha actual. Acepta Date o ISO string (compatibilidad con react-hook-form). */
   date?: Date | string;
   setDate?: (date: Date | undefined) => void;
@@ -21,6 +21,10 @@ interface DatePickerProps {
   minDate?: Date;
   placeholder?: string;
   className?: string;
+  /** Lo inyecta FormControl de shadcn para enlazar la descripcion y el error del campo. */
+  'aria-describedby'?: string;
+  /** Lo inyecta FormControl de shadcn cuando el campo tiene un error de validacion. */
+  'aria-invalid'?: boolean;
 }
 
 /** Normaliza el valor entrante (Date | ISO string) a un Date valido o undefined. */
@@ -35,7 +39,18 @@ function normalizeDate(value?: Date | string): Date | undefined {
  * DD/MM/YYYY o seleccionarla desde el calendario (boton con icono). Equivalente al
  * input nativo type="date" pero con componentes de shadcn/ui.
  */
-export function EnhancedDatePicker({ date, setDate, minDate, placeholder = DATE_FORMAT, className }: DatePickerProps) {
+export function EnhancedDatePicker({
+  date,
+  setDate,
+  minDate,
+  placeholder = DATE_FORMAT,
+  className,
+  id,
+  name,
+  'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+}: DatePickerProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(() => normalizeDate(date));
   const [inputValue, setInputValue] = React.useState<string>(() => {
     const initial = normalizeDate(date);
@@ -90,6 +105,11 @@ export function EnhancedDatePicker({ date, setDate, minDate, placeholder = DATE_
     <div className={cn('flex flex-col gap-1', className)}>
       <div className="flex gap-2">
         <Input
+          id={id}
+          name={name}
+          aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid || !!inputError}
           placeholder={placeholder}
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
@@ -115,7 +135,10 @@ export function EnhancedDatePicker({ date, setDate, minDate, placeholder = DATE_
           </PopoverContent>
         </Popover>
       </div>
-      {inputError && <p className="text-sm font-medium text-destructive">{inputError}</p>}
+      {/* Region viva siempre montada: si se insertara recien al fallar, el lector de pantalla no la anuncia. */}
+      <p aria-live="polite" className={cn('text-destructive text-sm font-medium', !inputError && 'sr-only')}>
+        {inputError}
+      </p>
     </div>
   );
 }
