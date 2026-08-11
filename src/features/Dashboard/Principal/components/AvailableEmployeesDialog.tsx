@@ -190,6 +190,22 @@ export default function AvailableEmployeesDialog({ open, onOpenChange, count, po
           return value.includes(diagramTypeId);
         },
       },
+      {
+        id: 'comments',
+        accessorFn: (row) => row.employees_diagram[0]?.comments ?? '',
+        meta: { title: 'Comentario' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Comentario" />,
+        cell: ({ row }) => {
+          const comment = row.original.employees_diagram[0]?.comments;
+          if (!comment) return <span className="text-muted-foreground">-</span>;
+          // Texto libre: se trunca y el contenido completo queda en el title.
+          return (
+            <span className="block max-w-[220px] truncate" title={comment}>
+              {comment}
+            </span>
+          );
+        },
+      },
     ],
     []
   );
