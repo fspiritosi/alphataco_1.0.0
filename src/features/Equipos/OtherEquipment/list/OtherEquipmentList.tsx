@@ -44,6 +44,7 @@ export async function OtherEquipmentList({ searchParams, permissions }: OtherEqu
           initialFilterVisibility={preferences.filterVisibility ?? {}}
           initialPageSize={preferences.pageSize}
           initialSorting={preferences.sorting}
+          initialColumnOrder={preferences.columnOrder}
         />
       </CardContent>
     </Card>
