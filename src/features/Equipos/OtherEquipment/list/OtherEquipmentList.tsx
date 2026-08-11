@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
-import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
+import { applyTablePreferences, stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { getOtherEquipmentPaginated } from './actions.server';
 import { _OtherEquipmentDataTable } from './components/_OtherEquipmentDataTable';
@@ -22,12 +22,14 @@ export async function OtherEquipmentList({ searchParams, permissions }: OtherEqu
   const tableId = 'other-equipment';
 
   // Extraer solo los params de esta tabla (quitar prefijo)
-  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
+  const urlParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
 
-  const [{ data, total }, preferences] = await Promise.all([
-    getOtherEquipmentPaginated(tableParams),
-    getTablePreferences(tableId),
-  ]);
+  // Las preferencias se leen ANTES del fetch: completan los params que la URL no trae
+  // (filas por página y orden guardados), para que el SSR muestre lo mismo que el cliente.
+  const preferences = await getTablePreferences(tableId);
+  const tableParams = applyTablePreferences(urlParams, preferences);
+
+  const { data, total } = await getOtherEquipmentPaginated(tableParams);
 
   return (
     <Card>
@@ -40,6 +42,8 @@ export async function OtherEquipmentList({ searchParams, permissions }: OtherEqu
           permissionsMap={permissions}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
+          initialPageSize={preferences.pageSize}
+          initialSorting={preferences.sorting}
         />
       </CardContent>
     </Card>

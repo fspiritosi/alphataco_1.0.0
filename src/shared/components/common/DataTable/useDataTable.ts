@@ -4,18 +4,28 @@ import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstac
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 
-import { DEFAULT_PAGE_SIZE, PARAM_SEPARATOR, parseSearchParams, stateToSearchParams } from './helpers';
-import type { DataTableSearchParams, DataTableState } from './types';
+import {
+  DEFAULT_PAGE_SIZE,
+  PARAM_SEPARATOR,
+  parseSearchParams,
+  parseSortString,
+  serializeSorting,
+  stateToSearchParams,
+} from './helpers';
+import type { DataTableSearchParams, DataTableState, SortItem } from './types';
 
 // Re-export helpers para conveniencia (pero los server actions deben importar de ./helpers directamente)
 export {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   PARAM_SEPARATOR,
+  applyTablePreferences,
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildSearchWhere,
   parseSearchParams,
+  parseSortString,
+  serializeSorting,
   stateToPrismaParams,
   stateToSearchParams,
   stripPrefixFromSearchParams,
@@ -26,8 +36,10 @@ export {
 // ============================================================================
 
 interface UseDataTableOptions {
-  /** Tamaño de página por defecto */
+  /** Tamaño de página por defecto (cuando la URL no trae `pageSize`) */
   defaultPageSize?: number;
+  /** Ordenamiento por defecto (cuando la URL no trae `sort`) */
+  defaultSorting?: SortItem[];
   /** Columnas que se pueden filtrar via URL */
   filterableColumns?: string[];
   /** ID de la tabla para namespacing de URL params (aísla filtros entre tablas) */
@@ -84,10 +96,14 @@ export const DATA_TABLE_URL_CHANGE_EVENT = 'data-table:url-change';
 export function useDataTable(options: UseDataTableOptions = {}): UseDataTableReturn {
   const {
     defaultPageSize = DEFAULT_PAGE_SIZE,
+    defaultSorting,
     filterableColumns = [],
     tableId,
     clientSideNavigation = false,
   } = options;
+
+  // Serializado para usarlo como dependencia estable (el array llega por props)
+  const defaultSort = serializeSorting(defaultSorting);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -150,20 +166,26 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
 
     const parsed = parseSearchParams(params);
 
-    // Aplicar defaultPageSize si no hay pageSize en URL
-    const pageSizeKey = `${prefix}pageSize`;
-    const hasPageSize =
+    // Params crudos de la URL: se consultan con `has` para distinguir "ausente"
+    // (aplicar el default guardado) de "presente pero vacío" (el usuario lo limpió).
+    const urlParams =
       clientSideNavigation && typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search).has(pageSizeKey)
-        : new URLSearchParams(searchParamsString).has(pageSizeKey);
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams(searchParamsString);
 
-    if (!hasPageSize) {
+    // Aplicar defaultPageSize si no hay pageSize en URL
+    if (!urlParams.has(`${prefix}pageSize`)) {
       parsed.pageSize = defaultPageSize;
+    }
+
+    // Aplicar defaultSorting si no hay sort en URL (ni el formato legacy sortBy)
+    if (defaultSort && !urlParams.has(`${prefix}sort`) && !urlParams.has(`${prefix}sortBy`)) {
+      parsed.sorting = parseSortString(defaultSort);
     }
 
     return parsed;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- urlVersion triggers re-read in client-side mode
-  }, [searchParamsString, urlVersion, defaultPageSize, prefix, clientSideNavigation]);
+  }, [searchParamsString, urlVersion, defaultPageSize, defaultSort, prefix, clientSideNavigation]);
 
   // Convertir a formatos de TanStack Table
   const pagination: PaginationState = useMemo(
@@ -206,7 +228,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const updateURL = useCallback(
     (newState: Partial<DataTableState>) => {
       const merged = { ...state, ...newState };
-      const newParams = stateToSearchParams(merged);
+      const newParams = stateToSearchParams(merged, { defaultPageSize, defaultSort });
 
       // Construir URL final preservando params de otras tablas/navegación
       const finalParams = new URLSearchParams();
@@ -246,7 +268,17 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
         });
       }
     },
-    [state, pathname, router, startTransition, prefix, clientSideNavigation, getCurrentSearchParams]
+    [
+      state,
+      pathname,
+      router,
+      startTransition,
+      prefix,
+      clientSideNavigation,
+      getCurrentSearchParams,
+      defaultPageSize,
+      defaultSort,
+    ]
   );
 
   // Handlers
@@ -343,15 +375,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
         });
       }
     }
-  }, [
-    pathname,
-    router,
-    startTransition,
-    searchParams,
-    prefix,
-    clientSideNavigation,
-    getCurrentSearchParams,
-  ]);
+  }, [pathname, router, startTransition, searchParams, prefix, clientSideNavigation, getCurrentSearchParams]);
 
   // En modo client-side, isPending es siempre false (no hay navegación pendiente)
   // El estado de carga viene de React Query (isFetching) en el componente padre

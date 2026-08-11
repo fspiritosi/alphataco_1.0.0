@@ -12,13 +12,13 @@ import * as React from 'react';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { saveTableColumnVisibility } from '@/shared/actions/table-preferences';
+import { saveTableColumnVisibility, saveTableViewPreferences } from '@/shared/actions/table-preferences';
 
 import { DataTablePagination } from './DataTablePagination';
 import { DataTablePendingProvider } from './DataTablePendingContext';
 import { DataTableToolbar } from './DataTableToolbar';
 import { _DataTableExportButton } from './_DataTableExportButton';
-import { stateToSearchParams } from './helpers';
+import { DEFAULT_PAGE_SIZE, serializeSorting, stateToSearchParams } from './helpers';
 import type { DataTableFacetedFilterConfig, DataTableProps, DataTableSearchParams } from './types';
 import { useDataTable } from './useDataTable';
 
@@ -35,9 +35,7 @@ function getActiveFilterColumnIds(
   const active = new Set<string>();
 
   // Construir un índice de columnas dateRange para detectar los sufijos _from/_to
-  const dateRangeColumnIds = new Set(
-    facetedFilters.filter((f) => f.type === 'dateRange').map((f) => f.columnId)
-  );
+  const dateRangeColumnIds = new Set(facetedFilters.filter((f) => f.type === 'dateRange').map((f) => f.columnId));
 
   Object.entries(searchParams).forEach(([key, value]) => {
     if (reservedKeys.has(key) || !value) return;
@@ -94,6 +92,9 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   showExportButton = true,
   showSearch = false,
   initialColumnVisibility = {},
+  initialPageSize,
+  initialSorting,
+  persistViewPreferences = false,
   tableId,
   paramNamespace,
   showFilterToggle = false,
@@ -155,19 +156,30 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     filterableColumns,
     tableId: paramNamespace,
     clientSideNavigation: isClientSide,
+    defaultPageSize: initialPageSize,
+    defaultSorting: initialSorting,
   });
 
   // ---- Client-side data fetching (cuando queryFn está presente) ----
 
-  // Convertir state a DataTableSearchParams para queryFn y onStateChange
+  // Defaults efectivos de la vista (preferencias del usuario o defaults del sistema).
+  // Se serializa el sorting para tener una dependencia estable entre renders.
+  const defaultPageSize = initialPageSize ?? DEFAULT_PAGE_SIZE;
+  const defaultSort = serializeSorting(initialSorting);
+
+  // Convertir state a DataTableSearchParams para queryFn y onStateChange.
+  // `pageSize` y `sort` se escriben SIEMPRE (aunque la URL los omita por coincidir
+  // con el default guardado) para que el fetch reciba el estado real de la vista.
   const stateSearchParams = React.useMemo(() => {
-    const urlParams = stateToSearchParams(state);
+    const urlParams = stateToSearchParams(state, { defaultPageSize, defaultSort });
     const obj: DataTableSearchParams = {};
     urlParams.forEach((v, k) => {
       obj[k] = v;
     });
+    obj.pageSize = String(state.pageSize);
+    obj.sort = serializeSorting(state.sorting);
     return obj;
-  }, [state]);
+  }, [state, defaultPageSize, defaultSort]);
 
   // Derivar facetParams (sin page/sort) para lazy-load de facets individuales
   const facetParams = React.useMemo(() => {
@@ -289,6 +301,25 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
 
     return () => clearTimeout(timer);
   }, [columnVisibility, tableId]);
+
+  // Persistir filas por página y ordenamiento con debounce de 1 segundo.
+  // Solo se guarda cuando el usuario cambia la vista respecto de lo ya guardado,
+  // para no escribir preferencias que el usuario nunca eligió.
+  const savedViewRef = React.useRef({ pageSize: defaultPageSize, sort: defaultSort });
+
+  React.useEffect(() => {
+    if (!tableId || !persistViewPreferences) return;
+
+    const timer = setTimeout(() => {
+      const sort = serializeSorting(state.sorting);
+      if (state.pageSize === savedViewRef.current.pageSize && sort === savedViewRef.current.sort) return;
+
+      savedViewRef.current = { pageSize: state.pageSize, sort };
+      saveTableViewPreferences(tableId, { pageSize: state.pageSize, sorting: state.sorting });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [state.pageSize, state.sorting, tableId, persistViewPreferences]);
 
   // Reset externo de la selección (skip initial render para no disparar al montar).
   const skipFirstClearRef = React.useRef(true);

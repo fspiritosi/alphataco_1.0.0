@@ -230,6 +230,25 @@ export interface DataTableProps<TData, TValue = unknown> {
   showExportButton?: boolean;
   /** Visibilidad inicial de columnas (para ocultar columnas por defecto) */
   initialColumnVisibility?: Record<string, boolean>;
+  /**
+   * Filas por página iniciales (preferencia guardada del usuario o default de la tabla).
+   * Se aplica cuando la URL no trae `pageSize`. Si hay `tableId`, los cambios del
+   * usuario se persisten automáticamente.
+   */
+  initialPageSize?: number;
+  /**
+   * Ordenamiento inicial (preferencia guardada del usuario o default de la tabla).
+   * Se aplica cuando la URL no trae `sort`. Si hay `tableId`, los cambios del
+   * usuario se persisten automáticamente.
+   */
+  initialSorting?: SortItem[];
+  /**
+   * Persistir filas por página y ordenamiento del usuario (requiere `tableId`).
+   * Es opt-in: solo tiene sentido en tablas cuyo Server Component además APLICA
+   * esas preferencias con `applyTablePreferences` + `initialPageSize`/`initialSorting`.
+   * Sin eso, la tabla guardaría una vista que nunca vuelve a usar.
+   */
+  persistViewPreferences?: boolean;
   /** ID único de la tabla para persistir preferencias por usuario */
   tableId?: string;
   /** Namespace para aislar params de URL entre DataTables en la misma página.
