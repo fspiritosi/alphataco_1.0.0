@@ -6,6 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
   conditionLabels,
+  contractTypeVehiclesLabels,
   costTypeLabels,
   currencyLabels,
   otherEquipmentStatusLabels,
@@ -132,6 +133,55 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
+  // ─── Modelo (FK Int nullable) ─────────────────────────────────────────────
+  {
+    id: 'model',
+    accessorFn: (row) => row.model_vehicles?.name ?? '',
+    meta: { title: 'Modelo' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Modelo" />,
+    cell: ({ row }) => (
+      <span>{row.original.model_vehicles?.name ?? <span className="text-muted-foreground">-</span>}</span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.model_id;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(String(id));
+    },
+  },
+
+  // ─── Propietario (FK UUID) ────────────────────────────────────────────────
+  {
+    id: 'owner',
+    accessorFn: (row) => row.equipment_owners?.name ?? '',
+    meta: { title: 'Propietario' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
+    cell: ({ row }) => (
+      <span>{row.original.equipment_owners?.name ?? <span className="text-muted-foreground">-</span>}</span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.equipment_owners?.id;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
+  },
+
+  // ─── Tipo de contrato (enum nullable) ─────────────────────────────────────
+  {
+    accessorKey: 'type_of_contract',
+    meta: { title: 'Tipo de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de contrato" />,
+    cell: ({ row }) => {
+      const tc = row.original.type_of_contract;
+      if (!tc) return <span className="text-muted-foreground">-</span>;
+      return <Badge variant="outline">{contractTypeVehiclesLabels[tc] ?? tc}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => {
+      const val = row.getValue(id);
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val as string);
+    },
+  },
+
   // ─── Marca (FK Int nullable) ──────────────────────────────────────────────
   {
     id: 'brand',
@@ -148,20 +198,62 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
-  // ─── Modelo (FK Int nullable) ─────────────────────────────────────────────
+  // ─── Afectaciones (M:M) ───────────────────────────────────────────────────
   {
-    id: 'model',
-    accessorFn: (row) => row.model_vehicles?.name ?? '',
-    meta: { title: 'Modelo' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Modelo" />,
-    cell: ({ row }) => (
-      <span>{row.original.model_vehicles?.name ?? <span className="text-muted-foreground">-</span>}</span>
-    ),
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.model_id;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(String(id));
+    id: 'contractor_other_equipment',
+    accessorFn: (row) =>
+      (row.contractor_other_equipment ?? [])
+        .map((c) => c.customers?.name ?? '')
+        .filter(Boolean)
+        .join(', '),
+    meta: { title: 'Afectaciones' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Afectaciones" />,
+    cell: ({ row }) => {
+      const contractors = (row.original.contractor_other_equipment ?? [])
+        .map((c) => c.customers?.name ?? '')
+        .filter(Boolean);
+
+      if (contractors.length === 0) return <span className="text-muted-foreground">-</span>;
+
+      const [first, ...rest] = contractors;
+
+      if (rest.length === 0) {
+        return <Badge variant="default">{first}</Badge>;
+      }
+
+      return (
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="inline-flex">
+                <Badge variant="default" className="cursor-pointer select-none">
+                  {first} +{rest.length}
+                </Badge>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="bg-black text-white rounded-lg p-2">
+              <div className="flex flex-col gap-1">
+                {rest.map((name) => (
+                  <span key={name}>{name}</span>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
     },
+    filterFn: (row, _id, filterValue) => {
+      if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) return true;
+      const contractors = row.original.contractor_other_equipment ?? [];
+      if (contractors.length === 0) {
+        return (filterValue as string[]).includes(NULL_FILTER_VALUE);
+      }
+      return contractors.some((c) => {
+        const id = c.customers?.id;
+        return id && (filterValue as string[]).includes(id);
+      });
+    },
+    enableSorting: false,
   },
 
   // ─── Año ─────────────────────────────────────────────────────────────────
@@ -236,80 +328,6 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     cell: ({ row }) => <span>{row.original.vehicles?.domain ?? <span className="text-muted-foreground">-</span>}</span>,
     filterFn: (row, _id, value: string[]) => {
       const id = row.original.vehicles?.id;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
-    },
-  },
-
-  // ─── Afectaciones (M:M) ───────────────────────────────────────────────────
-  {
-    id: 'contractor_other_equipment',
-    accessorFn: (row) =>
-      (row.contractor_other_equipment ?? [])
-        .map((c) => c.customers?.name ?? '')
-        .filter(Boolean)
-        .join(', '),
-    meta: { title: 'Afectaciones' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Afectaciones" />,
-    cell: ({ row }) => {
-      const contractors = (row.original.contractor_other_equipment ?? [])
-        .map((c) => c.customers?.name ?? '')
-        .filter(Boolean);
-
-      if (contractors.length === 0) return <span className="text-muted-foreground">-</span>;
-
-      const [first, ...rest] = contractors;
-
-      if (rest.length === 0) {
-        return <Badge variant="default">{first}</Badge>;
-      }
-
-      return (
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="inline-flex">
-                <Badge variant="default" className="cursor-pointer select-none">
-                  {first} +{rest.length}
-                </Badge>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="bg-black text-white rounded-lg p-2">
-              <div className="flex flex-col gap-1">
-                {rest.map((name) => (
-                  <span key={name}>{name}</span>
-                ))}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    },
-    filterFn: (row, _id, filterValue) => {
-      if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) return true;
-      const contractors = row.original.contractor_other_equipment ?? [];
-      if (contractors.length === 0) {
-        return (filterValue as string[]).includes(NULL_FILTER_VALUE);
-      }
-      return contractors.some((c) => {
-        const id = c.customers?.id;
-        return id && (filterValue as string[]).includes(id);
-      });
-    },
-    enableSorting: false,
-  },
-
-  // ─── Propietario (FK UUID) ────────────────────────────────────────────────
-  {
-    id: 'owner',
-    accessorFn: (row) => row.equipment_owners?.name ?? '',
-    meta: { title: 'Propietario' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
-    cell: ({ row }) => (
-      <span>{row.original.equipment_owners?.name ?? <span className="text-muted-foreground">-</span>}</span>
-    ),
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.equipment_owners?.id;
       if (id == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(id);
     },
