@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
@@ -13,9 +14,11 @@ import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import EquipmentSubTypesForm from '../sub_types/equipmentSubTypesForm';
+import { useSubTypeChecklists } from '../sub_types/hooks/useSubTypeChecklists';
 import {
   getActiveEquipmentTypes,
   getAllEquipmentSubTypesForExport,
+  getCompatibleItemsForSubTypePrisma,
   getEquipmentSubTypeSingleFacet,
   getEquipmentSubTypesPaginated,
   type EquipmentSubTypeListItem,
@@ -52,6 +55,7 @@ interface FormWrapperProps {
  */
 function EquipmentSubTypesFormWrapper({ editingItem, onReset }: FormWrapperProps) {
   const queryClient = useQueryClient();
+  const subTypeId = editingItem?.id ?? null;
 
   // Cargar tipos de unidad via server action (reemplaza FetchTypeOfVehicles con Supabase)
   const { data: types = [] } = useQuery({
@@ -60,10 +64,33 @@ function EquipmentSubTypesFormWrapper({ editingItem, onReset }: FormWrapperProps
     staleTime: 5 * 60 * 1000,
   });
 
+  // Relaciones existentes del subtipo. El form las toma en `defaultValues`, que solo se evaluan
+  // al montar: por eso se espera a que las queries resuelvan y se remonta con `key`.
+  // Sin esto el form abre vacio y, como el guardado hace delete + insert, borra las relaciones.
+  const { data: checklistIds = [], isLoading: isLoadingChecklists } = useSubTypeChecklists(subTypeId);
+
+  const { data: compatibleRows = [], isLoading: isLoadingCompatibleItems } = useQuery({
+    queryKey: ['subtype-compatible-items', subTypeId],
+    queryFn: () => getCompatibleItemsForSubTypePrisma(subTypeId!),
+    enabled: !!subTypeId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const compatibleItems = useMemo(
+    () =>
+      compatibleRows.map((row) => ({
+        id: row.compatible_item_id,
+        type: row.item_type as 'sub_type' | 'type',
+      })),
+    [compatibleRows]
+  );
+
   const handleSuccess = useCallback(() => {
-    // Invalidar la tabla para refrescar los datos
+    // Invalidar la tabla y las relaciones para refrescar los datos
     queryClient.invalidateQueries({ queryKey: ['equipment-sub-types'] });
-  }, [queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['subtype-compatible-items', subTypeId] });
+  }, [queryClient, subTypeId]);
 
   // Memoizar para referencia estable — evita loop infinito en useEffect del form
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,16 +109,34 @@ function EquipmentSubTypesFormWrapper({ editingItem, onReset }: FormWrapperProps
     [editingItem]
   );
 
+  if (isLoadingChecklists || isLoadingCompatibleItems) {
+    return <FormRelationsSkeleton />;
+  }
+
   return (
     <EquipmentSubTypesForm
-      key={editingItem?.id ?? 'create'}
+      key={subTypeId ?? 'create'}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialData={formInitialData as any}
       onReset={onReset}
       isEditing={!!editingItem}
       onSuccess={handleSuccess}
       types={typesForForm}
+      initialChecklistIds={checklistIds}
+      initialCompatibleItems={compatibleItems}
     />
+  );
+}
+
+/** Placeholder mientras se cargan las relaciones del subtipo seleccionado. */
+function FormRelationsSkeleton() {
+  return (
+    <div className="space-y-4 p-1">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-2/3" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-9 w-1/2" />
+    </div>
   );
 }
 
