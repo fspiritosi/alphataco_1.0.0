@@ -14,6 +14,7 @@ import {
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
   type FacetResult,
+  type SortItem,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
@@ -48,6 +49,10 @@ interface Props {
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
+  /** Filas por página guardadas por el usuario (undefined = default del sistema) */
+  initialPageSize?: number;
+  /** Ordenamiento guardado por el usuario (undefined = orden por defecto del server) */
+  initialSorting?: SortItem[];
 }
 
 // ============================================================================
@@ -101,6 +106,8 @@ export function _OtherEquipmentDataTable({
   permissionsMap: _permissionsMap,
   initialColumnVisibility,
   initialFilterVisibility,
+  initialPageSize,
+  initialSorting,
 }: Props) {
   // ─── Client-side navigation: estado reactivo para queries dependientes ──────
   const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
@@ -320,6 +327,9 @@ export function _OtherEquipmentDataTable({
       facetedFilters={facetedFilters}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
+      initialPageSize={initialPageSize}
+      initialSorting={initialSorting}
+      persistViewPreferences={true}
       searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
       showFilterToggle={true}
       toolbarActions={toolbarActions}

@@ -25,6 +25,25 @@ export const PARAM_SEPARATOR = '__';
 /**
  * Parsea los searchParams de la URL a un estado estructurado
  */
+/**
+ * Parsea el formato compacto de sorting ("name.asc,status.desc") a array de SortItem.
+ * Un string vacío representa "sin ordenamiento".
+ */
+export function parseSortString(sort: string): SortItem[] {
+  if (!sort) return [];
+
+  return sort
+    .split(',')
+    .map((s) => {
+      const lastDot = s.lastIndexOf('.');
+      if (lastDot === -1) return { id: s, desc: false };
+      const id = s.substring(0, lastDot);
+      const dir = s.substring(lastDot + 1);
+      return { id, desc: dir === 'desc' };
+    })
+    .filter((s) => s.id);
+}
+
 export function parseSearchParams(searchParams: DataTableSearchParams): DataTableState {
   // Parsear página (1-indexed en URL, 0-indexed internamente)
   const page = searchParams.page ? Math.max(0, Number(searchParams.page) - 1) : DEFAULT_PAGE;
@@ -35,16 +54,7 @@ export function parseSearchParams(searchParams: DataTableSearchParams): DataTabl
   // Parsear sorting: nuevo formato "sort=name.asc,status.desc"
   let sorting: SortItem[] = [];
   if (searchParams.sort) {
-    sorting = String(searchParams.sort)
-      .split(',')
-      .map((s) => {
-        const lastDot = s.lastIndexOf('.');
-        if (lastDot === -1) return { id: s, desc: false };
-        const id = s.substring(0, lastDot);
-        const dir = s.substring(lastDot + 1);
-        return { id, desc: dir === 'desc' };
-      })
-      .filter((s) => s.id);
+    sorting = parseSortString(String(searchParams.sort));
   } else if (searchParams.sortBy) {
     // Backward compat: legacy format "sortBy=name&sortOrder=asc"
     sorting = [{ id: String(searchParams.sortBy), desc: searchParams.sortOrder === 'desc' }];
@@ -69,9 +79,38 @@ export function parseSearchParams(searchParams: DataTableSearchParams): DataTabl
 }
 
 /**
+ * Serializa un array de sorting al formato compacto de URL ("name.asc,status.desc").
+ * Retorna string vacío cuando no hay ordenamiento.
+ */
+export function serializeSorting(sorting: SortItem[] | undefined): string {
+  if (!sorting || sorting.length === 0) return '';
+  return sorting.map((s) => `${s.id}.${s.desc ? 'desc' : 'asc'}`).join(',');
+}
+
+/**
+ * Opciones para serializar el estado a URL.
+ *
+ * Los defaults representan los valores que la tabla aplica cuando el param NO está
+ * en la URL (los guardados en las preferencias del usuario, o los del sistema).
+ * Un valor que coincide con su default se omite de la URL; uno que difiere se
+ * escribe SIEMPRE, incluso si es vacío (`sort=`), para poder distinguir
+ * "sin ordenamiento" de "usar el default guardado".
+ */
+export interface StateToSearchParamsOptions {
+  /** Tamaño de página que se aplica cuando `pageSize` no está en la URL */
+  defaultPageSize?: number;
+  /** Sorting serializado que se aplica cuando `sort` no está en la URL */
+  defaultSort?: string;
+}
+
+/**
  * Convierte el estado a searchParams de URL
  */
-export function stateToSearchParams(state: Partial<DataTableState>): URLSearchParams {
+export function stateToSearchParams(
+  state: Partial<DataTableState>,
+  options: StateToSearchParamsOptions = {}
+): URLSearchParams {
+  const { defaultPageSize = DEFAULT_PAGE_SIZE, defaultSort = '' } = options;
   const params = new URLSearchParams();
 
   // Página (convertir de 0-indexed a 1-indexed para URL)
@@ -79,15 +118,19 @@ export function stateToSearchParams(state: Partial<DataTableState>): URLSearchPa
     params.set('page', String(state.page + 1));
   }
 
-  // PageSize (solo si es diferente al default)
-  if (state.pageSize !== undefined && state.pageSize !== DEFAULT_PAGE_SIZE) {
+  // PageSize (solo si es diferente al default efectivo de la tabla)
+  if (state.pageSize !== undefined && state.pageSize !== defaultPageSize) {
     params.set('pageSize', String(state.pageSize));
   }
 
-  // Multi-sort: "name.asc,status.desc"
-  if (state.sorting && state.sorting.length > 0) {
-    const sortStr = state.sorting.map((s) => `${s.id}.${s.desc ? 'desc' : 'asc'}`).join(',');
-    params.set('sort', sortStr);
+  // Multi-sort: "name.asc,status.desc" (solo si difiere del default efectivo).
+  // Cuando el usuario limpia un orden que venía por default, se escribe `sort=`
+  // para que el default guardado no vuelva a aplicarse.
+  if (state.sorting !== undefined) {
+    const sortStr = serializeSorting(state.sorting);
+    if (sortStr !== defaultSort) {
+      params.set('sort', sortStr);
+    }
   }
 
   // Búsqueda
@@ -131,6 +174,56 @@ export function stripPrefixFromSearchParams(
       result[key.slice(fullPrefix.length)] = value;
     }
   });
+
+  return result;
+}
+
+// ============================================================================
+// PREFERENCIAS DE TABLA POR USUARIO
+// ============================================================================
+
+/**
+ * Preferencias de una tabla persistidas por usuario (tabla `user_table_preferences`).
+ * Todo es opcional: una tabla sin preferencias guardadas usa los defaults del sistema.
+ */
+export type TablePreferences = {
+  /** Columnas visibles/ocultas */
+  columnVisibility?: Record<string, boolean>;
+  /** Filtros visibles/ocultos en el toolbar */
+  filterVisibility?: Record<string, boolean>;
+  /** Filas por página elegidas por el usuario */
+  pageSize?: number;
+  /** Ordenamiento (multi-sort) elegido por el usuario */
+  sorting?: { id: string; desc: boolean }[];
+};
+
+/**
+ * Aplica las preferencias guardadas del usuario a los searchParams de la tabla.
+ * La URL SIEMPRE gana: solo se completan los params ausentes.
+ *
+ * Se usa en el Server Component para que el render inicial (SSR) coincida con el
+ * estado que el cliente va a reconstruir, evitando un doble fetch con distinta forma.
+ *
+ * @example
+ * ```tsx
+ * const preferences = await getTablePreferences(tableId);
+ * const tableParams = applyTablePreferences(stripPrefixFromSearchParams(searchParams, tableId), preferences);
+ * const { data, total } = await getEntitiesPaginated(tableParams);
+ * ```
+ */
+export function applyTablePreferences(
+  searchParams: DataTableSearchParams,
+  preferences: TablePreferences
+): DataTableSearchParams {
+  const result: DataTableSearchParams = { ...searchParams };
+
+  if (result.pageSize === undefined && preferences.pageSize) {
+    result.pageSize = String(preferences.pageSize);
+  }
+
+  if (result.sort === undefined && result.sortBy === undefined && preferences.sorting?.length) {
+    result.sort = serializeSorting(preferences.sorting);
+  }
 
   return result;
 }

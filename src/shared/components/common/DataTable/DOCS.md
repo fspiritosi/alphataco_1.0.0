@@ -475,7 +475,10 @@ export default async function Page({ searchParams }: Props) {
 | `toolbarActions`          | `ReactNode`                          | `undefined`                       | Acciones adicionales en el toolbar                                      |
 | `exportConfig`            | `DataTableExportConfig<TData>`       | `undefined`                       | Configuración de exportación Excel                                      |
 | `initialColumnVisibility` | `Record<string, boolean>`            | `{}`                              | Columnas ocultas por defecto                                            |
-| `tableId`                 | `string`                             | `undefined`                       | ID para persistir preferencias de columnas y filtros                    |
+| `initialPageSize`         | `number`                             | `10`                              | Filas por página iniciales (preferencia guardada del usuario)           |
+| `initialSorting`          | `SortItem[]`                         | `undefined`                       | Ordenamiento inicial (preferencia guardada del usuario)                 |
+| `persistViewPreferences`  | `boolean`                            | `false`                           | Guardar filas por página y orden del usuario (opt-in, requiere tableId) |
+| `tableId`                 | `string`                             | `undefined`                       | ID para persistir preferencias de columnas, filtros, filas y orden      |
 | `showFilterToggle`        | `boolean`                            | `false`                           | Mostrar botón para ocultar/mostrar filtros                              |
 | `initialFilterVisibility` | `Record<string, boolean>`            | `{}`                              | Visibilidad inicial de filtros (desde BD)                               |
 | `paramNamespace`          | `string`                             | `undefined`                       | Namespace para aislar params de URL entre DataTables en la misma página |
@@ -840,6 +843,7 @@ Con `tableId`, el DataTable persiste automáticamente en base de datos:
 
 - Qué columnas están visibles/ocultas (por usuario)
 - Qué filtros están visibles/ocultos (por usuario)
+- **Filas por página** y **ordenamiento** elegidos por el usuario — opt-in con `persistViewPreferences`
 
 ```typescript
 <DataTable
@@ -849,7 +853,49 @@ Con `tableId`, el DataTable persiste automáticamente en base de datos:
 />
 ```
 
-La persistencia usa `UserPreference.tablePreferences` (JSON) en la base de datos, gestionado por `src/shared/actions/table-preferences.ts`.
+La persistencia usa `user_table_preferences` (JSON) en la base de datos, gestionado por `src/shared/actions/table-preferences.ts`.
+
+### Filas por página y ordenamiento (vista guardada)
+
+Guardar no alcanza: el Server Component tiene que **aplicar** las preferencias, porque
+es él quien hace el fetch inicial. Sin esto, la tabla arranca con los defaults del sistema
+(10 filas, orden del server action) y recién después el cliente pide otra cosa.
+
+```typescript
+// {Entity}List.tsx (Server Component)
+const urlParams = stripPrefixFromSearchParams(searchParams, tableId);
+
+// Las preferencias se leen ANTES del fetch: completan lo que la URL no trae
+const preferences = await getTablePreferences(tableId);
+const tableParams = applyTablePreferences(urlParams, preferences);
+
+const { data, total } = await getEntitiesPaginated(tableParams);
+
+return (
+  <_EntityDataTable
+    data={data}
+    totalRows={total}
+    searchParams={tableParams}
+    tableId={tableId}
+    initialColumnVisibility={preferences.columnVisibility ?? {}}
+    initialFilterVisibility={preferences.filterVisibility ?? {}}
+    initialPageSize={preferences.pageSize}     // ← vista guardada
+    initialSorting={preferences.sorting}       // ← vista guardada
+  />
+);
+```
+
+El Client Component reenvía ambos props al `<DataTable>` **y agrega `persistViewPreferences={true}`**
+(el guardado es opt-in: sin aplicar las preferencias, guardarlas no sirve de nada).
+
+Reglas del mecanismo:
+
+- **La URL siempre gana** sobre la preferencia guardada (un link compartido se ve igual para todos).
+- Un valor que coincide con el default guardado se **omite** de la URL; uno que difiere se
+  escribe siempre. Al limpiar un ordenamiento que venía del default se escribe `sort=`
+  (vacío explícito) para que el default no vuelva a aplicarse.
+- El guardado tiene debounce de 1 segundo y solo escribe cuando el usuario cambia algo
+  respecto de lo ya guardado.
 
 ---
 
