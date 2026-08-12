@@ -150,6 +150,60 @@ export async function checkOtherEquipmentDuplicates(
   return errors;
 }
 
+/**
+ * Resuelve la carrera entre dos altas simultaneas (doble click, reintento del navegador).
+ *
+ * validateUniqueFields consulta y despues inserta: no es atomico, asi que dos requests
+ * en paralelo pasan la validacion los dos y terminan con un equipo duplicado.
+ * Despues de insertar volvemos a mirar la tabla: si hay mas de un equipo activo con el
+ * mismo N° interno o de serie, el registro mas nuevo se elimina a si mismo.
+ *
+ * El criterio (created_at, id) es determinista, por lo que ambos requests eligen el mismo
+ * ganador y nunca se borran los dos.
+ *
+ * Devuelve el campo en conflicto si el registro recien creado fue descartado.
+ */
+async function discardIfDuplicateRace(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  companyId: string,
+  created: { id: string; created_at: string; serial_number: string | null; intern_number: string | null }
+): Promise<'serial_number' | 'intern_number' | null> {
+  const fieldsToCheck = (['intern_number', 'serial_number'] as const).filter((field) => created[field]);
+
+  for (const field of fieldsToCheck) {
+    const { data: siblings } = await supabase
+      .from('other_equipment')
+      .select('id, created_at')
+      .eq('company_id', companyId)
+      .eq(field, created[field] as string)
+      .eq('is_active', true);
+
+    if (!siblings || siblings.length < 2) continue;
+
+    const [winner] = [...siblings].sort((a, b) =>
+      a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at < b.created_at ? -1 : 1
+    );
+
+    if (winner.id === created.id) continue;
+
+    const { error: deleteError } = await supabase.from('other_equipment').delete().eq('id', created.id);
+
+    if (deleteError) {
+      logger.error('No se pudo descartar el equipo duplicado por request simultanea', {
+        data: { id: created.id, field, error: deleteError.message },
+      });
+      throw new Error('Se creo un equipo duplicado y no se pudo revertir. Revisa el listado antes de reintentar.');
+    }
+
+    logger.warn('Equipo duplicado descartado por request simultanea', {
+      data: { descartado: created.id, conservado: winner.id, field },
+    });
+    return field;
+  }
+
+  return null;
+}
+
 // ─── CRUD Principal ──────────────────────────────────────────────────────────
 
 /**
@@ -227,6 +281,15 @@ export async function createOtherEquipment(data: OtherEquipmentInsertWithContrac
       data: { error: error.message },
     });
     throw new Error('Error al crear el equipo');
+  }
+
+  // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
+  // asociar contratistas (asi no queda basura en la tabla pivot).
+  const racedField = await discardIfDuplicateRace(supabase, company_id, created);
+
+  if (racedField) {
+    const label = racedField === 'intern_number' ? 'N° Interno' : 'N° de Serie';
+    throw new Error(`El equipo con ese ${label} ya fue creado. No se generó un duplicado.`);
   }
 
   // Gestionar relaciones con contratistas
