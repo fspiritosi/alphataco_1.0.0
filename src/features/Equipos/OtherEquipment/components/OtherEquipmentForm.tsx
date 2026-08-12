@@ -22,7 +22,7 @@ import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -113,6 +113,10 @@ interface OtherEquipmentFormProps {
 
 export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps }: OtherEquipmentFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Candado sincrono contra doble submit. El estado de React no alcanza: la validacion
+  // del resolver es async (consulta duplicados en el servidor), asi que dos clicks
+  // seguidos pueden llegar a onSubmit antes de cualquier re-render.
+  const submitLockRef = useRef(false);
   const readOnly = mode === 'view';
   const router = useRouter();
   const pathname = usePathname();
@@ -152,6 +156,11 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
   });
 
   const onSubmit = async (data: OtherEquipmentFormData) => {
+    if (submitLockRef.current) {
+      logger.warn('Submit descartado: ya hay un guardado en curso');
+      return;
+    }
+    submitLockRef.current = true;
     setIsSubmitting(true);
     let createdId: string | undefined;
 
@@ -221,12 +230,14 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
         toast.success('Equipo actualizado correctamente');
       }
 
+      // El boton queda deshabilitado a proposito: la navegacion a la vista de detalle
+      // sigue en curso y liberarlo aca permitiria crear el mismo equipo otra vez.
       refreshAfterSave(createdId);
     } catch (error) {
       logger.error('Error al guardar other equipment', { data: { error } });
       const message = error instanceof Error ? error.message : undefined;
       toast.error(message || (mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo'));
-    } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -244,6 +255,20 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Al editar, el form NO se remonta despues de guardar (la key del padre es el id del
+  // equipo): cuando vuelve a modo lectura la navegacion ya termino y se libera el candado
+  // para que una edicion posterior pueda guardar de nuevo.
+  const [wasReadOnly, setWasReadOnly] = useState(readOnly);
+  if (readOnly !== wasReadOnly) {
+    setWasReadOnly(readOnly);
+    if (readOnly) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  const isBusy = isSubmitting || form.formState.isSubmitting;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full">
@@ -254,8 +279,10 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
             <TooltipTrigger asChild>
               <div className="w-fit">
                 {!readOnly && (
-                  <Button type="submit" className="mt-5 ml-2" disabled={isSubmitting}>
-                    {isSubmitting ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
+                  // form.formState.isSubmitting se activa al inicio de handleSubmit (antes de
+                  // validar), asi que cubre la ventana en la que el resolver consulta duplicados.
+                  <Button type="submit" className="mt-5 ml-2" disabled={isBusy}>
+                    {isBusy ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
                   </Button>
                 )}
               </div>
