@@ -10,7 +10,7 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -203,6 +203,10 @@ const vehicleSchema = z
 
 export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: VehicleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Candado sincrono contra doble submit. El estado de React no alcanza: la validacion
+  // del resolver es async (consulta si el dominio ya existe), asi que dos clicks seguidos
+  // pueden llegar a onSubmit antes de cualquier re-render.
+  const submitLockRef = useRef(false);
   const readOnly = mode === 'view';
   const router = useRouter();
   const pathname = usePathname();
@@ -210,6 +214,11 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
   const { resetTrigger } = useVehicleFormReset();
 
   const onSubmit = async (data: VehicleFormData) => {
+    if (submitLockRef.current) {
+      logger.warn('Submit descartado: ya hay un guardado en curso');
+      return;
+    }
+    submitLockRef.current = true;
     setIsSubmitting(true);
     let createdVehicleId;
     try {
@@ -223,11 +232,14 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
         await updateVehicle(vehicleId!, data);
         toast.success('Equipo actualizado correctamente');
       }
+      // El boton queda deshabilitado a proposito: la navegacion a la vista de detalle
+      // sigue en curso y liberarlo aca permitiria crear el mismo equipo otra vez.
       refresh(createdVehicleId);
     } catch (error) {
       logger.error('Error submitting form', { data: { error } });
-      toast.error(mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo');
-    } finally {
+      const message = error instanceof Error ? error.message : undefined;
+      toast.error(message || (mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo'));
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -286,6 +298,21 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       router.push(`${pathname}?${params.toString()}`);
     }
   };
+
+  // Al editar, el form NO se remonta despues de guardar (la key del padre es el id del
+  // equipo): cuando vuelve a modo lectura la navegacion ya termino y se libera el candado
+  // para que una edicion posterior pueda guardar de nuevo.
+  const [wasReadOnly, setWasReadOnly] = useState(readOnly);
+  if (readOnly !== wasReadOnly) {
+    setWasReadOnly(readOnly);
+    if (readOnly) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  const isBusy = isSubmitting || form.formState.isSubmitting;
+
   return (
     <Form {...form}>
       <div className="w-full">
@@ -296,13 +323,15 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-fit">
+                  {/* form.formState.isSubmitting se activa al inicio de handleSubmit (antes de
+                      validar), asi que cubre la ventana en la que el resolver consulta el dominio. */}
                   <Button
                     type="button"
                     className="mt-5 ml-2"
-                    disabled={isSubmitting}
+                    disabled={isBusy}
                     onClick={() => form.handleSubmit(onSubmit)()}
                   >
-                    {isSubmitting ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
+                    {isBusy ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
                   </Button>
                 </div>
               </TooltipTrigger>

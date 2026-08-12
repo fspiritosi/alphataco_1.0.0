@@ -97,6 +97,60 @@ export async function toggleVehicleStatus(
   return data;
 }
 
+/** Ventana en la que dos altas del mismo dominio se consideran la misma request repetida */
+const DUPLICATE_RACE_WINDOW_MS = 10_000;
+
+/**
+ * Resuelve la carrera entre dos altas simultaneas del mismo vehiculo (doble click,
+ * reintento del navegador). La validacion de dominio vive en el resolver del formulario y
+ * es async, asi que dos requests en paralelo la pasan las dos.
+ *
+ * Si aparecio otro vehiculo activo con el mismo dominio dentro de la ventana de duplicados,
+ * el registro mas nuevo se elimina a si mismo. El criterio (created_at, id) es determinista,
+ * por lo que ambas requests eligen el mismo ganador y nunca se borran las dos.
+ *
+ * Solo mira altas recientes: los dominios repetidos que ya existian en la base no se tocan.
+ */
+async function discardVehicleIfDuplicateRace(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  companyId: string,
+  created: { id: string; created_at: string; domain: string | null }
+): Promise<boolean> {
+  if (!created.domain) return false;
+
+  const windowStart = moment(created.created_at).subtract(DUPLICATE_RACE_WINDOW_MS, 'milliseconds').toISOString();
+
+  const { data: siblings } = await supabase
+    .from('vehicles')
+    .select('id, created_at')
+    .eq('company_id', companyId)
+    .eq('domain', created.domain)
+    .eq('is_active', true)
+    .gte('created_at', windowStart);
+
+  if (!siblings || siblings.length < 2) return false;
+
+  const [winner] = [...siblings].sort((a, b) =>
+    a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at < b.created_at ? -1 : 1
+  );
+
+  if (winner.id === created.id) return false;
+
+  const { error: deleteError } = await supabase.from('vehicles').delete().eq('id', created.id);
+
+  if (deleteError) {
+    logger.error('No se pudo descartar el vehiculo duplicado por request simultanea', {
+      data: { id: created.id, error: deleteError.message },
+    });
+    throw new Error('Se creo un equipo duplicado y no se pudo revertir. Revisa el listado antes de reintentar.');
+  }
+
+  logger.warn('Vehiculo duplicado descartado por request simultanea', {
+    data: { descartado: created.id, conservado: winner.id, domain: created.domain },
+  });
+  return true;
+}
+
 export async function createVehicle(vehicleData: any) {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
@@ -147,6 +201,14 @@ export async function createVehicle(vehicleData: any) {
   if (error) {
     logger.error('Error creating vehicle', { data: { error } });
     throw new Error('Failed to create vehicle');
+  }
+
+  // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
+  // asociar contratistas (asi no queda basura en la tabla pivot).
+  const wasRaced = await discardVehicleIfDuplicateRace(supabase, company_id, data);
+
+  if (wasRaced) {
+    throw new Error(`El equipo con el dominio ${data.domain} ya fue creado. No se generó un duplicado.`);
   }
 
   // Handle contractor relationships
