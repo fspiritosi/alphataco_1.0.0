@@ -530,10 +530,10 @@ const ItemHeader = ({
         )}
       </div>
     </div>
+    {/* Texto del formulario en papel: se mantiene, pero con el menor peso visual
+        posible para no romper la silueta que comparten todos los checklists */}
     {description && (
-      <p className="mt-1 text-xs font-normal text-muted-foreground">
-        Formulario RO 06-1: <span className="italic">{description}</span>
-      </p>
+      <p className="mt-1 text-[11px] leading-snug font-normal italic text-muted-foreground/60">{description}</p>
     )}
   </FormLabel>
 );
@@ -580,19 +580,21 @@ const ItemObservation = ({
     );
   }
 
+  // Colapsado: el afford queda deliberadamente tenue y compacto, para que la
+  // tarjeta del item mantenga el mismo alto y peso que en el resto de checklists
   if (!isOpen) {
     return (
-      <div className="mt-3">
+      <div className="mt-2">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 px-2 -ml-2 text-muted-foreground hover:text-foreground"
+          className="h-6 px-1.5 -ml-1.5 text-[11px] font-normal text-muted-foreground/70 hover:text-foreground"
           aria-expanded={false}
           aria-controls={`${fieldName}-panel`}
           onClick={() => setManuallyOpen(true)}
         >
-          <MessageSquarePlus className="w-4 h-4 mr-1.5" />
+          <MessageSquarePlus className="w-3.5 h-3.5 mr-1" />
           {value ? <span className="line-clamp-1 max-w-[22ch] text-left">{value}</span> : 'Observación'}
         </Button>
       </div>
@@ -600,13 +602,13 @@ const ItemObservation = ({
   }
 
   return (
-    <div className="mt-3" id={`${fieldName}-panel`}>
+    <div className="mt-2" id={`${fieldName}-panel`}>
       <FormField
         control={control}
         name={fieldName}
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-xs font-medium text-muted-foreground">
+            <FormLabel className="text-[11px] font-normal text-muted-foreground/70">
               {isFailed ? 'Describí qué encontraste' : 'Observación'}
             </FormLabel>
             <FormControl>
@@ -1994,11 +1996,19 @@ export function NormalizedChecklistForm({
           </Accordion>
         </Card>
 
-        {/* Ayuda de consulta: nomenclatura de partes del formulario en papel */}
+        {/* Ayuda de consulta: nomenclatura de partes del formulario en papel.
+            Va como enlace tenue para no agregar un bloque que el resto de los
+            checklists no tiene. */}
         {partsDiagram && (
-          <div className="flex justify-end">
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowPartsDiagram(true)}>
-              <HelpCircle className="w-4 h-4 mr-2" />
+          <div className="-mt-3 flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs font-normal text-muted-foreground/80 hover:text-foreground"
+              onClick={() => setShowPartsDiagram(true)}
+            >
+              <HelpCircle className="w-3.5 h-3.5 mr-1.5" />
               Ver diagrama de partes
             </Button>
           </div>
