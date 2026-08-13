@@ -30,17 +30,28 @@ type ChecklistAnswerInput = {
   horometro?: string;
   observaciones?: string;
   answers?: Record<string, Record<string, unknown>>;
+  /**
+   * Observaciones libres por item (columna OBSERVACIONES de los formularios en
+   * papel), indexadas por `seccion__item`.
+   *
+   * Va aparte de `answers` a propósito: el cálculo del resultado recorre ese
+   * subárbol buscando el literal "M", y una observación que dijera "M" marcaría
+   * el checklist entero como fallido.
+   */
+  item_observations?: Record<string, string>;
   failed_items?: Array<{
     item_code: string;
     item_label: string;
     section_code: string;
     is_critical: boolean;
+    driver_comment?: string;
   }>;
   critical_items_failed?: Array<{
     item_code: string;
     item_label: string;
     section_code: string;
     is_critical: boolean;
+    driver_comment?: string;
   }>;
   ut_checklist_answer_id?: string | null;
 };
@@ -108,6 +119,11 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
       fecha: answerData.fecha,
       hora: answerData.hora,
       kilometraje: answerData.kilometraje,
+      // El horómetro también alimenta una columna GENERATED; faltaba en el payload,
+      // por lo que la vista de detalle lo mostraba siempre vacío.
+      horometro: answerData.horometro,
+      // Observaciones por item, fuera de `answers` (ver el tipo de entrada)
+      item_observations: sanitize(answerData.item_observations || {}),
     } as any, // answer_data es Json type, pero TypeScript necesita ayuda con el tipado dinámico
     observations: answerData.observaciones || null,
     result: computedResult,
