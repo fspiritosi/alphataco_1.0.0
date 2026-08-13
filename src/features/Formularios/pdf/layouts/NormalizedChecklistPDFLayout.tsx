@@ -53,6 +53,12 @@ interface NormalizedChecklistPDFLayoutProps {
   isEmpty?: boolean;
   // Respuestas del checklist (para PDFs con datos)
   answers?: Record<string, string>;
+  /**
+   * Observaciones por item, indexadas por `seccion__item` tal como se guardan en
+   * `answer_data.item_observations`. Solo se usan en las plantillas que replican
+   * un formulario en papel con esa columna.
+   */
+  itemObservations?: Record<string, string>;
 }
 
 // Colores
@@ -325,6 +331,40 @@ const styles = StyleSheet.create({
     borderRightWidth: 0.5,
     borderRightColor: colors.black,
   },
+  // Columna OBSERVACIONES por item (solo en plantillas que la usan)
+  itemObservacion: {
+    width: 110,
+    justifyContent: 'center',
+    paddingLeft: 2,
+    paddingRight: 2,
+    paddingVertical: 0.5,
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  itemObservacionText: {
+    fontSize: 5,
+  },
+  sectionHeaderObservacion: {
+    width: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  // Items de texto libre: la celda de Estado mide 28 y les corta el valor, así
+  // que ocupan también el espacio de Observaciones (que no aplica a un dato).
+  itemValorLibre: {
+    justifyContent: 'center',
+    paddingLeft: 3,
+    paddingRight: 3,
+    paddingVertical: 0.5,
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  itemValorLibreText: {
+    fontSize: 5.5,
+    fontFamily: 'Helvetica-Bold',
+  },
   // Observaciones
   observacionesContainer: {
     borderWidth: 1,
@@ -424,6 +464,8 @@ interface ProcessedSection {
     code: string;
     isCritical: boolean;
     requiresSideValidation: boolean;
+    /** Necesario para dar más espacio a los items de texto libre */
+    inputType?: string;
   }>;
 }
 
@@ -500,10 +542,15 @@ const ChecklistSectionComponent = ({
   section,
   answers,
   isEmpty,
+  observations,
+  showObservations = false,
 }: {
   section: ProcessedSection;
   answers?: Record<string, string>;
   isEmpty?: boolean;
+  /** Observaciones por item, indexadas por código de item. Si se pasa, se agrega la columna. */
+  observations?: Record<string, string>;
+  showObservations?: boolean;
 }) => {
   // Verificar si algún item de la sección requiere validación izq/der
   const hasSideValidation = section.items.some((item) => item.requiresSideValidation);
@@ -542,6 +589,11 @@ const ChecklistSectionComponent = ({
             <Text style={styles.sectionHeaderEstadoText}>Estado</Text>
           </View>
         )}
+        {showObservations && (
+          <View style={styles.sectionHeaderObservacion}>
+            <Text style={styles.sectionHeaderEstadoText}>Observaciones</Text>
+          </View>
+        )}
       </View>
       {/* Items de la sección */}
       {section.items.map((item, index) => {
@@ -555,6 +607,10 @@ const ChecklistSectionComponent = ({
         const displayAnswerLeft = isEmpty ? emptyAnswer : formatAnswer(answerLeft);
         const displayAnswerRight = isEmpty ? emptyAnswer : formatAnswer(answerRight);
 
+        // Los items de texto libre no responden B/M/NA: su valor necesita el
+        // ancho de Estado más el de Observaciones para no quedar cortado.
+        const esTextoLibre = item.inputType === 'text';
+
         return (
           <View key={index} style={styles.itemRow}>
             <View style={styles.itemNumber}>
@@ -566,7 +622,11 @@ const ChecklistSectionComponent = ({
                 {item.isCritical ? ' (*)' : ''}
               </Text>
             </View>
-            {hasSideValidation ? (
+            {esTextoLibre ? (
+              <View style={[styles.itemValorLibre, { width: showObservations ? 138 : 28 }]}>
+                <Text style={styles.itemValorLibreText}>{isEmpty ? '' : answer ?? ''}</Text>
+              </View>
+            ) : hasSideValidation ? (
               // Celda dividida o normal según el item
               item.requiresSideValidation ? (
                 // Celda dividida para items con IZQ/DER
@@ -610,6 +670,11 @@ const ChecklistSectionComponent = ({
                 <Text style={styles.itemEstadoText}>{displayAnswer.text}</Text>
               </View>
             )}
+            {showObservations && !esTextoLibre && (
+              <View style={styles.itemObservacion}>
+                <Text style={styles.itemObservacionText}>{isEmpty ? '' : observations?.[item.code] ?? ''}</Text>
+              </View>
+            )}
           </View>
         );
       })}
@@ -634,6 +699,7 @@ function processSections(sections: ChecklistTemplateSection[]): ProcessedSection
       code: item.code,
       isCritical: item.is_critical ?? false,
       requiresSideValidation: isSideValidationItem(item),
+      inputType: item.input_type,
     }));
 
     return {
@@ -732,6 +798,17 @@ function hasCriticalItems(sections: ProcessedSection[]): boolean {
   return sections.some((section) => section.items.some((item) => item.isCritical));
 }
 
+/**
+ * Plantillas que replican un formulario en papel con columna de OBSERVACIONES
+ * por item. Debe coincidir con `TEMPLATES_WITH_ITEM_OBSERVATIONS` del formulario.
+ */
+const TEMPLATE_CODES_WITH_ITEM_OBSERVATIONS = new Set(['hidrogrua']);
+
+/** Código y revisión del formulario en papel que replica cada plantilla */
+const PAPER_FORM_CODES: Record<string, { code: string; revision: string }> = {
+  hidrogrua: { code: '06-1', revision: '02' },
+};
+
 export const NormalizedChecklistPDFLayout = ({
   templateName = 'Check list',
   templateCode = '',
@@ -749,6 +826,7 @@ export const NormalizedChecklistPDFLayout = ({
   chofer = '',
   isEmpty = true,
   answers = {},
+  itemObservations = {},
 }: NormalizedChecklistPDFLayoutProps) => {
   logger.info('PDF sections', { data: { sectionsCount: sections.length } });
   // Procesar secciones del formato del sistema al formato interno
@@ -760,8 +838,24 @@ export const NormalizedChecklistPDFLayout = ({
   // Verificar si hay items críticos para mostrar la nota
   const showCriticalNote = hasCriticalItems(processedSections);
 
-  // Formatear el código
-  const formattedCode = templateCode ? `RO ${templateCode}` : '';
+  // Columna OBSERVACIONES por item: solo en las plantillas que replican un papel
+  // que la tenía. Las claves llegan como `seccion__item`; acá se reindexan por
+  // código de item, que es lo que la tabla usa para buscar.
+  const showObservations = TEMPLATE_CODES_WITH_ITEM_OBSERVATIONS.has(templateCode);
+  const observationsByItem: Record<string, string> = {};
+  if (showObservations) {
+    Object.entries(itemObservations).forEach(([key, text]) => {
+      const separator = key.indexOf('__');
+      observationsByItem[separator >= 0 ? key.slice(separator + 2) : key] = text;
+    });
+  }
+
+  // Formatear el código. Las plantillas que replican un formulario en papel usan
+  // el código y la revisión reales del documento; el resto mantiene el `code`
+  // interno, como venía.
+  const paper = PAPER_FORM_CODES[templateCode];
+  const formattedCode = paper ? `RO ${paper.code}` : templateCode ? `RO ${templateCode}` : '';
+  const displayRevision = paper?.revision ?? revision;
 
   // Fecha actual formateada si no se proporciona
   const displayDate =
@@ -816,7 +910,9 @@ export const NormalizedChecklistPDFLayout = ({
               <Text style={styles.headerInfoText}>{displayDate}</Text>
             </View>
             <View style={styles.headerInfoCellLast}>
-              <Text style={styles.headerInfoText}>{revision || 'Rev.:1'}</Text>
+              <Text style={styles.headerInfoText}>
+                {displayRevision ? (paper ? `Rev.:${displayRevision}` : displayRevision) : 'Rev.:1'}
+              </Text>
             </View>
           </View>
         </View>
@@ -834,7 +930,14 @@ export const NormalizedChecklistPDFLayout = ({
           <View style={styles.mainTableSingleColumn}>
             <View style={styles.columnFull}>
               {leftSections.map((section, index) => (
-                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+                <ChecklistSectionComponent
+                  key={index}
+                  section={section}
+                  answers={answers}
+                  isEmpty={isEmpty}
+                  observations={observationsByItem}
+                  showObservations={showObservations}
+                />
               ))}
             </View>
           </View>
@@ -844,14 +947,28 @@ export const NormalizedChecklistPDFLayout = ({
             {/* Columna izquierda */}
             <View style={styles.columnLeft}>
               {leftSections.map((section, index) => (
-                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+                <ChecklistSectionComponent
+                  key={index}
+                  section={section}
+                  answers={answers}
+                  isEmpty={isEmpty}
+                  observations={observationsByItem}
+                  showObservations={showObservations}
+                />
               ))}
             </View>
 
             {/* Columna derecha */}
             <View style={styles.column}>
               {rightSections.map((section, index) => (
-                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+                <ChecklistSectionComponent
+                  key={index}
+                  section={section}
+                  answers={answers}
+                  isEmpty={isEmpty}
+                  observations={observationsByItem}
+                  showObservations={showObservations}
+                />
               ))}
             </View>
           </View>

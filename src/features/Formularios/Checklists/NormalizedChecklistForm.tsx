@@ -24,11 +24,30 @@ import { CriticalDeviationsRepairModal } from '@/features/Mantenimiento/shared/c
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, AlertTriangle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Calendar,
+  Check,
+  ChevronsUpDown,
+  HelpCircle,
+  Link as LinkIcon,
+  MessageSquarePlus,
+  X,
+} from 'lucide-react';
 import moment from 'moment';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useForm, type Control, type FieldValues, type UseFormReturn } from 'react-hook-form';
+import {
+  useForm,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type FieldValues,
+  type UseFormReturn,
+} from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
@@ -55,6 +74,42 @@ const NOT_APPLICABLE_LABEL = 'No aplica';
 
 /** Opciones de respuesta por defecto (items sin `options` propias en la plantilla) */
 const DEFAULT_ANSWER_OPTIONS = ['B', 'M', NOT_APPLICABLE_VALUE];
+
+/**
+ * Plantillas que replican un formulario en papel con columna de OBSERVACIONES
+ * por item. Se activa por código y no para todas las plantillas: los otros
+ * checklists nunca tuvieron esa columna y agregarla les cambiaría la pantalla.
+ *
+ * Cuando haya una segunda plantilla que la necesite conviene mover esto a una
+ * columna booleana en `checklist_templates`.
+ */
+const TEMPLATES_WITH_ITEM_OBSERVATIONS = new Set(['hidrogrua']);
+
+/** Sufijo del campo de observación de un item dentro del formulario */
+const OBS_SUFFIX = '__obs';
+
+/** Clave de `answer_data` donde se guardan las observaciones por item */
+const ITEM_OBSERVATIONS_KEY = 'item_observations';
+
+/** Largo máximo de una observación por item */
+const OBS_MAX_LENGTH = 500;
+
+/**
+ * Diagramas de nomenclatura de partes que acompañan a un formulario en papel.
+ * Se muestran como ayuda de consulta, no como parte de la inspección: por eso
+ * van en un diálogo y no intercalados entre los items.
+ */
+const TEMPLATE_PARTS_DIAGRAMS: Record<string, { src: string; title: string; alt: string }> = {
+  hidrogrua: {
+    src: '/diagramas/hidrogrua-partes.png',
+    title: 'Nomenclatura de partes de la hidrogrúa',
+    alt:
+      'Vista lateral de una hidrogrúa montada sobre chasis con sus catorce partes numeradas: ' +
+      '1 estructura, 2 columna, 3 brazo primario, 4 brazo secundario, 5 a 8 primera a cuarta ' +
+      'prolongación, 9 barra de estabilización, 10 cremallera de rotación, 11 cilindro ' +
+      'estabilizador, 12 cilindro de elevación, 13 cilindro de articulación, 14 cilindro de extensión.',
+  },
+};
 
 /** Agrega "No aplica" a las opciones de un item sin duplicarla si ya viniera de la BD */
 const withNotApplicable = (options: string[]): string[] =>
@@ -225,6 +280,14 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
             message: `${item.label || 'Este campo'} debe ser "Bueno", "Malo" o "${NOT_APPLICABLE_LABEL}"`,
           });
       }
+
+      // Observación libre del item (columna OBSERVACIONES del formulario en papel).
+      // Se declara siempre porque es opcional: las plantillas que no la muestran
+      // simplemente nunca la completan.
+      schema[`${fieldName}${OBS_SUFFIX}`] = z
+        .string()
+        .max(OBS_MAX_LENGTH, `La observación no puede superar los ${OBS_MAX_LENGTH} caracteres`)
+        .optional();
     });
   });
 
@@ -278,6 +341,9 @@ const generateDefaultValues = (
     if (defaultAnswers.horometro) defaults.horometro = defaultAnswers.horometro;
     if (defaultAnswers.observaciones) defaults.observaciones = defaultAnswers.observaciones;
 
+    // Observaciones por item guardadas, indexadas por `seccion__item`
+    const savedObservations = (defaultAnswers[ITEM_OBSERVATIONS_KEY] ?? {}) as Record<string, unknown>;
+
     // Cargar respuestas por sección
     template.checklist_template_sections?.forEach((section) => {
       const sectionCode = section.code || section.section?.code || `section_${section.id}`;
@@ -288,6 +354,8 @@ const generateDefaultValues = (
         const itemCode = item.code || `item_${item.id}`;
         const fieldName = `${sectionCode}__${itemCode}`;
         const itemAnswer = sectionAnswers[itemCode];
+        const savedObs = savedObservations[fieldName];
+        defaults[`${fieldName}${OBS_SUFFIX}`] = typeof savedObs === 'string' ? savedObs : '';
 
         if (isSideValidationItem(item)) {
           if (itemAnswer && typeof itemAnswer === 'object') {
@@ -319,6 +387,7 @@ const generateDefaultValues = (
         } else {
           defaults[fieldName] = '';
         }
+        defaults[`${fieldName}${OBS_SUFFIX}`] = '';
       });
     });
   }
@@ -417,6 +486,172 @@ const normalizeChecklistValue = (value: unknown): string => {
 };
 
 /**
+ * Cabecera de un item: enunciado, badges de estado y, si la plantilla lo trae,
+ * el texto original del formulario en papel.
+ *
+ * Vive fuera de `ChecklistItemField` a propósito: definirla adentro creaba un
+ * tipo de componente nuevo en cada render y remontaba el bloque completo.
+ */
+const ItemHeader = ({
+  label,
+  description,
+  isCritical,
+  requiresCertification = false,
+  isFailed = false,
+  className,
+}: {
+  label: string;
+  description?: string | null;
+  isCritical: boolean;
+  requiresCertification?: boolean;
+  isFailed?: boolean;
+  className?: string;
+}) => (
+  <FormLabel className={cn('text-base font-semibold mb-3 block', className)}>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <span className="flex-1">{label}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {isCritical && (
+          <Badge variant="destructive" className="text-xs whitespace-nowrap">
+            CRÍTICO
+          </Badge>
+        )}
+        {requiresCertification && (
+          <Badge variant="outline" className="text-xs whitespace-nowrap">
+            <Calendar className="w-3 h-3 mr-1 inline" />
+            Certificación
+          </Badge>
+        )}
+        {isFailed && (
+          <Badge variant="destructive" className="text-xs whitespace-nowrap gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            Fallido
+          </Badge>
+        )}
+      </div>
+    </div>
+    {description && (
+      <p className="mt-1 text-xs font-normal text-muted-foreground">
+        Formulario RO 06-1: <span className="italic">{description}</span>
+      </p>
+    )}
+  </FormLabel>
+);
+
+/**
+ * Observación libre de un item, equivalente a la columna OBSERVACIONES del
+ * formulario en papel.
+ *
+ * Se despliega sola cuando la respuesta es "Malo" —que es cuando el dato hace
+ * falta y el operario está parado frente al equipo— y en el resto de los casos
+ * queda como un botón de texto. Nunca se esconde del todo: si ya tiene contenido
+ * se muestra un adelanto, para que no quede información invisible.
+ */
+const ItemObservation = ({
+  fieldName,
+  answerFieldNames,
+  control,
+  readOnly,
+}: {
+  /** campo de la observación */
+  fieldName: string;
+  /** campos de respuesta del item (valor único, o izquierda y derecha) */
+  answerFieldNames: string[];
+  control: Control<FieldValues>;
+  readOnly: boolean;
+}) => {
+  // Un solo useWatch con la lista de campos: suscribirse por separado a cada uno
+  // multiplicaba las suscripciones por item en un formulario que puede tener cien.
+  const [value, ...answers] = useWatch({
+    control,
+    name: [fieldName, ...answerFieldNames],
+  }) as (string | undefined)[];
+  const isFailed = answers.some((v) => v === 'M' || v === 'Malo');
+  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const isOpen = manuallyOpen || isFailed;
+
+  if (readOnly) {
+    if (!value) return null;
+    return (
+      <div className="mt-3 border-t pt-2">
+        <p className="text-xs font-medium text-muted-foreground">Observación</p>
+        <p className="text-sm whitespace-pre-wrap">{value}</p>
+      </div>
+    );
+  }
+
+  if (!isOpen) {
+    return (
+      <div className="mt-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 -ml-2 text-muted-foreground hover:text-foreground"
+          aria-expanded={false}
+          aria-controls={`${fieldName}-panel`}
+          onClick={() => setManuallyOpen(true)}
+        >
+          <MessageSquarePlus className="w-4 h-4 mr-1.5" />
+          {value ? <span className="line-clamp-1 max-w-[22ch] text-left">{value}</span> : 'Observación'}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3" id={`${fieldName}-panel`}>
+      <FormField
+        control={control}
+        name={fieldName}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-xs font-medium text-muted-foreground">
+              {isFailed ? 'Describí qué encontraste' : 'Observación'}
+            </FormLabel>
+            <FormControl>
+              <Textarea
+                {...field}
+                value={field.value ?? ''}
+                rows={2}
+                maxLength={OBS_MAX_LENGTH}
+                placeholder={isFailed ? 'Ej.: rajadura de 10 cm en el lateral izquierdo' : 'Opcional'}
+                className="resize-y"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
+  );
+};
+
+/** Contenedor de un item: aloja el campo y, debajo, su observación. */
+const ItemShell = ({
+  failed,
+  className,
+  observation,
+  children,
+}: {
+  failed: boolean;
+  className?: string;
+  observation?: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <div
+    className={cn(
+      'rounded-lg p-4',
+      failed ? 'border-2 border-destructive bg-destructive/10' : 'border bg-muted/20',
+      className
+    )}
+  >
+    {children}
+    {observation}
+  </div>
+);
+
+/**
  * Componente que renderiza un item individual del checklist
  */
 const ChecklistItemField = ({
@@ -424,11 +659,14 @@ const ChecklistItemField = ({
   sectionCode,
   form,
   readOnly = false,
+  showObservations = false,
 }: {
   item: ChecklistTemplateItem;
   sectionCode: string;
   form: UseFormReturn<FieldValues>;
   readOnly?: boolean;
+  /** Habilita la columna OBSERVACIONES por item (plantillas que replican un formulario en papel) */
+  showObservations?: boolean;
 }) => {
   const typedControl = form.control as Control<FieldValues>;
   const itemCode = item.code || `item_${item.id}`;
@@ -437,25 +675,34 @@ const ChecklistItemField = ({
   const isCritical = item.is_critical || false;
   const requiresSideValidation = isSideValidationItem(item);
 
-  // Detectar si el valor actual es fallido ('M' o 'Malo') en modo readOnly
-  const currentValue = form.watch(fieldName);
-  const leftValue = form.watch(`${fieldName}_left`);
-  const rightValue = form.watch(`${fieldName}_right`);
-  const isFailed = readOnly && (currentValue === 'M' || currentValue === 'Malo');
-  const isLeftFailed = readOnly && (leftValue === 'M' || leftValue === 'Malo');
-  const isRightFailed = readOnly && (rightValue === 'M' || rightValue === 'Malo');
+  // Resaltado de items fallidos ('M' o 'Malo'), solo al ver una respuesta guardada.
+  // `useWatch` con `disabled` evita suscribirse mientras se completa el formulario:
+  // con `form.watch` cada item quedaba escuchando el estado entero y una sola
+  // respuesta re-renderizaba todos los demás.
+  // Resaltado de items fallidos, solo al ver una respuesta guardada: `disabled`
+  // evita suscribirse mientras se completa el formulario, donde cada respuesta
+  // haría re-renderizar a todos los demás items.
+  const watchOptions = { control: typedControl, disabled: !readOnly } as const;
+  const currentValue = useWatch({ ...watchOptions, name: fieldName });
+  const leftValue = useWatch({ ...watchOptions, name: `${fieldName}_left` });
+  const rightValue = useWatch({ ...watchOptions, name: `${fieldName}_right` });
+
+  const hasFailValue = (v: unknown) => v === 'M' || v === 'Malo';
+  const isFailed = readOnly && hasFailValue(currentValue);
+  const isLeftFailed = readOnly && hasFailValue(leftValue);
+  const isRightFailed = readOnly && hasFailValue(rightValue);
   const isAnySideFailed = isLeftFailed || isRightFailed;
 
-  const failedContainerClass = 'border-2 border-destructive bg-destructive/10';
-  const normalContainerClass = 'border bg-muted/20';
-
-  const FailedBadge = () =>
-    isFailed || isAnySideFailed ? (
-      <Badge variant="destructive" className="text-xs whitespace-nowrap gap-1">
-        <AlertTriangle className="w-3 h-3" />
-        Fallido
-      </Badge>
-    ) : null;
+  // La observación sigue el valor por su cuenta: así la suscripción existe solo
+  // en las plantillas que la usan, y no en el resto.
+  const observationNode = showObservations ? (
+    <ItemObservation
+      fieldName={`${fieldName}${OBS_SUFFIX}`}
+      answerFieldNames={requiresSideValidation ? [`${fieldName}_left`, `${fieldName}_right`] : [fieldName]}
+      control={typedControl}
+      readOnly={readOnly}
+    />
+  ) : null;
 
   // Parsear opciones si es un select. "No aplica" se suma siempre: además de permitir
   // elegirla, hace que un valor ya guardado se muestre al ver la respuesta (un valor
@@ -473,31 +720,19 @@ const ChecklistItemField = ({
   // Renderizar campo de fecha
   if (item.input_type === 'date') {
     return (
-      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
+      <ItemShell failed={isFailed} observation={observationNode}>
         <FormField
           control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-base font-semibold mb-3 block">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="flex-1">{label}</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isCritical && (
-                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                        CRÍTICO
-                      </Badge>
-                    )}
-                    {item.requires_certification && (
-                      <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        <Calendar className="w-3 h-3 mr-1 inline" />
-                        Certificación
-                      </Badge>
-                    )}
-                    <FailedBadge />
-                  </div>
-                </div>
-              </FormLabel>
+              <ItemHeader
+                label={label}
+                description={item.description}
+                isCritical={isCritical}
+                requiresCertification={Boolean(item.requires_certification)}
+                isFailed={isFailed}
+              />
               <FormControl>
                 <Input type="date" {...field} disabled={readOnly} />
               </FormControl>
@@ -505,28 +740,22 @@ const ChecklistItemField = ({
             </FormItem>
           )}
         />
-      </div>
+      </ItemShell>
     );
   }
 
   // Renderizar campo doble (izquierda/derecha)
   if (requiresSideValidation) {
     return (
-      <div className={`rounded-lg p-4 space-y-4 ${isAnySideFailed ? failedContainerClass : 'border bg-muted/30'}`}>
+      <ItemShell failed={isAnySideFailed} className="space-y-4" observation={observationNode}>
         <div className="pb-2 border-b">
-          <FormLabel className="text-base font-semibold block">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="flex-1">{label}</span>
-              <div className="flex flex-wrap items-center gap-2">
-                {isCritical && (
-                  <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                    CRÍTICO
-                  </Badge>
-                )}
-                <FailedBadge />
-              </div>
-            </div>
-          </FormLabel>
+          <ItemHeader
+            label={label}
+            description={item.description}
+            isCritical={isCritical}
+            isFailed={isAnySideFailed}
+            className="mb-0"
+          />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
@@ -550,7 +779,7 @@ const ChecklistItemField = ({
                       value={field.value}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full pointer-coarse:min-h-11">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -588,7 +817,7 @@ const ChecklistItemField = ({
                       value={field.value}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full pointer-coarse:min-h-11">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -606,33 +835,21 @@ const ChecklistItemField = ({
             }}
           />
         </div>
-      </div>
+      </ItemShell>
     );
   }
 
   // Renderizar campo select
   if (item.input_type === 'select') {
     return (
-      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
+      <ItemShell failed={isFailed} observation={observationNode}>
         <FormField
           control={typedControl}
           name={fieldName}
           render={({ field }) => {
             return (
               <FormItem>
-                <FormLabel className="text-base font-semibold mb-3 block">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span className="flex-1">{label}</span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {isCritical && (
-                        <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                          CRÍTICO
-                        </Badge>
-                      )}
-                      <FailedBadge />
-                    </div>
-                  </div>
-                </FormLabel>
+                <ItemHeader label={label} description={item.description} isCritical={isCritical} isFailed={isFailed} />
                 <FormControl>
                   <Select
                     onValueChange={(value) => {
@@ -641,7 +858,7 @@ const ChecklistItemField = ({
                     value={field.value}
                     disabled={readOnly}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full pointer-coarse:min-h-11">
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
@@ -658,32 +875,20 @@ const ChecklistItemField = ({
             );
           }}
         />
-      </div>
+      </ItemShell>
     );
   }
 
   // Renderizar campo de texto
   if (item.input_type === 'text') {
     return (
-      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
+      <ItemShell failed={isFailed} observation={observationNode}>
         <FormField
           control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-base font-semibold mb-3 block">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="flex-1">{label}</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isCritical && (
-                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                        CRÍTICO
-                      </Badge>
-                    )}
-                    <FailedBadge />
-                  </div>
-                </div>
-              </FormLabel>
+              <ItemHeader label={label} description={item.description} isCritical={isCritical} isFailed={isFailed} />
               <FormControl>
                 <Input {...field} disabled={readOnly} />
               </FormControl>
@@ -691,32 +896,20 @@ const ChecklistItemField = ({
             </FormItem>
           )}
         />
-      </div>
+      </ItemShell>
     );
   }
 
   // Renderizar campo numérico
   if (item.input_type === 'number') {
     return (
-      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
+      <ItemShell failed={isFailed} observation={observationNode}>
         <FormField
           control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-base font-semibold mb-3 block">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="flex-1">{label}</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isCritical && (
-                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                        CRÍTICO
-                      </Badge>
-                    )}
-                    <FailedBadge />
-                  </div>
-                </div>
-              </FormLabel>
+              <ItemHeader label={label} description={item.description} isCritical={isCritical} isFailed={isFailed} />
               <FormControl>
                 <Input type="number" {...field} disabled={readOnly} />
               </FormControl>
@@ -724,45 +917,40 @@ const ChecklistItemField = ({
             </FormItem>
           )}
         />
-      </div>
+      </ItemShell>
     );
   }
 
   // Por defecto, renderizar como radio group (B/M)
   return (
-    <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
+    <ItemShell failed={isFailed} observation={observationNode}>
       <FormField
         control={typedControl}
         name={fieldName}
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-base font-semibold mb-3 block">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <span className="flex-1">{label}</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {isCritical && (
-                    <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                      CRÍTICO
-                    </Badge>
-                  )}
-                  <FailedBadge />
-                </div>
-              </div>
-            </FormLabel>
+            <ItemHeader label={label} description={item.description} isCritical={isCritical} isFailed={isFailed} />
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
                 value={field.value}
-                className="flex flex-col sm:flex-row gap-4 sm:gap-6"
+                className="flex flex-col sm:flex-row gap-2 sm:gap-3"
                 disabled={readOnly}
               >
+                {/* Cada opción es un bloque completo: el control en sí mide 16 px,
+                    muy por debajo del mínimo táctil, y esto se responde con guantes */}
                 {options.map((option) => (
-                  <div key={option} className="flex items-center space-x-2">
+                  <label
+                    key={option}
+                    htmlFor={`${fieldName}-${option}`}
+                    className={cn(
+                      'flex flex-1 items-center gap-2 rounded-md px-3 py-2 pointer-coarse:min-h-11',
+                      readOnly ? '' : 'cursor-pointer border hover:bg-accent'
+                    )}
+                  >
                     <RadioGroupItem value={option} id={`${fieldName}-${option}`} disabled={readOnly} />
-                    <label htmlFor={`${fieldName}-${option}`} className={readOnly ? '' : 'cursor-pointer'}>
-                      {getOptionLabel(option)}
-                    </label>
-                  </div>
+                    <span>{getOptionLabel(option)}</span>
+                  </label>
                 ))}
               </RadioGroup>
             </FormControl>
@@ -770,7 +958,7 @@ const ChecklistItemField = ({
           </FormItem>
         )}
       />
-    </div>
+    </ItemShell>
   );
 };
 
@@ -860,8 +1048,68 @@ export function NormalizedChecklistForm({
   const typedControl = form.control as Control<FieldValues>;
 
   // Ordenar secciones por order_index
-  const sortedSections = [...(template.checklist_template_sections || [])].sort(
-    (a, b) => (a.order_index || 0) - (b.order_index || 0)
+  const sortedSections = useMemo(
+    () => [...(template.checklist_template_sections || [])].sort((a, b) => (a.order_index || 0) - (b.order_index || 0)),
+    [template]
+  );
+
+  /** Secciones abiertas del acordeón. Controlado para poder abrir la del primer error. */
+  const [openSections, setOpenSections] = useState<string[]>([]);
+
+  /** Esta plantilla replica un formulario en papel con columna de OBSERVACIONES */
+  const showItemObservations = TEMPLATES_WITH_ITEM_OBSERVATIONS.has(template.code ?? '');
+
+  /** Diagrama de nomenclatura de partes, si la plantilla tiene uno */
+  const partsDiagram = TEMPLATE_PARTS_DIAGRAMS[template.code ?? ''];
+  const [showPartsDiagram, setShowPartsDiagram] = useState(false);
+
+  /** nombre de campo -> id de la sección que lo contiene */
+  const sectionByField = useMemo(() => {
+    const map = new Map<string, string>();
+    sortedSections.forEach((section) => {
+      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      (section.checklist_template_items || []).forEach((item) => {
+        const base = `${sectionCode}__${item.code || `item_${item.id}`}`;
+        map.set(base, section.id);
+        map.set(`${base}_left`, section.id);
+        map.set(`${base}_right`, section.id);
+      });
+    });
+    return map;
+  }, [sortedSections]);
+
+  /**
+   * Un checklist puede tener más de cien items repartidos en secciones colapsadas,
+   * así que un submit inválido tiene que decir qué falta y llevar hasta ahí: sin
+   * esto el botón "Guardar" no producía ninguna reacción visible.
+   */
+  const handleInvalid = useCallback(
+    (errors: FieldErrors<FieldValues>) => {
+      const pending = Object.keys(errors);
+      logger.debug('Checklist inválido', { data: { pending } });
+      if (pending.length === 0) return;
+
+      toast.error(pending.length === 1 ? 'Falta responder 1 item' : `Faltan responder ${pending.length} items`, {
+        description: 'Te llevamos al primero que quedó sin completar.',
+      });
+
+      const firstField = pending[0];
+      const sectionId = sectionByField.get(firstField);
+      if (sectionId) {
+        setOpenSections((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+      }
+
+      // Radix desmonta el contenido de las secciones cerradas: hay que esperar a que
+      // el panel se monte antes de poder enfocar el campo.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = document.getElementsByName(firstField)[0];
+          el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          form.setFocus(firstField);
+        });
+      });
+    },
+    [form, sectionByField]
   );
 
   // Secciones e items adaptados al formato requerido por ChecklistItemPicker
@@ -887,6 +1135,17 @@ export function NormalizedChecklistForm({
 
   // Detectar si el equipo seleccionado tiene enganche (COD-290)
   const selectedEquipmentId = form.watch('equipment_id');
+
+  /**
+   * Datos del equipo elegido. El formulario en papel los pide escritos a mano
+   * (marca, N° de serie); acá ya viajan con el listado, así que se muestran en
+   * vez de pedirlos: además le sirve al operario para confirmar que escaneó el
+   * QR del equipo correcto.
+   */
+  const selectedEquipmentSummary = useMemo(
+    () => equipments.find((eq) => eq.value === selectedEquipmentId),
+    [equipments, selectedEquipmentId]
+  );
   // const selectedEquipment = useMemo(
   //   () => equipments.find((eq) => eq.value === selectedEquipmentId),
   //   [equipments, selectedEquipmentId]
@@ -1109,7 +1368,17 @@ export function NormalizedChecklistForm({
         item_label: string;
         section_code: string;
         is_critical: boolean;
+        driver_comment?: string;
       }> = [];
+
+      /**
+       * Observaciones por item, indexadas por nombre de campo.
+       *
+       * Van en una clave propia de `answer_data` y NO dentro de `answers`: el
+       * cálculo del resultado recorre ese subárbol buscando el literal "M", así
+       * que una observación que dijera "M" marcaría el checklist como fallido.
+       */
+      const itemObservations: Record<string, string> = {};
 
       sortedSections.forEach((section) => {
         const sectionCode = section.code || section.section?.code || `section_${section.id}`;
@@ -1134,6 +1403,11 @@ export function NormalizedChecklistForm({
             }
           }
 
+          const observation = (data[`${fieldName}${OBS_SUFFIX}`] as string | undefined)?.trim();
+          if (observation) {
+            itemObservations[`${sectionCode}__${itemCode}`] = observation;
+          }
+
           // Si falló, agregarlo a la lista (crítico o no)
           if (hasFailed) {
             failedItems.push({
@@ -1141,6 +1415,9 @@ export function NormalizedChecklistForm({
               item_label: item.label || itemCode,
               section_code: sectionCode,
               is_critical: isCritical,
+              // Lo que escribió el operario frente al equipo viaja al desvío y de
+              // ahí a la orden de trabajo, en vez de pedírselo de nuevo después.
+              ...(observation ? { driver_comment: observation } : {}),
             });
           }
         });
@@ -1189,6 +1466,7 @@ export function NormalizedChecklistForm({
         horometro: data.horometro,
         observaciones: data.observaciones,
         answers: answersBySection,
+        [ITEM_OBSERVATIONS_KEY]: itemObservations,
         failed_items: failedItems, // Nuevo formato con is_critical
         critical_items_failed: failedCriticalItems, // Mantener por compatibilidad
       });
@@ -1213,6 +1491,7 @@ export function NormalizedChecklistForm({
             horometro: data.horometro,
             observaciones: data.observaciones,
             answers: answersBySection, // Mismo resultado para ambos equipos
+            [ITEM_OBSERVATIONS_KEY]: itemObservations,
             critical_items_failed: [], // NO crear desvíos para el enganche
             ut_checklist_answer_id: checklistAnswer.id, // Vincular con el checklist del UT
           });
@@ -1305,7 +1584,7 @@ export function NormalizedChecklistForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {})} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, handleInvalid)} className="space-y-6">
         {/* Información del checklist */}
         <Card>
           <CardHeader>
@@ -1350,7 +1629,7 @@ export function NormalizedChecklistForm({
                           <FormLabel>Equipo</FormLabel>
                           <FormControl>
                             <Select onValueChange={field.onChange} value={field.value} disabled={shouldDisabledInputs}>
-                              <SelectTrigger className="w-full">
+                              <SelectTrigger className="w-full pointer-coarse:min-h-11">
                                 <SelectValue placeholder="Seleccionar equipo" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1382,6 +1661,26 @@ export function NormalizedChecklistForm({
                         </FormItem>
                       )}
                     />
+
+                    {/* Datos del equipo, de solo lectura: el papel los pide a mano
+                        y el sistema ya los conoce */}
+                    {selectedEquipmentSummary && (
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
+                        {[
+                          { label: 'Marca', value: selectedEquipmentSummary.brand },
+                          { label: 'Modelo', value: selectedEquipmentSummary.model },
+                          { label: 'N° de serie', value: selectedEquipmentSummary.serie },
+                          { label: 'Interno', value: selectedEquipmentSummary.intern_number },
+                        ]
+                          .filter((f) => f.value && f.value !== 'N/A')
+                          .map((f) => (
+                            <div key={f.label}>
+                              <dt className="text-xs text-muted-foreground">{f.label}</dt>
+                              <dd className="text-sm font-medium">{f.value}</dd>
+                            </div>
+                          ))}
+                      </dl>
+                    )}
 
                     {/* Botón para agregar enganche (COD-290 - Condición 3) */}
                     {shouldShowHitchButton && (
@@ -1460,7 +1759,7 @@ export function NormalizedChecklistForm({
                             <FormLabel>Cliente</FormLabel>
                             <FormControl>
                               <Select onValueChange={field.onChange} value={field.value} disabled={readOnly}>
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full pointer-coarse:min-h-11">
                                   <SelectValue placeholder="Seleccionar cliente (opcional)" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1695,12 +1994,22 @@ export function NormalizedChecklistForm({
           </Accordion>
         </Card>
 
-        <Accordion
-          type="single"
-          collapsible
-          className="w-full space-y-6"
-          // defaultValue={sortedSections.map(section => section.id || '')}
-        >
+        {/* Ayuda de consulta: nomenclatura de partes del formulario en papel */}
+        {partsDiagram && (
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowPartsDiagram(true)}>
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Ver diagrama de partes
+            </Button>
+          </div>
+        )}
+
+        {/*
+          "multiple" en vez de "single": con una sola sección abierta a la vez, Radix
+          desmontaba el resto y los mensajes de error de los items pendientes no
+          llegaban siquiera a existir en el DOM.
+        */}
+        <Accordion type="multiple" className="w-full space-y-6" value={openSections} onValueChange={setOpenSections}>
           {/* Secciones del checklist */}
           {sortedSections.map((section) => {
             const sectionCode = section.code || section.section?.code || `section_${section.id}`;
@@ -1754,6 +2063,7 @@ export function NormalizedChecklistForm({
                             sectionCode={sectionCode}
                             form={form}
                             readOnly={readOnly}
+                            showObservations={showItemObservations}
                           />
                         ))}
                       </div>
@@ -1765,6 +2075,33 @@ export function NormalizedChecklistForm({
             );
           })}
         </Accordion>
+
+        {/* Diagrama de partes: material de consulta ocasional, por eso va en un
+            diálogo y no ocupando espacio entre los items */}
+        {partsDiagram && (
+          <Dialog open={showPartsDiagram} onOpenChange={setShowPartsDiagram}>
+            <DialogContent className="max-w-5xl">
+              <DialogHeader>
+                <DialogTitle>{partsDiagram.title}</DialogTitle>
+                <DialogDescription>
+                  Referencia del formulario RO 06-1. No forma parte de la inspección.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="overflow-x-auto rounded-lg border bg-white p-3 dark:bg-neutral-900">
+                {/* La imagen es tinta negra sobre fondo transparente: en modo
+                    oscuro se invierte para que las líneas queden blancas */}
+                <Image
+                  src={partsDiagram.src}
+                  alt={partsDiagram.alt}
+                  width={1421}
+                  height={755}
+                  sizes="(max-width: 1024px) 100vw, 960px"
+                  className="h-auto w-full dark:invert"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Botones de acción */}
         {!readOnly && (
@@ -1913,6 +2250,7 @@ export function NormalizedChecklistForm({
             section_code: d.section_code,
             is_critical: d.is_critical ?? false,
             checklistAnswerId: d.checklist_answer_id,
+            driver_comment: d.driver_comment,
             created_at: d.created_at ?? new Date().toISOString(),
           }))}
           equipmentId={currentEquipmentId}

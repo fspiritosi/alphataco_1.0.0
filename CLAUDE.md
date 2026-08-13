@@ -377,6 +377,38 @@ Cuando un ticket pide cambiar el comportamiento de UNA pantalla pero la implemen
 
 Práctica: props opcionales + booleana con default `false`, conectar la pantalla del ticket, documentar en el `DOCS.md` del componente cómo se engancha el resto, y al reportar decir explícitamente qué quedó afuera. Si el cambio compartido no admite opt-in y altera a todos, preguntar ANTES de escribirlo. Extiende [[analizar impacto en lo vinculado]].
 
+### Si el usuario reporta "hicimos todo bien y no pasó nada", buscar el fallo SILENCIOSO en la rama de éxito
+
+Ante un bug reportado por un usuario final, la primera hipótesis tentadora suele ser "no completaron el flujo" (cerraron el modal, no guardaron, se fueron de la página). **Es la hipótesis que culpa al operador y casi siempre es la equivocada.** Cuando el reporte dice explícitamente que cargaron todo correctamente, hay que tomarlo como dato duro y buscar el punto donde el sistema **falla mostrando éxito**.
+
+Señales de que estás ante un fallo silencioso: el código tiene una rama tipo `if (yaExiste) { actualizar } else { crear }`, y el toast dice "guardado correctamente" en las dos. Ahí la rama de "actualizar" puede no hacer nada útil y el usuario nunca se entera.
+
+**Cómo distinguir empíricamente** una hipótesis de la otra: buscar el **predictor** en los datos. En el 570 comparé los checklists que fallaron contra los que funcionaron: 92% de los fallidos tenían una solicitud previa sin procesar en ese equipo, contra 35% de los exitosos. Ese contraste descartó "no completaron el modal" y señaló la causa real. Un conteo de casos rotos, solo, no prueba nada; el **grupo de control** (los que sí funcionaron) es lo que convierte una corazonada en diagnóstico.
+
+Corolario de UI: **un mensaje de éxito debe reflejar lo que realmente ocurrió**, con números (`Se registraron N desvíos en M solicitudes`). Un toast genérico convierte un bug en un reporte de "el sistema anda mal" seis meses después.
+
+### Modales de dos pasos: el paso 2 no puede ser el que da vida al registro
+
+Si un formulario guarda su entidad principal y **después** abre un modal que crea la entidad dependiente (la que la hace visible/procesable en el circuito), todo lo que interrumpa ese segundo paso deja huérfano el dato. Peor si además el modal se llena con datos de **todo el recurso** en vez de los de la operación en curso: ahí no solo puede quedar huérfano, sino que mezcla contextos y toma decisiones sobre registros que no son los de esta operación.
+
+Reglas: (1) el modal posterior recibe SIEMPRE el id del registro recién creado y opera solo sobre él; (2) al crear una entidad hija que referencia un padre único (`checklist_answer_id` en `maintenance_requests`), agrupar por ese padre — nunca meter hijos de varios padres en un registro que solo puede apuntar a uno; (3) nunca reutilizar/mutar un registro en estado cerrado (`approved`) para colgarle datos nuevos: crear uno nuevo. Extiende [[analizar impacto en lo vinculado]].
+
+### Textos que los usuarios vienen usando hace años: cambio mínimo y con precedente del propio documento
+
+Al digitalizar un formulario en papel, la tentación es "mejorar" la redacción. **No**: el operario lleva años leyendo esos enunciados y cualquier cambio le cuesta. Regla: reformular **solo** los ítems que lo necesitan por una razón técnica concreta, y dejar el resto textual.
+
+En el 554, de 28 ítems solo **6** tenían polaridad invertida (preguntas de defecto tipo _"¿Presenta rajaduras?"_, donde responder SÍ significa que el equipo está MAL, mientras el sistema interpreta `M` = malo y copia el label al desvío). Los otros 22 se cargaron palabra por palabra.
+
+Y para esos 6, la redacción **no se inventa**: se busca el precedente dentro del mismo documento. El RO 06-1 ya usaba la fórmula _"Ausencia de…"_ en ESTABILIZADORES, NEUMÁTICOS y CHASIS — o sea, el propio formulario ya resolvía el problema en otras filas. Usar su vocabulario evita el rechazo que produce un texto ajeno.
+
+Complemento obligatorio: **el texto original nunca se pierde**. Va a `checklist_template_items.description` y se muestra en pantalla bajo la pregunta ("Formulario RO 06-1: …"), que sirve de trazabilidad ante una auditoría de HSE y de puente para el que busca la fila del papel.
+
+### Al verificar en browser: un control tapado por un toast parece un bug de datos
+
+Perseguí durante varias iteraciones un supuesto bug de "el valor del select no llega a React Hook Form", con evidencia aparentemente sólida (el combo mostraba el valor y el contador de errores no bajaba). La causa real era que **el botón que dispara el autorrelleno estaba debajo del toast** (`fixed bottom-16` contra `bottom-4`) y el click iba al toast, así que el autorrelleno nunca corría y el contador no tenía por qué cambiar.
+
+Antes de concluir que hay un bug de estado, **instrumentar y mirar el dato crudo**: un `logger.debug` con `Object.keys(errors)` resolvió en un intento lo que tres screenshots no habían podido. Y ante síntomas raros de UI, sospechar primero de superposición de elementos (`fixed`, toasts, modales) y del estado del dev server —Turbopack puede quedar corrupto tras un HMR fallido y renderizar páginas vacías— antes que del código recién escrito.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

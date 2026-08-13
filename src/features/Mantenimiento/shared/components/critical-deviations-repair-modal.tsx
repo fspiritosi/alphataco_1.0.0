@@ -33,6 +33,11 @@ type Deviation = {
   created_at: string;
   /** Checklist de origen — permite avisar cuándo se generará más de una solicitud */
   checklistAnswerId?: string | null;
+  /**
+   * Observación que el operario dejó en el checklist. Si viene, el comentario
+   * arranca cargado en vez de pedirle que lo escriba de nuevo.
+   */
+  driver_comment?: string | null;
 };
 
 type Supervisor = {
@@ -122,12 +127,27 @@ export function CriticalDeviationsRepairModal({
   useEffect(() => {
     if (isOpen) {
       setSelectedSupervisorId('');
-      setDeviationComments({});
-      setShowCommentField({});
+      // Los desvíos que ya traen la observación del checklist arrancan con el
+      // comentario cargado y visible: el operario lo escribió frente al equipo,
+      // no tiene sentido pedírselo otra vez.
+      const preloaded: Record<string, string> = {};
+      const preloadedVisible: Record<string, boolean> = {};
+      deviations.forEach((d) => {
+        const comment = d.driver_comment?.trim();
+        if (comment) {
+          preloaded[d.id] = comment;
+          preloadedVisible[d.id] = true;
+        }
+      });
+      setDeviationComments(preloaded);
+      setShowCommentField(preloadedVisible);
       setManualItems([]);
       setIsSubmitting(false);
       submitSuccessRef.current = false;
     }
+    // `deviations` se recalcula en cada render del padre; el efecto depende solo
+    // de la apertura para no pisar lo que el usuario esté escribiendo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleUpdateDeviationComment = (deviationId: string, comment: string) => {

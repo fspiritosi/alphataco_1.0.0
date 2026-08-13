@@ -79,6 +79,8 @@ export default async function ChecklistAnswerViewPage({
     kilometraje: answerData?.kilometraje || '',
     horometro: answerData?.horometro || '',
     observaciones: normalizedAnswer.observations || '',
+    // Observaciones por item (columna OBSERVACIONES del formulario en papel)
+    item_observations: answerData?.item_observations || {},
     ...answerData?.answers, // Respuestas por sección
   };
 
@@ -130,6 +132,7 @@ export default async function ChecklistAnswerViewPage({
           fechaInspeccion={answerData?.fecha || ''}
           chofer={answerData?.chofer || ''}
           answers={answerData?.answers || {}}
+          itemObservations={answerData?.item_observations || {}}
         />
       </div>
       <NormalizedChecklistForm
