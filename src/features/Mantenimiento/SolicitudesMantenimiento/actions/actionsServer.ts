@@ -605,10 +605,19 @@ export async function assignRepairTypesToDeviations(input: {
   }
 }
 
+/** Estados en los que una solicitud todavía admite que se le agreguen desvíos */
+const OPEN_REQUEST_STATUSES = ['pending_approval', 'rejected'] as const;
+
 /**
- * Crea o actualiza una solicitud de mantenimiento desde desvíos.
- * - Si los desvíos NO tienen solicitud: crea una nueva solicitud
- * - Si los desvíos YA tienen solicitud: actualiza el supervisor y comentarios
+ * Crea o actualiza solicitudes de mantenimiento desde desvíos.
+ *
+ * Reglas:
+ * - Los desvíos que YA pertenecen a una solicitud solo reciben actualización de comentarios.
+ * - Los desvíos SIN solicitud se agrupan por su checklist de origen: cada checklist genera
+ *   (o reutiliza) su propia solicitud, porque `maintenance_requests.checklist_answer_id`
+ *   admite un único checklist por solicitud.
+ * - Solo se reutiliza una solicitud existente si sigue abierta (pending_approval / rejected).
+ *   Una solicitud ya aprobada NUNCA se modifica: se crea una nueva.
  *
  * Usado desde el modal de desvíos críticos y desde la tabla de "Equipos con Desvíos"
  */
@@ -627,7 +636,22 @@ export async function createOrUpdateMaintenanceRequest(input: {
   driverEmployeeId?: string;
   /** Ítems manuales (texto libre, no del template) */
   manualItems?: Array<{ label: string }>;
-}): Promise<{ ok: true; requestId?: string; created: boolean } | { ok: false; error: string }> {
+}): Promise<
+  | {
+      ok: true;
+      requestId?: string;
+      created: boolean;
+      /** Cantidad de solicitudes nuevas creadas */
+      createdCount: number;
+      /** Cantidad de solicitudes abiertas a las que se les sumaron desvíos */
+      updatedCount: number;
+      /** Cantidad de desvíos que quedaron asociados a una solicitud en esta operación */
+      itemsAdded: number;
+      /** Desvíos que ya pertenecían a una solicitud previa (solo se actualizó su comentario) */
+      alreadyLinkedCount: number;
+    }
+  | { ok: false; error: string }
+> {
   serverLogger.info('createOrUpdateMaintenanceRequest - Iniciando', {
     data: {
       equipmentId: input.equipmentId,
@@ -647,190 +671,259 @@ export async function createOrUpdateMaintenanceRequest(input: {
     const profile = await requireServerAuthProfile();
     const deviationIds = input.deviations.map((d) => d.deviationId);
 
-    // 1. Verificar si los desvíos ya tienen solicitud de mantenimiento
-    const existingItems = await prisma.maintenance_request_items.findMany({
-      where: { checklist_deviation_id: { in: deviationIds } },
-      select: { id: true, maintenance_request_id: true, checklist_deviation_id: true },
+    // Comentarios del chofer indexados por desvío
+    const commentByDeviationId = new Map(
+      input.deviations
+        .filter((d) => d.comment && d.comment.trim().length > 0)
+        .map((d) => [d.deviationId, d.comment!.trim()] as const)
+    );
+
+    // 1. Traer los desvíos con su checklist de origen y las solicitudes que ya los contienen
+    const deviations = await prisma.checklist_deviations.findMany({
+      where: { id: { in: deviationIds } },
+      select: {
+        id: true,
+        checklist_answer_id: true,
+        maintenance_request_items: { select: { maintenance_request_id: true } },
+      },
     });
 
-    // 2. Si ya existen items, actualizar la solicitud existente
-    if (existingItems.length > 0) {
-      const requestId = existingItems[0].maintenance_request_id;
+    const manualItemLabels = (input.manualItems ?? []).map((m) => m.label.trim()).filter((label) => label.length > 0);
 
-      await prisma.$transaction(async (tx) => {
-        // Actualizar supervisor
-        await tx.maintenance_requests.update({
-          where: { id: requestId },
-          data: { supervisor_id: input.supervisorId },
+    if (deviations.length === 0 && manualItemLabels.length === 0) {
+      serverLogger.warn('No se encontraron desvíos para procesar', { data: { deviationIds } });
+      return { ok: false, error: 'No se encontraron los desvíos indicados' };
+    }
+
+    // 2. Separar los desvíos que YA pertenecen a una solicitud de los que todavía no tienen ninguna
+    const alreadyLinked = deviations.filter((d) => d.maintenance_request_items.length > 0);
+    const unlinked = deviations.filter((d) => d.maintenance_request_items.length === 0);
+
+    // 3. Agrupar los desvíos sin solicitud por su checklist de origen.
+    //    Cada checklist necesita su propia solicitud: maintenance_requests.checklist_answer_id
+    //    referencia un único checklist, así que mezclarlos falsearía el origen de los desvíos.
+    const NO_CHECKLIST = '__no_checklist__';
+    const deviationsByChecklist = new Map<string, string[]>();
+
+    for (const deviation of unlinked) {
+      const key = deviation.checklist_answer_id ?? input.checklistAnswerId ?? NO_CHECKLIST;
+      const group = deviationsByChecklist.get(key) ?? [];
+      group.push(deviation.id);
+      deviationsByChecklist.set(key, group);
+    }
+
+    // 4. Buscar solicitudes ABIERTAS del equipo para reutilizar (una aprobada nunca se modifica)
+    const checklistKeys = [...deviationsByChecklist.keys()].filter((key) => key !== NO_CHECKLIST);
+
+    const openRequests = checklistKeys.length
+      ? await prisma.maintenance_requests.findMany({
+          where: {
+            equipment_id: input.equipmentId,
+            status: { in: [...OPEN_REQUEST_STATUSES] },
+            checklist_answer_id: { in: checklistKeys },
+          },
+          select: { id: true, checklist_answer_id: true },
+        })
+      : [];
+
+    const openRequestByChecklist = new Map<string, string>();
+    for (const request of openRequests) {
+      if (request.checklist_answer_id && !openRequestByChecklist.has(request.checklist_answer_id)) {
+        openRequestByChecklist.set(request.checklist_answer_id, request.id);
+      }
+    }
+
+    // Datos de origen del checklist. Necesarios cuando la solicitud se crea desde la tabla de
+    // desvíos acumulados, donde el modal no aporta chofer, kilometraje ni quién cargó el checklist.
+    const checklistAnswers = checklistKeys.length
+      ? await prisma.checklist_answers.findMany({
+          where: { id: { in: checklistKeys } },
+          select: { id: true, employee_id: true, chofer_employee_id: true, user_id: true, kilometraje: true },
+        })
+      : [];
+
+    const checklistAnswerById = new Map(checklistAnswers.map((answer) => [answer.id, answer] as const));
+
+    // Solicitudes que ya contienen los desvíos previamente vinculados: solo se refresca el
+    // supervisor de las que siguen abiertas.
+    const linkedRequestIds = [
+      ...new Set(alreadyLinked.flatMap((d) => d.maintenance_request_items.map((item) => item.maintenance_request_id))),
+    ];
+
+    const openLinkedRequestIds = linkedRequestIds.length
+      ? (
+          await prisma.maintenance_requests.findMany({
+            where: { id: { in: linkedRequestIds }, status: { in: [...OPEN_REQUEST_STATUSES] } },
+            select: { id: true },
+          })
+        ).map((request) => request.id)
+      : [];
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let itemsAdded = 0;
+    let primaryRequestId: string | undefined;
+
+    await prisma.$transaction(async (tx) => {
+      const touchedRequestIds = new Set<string>(openLinkedRequestIds);
+
+      // 5. Una solicitud por checklist: reutilizar la abierta o crear una nueva
+      for (const [checklistKey, groupDeviationIds] of deviationsByChecklist) {
+        const checklistAnswerId = checklistKey === NO_CHECKLIST ? null : checklistKey;
+        const reusableRequestId = checklistAnswerId ? openRequestByChecklist.get(checklistAnswerId) : undefined;
+        let targetRequestId: string;
+
+        if (reusableRequestId) {
+          targetRequestId = reusableRequestId;
+          updatedCount += 1;
+        } else {
+          const sourceAnswer = checklistAnswerId ? checklistAnswerById.get(checklistAnswerId) : undefined;
+
+          const created = await tx.maintenance_requests.create({
+            data: {
+              checklist_answer_id: checklistAnswerId,
+              equipment_id: input.equipmentId,
+              employee_id: input.employeeId ?? sourceAnswer?.employee_id ?? null,
+              user_id: input.userId ?? sourceAnswer?.user_id ?? profile.id,
+              kilometer: input.kilometer ?? sourceAnswer?.kilometraje?.toString() ?? null,
+              supervisor_id: input.supervisorId,
+              status: 'pending_approval',
+              driver_employee_id: input.driverEmployeeId ?? sourceAnswer?.chofer_employee_id ?? null,
+            },
+            select: { id: true },
+          });
+          targetRequestId = created.id;
+          createdCount += 1;
+        }
+
+        touchedRequestIds.add(targetRequestId);
+
+        // La solicitud "principal" es la del checklist que originó la operación
+        if (!primaryRequestId || (input.checklistAnswerId && checklistAnswerId === input.checklistAnswerId)) {
+          primaryRequestId = targetRequestId;
+        }
+
+        const { count } = await tx.maintenance_request_items.createMany({
+          data: groupDeviationIds.map((deviationId) => ({
+            maintenance_request_id: targetRequestId,
+            checklist_deviation_id: deviationId,
+            repair_type_id: null,
+            driver_comment: commentByDeviationId.get(deviationId) ?? null,
+            driver_comment_by: commentByDeviationId.has(deviationId) ? profile.id : null,
+            status: 'pending',
+          })),
+          skipDuplicates: true,
         });
 
-        // Actualizar comentarios en los desvíos y items
-        for (const deviation of input.deviations) {
-          if (deviation.comment) {
-            await tx.checklist_deviations.update({
-              where: { id: deviation.deviationId },
-              data: { driver_comment: deviation.comment },
-            });
+        itemsAdded += count;
+      }
 
-            await tx.maintenance_request_items.updateMany({
-              where: { checklist_deviation_id: deviation.deviationId },
-              data: {
-                driver_comment: deviation.comment,
-                driver_comment_by: profile.id,
-              },
-            });
-          }
+      // 6. Ítems manuales (texto libre): van a la solicitud del checklist en curso
+      if (manualItemLabels.length > 0) {
+        let manualRequestId = primaryRequestId ?? openLinkedRequestIds[0];
+        let manualChecklistAnswerId = input.checklistAnswerId ?? null;
+
+        if (!manualRequestId) {
+          const created = await tx.maintenance_requests.create({
+            data: {
+              checklist_answer_id: manualChecklistAnswerId,
+              equipment_id: input.equipmentId,
+              employee_id: input.employeeId ?? null,
+              user_id: input.userId ?? profile.id,
+              kilometer: input.kilometer ?? null,
+              supervisor_id: input.supervisorId,
+              status: 'pending_approval',
+              driver_employee_id: input.driverEmployeeId ?? null,
+            },
+            select: { id: true },
+          });
+          manualRequestId = created.id;
+          createdCount += 1;
+          primaryRequestId = created.id;
         }
 
-        // Crear ítems manuales si se incluyeron
-        if (input.manualItems && input.manualItems.length > 0) {
-          // Obtener checklist_answer_id del request existente
-          const existingRequest = await tx.maintenance_requests.findUnique({
-            where: { id: requestId },
+        touchedRequestIds.add(manualRequestId);
+
+        if (!manualChecklistAnswerId) {
+          const request = await tx.maintenance_requests.findUnique({
+            where: { id: manualRequestId },
             select: { checklist_answer_id: true },
           });
-
-          if (existingRequest?.checklist_answer_id) {
-            const manualDevs = await Promise.all(
-              input.manualItems
-                .filter((m) => m.label.trim().length > 0)
-                .map((m) =>
-                  tx.checklist_deviations.create({
-                    data: {
-                      checklist_answer_id: existingRequest.checklist_answer_id!,
-                      equipment_id: input.equipmentId,
-                      item_code: 'manual',
-                      item_label: m.label.trim(),
-                      section_code: null,
-                      is_critical: false,
-                      created_by_user_id: profile.id,
-                    },
-                    select: { id: true },
-                  })
-                )
-            );
-
-            if (manualDevs.length > 0) {
-              await tx.maintenance_request_items.createMany({
-                data: manualDevs.map((d) => ({
-                  maintenance_request_id: requestId,
-                  checklist_deviation_id: d.id,
-                  repair_type_id: null,
-                  driver_comment: null,
-                  status: 'pending',
-                })),
-              });
-            }
-          }
+          manualChecklistAnswerId = request?.checklist_answer_id ?? null;
         }
-      });
 
-      serverLogger.info('Solicitud existente actualizada', { data: { requestId } });
-
-      await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
-
-      return { ok: true, requestId, created: false };
-    }
-
-    // 3. Si NO existen items, crear nueva solicitud
-    let checklistAnswerId = input.checklistAnswerId;
-
-    if (!checklistAnswerId) {
-      // Intentar obtenerlo del primer desvío
-      const deviationData = await prisma.checklist_deviations.findUnique({
-        where: { id: deviationIds[0] },
-        select: { checklist_answer_id: true },
-      });
-
-      if (!deviationData?.checklist_answer_id) {
-        serverLogger.error('No se pudo obtener checklist_answer_id');
-        return { ok: false, error: 'No se pudo determinar el checklist de origen' };
-      }
-
-      checklistAnswerId = deviationData.checklist_answer_id;
-    }
-
-    const userId = input.userId ?? profile.id;
-
-    const newRequest = await prisma.$transaction(async (tx) => {
-      // Crear la solicitud
-      const request = await tx.maintenance_requests.create({
-        data: {
-          checklist_answer_id: checklistAnswerId!,
-          equipment_id: input.equipmentId,
-          employee_id: input.employeeId ?? null,
-          user_id: userId,
-          kilometer: input.kilometer ?? null,
-          supervisor_id: input.supervisorId,
-          status: 'pending_approval',
-          driver_employee_id: input.driverEmployeeId ?? null,
-        },
-      });
-
-      // Crear los items de la solicitud
-      await tx.maintenance_request_items.createMany({
-        data: input.deviations.map((d) => ({
-          maintenance_request_id: request.id,
-          checklist_deviation_id: d.deviationId,
-          repair_type_id: null,
-          driver_comment: d.comment ?? null,
-          driver_comment_by: d.comment ? profile.id : null,
-          status: 'pending',
-        })),
-      });
-
-      // Actualizar comentarios en los desvíos
-      for (const deviation of input.deviations) {
-        if (deviation.comment) {
-          await tx.checklist_deviations.update({
-            where: { id: deviation.deviationId },
-            data: { driver_comment: deviation.comment },
+        for (const label of manualItemLabels) {
+          const manualDeviation = await tx.checklist_deviations.create({
+            data: {
+              checklist_answer_id: manualChecklistAnswerId,
+              equipment_id: input.equipmentId,
+              item_code: 'manual',
+              item_label: label,
+              section_code: null,
+              is_critical: false,
+              created_by_user_id: profile.id,
+            },
+            select: { id: true },
           });
-        }
-      }
 
-      // Crear ítems manuales (texto libre, no del template)
-      if (input.manualItems && input.manualItems.length > 0) {
-        const manualDevs = await Promise.all(
-          input.manualItems
-            .filter((m) => m.label.trim().length > 0)
-            .map((m) =>
-              tx.checklist_deviations.create({
-                data: {
-                  checklist_answer_id: checklistAnswerId!,
-                  equipment_id: input.equipmentId,
-                  item_code: 'manual',
-                  item_label: m.label.trim(),
-                  section_code: null,
-                  is_critical: false,
-                  created_by_user_id: profile.id,
-                },
-                select: { id: true },
-              })
-            )
-        );
-
-        if (manualDevs.length > 0) {
-          await tx.maintenance_request_items.createMany({
-            data: manualDevs.map((d) => ({
-              maintenance_request_id: request.id,
-              checklist_deviation_id: d.id,
+          await tx.maintenance_request_items.create({
+            data: {
+              maintenance_request_id: manualRequestId,
+              checklist_deviation_id: manualDeviation.id,
               repair_type_id: null,
               driver_comment: null,
               status: 'pending',
-            })),
+            },
           });
+
+          itemsAdded += 1;
         }
       }
 
-      return request;
+      // 7. Comentarios del chofer: se guardan en el desvío y en su ítem
+      for (const [deviationId, comment] of commentByDeviationId) {
+        await tx.checklist_deviations.update({
+          where: { id: deviationId },
+          data: { driver_comment: comment },
+        });
+
+        await tx.maintenance_request_items.updateMany({
+          where: { checklist_deviation_id: deviationId },
+          data: { driver_comment: comment, driver_comment_by: profile.id },
+        });
+      }
+
+      // 8. Supervisor de turno: solo sobre las solicitudes ABIERTAS tocadas en esta operación.
+      //    Una solicitud ya aprobada conserva su supervisor original.
+      if (touchedRequestIds.size > 0) {
+        await tx.maintenance_requests.updateMany({
+          where: { id: { in: [...touchedRequestIds] }, status: { in: [...OPEN_REQUEST_STATUSES] } },
+          data: { supervisor_id: input.supervisorId, updated_at: new Date() },
+        });
+      }
     });
 
-    serverLogger.info('Nueva solicitud creada', { data: { requestId: newRequest.id } });
+    serverLogger.info('Desvíos procesados', {
+      data: {
+        equipmentId: input.equipmentId,
+        createdCount,
+        updatedCount,
+        itemsAdded,
+        alreadyLinkedCount: alreadyLinked.length,
+      },
+    });
 
     await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
 
-    return { ok: true, requestId: newRequest.id, created: true };
+    return {
+      ok: true,
+      requestId: primaryRequestId,
+      created: createdCount > 0,
+      createdCount,
+      updatedCount,
+      itemsAdded,
+      alreadyLinkedCount: alreadyLinked.length,
+    };
   } catch (error) {
     serverLogger.error('Error inesperado en createOrUpdateMaintenanceRequest', { data: { error } });
     return { ok: false, error: 'Error inesperado al procesar la solicitud' };
