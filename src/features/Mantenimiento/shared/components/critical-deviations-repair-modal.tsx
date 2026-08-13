@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,8 @@ type Deviation = {
   section_code: string | null;
   is_critical?: boolean;
   created_at: string;
+  /** Checklist de origen — permite avisar cuándo se generará más de una solicitud */
+  checklistAnswerId?: string | null;
 };
 
 type Supervisor = {
@@ -187,15 +190,28 @@ export function CriticalDeviationsRepairModal({
         return;
       }
 
-      const message = result.created
-        ? 'Solicitud de mantenimiento creada correctamente'
-        : 'Solicitud actualizada correctamente';
+      // El mensaje refleja lo que realmente ocurrió: antes decía "éxito" incluso cuando
+      // no se había creado ninguna solicitud para los desvíos cargados.
+      const { createdCount, updatedCount, itemsAdded, alreadyLinkedCount } = result;
 
-      const totalDeviations = deviations.length + manualItems.length;
+      if (itemsAdded === 0) {
+        toast.info('Los desvíos ya tenían solicitud de mantenimiento', {
+          description:
+            alreadyLinkedCount > 0
+              ? `${alreadyLinkedCount} desvío(s) ya estaban asociados a una solicitud. Se actualizaron los comentarios y el supervisor.`
+              : 'No había desvíos nuevos para registrar.',
+        });
+      } else {
+        const requestsTouched = createdCount + updatedCount;
+        const message =
+          createdCount > 0
+            ? `${createdCount === 1 ? 'Solicitud de mantenimiento creada' : `${createdCount} solicitudes de mantenimiento creadas`}`
+            : 'Solicitud actualizada correctamente';
 
-      toast.success(message, {
-        description: `Se registraron ${totalDeviations} desvío(s) para revisión del supervisor.`,
-      });
+        toast.success(message, {
+          description: `Se registraron ${itemsAdded} desvío(s) en ${requestsTouched} solicitud(es) para revisión del supervisor.`,
+        });
+      }
 
       // Invalidar todas las queries de mantenimiento para que las tabs se actualicen
       invalidateAllMaintenanceQueries(queryClient);
@@ -238,6 +254,10 @@ export function CriticalDeviationsRepairModal({
   const criticalDeviations = deviations.filter((d) => d.is_critical);
   const nonCriticalDeviations = deviations.filter((d) => !d.is_critical);
 
+  // Los desvíos acumulados de un equipo pueden venir de varios checklists. Cada checklist
+  // genera su propia solicitud, así que se avisa antes de registrar.
+  const distinctChecklistCount = new Set(deviations.map((d) => d.checklistAnswerId).filter(Boolean)).size;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -250,6 +270,16 @@ export function CriticalDeviationsRepairModal({
         </DialogHeader>
 
         <div className="space-y-6">
+          {distinctChecklistCount > 1 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Estos desvíos provienen de <strong>{distinctChecklistCount} checklists</strong> distintos. Se generará
+                una solicitud de mantenimiento por cada uno, con el supervisor que elijas.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Selector de Supervisor de Turno */}
           <Card>
             <CardHeader className="pb-3">

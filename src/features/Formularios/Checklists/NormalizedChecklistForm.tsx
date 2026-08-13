@@ -1235,10 +1235,16 @@ export function NormalizedChecklistForm({
         // Obtener los desvíos creados y los supervisores disponibles para el modal
         try {
           logger.info('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id', {
-            data: { equipmentId: data.equipment_id },
+            data: { equipmentId: data.equipment_id, checklistAnswerId: checklistAnswer.id },
           });
+          // Solo los desvíos de ESTE checklist: traer los de otros checklists hacía que la
+          // solicitud se asociara al checklist equivocado y que los desvíos recién cargados
+          // quedaran sin solicitud.
           const [deviations, supervisorsList] = await Promise.all([
-            getPendingDeviations(data.equipment_id),
+            getPendingDeviations(data.equipment_id, {
+              checklistAnswerId: checklistAnswer.id,
+              onlyWithoutRequest: true,
+            }),
             fetchSupervisorsForChecklist(),
           ]);
 
@@ -1906,9 +1912,11 @@ export function NormalizedChecklistForm({
             item_label: d.item_label,
             section_code: d.section_code,
             is_critical: d.is_critical ?? false,
+            checklistAnswerId: d.checklist_answer_id,
             created_at: d.created_at ?? new Date().toISOString(),
           }))}
           equipmentId={currentEquipmentId}
+          checklistAnswerId={createdAnswerId ?? undefined}
           driverEmployeeId={defaultEmployeeId}
         />
       )}

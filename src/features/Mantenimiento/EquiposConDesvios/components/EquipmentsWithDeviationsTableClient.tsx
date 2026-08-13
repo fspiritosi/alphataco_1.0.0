@@ -32,6 +32,8 @@ type Deviation = {
   item_code: string;
   item_label: string;
   section_code: string | null;
+  is_critical: boolean;
+  checklistAnswerId: string | null;
   created_at: string;
 };
 
@@ -70,13 +72,18 @@ export function EquipmentsWithDeviationsTableClient({
 
   const handleResolveDeviations = async (equipmentId: string) => {
     try {
-      const pendingDeviations = await getPendingDeviations(equipmentId);
+      // Mismo criterio que la vista que alimenta esta tabla: solo los desvíos que todavía
+      // no pertenecen a ninguna solicitud. Sin esto el modal arrastraba desvíos ya asociados
+      // y la solicitud faltante nunca llegaba a crearse.
+      const pendingDeviations = await getPendingDeviations(equipmentId, { onlyWithoutRequest: true });
       setDeviations(
         pendingDeviations.map((d) => ({
           id: d.id,
           item_code: d.item_code,
           item_label: d.item_label,
           section_code: d.section_code,
+          is_critical: d.is_critical ?? false,
+          checklistAnswerId: d.checklist_answer_id,
           created_at: d.created_at || new Date().toISOString(),
         }))
       );
