@@ -76,6 +76,9 @@ const colors = {
   validBg: '#d4edda', // Verde claro - vigente (>30 días)
 };
 
+/** Alto del dibujo de partes: la leyenda de al lado lo iguala, como en el papel. */
+const PARTS_DIAGRAM_HEIGHT = 185;
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 10,
@@ -366,6 +369,77 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
   },
   // Observaciones
+  // Diagrama de partes (replica la hoja de referencia del formulario en papel)
+  partesContainer: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.black,
+  },
+  partesHeader: {
+    backgroundColor: colors.sectionHeaderBg,
+    paddingVertical: 2,
+    paddingHorizontal: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  partesHeaderText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+  },
+  partesBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+  },
+  // Medidas fijas en puntos: con anchos porcentuales react-pdf estira la imagen
+  // para llenar la fila y deforma el dibujo. 350 x 185 respeta el 1392x736 del JPG.
+  partesImage: {
+    width: 350,
+    height: PARTS_DIAGRAM_HEIGHT,
+    objectFit: 'contain',
+    borderWidth: 0.5,
+    borderColor: colors.black,
+  },
+  partesLegend: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingLeft: 6,
+  },
+  // La leyenda toma la misma altura que el dibujo (como en el papel): las filas
+  // se reparten el alto en partes iguales en vez de quedar apiladas arriba.
+  partesLegendColumn: {
+    flex: 1,
+    height: PARTS_DIAGRAM_HEIGHT,
+    borderWidth: 0.5,
+    borderColor: colors.black,
+    borderBottomWidth: 0,
+  },
+  partesLegendRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  partesLegendNumber: {
+    width: 16,
+    height: '100%',
+    justifyContent: 'center',
+    backgroundColor: colors.headerBg,
+    borderRightWidth: 0.5,
+    borderRightColor: colors.black,
+  },
+  partesLegendNumberText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+  },
+  partesLegendLabel: {
+    flex: 1,
+    paddingHorizontal: 3,
+    fontSize: 6,
+  },
   observacionesContainer: {
     borderWidth: 1,
     borderTopWidth: 0,
@@ -607,9 +681,14 @@ const ChecklistSectionComponent = ({
         const displayAnswerLeft = isEmpty ? emptyAnswer : formatAnswer(answerLeft);
         const displayAnswerRight = isEmpty ? emptyAnswer : formatAnswer(answerRight);
 
-        // Los items de texto libre no responden B/M/NA: su valor necesita el
-        // ancho de Estado más el de Observaciones para no quedar cortado.
+        // Los items de texto libre y de fecha no responden B/M/NA: su valor
+        // necesita el ancho de Estado más el de Observaciones para no quedar
+        // cortado (una fecha DD/MM/AAAA no entra en los 28 de Estado).
         const esTextoLibre = item.inputType === 'text';
+        // Solo en las plantillas con columna de OBSERVACIONES: ahí sobra ancho
+        // para la fecha. En el resto se deja la celda de Estado como estaba.
+        const esFechaAncha = showObservations && item.inputType === 'date';
+        const esValorAncho = esTextoLibre || esFechaAncha;
 
         return (
           <View key={index} style={styles.itemRow}>
@@ -622,9 +701,17 @@ const ChecklistSectionComponent = ({
                 {item.isCritical ? ' (*)' : ''}
               </Text>
             </View>
-            {esTextoLibre ? (
-              <View style={[styles.itemValorLibre, { width: showObservations ? 138 : 28 }]}>
-                <Text style={styles.itemValorLibreText}>{isEmpty ? '' : answer ?? ''}</Text>
+            {esValorAncho ? (
+              <View
+                style={[
+                  styles.itemValorLibre,
+                  { width: showObservations ? 138 : 28 },
+                  displayAnswer.backgroundColor ? { backgroundColor: displayAnswer.backgroundColor } : {},
+                ]}
+              >
+                <Text style={styles.itemValorLibreText}>
+                  {isEmpty ? '' : esTextoLibre ? answer ?? '' : displayAnswer.text}
+                </Text>
               </View>
             ) : hasSideValidation ? (
               // Celda dividida o normal según el item
@@ -670,7 +757,7 @@ const ChecklistSectionComponent = ({
                 <Text style={styles.itemEstadoText}>{displayAnswer.text}</Text>
               </View>
             )}
-            {showObservations && !esTextoLibre && (
+            {showObservations && !esValorAncho && (
               <View style={styles.itemObservacion}>
                 <Text style={styles.itemObservacionText}>{isEmpty ? '' : observations?.[item.code] ?? ''}</Text>
               </View>
@@ -809,6 +896,35 @@ const PAPER_FORM_CODES: Record<string, { code: string; revision: string }> = {
   hidrogrua: { code: '06-1', revision: '02' },
 };
 
+/**
+ * Diagrama de referencia de partes que el formulario en papel incluye junto al
+ * checklist. Los números del dibujo se explican en la leyenda, igual que en el
+ * RO 06-1 original.
+ */
+const PAPER_PARTS_DIAGRAMS: Record<string, { src: string; title: string; parts: Array<[number, string]> }> = {
+  hidrogrua: {
+    // JPEG aplanado sobre blanco: el PNG con alpha lo deforma react-pdf al maquetarlo.
+    src: '/diagramas/hidrogrua-partes-pdf.jpg',
+    title: 'Nomenclatura de partes de la hidrogrúa',
+    parts: [
+      [1, 'Estructura'],
+      [2, 'Columna'],
+      [3, 'Brazo Primario'],
+      [4, 'Brazo Secundario'],
+      [5, 'Primera Prolongación'],
+      [6, 'Segunda Prolongación'],
+      [7, 'Tercera Prolongación'],
+      [8, 'Cuarta Prolongación'],
+      [9, 'Barra de estabilización'],
+      [10, 'Cremallera de rotación'],
+      [11, 'Cilindro estabilizador'],
+      [12, 'Cilindro de elevación'],
+      [13, 'Cilindro de articulación'],
+      [14, 'Cilindro de extensión'],
+    ],
+  },
+};
+
 export const NormalizedChecklistPDFLayout = ({
   templateName = 'Check list',
   templateCode = '',
@@ -849,6 +965,13 @@ export const NormalizedChecklistPDFLayout = ({
       observationsByItem[separator >= 0 ? key.slice(separator + 2) : key] = text;
     });
   }
+
+  // Hoja de referencia de partes: mismo criterio que el código de papel, la
+  // leyenda se parte en dos columnas como en el formulario original.
+  const partsDiagram = PAPER_PARTS_DIAGRAMS[templateCode];
+  const partsDiagramSplit = partsDiagram ? Math.ceil(partsDiagram.parts.length / 2) : 0;
+  const partsDiagramLeft = partsDiagram ? partsDiagram.parts.slice(0, partsDiagramSplit) : [];
+  const partsDiagramRight = partsDiagram ? partsDiagram.parts.slice(partsDiagramSplit) : [];
 
   // Formatear el código. Las plantillas que replican un formulario en papel usan
   // el código y la revisión reales del documento; el resto mantiene el `code`
@@ -970,6 +1093,32 @@ export const NormalizedChecklistPDFLayout = ({
                   showObservations={showObservations}
                 />
               ))}
+            </View>
+          </View>
+        )}
+
+        {/* Diagrama de referencia de partes (solo plantillas que lo traen del papel) */}
+        {partsDiagram && (
+          <View style={styles.partesContainer} wrap={false}>
+            <View style={styles.partesHeader}>
+              <Text style={styles.partesHeaderText}>{partsDiagram.title}</Text>
+            </View>
+            <View style={styles.partesBody}>
+              <Image style={styles.partesImage} src={partsDiagram.src} />
+              <View style={styles.partesLegend}>
+                {[partsDiagramLeft, partsDiagramRight].map((column, columnIndex) => (
+                  <View key={columnIndex} style={styles.partesLegendColumn}>
+                    {column.map(([number, label]) => (
+                      <View key={number} style={styles.partesLegendRow}>
+                        <View style={styles.partesLegendNumber}>
+                          <Text style={styles.partesLegendNumberText}>{number}</Text>
+                        </View>
+                        <Text style={styles.partesLegendLabel}>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         )}
