@@ -322,7 +322,7 @@ export function DesviosChartsClient({ data }: Props) {
               {(hasUnmeasuredSeries || missingDaysInWindow > 0) && (
                 <p className="px-4 pt-3 text-xs leading-relaxed text-muted-foreground sm:px-0">
                   {hasUnmeasuredSeries
-                    ? 'Los duplicados se registran desde el inicio; las series de desvíos, desde que empezó el reporte diario. Antes de esa fecha no quedó registro: los desvíos se corrigen sobre los datos del empleado o del equipo y no dejan rastro.'
+                    ? 'El reporte de desvíos del parte diario existe desde febrero de 2026: antes de esa fecha no se medían. Los duplicados, en cambio, se pueden reconstruir y están desde el inicio.'
                     : `Sin registro de desvíos en ${missingDaysInWindow} ${missingDaysInWindow === 1 ? 'día' : 'días'} del período; esos días no suman a los totales.`}
                 </p>
               )}
