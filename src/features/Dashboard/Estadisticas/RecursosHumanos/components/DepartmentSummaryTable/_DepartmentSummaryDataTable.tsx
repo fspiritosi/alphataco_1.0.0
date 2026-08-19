@@ -72,6 +72,7 @@ export function _DepartmentSummaryDataTable({ data }: Props) {
         exportConfig={exportConfig}
         tableId="dept-summary"
         paramNamespace="dept-summary"
+        inMemory
       />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

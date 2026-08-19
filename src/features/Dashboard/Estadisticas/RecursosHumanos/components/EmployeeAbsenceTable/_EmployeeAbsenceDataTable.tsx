@@ -109,6 +109,7 @@ export function _EmployeeAbsenceDataTable({ data, title: _title, tableId = 'empl
       exportConfig={exportConfig}
       tableId={tableId}
       paramNamespace={tableId}
+      inMemory
     />
   );
 }

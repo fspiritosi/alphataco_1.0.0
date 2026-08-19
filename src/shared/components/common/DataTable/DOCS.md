@@ -21,6 +21,7 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - [buildWhereClause — Helper DRY](#buildwhereclause--helper-dry)
 - [Multi-Sort con resolución FK](#multi-sort-con-resolución-fk)
 - [Client-Side Navigation Mode (Performance)](#client-side-navigation-mode-performance)
+- [In-Memory Mode (datos sin paginación server-side)](#in-memory-mode-datos-sin-paginación-server-side)
 - [Lazy-Load Facets (On-Demand)](#lazy-load-facets-on-demand)
 - [Troubleshooting](#troubleshooting)
 
@@ -487,6 +488,7 @@ export default async function Page({ searchParams }: Props) {
 | `queryFn`                 | `(params) => Promise<{data, total}>` | `undefined`                       | Activa client-side mode: datos via React Query en vez de SSR            |
 | `queryKey`                | `readonly unknown[]`                 | `undefined`                       | Query key base para React Query (client-side mode)                      |
 | `onStateChange`           | `(params) => void`                   | `undefined`                       | Callback cuando filtros/paginación cambian (para facets reactivos)      |
+| `inMemory`                | `boolean`                            | `false`                           | Opt-in: ordena, filtra y pagina el dataset completo en el cliente       |
 
 ---
 
@@ -1324,6 +1326,74 @@ Filtro click
 ### Tablas migradas
 
 - [x] Empleados activos / inactivos (`_EmployeeDataTable.tsx`)
+
+---
+
+## In-Memory Mode (datos sin paginación server-side)
+
+Por defecto el DataTable delega TODO al servidor (`manualPagination`, `manualSorting` y
+`manualFiltering` en `true`). Una tabla que recibe el dataset completo por `data` y no pasa
+`queryFn` ni `searchParams` **no ordena, no filtra y no pagina**: los clicks actualizan la URL
+y el ícono de la cabecera, pero las filas nunca se reacomodan.
+
+Para esos casos existe `inMemory` (opt-in, default `false`): activa los row models de TanStack
+para que el ordenamiento, los filtros, la búsqueda y la paginación se resuelvan en el cliente.
+
+**Cuándo usarlo**: SOLO cuando los datos no se pueden paginar server-side — por ejemplo, un RPC
+de Postgres que devuelve un JSON entero (`hr_get_current_absent_employees`). Si la tabla puede
+paginar con Prisma, el modo correcto sigue siendo `queryFn` (client-side navigation mode).
+
+```tsx
+<DataTable
+  columns={columns}
+  data={data} // dataset COMPLETO
+  totalRows={data.length}
+  facetedFilters={facetedFilters}
+  tableId="employee-absence"
+  paramNamespace="employee-absence"
+  inMemory // ← activa el modo
+/>
+```
+
+**Requisitos en las columnas** — el valor de un filtro llega siempre como `string[]` (así lo
+serializa la URL), así que el `filterFn` por defecto de TanStack no sirve. Hay helpers listos:
+
+| Helper                    | Para                                                                     |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `inMemoryTextFilterFn`    | Filtros `type: 'text'` — coincidencia parcial, sin distinguir mayúsculas |
+| `inMemoryFacetedFilterFn` | Filtros facetados — el valor de la fila es alguno de los seleccionados   |
+| `inMemoryDateSortingFn`   | Columnas con fecha `DD/MM/YYYY` — sin esto ordenan como texto            |
+
+```tsx
+{
+  accessorKey: 'nombre',
+  id: 'nombre',
+  meta: { title: 'Nombre' },
+  header: ({ column }) => <DataTableColumnHeader column={column} title="Apellido y Nombre" />,
+  cell: ({ row }) => <span>{row.original.nombre}</span>,
+  filterFn: inMemoryTextFilterFn,
+},
+{
+  accessorKey: 'desde',
+  id: 'desde',
+  meta: { title: 'Desde' },
+  header: ({ column }) => <DataTableColumnHeader column={column} title="Desde" />,
+  cell: ({ row }) => <span>{row.original.desde}</span>,
+  sortingFn: inMemoryDateSortingFn,   // una fecha día/mes/año no ordena alfabéticamente
+},
+```
+
+**Qué resuelve el componente por su cuenta en este modo:**
+
+- La URL se actualiza con `replaceState` (igual que en client-side mode): filtrar u ordenar no
+  dispara navegación ni re-render de los Server Components de la página.
+- La búsqueda global se aplica con `globalFilter` (`includesString`) sobre todas las columnas.
+- El pie muestra el total de filas **filtradas**, no el dataset completo.
+- El Excel exporta las filas ya filtradas y ordenadas, no el dataset completo.
+
+**Tablas que hoy lo usan**: las tres del dashboard de RRHH (`EmployeeAbsenceTable`,
+`DailyAbsenceTable`, `DepartmentSummaryTable`). Cualquier otra tabla que reciba su dataset
+completo por prop puede engancharse agregando `inMemory` y los `filterFn`/`sortingFn` de arriba.
 
 ---
 
