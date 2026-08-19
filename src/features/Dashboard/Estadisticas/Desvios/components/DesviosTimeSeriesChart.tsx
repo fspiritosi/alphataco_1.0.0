@@ -9,6 +9,13 @@ const chartConfig = Object.fromEntries(
   DEVIATION_SERIES.map((serie) => [serie.key, { label: serie.label }])
 ) satisfies ChartConfig;
 
+/** Props que recharts pasa al renderer de cada punto de una linea. */
+type LineDotProps = {
+  cx?: number;
+  cy?: number;
+  index?: number;
+};
+
 interface Props {
   chartData: DeviationChartPoint[];
   /** Series visibles. El usuario las prende y apaga desde los KPI del header. */
@@ -60,7 +67,20 @@ export function DesviosTimeSeriesChart({ chartData, visibleSeries }: Props) {
             type="monotone"
             stroke={seriesColorVar(serie.key)}
             strokeWidth={2}
-            dot={false}
+            /*
+             * Un punto rodeado de periodos sin medicion no forma segmento, asi que
+             * la linea no lo dibuja y el dato queda invisible. Pasa siempre al
+             * arrancar: el primer dia con snapshot es una isla entre nulls. Por eso
+             * el punto se dibuja solo en ese caso, sin ensuciar las series continuas.
+             */
+            dot={(props: LineDotProps) => {
+              const { cx, cy, index } = props;
+              if (cx == null || cy == null || index == null) return <></>;
+              const hasPrev = chartData[index - 1]?.[serie.key] != null;
+              const hasNext = chartData[index + 1]?.[serie.key] != null;
+              if (hasPrev || hasNext) return <></>;
+              return <circle cx={cx} cy={cy} r={3.5} fill={seriesColorVar(serie.key)} />;
+            }}
             activeDot={{ r: 5 }}
             // Sin animacion: al prender y apagar series, recharts deja las lineas
             // a medio dibujar (mismo motivo que en ServiceHistoryAreaChart).
