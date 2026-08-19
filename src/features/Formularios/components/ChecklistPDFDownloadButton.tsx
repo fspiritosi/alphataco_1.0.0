@@ -50,6 +50,8 @@ interface ChecklistPDFDownloadButtonProps {
   chofer?: string;
   // Respuestas del checklist (formato: { section_code: { item_code: value | { left, right } } })
   answers?: Record<string, Record<string, string | { left: string; right: string }>>;
+  /** Observaciones por item, indexadas por `seccion__item` */
+  itemObservations?: Record<string, string>;
   // Datos adicionales
   date?: string;
   revision?: string;
@@ -67,6 +69,7 @@ export function ChecklistPDFDownloadButton({
   fechaInspeccion = '',
   chofer = '',
   answers = {},
+  itemObservations = {},
   date,
   revision,
 }: ChecklistPDFDownloadButtonProps) {
@@ -114,6 +117,7 @@ export function ChecklistPDFDownloadButton({
           revision={revision}
           isEmpty={false}
           answers={flattenedAnswers}
+          itemObservations={itemObservations}
         />
       );
 
@@ -170,6 +174,7 @@ export function ChecklistPDFDownloadButton({
                 revision={revision}
                 isEmpty={false}
                 answers={flattenedAnswers}
+                itemObservations={itemObservations}
               />
             </PDFViewer>
           )}
