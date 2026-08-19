@@ -16,6 +16,8 @@ export type DeviationChartPoint = {
   equipment_deviations: number | null;
   duplicated_employees: number;
   duplicated_equipment: number;
+  /** Dias del periodo con parte pero sin registro de desvios. */
+  missingDays: number;
 };
 
 type TooltipPayloadEntry = {
@@ -59,6 +61,13 @@ export function DesviosChartTooltip({ active, payload }: Props) {
           </div>
         </div>
       ))}
+
+      {point.missingDays > 0 && (
+        <p className="mt-1 border-t pt-1.5 text-[0.6875rem] leading-snug text-muted-foreground">
+          {point.missingDays} {point.missingDays === 1 ? 'día sin registro' : 'días sin registro'} de desvíos en este
+          período
+        </p>
+      )}
     </div>
   );
 }

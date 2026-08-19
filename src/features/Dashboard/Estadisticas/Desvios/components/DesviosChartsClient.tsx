@@ -28,10 +28,15 @@ const GRANULARITY_OPTIONS: { value: DeviationGranularity; label: string }[] = [
 
 const MONTH_KEY_FORMAT = 'YYYY-MM';
 
+/**
+ * Los duplicados arrancan en 0 porque existen para todo el historico; las tres
+ * series de desvios arrancan en null y solo toman valor si algun dia del periodo
+ * las aporta.
+ */
 const EMPTY_TOTALS: DeviationTotals = {
-  rows_with_deviations: 0,
-  employee_deviations: 0,
-  equipment_deviations: 0,
+  rows_with_deviations: null,
+  employee_deviations: null,
+  equipment_deviations: null,
   duplicated_employees: 0,
   duplicated_equipment: 0,
 };
@@ -41,20 +46,19 @@ function capitalize(text: string): string {
 }
 
 /**
- * Suma propagando el dato ausente: si alguno de los dias del periodo no tiene
- * medicion para esa serie, el total del periodo tampoco la tiene. Sumar tratando
- * el null como 0 daria un numero mas bajo que la realidad, presentado como si
- * fuera exacto.
+ * Suma los dias que tienen medicion y descarta los que no.
+ *
+ * Anular el periodo entero por un dia faltante seria excesivo: un mes con 28 de
+ * 30 dias sigue siendo informativo. Lo que no se puede hacer es contar el dia
+ * ausente como cero, porque bajaria el total sin avisar — por eso el bucket
+ * lleva la cuenta de los dias sin dato y la expone en el tooltip.
  */
-function addNullable(a: number | null, b: number | null): number | null {
-  if (a === null || b === null) return null;
-  return a + b;
-}
-
 function accumulate(target: DeviationTotals, source: DeviationTotals): void {
-  target.rows_with_deviations = addNullable(target.rows_with_deviations, source.rows_with_deviations);
-  target.employee_deviations = addNullable(target.employee_deviations, source.employee_deviations);
-  target.equipment_deviations = addNullable(target.equipment_deviations, source.equipment_deviations);
+  if (source.employee_deviations !== null) {
+    target.rows_with_deviations = (target.rows_with_deviations ?? 0) + (source.rows_with_deviations ?? 0);
+    target.employee_deviations = (target.employee_deviations ?? 0) + source.employee_deviations;
+    target.equipment_deviations = (target.equipment_deviations ?? 0) + (source.equipment_deviations ?? 0);
+  }
   target.duplicated_employees += source.duplicated_employees;
   target.duplicated_equipment += source.duplicated_equipment;
 }
@@ -100,11 +104,12 @@ export function DesviosChartsClient({ data }: Props) {
   }, [data.days, selectedMonthKey, granularity]);
 
   // Etapa 2 — agregar por bucket aplicando el filtro de cliente.
-  const { chartData, periodTotals } = React.useMemo(() => {
+  const { chartData, periodTotals, missingDaysInWindow } = React.useMemo(() => {
     const customerFilter = selectedCustomerIds.length > 0 ? new Set(selectedCustomerIds) : null;
 
     const buckets = new Map<string, DeviationChartPoint>();
     const totals: DeviationTotals = { ...EMPTY_TOTALS };
+    let missingDays = 0;
 
     for (const day of daysInWindow) {
       /*
@@ -133,17 +138,23 @@ export function DesviosChartsClient({ data }: Props) {
       const { key, label } = getBucketKey(day.date, granularity);
       let bucket = buckets.get(key);
       if (!bucket) {
-        bucket = { key, label, ...EMPTY_TOTALS };
+        bucket = { key, label, ...EMPTY_TOTALS, missingDays: 0 };
         buckets.set(key, bucket);
       }
 
       accumulate(bucket, dayTotals);
       accumulate(totals, dayTotals);
+
+      // Dia con parte pero sin registro de desvios (no llegó el mail de esa noche).
+      if (dayTotals.employee_deviations === null) {
+        bucket.missingDays += 1;
+        missingDays += 1;
+      }
     }
 
     const sorted = Array.from(buckets.values()).sort((a, b) => a.key.localeCompare(b.key));
 
-    return { chartData: sorted, periodTotals: totals };
+    return { chartData: sorted, periodTotals: totals, missingDaysInWindow: missingDays };
   }, [daysInWindow, granularity, selectedCustomerIds]);
 
   /*
@@ -308,12 +319,11 @@ export function DesviosChartsClient({ data }: Props) {
                 </p>
               )}
 
-              {hasUnmeasuredSeries && (
+              {(hasUnmeasuredSeries || missingDaysInWindow > 0) && (
                 <p className="px-4 pt-3 text-xs leading-relaxed text-muted-foreground sm:px-0">
-                  Los duplicados se registran desde el inicio. Las series de desvíos ({'—'}) empiezan el{' '}
-                  {data.firstLiveDate ? moment(data.firstLiveDate).format('DD/MM/YYYY') : 'próximo cierre de parte'}:
-                  antes de esa fecha no quedó registro, porque los desvíos se corrigen sobre los datos del empleado o
-                  del equipo y no dejan rastro.
+                  {hasUnmeasuredSeries
+                    ? 'Los duplicados se registran desde el inicio; las series de desvíos, desde que empezó el reporte diario. Antes de esa fecha no quedó registro: los desvíos se corrigen sobre los datos del empleado o del equipo y no dejan rastro.'
+                    : `Sin registro de desvíos en ${missingDaysInWindow} ${missingDaysInWindow === 1 ? 'día' : 'días'} del período; esos días no suman a los totales.`}
                 </p>
               )}
             </>
