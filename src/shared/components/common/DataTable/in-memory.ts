@@ -42,7 +42,13 @@ export function inMemoryFacetedFilterFn<TData>(row: Row<TData>, columnId: string
 }
 
 /**
- * `sortingFn` para columnas con fechas en formato `DD/MM/YYYY`. Sin esto se
+ * Formatos de fecha que devuelven los RPCs: con ceros a la izquierda
+ * (`14/08/2026`, el detalle de ausencias) y sin ellos (`1/8/2026`, la serie diaria).
+ */
+const DATE_FORMATS = ['DD/MM/YYYY', 'D/M/YYYY', 'YYYY-MM-DD'];
+
+/**
+ * `sortingFn` para columnas con fechas en formato día/mes/año. Sin esto se
  * ordenarían como texto (el 01/01/2027 quedaría antes que el 02/01/2026).
  * Las filas sin fecha válida van al final.
  */
@@ -50,7 +56,7 @@ export function inMemoryDateSortingFn<TData>(rowA: Row<TData>, rowB: Row<TData>,
   const toTimestamp = (row: Row<TData>) => {
     const raw = row.getValue(columnId);
     if (!raw) return null;
-    const parsed = moment(String(raw), 'DD/MM/YYYY', true);
+    const parsed = moment(String(raw), DATE_FORMATS, true);
     return parsed.isValid() ? parsed.valueOf() : null;
   };
 
