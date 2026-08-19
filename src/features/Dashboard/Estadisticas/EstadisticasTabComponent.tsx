@@ -1,12 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import DesviosTabContent from '@/features/Dashboard/Estadisticas/Desvios/DesviosTabContent';
+import { DesviosChartsSkeleton } from '@/features/Dashboard/Estadisticas/Desvios/fallback/DesviosChartsSkeleton';
 import MantenimientoTabContent from '@/features/Dashboard/Estadisticas/Mantenimiento/MantenimientoTabContent';
 import { MantenimientoChartsSkeleton } from '@/features/Dashboard/Estadisticas/Mantenimiento/fallback/MantenimientoChartsSkeleton';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
 import { OperacionesChartsSkeleton } from '@/features/Dashboard/Estadisticas/Operaciones/fallback/OperacionesChartsSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
-import { BarChart3, Calendar, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, BarChart3, Calendar, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import KpisTabContent from './KPIs/KpisTabContent';
 import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
@@ -88,6 +90,22 @@ function EstadisticasTabComponent({
             content: (
               <Suspense fallback={<MantenimientoChartsSkeleton />}>
                 <MantenimientoTabContent />
+              </Suspense>
+            ),
+          },
+          {
+            value: 'desvios',
+            label: (
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Desvíos
+              </span>
+            ),
+            moduleSlug: 'dashboard',
+            tabSlug: 'desvios',
+            content: (
+              <Suspense fallback={<DesviosChartsSkeleton />}>
+                <DesviosTabContent />
               </Suspense>
             ),
           },

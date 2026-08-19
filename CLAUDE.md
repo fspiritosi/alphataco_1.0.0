@@ -409,6 +409,32 @@ Perseguí durante varias iteraciones un supuesto bug de "el valor del select no 
 
 Antes de concluir que hay un bug de estado, **instrumentar y mirar el dato crudo**: un `logger.debug` con `Object.keys(errors)` resolvió en un intento lo que tres screenshots no habían podido. Y ante síntomas raros de UI, sospechar primero de superposición de elementos (`fixed`, toasts, modales) y del estado del dev server —Turbopack puede quedar corrupto tras un HMR fallido y renderizar páginas vacías— antes que del código recién escrito.
 
+### Digitalizar un documento: no recortar secciones del original por criterio propio
+
+Al llevar un formulario en papel al sistema, **todo lo que el documento oficial trae forma parte del entregable**, incluidas las secciones que "parecen" accesorias. En el 554 decidí por mi cuenta no incluir el diagrama de partes en el PDF generado, argumentando que el PDF es el registro de una inspección ya hecha y el dibujo solo sirve al operario mientras completa. El usuario lo reclamó: el RO 06-1 lo lleva, el nuestro también.
+
+Regla: si el documento fuente tiene una sección, va — y si hay una razón real para dejarla afuera, se **plantea antes**, no se resuelve en silencio. Al reportar, enumerar explícitamente qué partes del original quedaron sin replicar (en el 554: "OTRAS CONSIDERACIONES" y el bloque de firmas extendido). Extiende [[textos que los usuarios vienen usando hace años]].
+
+Detalle técnico del mismo caso, útil para cualquier imagen en `@react-pdf/renderer`: **un PNG con canal alpha se maqueta mal** — react-pdf le calcula una proporción equivocada, estira el dibujo y reserva altura de más, dejando un hueco. La solución es una variante **JPEG aplanada sobre fondo blanco** con `width`/`height` fijos **en puntos** (los porcentajes lo estiran para llenar la fila). El PNG transparente se conserva aparte para la pantalla, donde hace falta para `dark:invert`. Y para inspeccionar un PDF generado: rasterizarlo con `mupdf` (WASM, `npm i mupdf`, sin binarios nativos) y mirar el PNG — pelear con el visor de Chrome vía CDP es una pérdida de tiempo (congela la pestaña y no respeta `#zoom`).
+
+### `created_at` NO es fecha de alta si el código hace delete+insert — validar toda reconstrucción histórica contra una fuente externa
+
+Al reconstruir un dato histórico que la BD no versiona, la tentación es usar `created_at` de la fila como "fecha en que empezó a existir". **Es falso en cualquier tabla pivote que el código reescriba entera.** En el 578 usé `contractor_employee.created_at` para saber si un empleado estaba afectado a un cliente en la fecha del parte; pero editar un empleado (o un cliente) hace `deleteMany()` + `createMany()` de TODAS sus afectaciones, así que `created_at` es la fecha de la última edición. Resultado: el backfill inventó 136 desvíos para un día que tuvo 46.
+
+**Antes de confiar en una reconstrucción, contrastarla contra una fuente externa al sistema** (mails enviados, PDFs, export del cliente). Sin los correos del reporte nocturno, el error se habría deployado con aspecto de dato correcto — `check-types` pasa, la query corre, los números son verosímiles. Bastaron 5 fechas para detectarlo. Y verificar la **dirección** del error, no solo su magnitud: yo predije que subestimaría y sobreestimaba 3x.
+
+**Criterio para saber qué es reconstruible:** un dato es recuperable solo si depende de tablas inmutables. Si depende de una tabla maestra que el propio proceso corrige (afectaciones, diagramas, condición del equipo), NO lo es — y menos aún cuando el reporte existe justamente para que la corrijan: reportado el error, lo arreglan, y la base deja de tener rastro de que ocurrió. En el 578 solo los duplicados sobrevivieron (dependen del parte, que es inmutable): coincidieron 10/10 contra los mails, mientras los otros 5 componentes eran irrecuperables por diseño del circuito.
+
+**Ante un dato no medible, va `NULL`, nunca `0`.** Cero significa "medí y no hubo"; null significa "no hay medición". Un 0 inventado se lee como buena noticia. Mismo criterio que [[estado vacío que afirma la buena noticia]].
+
+### Estado vacío: verificar CUÁNDO se dispara antes de redactarlo
+
+Un empty state que dice "No hay desvíos registrados" parece correcto hasta que se verifica en qué caso aparece. Si el snapshot se escribe también los días sin novedad, "cero" se dibuja como serie plana y **el empty state solo aparece cuando NO hay datos cargados** — o sea, afirma la buena noticia justo cuando falló la carga. Regla: rastrear en el código/SQL qué condición exacta deja la lista vacía, y redactar para ESE caso. Si además existe el caso "hubo actividad y dio cero", ese sí se informa aparte y **con denominador** ("sin desvíos en N días con parte cerrado"), nunca con un adjetivo. Extiende [[no culpar al operador: buscar el fallo silencioso]].
+
+### Paletas de gráficos: medir la separación de color, no elegir a ojo
+
+Cinco series con hues a 5–10° de distancia son **el mismo color** en pantalla, aunque en el editor los valores se vean distintos. En el 578 dos pares daban ΔE de 6.1 y 7.5 (el piso para visión normal es 15) y la línea de meta verde era indistinguible de una serie en deuteranopía. Regla: al definir una paleta de N series, medir la diferencia perceptual de **todos los pares** en modo claro y oscuro, y para visión normal y CVD — el agente `ui-skills` tiene un validador ejecutable. Además, los colores van como tokens por tema (`theme: {light, dark}`) declarados en un ancestro común, no hardcodeados: los KPI que hacen de leyenda viven fuera del `ChartContainer` y no ven las variables que inyecta shadcn.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
