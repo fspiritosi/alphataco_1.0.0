@@ -1,6 +1,11 @@
 'use client';
 
-import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import {
+  DataTableColumnHeader,
+  inMemoryDateSortingFn,
+  inMemoryFacetedFilterFn,
+  inMemoryTextFilterFn,
+} from '@/shared/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Link from 'next/link';
 import { EmployeeAbsence } from '../../actions.server';
@@ -12,9 +17,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     meta: { title: 'Legajo' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Legajo" />,
     cell: ({ row }) => <div className="font-medium">{row.original.legajo}</div>,
-    filterFn: (row, _id, value: string[]) => {
-      return value.some((v) => String(row.original.legajo).includes(v));
-    },
+    filterFn: inMemoryTextFilterFn,
   },
   {
     accessorKey: 'nombre',
@@ -35,6 +38,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
         <span>{emp.nombre}</span>
       );
     },
+    filterFn: inMemoryTextFilterFn,
   },
   {
     accessorKey: 'tarea',
@@ -42,7 +46,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     meta: { title: 'Tarea' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Cargo" />,
     cell: ({ row }) => <span>{row.original.tarea || '—'}</span>,
-    filterFn: (row, _id, value: string[]) => value.includes(row.original.tarea),
+    filterFn: inMemoryFacetedFilterFn,
   },
   {
     accessorKey: 'linea',
@@ -61,7 +65,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
               : 'bg-gray-100 text-gray-800';
       return <span className={`px-2 py-1 rounded text-xs ${cls}`}>{linea}</span>;
     },
-    filterFn: (row, _id, value: string[]) => value.includes(row.original.linea),
+    filterFn: inMemoryFacetedFilterFn,
   },
   {
     accessorKey: 'turno',
@@ -69,7 +73,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     meta: { title: 'Turno' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Turno" />,
     cell: ({ row }) => <span>{row.original.turno || '—'}</span>,
-    filterFn: (row, _id, value: string[]) => value.includes(row.original.turno),
+    filterFn: inMemoryFacetedFilterFn,
   },
   {
     accessorKey: 'motivo',
@@ -77,7 +81,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     meta: { title: 'Motivo' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo" />,
     cell: ({ row }) => <span>{row.original.motivo || '—'}</span>,
-    filterFn: (row, _id, value: string[]) => value.includes(row.original.motivo),
+    filterFn: inMemoryFacetedFilterFn,
   },
   {
     accessorKey: 'desde',
@@ -86,6 +90,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Desde" />,
     cell: ({ row }) => <span>{row.original.desde}</span>,
     enableSorting: true,
+    sortingFn: inMemoryDateSortingFn,
   },
   {
     accessorKey: 'hasta',
@@ -94,6 +99,7 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Hasta" />,
     cell: ({ row }) => <span>{row.original.hasta}</span>,
     enableSorting: true,
+    sortingFn: inMemoryDateSortingFn,
   },
   {
     accessorKey: 'diasCaidos',
@@ -113,5 +119,6 @@ export const employeeAbsenceColumns: ColumnDef<EmployeeAbsence>[] = [
         {row.original.observaciones || '—'}
       </div>
     ),
+    filterFn: inMemoryTextFilterFn,
   },
 ];

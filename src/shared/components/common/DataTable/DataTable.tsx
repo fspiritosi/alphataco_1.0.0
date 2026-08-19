@@ -6,6 +6,9 @@ import {
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import * as React from 'react';
@@ -74,6 +77,11 @@ function getActiveFilterColumnIds(
  * **Client-side mode** (cuando se pasa `queryFn`): Usa window.history.replaceState
  * para actualizar la URL silenciosamente (sin navegación) y React Query para
  * obtener datos. El resultado: filtros instantáneos sin re-renderizar otras tabs.
+ *
+ * **In-memory mode** (opt-in con `inMemory`): la tabla recibe el dataset completo
+ * por `data` y resuelve ordenamiento, filtros, búsqueda y paginación en el cliente.
+ * Para datos que no se pueden paginar server-side (ej: un RPC que devuelve un JSON
+ * entero). La URL se actualiza igual que en client-side mode, sin navegación.
  */
 export function DataTable<TData extends Record<string, unknown>, TValue = unknown>({
   columns,
@@ -112,8 +120,14 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   queryFn,
   queryKey: queryKeyProp,
   onStateChange,
+  inMemory = false,
 }: DataTableProps<TData, TValue>) {
-  const isClientSide = !!queryFn;
+  // Modo con fetch remoto (React Query). Manda sobre el modo in-memory.
+  const isRemoteQuery = !!queryFn;
+  // Modo in-memory: TanStack ordena, filtra y pagina el dataset completo en el cliente.
+  const isInMemory = inMemory && !isRemoteQuery;
+  // Ambos modos actualizan la URL con replaceState en vez de navegar con router.push.
+  const isClientSide = isRemoteQuery || isInMemory;
 
   // Estado de selección de filas (local)
   const [rowSelection, setRowSelection] = React.useState({});
@@ -227,30 +241,40 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     queryKey: [...(queryKeyProp ?? ['data-table']), stateSearchParams],
     queryFn: () => queryFn!(stateSearchParams),
     placeholderData: keepPreviousData,
-    enabled: isClientSide,
+    enabled: isRemoteQuery,
   });
 
   // Datos finales para la tabla
-  const tableData = isClientSide ? queryResult?.data ?? propData : propData;
-  const tableTotalRows = isClientSide ? queryResult?.total ?? propTotalRows : propTotalRows;
+  const tableData = isRemoteQuery ? queryResult?.data ?? propData : propData;
+  const tableTotalRows = isRemoteQuery ? queryResult?.total ?? propTotalRows : propTotalRows;
   // isPlaceholderData = true SOLO cuando se muestra data stale de un query key anterior
   // (mientras se fetch data nueva). false cuando se muestra data real del cache → sin efecto disabled.
-  const isPending = isClientSide ? isPlaceholderData : isNavigationPending;
+  // En in-memory nunca hay fetch ni navegación: el estado se resuelve de forma síncrona.
+  const isPending = isRemoteQuery ? isPlaceholderData : isInMemory ? false : isNavigationPending;
 
-  // Calcular pageCount basado en totalRows
+  // Calcular pageCount basado en totalRows (en in-memory lo calcula TanStack sobre las filas filtradas)
   const pageCount = Math.ceil(tableTotalRows / pagination.pageSize);
+
+  // En in-memory la búsqueda global se maneja con `globalFilter`, no como un filtro de columna:
+  // el id 'global' no corresponde a ninguna columna y TanStack no sabría resolverlo.
+  const tableColumnFilters = React.useMemo(
+    () => (isInMemory ? columnFilters.filter((filter) => filter.id !== 'global') : columnFilters),
+    [columnFilters, isInMemory]
+  );
 
   // Configurar tabla con TanStack Table
   const table = useReactTable({
     data: tableData,
     columns,
-    pageCount,
+    // En in-memory lo calcula TanStack a partir de las filas que sobreviven a los filtros
+    ...(isInMemory ? {} : { pageCount }),
     state: {
       sorting,
       columnVisibility,
       rowSelection,
-      columnFilters,
+      columnFilters: tableColumnFilters,
       pagination,
+      ...(isInMemory ? { globalFilter: state.search } : {}),
       ...(enableColumnReorder ? { columnOrder } : {}),
     },
     onColumnOrderChange: setColumnOrder,
@@ -293,22 +317,47 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     },
     // Column visibility (local)
     onColumnVisibilityChange: setColumnVisibility,
-    // Server-side pagination
-    manualPagination: true,
+    // Paginación server-side (en in-memory la resuelve getPaginationRowModel)
+    manualPagination: !isInMemory,
     onPaginationChange,
-    // Server-side sorting (multi-sort habilitado)
-    manualSorting: true,
+    // Sorting server-side (multi-sort habilitado; en in-memory lo resuelve getSortedRowModel)
+    manualSorting: !isInMemory,
     enableMultiSort: true,
     isMultiSortEvent: (e: unknown) => (e as KeyboardEvent).shiftKey,
     onSortingChange,
-    // Server-side filtering
-    manualFiltering: true,
+    // Filtrado server-side (en in-memory lo resuelve getFilteredRowModel)
+    manualFiltering: !isInMemory,
     onColumnFiltersChange,
     // Row models
     getCoreRowModel: getCoreRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    // Row models del modo in-memory. La página ya se resetea desde useDataTable al
+    // filtrar u ordenar, así que autoResetPageIndex queda apagado para no escribir
+    // la URL por cuenta propia al montar o al cambiar el dataset.
+    ...(isInMemory
+      ? {
+          getFilteredRowModel: getFilteredRowModel(),
+          getSortedRowModel: getSortedRowModel(),
+          getPaginationRowModel: getPaginationRowModel(),
+          globalFilterFn: 'includesString' as const,
+          autoResetPageIndex: false,
+        }
+      : {}),
   });
+
+  // Filas que sobreviven a los filtros — es el total real a mostrar en el pie en modo in-memory.
+  const displayedTotalRows = isInMemory ? table.getFilteredRowModel().rows.length : tableTotalRows;
+
+  // En in-memory el Excel sale de las filas ya filtradas y ordenadas (el botón promete
+  // "todos los datos filtrados"), no del dataset completo que llegó por props.
+  const effectiveExportConfig = React.useMemo(() => {
+    if (!exportConfig || !isInMemory) return exportConfig;
+    return {
+      ...exportConfig,
+      fetchAllData: async () => table.getSortedRowModel().rows.map((row) => row.original),
+    };
+  }, [exportConfig, isInMemory, table]);
 
   // Persistir visibilidad de columnas con debounce de 1 segundo
   React.useEffect(() => {
@@ -399,8 +448,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           hasActiveFilters={hasActiveFilters}
           onResetFilters={resetFilters}
           exportActions={
-            exportConfig && showExportButton ? (
-              <_DataTableExportButton columns={columns} exportConfig={exportConfig} />
+            effectiveExportConfig && showExportButton ? (
+              <_DataTableExportButton columns={columns} exportConfig={effectiveExportConfig} />
             ) : undefined
           }
           toolbarActions={toolbarActions}
@@ -453,7 +502,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
         {/* Pagination */}
         <DataTablePagination
           table={table}
-          totalRows={tableTotalRows}
+          totalRows={displayedTotalRows}
           pageSizeOptions={pageSizeOptions}
           showRowSelection={showRowSelection && Boolean(enableRowSelection)}
         />

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import { DataTableColumnHeader, inMemoryTextFilterFn } from '@/shared/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Users } from 'lucide-react';
 import { DepartmentAbsenceSummaryItem } from '../../actions.server';
@@ -20,7 +20,7 @@ export function getDepartmentSummaryColumns(
       meta: { title: 'Sector' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
       cell: ({ row }) => <span className="font-medium">{row.original.sector}</span>,
-      filterFn: (row, _id, value: string[]) => value.includes(row.original.sector),
+      filterFn: inMemoryTextFilterFn,
     },
     {
       accessorKey: 'dotacion',

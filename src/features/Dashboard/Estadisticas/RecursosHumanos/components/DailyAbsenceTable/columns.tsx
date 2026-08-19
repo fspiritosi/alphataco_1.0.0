@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import { DataTableColumnHeader, inMemoryDateSortingFn } from '@/shared/components/common/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Users } from 'lucide-react';
 import { DailyAbsenceTimeseriesItem } from '../../actions.server';
@@ -20,6 +20,7 @@ export function getDailyAbsenceColumns(
       meta: { title: 'Fecha' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
       cell: ({ row }) => <span className="font-medium">{row.original.fecha}</span>,
+      sortingFn: inMemoryDateSortingFn,
     },
     {
       accessorKey: 'dotacion',
