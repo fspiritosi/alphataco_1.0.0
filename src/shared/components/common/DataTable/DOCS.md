@@ -1379,7 +1379,7 @@ serializa la URL), así que el `filterFn` por defecto de TanStack no sirve. Hay 
   meta: { title: 'Desde' },
   header: ({ column }) => <DataTableColumnHeader column={column} title="Desde" />,
   cell: ({ row }) => <span>{row.original.desde}</span>,
-  sortingFn: inMemoryDateSortingFn,   // 'DD/MM/YYYY' no ordena alfabéticamente
+  sortingFn: inMemoryDateSortingFn,   // una fecha día/mes/año no ordena alfabéticamente
 },
 ```
 
