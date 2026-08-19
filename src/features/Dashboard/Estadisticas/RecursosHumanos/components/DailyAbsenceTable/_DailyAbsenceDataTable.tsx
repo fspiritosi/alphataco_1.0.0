@@ -101,6 +101,7 @@ export function _DailyAbsenceDataTable({ data, companyId }: Props) {
         exportConfig={exportConfig}
         tableId="daily-absence"
         paramNamespace="daily-absence"
+        inMemory
       />
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
