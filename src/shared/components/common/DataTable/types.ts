@@ -293,6 +293,25 @@ export interface DataTableProps<TData, TValue = unknown> {
    * Útil para que el padre actualice queries dependientes (ej: facets) con los nuevos params.
    */
   onStateChange?: (searchParams: DataTableSearchParams) => void;
+
+  // ---- In-memory mode ----
+
+  /**
+   * Modo in-memory (opt-in, default `false`): la tabla recibe el dataset COMPLETO por `data`
+   * y resuelve ordenamiento, filtros, búsqueda y paginación en el cliente con los row models
+   * de TanStack, sin ir al servidor.
+   *
+   * Usar SOLO cuando los datos no se pueden paginar server-side — por ejemplo, el resultado
+   * de un RPC de Postgres que devuelve un JSON entero. Para cualquier tabla que pueda paginar
+   * con Prisma, el modo correcto sigue siendo `queryFn`.
+   *
+   * Requisitos en las columnas: `filterFn` en toda columna filtrable (el valor del filtro llega
+   * como `string[]`) y `sortingFn` en las columnas cuyo valor crudo no ordena bien de forma
+   * alfabética (fechas `DD/MM/YYYY`, por ejemplo). Ver los helpers de `./in-memory`.
+   *
+   * Se ignora si se pasa `queryFn`.
+   */
+  inMemory?: boolean;
 }
 
 /**
