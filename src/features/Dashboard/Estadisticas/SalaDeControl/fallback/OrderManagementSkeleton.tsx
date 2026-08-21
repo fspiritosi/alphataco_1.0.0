@@ -1,11 +1,8 @@
-'use client';
-
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import dynamic from 'next/dynamic';
-import type { PreparteKpiData } from '../actions/preparte-kpi.server';
 
-function OrderManagementSkeleton() {
+/** Placeholder de "Gestion de Pedidos — Sala de Control" mientras carga su chunk. */
+export function OrderManagementSkeleton() {
   return (
     <Card className="py-0">
       <CardHeader className="flex flex-col items-stretch border-b p-0! sm:flex-row">
@@ -35,17 +32,4 @@ function OrderManagementSkeleton() {
       </CardContent>
     </Card>
   );
-}
-
-const OrderManagementClient = dynamic(() => import('./OrderManagementClient').then((m) => m.OrderManagementClient), {
-  ssr: false,
-  loading: () => <OrderManagementSkeleton />,
-});
-
-interface Props {
-  data: PreparteKpiData;
-}
-
-export function OrderManagementDynamic({ data }: Props) {
-  return <OrderManagementClient data={data} />;
 }
