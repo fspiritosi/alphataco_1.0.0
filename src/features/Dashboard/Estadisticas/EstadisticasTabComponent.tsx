@@ -4,9 +4,11 @@ import MantenimientoTabContent from '@/features/Dashboard/Estadisticas/Mantenimi
 import { MantenimientoChartsSkeleton } from '@/features/Dashboard/Estadisticas/Mantenimiento/fallback/MantenimientoChartsSkeleton';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
 import { OperacionesChartsSkeleton } from '@/features/Dashboard/Estadisticas/Operaciones/fallback/OperacionesChartsSkeleton';
+import SalaDeControlTabContent from '@/features/Dashboard/Estadisticas/SalaDeControl/SalaDeControlTabContent';
+import { SalaDeControlSkeleton } from '@/features/Dashboard/Estadisticas/SalaDeControl/fallback/SalaDeControlSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
-import { BarChart3, Calendar, Users, Wrench } from 'lucide-react';
+import { BarChart3, Calendar, MonitorDot, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import KpisTabContent from './KPIs/KpisTabContent';
 import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
@@ -88,6 +90,22 @@ function EstadisticasTabComponent({
             content: (
               <Suspense fallback={<MantenimientoChartsSkeleton />}>
                 <MantenimientoTabContent />
+              </Suspense>
+            ),
+          },
+          {
+            value: 'desvios',
+            label: (
+              <span className="flex items-center gap-2">
+                <MonitorDot className="h-4 w-4" />
+                Sala de Control
+              </span>
+            ),
+            moduleSlug: 'dashboard',
+            tabSlug: 'desvios',
+            content: (
+              <Suspense fallback={<SalaDeControlSkeleton />}>
+                <SalaDeControlTabContent />
               </Suspense>
             ),
           },
