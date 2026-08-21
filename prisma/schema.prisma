@@ -3617,6 +3617,7 @@ enum indicator_function {
   hr_get_daily_absence_timeseries
   hr_get_department_absence_reasons
   hr_get_department_absence_summary
+  get_daily_report_deviations_indicator
 
   @@schema("public")
 }

@@ -129,6 +129,13 @@ export const PERMISSIONS = {
             parent: 'estadisticas',
             allowedActions: ['view'],
           },
+          desvios: {
+            slug: 'desvios',
+            name: 'Sala de Control',
+            tabId: '90000000-0000-0000-0000-000000000034',
+            parent: 'estadisticas',
+            allowedActions: ['view'],
+          },
         },
       },
     },
