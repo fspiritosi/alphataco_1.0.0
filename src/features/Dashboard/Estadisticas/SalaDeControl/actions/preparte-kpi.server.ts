@@ -4,7 +4,7 @@ import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
-const logger = new Logger('Dashboard/Estadisticas/Operaciones/PreparteKpi');
+const logger = new Logger('Dashboard/Estadisticas/SalaDeControl/PreparteKpi');
 
 // ---------------------------------------------------------------------------
 // Types
