@@ -32,7 +32,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { assignEmployeesToCustomer, assignEquipmentsToCustomer } from '../actions';
+import {
+  getCustomerEmployeeAssignments,
+  getCustomerEquipmentAssignments,
+  updateCustomerEmployeeAssignments,
+  updateCustomerEquipmentAssignments,
+} from '../actions';
 import { fechAllCustomers, fechAllDataCustomersById } from '../actions/create';
 import { CustomerForm } from './CustomerForm';
 import ServiceTable from './Services/ServiceTable';
@@ -195,6 +200,30 @@ interface DataCustomersProps<TData, TValue> {
   savedVisibilityEquipment: VisibilityState;
   // employeesPromise: ReturnType<typeof fetchAllEmployees>
   allEmployees?: { label: string; value: string }[];
+}
+
+/**
+ * Calcula altas y bajas entre las afectaciones vigentes y la seleccion del usuario.
+ * Solo estos ids viajan al servidor: nunca se manda el conjunto completo esperando que
+ * el backend deduzca por ausencia que hay que borrar.
+ */
+function diffAssignments(baseline: string[], selection: string[] | undefined) {
+  const current = new Set(baseline.map(String));
+  const selected = new Set((Array.isArray(selection) ? selection : []).filter(Boolean).map(String));
+
+  return {
+    add: Array.from(selected).filter((id) => !current.has(id)),
+    remove: Array.from(current).filter((id) => !selected.has(id)),
+  };
+}
+
+/** Mensaje de resultado con numeros reales, para que el usuario vea que paso de verdad. */
+function buildAssignmentSummary(added: number, removed: number, singular: string, plural: string) {
+  const parts: string[] = [];
+  if (added > 0) parts.push(`Se afectaron ${added} ${added === 1 ? singular : plural}`);
+  if (removed > 0) parts.push(`se desafectaron ${removed} ${removed === 1 ? singular : plural}`);
+  if (parts.length === 0) return 'No hubo cambios';
+  return `${parts.join(' y ')}.`;
 }
 
 export function DataCustomers<TData extends Customer, TValue>({
@@ -376,6 +405,14 @@ export function DataCustomers<TData extends Customer, TValue>({
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  // Afectaciones vigentes al momento de abrir cada modal (fuente de verdad para calcular
+  // altas y bajas). `null` = todavia no se cargaron: hasta que no haya baseline no se
+  // puede guardar, porque no sabriamos contra que comparar la seleccion del usuario.
+  const [employeeAssignmentBaseline, setEmployeeAssignmentBaseline] = useState<string[] | null>(null);
+  const [equipmentAssignmentBaseline, setEquipmentAssignmentBaseline] = useState<string[] | null>(null);
+  const [isLoadingEmployeeBaseline, setIsLoadingEmployeeBaseline] = useState(false);
+  const [isLoadingEquipmentBaseline, setIsLoadingEquipmentBaseline] = useState(false);
+
   // Leer las cookies necesarias para la persistencia de filtros
   const visibilityCookie = Cookies.get('customers-table');
   const filtersCookie = Cookies.get('customers-table-filters');
@@ -415,21 +452,6 @@ export function DataCustomers<TData extends Customer, TValue>({
     },
   });
 
-  // Obtener IDs de equipos asignados al cliente actual a través de contractor_equipment
-  const assignedEquipmentIds = React.useMemo(() => {
-    if (!selectedCustomer || !equipments) return [];
-
-    return equipments
-      .filter((equip) => {
-        return equip.contractor_equipment?.some(
-          (contractor: any) =>
-            (typeof contractor.contractor_id === 'object' && contractor.contractor_id?.id === selectedCustomer.id) ||
-            contractor.contractor_id === selectedCustomer.id
-        );
-      })
-      .map((equip) => String(equip.id));
-  }, [selectedCustomer, equipments]);
-
   // Formulario para equipos
   const equipmentForm = useForm({
     defaultValues: {
@@ -437,57 +459,68 @@ export function DataCustomers<TData extends Customer, TValue>({
     },
   });
 
-  // Obtener IDs de empleados asignados al cliente actual a través de contractor_employee
-  const assignedEmployeeIds = React.useMemo(() => {
-    if (!selectedCustomer || !employees) return [];
-
-    return employees
-      .filter((emp) => {
-        return emp?.contractor_employee?.some(
-          (contractor: any) =>
-            (typeof contractor.contractor_id === 'object' && contractor.contractor_id?.id === selectedCustomer.id) ||
-            contractor.contractor_id === selectedCustomer.id
-        );
-      })
-      .map((emp) => String(emp?.id));
-  }, [selectedCustomer, employees]);
-
-  // Sincronizar empleados seleccionados cuando se abre el diálogo
-  useEffect(() => {
-    if (selectedCustomer) {
-      // Actualizar el formulario con los IDs de empleados asignados
-      form.setValue('employees', assignedEmployeeIds, { shouldValidate: true });
-    }
-  }, [isEmployeeDialogOpen, selectedCustomer, assignedEmployeeIds, form]);
-
-  // Reset form when dialog is closed
-  useEffect(() => {
-    if (!isDialogOpen) {
-      form.reset({ employees: [] });
-    }
-  }, [isDialogOpen, form]);
-
-  // // Manejar la apertura/cierre del diálogo de empleados
-  const handleEmployeeDialogOpenChange = () => {
-    if (isEmployeeDialogOpen) {
+  // Manejar la apertura/cierre del diálogo de empleados.
+  // Al abrir se consultan las afectaciones vigentes contra la base (no contra el estado de
+  // la pantalla, que puede estar a medio cargar): esa lista es la preseleccion y el baseline
+  // contra el que se calculan altas y bajas al guardar.
+  const handleEmployeeDialogOpenChange = async (open: boolean) => {
+    if (!open) {
       setIsEmployeeDialogOpen(false);
+      setEmployeeAssignmentBaseline(null);
       form.reset({ employees: [] });
-    } else {
-      // Establecer los empleados ya asignados cuando se abre el diálogo
-      form.reset({ employees: assignedEmployeeIds });
-      setIsEmployeeDialogOpen(true);
+      return;
+    }
+
+    setIsEmployeeDialogOpen(true);
+    setIsLoadingEmployeeBaseline(true);
+    form.reset({ employees: [] });
+
+    if (!selectedCustomer?.id) {
+      setIsLoadingEmployeeBaseline(false);
+      return;
+    }
+
+    try {
+      const currentAssignments = await getCustomerEmployeeAssignments(selectedCustomer.id);
+      setEmployeeAssignmentBaseline(currentAssignments);
+      form.reset({ employees: currentAssignments });
+    } catch (error) {
+      toast.error('No se pudieron cargar las afectaciones actuales. Volvé a abrir el modal.');
+      setEmployeeAssignmentBaseline(null);
+      setIsEmployeeDialogOpen(false);
+    } finally {
+      setIsLoadingEmployeeBaseline(false);
     }
   };
 
-  // Manejar la apertura/cierre del diálogo de equipos
-  const handleEquipmentDialogOpenChange = (open: boolean) => {
+  // Manejar la apertura/cierre del diálogo de equipos (mismo criterio que empleados)
+  const handleEquipmentDialogOpenChange = async (open: boolean) => {
     if (!open) {
       setIsEquipmentDialogOpen(false);
+      setEquipmentAssignmentBaseline(null);
       equipmentForm.reset({ equipments: [] });
-    } else {
-      // Establecer los equipos ya asignados cuando se abre el diálogo
-      equipmentForm.reset({ equipments: assignedEquipmentIds });
-      setIsEquipmentDialogOpen(true);
+      return;
+    }
+
+    setIsEquipmentDialogOpen(true);
+    setIsLoadingEquipmentBaseline(true);
+    equipmentForm.reset({ equipments: [] });
+
+    if (!selectedCustomer?.id) {
+      setIsLoadingEquipmentBaseline(false);
+      return;
+    }
+
+    try {
+      const currentAssignments = await getCustomerEquipmentAssignments(selectedCustomer.id);
+      setEquipmentAssignmentBaseline(currentAssignments);
+      equipmentForm.reset({ equipments: currentAssignments });
+    } catch (error) {
+      toast.error('No se pudieron cargar las afectaciones actuales. Volvé a abrir el modal.');
+      setEquipmentAssignmentBaseline(null);
+      setIsEquipmentDialogOpen(false);
+    } finally {
+      setIsLoadingEquipmentBaseline(false);
     }
   };
 
@@ -495,40 +528,65 @@ export function DataCustomers<TData extends Customer, TValue>({
   const handleEquipmentSubmit = async (formData: { equipments: string[] }) => {
     if (!selectedCustomer) return;
 
-    try {
-      const equipmentIds = Array.isArray(formData.equipments) ? formData.equipments.filter(Boolean) : [];
-
-      // Asignar los equipos al cliente
-      await assignEquipmentsToCustomer(selectedCustomer.id, equipmentIds);
-
-      toast.success('Equipos asignados correctamente');
-      setIsEquipmentDialogOpen(false);
-      equipmentForm.reset({ equipments: [] });
-
-      // Refrescar la lista de equipos
-      router.refresh();
-    } catch (error) {
-      console.error('Error al asignar equipos:', error);
-      toast.error('Error al asignar los equipos');
+    // Sin baseline no se guarda: no sabriamos que se agrego y que se quito.
+    if (!equipmentAssignmentBaseline) {
+      toast.error('Todavía se están cargando las afectaciones actuales. Esperá un instante.');
+      return;
     }
+
+    const { add, remove } = diffAssignments(equipmentAssignmentBaseline, formData.equipments);
+
+    if (add.length === 0 && remove.length === 0) {
+      toast.info('No hay cambios para guardar');
+      setIsEquipmentDialogOpen(false);
+      return;
+    }
+
+    const result = await updateCustomerEquipmentAssignments(selectedCustomer.id, { add, remove });
+
+    if (!result.success) {
+      toast.error(`No se pudieron actualizar los equipos: ${result.error}`);
+      return;
+    }
+
+    toast.success(buildAssignmentSummary(result.added, result.removed, 'equipo', 'equipos'));
+    setIsEquipmentDialogOpen(false);
+    setEquipmentAssignmentBaseline(null);
+    equipmentForm.reset({ equipments: [] });
+
+    // Refrescar la lista de equipos
+    router.refresh();
   };
 
   const handleSubmit = async (formData: { employees: string[] }) => {
     if (!selectedCustomer) return;
-    try {
-      const employeeIds = Array.isArray(formData.employees) ? formData.employees.filter(Boolean) : [];
 
-      // Asignar los empleados al cliente
-      await assignEmployeesToCustomer(selectedCustomer.id, employeeIds);
-
-      toast.success('Empleados asignados correctamente');
-      setIsEmployeeDialogOpen(false);
-      form.reset({ employees: [] });
-
-      // Refrescar la lista de empleados
-    } catch (error) {
-      toast.error('Error al actualizar los empleados');
+    // Sin baseline no se guarda: no sabriamos que se agrego y que se quito.
+    if (!employeeAssignmentBaseline) {
+      toast.error('Todavía se están cargando las afectaciones actuales. Esperá un instante.');
+      return;
     }
+
+    const { add, remove } = diffAssignments(employeeAssignmentBaseline, formData.employees);
+
+    if (add.length === 0 && remove.length === 0) {
+      toast.info('No hay cambios para guardar');
+      setIsEmployeeDialogOpen(false);
+      return;
+    }
+
+    const result = await updateCustomerEmployeeAssignments(selectedCustomer.id, { add, remove });
+
+    if (!result.success) {
+      toast.error(`No se pudieron actualizar los empleados: ${result.error}`);
+      return;
+    }
+
+    toast.success(buildAssignmentSummary(result.added, result.removed, 'empleado', 'empleados'));
+    setIsEmployeeDialogOpen(false);
+    setEmployeeAssignmentBaseline(null);
+    form.reset({ employees: [] });
+
     router.refresh();
     await fetchEmployees();
   };
@@ -553,7 +611,6 @@ export function DataCustomers<TData extends Customer, TValue>({
       label: `${emp?.lastname ? emp.lastname.charAt(0).toUpperCase() + emp.lastname.slice(1) : ''} ${emp?.firstname ? emp.firstname.charAt(0).toUpperCase() + emp.firstname.slice(1) : ''}`,
     }));
   }, [employees]);
-  // Using the memoized version of assignedEmployeeIds from above
   const names = createFilterOptions(data, (customer) => customer.name);
   const cuit = createFilterOptions(data, (customer) => customer.cuit);
   const client_email = createFilterOptions(data, (customer) => customer.client_email);
@@ -626,7 +683,7 @@ export function DataCustomers<TData extends Customer, TValue>({
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold">Empleados del Cliente</h3>
                 <PermissionGuard module="comercial" tab="empleados-cliente" action="update">
-                  <Dialog open={isEmployeeDialogOpen} onOpenChange={() => handleEmployeeDialogOpenChange()}>
+                  <Dialog open={isEmployeeDialogOpen} onOpenChange={handleEmployeeDialogOpenChange}>
                     <DialogTrigger asChild>
                       <Button variant="gh_orange">Cargar empleados</Button>
                     </DialogTrigger>
@@ -645,24 +702,58 @@ export function DataCustomers<TData extends Customer, TValue>({
                           <FormField
                             control={form.control}
                             name="employees"
-                            render={({ field }) => (
-                              <FormItem className="w-full">
-                                <FormLabel>Empleados</FormLabel>
-                                <FormControl>
-                                  <MultiSelectCombobox
-                                    options={allEmployees || []}
-                                    emptyMessage="No se encontraron empleados"
-                                    selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
-                                    onChange={(values) => {
-                                      field.onChange(values);
-                                    }}
-                                    placeholder="Buscar empleados..."
-                                    showSelectAll={true}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const pendingChanges = employeeAssignmentBaseline
+                                ? diffAssignments(employeeAssignmentBaseline, field.value)
+                                : null;
+
+                              return (
+                                <FormItem className="w-full">
+                                  <FormLabel>Empleados</FormLabel>
+                                  <FormControl>
+                                    <MultiSelectCombobox
+                                      options={allEmployees || []}
+                                      emptyMessage="No se encontraron empleados"
+                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                      onChange={(values) => {
+                                        field.onChange(values);
+                                      }}
+                                      placeholder="Buscar empleados..."
+                                      showSelectAll={true}
+                                      disabled={isLoadingEmployeeBaseline || !employeeAssignmentBaseline}
+                                      isLoading={isLoadingEmployeeBaseline}
+                                    />
+                                  </FormControl>
+                                  {/* Resumen de lo que va a pasar al guardar: el usuario ve las bajas antes de confirmarlas */}
+                                  {isLoadingEmployeeBaseline ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      Cargando las afectaciones actuales del cliente...
+                                    </p>
+                                  ) : pendingChanges ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {employeeAssignmentBaseline?.length ?? 0} afectados actualmente.{' '}
+                                      {pendingChanges.add.length === 0 && pendingChanges.remove.length === 0 ? (
+                                        'Sin cambios.'
+                                      ) : (
+                                        <>
+                                          {pendingChanges.add.length > 0 && (
+                                            <span className="text-green-600 dark:text-green-500">
+                                              Se agregan {pendingChanges.add.length}.{' '}
+                                            </span>
+                                          )}
+                                          {pendingChanges.remove.length > 0 && (
+                                            <span className="text-destructive font-medium">
+                                              Se quitan {pendingChanges.remove.length}.
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </p>
+                                  ) : null}
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
                           <DialogFooter className="gap-2 sm:gap-2">
                             <DialogClose asChild>
@@ -670,8 +761,14 @@ export function DataCustomers<TData extends Customer, TValue>({
                                 Cancelar
                               </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={form.formState.isSubmitting} variant="default">
-                              Asignar empleados
+                            <Button
+                              type="submit"
+                              disabled={
+                                form.formState.isSubmitting || isLoadingEmployeeBaseline || !employeeAssignmentBaseline
+                              }
+                              variant="default"
+                            >
+                              Guardar cambios
                             </Button>
                           </DialogFooter>
                         </form>
@@ -733,29 +830,62 @@ export function DataCustomers<TData extends Customer, TValue>({
                           <FormField
                             control={equipmentForm.control}
                             name="equipments"
-                            render={({ field }) => (
-                              <FormItem className="w-full">
-                                <FormLabel>Equipos</FormLabel>
-                                <FormControl>
-                                  <MultiSelectCombobox
-                                    options={
-                                      equipments?.map((equip) => ({
-                                        value: String(equip.id),
-                                        label: equip.domain as string,
-                                      })) || []
-                                    }
-                                    emptyMessage="No se encontraron equipos"
-                                    selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
-                                    onChange={(values) => {
-                                      field.onChange(values);
-                                    }}
-                                    placeholder="Buscar equipos..."
-                                    showSelectAll={true}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const pendingChanges = equipmentAssignmentBaseline
+                                ? diffAssignments(equipmentAssignmentBaseline, field.value)
+                                : null;
+
+                              return (
+                                <FormItem className="w-full">
+                                  <FormLabel>Equipos</FormLabel>
+                                  <FormControl>
+                                    <MultiSelectCombobox
+                                      options={
+                                        equipments?.map((equip) => ({
+                                          value: String(equip.id),
+                                          label: equip.domain as string,
+                                        })) || []
+                                      }
+                                      emptyMessage="No se encontraron equipos"
+                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                      onChange={(values) => {
+                                        field.onChange(values);
+                                      }}
+                                      placeholder="Buscar equipos..."
+                                      showSelectAll={true}
+                                      disabled={isLoadingEquipmentBaseline || !equipmentAssignmentBaseline}
+                                      isLoading={isLoadingEquipmentBaseline}
+                                    />
+                                  </FormControl>
+                                  {isLoadingEquipmentBaseline ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      Cargando las afectaciones actuales del cliente...
+                                    </p>
+                                  ) : pendingChanges ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {equipmentAssignmentBaseline?.length ?? 0} afectados actualmente.{' '}
+                                      {pendingChanges.add.length === 0 && pendingChanges.remove.length === 0 ? (
+                                        'Sin cambios.'
+                                      ) : (
+                                        <>
+                                          {pendingChanges.add.length > 0 && (
+                                            <span className="text-green-600 dark:text-green-500">
+                                              Se agregan {pendingChanges.add.length}.{' '}
+                                            </span>
+                                          )}
+                                          {pendingChanges.remove.length > 0 && (
+                                            <span className="text-destructive font-medium">
+                                              Se quitan {pendingChanges.remove.length}.
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </p>
+                                  ) : null}
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
                           <DialogFooter className="gap-2 sm:gap-2">
                             <DialogClose asChild>
@@ -763,8 +893,16 @@ export function DataCustomers<TData extends Customer, TValue>({
                                 Cancelar
                               </Button>
                             </DialogClose>
-                            <Button type="submit" disabled={equipmentForm.formState.isSubmitting} variant="gh_orange">
-                              Guardar
+                            <Button
+                              type="submit"
+                              disabled={
+                                equipmentForm.formState.isSubmitting ||
+                                isLoadingEquipmentBaseline ||
+                                !equipmentAssignmentBaseline
+                              }
+                              variant="gh_orange"
+                            >
+                              Guardar cambios
                             </Button>
                           </DialogFooter>
                         </form>
