@@ -49,6 +49,7 @@ export function KpiForm() {
   });
 
   const { reset } = form;
+  const isSubmitting = form.formState.isSubmitting;
   const router = useRouter();
 
   // Derivar isEditing del store — no necesita estado local propio
@@ -87,63 +88,73 @@ export function KpiForm() {
   };
 
   const onSubmit = async (values: KpiFormValues) => {
-    toast.promise(
-      async () => {
-        const result = await createKPI({
-          name: values.name,
-          number: values.number || undefined,
-          validity_date: values.validity_date,
-          calculation_formula: values.calculation_formula,
-          is_active: values.is_active ?? true,
-        });
-        if (result.error) throw result.error;
-        return result;
-      },
-      {
-        loading: 'Creando KPI...',
-        success: (result) => {
-          invalidateTable(result?.data?.code);
-          router.refresh();
-          resetForm();
-          return 'KPI creado correctamente';
+    await toast
+      .promise(
+        async () => {
+          const result = await createKPI({
+            name: values.name,
+            number: values.number || undefined,
+            validity_date: values.validity_date,
+            calculation_formula: values.calculation_formula,
+            is_active: values.is_active ?? true,
+          });
+          if (result.error) throw result.error;
+          return result;
         },
-        error: (error) => error?.message || 'Error al crear el KPI',
-      }
-    );
+        {
+          loading: 'Creando KPI...',
+          success: (result) => {
+            invalidateTable(result?.data?.code);
+            router.refresh();
+            resetForm();
+            return 'KPI creado correctamente';
+          },
+          error: (error) => error?.message || 'Error al crear el KPI',
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onUpdate = async (values: KpiFormValues) => {
-    toast.promise(
-      async () => {
-        const result = await updateKPI({
-          id: values.id!,
-          name: values.name,
-          number: values.number || undefined,
-          calculation_formula: values.calculation_formula,
-          improvement_opportunities: values.improvement_opportunities || undefined,
-          is_active: values.is_active ?? true,
-        });
-        if (result.error) throw result.error;
-        return result;
-      },
-      {
-        loading: 'Actualizando KPI...',
-        success: (result) => {
-          invalidateTable(editingKpi?.code ?? result?.data?.code);
-          router.refresh();
-          resetForm();
-          return 'KPI actualizado correctamente';
+    await toast
+      .promise(
+        async () => {
+          const result = await updateKPI({
+            id: values.id!,
+            name: values.name,
+            number: values.number || undefined,
+            calculation_formula: values.calculation_formula,
+            improvement_opportunities: values.improvement_opportunities || undefined,
+            is_active: values.is_active ?? true,
+          });
+          if (result.error) throw result.error;
+          return result;
         },
-        error: (error) => error?.message || 'Error al actualizar el KPI',
-      }
-    );
+        {
+          loading: 'Actualizando KPI...',
+          success: (result) => {
+            invalidateTable(editingKpi?.code ?? result?.data?.code);
+            router.refresh();
+            resetForm();
+            return 'KPI actualizado correctamente';
+          },
+          error: (error) => error?.message || 'Error al actualizar el KPI',
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
-  const handleSubmit = (values: KpiFormValues) => {
+  const handleSubmit = async (values: KpiFormValues) => {
     if (isEditing) {
-      onUpdate(values);
+      await onUpdate(values);
     } else {
-      onSubmit(values);
+      await onSubmit(values);
     }
   };
 
@@ -264,11 +275,11 @@ export function KpiForm() {
         />
 
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant={'gh_orange'}>
-            {isEditing ? 'Actualizar' : 'Crear'}
+          <Button type="submit" variant={'gh_orange'} disabled={isSubmitting}>
+            {isSubmitting ? (isEditing ? 'Actualizando...' : 'Creando...') : isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (
-            <Button type="button" onClick={resetForm} variant="outline">
+            <Button type="button" onClick={resetForm} variant="outline" disabled={isSubmitting}>
               Cancelar
             </Button>
           )}

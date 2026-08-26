@@ -94,19 +94,25 @@ export default function EquipmentModelForm({ editingItem, onReset }: EquipmentMo
 
   const onSubmit = async (data: FormValues) => {
     try {
-      if (isEditing && editingItem) {
-        await updateEquipmentModelPrisma({
-          id: Number(editingItem.id),
-          name: data.name,
-          brand: Number(data.brand),
-          is_active: data.is_active,
-        });
-      } else {
-        await createEquipmentModelPrisma({
-          name: data.name,
-          brand: Number(data.brand),
-          is_active: data.is_active,
-        });
+      const result =
+        isEditing && editingItem
+          ? await updateEquipmentModelPrisma({
+              id: Number(editingItem.id),
+              name: data.name,
+              brand: Number(data.brand),
+              is_active: data.is_active,
+            })
+          : await createEquipmentModelPrisma({
+              name: data.name,
+              brand: Number(data.brand),
+              is_active: data.is_active,
+            });
+
+      // La accion devuelve el motivo como dato (no lo lanza) para que sobreviva
+      // al build de produccion, donde Next oculta los mensajes de Error.
+      if (!result.ok) {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+        return;
       }
 
       // Invalidar la query de la tabla para refetch

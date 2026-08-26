@@ -23,6 +23,8 @@ export default function CreateCompanyButton() {
   const { uploadImage, loading } = useImageUpload();
   const disabled = false;
   const [imageFile, setImageFile] = useState<File | null>(null);
+  // Bloquea el boton mientras la peticion esta en curso para evitar registros duplicados
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [base64Image, setBase64Image] = useState<string>('');
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -41,6 +43,7 @@ export default function CreateCompanyButton() {
   };
 
   const clientAccion = async (formData: FormData) => {
+    if (isSubmitting) return;
     const values = Object.fromEntries(formData.entries());
     const result = await companySchema.safeParseAsync(values);
 
@@ -71,31 +74,33 @@ export default function CreateCompanyButton() {
       return;
     }
 
-    toast.promise(
-      async () => {
-        const cuit = formData.get('company_cuit') as string;
-        const fileExtension = imageFile?.name.split('.').pop();
-        const logoUrl = `${url}/logo/${cuit}.${fileExtension}`;
+    setIsSubmitting(true);
+    await toast
+      .promise(
+        async () => {
+          const cuit = formData.get('company_cuit') as string;
+          const fileExtension = imageFile?.name.split('.').pop();
+          const logoUrl = `${url}/logo/${cuit}.${fileExtension}`;
 
-        const { data, error } = await AddCompany(formData, logoUrl);
+          const { data, error } = await AddCompany(formData, logoUrl);
 
-        if (error) {
-          throw new Error(handleSupabaseError(error.message));
-        }
-
-        if (data && data?.length > 0) {
-          if (imageFile) {
-            const fileExtension = imageFile?.name.split('.').pop();
-            const renamedFile = new File([imageFile], `${cuit}.${fileExtension}`, {
-              type: `image/${fileExtension?.replace(/\s/g, '')}`,
-            });
-            await uploadImage(renamedFile, 'logo');
+          if (error) {
+            throw new Error(handleSupabaseError(error.message));
           }
 
-          const { data: company, error: companyError } = await supabase
-            .from('company')
-            .select(
-              `
+          if (data && data?.length > 0) {
+            if (imageFile) {
+              const fileExtension = imageFile?.name.split('.').pop();
+              const renamedFile = new File([imageFile], `${cuit}.${fileExtension}`, {
+                type: `image/${fileExtension?.replace(/\s/g, '')}`,
+              });
+              await uploadImage(renamedFile, 'logo');
+            }
+
+            const { data: company, error: companyError } = await supabase
+              .from('company')
+              .select(
+                `
             *,
             owner_id(*),
             share_company_users(*,
@@ -135,31 +140,36 @@ export default function CreateCompanyButton() {
               )
             )
           `
-            )
-            .eq('owner_id', data?.[0]?.owner_id || '');
+              )
+              .eq('owner_id', data?.[0]?.owner_id || '');
 
-          if (companyError) {
-            throw new Error(handleSupabaseError(companyError.message));
+            if (companyError) {
+              throw new Error(handleSupabaseError(companyError.message));
+            }
+
+            const actualCompany = company?.filter((company) => company.id === data?.[0]?.id);
+
+            useLoggedUserStore.setState({
+              actualCompany: actualCompany?.[0] as any[0],
+            });
+            useLoggedUserStore.setState({ allCompanies: company as any });
+
+            router.push('/dashboard');
           }
-
-          const actualCompany = company?.filter((company) => company.id === data?.[0]?.id);
-
-          useLoggedUserStore.setState({
-            actualCompany: actualCompany?.[0] as any[0],
-          });
-          useLoggedUserStore.setState({ allCompanies: company as any });
-
-          router.push('/dashboard');
-        }
-      },
-      {
-        loading: 'Registrando Compañía',
-        success: 'Compañía Registrada',
-        error: (error) => {
-          return error;
         },
-      }
-    );
+        {
+          loading: 'Registrando Compañía',
+          success: 'Compañía Registrada',
+          error: (error) => {
+            return error;
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -205,8 +215,8 @@ export default function CreateCompanyButton() {
           )}
         </div>
       </div>
-      <Button type="submit" formAction={(formData) => clientAccion(formData)} className="mt-5">
-        Registrar Compañía
+      <Button type="submit" formAction={(formData) => clientAccion(formData)} className="mt-5" disabled={isSubmitting}>
+        {isSubmitting ? 'Registrando...' : 'Registrar Compañía'}
       </Button>
     </>
   );

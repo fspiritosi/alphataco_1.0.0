@@ -55,22 +55,27 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
     //   ? `${URL}/api/employees/diagrams/tipos`
     //   : `${URL}/api/employees/diagrams/tipos?actual=${company_id}`;
 
-    toast.promise(
-      async () => {
-        if (method === 'PUT') {
-          await updateDiagramType(values);
-        } else {
-          await createDiagramType(values);
+    await toast
+      .promise(
+        async () => {
+          if (method === 'PUT') {
+            await updateDiagramType(values);
+          } else {
+            await createDiagramType(values);
+          }
+        },
+        {
+          loading: 'Cargando...',
+          success: diagramToEdit
+            ? `Novedad ${values.name} editada con éxito`
+            : `Novedad ${values.name} cargada con éxito`,
+          error: diagramToEdit ? 'No se pudo editar la novedad' : 'No se pudo crear la novedad',
         }
-      },
-      {
-        loading: 'Cargando...',
-        success: diagramToEdit
-          ? `Novedad ${values.name} editada con éxito`
-          : `Novedad ${values.name} cargada con éxito`,
-        error: diagramToEdit ? 'No se pudo editar la novedad' : 'No se pudo crear la novedad',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
 
     cleanForm();
     router.refresh();
@@ -229,13 +234,13 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
 
         {!diagramToEdit ? (
           <div className="flex gap-x-4">
-            <Button variant="gh_orange" className="mt-4" type="submit">
+            <Button variant="gh_orange" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
               Crear
             </Button>
           </div>
         ) : (
           <div className="flex gap-x-4">
-            <Button variant="gh_orange" className="mt-4" type="submit">
+            <Button variant="gh_orange" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
               Actualizar
             </Button>
             <Button variant="outline" className="mt-4" type="button" onClick={() => cleanForm()}>

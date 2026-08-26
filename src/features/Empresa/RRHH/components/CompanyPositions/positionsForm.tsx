@@ -79,12 +79,18 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
   const handleSubmit = async (values: PositionFormValues) => {
     try {
       if (!position) {
-        await createPosition({
+        const result = await createPosition({
           name: values.name,
           is_active: values.is_active,
           hierarchical_position_id: values.hierarchical_position_id || [],
           aptitudes_tecnicas_id: values.aptitudes_tecnicas_id || [],
         });
+        // El motivo viaja como dato: un Error lanzado en la server action
+        // pierde su mensaje en el build de produccion.
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success('Posición creada con éxito');
         router.refresh();
         reset();
@@ -116,7 +122,8 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         setMode('create');
       }
     } catch (error) {
-      toast.error('Error al crear o actualizar la posición');
+      // El mensaje del servidor (ej: puesto duplicado) tiene que llegar al usuario
+      toast.error(error instanceof Error ? error.message : 'Error al crear o actualizar la posición');
       logger.error('Error al crear o actualizar la posición', { data: { error } });
     }
   };
@@ -299,7 +306,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         />
 
         <div className="flex gap-2 mt-6">
-          <Button variant="gh_orange" type="submit">
+          <Button variant="gh_orange" type="submit" disabled={form.formState.isSubmitting}>
             {mode === 'edit' ? 'Actualizar' : 'Crear'}
           </Button>
           {mode === 'edit' ? (

@@ -37,18 +37,37 @@ export async function createTypeOfRepair(body: Database['public']['Tables']['typ
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
-    return [];
+    return { ok: false as const, error: 'No se pudo identificar la empresa actual.' };
   }
 
   try {
+    // Guarda contra duplicados: sin esto, repetir el alta del mismo tipo de reparacion
+    // (por doble click o por volver a cargarlo mas tarde) creaba una segunda fila
+    // identica sin ningun aviso (ticket 616). La comparacion ignora mayusculas y
+    // espacios sobrantes.
+    const name = body.name?.trim();
+    if (name) {
+      const { data: existing } = await supabase
+        .from('types_of_repairs')
+        .select('id, name')
+        .ilike('name', name)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        return { ok: false as const, error: `Ya existe el tipo de reparación "${existing[0].name}".` };
+      }
+    }
+
     const { data: types_of_repairs, error } = await supabase.from('types_of_repairs').insert(body).select();
 
     if (error) {
-      return [];
+      logger.error('Error al crear tipo de reparacion', { data: { error } });
+      return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
     }
-    return types_of_repairs || [];
+    return { ok: true as const, data: types_of_repairs || [] };
   } catch (error) {
-    return [];
+    logger.error('Error al crear tipo de reparacion', { data: { error } });
+    return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
   }
 }
 

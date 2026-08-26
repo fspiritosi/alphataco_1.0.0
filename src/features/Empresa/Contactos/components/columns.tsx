@@ -141,76 +141,86 @@ export const contactColumns: ColumnDef<Colum>[] = [
       });
 
       async function reintegerContact() {
-        toast.promise(
-          async () => {
-            const supabase = supabaseBrowser();
+        await toast
+          .promise(
+            async () => {
+              const supabase = supabaseBrowser();
 
-            const { data, error } = await supabase
-              .from('contacts')
-              .update({
-                is_active: true,
-                termination_date: null,
-                reason_for_termination: null,
-              })
-              .eq('id', contacts.id)
-              //.eq('company_id', actualCompany?.id)
-              .select();
+              const { data, error } = await supabase
+                .from('contacts')
+                .update({
+                  is_active: true,
+                  termination_date: null,
+                  reason_for_termination: null,
+                })
+                .eq('id', contacts.id)
+                //.eq('company_id', actualCompany?.id)
+                .select();
 
-            setIntegerModal(!integerModal);
-            //setInactive(data as any)
-            setShowDeletedContact(false);
+              setIntegerModal(!integerModal);
+              //setInactive(data as any)
+              setShowDeletedContact(false);
 
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-          {
-            loading: 'Reintegrando...',
-            success: `Contacto reintegrado`,
-            error: (error) => {
-              return error;
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+            {
+              loading: 'Reintegrando...',
+              success: `Contacto reintegrado`,
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
 
       async function onSubmit(values: z.infer<typeof formSchema>) {
-        toast.promise(
-          async () => {
-            const data = {
-              ...values,
-              termination_date: format(values.termination_date, 'yyyy-MM-dd'),
-            };
+        await toast
+          .promise(
+            async () => {
+              const data = {
+                ...values,
+                termination_date: format(values.termination_date, 'yyyy-MM-dd'),
+              };
 
-            const supabase = supabaseBrowser();
-            if (!actualCompany) {
-              console.error('No se ha encontrado la empresa actual');
-              return;
-            }
-            const { error } = await supabase
-              .from('contacts')
-              .update({
-                is_active: false,
-                termination_date: data.termination_date,
-                reason_for_termination: data.reason_for_termination,
-              })
-              .eq('id', contacts.id)
-              .eq('company_id', actualCompany)
-              .select();
+              const supabase = supabaseBrowser();
+              if (!actualCompany) {
+                console.error('No se ha encontrado la empresa actual');
+                return;
+              }
+              const { error } = await supabase
+                .from('contacts')
+                .update({
+                  is_active: false,
+                  termination_date: data.termination_date,
+                  reason_for_termination: data.reason_for_termination,
+                })
+                .eq('id', contacts.id)
+                .eq('company_id', actualCompany)
+                .select();
 
-            setShowModal(!showModal);
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-          {
-            loading: 'Eliminando...',
-            success: 'Contacto eliminado',
-            error: (error) => {
-              return error;
+              setShowModal(!showModal);
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+            {
+              loading: 'Eliminando...',
+              success: 'Contacto eliminado',
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
       const today = new Date();
       const nextMonth = addMonths(new Date(), 1);
@@ -377,7 +387,7 @@ export const contactColumns: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="destructive" type="submit">
+                          <Button variant="destructive" type="submit" disabled={form.formState.isSubmitting}>
                             Dar de Baja
                           </Button>
                           <DialogClose>Cancelar</DialogClose>

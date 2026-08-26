@@ -320,7 +320,7 @@ export default function ServiceItemsForm({
           {/* Botones de acción */}
           <div className="flex gap-2 pt-2">
             <PermissionGuard module="comercial" tab="items-contrato" action={isEditing ? 'update' : 'create'}>
-              <Button type="submit" variant="gh_orange">
+              <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
                 {isEditing ? 'Guardar cambios' : 'Crear'}
               </Button>
             </PermissionGuard>
