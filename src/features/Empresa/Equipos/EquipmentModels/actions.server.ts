@@ -291,6 +291,13 @@ export async function getEquipmentModelSingleFacet(
 // ============================================================================
 
 /**
+ * Las mutaciones de este modulo devuelven { ok, error } en vez de lanzar: Next
+ * reemplaza el mensaje de cualquier Error lanzado en una server action por un texto
+ * generico en los builds de produccion, asi que el motivo real nunca llegaba al
+ * usuario. Devolverlo como dato lo mantiene visible (ticket 616).
+ */
+
+/**
  * Verifica si ya existe un modelo con el mismo nombre para la misma marca.
  * La comparacion ignora mayusculas y espacios sobrantes: para el usuario
  * "Hiace L2H2" y "hiace l2h2 " son el mismo modelo.
@@ -314,11 +321,12 @@ export async function createEquipmentModelPrisma(data: { name: string; brand: nu
     // crear una segunda fila identica (ticket 616).
     const duplicate = await findDuplicateEquipmentModel(data.name, data.brand);
     if (duplicate) {
-      throw new Error(
-        duplicate.is_active
+      return {
+        ok: false as const,
+        error: duplicate.is_active
           ? `Ya existe el modelo "${duplicate.name}" para esta marca.`
-          : `Ya existe el modelo "${duplicate.name}" para esta marca, pero esta inactivo. Reactivalo en lugar de crear uno nuevo.`
-      );
+          : `Ya existe el modelo "${duplicate.name}" para esta marca, pero esta inactivo. Reactivalo en lugar de crear uno nuevo.`,
+      };
     }
 
     const result = await prisma.model_vehicles.create({
@@ -336,12 +344,10 @@ export async function createEquipmentModelPrisma(data: { name: string; brand: nu
         brand_vehicles: { select: { id: true, name: true } },
       },
     });
-    return result;
+    return { ok: true as const, data: result };
   } catch (error) {
     logger.error('Error al crear modelo de equipo', { data: { error } });
-    // Los errores de validacion ya traen un mensaje pensado para el usuario
-    if (error instanceof Error && error.message.startsWith('Ya existe')) throw error;
-    throw new Error('No se pudo crear el modelo. Intente nuevamente.');
+    return { ok: false as const, error: 'No se pudo crear el modelo. Intente nuevamente.' };
   }
 }
 
@@ -354,7 +360,7 @@ export async function updateEquipmentModelPrisma(data: {
   try {
     const duplicate = await findDuplicateEquipmentModel(data.name, data.brand, data.id);
     if (duplicate) {
-      throw new Error(`Ya existe el modelo "${duplicate.name}" para esta marca.`);
+      return { ok: false as const, error: `Ya existe el modelo "${duplicate.name}" para esta marca.` };
     }
 
     const result = await prisma.model_vehicles.update({
@@ -373,11 +379,10 @@ export async function updateEquipmentModelPrisma(data: {
         brand_vehicles: { select: { id: true, name: true } },
       },
     });
-    return result;
+    return { ok: true as const, data: result };
   } catch (error) {
     logger.error('Error al actualizar modelo de equipo', { data: { error } });
-    if (error instanceof Error && error.message.startsWith('Ya existe')) throw error;
-    throw new Error('No se pudo actualizar el modelo. Intente nuevamente.');
+    return { ok: false as const, error: 'No se pudo actualizar el modelo. Intente nuevamente.' };
   }
 }
 

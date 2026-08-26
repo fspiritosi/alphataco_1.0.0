@@ -205,11 +205,12 @@ export function RepairTypeForm({
     await toast
       .promise(
         async () => {
-          // El error se propaga a proposito: si se traga, el toast anuncia exito
-          // aunque el alta haya fallado (por ejemplo, por nombre duplicado).
+          // El motivo del fallo viaja como dato y se relanza aca, ya en el cliente:
+          // un Error lanzado dentro de la server action pierde su mensaje en produccion.
           const result = await createTypeOfRepair(data);
-          if (result && result.length > 0) {
-            await updateRepairTypeSectors(result[0].id, selectedSectors);
+          if (!result.ok) throw new Error(result.error);
+          if (result.data.length > 0) {
+            await updateRepairTypeSectors(result.data[0].id, selectedSectors);
           }
           setSelectedSectors([]);
           router.refresh();

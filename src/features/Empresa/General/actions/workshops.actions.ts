@@ -254,18 +254,20 @@ export async function createWorkshopSector(sector: {
     .limit(1);
 
   if (existing && existing.length > 0) {
-    throw new Error(`Ya existe el sector "${existing[0].name}" en este taller.`);
+    // Se devuelve como dato en vez de lanzarlo: Next reemplaza el mensaje de un
+    // Error lanzado en una server action por un texto generico en produccion.
+    return { ok: false as const, error: `Ya existe el sector "${existing[0].name}" en este taller.` };
   }
 
   const { data, error } = await supabase.from('workshop_sectors').insert(sector).select().single();
 
   if (error) {
     logger.error('Error creating workshop sector', { data: { error } });
-    throw new Error('Error creating workshop sector');
+    return { ok: false as const, error: 'No se pudo crear el sector. Intente nuevamente.' };
   }
 
   logger.info('Workshop sector created successfully', { data: { sectorId: data.id } });
-  return data;
+  return { ok: true as const, data };
 }
 
 export async function updateWorkshopSector(sector: {
