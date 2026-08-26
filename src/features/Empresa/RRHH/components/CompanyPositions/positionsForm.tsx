@@ -79,12 +79,18 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
   const handleSubmit = async (values: PositionFormValues) => {
     try {
       if (!position) {
-        await createPosition({
+        const result = await createPosition({
           name: values.name,
           is_active: values.is_active,
           hierarchical_position_id: values.hierarchical_position_id || [],
           aptitudes_tecnicas_id: values.aptitudes_tecnicas_id || [],
         });
+        // El motivo viaja como dato: un Error lanzado en la server action
+        // pierde su mensaje en el build de produccion.
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success('Posición creada con éxito');
         router.refresh();
         reset();

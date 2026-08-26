@@ -37,7 +37,7 @@ export async function createTypeOfRepair(body: Database['public']['Tables']['typ
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
-    return [];
+    return { ok: false as const, error: 'No se pudo identificar la empresa actual.' };
   }
 
   try {
@@ -54,7 +54,7 @@ export async function createTypeOfRepair(body: Database['public']['Tables']['typ
         .limit(1);
 
       if (existing && existing.length > 0) {
-        throw new Error(`Ya existe el tipo de reparación "${existing[0].name}".`);
+        return { ok: false as const, error: `Ya existe el tipo de reparación "${existing[0].name}".` };
       }
     }
 
@@ -62,12 +62,12 @@ export async function createTypeOfRepair(body: Database['public']['Tables']['typ
 
     if (error) {
       logger.error('Error al crear tipo de reparacion', { data: { error } });
-      throw new Error('No se pudo crear el tipo de reparación. Intente nuevamente.');
+      return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
     }
-    return types_of_repairs || [];
+    return { ok: true as const, data: types_of_repairs || [] };
   } catch (error) {
     logger.error('Error al crear tipo de reparacion', { data: { error } });
-    throw error instanceof Error ? error : new Error('No se pudo crear el tipo de reparación.');
+    return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
   }
 }
 

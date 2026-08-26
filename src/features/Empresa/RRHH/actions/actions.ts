@@ -250,7 +250,9 @@ export async function createPosition(position: {
       .limit(1);
 
     if (existingPosition && existingPosition.length > 0) {
-      throw new Error(`Ya existe el puesto "${existingPosition[0].name}".`);
+      // Se devuelve como dato en vez de lanzarlo: Next reemplaza el mensaje de un
+      // Error lanzado en una server action por un texto generico en produccion.
+      return { ok: false as const, error: `Ya existe el puesto "${existingPosition[0].name}".` };
     }
 
     // Primero creamos el puesto
@@ -266,12 +268,12 @@ export async function createPosition(position: {
 
     if (positionError) {
       logger.error('Error creating position', { data: { error: positionError } });
-      throw new Error('Error creating position');
+      return { ok: false as const, error: 'No se pudo crear el puesto. Intente nuevamente.' };
     }
 
     if (!positionData?.id) {
       logger.error('Position ID not found after creation');
-      throw new Error('Position ID not found');
+      return { ok: false as const, error: 'No se pudo crear el puesto. Intente nuevamente.' };
     }
 
     // Luego creamos las relaciones con las aptitudes técnicas
@@ -287,14 +289,14 @@ export async function createPosition(position: {
 
       if (relationError) {
         logger.error('Error creating aptitudes relations', { data: { error: relationError } });
-        throw new Error('Error creating aptitudes relations');
+        return { ok: false as const, error: 'El puesto se creó, pero no se pudieron asignar las aptitudes técnicas.' };
       }
     }
 
-    return positionData;
+    return { ok: true as const, data: positionData };
   } catch (error) {
     logger.error('Error in createPosition', { data: { error } });
-    throw error;
+    return { ok: false as const, error: 'No se pudo crear el puesto. Intente nuevamente.' };
   }
 }
 

@@ -72,13 +72,16 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
     await toast
       .promise(
         async () => {
-          await createWorkshopSector({
+          const result = await createWorkshopSector({
             name: values.name,
             description: values.description || null,
             workshop_id: values.workshop_id,
             is_active: values.is_active!,
             max_capacity: values.max_capacity || null,
           });
+          // El motivo viaja como dato y se relanza aca, ya en el cliente: un Error
+          // lanzado dentro de la server action pierde su mensaje en produccion.
+          if (!result.ok) throw new Error(result.error);
         },
         {
           loading: 'Creando sector...',
