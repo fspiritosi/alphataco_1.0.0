@@ -88,71 +88,76 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
   });
 
   const onSubmit = async (values: z.infer<typeof customerFormSchema>) => {
-    toast.promise(
-      async () => {
-        // Si el cliente está activo, limpiamos los campos de baja
-        if (values.is_active) {
-          values.termination_date = null;
-          values.reason_for_termination = '';
-        }
-
-        if (isEditing) {
-          //Verificar si existe el cuit
-          const { data: customerVerify, error: customerVerifyError } = await supabase
-            .from('customers')
-            .select('name')
-            .eq('cuit', values.cuit)
-            .single();
-
-          if (customerVerify?.name) {
-            throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
+    await toast
+      .promise(
+        async () => {
+          // Si el cliente está activo, limpiamos los campos de baja
+          if (values.is_active) {
+            values.termination_date = null;
+            values.reason_for_termination = '';
           }
-          if (customerVerifyError) {
-            console.error(customerVerifyError);
-            throw new Error('Error al verificar el cuit');
+
+          if (isEditing) {
+            //Verificar si existe el cuit
+            const { data: customerVerify, error: customerVerifyError } = await supabase
+              .from('customers')
+              .select('name')
+              .eq('cuit', values.cuit)
+              .single();
+
+            if (customerVerify?.name) {
+              throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
+            }
+            if (customerVerifyError) {
+              console.error(customerVerifyError);
+              throw new Error('Error al verificar el cuit');
+            }
           }
-        }
 
-        // Preparar los datos para la base de datos
-        const customerData: CustomerDB = {
-          name: values.name,
-          cuit: Number(values.cuit),
-          client_email: values.client_email || null,
-          client_phone: values.client_phone ? Number(values.client_phone) : null,
-          address: values.address || null,
-          is_active: values.is_active,
-          company_id,
-          reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
-          termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
-        };
+          // Preparar los datos para la base de datos
+          const customerData: CustomerDB = {
+            name: values.name,
+            cuit: Number(values.cuit),
+            client_email: values.client_email || null,
+            client_phone: values.client_phone ? Number(values.client_phone) : null,
+            address: values.address || null,
+            is_active: values.is_active,
+            company_id,
+            reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
+            termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
+          };
 
-        if (isEditing && customer) {
-          // Actualizar cliente existente
-          const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
+          if (isEditing && customer) {
+            // Actualizar cliente existente
+            const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
 
-          if (error) throw error;
-          // toast.success('Cliente actualizado correctamente');
-        } else {
-          // Crear nuevo cliente
-          const { error } = await supabase.from('customers').insert([customerData]);
+            if (error) throw error;
+            // toast.success('Cliente actualizado correctamente');
+          } else {
+            // Crear nuevo cliente
+            const { error } = await supabase.from('customers').insert([customerData]);
 
-          if (error) throw error;
-          // toast.success('Cliente creado correctamente');
-        }
+            if (error) throw error;
+            // toast.success('Cliente creado correctamente');
+          }
 
-        // Limpiar el formulario y cerrar el diálogo
-        onSuccess();
-        router.refresh();
-      },
-      {
-        loading: 'Guardando cliente...',
-        success: 'Cliente guardado correctamente',
-        error: (error) => {
-          console.error(error);
-          return error || 'Error al guardar el cliente';
+          // Limpiar el formulario y cerrar el diálogo
+          onSuccess();
+          router.refresh();
         },
-      }
-    );
+        {
+          loading: 'Guardando cliente...',
+          success: 'Cliente guardado correctamente',
+          error: (error) => {
+            console.error(error);
+            return error || 'Error al guardar el cliente';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   // Siempre mostramos el formulario, pero lo deshabilitamos en modo de solo lectura
@@ -327,7 +332,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
         </div>
         {!readOnly && (
           <div className="flex justify-end space-x-4">
-            <Button type="submit" className="bg-gh_orange hover:bg-gh_orange/90">
+            <Button type="submit" className="bg-gh_orange hover:bg-gh_orange/90" disabled={form.formState.isSubmitting}>
               {isEditing ? 'Actualizar Cliente' : 'Crear Cliente'}
             </Button>
           </div>

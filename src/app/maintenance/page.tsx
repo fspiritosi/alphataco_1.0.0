@@ -149,47 +149,52 @@ function GHLoginContent() {
 
   async function onSubmit({ cuil, email, password }: z.infer<typeof formSchema>) {
     const finalEquipmentId = selectedEquipmentId || equipment_id;
-    toast.promise(
-      async () => {
-        if (!finalEquipmentId) {
-          throw new Error('No se ha seleccionado un equipo. Por favor, seleccione un equipo primero.');
-        }
-        if (loginType === 'invitado' && email && password) {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) {
-            throw new Error(handleSupabaseError(error.message));
+    await toast
+      .promise(
+        async () => {
+          if (!finalEquipmentId) {
+            throw new Error('No se ha seleccionado un equipo. Por favor, seleccione un equipo primero.');
           }
-          const companyRes = await getCompanyIdForEquipment(finalEquipmentId);
-          if (companyRes.ok) {
+          if (loginType === 'invitado' && email && password) {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) {
+              throw new Error(handleSupabaseError(error.message));
+            }
+            const companyRes = await getCompanyIdForEquipment(finalEquipmentId);
+            if (companyRes.ok) {
+              // Mantener cookie compatible con el resto del sistema (server actions usan actualComp)
+              cookies.set('actualComp', companyRes.companyId, { expires: 1 / 24 });
+            }
+            router.push(`/maintenance/equipment/${finalEquipmentId}`);
+          } else {
+            const { error: anonError } = await supabase.auth.signInAnonymously();
+            if (anonError) {
+              throw new Error(handleSupabaseError(anonError.message));
+            }
+
+            const res = await completeMaintenanceEmployeeAnonymousSession({
+              cuil: cuil || '',
+              equipmentId: finalEquipmentId,
+            });
+            if (!res.ok) {
+              throw new Error(res.error);
+            }
+
             // Mantener cookie compatible con el resto del sistema (server actions usan actualComp)
-            cookies.set('actualComp', companyRes.companyId, { expires: 1 / 24 });
+            cookies.set('actualComp', res.companyId, { expires: 1 / 24 });
+            router.push(`/maintenance/equipment/${finalEquipmentId}`);
           }
-          router.push(`/maintenance/equipment/${finalEquipmentId}`);
-        } else {
-          const { error: anonError } = await supabase.auth.signInAnonymously();
-          if (anonError) {
-            throw new Error(handleSupabaseError(anonError.message));
-          }
-
-          const res = await completeMaintenanceEmployeeAnonymousSession({
-            cuil: cuil || '',
-            equipmentId: finalEquipmentId,
-          });
-          if (!res.ok) {
-            throw new Error(res.error);
-          }
-
-          // Mantener cookie compatible con el resto del sistema (server actions usan actualComp)
-          cookies.set('actualComp', res.companyId, { expires: 1 / 24 });
-          router.push(`/maintenance/equipment/${finalEquipmentId}`);
+        },
+        {
+          loading: 'Iniciando sesión...',
+          success: 'Sesión iniciada correctamente.',
+          error: (error) => error,
         }
-      },
-      {
-        loading: 'Iniciando sesión...',
-        success: 'Sesión iniciada correctamente.',
-        error: (error) => error,
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   const handleSelection = (type: 'empleado' | 'invitado') => {
@@ -298,7 +303,7 @@ function GHLoginContent() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full text-white">
+                <Button type="submit" className="w-full text-white" disabled={equipmentForm.formState.isSubmitting}>
                   Continuar
                 </Button>
               </form>
@@ -378,7 +383,7 @@ function GHLoginContent() {
                     />
                   </>
                 )}
-                <Button type="submit" className="w-full  text-white">
+                <Button type="submit" className="w-full  text-white" disabled={form.formState.isSubmitting}>
                   <Clipboard className="mr-2 h-4 w-4" /> Acceder al Sistema
                 </Button>
               </form>

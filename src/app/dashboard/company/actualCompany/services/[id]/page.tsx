@@ -44,6 +44,8 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<Item | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  // Bloquea los botones del modal mientras la peticion esta en curso
+  const [isSaving, setIsSaving] = useState(false);
   // const [customers, setCustomers] = useState<any[]>([]);
   // const [customers_services, setCustomerServices] = useState<any[]>([]);
   // const [selectedClient, setSelectedClient] = useState('');
@@ -116,7 +118,9 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     if (editingService) {
+      setIsSaving(true);
       try {
         const updatedFields: UpdatedFields = {};
 
@@ -149,12 +153,16 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
       } catch (error) {
         console.error('Error al actualizar el item:', error);
         toast.error('Error al actualizar el item');
+      } finally {
+        setIsSaving(false);
       }
     }
   };
 
   const handleDeactivateItem = async () => {
+    if (isSaving) return;
     if (editingService) {
+      setIsSaving(true);
       try {
         const newActiveState = !editingService.is_active;
 
@@ -179,6 +187,8 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
       } catch (error) {
         console.error('Error al desactivar el item:', error);
         toast.error('Error al desactivar el item');
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -328,9 +338,17 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
               </SelectContent>
             </Select>
             <div className="flex justify-end space-x-2 mt-4">
-              <Button onClick={handleSave}>Guardar</Button>
-              <Button onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-              <Button onClick={handleDeactivateItem} variant={editingService.is_active ? 'destructive' : 'success'}>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
+              <Button onClick={() => setIsModalOpen(false)} disabled={isSaving}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleDeactivateItem}
+                variant={editingService.is_active ? 'destructive' : 'success'}
+                disabled={isSaving}
+              >
                 {editingService.is_active ? 'Dar de Baja' : 'Dar de Alta'}
               </Button>
             </div>

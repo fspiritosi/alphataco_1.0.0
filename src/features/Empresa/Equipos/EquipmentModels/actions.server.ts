@@ -290,8 +290,37 @@ export async function getEquipmentModelSingleFacet(
 // MUTACIONES — crear y actualizar con Prisma
 // ============================================================================
 
+/**
+ * Verifica si ya existe un modelo con el mismo nombre para la misma marca.
+ * La comparacion ignora mayusculas y espacios sobrantes: para el usuario
+ * "Hiace L2H2" y "hiace l2h2 " son el mismo modelo.
+ *
+ * @param excludeId id a excluir de la busqueda (al editar, el propio registro)
+ */
+async function findDuplicateEquipmentModel(name: string, brand: number, excludeId?: number) {
+  return prisma.model_vehicles.findFirst({
+    where: {
+      brand,
+      name: { equals: name.trim(), mode: 'insensitive' },
+      ...(excludeId != null ? { id: { not: excludeId } } : {}),
+    },
+    select: { id: true, name: true, is_active: true },
+  });
+}
+
 export async function createEquipmentModelPrisma(data: { name: string; brand: number; is_active: boolean }) {
   try {
+    // Guarda contra duplicados: el alta se rechaza con un mensaje claro en vez de
+    // crear una segunda fila identica (ticket 616).
+    const duplicate = await findDuplicateEquipmentModel(data.name, data.brand);
+    if (duplicate) {
+      throw new Error(
+        duplicate.is_active
+          ? `Ya existe el modelo "${duplicate.name}" para esta marca.`
+          : `Ya existe el modelo "${duplicate.name}" para esta marca, pero esta inactivo. Reactivalo en lugar de crear uno nuevo.`
+      );
+    }
+
     const result = await prisma.model_vehicles.create({
       data: {
         name: data.name,
@@ -310,6 +339,8 @@ export async function createEquipmentModelPrisma(data: { name: string; brand: nu
     return result;
   } catch (error) {
     logger.error('Error al crear modelo de equipo', { data: { error } });
+    // Los errores de validacion ya traen un mensaje pensado para el usuario
+    if (error instanceof Error && error.message.startsWith('Ya existe')) throw error;
     throw new Error('No se pudo crear el modelo. Intente nuevamente.');
   }
 }
@@ -321,6 +352,11 @@ export async function updateEquipmentModelPrisma(data: {
   is_active: boolean;
 }) {
   try {
+    const duplicate = await findDuplicateEquipmentModel(data.name, data.brand, data.id);
+    if (duplicate) {
+      throw new Error(`Ya existe el modelo "${duplicate.name}" para esta marca.`);
+    }
+
     const result = await prisma.model_vehicles.update({
       where: { id: data.id },
       data: {
@@ -340,6 +376,7 @@ export async function updateEquipmentModelPrisma(data: {
     return result;
   } catch (error) {
     logger.error('Error al actualizar modelo de equipo', { data: { error } });
+    if (error instanceof Error && error.message.startsWith('Ya existe')) throw error;
     throw new Error('No se pudo actualizar el modelo. Intente nuevamente.');
   }
 }

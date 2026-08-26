@@ -94,46 +94,56 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
   }, [editingContractType, reset]);
 
   const onSubmit = async (values: z.infer<typeof ContractTypeSchema>) => {
-    toast.promise(
-      async () => {
-        await createContractType({ description: values.description, name: values.name });
-      },
-      {
-        loading: 'Creando tipo de contrato...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Tipo de contrato creado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await createContractType({ description: values.description, name: values.name });
         },
-        error: () => {
-          return 'Error al crear el tipo de contrato';
-        },
-      }
-    );
+        {
+          loading: 'Creando tipo de contrato...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Tipo de contrato creado correctamente';
+          },
+          error: () => {
+            return 'Error al crear el tipo de contrato';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onUpdate = async (values: z.infer<typeof ContractTypeSchema>) => {
-    toast.promise(
-      async () => {
-        await updateContractType({
-          id: values.id!,
-          name: values.name,
-          description: values.description,
-          is_active: values.is_active === 'true' ? true : false,
-        });
-      },
-      {
-        loading: 'Actualizando tipo de contrato...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Tipo de contrato actualizado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await updateContractType({
+            id: values.id!,
+            name: values.name,
+            description: values.description,
+            is_active: values.is_active === 'true' ? true : false,
+          });
         },
-        error: () => {
-          return 'Error al actualizar el tipo de contrato';
-        },
-      }
-    );
+        {
+          loading: 'Actualizando tipo de contrato...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Tipo de contrato actualizado correctamente';
+          },
+          error: () => {
+            return 'Error al actualizar el tipo de contrato';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const handleSubmit = async (values: z.infer<typeof ContractTypeSchema>) => {
@@ -274,7 +284,7 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
         />
 
         <div className="flex gap-2 mt-6">
-          <Button variant="gh_orange" type="submit">
+          <Button variant="gh_orange" type="submit" disabled={form.formState.isSubmitting}>
             {isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (

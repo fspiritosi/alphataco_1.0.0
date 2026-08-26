@@ -82,94 +82,103 @@ function AddCompanyDocumentForm({
   const [file, setFile] = useState<File | undefined>(undefined);
 
   async function onSubmit(data: z.infer<typeof FormSchema>) {
-    toast.promise(
-      async () => {
-        if (!companyId) throw new Error('No se pudo identificar la empresa actual');
+    await toast
+      .promise(
+        async () => {
+          if (!companyId) throw new Error('No se pudo identificar la empresa actual');
 
-        const supabase = supabaseBrowser();
+          const supabase = supabaseBrowser();
 
-        // Fallback: obtener userId de supabase auth si el store no lo tiene
-        let userId = user;
-        if (!userId) {
-          const {
-            data: { user: authUser },
-          } = await supabase.auth.getUser();
-          userId = authUser?.id;
-        }
-        if (!userId) throw new Error('No se pudo identificar el usuario actual');
+          // Fallback: obtener userId de supabase auth si el store no lo tiene
+          let userId = user;
+          if (!userId) {
+            const {
+              data: { user: authUser },
+            } = await supabase.auth.getUser();
+            userId = authUser?.id;
+          }
+          if (!userId) throw new Error('No se pudo identificar el usuario actual');
 
-        // Obtener datos de la empresa del store o de la BD si el store no está hidratado
-        let companyName = actualCompany?.company_name;
-        let companyCuit = actualCompany?.company_cuit;
-        if (!companyName || !companyCuit) {
-          const { data: companyData } = await supabase
-            .from('company')
-            .select('company_name, company_cuit')
-            .eq('id', companyId)
-            .single();
-          companyName = companyData?.company_name ?? companyName ?? 'empresa';
-          companyCuit = companyData?.company_cuit ?? companyCuit ?? 'sin-cuit';
-        }
-        const companyFolder = `${companyName.toLowerCase().replace(/ /g, '-')}-(${companyCuit})`;
+          // Obtener datos de la empresa del store o de la BD si el store no está hidratado
+          let companyName = actualCompany?.company_name;
+          let companyCuit = actualCompany?.company_cuit;
+          if (!companyName || !companyCuit) {
+            const { data: companyData } = await supabase
+              .from('company')
+              .select('company_name, company_cuit')
+              .eq('id', companyId)
+              .single();
+            companyName = companyData?.company_name ?? companyName ?? 'empresa';
+            companyCuit = companyData?.company_cuit ?? companyCuit ?? 'sin-cuit';
+          }
+          const companyFolder = `${companyName.toLowerCase().replace(/ /g, '-')}-(${companyCuit})`;
 
-        const formatedDocumentTypeName = formatDocumentTypeName(documentForId?.name || '');
-        const hasExpiredDate = data.validity?.replace(/\//g, '-') ?? 'v0';
-        const { data: DuplicatedDocument } = await supabase.storage
-          .from('document-files')
-          .list(`${companyFolder}/empresa`, {
-            search: `${formatedDocumentTypeName}-(${hasExpiredDate})`,
-          });
-        if (DuplicatedDocument?.length && DuplicatedDocument?.length > 0) {
-          throw new Error('Este documento ya se encuentra subido');
-        }
-        const fileExtension = data.file.split('.').pop();
-        if (!file) throw new Error('No se ha subido el archivo');
-        await supabase.storage
-          .from('document-files')
-          .upload(`/${companyFolder}/empresa/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`, file, {
-            cacheControl: '3600',
-            upsert: false,
-          })
-          .then(async (response) => {
-            const { file, ...rest } = data;
-            const allData = {
-              ...rest,
-              // Acepta DD/MM/YYYY, YYYY-MM-DD o DD-MM-YYYY; siempre persiste como DD/MM/YYYY
-              // para mantener consistencia con la convencion del proyecto (validity es String en BD).
-              validity: data.validity
-                ? moment(data.validity, ['DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'], true).format('DD/MM/YYYY')
-                : null,
-              user_id: userId,
-              created_at: new Date().toISOString(),
-              state: 'presentado',
-              document_path: response.data?.path,
-            };
+          const formatedDocumentTypeName = formatDocumentTypeName(documentForId?.name || '');
+          const hasExpiredDate = data.validity?.replace(/\//g, '-') ?? 'v0';
+          const { data: DuplicatedDocument } = await supabase.storage
+            .from('document-files')
+            .list(`${companyFolder}/empresa`, {
+              search: `${formatedDocumentTypeName}-(${hasExpiredDate})`,
+            });
+          if (DuplicatedDocument?.length && DuplicatedDocument?.length > 0) {
+            throw new Error('Este documento ya se encuentra subido');
+          }
+          const fileExtension = data.file.split('.').pop();
+          if (!file) throw new Error('No se ha subido el archivo');
+          await supabase.storage
+            .from('document-files')
+            .upload(
+              `/${companyFolder}/empresa/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`,
+              file,
+              {
+                cacheControl: '3600',
+                upsert: false,
+              }
+            )
+            .then(async (response) => {
+              const { file, ...rest } = data;
+              const allData = {
+                ...rest,
+                // Acepta DD/MM/YYYY, YYYY-MM-DD o DD-MM-YYYY; siempre persiste como DD/MM/YYYY
+                // para mantener consistencia con la convencion del proyecto (validity es String en BD).
+                validity: data.validity
+                  ? moment(data.validity, ['DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'], true).format('DD/MM/YYYY')
+                  : null,
+                user_id: userId,
+                created_at: new Date().toISOString(),
+                state: 'presentado',
+                document_path: response.data?.path,
+              };
 
-            const { error } = await supabase
-              .from('documents_company')
-              .update(allData as any)
-              .eq('applies', companyId)
-              .eq('id_document_types', documentId);
+              const { error } = await supabase
+                .from('documents_company')
+                .update(allData as any)
+                .eq('applies', companyId)
+                .eq('id_document_types', documentId);
 
-            if (error) {
-              await supabase.storage.from('document-files').remove([response.data?.path || '']);
-              throw error;
-            }
-            fetchDocuments();
-            router.refresh();
-          });
-      },
-      {
-        loading: 'Subiendo documento',
-        success: () => {
-          document.getElementById('cerrar-modal-company-document')?.click();
-          return 'Documento subido con exito';
+              if (error) {
+                await supabase.storage.from('document-files').remove([response.data?.path || '']);
+                throw error;
+              }
+              fetchDocuments();
+              router.refresh();
+            });
         },
-        error: (error) => {
-          return error instanceof Error ? error.message : String(error);
-        },
-      }
-    );
+        {
+          loading: 'Subiendo documento',
+          success: () => {
+            document.getElementById('cerrar-modal-company-document')?.click();
+            return 'Documento subido con exito';
+          },
+          error: (error) => {
+            return error instanceof Error ? error.message : String(error);
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   return documentIsUploaded ? (
@@ -289,7 +298,9 @@ function AddCompanyDocumentForm({
             )}
             <div className="flex justify-end gap-4">
               <AlertDialogCancel id="cerrar-modal-company-document">Cancelar</AlertDialogCancel>
-              <Button type="submit">Subir</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                Subir
+              </Button>
             </div>
           </form>
         </Form>

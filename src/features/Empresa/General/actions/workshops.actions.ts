@@ -244,6 +244,19 @@ export async function createWorkshopSector(sector: {
 }) {
   const supabase = await supabaseServer();
 
+  // Guarda contra duplicados dentro del mismo taller: repetir el alta del mismo
+  // sector creaba una segunda fila identica sin ningun aviso (ticket 616).
+  const { data: existing } = await supabase
+    .from('workshop_sectors')
+    .select('id, name')
+    .eq('workshop_id', sector.workshop_id)
+    .ilike('name', sector.name.trim())
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    throw new Error(`Ya existe el sector "${existing[0].name}" en este taller.`);
+  }
+
   const { data, error } = await supabase.from('workshop_sectors').insert(sector).select().single();
 
   if (error) {

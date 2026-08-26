@@ -150,7 +150,9 @@ function MensureUnitsForm({ selectedUnit, setSelectedUnit, mode, setMode }: Mens
           />
 
           <div className="flex gap-2">
-            <Button type="submit">{mode === 'create' ? 'Crear' : 'Actualizar'}</Button>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {mode === 'create' ? 'Crear' : 'Actualizar'}
+            </Button>
             {mode === 'edit' && (
               <Button type="button" variant="outline" onClick={handleCancel}>
                 Cancelar

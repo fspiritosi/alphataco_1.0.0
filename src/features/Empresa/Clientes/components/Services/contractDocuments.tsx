@@ -41,6 +41,8 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
   const supabase = createClientComponentClient();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedFile, setSelectedFile] = useState<Document | null>(null);
+  // Bloquea el boton de eliminar mientras la peticion esta en curso
+  const [isDeleting, setIsDeleting] = useState(false);
   const [docType, setDocType] = useState<string>('Contrato');
   const [docDescription, setDocDescription] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -207,8 +209,9 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
   };
 
   const confirmDelete = async () => {
-    if (!documentToDelete) return;
+    if (!documentToDelete || isDeleting) return;
 
+    setIsDeleting(true);
     try {
       const {
         data: { session },
@@ -233,6 +236,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
         variant: 'destructive',
       });
     } finally {
+      setIsDeleting(false);
       setDeleteConfirmOpen(false);
       setDocumentToDelete(null);
     }
@@ -634,11 +638,11 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Eliminar
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -224,7 +224,7 @@ function MaintenanceGroupForm({ group, types, mode, setMode }: MaintenanceGroupF
         />
 
         <div className="flex gap-2 mt-6">
-          <Button variant="gh_orange" type="submit">
+          <Button variant="gh_orange" type="submit" disabled={form.formState.isSubmitting}>
             {mode === 'edit' ? 'Editar' : 'Crear'}
           </Button>
           {mode === 'edit' ? (

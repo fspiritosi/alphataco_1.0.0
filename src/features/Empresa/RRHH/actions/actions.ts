@@ -241,6 +241,18 @@ export async function createPosition(position: {
   const supabase = await supabaseServer();
 
   try {
+    // Guarda contra duplicados: repetir el alta del mismo puesto (por doble click o
+    // por volver a cargarlo mas tarde) creaba una segunda fila identica (ticket 616).
+    const { data: existingPosition } = await supabase
+      .from('company_positions')
+      .select('id, name')
+      .ilike('name', position.name.trim())
+      .limit(1);
+
+    if (existingPosition && existingPosition.length > 0) {
+      throw new Error(`Ya existe el puesto "${existingPosition[0].name}".`);
+    }
+
     // Primero creamos el puesto
     const { data: positionData, error: positionError } = await supabase
       .from('company_positions')

@@ -116,7 +116,8 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         setMode('create');
       }
     } catch (error) {
-      toast.error('Error al crear o actualizar la posición');
+      // El mensaje del servidor (ej: puesto duplicado) tiene que llegar al usuario
+      toast.error(error instanceof Error ? error.message : 'Error al crear o actualizar la posición');
       logger.error('Error al crear o actualizar la posición', { data: { error } });
     }
   };
@@ -299,7 +300,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         />
 
         <div className="flex gap-2 mt-6">
-          <Button variant="gh_orange" type="submit">
+          <Button variant="gh_orange" type="submit" disabled={form.formState.isSubmitting}>
             {mode === 'edit' ? 'Actualizar' : 'Crear'}
           </Button>
           {mode === 'edit' ? (

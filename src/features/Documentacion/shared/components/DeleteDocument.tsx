@@ -43,71 +43,76 @@ export default function DeleteDocument({
   const router = useRouter();
 
   async function onSubmit(filename: z.infer<typeof FormSchema>) {
-    toast.promise(
-      async () => {
-        if (!documentName) return;
+    await toast
+      .promise(
+        async () => {
+          if (!documentName) return;
 
-        await supabase.storage
-          .from('document-files')
-          .remove([documentName])
-          .then(async () => {
-            if (resource === 'employee') {
-              const { data, error } = await supabase
-                .from('documents_employees')
-                .update({
-                  validity: null,
-                  document_path: null,
-                  state: 'pendiente',
-                  period: null,
-                })
-                .eq('document_path', documentName);
-              if (error) {
-                throw new Error(handleSupabaseError(error.message));
+          await supabase.storage
+            .from('document-files')
+            .remove([documentName])
+            .then(async () => {
+              if (resource === 'employee') {
+                const { data, error } = await supabase
+                  .from('documents_employees')
+                  .update({
+                    validity: null,
+                    document_path: null,
+                    state: 'pendiente',
+                    period: null,
+                  })
+                  .eq('document_path', documentName);
+                if (error) {
+                  throw new Error(handleSupabaseError(error.message));
+                }
+              } else if (resource === 'vehicle') {
+                const { data, error } = await supabase
+                  .from('documents_equipment')
+                  .update({
+                    validity: null,
+                    document_path: null,
+                    state: 'pendiente',
+                    period: null,
+                  })
+                  .eq('document_path', documentName);
+                if (error) {
+                  throw new Error(handleSupabaseError(error.message));
+                }
+              } else {
+                const { data, error } = await supabase
+                  .from('documents_company')
+                  .update({
+                    validity: null,
+                    document_path: null,
+                    state: 'pendiente',
+                    period: null,
+                    user_id: null,
+                  })
+                  .eq('document_path', documentName);
+                if (error) {
+                  throw new Error(handleSupabaseError(error.message));
+                }
               }
-            } else if (resource === 'vehicle') {
-              const { data, error } = await supabase
-                .from('documents_equipment')
-                .update({
-                  validity: null,
-                  document_path: null,
-                  state: 'pendiente',
-                  period: null,
-                })
-                .eq('document_path', documentName);
-              if (error) {
-                throw new Error(handleSupabaseError(error.message));
-              }
-            } else {
-              const { data, error } = await supabase
-                .from('documents_company')
-                .update({
-                  validity: null,
-                  document_path: null,
-                  state: 'pendiente',
-                  period: null,
-                  user_id: null,
-                })
-                .eq('document_path', documentName);
-              if (error) {
-                throw new Error(handleSupabaseError(error.message));
-              }
-            }
-          })
-          .catch((error: any) => {
-            throw new Error(handleSupabaseError(error.message));
-          });
+            })
+            .catch((error: any) => {
+              throw new Error(handleSupabaseError(error.message));
+            });
 
-        router.refresh();
-        setIsOpen(false);
-      },
-      {
-        loading: 'Eliminando...',
-        success: 'Documento eliminado correctamente',
-        error: (error) => {
-          return error;
+          router.refresh();
+          setIsOpen(false);
         },
-      }
-    );
+        {
+          loading: 'Eliminando...',
+          success: 'Documento eliminado correctamente',
+          error: (error) => {
+            return error;
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
   return (
     <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
@@ -151,7 +156,12 @@ export default function DeleteDocument({
                   </FormDescription>
                 </div>
 
-                <Button type="submit" variant="default" className="self-end mt-5">
+                <Button
+                  type="submit"
+                  variant="default"
+                  className="self-end mt-5"
+                  disabled={form.formState.isSubmitting}
+                >
                   Eliminar
                 </Button>
               </div>

@@ -192,6 +192,8 @@ export function RepairTypeForm({
   });
 
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  // Bloquea el boton de eliminar mientras la peticion esta en curso
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: workshopSectors = [] } = useQuery({
     queryKey: ['workshop-sectors-config'],
@@ -200,70 +202,86 @@ export function RepairTypeForm({
   });
 
   const onSubmit = async (data: Repair) => {
-    toast.promise(
-      async () => {
-        try {
+    await toast
+      .promise(
+        async () => {
+          // El error se propaga a proposito: si se traga, el toast anuncia exito
+          // aunque el alta haya fallado (por ejemplo, por nombre duplicado).
           const result = await createTypeOfRepair(data);
           if (result && result.length > 0) {
             await updateRepairTypeSectors(result[0].id, selectedSectors);
           }
           setSelectedSectors([]);
           router.refresh();
-        } catch (error) {
-          logger.error('Error en tipo de reparacion', { data: { error } });
+        },
+        {
+          loading: 'Creando tipo de reparación...',
+          success: 'Tipo de reparación creado con éxito',
+          error: (error) => (error instanceof Error ? error.message : 'Hubo un error al crear el tipo de reparación'),
         }
-      },
-      {
-        loading: 'Creando tipo de reparación...',
-        success: 'Tipo de reparación creado con éxito',
-        error: 'Hubo un error al crear el tipo de reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onUpdate = async (data: Repair) => {
-    toast.promise(
-      async () => {
-        try {
-          await updateTypeOfRepair(data, selectedRepair?.id || '');
-          if (selectedRepair?.id) {
-            await updateRepairTypeSectors(selectedRepair.id, selectedSectors);
+    await toast
+      .promise(
+        async () => {
+          try {
+            await updateTypeOfRepair(data, selectedRepair?.id || '');
+            if (selectedRepair?.id) {
+              await updateRepairTypeSectors(selectedRepair.id, selectedSectors);
+            }
+            router.refresh();
+            setSelectedRepair(null);
+            setSelectedSectors([]);
+            form.reset();
+          } catch (error) {
+            logger.error('Error en tipo de reparacion', { data: { error } });
           }
-          router.refresh();
-          setSelectedRepair(null);
-          setSelectedSectors([]);
-          form.reset();
-        } catch (error) {
-          logger.error('Error en tipo de reparacion', { data: { error } });
+        },
+        {
+          loading: 'Actualizando tipo de reparación...',
+          success: 'Tipo de reparación actualizado con éxito',
+          error: 'Hubo un error al actualizar el tipo de reparación',
         }
-      },
-      {
-        loading: 'Actualizando tipo de reparación...',
-        success: 'Tipo de reparación actualizado con éxito',
-        error: 'Hubo un error al actualizar el tipo de reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onDelete = async (id: string) => {
-    toast.promise(
-      async () => {
-        try {
-          await deleteTypeOfRepair(id);
-          router.refresh();
-          setSelectedRepair(null);
-          setSelectedSectors([]);
-          form.reset();
-        } catch (error) {
-          logger.error('Error en tipo de reparacion', { data: { error } });
+    if (isDeleting) return;
+    setIsDeleting(true);
+    await toast
+      .promise(
+        async () => {
+          try {
+            await deleteTypeOfRepair(id);
+            router.refresh();
+            setSelectedRepair(null);
+            setSelectedSectors([]);
+            form.reset();
+          } catch (error) {
+            logger.error('Error en tipo de reparacion', { data: { error } });
+          }
+        },
+        {
+          loading: 'Eliminando tipo de reparación...',
+          success: 'Tipo de reparación eliminado con éxito',
+          error: 'Hubo un error al eliminar el tipo de reparación',
         }
-      },
-      {
-        loading: 'Eliminando tipo de reparación...',
-        success: 'Tipo de reparación eliminado con éxito',
-        error: 'Hubo un error al eliminar el tipo de reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      })
+      .finally(() => setIsDeleting(false));
   };
 
   const handleModify = (repair: TypeOfRepair) => {
@@ -422,7 +440,9 @@ export function RepairTypeForm({
                 </div>
                 {selectedRepair ? (
                   <div className="flex justify-between mt-4">
-                    <Button type="submit">Actualizar tipo de reparación</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                      Actualizar tipo de reparación
+                    </Button>
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -441,8 +461,13 @@ export function RepairTypeForm({
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction asChild>
-                            <Button variant={'destructive'} type="button" onClick={() => onDelete(selectedRepair.id)}>
-                              Eliminar
+                            <Button
+                              variant={'destructive'}
+                              type="button"
+                              onClick={() => onDelete(selectedRepair.id)}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? 'Eliminando...' : 'Eliminar'}
                             </Button>
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -450,7 +475,7 @@ export function RepairTypeForm({
                     </AlertDialog>
                   </div>
                 ) : (
-                  <Button type="submit" className="mt-4">
+                  <Button type="submit" className="mt-4" disabled={form.formState.isSubmitting}>
                     Crear tipo de reparación
                   </Button>
                 )}

@@ -253,81 +253,86 @@ export default function RepairNewEntryMultiple({
 
   const supabase = supabaseBrowser();
   const createRepair = async () => {
-    toast.promise(
-      async () => {
-        try {
-          // Obtener los IDs de los equipos seleccionados
-          const selectedEquipmentIds = form.getValues('vehicle_id');
+    await toast
+      .promise(
+        async () => {
+          try {
+            // Obtener los IDs de los equipos seleccionados
+            const selectedEquipmentIds = form.getValues('vehicle_id');
 
-          // Crear un array para almacenar todas las reparaciones
-          const data = allRepairs?.map((repair) => ({
-            reparation_type: repair.repair,
-            equipment_id: repair.vehicle_id,
-            user_description: repair.description,
-            user_id,
-            state: 'Pendiente' as const,
-            employee_id,
-            kilometer: repair.kilometer,
-          }));
+            // Crear un array para almacenar todas las reparaciones
+            const data = allRepairs?.map((repair) => ({
+              reparation_type: repair.repair,
+              equipment_id: repair.vehicle_id,
+              user_description: repair.description,
+              user_id,
+              state: 'Pendiente' as const,
+              employee_id,
+              kilometer: repair.kilometer,
+            }));
 
-          // Verificar la criticidad de las reparaciones y actualizar la condición del equipo en la base de datos
-          for (const equipmentId of selectedEquipmentIds) {
-            const repairsForEquipment = data.filter((repair) => repair.equipment_id === equipmentId);
-            const currentEquipmentKilometer = equipment.find((equip) => equip.id === equipmentId)?.kilometer;
+            // Verificar la criticidad de las reparaciones y actualizar la condición del equipo en la base de datos
+            for (const equipmentId of selectedEquipmentIds) {
+              const repairsForEquipment = data.filter((repair) => repair.equipment_id === equipmentId);
+              const currentEquipmentKilometer = equipment.find((equip) => equip.id === equipmentId)?.kilometer;
 
-            const hasHighCriticity = repairsForEquipment.some((e) => {
-              const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.reparation_type);
-              return repair?.criticity === 'Alta';
-            });
+              const hasHighCriticity = repairsForEquipment.some((e) => {
+                const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.reparation_type);
+                return repair?.criticity === 'Alta';
+              });
 
-            const hasMediumCriticity = repairsForEquipment.some((e) => {
-              const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.reparation_type);
-              return repair?.criticity === 'Media';
-            });
+              const hasMediumCriticity = repairsForEquipment.some((e) => {
+                const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.reparation_type);
+                return repair?.criticity === 'Media';
+              });
 
-            const equipmentItem = equipment.find((equip) => equip.id === equipmentId);
-            const condition = equipmentItem?.condition;
+              const equipmentItem = equipment.find((equip) => equip.id === equipmentId);
+              const condition = equipmentItem?.condition;
 
-            if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
-              await supabase
-                .from('vehicles')
-                .update({ condition: 'no operativo', kilometer: currentEquipmentKilometer })
-                .eq('id', equipmentId);
-            } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
-              await supabase
-                .from('vehicles')
-                .update({ condition: 'operativo condicionado', kilometer: currentEquipmentKilometer })
-                .eq('id', equipmentId);
+              if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
+                await supabase
+                  .from('vehicles')
+                  .update({ condition: 'no operativo', kilometer: currentEquipmentKilometer })
+                  .eq('id', equipmentId);
+              } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
+                await supabase
+                  .from('vehicles')
+                  .update({ condition: 'operativo condicionado', kilometer: currentEquipmentKilometer })
+                  .eq('id', equipmentId);
+              }
             }
-          }
 
-          // Enviar las reparaciones a la API
-          // await fetch(`${URL}/api/repair_solicitud`, {
-          //   method: 'POST',
-          //   headers: {
-          //     'Content-Type': 'application/json',
-          //   },
-          //   body: JSON.stringify(data),
-          // });
-          await createRepairSolicitud(data);
+            // Enviar las reparaciones a la API
+            // await fetch(`${URL}/api/repair_solicitud`, {
+            //   method: 'POST',
+            //   headers: {
+            //     'Content-Type': 'application/json',
+            //   },
+            //   body: JSON.stringify(data),
+            // });
+            await createRepairSolicitud(data);
 
-          // Refrescar la página y limpiar el formulario
-          router.refresh();
-          clearForm();
-          setAllRepairs([]);
-          if (employee_id && onReturn) {
-            onReturn();
+            // Refrescar la página y limpiar el formulario
+            router.refresh();
+            clearForm();
+            setAllRepairs([]);
+            if (employee_id && onReturn) {
+              onReturn();
+            }
+          } catch (error) {
+            console.error(error);
           }
-        } catch (error) {
-          console.error(error);
+        },
+        {
+          loading: 'Creando tipo de reparación...',
+          success: 'Tipo de reparación creado con éxito',
+          error: 'Hubo un error al crear el tipo de reparación',
         }
-      },
-      {
-        loading: 'Creando tipo de reparación...',
-        success: 'Tipo de reparación creado con éxito',
-        error: 'Hubo un error al crear el tipo de reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
   const clearForm = () => {
     form.setValue('description', '');
@@ -520,7 +525,7 @@ export default function RepairNewEntryMultiple({
                 </Carousel>
               </div>
               <div className="flex gap-4 mt-2 justify-end pr-4">
-                <Button type="submit" variant={'outline'}>
+                <Button type="submit" variant={'outline'} disabled={form.formState.isSubmitting}>
                   {' '}
                   Agregar reparacion
                 </Button>

@@ -308,7 +308,7 @@ export default function ClientRegister({
 
           <br />
           {action === 'view' && readOnly === true ? null : (
-            <Button type="submit" className="mt-5">
+            <Button type="submit" className="mt-5" disabled={form.formState.isSubmitting}>
               {id ? 'Guardar' : 'Registrar'}
             </Button>
           )}
