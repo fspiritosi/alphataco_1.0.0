@@ -471,33 +471,38 @@ export default function RepairNewEntry({
       return;
     }
 
-    toast.promise(
-      async () => {
-        const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(data.repair!);
+    await toast
+      .promise(
+        async () => {
+          const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(data.repair!);
 
-        // Si se encontró una reparación abierta, lanzar error
-        if (hasOpenRepair) {
-          throw new Error('Ya existe una solicitud abierta para esta reparación');
+          // Si se encontró una reparación abierta, lanzar error
+          if (hasOpenRepair) {
+            throw new Error('Ya existe una solicitud abierta para esta reparación');
+          }
+
+          const dataWithImages = {
+            ...data,
+            repair: data.repair!, // Asegurar que repair es string
+            description: '', // Inicialmente vacío
+            user_images: [null, null, null], // Sin imágenes inicialmente
+            files: [undefined, undefined, undefined], // Sin archivos inicialmente
+            kilometer: data.kilometer,
+          };
+
+          setAllRepairs((prev) => [...prev, dataWithImages]);
+          clearForm();
+        },
+        {
+          loading: 'Agregando reparación...',
+          success: 'Reparación agregada exitosamente',
+          error: (err) => err.message || 'Error al agregar la reparación',
         }
-
-        const dataWithImages = {
-          ...data,
-          repair: data.repair!, // Asegurar que repair es string
-          description: '', // Inicialmente vacío
-          user_images: [null, null, null], // Sin imágenes inicialmente
-          files: [undefined, undefined, undefined], // Sin archivos inicialmente
-          kilometer: data.kilometer,
-        };
-
-        setAllRepairs((prev) => [...prev, dataWithImages]);
-        clearForm();
-      },
-      {
-        loading: 'Agregando reparación...',
-        success: 'Reparación agregada exitosamente',
-        error: (err) => err.message || 'Error al agregar la reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   const [formattedToday] = useState(formatDocumentTypeName(new Date().toISOString()));
@@ -526,119 +531,126 @@ export default function RepairNewEntry({
     return url;
   };
 
-  const createRepair = () => {
+  const createRepair = async () => {
     // La descripción es opcional, no necesitamos validación
 
-    toast.promise(
-      async () => {
-        try {
-          const vehicle_id = equipment?.find(
-            (equip) =>
-              equip?.domain?.toLowerCase() === allRepairs[0]?.domain?.toLowerCase() ||
-              equip?.serie?.toLowerCase() === allRepairs[0]?.domain?.toLowerCase()
-          ); //! OJO si se permiten mas de 1 vehiculo
-          const condition = vehicle_id?.condition;
+    await toast
+      .promise(
+        async () => {
+          try {
+            const vehicle_id = equipment?.find(
+              (equip) =>
+                equip?.domain?.toLowerCase() === allRepairs[0]?.domain?.toLowerCase() ||
+                equip?.serie?.toLowerCase() === allRepairs[0]?.domain?.toLowerCase()
+            ); //! OJO si se permiten mas de 1 vehiculo
+            const condition = vehicle_id?.condition;
 
-          const data = await Promise.all(
-            allRepairs?.map(async (e) => {
-              const user_images = e.files
-                ? await Promise.all(
+            const data = await Promise.all(
+              allRepairs?.map(async (e) => {
+                const user_images = e.files
+                  ? await Promise.all(
+                      e.files
+                        .filter((image) => image)
+                        ?.map((image, index) => formatImages(image, e.domain, e.repair, index))
+                    )
+                  : null;
+
+                return {
+                  reparation_type: e.repair,
+                  equipment_id:
+                    equipment.find((equip) => equip.domain === e.domain)?.id ||
+                    equipment.find((equip) => equip.serie === e.domain)?.id ||
+                    '',
+                  user_description: e.description,
+                  user_id,
+                  user_images: user_images?.filter((img): img is string => img !== undefined) || null,
+                  state: 'Pendiente' as const,
+                  employee_id,
+                  kilometer: e.kilometer,
+                  scheduled: scheduledDate ? scheduledDate.toISOString() : null,
+                };
+              })
+            );
+
+            // Verificar la criticidad de todas las reparaciones
+            const hasHighCriticity = allRepairs.some((e) => {
+              const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.repair);
+              return repair?.criticity === 'Alta';
+            });
+
+            const hasMediumCriticity = allRepairs.some((e) => {
+              const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.repair);
+              return repair?.criticity === 'Media';
+            });
+
+            if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
+              const { data: vehicles, error } = await supabase
+                .from('vehicles')
+                .update({ condition: 'no operativo', kilometer: allRepairs[0].kilometer })
+                .eq('id', vehicle_id?.id || '');
+            } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
+              const { data: vehicles, error } = await supabase
+                .from('vehicles')
+                .update({ condition: 'operativo condicionado', kilometer: allRepairs[0].kilometer })
+                .eq('id', vehicle_id?.id || '');
+            } else {
+              const { data: vehicles, error } = await supabase
+                .from('vehicles')
+                .update({ kilometer: allRepairs[0].kilometer })
+                .eq('id', vehicle_id?.id || '');
+            }
+
+            // await fetch(`${URL}/api/repair_solicitud`, {
+            //   method: 'POST',
+            //   headers: {
+            //     'Content-Type': 'application/json',
+            //   },
+            //   body: JSON.stringify(data),
+            // });
+            await createRepairSolicitud(data);
+
+            // Subir imágenes de forma independiente, si una falla las demás continúan
+            await Promise.all(
+              allRepairs.map(async (e) => {
+                if (e.files) {
+                  await Promise.allSettled(
                     e.files
                       .filter((image) => image)
-                      ?.map((image, index) => formatImages(image, e.domain, e.repair, index))
-                  )
-                : null;
-
-              return {
-                reparation_type: e.repair,
-                equipment_id:
-                  equipment.find((equip) => equip.domain === e.domain)?.id ||
-                  equipment.find((equip) => equip.serie === e.domain)?.id ||
-                  '',
-                user_description: e.description,
-                user_id,
-                user_images: user_images?.filter((img): img is string => img !== undefined) || null,
-                state: 'Pendiente' as const,
-                employee_id,
-                kilometer: e.kilometer,
-                scheduled: scheduledDate ? scheduledDate.toISOString() : null,
-              };
-            })
-          );
-
-          // Verificar la criticidad de todas las reparaciones
-          const hasHighCriticity = allRepairs.some((e) => {
-            const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.repair);
-            return repair?.criticity === 'Alta';
-          });
-
-          const hasMediumCriticity = allRepairs.some((e) => {
-            const repair = tipo_de_mantenimiento.find((repair) => repair.id === e.repair);
-            return repair?.criticity === 'Media';
-          });
-
-          if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
-            const { data: vehicles, error } = await supabase
-              .from('vehicles')
-              .update({ condition: 'no operativo', kilometer: allRepairs[0].kilometer })
-              .eq('id', vehicle_id?.id || '');
-          } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
-            const { data: vehicles, error } = await supabase
-              .from('vehicles')
-              .update({ condition: 'operativo condicionado', kilometer: allRepairs[0].kilometer })
-              .eq('id', vehicle_id?.id || '');
-          } else {
-            const { data: vehicles, error } = await supabase
-              .from('vehicles')
-              .update({ kilometer: allRepairs[0].kilometer })
-              .eq('id', vehicle_id?.id || '');
+                      .map(async (image, index) => {
+                        try {
+                          await formatImagesUrl(image, e.domain, e.repair, index);
+                        } catch (error) {
+                          logger.error(`Error al subir imagen ${index} para reparación ${e.repair}`, {
+                            data: { error },
+                          });
+                          // No lanzamos el error para que las demás imágenes se sigan subiendo
+                        }
+                      })
+                  );
+                }
+              })
+            );
+            router.refresh();
+            clearForm();
+            setAllRepairs([]);
+            if (employee_id && onReturn) {
+              onReturn();
+            }
+          } catch (error) {
+            logger.error('Error al crear reparaciones', { data: { error } });
+            throw error;
           }
-
-          // await fetch(`${URL}/api/repair_solicitud`, {
-          //   method: 'POST',
-          //   headers: {
-          //     'Content-Type': 'application/json',
-          //   },
-          //   body: JSON.stringify(data),
-          // });
-          await createRepairSolicitud(data);
-
-          // Subir imágenes de forma independiente, si una falla las demás continúan
-          await Promise.all(
-            allRepairs.map(async (e) => {
-              if (e.files) {
-                await Promise.allSettled(
-                  e.files
-                    .filter((image) => image)
-                    .map(async (image, index) => {
-                      try {
-                        await formatImagesUrl(image, e.domain, e.repair, index);
-                      } catch (error) {
-                        logger.error(`Error al subir imagen ${index} para reparación ${e.repair}`, { data: { error } });
-                        // No lanzamos el error para que las demás imágenes se sigan subiendo
-                      }
-                    })
-                );
-              }
-            })
-          );
-          router.refresh();
-          clearForm();
-          setAllRepairs([]);
-          if (employee_id && onReturn) {
-            onReturn();
-          }
-        } catch (error) {
-          logger.error('Error al crear reparaciones', { data: { error } });
-          throw error;
+        },
+        {
+          loading: 'Creando tipo de reparación...',
+          success: 'Tipo de reparación creado con éxito',
+          error: 'Hubo un error al crear el tipo de reparación',
         }
-      },
-      {
-        loading: 'Creando tipo de reparación...',
-        success: 'Tipo de reparación creado con éxito',
-        error: 'Hubo un error al crear el tipo de reparación',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const clearForm = () => {
@@ -700,54 +712,59 @@ export default function RepairNewEntry({
     const group = maintenance_groups.find((g) => g.id === selectedGroupId);
     if (!group) return;
 
-    toast.promise(
-      async () => {
-        const groupRepairIds = group.maintenance_group_type_of_repairs.map((r) => r.type_id);
-        const addedRepairIds = allRepairs.map((r) => r.repair);
+    await toast
+      .promise(
+        async () => {
+          const groupRepairIds = group.maintenance_group_type_of_repairs.map((r) => r.type_id);
+          const addedRepairIds = allRepairs.map((r) => r.repair);
 
-        // Filtrar solo las reparaciones que no están ya agregadas
-        const repairsToAdd = groupRepairIds.filter((repairId) => !addedRepairIds.includes(repairId));
+          // Filtrar solo las reparaciones que no están ya agregadas
+          const repairsToAdd = groupRepairIds.filter((repairId) => !addedRepairIds.includes(repairId));
 
-        if (repairsToAdd.length === 0) {
-          throw new Error('Todas las reparaciones de este grupo ya están agregadas');
-        }
-
-        // Verificar duplicados en la base de datos para cada reparación
-        const validRepairs: string[] = [];
-        for (const repairId of repairsToAdd) {
-          const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(repairId);
-          if (!hasOpenRepair) {
-            validRepairs.push(repairId);
+          if (repairsToAdd.length === 0) {
+            throw new Error('Todas las reparaciones de este grupo ya están agregadas');
           }
+
+          // Verificar duplicados en la base de datos para cada reparación
+          const validRepairs: string[] = [];
+          for (const repairId of repairsToAdd) {
+            const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(repairId);
+            if (!hasOpenRepair) {
+              validRepairs.push(repairId);
+            }
+          }
+
+          if (validRepairs.length === 0) {
+            throw new Error('Todas las reparaciones del grupo ya tienen solicitudes abiertas');
+          }
+
+          // Agregar las reparaciones válidas
+          const newRepairs = validRepairs.map((repairId) => ({
+            provicionalId: crypto.randomUUID(),
+            vehicle_id: form.getValues('vehicle_id'),
+            repair: repairId,
+            domain: form.getValues('domain'),
+            description: '',
+            user_images: [null, null, null] as (string | null)[],
+            files: [undefined, undefined, undefined] as (File | undefined)[],
+            kilometer: form.getValues('kilometer'),
+          }));
+
+          setAllRepairs((prev) => [...prev, ...newRepairs]);
+          clearForm();
+
+          return { count: validRepairs.length, groupName: group.name };
+        },
+        {
+          loading: 'Agregando grupo de reparaciones...',
+          success: (result) => `Se agregaron ${result.count} reparaciones del grupo "${result.groupName}"`,
+          error: (err) => err.message || 'Error al agregar el grupo de reparaciones',
         }
-
-        if (validRepairs.length === 0) {
-          throw new Error('Todas las reparaciones del grupo ya tienen solicitudes abiertas');
-        }
-
-        // Agregar las reparaciones válidas
-        const newRepairs = validRepairs.map((repairId) => ({
-          provicionalId: crypto.randomUUID(),
-          vehicle_id: form.getValues('vehicle_id'),
-          repair: repairId,
-          domain: form.getValues('domain'),
-          description: '',
-          user_images: [null, null, null] as (string | null)[],
-          files: [undefined, undefined, undefined] as (File | undefined)[],
-          kilometer: form.getValues('kilometer'),
-        }));
-
-        setAllRepairs((prev) => [...prev, ...newRepairs]);
-        clearForm();
-
-        return { count: validRepairs.length, groupName: group.name };
-      },
-      {
-        loading: 'Agregando grupo de reparaciones...',
-        success: (result) => `Se agregaron ${result.count} reparaciones del grupo "${result.groupName}"`,
-        error: (err) => err.message || 'Error al agregar el grupo de reparaciones',
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const domainOptions = createFilterOptions(
@@ -1021,7 +1038,12 @@ export default function RepairNewEntry({
                   </div>
                 </div>
                 <div className="flex gap-4 mt-4 pt-4 border-t justify-end pr-4 mb-2">
-                  <Button type="submit" variant={'outline'} className="w-full sm:w-auto">
+                  <Button
+                    type="submit"
+                    variant={'outline'}
+                    className="w-full sm:w-auto"
+                    disabled={form.formState.isSubmitting}
+                  >
                     Agregar reparación
                   </Button>
                 </div>

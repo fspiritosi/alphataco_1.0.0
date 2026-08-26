@@ -81,79 +81,84 @@ export default function ReplaceDocument({
           ? 'documents_company'
           : 'documents_equipment';
 
-    toast.promise(
-      async () => {
-        if (!documentName) return;
-        const newExtension = file.name.split('.').pop();
-        let newDocumentName = documentName.split('.')[0];
+    await toast
+      .promise(
+        async () => {
+          if (!documentName) return;
+          const newExtension = file.name.split('.').pop();
+          let newDocumentName = documentName.split('.')[0];
 
-        const dateRegex = /\((\d{2}-\d{2}-\d{4})\)\./;
+          const dateRegex = /\((\d{2}-\d{2}-\d{4})\)\./;
 
-        if (dateRegex.test(documentName)) {
-          const newDate = moment(filename.validity as Date)
-            .format('DD/MM/YYYY')
-            .replaceAll('/', '-');
-          newDocumentName = newDocumentName.replace(dateRegex, `(${newDate})`) + `.${newExtension}`;
-        } else {
-          newDocumentName = newDocumentName + `.${newExtension}`;
-        }
+          if (dateRegex.test(documentName)) {
+            const newDate = moment(filename.validity as Date)
+              .format('DD/MM/YYYY')
+              .replaceAll('/', '-');
+            newDocumentName = newDocumentName.replace(dateRegex, `(${newDate})`) + `.${newExtension}`;
+          } else {
+            newDocumentName = newDocumentName + `.${newExtension}`;
+          }
 
-        const { error, data: response } = await supabase.storage.from('document-files').remove([documentName]);
+          const { error, data: response } = await supabase.storage.from('document-files').remove([documentName]);
 
-        const { data: respons2e } = await supabase.storage
-          .from('document-files')
-          .list(documentName?.split('/')?.slice(0, 2).join('/'), {
-            search: `/${documentName?.split('/')?.slice(3).join('/').split('.')[0]}`,
-          });
+          const { data: respons2e } = await supabase.storage
+            .from('document-files')
+            .list(documentName?.split('/')?.slice(0, 2).join('/'), {
+              search: `/${documentName?.split('/')?.slice(3).join('/').split('.')[0]}`,
+            });
 
-        if (error) {
-          logger.error('Error al eliminar documento anterior', { data: { error } });
-          throw new Error(handleSupabaseError(error.message));
-        }
+          if (error) {
+            logger.error('Error al eliminar documento anterior', { data: { error } });
+            throw new Error(handleSupabaseError(error.message));
+          }
 
-        const { error: finalerror, data: finalDocument } = await supabase.storage
-          .from('document-files')
-          .upload(newDocumentName, file, {
-            cacheControl: '3600',
-            upsert: true,
-          });
+          const { error: finalerror, data: finalDocument } = await supabase.storage
+            .from('document-files')
+            .upload(newDocumentName, file, {
+              cacheControl: '3600',
+              upsert: true,
+            });
 
-        const { error: updateError } = await supabase
-          .from(tableName)
-          .update({
-            document_path: finalDocument?.path,
-            validity: filename.validity ? new Date(filename.validity).toISOString() : null,
-            created_at: new Date().toISOString(),
-            // Al reemplazar un documento, resetear el estado a 'presentado' (pendiente de
-            // aprobacion). Sin esto, un documento previamente 'vencido' quedaba pegado en
-            // ese estado aunque la nueva validez fuera futura.
-            state: 'presentado',
-            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
-            archived_at: null,
-          })
-          .eq('id', appliesId || '');
+          const { error: updateError } = await supabase
+            .from(tableName)
+            .update({
+              document_path: finalDocument?.path,
+              validity: filename.validity ? new Date(filename.validity).toISOString() : null,
+              created_at: new Date().toISOString(),
+              // Al reemplazar un documento, resetear el estado a 'presentado' (pendiente de
+              // aprobacion). Sin esto, un documento previamente 'vencido' quedaba pegado en
+              // ese estado aunque la nueva validez fuera futura.
+              state: 'presentado',
+              // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
+              archived_at: null,
+            })
+            .eq('id', appliesId || '');
 
-        if (updateError) {
-          logger.error('Error al actualizar registro del documento', { data: { updateError } });
-          throw new Error(handleSupabaseError(updateError?.message));
-        }
+          if (updateError) {
+            logger.error('Error al actualizar registro del documento', { data: { updateError } });
+            throw new Error(handleSupabaseError(updateError?.message));
+          }
 
-        if (finalerror) {
-          logger.error('Error al subir el nuevo documento', { data: { finalerror } });
-          throw new Error(handleSupabaseError(finalerror?.message));
-        }
+          if (finalerror) {
+            logger.error('Error al subir el nuevo documento', { data: { finalerror } });
+            throw new Error(handleSupabaseError(finalerror?.message));
+          }
 
-        router.refresh();
-        setIsOpen(false);
-      },
-      {
-        loading: 'Reemplazando...',
-        success: 'Documento reemplazado correctamente (puede tardar unos minutos para que se actualice)',
-        error: (error) => {
-          return error;
+          router.refresh();
+          setIsOpen(false);
         },
-      }
-    );
+        {
+          loading: 'Reemplazando...',
+          success: 'Documento reemplazado correctamente (puede tardar unos minutos para que se actualice)',
+          error: (error) => {
+            return error;
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   return (
@@ -298,7 +303,12 @@ export default function ReplaceDocument({
                   </FormDescription>
                 </div>
 
-                <Button type="submit" variant="default" className="self-end mt-5">
+                <Button
+                  type="submit"
+                  variant="default"
+                  className="self-end mt-5"
+                  disabled={form.formState.isSubmitting}
+                >
                   Reemplazar
                 </Button>
               </div>

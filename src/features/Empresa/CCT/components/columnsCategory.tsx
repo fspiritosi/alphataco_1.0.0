@@ -119,92 +119,107 @@ export const columnsCategory: ColumnDef<Colum>[] = [
       });
 
       async function reintegerCategory() {
-        toast.promise(
-          async () => {
-            const supabase = supabaseBrowser();
+        await toast
+          .promise(
+            async () => {
+              const supabase = supabaseBrowser();
 
-            const { data, error } = await supabase
-              .from('category')
-              .update({
-                is_active: true,
-              })
-              .eq('id', category.id)
-              //.eq('company_id', actualCompany?.id)
-              .select();
+              const { data, error } = await supabase
+                .from('category')
+                .update({
+                  is_active: true,
+                })
+                .eq('id', category.id)
+                //.eq('company_id', actualCompany?.id)
+                .select();
 
-            setIntegerModal(!integerModal);
+              setIntegerModal(!integerModal);
 
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-          {
-            loading: 'Reintegrando...',
-            success: `Categoría reintegrada`,
-            error: (error) => {
-              return error;
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+            {
+              loading: 'Reintegrando...',
+              success: `Categoría reintegrada`,
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
 
       async function onSubmit(values: z.infer<typeof formSchema>) {
-        toast.promise(
-          async () => {
-            const data = {
-              ...values,
-              termination_date: format(values.termination_date, 'yyyy-MM-dd'),
-            };
+        await toast
+          .promise(
+            async () => {
+              const data = {
+                ...values,
+                termination_date: format(values.termination_date, 'yyyy-MM-dd'),
+              };
 
-            const supabase = supabaseBrowser();
-            const { error } = await supabase
-              .from('category')
-              .update({
-                is_active: false,
-              })
-              .eq('id', category.id);
+              const supabase = supabaseBrowser();
+              const { error } = await supabase
+                .from('category')
+                .update({
+                  is_active: false,
+                })
+                .eq('id', category.id);
 
-            setShowModal(!showModal);
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-          {
-            loading: 'Eliminando...',
-            success: 'Categoría eliminada',
-            error: (error) => {
-              return error;
+              setShowModal(!showModal);
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+            {
+              loading: 'Eliminando...',
+              success: 'Categoría eliminada',
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
 
       async function editCategory(values: z.infer<typeof editCategorySchema>) {
-        toast.promise(
-          async () => {
-            const supabase = supabaseBrowser();
+        await toast
+          .promise(
+            async () => {
+              const supabase = supabaseBrowser();
 
-            const { data, error } = await supabase
-              .from('category')
-              .update({
-                name: values.category,
-              })
-              .eq('id', category.id)
+              const { data, error } = await supabase
+                .from('category')
+                .update({
+                  name: values.category,
+                })
+                .eq('id', category.id)
 
-              .select();
+                .select();
 
-            setShowCategoryModal(!showCategoryModal);
+              setShowCategoryModal(!showCategoryModal);
 
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
+            },
+            {
+              loading: 'Editando...',
+              success: `Convenio editado`,
+              error: (error) => error.message,
             }
-          },
-          {
-            loading: 'Editando...',
-            success: `Convenio editado`,
-            error: (error) => error.message,
-          }
-        );
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
       const today = new Date();
       const nextMonth = addMonths(new Date(), 1);
@@ -322,7 +337,7 @@ export const columnsCategory: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="destructive" type="submit">
+                          <Button variant="destructive" type="submit" disabled={form.formState.isSubmitting}>
                             Dar de Baja
                           </Button>
                           <DialogClose>Cancelar</DialogClose>
@@ -368,7 +383,7 @@ export const columnsCategory: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="primary" type="submit">
+                          <Button variant="primary" type="submit" disabled={formEditCategory.formState.isSubmitting}>
                             Editar
                           </Button>
                           <DialogClose>Cancelar</DialogClose>

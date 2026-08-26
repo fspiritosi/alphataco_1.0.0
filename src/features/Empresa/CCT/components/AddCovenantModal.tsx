@@ -55,23 +55,40 @@ export default function AddCovenantModal({
     },
   });
   async function onSubmit({ name, company_id, guild_id }: z.infer<typeof formSchema>) {
-    toast.promise(
-      async () => {
-        const { data, error } = await supabase
-          .from('covenant')
-          .insert([{ name: name, company_id, guild_id }] as any)
-          .select();
-        if (error) throw new Error(error.message);
-        document.getElementById('close-covenant-modal')?.click();
-        router.refresh();
-        // return { data, error };
-      },
-      {
-        loading: 'Creando convenio...',
-        success: 'Convenio creado exitosamente',
-        error: 'Ocurrio un error al crear el convenio',
-      }
-    );
+    await toast
+      .promise(
+        async () => {
+          // Guarda contra duplicados dentro del mismo sindicato: el mismo numero de
+          // convenio en otro sindicato es valido, repetirlo en este no (ticket 616).
+          const { data: existing } = await supabase
+            .from('covenant')
+            .select('id, name')
+            .eq('guild_id', guild_id ?? '')
+            .ilike('name', name.trim())
+            .limit(1);
+          if (existing && existing.length > 0) {
+            throw new Error(`Ya existe el convenio "${existing[0].name}" en este sindicato.`);
+          }
+
+          const { data, error } = await supabase
+            .from('covenant')
+            .insert([{ name: name, company_id, guild_id }] as any)
+            .select();
+          if (error) throw new Error(error.message);
+          document.getElementById('close-covenant-modal')?.click();
+          router.refresh();
+          // return { data, error };
+        },
+        {
+          loading: 'Creando convenio...',
+          success: 'Convenio creado exitosamente',
+          error: (error) => (error instanceof Error ? error.message : 'Ocurrio un error al crear el convenio'),
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -125,7 +142,9 @@ export default function AddCovenantModal({
                 />
                 <div className="flex justify-end gap-4">
                   <AlertDialogCancel id="close-covenant-modal">Cancelar</AlertDialogCancel>
-                  <Button type="submit">Crear convenio</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                    Crear convenio
+                  </Button>
                 </div>
               </form>
             </Form>

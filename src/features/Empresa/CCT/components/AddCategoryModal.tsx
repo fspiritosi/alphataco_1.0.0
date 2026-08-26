@@ -54,27 +54,46 @@ export default function AddCategoryModal({
     },
   });
   async function onSubmit({ name, covenant_id }: z.infer<typeof formSchema>) {
-    toast.promise(
-      async () => {
-        const { data, error } = await supabase
-          .from('category')
-          .insert([
-            {
-              name: name.slice(0, 1).toUpperCase() + name.slice(1),
-              covenant_id,
-            },
-          ])
-          .select();
-        if (error) throw new Error(error.message);
-        document.getElementById('close-category-modal')?.click();
-        router.refresh();
-      },
-      {
-        loading: 'Creando categoria...',
-        success: 'Categoria creada exitosamente',
-        error: 'Ocurrio un error al crear la categoria',
-      }
-    );
+    await toast
+      .promise(
+        async () => {
+          const normalizedName = name.slice(0, 1).toUpperCase() + name.slice(1);
+
+          // Guarda contra duplicados dentro del mismo convenio: el mismo nombre en
+          // otro convenio es valido, repetirlo en este no (ticket 616).
+          const { data: existing } = await supabase
+            .from('category')
+            .select('id, name')
+            .eq('covenant_id', covenant_id ?? '')
+            .ilike('name', normalizedName.trim())
+            .limit(1);
+          if (existing && existing.length > 0) {
+            throw new Error(`Ya existe la categoría "${existing[0].name}" en este convenio.`);
+          }
+
+          const { data, error } = await supabase
+            .from('category')
+            .insert([
+              {
+                name: normalizedName,
+                covenant_id,
+              },
+            ])
+            .select();
+          if (error) throw new Error(error.message);
+          document.getElementById('close-category-modal')?.click();
+          router.refresh();
+        },
+        {
+          loading: 'Creando categoria...',
+          success: 'Categoria creada exitosamente',
+          error: (error) => (error instanceof Error ? error.message : 'Ocurrio un error al crear la categoria'),
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -127,7 +146,9 @@ export default function AddCategoryModal({
                 />
                 <div className="flex justify-end gap-4">
                   <AlertDialogCancel id="close-category-modal">Cancelar</AlertDialogCancel>
-                  <Button type="submit">Crear categoria</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                    Crear categoria
+                  </Button>
                 </div>
               </form>
             </Form>

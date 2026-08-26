@@ -69,54 +69,65 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
   }, [editingSector, reset]);
 
   const onSubmit = async (values: SectoresFormValues) => {
-    toast.promise(
-      async () => {
-        await createWorkshopSector({
-          name: values.name,
-          description: values.description || null,
-          workshop_id: values.workshop_id,
-          is_active: values.is_active!,
-          max_capacity: values.max_capacity || null,
-        });
-      },
-      {
-        loading: 'Creando sector...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Sector creado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await createWorkshopSector({
+            name: values.name,
+            description: values.description || null,
+            workshop_id: values.workshop_id,
+            is_active: values.is_active!,
+            max_capacity: values.max_capacity || null,
+          });
         },
-        error: () => {
-          return 'Error al crear el sector';
-        },
-      }
-    );
+        {
+          loading: 'Creando sector...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Sector creado correctamente';
+          },
+          error: (error) => {
+            // El mensaje del servidor (ej: sector duplicado) tiene que llegar al usuario
+            return error instanceof Error ? error.message : 'Error al crear el sector';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onUpdate = async (values: SectoresFormValues) => {
-    toast.promise(
-      async () => {
-        await updateWorkshopSector({
-          id: values.id!,
-          name: values.name,
-          description: values.description || null,
-          workshop_id: values.workshop_id,
-          is_active: values.is_active!,
-          max_capacity: values.max_capacity || null,
-        });
-      },
-      {
-        loading: 'Actualizando sector...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Sector actualizado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await updateWorkshopSector({
+            id: values.id!,
+            name: values.name,
+            description: values.description || null,
+            workshop_id: values.workshop_id,
+            is_active: values.is_active!,
+            max_capacity: values.max_capacity || null,
+          });
         },
-        error: () => {
-          return 'Error al actualizar el sector';
-        },
-      }
-    );
+        {
+          loading: 'Actualizando sector...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Sector actualizado correctamente';
+          },
+          error: () => {
+            return 'Error al actualizar el sector';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const handleSubmit = (values: SectoresFormValues) => {
@@ -270,7 +281,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
 
         {/* Botones */}
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant="gh_orange">
+          <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
             {isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (

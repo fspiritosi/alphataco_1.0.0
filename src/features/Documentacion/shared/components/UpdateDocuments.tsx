@@ -67,130 +67,135 @@ export default function UpdateDocuments({
           ? 'documents_company'
           : 'documents_equipment';
 
-    toast.promise(
-      async () => {
-        const versionRegex = /\(v(\d+)\)/;
-        const dateRegex = /\(((\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})[\s\S]*?)\)/;
-        const periodRegex = /\((\d{4}-\d{2})\)/;
+    await toast
+      .promise(
+        async () => {
+          const versionRegex = /\(v(\d+)\)/;
+          const dateRegex = /\(((\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})[\s\S]*?)\)/;
+          const periodRegex = /\((\d{4}-\d{2})\)/;
 
-        let newDocumentName = documentName;
-        const newExtension = file.name.split('.').pop();
+          let newDocumentName = documentName;
+          const newExtension = file.name.split('.').pop();
 
-        if (versionRegex.test(documentName)) {
-          const match = documentName.match(versionRegex);
-          if (match) {
-            const currentVersion = parseInt(match[1], 10);
-            const newVersion = currentVersion + 1;
-            const name = documentName.split('.')[0];
+          if (versionRegex.test(documentName)) {
+            const match = documentName.match(versionRegex);
+            if (match) {
+              const currentVersion = parseInt(match[1], 10);
+              const newVersion = currentVersion + 1;
+              const name = documentName.split('.')[0];
 
-            newDocumentName = name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`;
+              newDocumentName = name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`;
+            }
+          } else if (dateRegex.test(documentName)) {
+            const newDate = moment(filename.validity).format('DD-MM-YYYY');
+
+            // Extraer la parte antes de la extensión y la extensión por separado
+            const parts = documentName.split('.');
+            const baseNameWithoutExt = parts.slice(0, -1).join('.');
+
+            // Reemplazar solo la fecha en el nombre base
+            const newBaseName = baseNameWithoutExt.replace(dateRegex, `(${newDate})`);
+
+            // Construir el nuevo nombre con la nueva extensión
+            newDocumentName = `${newBaseName}.${newExtension}`;
+          } else if (periodRegex.test(documentName)) {
+            const newPeriod = filename.period;
+            newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
           }
-        } else if (dateRegex.test(documentName)) {
-          const newDate = moment(filename.validity).format('DD-MM-YYYY');
 
-          // Extraer la parte antes de la extensión y la extensión por separado
-          const parts = documentName.split('.');
-          const baseNameWithoutExt = parts.slice(0, -1).join('.');
+          if (montly) {
+            const { error: newDocumentError, data } = await supabase.storage
+              .from('document-files')
+              .upload(newDocumentName, file, { upsert: true });
 
-          // Reemplazar solo la fecha en el nombre base
-          const newBaseName = baseNameWithoutExt.replace(dateRegex, `(${newDate})`);
+            const { error: updateError } = await supabase
+              .from(tableName)
+              .update({
+                document_path: data?.path,
+                period: filename.period,
+                created_at: new Date() as any,
+                state: 'presentado',
+              })
+              .eq('document_path', documentName);
 
-          // Construir el nuevo nombre con la nueva extensión
-          newDocumentName = `${newBaseName}.${newExtension}`;
-        } else if (periodRegex.test(documentName)) {
-          const newPeriod = filename.period;
-          newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
-        }
+            if (updateError) {
+              console.error(updateError);
+              throw new Error(handleSupabaseError(updateError.message));
+            }
 
-        if (montly) {
-          const { error: newDocumentError, data } = await supabase.storage
+            if (newDocumentError) {
+              console.error(newDocumentError);
+              throw new Error(handleSupabaseError(newDocumentError.message));
+            }
+            return;
+          }
+
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('document-files')
+            .download(documentName);
+
+          if (downloadError) {
+            console.error(downloadError);
+            throw new Error(handleSupabaseError(downloadError.message));
+          }
+
+          const { error: uploadError, data: finalDocument2 } = await supabase.storage
+            .from('document-files-expired')
+            .upload(documentName, fileData, { upsert: true });
+
+          if (uploadError) {
+            console.error(uploadError);
+            throw new Error(handleSupabaseError(uploadError.message));
+          }
+
+          const { error: deleteError, data: deletedDocument } = await supabase.storage
+            .from('document-files')
+            .remove([documentName]);
+
+          if (deleteError) {
+            console.error(deleteError);
+            throw new Error(handleSupabaseError(deleteError.message));
+          }
+
+          const { error: newDocumentError, data: finalDocument } = await supabase.storage
             .from('document-files')
             .upload(newDocumentName, file, { upsert: true });
 
           const { error: updateError } = await supabase
             .from(tableName)
             .update({
-              document_path: data?.path,
-              period: filename.period,
+              document_path: finalDocument?.path,
+              validity: filename.validity ? new Date(filename.validity).toISOString() : null,
               created_at: new Date() as any,
               state: 'presentado',
             })
-            .eq('document_path', documentName);
+            .eq('id', id);
 
           if (updateError) {
             console.error(updateError);
             throw new Error(handleSupabaseError(updateError.message));
           }
-
           if (newDocumentError) {
             console.error(newDocumentError);
             throw new Error(handleSupabaseError(newDocumentError.message));
           }
-          return;
-        }
 
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from('document-files')
-          .download(documentName);
-
-        if (downloadError) {
-          console.error(downloadError);
-          throw new Error(handleSupabaseError(downloadError.message));
-        }
-
-        const { error: uploadError, data: finalDocument2 } = await supabase.storage
-          .from('document-files-expired')
-          .upload(documentName, fileData, { upsert: true });
-
-        if (uploadError) {
-          console.error(uploadError);
-          throw new Error(handleSupabaseError(uploadError.message));
-        }
-
-        const { error: deleteError, data: deletedDocument } = await supabase.storage
-          .from('document-files')
-          .remove([documentName]);
-
-        if (deleteError) {
-          console.error(deleteError);
-          throw new Error(handleSupabaseError(deleteError.message));
-        }
-
-        const { error: newDocumentError, data: finalDocument } = await supabase.storage
-          .from('document-files')
-          .upload(newDocumentName, file, { upsert: true });
-
-        const { error: updateError } = await supabase
-          .from(tableName)
-          .update({
-            document_path: finalDocument?.path,
-            validity: filename.validity ? new Date(filename.validity).toISOString() : null,
-            created_at: new Date() as any,
-            state: 'presentado',
-          })
-          .eq('id', id);
-
-        if (updateError) {
-          console.error(updateError);
-          throw new Error(handleSupabaseError(updateError.message));
-        }
-        if (newDocumentError) {
-          console.error(newDocumentError);
-          throw new Error(handleSupabaseError(newDocumentError.message));
-        }
-
-        router.refresh();
-        setIsOpen(false);
-      },
-      {
-        loading: 'Renovando...',
-        success: 'Documento renovado correctamente',
-        error: (error) => {
-          console.error(error);
-          return error;
+          router.refresh();
+          setIsOpen(false);
         },
-      }
-    );
+        {
+          loading: 'Renovando...',
+          success: 'Documento renovado correctamente',
+          error: (error) => {
+            console.error(error);
+            return error;
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   return (
@@ -280,7 +285,12 @@ export default function UpdateDocuments({
                   </FormDescription>
                 </div>
 
-                <Button type="submit" variant="default" className="self-end mt-5">
+                <Button
+                  type="submit"
+                  variant="default"
+                  className="self-end mt-5"
+                  disabled={form.formState.isSubmitting}
+                >
                   Renovar
                 </Button>
               </div>

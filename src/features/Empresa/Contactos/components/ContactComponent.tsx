@@ -249,7 +249,7 @@ export default function ContactRegister({ id }: { id: string }) {
               </div>
             </div>
             {action === 'view' ? null : (
-              <Button type="submit" className="mt-5">
+              <Button type="submit" className="mt-5" disabled={form.formState.isSubmitting}>
                 {id ? 'Editar Contacto' : 'Registrar Contacto'}
               </Button>
             )}

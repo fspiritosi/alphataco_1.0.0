@@ -318,8 +318,8 @@ export function RepairEquipmentDialog({ row, tableQueryKey }: RepairEquipmentDia
     router.refresh();
   };
 
-  function onSubmit() {
-    handleSaveChanges();
+  async function onSubmit() {
+    await handleSaveChanges();
   }
 
   const isFinalized = dbState === 'Finalizado' || dbState === 'Cancelado';
@@ -696,8 +696,13 @@ export function RepairEquipmentDialog({ row, tableQueryKey }: RepairEquipmentDia
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            <Button type="submit" form="repair-equipment-form" className="col-span-1">
-              Guardar cambios
+            <Button
+              type="submit"
+              form="repair-equipment-form"
+              className="col-span-1"
+              disabled={form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? 'Guardando...' : 'Guardar cambios'}
             </Button>
             <Button
               variant="destructive"

@@ -140,123 +140,138 @@ export const columnsGuild: ColumnDef<Colum>[] = [
       });
 
       async function reintegerGuild() {
-        toast.promise(
-          async () => {
-            const supabase = supabaseBrowser();
+        await toast
+          .promise(
+            async () => {
+              const supabase = supabaseBrowser();
 
-            const { data, error } = await supabase
-              .from('guild')
-              .update({
-                is_active: true,
-              })
-              .eq('id', guild.id)
-              .eq('company_id', actualCompany?.id || '')
-              .select();
+              const { data, error } = await supabase
+                .from('guild')
+                .update({
+                  is_active: true,
+                })
+                .eq('id', guild.id)
+                .eq('company_id', actualCompany?.id || '')
+                .select();
 
-            setIntegerModal(!integerModal);
+              setIntegerModal(!integerModal);
 
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-          {
-            loading: 'Reintegrando...',
-            success: `Sindicato reintegrado`,
-            error: (error) => {
-              return error;
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+            {
+              loading: 'Reintegrando...',
+              success: `Sindicato reintegrado`,
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
 
       async function onSubmit(values: z.infer<typeof terminationSchema>) {
-        toast.promise(
-          async () => {
-            const data = {
-              ...values,
-              termination_date: format(values.termination_date, 'yyyy-MM-dd'),
-            };
+        await toast
+          .promise(
+            async () => {
+              const data = {
+                ...values,
+                termination_date: format(values.termination_date, 'yyyy-MM-dd'),
+              };
 
-            const supabase = supabaseBrowser();
-            const { error } = await supabase
-              .from('guild')
-              .update({
-                is_active: false,
-              })
-              .eq('id', guild.id)
-              .eq('company_id', actualCompany?.id || '');
+              const supabase = supabaseBrowser();
+              const { error } = await supabase
+                .from('guild')
+                .update({
+                  is_active: false,
+                })
+                .eq('id', guild.id)
+                .eq('company_id', actualCompany?.id || '');
 
-            const { data: covenant, error: covenantError } = await supabase
-              .from('covenant')
-              .select('*')
-              .eq('guild_id', guild.id)
-              // .eq('company_id', actualCompany?.id)
-              .select();
-            const covenantIds = covenant?.map((covenant) => covenant.id);
+              const { data: covenant, error: covenantError } = await supabase
+                .from('covenant')
+                .select('*')
+                .eq('guild_id', guild.id)
+                // .eq('company_id', actualCompany?.id)
+                .select();
+              const covenantIds = covenant?.map((covenant) => covenant.id);
 
-            const { error: coveError } = await supabase
-              .from('covenant')
-              .update({
-                is_active: false,
-              })
-              .eq('guild_id', guild.id)
-              // .eq('company_id', actualCompany?.id)
-              .select();
+              const { error: coveError } = await supabase
+                .from('covenant')
+                .update({
+                  is_active: false,
+                })
+                .eq('guild_id', guild.id)
+                // .eq('company_id', actualCompany?.id)
+                .select();
 
-            const { error: categoryError } = await supabase
-              .from('category')
-              .update({
-                is_active: false,
-              })
-              .in('covenant_id', covenantIds || []);
-            // .eq('company_id', actualCompany?.id);
+              const { error: categoryError } = await supabase
+                .from('category')
+                .update({
+                  is_active: false,
+                })
+                .in('covenant_id', covenantIds || []);
+              // .eq('company_id', actualCompany?.id);
 
-            if (categoryError) {
-              throw new Error(handleSupabaseError(categoryError.message));
-            }
+              if (categoryError) {
+                throw new Error(handleSupabaseError(categoryError.message));
+              }
 
-            setShowModal(!showModal);
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-          },
-
-          {
-            loading: 'Eliminando...',
-            success: 'Sindicato eliminado, convenio y categorías eliminados',
-            error: (error) => {
-              return error;
+              setShowModal(!showModal);
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
             },
-          }
-        );
+
+            {
+              loading: 'Eliminando...',
+              success: 'Sindicato eliminado, convenio y categorías eliminados',
+              error: (error) => {
+                return error;
+              },
+            }
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
 
       async function editGuild(values: z.infer<typeof editGuildSchema>) {
-        toast.promise(
-          async () => {
-            const supabase = supabaseBrowser();
+        await toast
+          .promise(
+            async () => {
+              const supabase = supabaseBrowser();
 
-            const { data, error } = await supabase
-              .from('guild')
-              .update({
-                name: values.guild,
-              })
-              .eq('id', guild.id)
-              .eq('company_id', actualCompany?.id || '')
-              .select();
+              const { data, error } = await supabase
+                .from('guild')
+                .update({
+                  name: values.guild,
+                })
+                .eq('id', guild.id)
+                .eq('company_id', actualCompany?.id || '')
+                .select();
 
-            setShowGuildModal(!showGuildModal);
+              setShowGuildModal(!showGuildModal);
 
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
+              if (error) {
+                throw new Error(handleSupabaseError(error.message));
+              }
+            },
+            {
+              loading: 'Editando...',
+              success: `Sindicato editado`,
+              error: (error) => error.message,
             }
-          },
-          {
-            loading: 'Editando...',
-            success: `Sindicato editado`,
-            error: (error) => error.message,
-          }
-        );
+          )
+          .unwrap()
+          .catch(() => {
+            // el error ya se informa en el toast
+          });
       }
       const today = new Date();
       const nextMonth = addMonths(new Date(), 1);
@@ -374,7 +389,7 @@ export const columnsGuild: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="destructive" type="submit">
+                          <Button variant="destructive" type="submit" disabled={formBaja.formState.isSubmitting}>
                             Dar de Baja
                           </Button>
                           <DialogClose>Cancelar</DialogClose>
@@ -420,7 +435,7 @@ export const columnsGuild: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="primary" type="submit">
+                          <Button variant="primary" type="submit" disabled={formEditGuild.formState.isSubmitting}>
                             Editar
                           </Button>
                           <DialogClose>Cancelar</DialogClose>

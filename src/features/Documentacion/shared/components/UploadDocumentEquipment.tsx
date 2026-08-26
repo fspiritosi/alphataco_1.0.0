@@ -423,7 +423,9 @@ function UploadDocumentEquipment({
             >
               Cancelar
             </Button>
-            <Button type="submit">Enviar</Button>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              Enviar
+            </Button>
           </div>
         </form>
       </Form>

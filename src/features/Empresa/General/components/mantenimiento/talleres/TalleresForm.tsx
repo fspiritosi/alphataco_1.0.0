@@ -123,66 +123,76 @@ function TalleresForm() {
   }, [editingWorkshop, reset]);
 
   const onSubmit = async (values: TalleresFormValues) => {
-    toast.promise(
-      async () => {
-        await createWorkshop({
-          name: values.name,
-          type: values.type,
-          address: values.address || null,
-          province: values.province || null,
-          city: values.city || null,
-          latitude: values.latitude || null,
-          longitude: values.longitude || null,
-          provider_name: values.type === 'externo' ? values.provider_name || null : null,
-          provider_phone: values.type === 'externo' ? values.provider_phone || null : null,
-          provider_email: values.type === 'externo' ? values.provider_email || null : null,
-          is_active: values.is_active!,
-        });
-      },
-      {
-        loading: 'Creando taller...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Taller creado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await createWorkshop({
+            name: values.name,
+            type: values.type,
+            address: values.address || null,
+            province: values.province || null,
+            city: values.city || null,
+            latitude: values.latitude || null,
+            longitude: values.longitude || null,
+            provider_name: values.type === 'externo' ? values.provider_name || null : null,
+            provider_phone: values.type === 'externo' ? values.provider_phone || null : null,
+            provider_email: values.type === 'externo' ? values.provider_email || null : null,
+            is_active: values.is_active!,
+          });
         },
-        error: () => {
-          return 'Error al crear el taller';
-        },
-      }
-    );
+        {
+          loading: 'Creando taller...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Taller creado correctamente';
+          },
+          error: () => {
+            return 'Error al crear el taller';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const onUpdate = async (values: TalleresFormValues) => {
-    toast.promise(
-      async () => {
-        await updateWorkshop({
-          id: values.id!,
-          name: values.name,
-          type: values.type,
-          address: values.address || null,
-          province: values.province || null,
-          city: values.city || null,
-          latitude: values.latitude || null,
-          longitude: values.longitude || null,
-          provider_name: values.type === 'externo' ? values.provider_name || null : null,
-          provider_phone: values.type === 'externo' ? values.provider_phone || null : null,
-          provider_email: values.type === 'externo' ? values.provider_email || null : null,
-          is_active: values.is_active!,
-        });
-      },
-      {
-        loading: 'Actualizando taller...',
-        success: () => {
-          router.refresh();
-          resetForm();
-          return 'Taller actualizado correctamente';
+    await toast
+      .promise(
+        async () => {
+          await updateWorkshop({
+            id: values.id!,
+            name: values.name,
+            type: values.type,
+            address: values.address || null,
+            province: values.province || null,
+            city: values.city || null,
+            latitude: values.latitude || null,
+            longitude: values.longitude || null,
+            provider_name: values.type === 'externo' ? values.provider_name || null : null,
+            provider_phone: values.type === 'externo' ? values.provider_phone || null : null,
+            provider_email: values.type === 'externo' ? values.provider_email || null : null,
+            is_active: values.is_active!,
+          });
         },
-        error: () => {
-          return 'Error al actualizar el taller';
-        },
-      }
-    );
+        {
+          loading: 'Actualizando taller...',
+          success: () => {
+            router.refresh();
+            resetForm();
+            return 'Taller actualizado correctamente';
+          },
+          error: () => {
+            return 'Error al actualizar el taller';
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   };
 
   const handleSubmit = (values: TalleresFormValues) => {
@@ -493,7 +503,7 @@ function TalleresForm() {
 
         {/* Botones */}
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant="gh_orange">
+          <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
             {isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (

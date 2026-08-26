@@ -161,6 +161,8 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
   const [roleColor, setRoleColor] = useState('#3b82f6');
   const [rolePermissions, setRolePermissions] = useState<Array<{ tabId: string; actionId: string }>>([]);
   const [templateRoleIds, setTemplateRoleIds] = useState<number[]>([]);
+  // Bloquea el boton de importar mientras se cargan los permisos de los roles plantilla
+  const [isImporting, setIsImporting] = useState(false);
   const [manageUsersRole, setManageUsersRole] = useState<RoleWithCount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -303,7 +305,9 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
       toast.error('Error', { description: 'Selecciona al menos un rol para importar permisos' });
       return;
     }
+    if (isImporting) return;
 
+    setIsImporting(true);
     try {
       // Cargar permisos de los roles seleccionados (desde cache local o server)
       const allPermissions = await Promise.all(
@@ -335,6 +339,8 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
     } catch (error) {
       logger.error('Error al importar permisos', { data: { error } });
       toast.error('Error', { description: 'No se pudieron importar los permisos' });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -455,9 +461,17 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
                     />
 
                     {templateRoleIds.length > 0 && (
-                      <Button variant="outline" size="sm" onClick={handleImportPermissions} className="w-full">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleImportPermissions}
+                        className="w-full"
+                        disabled={isImporting}
+                      >
                         <Download className="h-4 w-4 mr-2" />
-                        Importar Permisos ({templateRoleIds.length} rol{templateRoleIds.length > 1 ? 'es' : ''})
+                        {isImporting
+                          ? 'Importando...'
+                          : `Importar Permisos (${templateRoleIds.length} rol${templateRoleIds.length > 1 ? 'es' : ''})`}
                       </Button>
                     )}
                   </div>

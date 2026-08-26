@@ -26,6 +26,8 @@ export default function EditCompanyButton({ defaultImage = null }: EditCompanyBu
   const { uploadImage, loading } = useImageUpload();
   const disabled = false;
   const [imageFile, setImageFile] = useState<File | null>(null);
+  // Bloquea el boton mientras la peticion esta en curso para evitar ediciones duplicadas
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [base64Image, setBase64Image] = useState<string>('');
   const currentCompany = useLoggedUserStore((state) => state.actualCompany);
 
@@ -46,59 +48,67 @@ export default function EditCompanyButton({ defaultImage = null }: EditCompanyBu
   };
 
   const clientAccion = async (formData: FormData) => {
+    if (isSubmitting) return;
     const values = Object.fromEntries(formData.entries());
     const result = await companySchema.safeParseAsync(values);
 
     // Resto del código de validación y manejo de errores...
 
-    toast.promise(
-      async () => {
-        const cuit = formData.get('company_cuit') as string;
+    setIsSubmitting(true);
+    await toast
+      .promise(
+        async () => {
+          const cuit = formData.get('company_cuit') as string;
 
-        // Verificar si se ha seleccionado un archivo de imagen
-        if (imageFile) {
-          const { data } = await supabase.storage.from('logo').list('', { search: cuit });
-          if (data?.length) {
-            data.forEach(async (element: any) => {
-              const extension = element.name.split('.').pop();
-              const { data, error } = await supabase.storage.from('logo').remove([cuit + '.' + extension]);
+          // Verificar si se ha seleccionado un archivo de imagen
+          if (imageFile) {
+            const { data } = await supabase.storage.from('logo').list('', { search: cuit });
+            if (data?.length) {
+              data.forEach(async (element: any) => {
+                const extension = element.name.split('.').pop();
+                const { data, error } = await supabase.storage.from('logo').remove([cuit + '.' + extension]);
+              });
+            }
+            //subir nueva imagen
+            const fileExtension = imageFile?.name.split('.').pop();
+            const renamedFile = new File([imageFile], `${cuit}.${fileExtension}`, {
+              type: `image/${fileExtension?.replace(/\s/g, '')}`,
             });
+            const { error, data: createdLogo } = await supabase.storage
+              .from('logo')
+              .upload(cuit + '.' + fileExtension, renamedFile);
+            if (error) {
+              throw new Error(handleSupabaseError(error.message));
+            }
+            const { data: fullUrl } = supabase.storage.from('logo').getPublicUrl(createdLogo?.path || '');
+            const { data: newLogo, error: dataerror } = await supabase
+              .from('company')
+              .update({ company_logo: fullUrl.publicUrl })
+              .eq('company_cuit', cuit);
+            if (dataerror) {
+              throw new Error(handleSupabaseError(dataerror.message));
+            }
+          } else {
+            // Si no se ha seleccionado un archivo de imagen, solo actualizar la compañía sin URL de imagen
+            const { data, error } = await EditCompany(formData, defaultImage as string);
+            if (error) {
+              throw new Error(handleSupabaseError(error.message));
+            }
           }
-          //subir nueva imagen
-          const fileExtension = imageFile?.name.split('.').pop();
-          const renamedFile = new File([imageFile], `${cuit}.${fileExtension}`, {
-            type: `image/${fileExtension?.replace(/\s/g, '')}`,
-          });
-          const { error, data: createdLogo } = await supabase.storage
-            .from('logo')
-            .upload(cuit + '.' + fileExtension, renamedFile);
-          if (error) {
-            throw new Error(handleSupabaseError(error.message));
-          }
-          const { data: fullUrl } = supabase.storage.from('logo').getPublicUrl(createdLogo?.path || '');
-          const { data: newLogo, error: dataerror } = await supabase
-            .from('company')
-            .update({ company_logo: fullUrl.publicUrl })
-            .eq('company_cuit', cuit);
-          if (dataerror) {
-            throw new Error(handleSupabaseError(dataerror.message));
-          }
-        } else {
-          // Si no se ha seleccionado un archivo de imagen, solo actualizar la compañía sin URL de imagen
-          const { data, error } = await EditCompany(formData, defaultImage as string);
-          if (error) {
-            throw new Error(handleSupabaseError(error.message));
-          }
-        }
-      },
-      {
-        loading: 'Actualiazando Compañía',
-        success: 'Actualización exitosa, algunos cambios pueden tardar unos minutos en reflejarse',
-        error: (error) => {
-          return error;
         },
-      }
-    );
+        {
+          loading: 'Actualiazando Compañía',
+          success: 'Actualización exitosa, algunos cambios pueden tardar unos minutos en reflejarse',
+          error: (error) => {
+            return error;
+          },
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      })
+      .finally(() => setIsSubmitting(false));
     // router.push('/dashboard');
   };
 
@@ -146,8 +156,8 @@ export default function EditCompanyButton({ defaultImage = null }: EditCompanyBu
           )}
         </div>
       </div>
-      <Button type="submit" formAction={(formData) => clientAccion(formData)} className="mt-5">
-        Editar Compañía
+      <Button type="submit" formAction={(formData) => clientAccion(formData)} className="mt-5" disabled={isSubmitting}>
+        {isSubmitting ? 'Guardando...' : 'Editar Compañía'}
       </Button>
     </>
   );

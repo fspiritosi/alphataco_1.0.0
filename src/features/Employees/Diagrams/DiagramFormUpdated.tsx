@@ -64,6 +64,8 @@ function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: Dia
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
+  // Bloquea los botones de alta/actualizacion mientras hay una operacion en curso
+  const [isProcessing, setIsProcessing] = useState(false);
   // Se incrementa al limpiar el formulario para remontar los date pickers (ver resetFormForNextLoad)
   const [datePickersKey, setDatePickersKey] = useState(0);
   // Identifica la carga vigente: si se genera otra mientras una operacion esta en vuelo, el
@@ -244,6 +246,10 @@ function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: Dia
     remainingSuccess: DiagramaToCreate[]
   ) => {
     toast.promise(operation, messages);
+
+    // El boton queda deshabilitado hasta que la BD responde, para no repetir la operacion
+    setIsProcessing(true);
+    operation.finally(() => setIsProcessing(false));
 
     if (remainingErrors.length > 0 || remainingSuccess.length > 0) return;
 
@@ -669,6 +675,7 @@ function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: Dia
                             variant={'success'}
                             size="sm"
                             onClick={() => createDiagram(d)}
+                            disabled={isProcessing}
                             aria-label={`Crear el diagrama del ${formatDayLabel(d)}`}
                           >
                             Crear
@@ -692,7 +699,12 @@ function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: Dia
             </CardContent>
             {succesDiagrams?.length > 1 && (
               <CardFooter className="flex justify-around">
-                <Button type="button" variant={'success'} onClick={() => createAll(succesDiagrams)}>
+                <Button
+                  type="button"
+                  variant={'success'}
+                  onClick={() => createAll(succesDiagrams)}
+                  disabled={isProcessing}
+                >
                   Crear Todos
                 </Button>
                 <Button

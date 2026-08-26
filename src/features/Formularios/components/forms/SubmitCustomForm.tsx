@@ -26,29 +26,34 @@ export function SubmitCustomForm({ campos, fetchAnswers }: Props) {
   const router = useRouter();
 
   async function handleCustomFormSubmit(data: z.infer<typeof FormSchema>) {
-    toast.promise(
-      async () => {
-        const supabase = supabaseBrowser();
-        const { error } = await supabase.from('form_answers').insert({
-          form_id: campos?.[0]?.id,
-          answer: JSON.stringify(data),
-        });
-        if (error) {
-          throw new Error(error.message);
+    await toast
+      .promise(
+        async () => {
+          const supabase = supabaseBrowser();
+          const { error } = await supabase.from('form_answers').insert({
+            form_id: campos?.[0]?.id,
+            answer: JSON.stringify(data),
+          });
+          if (error) {
+            throw new Error(error.message);
+          }
+          if (fetchAnswers) await fetchAnswers();
+        },
+        {
+          loading: 'Guardando...',
+          success: () => {
+            document.getElementById('close-drawer')?.click();
+            return 'Respuesta guardada exitosamente';
+          },
+          error: (error) => {
+            return error;
+          },
         }
-        if (fetchAnswers) await fetchAnswers();
-      },
-      {
-        loading: 'Guardando...',
-        success: () => {
-          document.getElementById('close-drawer')?.click();
-          return 'Respuesta guardada exitosamente';
-        },
-        error: (error) => {
-          return error;
-        },
-      }
-    );
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
 
   return (
@@ -66,7 +71,9 @@ export function SubmitCustomForm({ campos, fetchAnswers }: Props) {
               />
             ))}
           </div>
-          <Button type="submit">Submit</Button>
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            Submit
+          </Button>
         </form>
       </Form>
     </div>

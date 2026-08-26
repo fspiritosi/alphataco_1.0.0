@@ -670,7 +670,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                                 Cancelar
                               </Button>
                             </DialogClose>
-                            <Button type="submit" variant="default">
+                            <Button type="submit" disabled={form.formState.isSubmitting} variant="default">
                               Asignar empleados
                             </Button>
                           </DialogFooter>
@@ -763,7 +763,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                                 Cancelar
                               </Button>
                             </DialogClose>
-                            <Button type="submit" variant="gh_orange">
+                            <Button type="submit" disabled={equipmentForm.formState.isSubmitting} variant="gh_orange">
                               Guardar
                             </Button>
                           </DialogFooter>

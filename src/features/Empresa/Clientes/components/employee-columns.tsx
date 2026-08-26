@@ -401,7 +401,7 @@ export const EmployeesListColumns: ColumnDef<Colum>[] = [
                           )}
                         />
                         <div className="flex gap-4 justify-end">
-                          <Button variant="destructive" type="submit">
+                          <Button variant="destructive" type="submit" disabled={form.formState.isSubmitting}>
                             Eliminar
                           </Button>
                           <DialogClose>Cancelar</DialogClose>

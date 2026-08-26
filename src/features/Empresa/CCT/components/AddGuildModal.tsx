@@ -49,24 +49,42 @@ export default function AddGuildModal({ fromEmployee = false, company_id: propCo
     },
   });
   async function onSubmit({ name, company_id }: z.infer<typeof formSchema>) {
-    toast.promise(
-      async () => {
-        const { data, error } = await supabase
-          .from('guild')
-          .insert([{ name: name.slice(0, 1).toUpperCase() + name.slice(1), company_id }])
-          .select();
-        if (error) throw new Error(error.message);
-        document.getElementById('close-guild-modal')?.click();
-        router.refresh();
+    await toast
+      .promise(
+        async () => {
+          const normalizedName = name.slice(0, 1).toUpperCase() + name.slice(1);
 
-        // return { data, error };
-      },
-      {
-        loading: 'Creando sindicato...',
-        success: 'Sindicato creado exitosamente',
-        error: 'Ocurrio un error al crear el sindicato',
-      }
-    );
+          // Guarda contra duplicados dentro de la misma empresa (ticket 616)
+          const { data: existing } = await supabase
+            .from('guild')
+            .select('id, name')
+            .eq('company_id', company_id ?? '')
+            .ilike('name', normalizedName.trim())
+            .limit(1);
+          if (existing && existing.length > 0) {
+            throw new Error(`Ya existe el sindicato "${existing[0].name}".`);
+          }
+
+          const { data, error } = await supabase
+            .from('guild')
+            .insert([{ name: normalizedName, company_id }])
+            .select();
+          if (error) throw new Error(error.message);
+          document.getElementById('close-guild-modal')?.click();
+          router.refresh();
+
+          // return { data, error };
+        },
+        {
+          loading: 'Creando sindicato...',
+          success: 'Sindicato creado exitosamente',
+          error: (error) => (error instanceof Error ? error.message : 'Ocurrio un error al crear el sindicato'),
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
   }
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -109,7 +127,9 @@ export default function AddGuildModal({ fromEmployee = false, company_id: propCo
                 />
                 <div className="flex justify-end gap-4">
                   <AlertDialogCancel id="close-guild-modal">Cancelar</AlertDialogCancel>
-                  <Button type="submit">Crear sindicato</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting}>
+                    Crear sindicato
+                  </Button>
                 </div>
               </form>
             </Form>

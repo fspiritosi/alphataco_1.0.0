@@ -35,6 +35,8 @@ export function DiagramForm({
   const [duration, setDuration] = useState<number>(0);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
+  // Bloquea los botones de alta/actualizacion mientras hay una peticion en curso
+  const [isProcessing, setIsProcessing] = useState(false);
   const URL = process.env.NEXT_PUBLIC_BASE_URL;
   const router = useRouter();
   useEffect(() => {
@@ -102,18 +104,25 @@ export function DiagramForm({
   //CREA UN SOLO REGISTRO EN LA BASE DE DATOS
   async function createDiagram(values: DiagramaToCreate) {
     const data = values;
-    toast.promise(
-      async () => {
-        const valueToSend = JSON.stringify(values);
-        const response = await fetch(`${URL}/api/employees/diagrams`, { method: 'POST', body: valueToSend });
-        return response;
-      },
-      {
-        loading: 'Cargando...',
-        success: `Se creo la novedad de ${data.employee_name} para el empleado ${data.event_diagram_name} para el día ${data.day}/${data.month}/${data.year}`,
-        error: 'No se pudo crear la novedad',
-      }
-    );
+    setIsProcessing(true);
+    await toast
+      .promise(
+        async () => {
+          const valueToSend = JSON.stringify(values);
+          const response = await fetch(`${URL}/api/employees/diagrams`, { method: 'POST', body: valueToSend });
+          return response;
+        },
+        {
+          loading: 'Cargando...',
+          success: `Se creo la novedad de ${data.employee_name} para el empleado ${data.event_diagram_name} para el día ${data.day}/${data.month}/${data.year}`,
+          error: 'No se pudo crear la novedad',
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
+    setIsProcessing(false);
     // Filtrar el evento específico de succesDiagrams
     setSuccesDiagrams(
       succesDiagrams.filter(
@@ -127,31 +136,34 @@ export function DiagramForm({
     // router.refresh();
   }
   //CREA TODOS LOS REGISTROS EN LA BASE DE DATOS
-  function createAll(data: DiagramaToCreate[]) {
-    data.map((novedad) => {
-      try {
-        createDiagram(novedad);
-        setSuccesDiagrams([]);
-      } catch (error) {}
-    });
+  async function createAll(data: DiagramaToCreate[]) {
+    await Promise.all(data.map((novedad) => createDiagram(novedad).catch(() => {})));
+    setSuccesDiagrams([]);
     // router.refresh();
   }
 
   //ACTUALIZA UN REGISTRO EN LA BASE DE DATOS
   async function updateDiagram(values: ErrorToCreate) {
     const data = values;
-    toast.promise(
-      async () => {
-        const valueToSend = JSON.stringify(values);
-        const response = await fetch(`${URL}/api/employees/diagrams`, { method: 'PUT', body: valueToSend });
-        return response;
-      },
-      {
-        loading: 'Cargando...',
-        success: `Se actualizó la novedad de ${data.employee_name} para el empleado ${data.event_diagram_name} para el día ${data.day}/${data.month}/${data.year}`,
-        error: 'No se pudo actualizar la novedad',
-      }
-    );
+    setIsProcessing(true);
+    await toast
+      .promise(
+        async () => {
+          const valueToSend = JSON.stringify(values);
+          const response = await fetch(`${URL}/api/employees/diagrams`, { method: 'PUT', body: valueToSend });
+          return response;
+        },
+        {
+          loading: 'Cargando...',
+          success: `Se actualizó la novedad de ${data.employee_name} para el empleado ${data.event_diagram_name} para el día ${data.day}/${data.month}/${data.year}`,
+          error: 'No se pudo actualizar la novedad',
+        }
+      )
+      .unwrap()
+      .catch(() => {
+        // el error ya se informa en el toast
+      });
+    setIsProcessing(false);
     // Filtrar el evento específico de succesDiagrams
     setErrorsDiagrams(
       errorsDiagrams.filter(
@@ -167,12 +179,8 @@ export function DiagramForm({
 
   //ACTUALIZA TODOS LOS REGISTROS EN LA BASE DE DATOS
   async function updateAll(data: ErrorToCreate[]) {
-    data.map((novedad) => {
-      try {
-        updateDiagram(novedad);
-        setErrorsDiagrams([]);
-      } catch (error) {}
-    });
+    await Promise.all(data.map((novedad) => updateDiagram(novedad).catch(() => {})));
+    setErrorsDiagrams([]);
     // router.refresh();
   }
   //DESCARTAR UN SOLO REGISTRO DEL ARRAY CORRESPONDIENTE
@@ -440,7 +448,7 @@ export function DiagramForm({
                       <TableCell>{d.event_diagram_name}</TableCell>
                       <TableCell>{d.prev_event}</TableCell>
                       <TableCell className="flex gap-2 justify-around">
-                        <Button variant={'default'} onClick={() => updateDiagram(d)}>
+                        <Button variant={'default'} onClick={() => updateDiagram(d)} disabled={isProcessing}>
                           Actualizar
                         </Button>
                         <Button
@@ -458,7 +466,7 @@ export function DiagramForm({
             </CardContent>
             {errorsDiagrams?.length > 1 && (
               <CardFooter className="flex justify-around">
-                <Button variant={'default'} onClick={() => updateAll(errorsDiagrams)}>
+                <Button variant={'default'} onClick={() => updateAll(errorsDiagrams)} disabled={isProcessing}>
                   Actualizar Todos
                 </Button>
                 <Button variant={'link'} className="font-bold text-red-600" onClick={() => descartarAll('e')}>
@@ -490,7 +498,7 @@ export function DiagramForm({
                         {d.day}/{d.month}/{d.year}
                       </TableCell>
                       <TableCell className="flex gap-2 justify-around">
-                        <Button variant={'success'} onClick={() => createDiagram(d)}>
+                        <Button variant={'success'} onClick={() => createDiagram(d)} disabled={isProcessing}>
                           Crear
                         </Button>
                         <Button
@@ -508,7 +516,7 @@ export function DiagramForm({
             </CardContent>
             {succesDiagrams?.length > 1 && (
               <CardFooter className="flex justify-around">
-                <Button variant={'success'} onClick={() => createAll(succesDiagrams)}>
+                <Button variant={'success'} onClick={() => createAll(succesDiagrams)} disabled={isProcessing}>
                   Crear Todos
                 </Button>
                 <Button variant={'link'} className="font-bold text-red-600" onClick={() => descartarAll('s')}>
