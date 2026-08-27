@@ -13,21 +13,30 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
-import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import {
+  fetchAllEquipmentBasicData,
+  fetchAllOtherEquipmentBasicData,
+} from '@/features/Mantenimiento/actions/equipment-basic';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
+import { ManualRepairsInput, type ManualRepair } from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
+import type { MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   PREVENTIVE_TYPES,
   PREVENTIVE_TYPE_DESCRIPTIONS,
   PREVENTIVE_TYPE_ICONS,
   type PreventiveType,
 } from '@/features/Mantenimiento/shared/preventive-maintenance';
+import { uploadRepairImages } from '@/features/Mantenimiento/shared/utils/uploadRepairImages';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import { conditionLabels } from '@/shared/utils/mappers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Boxes,
   Check,
   CheckCircle,
   ChevronLeft,
@@ -36,17 +45,21 @@ import {
   ClipboardList,
   Info,
   Loader2,
+  Lock,
+  PencilLine,
   Plus,
   Truck,
   User,
   Wrench,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 import {
   createMaintenanceOrderFromDeviations,
   createMaintenanceRequestPendingApproval,
+  createManualMaintenanceRequest,
   getChecklistTemplatesForEquipment,
   getCurrentUserForSupervisorCheck,
   type CreateDeviationFromNuevoPedido,
@@ -60,6 +73,129 @@ const logger = new Logger('NuevoPedidoChecklistForm');
 type Equipment = Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>[number];
 
 type SelectedDeviation = CreateDeviationFromNuevoPedido;
+
+/**
+ * Caminos para crear el pedido:
+ * - checklist:  desde los desvíos de una inspección (el original)
+ * - preventive: programa planificado de mantenimiento
+ * - manual:     carga directa de reparaciones, sin pasar por un checklist (ticket 592)
+ */
+type RequestType = 'checklist' | 'preventive' | 'manual';
+
+/** Orden visual de las tarjetas — lo usa la navegación por flechas del radiogroup */
+const REQUEST_TYPE_ORDER: RequestType[] = ['checklist', 'preventive', 'manual'];
+
+/** Orden visual del paso "Recurso" — lo usa la navegación por flechas */
+const RESOURCE_KIND_ORDER: MaintenanceResourceKind[] = ['vehicle', 'other_equipment'];
+
+interface SelectableCardProps<T extends string> {
+  value: T;
+  /** Orden visual del grupo, para mover el foco con las flechas */
+  order: readonly T[];
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  selected: boolean;
+  onSelect: (value: T) => void;
+  /**
+   * Si viene, la opción queda bloqueada pero SIGUE siendo focusable y navegable
+   * con las flechas. Se usa `aria-disabled` y no `disabled` a propósito: con
+   * `disabled` el control sale del orden de foco y el motivo se vuelve
+   * inalcanzable por teclado y por lector de pantalla.
+   */
+  disabledReason?: string;
+}
+
+/**
+ * Tarjeta seleccionable de un radiogroup.
+ *
+ * Es un `radio` real a nivel de accesibilidad: se alcanza con Tab (solo la
+ * seleccionada está en el orden de tabulación), se mueve con las flechas y se
+ * activa con Enter o Espacio. Antes eran `<Card onClick>` sin foco ni teclado.
+ */
+function SelectableCard<T extends string>({
+  value,
+  order,
+  icon: Icon,
+  title,
+  description,
+  selected,
+  onSelect,
+  disabledReason,
+}: SelectableCardProps<T>) {
+  const isDisabled = Boolean(disabledReason);
+  const reasonId = `${value}-disabled-reason`;
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      // El bloqueo se implementa acá: `aria-disabled` no lo aplica por sí solo
+      if (isDisabled) return;
+      onSelect(value);
+      return;
+    }
+
+    const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+    const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+    if (!forward && !backward) return;
+
+    event.preventDefault();
+    const total = order.length;
+    const nextIndex = (order.indexOf(value) + (forward ? 1 : -1) + total) % total;
+    const nextValue = order[nextIndex];
+    event.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-card-value="${nextValue}"]`)?.focus();
+  };
+
+  return (
+    <Card
+      role="radio"
+      aria-checked={selected}
+      aria-disabled={isDisabled || undefined}
+      aria-describedby={isDisabled ? reasonId : undefined}
+      tabIndex={selected ? 0 : -1}
+      data-card-value={value}
+      onClick={() => !isDisabled && onSelect(value)}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        'transition-colors outline-none',
+        'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        isDisabled ? 'cursor-not-allowed bg-muted/40 opacity-70' : 'cursor-pointer hover:border-primary/50',
+        selected && !isDisabled && 'border-primary bg-primary/5'
+      )}
+    >
+      <CardContent className="p-4 flex items-start gap-3">
+        <Icon aria-hidden="true" className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+        <div className="min-w-0">
+          <p className="font-medium text-sm">{title}</p>
+          <p className="text-xs text-muted-foreground text-pretty">{description}</p>
+          {/* Motivo visible, no tooltip: tiene que poder leerse sin hover */}
+          {isDisabled && (
+            <p id={reasonId} className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground text-pretty">
+              <Lock aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0" />
+              {disabledReason}
+            </p>
+          )}
+        </div>
+        {/* Siempre presente: si se montara solo al seleccionar, la tarjeta cambiaría de layout */}
+        <Check className={cn('h-4 w-4 ml-auto shrink-0 text-primary', !selected && 'invisible')} />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Tarjeta del paso "Tipo de pedido" */
+function RequestTypeCard(props: Omit<SelectableCardProps<RequestType>, 'value' | 'order'> & { type: RequestType }) {
+  const { type, ...rest } = props;
+  return <SelectableCard<RequestType> value={type} order={REQUEST_TYPE_ORDER} {...rest} />;
+}
+
+/** Tarjeta del paso "Recurso" (ticket 596) */
+function ResourceKindCard(
+  props: Omit<SelectableCardProps<MaintenanceResourceKind>, 'value' | 'order'> & { kind: MaintenanceResourceKind }
+) {
+  const { kind, ...rest } = props;
+  return <SelectableCard<MaintenanceResourceKind> value={kind} order={RESOURCE_KIND_ORDER} {...rest} />;
+}
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -92,8 +228,12 @@ export function NuevoPedidoChecklistForm({
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Tipo de recurso (ticket 596): define qué se lista en el selector del paso Equipo
+  const [resourceKind, setResourceKind] = useState<MaintenanceResourceKind>('vehicle');
+  const isOtherEquipment = resourceKind === 'other_equipment';
+
   // Tipo de pedido
-  const [requestType, setRequestType] = useState<'checklist' | 'preventive'>('checklist');
+  const [requestType, setRequestType] = useState<RequestType>('checklist');
   const [selectedPreventiveType, setSelectedPreventiveType] = useState<PreventiveType | ''>('');
   const [preventiveDescription, setPreventiveDescription] = useState<string>('');
 
@@ -115,6 +255,26 @@ export function NuevoPedidoChecklistForm({
   const [deviationComments, setDeviationComments] = useState<Record<string, string>>({});
   const [manualItems, setManualItems] = useState<ManualItem[]>([]);
 
+  // Paso 3 (carga manual): reparaciones cargadas directamente, sin checklist
+  const [manualRepairs, setManualRepairs] = useState<ManualRepair[]>([]);
+
+  // Tipos de reparación para el selector de carga manual
+  const {
+    data: repairTypes = [],
+    isLoading: isLoadingRepairTypes,
+    isError: hasRepairTypesError,
+    refetch: refetchRepairTypes,
+  } = useQuery({
+    queryKey: ['types-of-repairs-for-manual-request'],
+    queryFn: () => fetchAllTypesOfRepairs(),
+    enabled: requestType === 'manual',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleRetryRepairTypes = useCallback(() => {
+    void refetchRepairTypes();
+  }, [refetchRepairTypes]);
+
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
   const [supervisorOpen, setSupervisorOpen] = useState(false);
@@ -123,47 +283,118 @@ export function NuevoPedidoChecklistForm({
     skipSupervisorQuestion ? false : null
   );
 
-  // Equipo seleccionado
+  // Equipamientos (ticket 596). Solo se piden al elegir ese camino.
+  const {
+    data: otherEquipment = [],
+    isLoading: isLoadingOtherEquipment,
+    isError: hasOtherEquipmentError,
+    refetch: refetchOtherEquipment,
+  } = useQuery({
+    queryKey: ['other-equipment-basic'],
+    queryFn: () => fetchAllOtherEquipmentBasicData(),
+    enabled: isOtherEquipment,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /**
+   * Lista normalizada de recursos elegibles.
+   *
+   * Vehículos y equipamientos se identifican distinto (dominio vs número de
+   * serie) y se miden distinto (kilometraje vs solo horómetro). Normalizarlos
+   * acá evita repetir ese condicional en el selector, en la tarjeta de resumen
+   * y en los campos de medición.
+   */
+  const resourceOptions = useMemo(() => {
+    if (isOtherEquipment) {
+      return otherEquipment.map((e) => ({
+        id: e.id,
+        label: e.serial_number || e.intern_number || 'Sin identificar',
+        internNumber: e.intern_number,
+        typeName: e.type_name,
+        subTypeName: e.sub_type_name,
+        unitTypeName: null as string | null,
+        condition: e.condition,
+        kilometer: null as string | null,
+        engineHours: e.engine_hours,
+      }));
+    }
+    return (equipment ?? []).map((e) => ({
+      id: e.id,
+      label: e.domain || e.serie || 'Sin identificar',
+      internNumber: e.intern_number,
+      typeName: e.type_name,
+      subTypeName: e.sub_type_name,
+      unitTypeName: e.types_of_vehicles?.name ?? null,
+      condition: e.condition,
+      kilometer: e.kilometer,
+      engineHours: e.engine_hours,
+    }));
+  }, [isOtherEquipment, otherEquipment, equipment]);
+
+  // Recurso seleccionado
   const selectedEquipment = useMemo(
-    () => equipment?.find((e) => e.id === selectedEquipmentId),
-    [equipment, selectedEquipmentId]
+    () => resourceOptions.find((e) => e.id === selectedEquipmentId),
+    [resourceOptions, selectedEquipmentId]
   );
 
-  // Filtrar equipos por búsqueda
+  // Filtrar por búsqueda (identificador o número interno)
   const filteredEquipment = useMemo(() => {
-    if (!searchTerm) return equipment?.slice(0, 50) || [];
-    return (
-      equipment?.filter((equip) => {
-        const searchValue = searchTerm.toLowerCase();
-        const domain = (equip.domain || '').toLowerCase();
-        const serie = (equip.serie || '').toLowerCase();
-        const internNumber = String(equip.intern_number || '').toLowerCase();
-        return domain.includes(searchValue) || serie.includes(searchValue) || internNumber.includes(searchValue);
-      }) || []
+    if (!searchTerm) return resourceOptions.slice(0, 50);
+    const searchValue = searchTerm.toLowerCase();
+    return resourceOptions.filter(
+      (equip) =>
+        equip.label.toLowerCase().includes(searchValue) ||
+        String(equip.internNumber || '')
+          .toLowerCase()
+          .includes(searchValue)
     );
-  }, [equipment, searchTerm]);
+  }, [resourceOptions, searchTerm]);
 
   // ============================================
   // STEPS DINÁMICOS según requestType
   // ============================================
-  type StepKey = 'equipment' | 'type' | 'items' | 'supervisor' | 'confirm';
+  type StepKey = 'resource' | 'equipment' | 'type' | 'items' | 'supervisor' | 'confirm';
 
+  // El paso 'resource' (ticket 596) define qué se lista en el paso siguiente.
+  // El paso 'type' ya no se llama "Checklist": desde el ticket 592 también permite
+  // mantenimiento preventivo y carga manual.
   const CHECKLIST_STEPS: { key: StepKey; title: string; icon: typeof Truck }[] = [
+    { key: 'resource', title: 'Recurso', icon: Boxes },
     { key: 'equipment', title: 'Equipo', icon: Truck },
-    { key: 'type', title: 'Checklist', icon: ClipboardList },
+    { key: 'type', title: 'Tipo', icon: ClipboardList },
     { key: 'items', title: 'Items', icon: AlertTriangle },
     { key: 'supervisor', title: 'Supervisor', icon: User },
     { key: 'confirm', title: 'Confirmar', icon: CheckCircle },
   ];
 
   const PREVENTIVE_STEPS: { key: StepKey; title: string; icon: typeof Truck }[] = [
+    { key: 'resource', title: 'Recurso', icon: Boxes },
     { key: 'equipment', title: 'Equipo', icon: Truck },
     { key: 'type', title: 'Preventivo', icon: Wrench },
     { key: 'supervisor', title: 'Supervisor', icon: User },
     { key: 'confirm', title: 'Confirmar', icon: CheckCircle },
   ];
 
-  const steps = requestType === 'preventive' ? PREVENTIVE_STEPS : CHECKLIST_STEPS;
+  const MANUAL_STEPS: { key: StepKey; title: string; icon: typeof Truck }[] = [
+    { key: 'resource', title: 'Recurso', icon: Boxes },
+    { key: 'equipment', title: 'Equipo', icon: Truck },
+    { key: 'type', title: 'Tipo', icon: ClipboardList },
+    { key: 'items', title: 'Reparaciones', icon: Wrench },
+    { key: 'supervisor', title: 'Supervisor', icon: User },
+    { key: 'confirm', title: 'Confirmar', icon: CheckCircle },
+  ];
+
+  const allSteps =
+    requestType === 'preventive' ? PREVENTIVE_STEPS : requestType === 'manual' ? MANUAL_STEPS : CHECKLIST_STEPS;
+
+  // Con el equipo ya fijado por prop (flujo QR: se escanea el equipo y se entra
+  // directo), preguntar de qué tipo de recurso se trata no aporta nada — la
+  // respuesta ya está implícita. Ese paso se omite.
+  const steps = useMemo(
+    () => (default_equipment_id ? allSteps.filter((s) => s.key !== 'resource') : allSteps),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [default_equipment_id, requestType]
+  );
   const currentStepKey = steps[currentStep]?.key;
 
   // Query para templates de checklist
@@ -208,21 +439,24 @@ export function NuevoPedidoChecklistForm({
   // ============================================
   const handleSelectEquipment = useCallback(
     (equipId: string) => {
-      const equip = equipment?.find((e) => e.id === equipId);
+      // Se busca en la lista normalizada, no en `equipment`: esta última solo
+      // tiene vehículos y dejaría sin efecto la selección de un equipamiento.
+      const equip = resourceOptions.find((e) => e.id === equipId);
       if (equip) {
         setSelectedEquipmentId(equip.id);
         setKilometer(equip.kilometer || '');
-        setEngineHours(equip.engine_hours || '');
+        setEngineHours(equip.engineHours || '');
         // Reset estados posteriores
         setSelectedTemplateId('');
         setSelectedDeviations([]);
         setDeviationComments({});
         setManualItems([]);
+        setManualRepairs([]);
         setSelectedSupervisorId('');
       }
       setEquipmentOpen(false);
     },
-    [equipment]
+    [resourceOptions]
   );
 
   const handleSelectTemplate = useCallback((templateId: string) => {
@@ -272,8 +506,35 @@ export function NuevoPedidoChecklistForm({
     );
   }, []);
 
+  /**
+   * Cambia entre equipo y equipamiento (ticket 596).
+   *
+   * Descarta la selección de recurso: el equipo elegido no existe en la otra
+   * lista, así que arrastrarlo dejaría el wizard en un estado inconsistente.
+   * Y si el camino era "Checklist" —que los equipamientos no tienen— se mueve
+   * la selección a una opción válida, para que el radiogroup nunca quede
+   * anclado en una tarjeta bloqueada.
+   */
+  const handleChangeResourceKind = useCallback((kind: MaintenanceResourceKind) => {
+    setResourceKind((current) => {
+      if (current === kind) return current;
+      setSelectedEquipmentId('');
+      setKilometer('');
+      setEngineHours('');
+      setSearchTerm('');
+      setSelectedTemplateId('');
+      setSelectedDeviations([]);
+      setDeviationComments({});
+      setManualItems([]);
+      if (kind === 'other_equipment') {
+        setRequestType((type) => (type === 'checklist' ? 'manual' : type));
+      }
+      return kind;
+    });
+  }, []);
+
   const handleChangeRequestType = useCallback(
-    (type: 'checklist' | 'preventive') => {
+    (type: RequestType) => {
       if (type === requestType) return;
       setRequestType(type);
       setSelectedTemplateId('');
@@ -282,6 +543,7 @@ export function NuevoPedidoChecklistForm({
       setSelectedDeviations([]);
       setDeviationComments({});
       setManualItems([]);
+      setManualRepairs([]);
       setSelectedSupervisorId('');
       setIsCurrentUserSupervisor(null);
     },
@@ -302,6 +564,10 @@ export function NuevoPedidoChecklistForm({
     }
     if (requestType === 'preventive' && !selectedPreventiveType) {
       toast.error('Debes seleccionar un programa de mantenimiento preventivo');
+      return;
+    }
+    if (requestType === 'manual' && manualRepairs.length === 0) {
+      toast.error('Debes agregar al menos una reparación');
       return;
     }
 
@@ -325,11 +591,38 @@ export function NuevoPedidoChecklistForm({
     setIsSubmitting(true);
 
     try {
-      if (isCurrentUserSupervisor) {
+      if (requestType === 'manual') {
+        // CARGA MANUAL: mismo criterio que los demás caminos — si quien carga es
+        // el supervisor, el pedido queda aprobado; si no, va a validación.
+        const repairs = await Promise.all(
+          manualRepairs.map(async (repair) => ({
+            repairTypeId: repair.repairTypeId,
+            freeText: repair.freeText,
+            description: repair.description,
+            images: await uploadRepairImages(repair.images, selectedEquipmentId),
+          }))
+        );
+
+        await createManualMaintenanceRequest({
+          equipmentId: selectedEquipmentId,
+          resourceKind,
+          supervisorId,
+          kilometer: kilometer || undefined,
+          engine_hours: engineHours || undefined,
+          driverEmployeeId: driverEmployeeId || undefined,
+          autoApprove: isCurrentUserSupervisor === true,
+          repairs,
+        });
+
+        const noun = repairs.length === 1 ? '1 reparación' : `${repairs.length} reparaciones`;
+        toast.success(isCurrentUserSupervisor ? `Pedido creado con ${noun}` : `Solicitud creada con ${noun}`);
+        invalidateAllMaintenanceQueries(queryClient);
+      } else if (isCurrentUserSupervisor) {
         // FLUJO 1: Usuario ES el supervisor → crear pedido directamente (aprobado automáticamente)
         if (requestType === 'preventive') {
           await createMaintenanceOrderFromDeviations({
             equipmentId: selectedEquipmentId,
+            resourceKind,
             supervisorId,
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
@@ -346,6 +639,7 @@ export function NuevoPedidoChecklistForm({
           }));
           await createMaintenanceOrderFromDeviations({
             equipmentId: selectedEquipmentId,
+            resourceKind,
             supervisorId,
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
@@ -365,6 +659,7 @@ export function NuevoPedidoChecklistForm({
         if (requestType === 'preventive') {
           await createMaintenanceRequestPendingApproval({
             equipmentId: selectedEquipmentId,
+            resourceKind,
             supervisorId,
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
@@ -380,6 +675,7 @@ export function NuevoPedidoChecklistForm({
           }));
           await createMaintenanceRequestPendingApproval({
             equipmentId: selectedEquipmentId,
+            resourceKind,
             supervisorId,
             kilometer: kilometer || undefined,
             engine_hours: engineHours || undefined,
@@ -433,12 +729,18 @@ export function NuevoPedidoChecklistForm({
   // ============================================
   const canAdvanceStep = useMemo(() => {
     switch (currentStepKey) {
+      case 'resource':
+        // Siempre hay uno elegido (vehículo por defecto): el paso informa, no bloquea
+        return true;
       case 'equipment':
         return !!selectedEquipmentId;
       case 'type':
         if (requestType === 'checklist') return !!selectedTemplateId;
+        // La carga manual no elige nada en este paso: se avanza directo a cargar reparaciones
+        if (requestType === 'manual') return true;
         return !!selectedPreventiveType;
       case 'items':
+        if (requestType === 'manual') return manualRepairs.length > 0;
         return selectedDeviations.length > 0 || manualItems.length > 0;
       case 'supervisor':
         if (isCurrentUserSupervisor === null) return false;
@@ -457,6 +759,7 @@ export function NuevoPedidoChecklistForm({
     selectedPreventiveType,
     selectedDeviations,
     manualItems,
+    manualRepairs,
     selectedSupervisorId,
     isCurrentUserSupervisor,
   ]);
@@ -464,10 +767,51 @@ export function NuevoPedidoChecklistForm({
   // ============================================
   // RENDER STEPS
   // ============================================
+  /**
+   * Paso "Recurso" (ticket 596): define si el pedido es para un equipo o para un
+   * equipamiento — y con eso, qué lista el selector del paso siguiente.
+   *
+   * Las dos palabras son casi homógrafas y no se distinguen solas: cada opción
+   * lleva una línea con ejemplos concretos, que es lo que hace elegible la tarjeta.
+   */
+  const renderStepResource = () => (
+    <div className="space-y-4">
+      <div>
+        <h3 id="resource-kind-label" className="text-base font-medium text-balance">
+          ¿Para qué es el pedido?
+        </h3>
+        <p className="text-sm text-muted-foreground text-pretty">
+          Define qué equipos vas a poder elegir en el paso siguiente.
+        </p>
+      </div>
+
+      <div role="radiogroup" aria-labelledby="resource-kind-label" className="grid gap-3 sm:grid-cols-2 max-w-2xl">
+        <ResourceKindCard
+          kind="vehicle"
+          icon={Truck}
+          title="Equipos"
+          description="Vehículos con dominio y kilometraje."
+          selected={!isOtherEquipment}
+          onSelect={handleChangeResourceKind}
+        />
+        <ResourceKindCard
+          kind="other_equipment"
+          icon={Boxes}
+          title="Equipamientos"
+          description="Contenedores, piletas, trailers. Sin dominio, se miden con horómetro."
+          selected={isOtherEquipment}
+          onSelect={handleChangeResourceKind}
+        />
+      </div>
+    </div>
+  );
+
   const renderStep0Equipment = () => (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Selecciona el equipo</Label>
+        <Label id="resource-select-label">
+          {isOtherEquipment ? 'Seleccioná el equipamiento' : 'Seleccioná el equipo'}
+        </Label>
         <Popover
           open={equipmentOpen}
           onOpenChange={(open) => {
@@ -479,37 +823,60 @@ export function NuevoPedidoChecklistForm({
             <Button
               variant="outline"
               role="combobox"
-              disabled={!!default_equipment_id}
+              aria-labelledby="resource-select-label"
+              aria-busy={isOtherEquipment && isLoadingOtherEquipment}
+              disabled={!!default_equipment_id || (isOtherEquipment && isLoadingOtherEquipment)}
               className={cn('w-full justify-between', !selectedEquipmentId && 'text-muted-foreground')}
             >
-              {selectedEquipment
-                ? `${selectedEquipment.domain || selectedEquipment.serie}${selectedEquipment.intern_number ? ` (Nº${selectedEquipment.intern_number})` : ''}`
-                : 'Selecciona un equipo'}
+              <span className="truncate">
+                {isOtherEquipment && isLoadingOtherEquipment
+                  ? 'Cargando equipamientos…'
+                  : selectedEquipment
+                    ? `${selectedEquipment.label}${selectedEquipment.internNumber ? ` (Nº${selectedEquipment.internNumber})` : ''}`
+                    : isOtherEquipment
+                      ? 'Seleccioná un equipamiento'
+                      : 'Seleccioná un equipo'}
+              </span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0">
+          {/* w-[var(--radix-popover-trigger-width)] hace que el desplegable ocupe el mismo
+              ancho que el campo, para que la info del equipo entre a lo largo */}
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
             <Command>
-              <CommandInput placeholder="Buscar por dominio, serie o número..." onValueChange={setSearchTerm} />
+              <CommandInput
+                placeholder={isOtherEquipment ? 'Buscar por serie o número…' : 'Buscar por dominio, serie o número…'}
+                onValueChange={setSearchTerm}
+              />
               <CommandList>
-                <CommandEmpty>No se encontró el equipo</CommandEmpty>
+                <CommandEmpty>
+                  {isOtherEquipment ? 'No se encontró el equipamiento' : 'No se encontró el equipo'}
+                </CommandEmpty>
                 <CommandGroup>
                   {filteredEquipment.map((equip) => (
-                    <CommandItem
-                      key={equip.id}
-                      value={equip.domain || equip.serie || equip.id}
-                      onSelect={() => handleSelectEquipment(equip.id)}
-                    >
+                    <CommandItem key={equip.id} value={equip.label} onSelect={() => handleSelectEquipment(equip.id)}>
                       <Check
-                        className={cn('mr-2 h-4 w-4', equip.id === selectedEquipmentId ? 'opacity-100' : 'opacity-0')}
+                        className={cn(
+                          'mr-2 h-4 w-4 shrink-0',
+                          equip.id === selectedEquipmentId ? 'opacity-100' : 'opacity-0'
+                        )}
                       />
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {equip.domain || equip.serie}
-                          {equip.intern_number && ` (Nº${equip.intern_number})`}
+                      <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
+                        <span className="shrink-0 font-medium tabular-nums">
+                          {equip.label}
+                          {equip.internNumber && ` (Nº${equip.internNumber})`}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {equip.types_of_vehicles?.name} - {equip.condition}
+                        <span className="min-w-0 truncate text-xs text-muted-foreground">
+                          {[
+                            equip.typeName,
+                            equip.subTypeName,
+                            equip.unitTypeName,
+                            // La condicion viene como valor de enum (`en_preparacion`):
+                            // se muestra con su etiqueta legible.
+                            equip.condition ? conditionLabels[equip.condition] ?? equip.condition : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                       </div>
                     </CommandItem>
@@ -519,24 +886,48 @@ export function NuevoPedidoChecklistForm({
             </Command>
           </PopoverContent>
         </Popover>
+
+        {/* La carga puede fallar: sin esta rama el combobox vacío diría "no se
+            encontró", afirmando que no hay equipamientos cuando en realidad no
+            se pudieron traer. */}
+        {isOtherEquipment && hasOtherEquipmentError && (
+          <p className="flex items-center gap-2 text-xs text-destructive">
+            No se pudieron cargar los equipamientos.
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
+              onClick={() => refetchOtherEquipment()}
+            >
+              Reintentar
+            </Button>
+          </p>
+        )}
       </div>
 
+      {/* Los equipamientos no llevan kilometraje: solo se mide su horómetro */}
       {selectedEquipment && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="kilometer">Kilometraje actual</Label>
-            <Input
-              id="kilometer"
-              type="number"
-              value={kilometer}
-              onChange={(e) => setKilometer(e.target.value)}
-              placeholder="Ingresa el kilometraje"
-              min={Number(selectedEquipment.kilometer) || 0}
-            />
-            {selectedEquipment.kilometer && (
-              <p className="text-xs text-muted-foreground">Último registrado: {selectedEquipment.kilometer} km</p>
-            )}
-          </div>
+        <div className={cn('grid gap-4', isOtherEquipment ? 'grid-cols-1 sm:max-w-xs' : 'grid-cols-2')}>
+          {!isOtherEquipment && (
+            <div className="space-y-2">
+              <Label htmlFor="kilometer">Kilometraje actual</Label>
+              <Input
+                id="kilometer"
+                type="number"
+                value={kilometer}
+                onChange={(e) => setKilometer(e.target.value)}
+                placeholder="0"
+                min={Number(selectedEquipment.kilometer) || 0}
+                className="tabular-nums"
+              />
+              {selectedEquipment.kilometer && (
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  Último registrado: {selectedEquipment.kilometer} km
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="engineHours">Horómetro</Label>
@@ -545,12 +936,16 @@ export function NuevoPedidoChecklistForm({
               type="number"
               value={engineHours}
               onChange={(e) => setEngineHours(e.target.value)}
-              placeholder="Ingrese las horas de motor"
-              min={Number(selectedEquipment.engine_hours) || 0}
+              placeholder="0"
+              min={Number(selectedEquipment.engineHours) || 0}
+              className="tabular-nums"
             />
-            {selectedEquipment.engine_hours && (
-              <p className="text-xs text-muted-foreground">Último registrado: {selectedEquipment.engine_hours} hs</p>
-            )}
+            {/* null no es 0: sin lectura previa se dice que no hay, no se inventa un cero */}
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {selectedEquipment.engineHours
+                ? `Último registrado: ${selectedEquipment.engineHours} hs`
+                : 'Sin registro previo'}
+            </p>
           </div>
         </div>
       )}
@@ -558,22 +953,30 @@ export function NuevoPedidoChecklistForm({
       {selectedEquipment && (
         <Card className="mt-4">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Equipo Seleccionado</CardTitle>
+            <CardTitle className="text-sm">
+              {isOtherEquipment ? 'Equipamiento seleccionado' : 'Equipo seleccionado'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Identificación:</span>
-              <span className="font-medium">{selectedEquipment.domain || selectedEquipment.serie}</span>
+            <div className="flex justify-between gap-4">
+              <span className="shrink-0 text-sm text-muted-foreground">Identificación:</span>
+              <span className="min-w-0 truncate font-medium">{selectedEquipment.label}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Tipo:</span>
-              <span>{selectedEquipment.types_of_vehicles?.name}</span>
+            <div className="flex justify-between gap-4">
+              <span className="shrink-0 text-sm text-muted-foreground">Tipo:</span>
+              <span className="min-w-0 truncate">
+                {[selectedEquipment.typeName, selectedEquipment.subTypeName].filter(Boolean).join(' · ') || '—'}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Condición:</span>
-              <Badge variant={selectedEquipment.condition === 'operativo' ? 'success' : 'destructive'}>
-                {selectedEquipment.condition}
-              </Badge>
+            <div className="flex justify-between gap-4">
+              <span className="shrink-0 text-sm text-muted-foreground">Condición:</span>
+              {selectedEquipment.condition ? (
+                <Badge variant={selectedEquipment.condition === 'operativo' ? 'success' : 'destructive'}>
+                  {conditionLabels[selectedEquipment.condition] ?? selectedEquipment.condition}
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">Sin datos</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -584,40 +987,43 @@ export function NuevoPedidoChecklistForm({
   const renderStep1Type = () => (
     <div className="space-y-4">
       <div>
-        <Label className="text-base font-medium">Tipo de pedido</Label>
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <Card
-            className={cn(
-              'cursor-pointer transition-all hover:border-primary/50',
-              requestType === 'checklist' && 'border-primary bg-primary/5'
-            )}
-            onClick={() => handleChangeRequestType('checklist')}
-          >
-            <CardContent className="p-4 flex items-start gap-3">
-              <ClipboardList className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-sm">Checklist</p>
-                <p className="text-xs text-muted-foreground">Desde desvíos de inspección</p>
-              </div>
-              {requestType === 'checklist' && <Check className="h-4 w-4 ml-auto text-primary" />}
-            </CardContent>
-          </Card>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all hover:border-primary/50',
-              requestType === 'preventive' && 'border-primary bg-primary/5'
-            )}
-            onClick={() => handleChangeRequestType('preventive')}
-          >
-            <CardContent className="p-4 flex items-start gap-3">
-              <Wrench className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-sm">Mant. Preventivo</p>
-                <p className="text-xs text-muted-foreground">Programa planificado de mantenimiento</p>
-              </div>
-              {requestType === 'preventive' && <Check className="h-4 w-4 ml-auto text-primary" />}
-            </CardContent>
-          </Card>
+        <Label id="request-type-label" className="text-base font-medium">
+          Tipo de pedido
+        </Label>
+        <div
+          role="radiogroup"
+          aria-labelledby="request-type-label"
+          className="grid gap-3 mt-2 sm:grid-cols-3 items-stretch"
+        >
+          <RequestTypeCard
+            type="checklist"
+            icon={ClipboardList}
+            title="Checklist"
+            description="Desde desvíos de inspección"
+            selected={requestType === 'checklist'}
+            onSelect={handleChangeRequestType}
+            disabledReason={
+              isOtherEquipment
+                ? 'No hay checklists configurados para equipamientos. Elegí Mant. Preventivo o Carga Manual.'
+                : undefined
+            }
+          />
+          <RequestTypeCard
+            type="preventive"
+            icon={Wrench}
+            title="Mant. Preventivo"
+            description="Programa planificado de mantenimiento"
+            selected={requestType === 'preventive'}
+            onSelect={handleChangeRequestType}
+          />
+          <RequestTypeCard
+            type="manual"
+            icon={PencilLine}
+            title="Carga Manual"
+            description="Cargá las reparaciones sin pasar por un checklist"
+            selected={requestType === 'manual'}
+            onSelect={handleChangeRequestType}
+          />
         </div>
       </div>
 
@@ -662,7 +1068,7 @@ export function NuevoPedidoChecklistForm({
             </div>
           )}
         </div>
-      ) : (
+      ) : requestType === 'preventive' ? (
         <div className="space-y-4">
           <Label>Selecciona el programa</Label>
           <div className="grid grid-cols-2 gap-3">
@@ -701,7 +1107,42 @@ export function NuevoPedidoChecklistForm({
             />
           </div>
         </div>
+      ) : (
+        <div className="flex items-start gap-3 rounded-lg border border-dashed p-4">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            En el paso siguiente vas a cargar directamente las reparaciones que necesita el equipo, sin partir de un
+            checklist.
+          </p>
+        </div>
       )}
+    </div>
+  );
+
+  /**
+   * Paso de items para la carga manual: se cargan las reparaciones directamente,
+   * eligiendo una tarea del sistema o escribiéndola a mano, con fotos opcionales.
+   */
+  const renderStep2ManualRepairs = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        {/* Encabezado de sección: no es un <Label> porque no rotula ningún control */}
+        <h3 className="text-sm leading-none font-medium">Cargá las reparaciones que necesita el equipo</h3>
+        <Badge variant="secondary" className="shrink-0">
+          <span className="tabular-nums">{manualRepairs.length}</span>{' '}
+          {manualRepairs.length === 1 ? 'reparación' : 'reparaciones'}
+        </Badge>
+      </div>
+
+      <ManualRepairsInput
+        repairs={manualRepairs}
+        onChange={setManualRepairs}
+        repairTypes={repairTypes}
+        isLoadingRepairTypes={isLoadingRepairTypes}
+        hasRepairTypesError={hasRepairTypesError}
+        onRetryRepairTypes={handleRetryRepairTypes}
+        disabled={isSubmitting}
+      />
     </div>
   );
 
@@ -1004,13 +1445,15 @@ export function NuevoPedidoChecklistForm({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Equipo</CardTitle>
+            <CardTitle className="text-sm">{isOtherEquipment ? 'Equipamiento' : 'Equipo'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-medium">{selectedEquipment?.domain || selectedEquipment?.serie}</p>
-            <p className="text-sm text-muted-foreground">{selectedEquipment?.types_of_vehicles?.name}</p>
-            {kilometer && <p className="text-sm">Kilometraje: {kilometer} km</p>}
-            {engineHours && <p className="text-sm">Horómetro: {engineHours} hs</p>}
+            <p className="font-medium">{selectedEquipment?.label}</p>
+            <p className="text-sm text-muted-foreground">
+              {[selectedEquipment?.typeName, selectedEquipment?.subTypeName].filter(Boolean).join(' · ')}
+            </p>
+            {!isOtherEquipment && kilometer && <p className="text-sm tabular-nums">Kilometraje: {kilometer} km</p>}
+            {engineHours && <p className="text-sm tabular-nums">Horómetro: {engineHours} hs</p>}
             {driverName && (
               <div className="flex items-center gap-2 mt-2">
                 <User className="h-4 w-4 text-muted-foreground" />
@@ -1060,6 +1503,41 @@ export function NuevoPedidoChecklistForm({
                   <p className="text-sm whitespace-pre-line">{preventiveDescription.trim()}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        ) : requestType === 'manual' ? (
+          /* Carga manual: no hay desvíos de checklist, lo que se confirma son las
+             reparaciones que escribió el supervisor. */
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Reparaciones ({manualRepairs.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {manualRepairs.map((repair) => {
+                  const repairTypeName = repair.repairTypeId
+                    ? repairTypes.find((t) => t.id === repair.repairTypeId)?.name ?? null
+                    : null;
+                  return (
+                    <li key={repair.localId} className="text-sm flex items-start gap-2">
+                      <span className="text-muted-foreground">•</span>
+                      <div>
+                        <span className="font-medium">{repairTypeName ?? repair.freeText}</span>
+                        {repair.images.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {repair.images.length} {repair.images.length === 1 ? 'foto' : 'fotos'}
+                          </Badge>
+                        )}
+                        {repair.description.trim() && (
+                          <p className="text-xs text-muted-foreground mt-1 italic">
+                            &quot;{repair.description.trim()}&quot;
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </CardContent>
           </Card>
         ) : (
@@ -1130,12 +1608,14 @@ export function NuevoPedidoChecklistForm({
 
   const renderCurrentStep = () => {
     switch (currentStepKey) {
+      case 'resource':
+        return renderStepResource();
       case 'equipment':
         return renderStep0Equipment();
       case 'type':
         return renderStep1Type();
       case 'items':
-        return renderStep2Items();
+        return requestType === 'manual' ? renderStep2ManualRepairs() : renderStep2Items();
       case 'supervisor':
         return renderStep3Supervisor();
       case 'confirm':

@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../../shared/maintenance-resource';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('PedidosMantenimiento/Confirmados/actions.server');
@@ -78,6 +79,16 @@ const CONFIRMED_ORDERS_SELECT = {
       engine_hours: true,
     },
   },
+  // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
+      intern_number: true,
+      condition: true,
+      horometer: true,
+    },
+  },
   maintenance_requests: {
     select: {
       id: true,
@@ -96,6 +107,9 @@ const CONFIRMED_ORDERS_SELECT = {
         select: {
           id: true,
           description: true,
+          // Ticket 592: en la carga manual el item no tiene desvio de checklist,
+          // su titulo es el texto libre que escribio el supervisor.
+          free_text: true,
           checklist_deviations: {
             select: {
               id: true,
@@ -256,7 +270,8 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
 
   return {
     status: 'date_confirmed' as const,
-    vehicles: { company_id: companyId },
+    // Vehiculo o equipamiento (ticket 596), dentro de AND para no chocar con el OR de busqueda
+    AND: [resourceCompanyCondition(companyId)],
     ...searchWhere,
     ...filtersWhere,
     ...textFiltersWhere,
@@ -366,7 +381,8 @@ export async function getConfirmedOrdersFacets(searchParams?: DataTableSearchPar
 
   const baseWhere = {
     status: 'date_confirmed' as const,
-    vehicles: { company_id: companyId },
+    // Vehiculo o equipamiento (ticket 596), dentro de AND para no chocar con el OR de busqueda
+    AND: [resourceCompanyCondition(companyId)],
     ...supervisorCondition,
   };
 

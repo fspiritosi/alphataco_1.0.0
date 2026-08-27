@@ -3,6 +3,8 @@
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../../../shared/maintenance-resource';
+import { DEFAULT_TRACKING_STATUSES } from '../../../WorkshopTracking/statuses';
 import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 
@@ -13,62 +15,50 @@ const logger = new Logger('Pipeline/Operaciones/counts');
  * Filtrado por company_id y supervisor si corresponde.
  *
  * Pasos:
- * - validate:      Solicitudes en estado pending_approval (validar solicitud)
- * - approve_date:  Ordenes en estado pending_scheduling o scheduled (aprobacion de fecha por Operaciones)
- * - for_workshop:  Ordenes en estado workshop_pending o date_confirmed (listas para taller)
- * - in_workshop:   Ordenes en estado in_workshop (actualmente en taller)
+ * - validate:    Solicitudes en estado pending_approval (validar solicitud)
+ * - in_workshop: Ordenes pendientes de ingreso (date_confirmed) y actualmente en taller (in_workshop)
  */
 export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
   try {
     const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
 
-    // Filtro base para maintenance_requests: por company (via vehicles) y supervisor si aplica
+    // Filtro base para maintenance_requests: por company (vehiculo o equipamiento,
+    // ticket 596) y supervisor si aplica
     const requestsWhere = {
-      vehicles: { company_id: companyId },
+      AND: [resourceCompanyCondition(companyId)],
       ...(filterInfo?.shouldFilterBySupervisor ? { supervisor_id: filterInfo.userId } : {}),
     };
 
-    // Filtro base para maintenance_orders: por company (via vehicles) y supervisor via request si aplica
+    // Filtro base para maintenance_orders: por company y supervisor via request si aplica
     const ordersWhere = {
-      vehicles: { company_id: companyId },
+      AND: [resourceCompanyCondition(companyId)],
       ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
     };
 
-    const [validate, approveDate, forWorkshop, inWorkshop] = await Promise.all([
+    const [validate, inWorkshop] = await Promise.all([
       // Paso 1: Validar Solicitud — solicitudes pendientes de aprobacion
       prisma.maintenance_requests.count({
         where: { ...requestsWhere, status: 'pending_approval' },
       }),
-      // Paso 2: Aprobar Fecha — ordenes pendientes de programacion o con fecha propuesta
+      // Paso 2: Seguimiento — se cuenta EXACTAMENTE lo que la tabla muestra por
+      // defecto (misma constante), para que el chevron no diga un numero y el
+      // listado otro.
       prisma.maintenance_orders.count({
-        where: {
-          ...ordersWhere,
-          status: { in: ['pending_scheduling', 'scheduled'] },
-        },
-      }),
-      // Paso 3: Para Taller — ordenes con fecha confirmada, listas para entrada al taller
-      prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'date_confirmed' },
-      }),
-      // Paso 4: Seguimiento — ordenes actualmente en taller (cualquier sub-estado de taller)
-      prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'in_workshop' },
+        where: { ...ordersWhere, status: { in: DEFAULT_TRACKING_STATUSES } },
       }),
     ]);
 
     logger.debug('Counts de pipeline Operaciones obtenidos', {
-      data: { validate, approveDate, forWorkshop, inWorkshop, companyId },
+      data: { validate, inWorkshop, companyId },
     });
 
     return {
       validate,
-      approve_date: approveDate,
-      for_workshop: forWorkshop,
       in_workshop: inWorkshop,
     };
   } catch (error) {
     logger.error('Error al obtener counts de pipeline Operaciones', { data: { error } });
-    return { validate: 0, approve_date: 0, for_workshop: 0, in_workshop: 0 };
+    return { validate: 0, in_workshop: 0 };
   }
 }
 

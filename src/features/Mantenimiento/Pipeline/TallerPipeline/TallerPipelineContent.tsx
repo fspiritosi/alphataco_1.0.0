@@ -24,9 +24,11 @@ const TALLER_STEPS: PipelineStep[] = [
   {
     id: 'confirmed',
     stepNumber: 2,
-    label: 'Confirmados',
-    description: 'Fecha confirmada por Operaciones. Registrá ingreso',
-    iconName: 'CheckCircle',
+    label: 'Por Ingresar',
+    description: 'Pedidos con fecha asignada. Registrá el ingreso al taller',
+    // Calendar (no CheckCircle): el paso está pendiente, y lo que lo define es
+    // que ya tiene fecha. El tilde daba a entender que el trabajo estaba hecho.
+    iconName: 'Calendar',
   },
   {
     id: 'in_workshop',

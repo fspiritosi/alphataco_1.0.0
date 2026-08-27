@@ -1024,12 +1024,15 @@ export const PERMISSIONS = {
             parent: 'maint_operaciones',
             allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/denegar, view_all_requests = ver todas sin filtro de supervisor
           },
+          // Legacy — desconectada de la UI pero mantenida para compatibilidad.
+          // El paso "Aprobar Fecha" se eliminó del circuito: la fecha que programa
+          // el taller es directamente la fecha de reparación.
           pendientes_ejecutar: {
             slug: 'pendientes_ejecutar',
-            name: 'Pendientes de Ejecutar',
+            name: 'Pendientes de Ejecutar (Legacy)',
             tabId: '60000000-0000-0000-0000-000000000023',
             parent: 'maint_operaciones',
-            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/rechazar fecha, view_all_requests = ver todas sin filtro de supervisor
+            allowedActions: ['view', 'update', 'view_all_requests'],
           },
           nuevo_pedido: {
             slug: 'nuevo_pedido',
@@ -1038,12 +1041,15 @@ export const PERMISSIONS = {
             parent: 'maint_operaciones',
             allowedActions: ['view', 'create'], // create = crear pedidos de mantenimiento
           },
+          // Legacy — desconectada de la UI pero mantenida para compatibilidad.
+          // Su información se migró al paso "Seguimiento" con el estado
+          // "Pendiente de ingreso a taller".
           para_taller: {
             slug: 'para_taller',
-            name: 'Para Taller',
+            name: 'Para Taller (Legacy)',
             tabId: '60000000-0000-0000-0000-000000000025',
             parent: 'maint_operaciones',
-            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar entrada a taller, view_all_requests = ver todas sin filtro de supervisor
+            allowedActions: ['view', 'update', 'view_all_requests'],
           },
           seguimiento_taller: {
             slug: 'seguimiento_taller',

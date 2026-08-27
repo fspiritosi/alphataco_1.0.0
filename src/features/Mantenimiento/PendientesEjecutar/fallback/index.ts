@@ -1,1 +1,0 @@
-export { PendientesEjecutarSkeleton } from './PendientesEjecutarSkeleton';

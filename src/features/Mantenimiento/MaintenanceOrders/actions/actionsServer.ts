@@ -18,13 +18,16 @@ const logger = new Logger('MaintenanceOrders/actions');
 export async function getMaintenanceOrders(statusFilter?: string | string[]) {
   logger.debug('Obteniendo ordenes de mantenimiento', { data: { statusFilter } });
 
+  // Estados del trabajo en curso. Las completadas quedan fuera del listado por
+  // defecto (son la mayoria de los registros y ya se consultan desde el legajo
+  // del equipo); siguen accesibles eligiendo "Completada" en el filtro de estado,
+  // que llega por statusFilter y no pasa por este default.
   const defaultStatuses = [
     'in_workshop',
     'pending_workshop_validation',
     'pending_operations_validation',
     'operations_rejected',
     'workshop_rejected',
-    'completed',
   ];
 
   const statusWhere = Array.isArray(statusFilter)

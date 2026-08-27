@@ -6,14 +6,19 @@ import { getOperacionesPipelineCounts } from './actions/pipeline-counts.server';
 // TabContent components existentes
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
-import { PendientesEjecutarTabContent, PendientesEjecutarSkeleton } from '@/features/Mantenimiento/PendientesEjecutar';
-import { ParaTallerTabContent } from '@/features/Mantenimiento/Operaciones/ParaTaller/ParaTallerTabContent';
-import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
 import { WorkshopTrackingTabContent, WorkshopTrackingSkeleton } from '@/features/Mantenimiento/WorkshopTracking';
 
 const PARAM_NAME = 'op_step';
 const DEFAULT_STEP = 'validate';
 
+/**
+ * Pasos del pipeline de Operaciones.
+ *
+ * Los pasos "Aprobar Fecha" y "Para Taller" fueron eliminados del circuito:
+ * la fecha que programa el taller es directamente la fecha de reparación
+ * (ya no requiere aprobación de Operaciones), y la información que mostraba
+ * "Para Taller" se migró a Seguimiento con el estado "Pendiente de ingreso a taller".
+ */
 const OPERACIONES_STEPS: PipelineStep[] = [
   {
     id: 'validate',
@@ -23,24 +28,10 @@ const OPERACIONES_STEPS: PipelineStep[] = [
     iconName: 'ClipboardCheck',
   },
   {
-    id: 'approve_date',
-    stepNumber: 2,
-    label: 'Aprobar Fecha',
-    description: 'Taller propuso una fecha. Aprobá o rechazá',
-    iconName: 'Calendar',
-  },
-  {
-    id: 'for_workshop',
-    stepNumber: 3,
-    label: 'Para Taller',
-    description: 'Equipos con fecha confirmada, listos para taller',
-    iconName: 'Warehouse',
-  },
-  {
     id: 'in_workshop',
-    stepNumber: 4,
+    stepNumber: 2,
     label: 'Seguimiento',
-    description: 'Equipos actualmente en taller',
+    description: 'Equipos pendientes de ingreso y actualmente en taller',
     iconName: 'Eye',
   },
 ];
@@ -66,22 +57,6 @@ export async function OperacionesPipelineContent({ searchParams }: OperacionesPi
       content: (
         <Suspense fallback={<SolicitudesTableSkeleton />}>
           <SolicitudesMantenimientoTabContent searchParams={searchParams} />
-        </Suspense>
-      ),
-    },
-    {
-      id: 'approve_date',
-      content: (
-        <Suspense fallback={<PendientesEjecutarSkeleton />}>
-          <PendientesEjecutarTabContent searchParams={searchParams} />
-        </Suspense>
-      ),
-    },
-    {
-      id: 'for_workshop',
-      content: (
-        <Suspense fallback={<OperacionesTableSkeleton />}>
-          <ParaTallerTabContent searchParams={searchParams} />
         </Suspense>
       ),
     },

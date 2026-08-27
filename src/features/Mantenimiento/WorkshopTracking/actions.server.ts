@@ -13,6 +13,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../shared/maintenance-resource';
+import { DEFAULT_TRACKING_STATUSES, WORKSHOP_TRACKING_STATUSES } from './statuses';
 import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 
 const logger = new Logger('WorkshopTracking/actions.server');
@@ -21,21 +23,14 @@ const logger = new Logger('WorkshopTracking/actions.server');
 // CONSTANTS
 // ============================================================================
 
-/** Statuses shown in workshop tracking */
-const WORKSHOP_TRACKING_STATUSES: string[] = [
-  'in_workshop',
-  'pending_workshop_validation',
-  'pending_operations_validation',
-  'operations_rejected',
-  'workshop_rejected',
-  'completed',
-];
+
 
 /** Campos reales de maintenance_orders ordenables server-side */
 const VALID_SORT_FIELDS = new Set([
   'order_number',
   'created_at',
   'workshop_entry_date',
+  'scheduled_date',
   'status',
   // FK columns via FK_SORT_MAP
   'vehicle',
@@ -53,10 +48,10 @@ const IGNORED_PARAMS = new Set(['tab', 'subtab', 'operations_subtab', 'taller_su
 const TEXT_COLUMNS = ['order_number'];
 
 /** Columnas con filtro de texto libre en vehicles */
-const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number'];
+const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number', 'kilometer'];
 
 /** Columnas con filtro de rango de fechas */
-const DATE_RANGE_COLUMNS = ['workshop_entry_date', 'created_at'];
+const DATE_RANGE_COLUMNS = ['workshop_entry_date', 'created_at', 'scheduled_date'];
 
 /** Mapping de columnId (URL) → campo real en Prisma */
 const COLUMN_MAP: Record<string, string> = {
@@ -70,11 +65,12 @@ const WORKSHOP_TRACKING_SELECT = {
   order_number: true,
   status: true,
   workshop_entry_date: true,
+  scheduled_date: true,
   created_at: true,
   kilometer_at_entry: true,
   engine_hours_at_entry: true,
   description: true,
-  // FK: vehicle
+  // FK: vehiculo o equipamiento (ticket 596) — uno de los dos viene en null
   vehicles: {
     select: {
       id: true,
@@ -85,11 +81,21 @@ const WORKSHOP_TRACKING_SELECT = {
       condition: true,
     },
   },
-  // Solicitud vinculada (fallback de descripción)
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
+      intern_number: true,
+      condition: true,
+    },
+  },
+  // Solicitud vinculada (fallback de descripción, origen y tipo preventivo)
   maintenance_requests: {
     select: {
       id: true,
       description: true,
+      source: true,
+      preventive_type: true,
     },
   },
   // Items con sectores, work orders y repairs (para "Recorrido Sectores" y progreso)
@@ -136,11 +142,19 @@ const WORKSHOP_TRACKING_SELECT = {
 
 /**
  * Construye el WHERE base para workshop tracking.
- * Muestra órdenes en todos los estados relevantes de taller.
  * Aplica filtro de supervisor: si el usuario no tiene view_all_requests,
  * solo ve órdenes donde él es supervisor de la solicitud.
+ *
+ * @param includeCompleted incluye las órdenes completadas en el universo base.
+ *   Solo se usa al calcular la faceta de la columna "Estado", para que
+ *   "Completada" aparezca con su count y el usuario pueda tildarla.
+ *   Si el usuario filtra por estado, `filtersWhere` sobrescribe este default.
  */
-async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+async function buildBaseWhere(
+  companyId: string,
+  state: ReturnType<typeof parseSearchParams>,
+  includeCompleted = false
+) {
   const supervisorFilter = await getSupervisorFilterInfo();
   const searchWhere = buildSearchWhere(state.search, ['order_number']);
 
@@ -151,6 +165,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
       'vehicle', // manejado manualmente (FK)
       'description', // manejado manualmente (OR order/solicitud)
+      'condition', // manejado manualmente (enum en vehicles, relacion anidada)
     ],
   });
 
@@ -178,6 +193,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
   const domainValues = state.filters['domain'];
   const serieValues = state.filters['serie'];
   const internNumberValues = state.filters['intern_number'];
+  const kilometerValues = state.filters['kilometer'];
 
   if (domainValues?.length && typeof domainValues[0] === 'string') {
     vehicleTextConditions.push({ vehicles: { domain: { contains: domainValues[0], mode: 'insensitive' } } });
@@ -189,6 +205,25 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
     vehicleTextConditions.push({
       vehicles: { intern_number: { contains: internNumberValues[0], mode: 'insensitive' } },
     });
+  }
+  if (kilometerValues?.length && typeof kilometerValues[0] === 'string') {
+    vehicleTextConditions.push({ vehicles: { kilometer: { contains: kilometerValues[0], mode: 'insensitive' } } });
+  }
+
+  // ─── Filtro condition (enum de vehicles, relacion anidada) ───────────────
+  const conditionValues = state.filters['condition'];
+  if (conditionValues?.length) {
+    const hasNull = conditionValues.includes(NULL_FILTER_VALUE);
+    const realValues = conditionValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      vehicleTextConditions.push({
+        OR: [{ vehicles: { condition: { in: realValues } } }, { vehicles: { condition: null } }],
+      });
+    } else if (hasNull) {
+      vehicleTextConditions.push({ vehicles: { condition: null } });
+    } else {
+      vehicleTextConditions.push({ vehicles: { condition: { in: realValues } } });
+    }
   }
 
   // ─── Filtro de texto de descripción del pedido (order o solicitud) ───────
@@ -225,15 +260,18 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
   }
 
   return {
-    status: { in: WORKSHOP_TRACKING_STATUSES },
-    vehicles: { company_id: companyId },
+    status: { in: includeCompleted ? WORKSHOP_TRACKING_STATUSES : DEFAULT_TRACKING_STATUSES },
+
     ...searchWhere,
+    // Si el usuario filtra por estado, su seleccion sobrescribe el default de arriba
     ...filtersWhere,
     ...textFiltersWhere,
     ...dateFiltersWhere,
     ...vehicleFilter,
     ...supervisorCondition,
-    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
+    // El filtro de empresa (vehiculo o equipamiento, ticket 596) va dentro del AND:
+    // produce un OR y al nivel raiz chocaria con el OR de la busqueda global.
+    AND: [resourceCompanyCondition(companyId), ...extraAndConditions],
   };
 }
 
@@ -333,11 +371,18 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
     };
   }
 
-  const baseWhere = {
-    status: { in: WORKSHOP_TRACKING_STATUSES },
-    vehicles: { company_id: companyId },
+  /**
+   * Universo base sin filtros del usuario.
+   * `includeCompleted` solo se activa para la faceta de "Estado": ahí necesitamos
+   * que "Completada" aparezca con su count aunque no se muestre por defecto.
+   */
+  const baseWhereFor = (includeCompleted: boolean) => ({
+    status: { in: includeCompleted ? WORKSHOP_TRACKING_STATUSES : DEFAULT_TRACKING_STATUSES },
+
     ...supervisorCondition,
-  };
+  });
+
+  const baseWhere = baseWhereFor(false);
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -350,12 +395,14 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
   async function crossWhere(excludeColumn: string): Promise<typeof baseWhere & Record<string, unknown>> {
-    if (!parsedState || !hasActiveFilters) return baseWhere;
+    // La faceta de "Estado" necesita ver también las completadas para poder ofrecerlas
+    const includeCompleted = excludeColumn === 'status';
+    if (!parsedState || !hasActiveFilters) return baseWhereFor(includeCompleted);
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildBaseWhere(companyId, modified);
+    return buildBaseWhere(companyId, modified, includeCompleted);
   }
 
   function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
@@ -371,14 +418,16 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
   }
 
   try {
-    const [crossWhereStatus, crossWhereVehicle, crossWhereEntryDate, crossWhereCreatedAt] = await Promise.all([
-      crossWhere('status'),
-      crossWhere('vehicle'),
-      crossWhere('workshop_entry_date'),
-      crossWhere('created_at'),
-    ]);
+    const [crossWhereStatus, crossWhereVehicle, crossWhereCondition, crossWhereEntryDate, crossWhereCreatedAt] =
+      await Promise.all([
+        crossWhere('status'),
+        crossWhere('vehicle'),
+        crossWhere('condition'),
+        crossWhere('workshop_entry_date'),
+        crossWhere('created_at'),
+      ]);
 
-    const [statusCounts, vehicleCounts] = await Promise.all([
+    const [statusCounts, vehicleCounts, conditionRows] = await Promise.all([
       prisma.maintenance_orders.groupBy({
         by: ['status'],
         where: crossWhereStatus,
@@ -388,6 +437,11 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
         by: ['equipment_id'],
         where: crossWhereVehicle,
         _count: { _all: true },
+      }),
+      // condition vive en vehicles (relación anidada) — groupBy no soporta campos anidados
+      prisma.maintenance_orders.findMany({
+        where: crossWhereCondition,
+        select: { vehicles: { select: { condition: true } } },
       }),
     ]);
 
@@ -402,6 +456,12 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
           })
         : [];
 
+    const conditionCounts = new Map<string, number>();
+    for (const row of conditionRows) {
+      const key = row.vehicles?.condition ?? NULL_FILTER_VALUE;
+      conditionCounts.set(key, (conditionCounts.get(key) ?? 0) + 1);
+    }
+
     // Usamos crossWhere params para date range (no agrupamos fechas, solo se usan para cross-filter)
     void crossWhereEntryDate;
     void crossWhereCreatedAt;
@@ -410,6 +470,7 @@ export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchPa
       status: toFacetMap(statusCounts.map((r) => ({ key: r.status, count: r._count._all }))),
       vehicle: toFacetMap(vehicleCounts.map((r) => ({ key: r.equipment_id, count: r._count._all }))),
       vehicleOptions,
+      condition: conditionCounts,
     };
   } catch (error) {
     logger.error('Error al obtener facets de seguimiento de taller', { data: { error } });

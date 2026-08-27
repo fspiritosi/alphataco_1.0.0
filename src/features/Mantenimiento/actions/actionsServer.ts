@@ -239,67 +239,7 @@ export type MaintenanceOrdersDateConfirmedData = Awaited<ReturnType<typeof getMa
 export type MaintenanceOrderDateConfirmedItem = MaintenanceOrdersDateConfirmedData[number];
 
 // ─── WRITEs ───────────────────────────────────────────────────────────────────
-
-/**
- * Aprueba la fecha planificada de un pedido de mantenimiento
- * Cambia el estado a 'date_confirmed' para permitir la entrada al taller
- */
-export async function approveMaintenanceOrderDate(orderId: string) {
-  const profile = await requireServerAuthProfile();
-
-  serverLogger.info('Aprobando fecha de pedido', { data: { orderId } });
-
-  try {
-    const updated = await prisma.maintenance_orders.update({
-      where: { id: orderId },
-      data: {
-        status: 'date_confirmed',
-        date_approved_by: profile.id,
-        date_approved_at: new Date(),
-      },
-    });
-
-    serverLogger.info('Fecha aprobada exitosamente', { data: { orderId } });
-
-    await invalidateCacheTags(INVALIDATION_MAP.approveMaintenanceOrderDate);
-
-    return updated;
-  } catch (error) {
-    serverLogger.error('Error al aprobar fecha', { data: { error, orderId } });
-    throw error;
-  }
-}
-
-/**
- * Rechaza la fecha planificada de un pedido de mantenimiento
- * Cambia el estado a 'pending_scheduling' y guarda el motivo
- */
-export async function rejectMaintenanceOrderDate(orderId: string, rejectionReason: string) {
-  const profile = await requireServerAuthProfile();
-
-  serverLogger.info('Rechazando fecha de pedido', { data: { orderId, rejectionReason } });
-
-  try {
-    const updated = await prisma.maintenance_orders.update({
-      where: { id: orderId },
-      data: {
-        status: 'pending_scheduling',
-        scheduled_date: null,
-        scheduled_by: null,
-        scheduled_at: null,
-        date_rejection_reason: rejectionReason,
-        date_rejected_by: profile.id,
-        date_rejected_at: new Date(),
-      },
-    });
-
-    serverLogger.info('Fecha rechazada exitosamente', { data: { orderId } });
-
-    await invalidateCacheTags(INVALIDATION_MAP.rejectMaintenanceOrderDate);
-
-    return updated;
-  } catch (error) {
-    serverLogger.error('Error al rechazar fecha', { data: { error, orderId } });
-    throw error;
-  }
-}
+//
+// Las acciones approveMaintenanceOrderDate y rejectMaintenanceOrderDate fueron
+// eliminadas: la fecha que programa el taller es directamente la fecha de
+// reparacion y ya no requiere aprobacion de Operaciones.

@@ -69,12 +69,17 @@ export function WorkflowPipelineChevrons({
                 'snap-start',
                 index > 0 && '-ml-3',
                 isActive ? 'z-10' : 'z-0 hover:z-5',
+                // El clip-path del chevrón recorta cualquier anillo de foco exterior:
+                // el indicador tiene que dibujarse hacia adentro.
+                'outline-none',
                 isActive
-                  ? 'bg-gh_orange text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer',
+                  ? 'bg-gh_orange text-white focus-visible:shadow-[inset_0_0_0_3px_var(--color-background)]'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer focus-visible:shadow-[inset_0_0_0_3px_var(--color-foreground)]',
               )}
               aria-current={isActive ? 'step' : undefined}
-              aria-label={`Paso ${step.stepNumber}: ${step.label}`}
+              // El aria-label reemplaza todo el contenido del botón, así que el
+              // conteo tiene que estar acá o el lector de pantalla no lo anuncia.
+              aria-label={`Paso ${step.stepNumber}: ${step.label}. ${count} ${count === 1 ? 'pedido' : 'pedidos'}`}
             >
               {/* Fila superior: número + ícono + badge de conteo */}
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -101,7 +106,7 @@ export function WorkflowPipelineChevrons({
                 {/* Badge de conteo */}
                 <span
                   className={cn(
-                    'shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[24px]',
+                    'shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[24px] tabular-nums',
                     isActive
                       ? 'bg-card text-gh_orange'
                       : 'bg-gh_orange text-white',

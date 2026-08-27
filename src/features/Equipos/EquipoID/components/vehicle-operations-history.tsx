@@ -9,8 +9,10 @@ import {
   getMaintenanceOrdersForEquipment,
   type EquipmentMaintenanceOrder,
   type EquipmentMaintenanceOrders,
+  type EquipmentRejectedRequests,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
+import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useQuery } from '@tanstack/react-query';
@@ -20,6 +22,7 @@ import moment from 'moment';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { EquipmentOrderDetailDialog } from './equipment-order-detail-dialog';
+import { VehicleRejectedRequestsTable } from './rejected-requests/VehicleRejectedRequestsTable';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -33,9 +36,17 @@ type OrderStatus =
   | 'pending_workshop_validation'
   | 'pending_operations_validation'
   | 'operations_rejected'
+  | 'workshop_rejected'
+  | 'pending_scheduling'
+  | 'date_confirmed'
   | 'completed';
 
 const statusLabels: Record<OrderStatus, string> = {
+  // pending_scheduling y date_confirmed pasaron a ser estados habituales con el
+  // ticket 594: al programar la fecha el pedido va directo a date_confirmed.
+  pending_scheduling: 'Por programar',
+  date_confirmed: 'Pendiente de ingreso a taller',
+  workshop_rejected: 'Rechazada por Taller',
   scheduled: 'Programada',
   in_workshop: 'En Taller',
   pending_workshop_validation: 'Pend. Validacion Taller',
@@ -45,6 +56,9 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 const statusVariants: Record<OrderStatus, BadgeVariant> = {
+  pending_scheduling: 'secondary',
+  date_confirmed: 'secondary',
+  workshop_rejected: 'destructive',
   scheduled: 'warning',
   in_workshop: 'info',
   pending_workshop_validation: 'yellow',
@@ -197,9 +211,7 @@ function getEquipmentOrderColumns({
                     <div className="flex items-center gap-1">
                       {idx > 0 && <span className="text-muted-foreground text-[10px]">&rarr;</span>}
                       <Badge
-                        variant={
-                          sStatus === 'completed' ? 'secondary' : sStatus === 'in_progress' ? 'info' : 'outline'
-                        }
+                        variant={sStatus === 'completed' ? 'secondary' : sStatus === 'in_progress' ? 'info' : 'outline'}
                         className={`text-[10px] gap-1 ${sStatus === 'completed' ? 'opacity-50 line-through' : ''}`}
                       >
                         <Icon className="h-2.5 w-2.5" />
@@ -210,11 +222,7 @@ function getEquipmentOrderColumns({
                   <TooltipContent>
                     <span>
                       {sector.name} —{' '}
-                      {sStatus === 'completed'
-                        ? 'Completado'
-                        : sStatus === 'in_progress'
-                          ? 'En progreso'
-                          : 'Pendiente'}
+                      {sStatus === 'completed' ? 'Completado' : sStatus === 'in_progress' ? 'En progreso' : 'Pendiente'}
                     </span>
                   </TooltipContent>
                 </Tooltip>
@@ -289,9 +297,18 @@ function getEquipmentOrderColumns({
 interface VehicleOperationsHistoryProps {
   equipmentId: string;
   initialData?: EquipmentMaintenanceOrders;
+  initialRejectedRequests?: EquipmentRejectedRequests;
 }
 
-export function VehicleOperationsHistory({ equipmentId, initialData }: VehicleOperationsHistoryProps) {
+interface MaintenanceOrdersSubTabProps {
+  equipmentId: string;
+  initialData?: EquipmentMaintenanceOrders;
+}
+
+/**
+ * Sub-tab "Órdenes de Mantenimiento": historial de órdenes generadas para el equipo.
+ */
+function MaintenanceOrdersSubTab({ equipmentId, initialData }: MaintenanceOrdersSubTabProps) {
   const { data: orders, isLoading } = useQuery({
     queryKey: ['equipment-maintenance-orders', equipmentId],
     queryFn: () => getMaintenanceOrdersForEquipment(equipmentId),
@@ -381,5 +398,42 @@ export function VehicleOperationsHistory({ equipmentId, initialData }: VehicleOp
         title="Historial Completo"
       />
     </TooltipProvider>
+  );
+}
+
+/**
+ * Tab "Historial de Mantenimiento" del legajo del equipo.
+ *
+ * Se divide en dos sub-tabs:
+ * - Órdenes de Mantenimiento: el trabajo que efectivamente se ejecutó o está en curso.
+ * - Solicitudes Rechazadas: lo que se pidió y no se aprobó. Estas solicitudes no
+ *   generan orden, y se quitaron del paso "Validar Solicitud" de Operaciones, así
+ *   que este es el único lugar del sistema donde quedan registradas.
+ *
+ * Las sub-tabs no declaran moduleSlug/tabSlug: heredan la protección de la tab
+ * padre (mantenimiento / ordenes_mantenimiento).
+ */
+export function VehicleOperationsHistory({
+  equipmentId,
+  initialData,
+  initialRejectedRequests,
+}: VehicleOperationsHistoryProps) {
+  return (
+    <TabsManagerClientSide
+      paramName="mant_subtab"
+      defaultTab="orders"
+      tabs={[
+        {
+          value: 'orders',
+          label: 'Órdenes de Mantenimiento',
+          content: <MaintenanceOrdersSubTab equipmentId={equipmentId} initialData={initialData} />,
+        },
+        {
+          value: 'rejected',
+          label: 'Solicitudes Rechazadas',
+          content: <VehicleRejectedRequestsTable equipmentId={equipmentId} initialData={initialRejectedRequests} />,
+        },
+      ]}
+    />
   );
 }

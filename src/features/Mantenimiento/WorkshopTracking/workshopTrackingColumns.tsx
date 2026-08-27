@@ -4,14 +4,34 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import {
+  getResourceCondition,
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { conditionLabels } from '@/shared/utils/mappers';
 import { type ColumnDef } from '@tanstack/react-table';
 import type { LucideIcon } from 'lucide-react';
-import { AlertCircle, CheckCircle2, Circle, Clock, Eye, Play, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Circle, Clock, Eye, History, Play, XCircle } from 'lucide-react';
 import moment from 'moment';
 import { calculateRepairProgress } from '../utils/repairProgress';
 import type { WorkshopTrackingListItem } from './actions.server';
+
+// ============================================================================
+// CONDITION CONFIG
+// ============================================================================
+
+export const conditionVariants: Record<string, 'success' | 'destructive' | 'warning' | 'secondary'> = {
+  operativo: 'success',
+  no_operativo: 'destructive',
+  en_reparacion: 'destructive',
+  operativo_condicionado: 'warning',
+  en_preparacion: 'secondary',
+};
 
 // ============================================================================
 // STATUS CONFIG
@@ -24,6 +44,7 @@ type StatusConfig = {
 };
 
 export const WORKSHOP_STATUS_CONFIG: Record<string, StatusConfig> = {
+  date_confirmed: { label: 'Pendiente de ingreso a taller', variant: 'secondary', icon: Clock },
   in_workshop: { label: 'En Taller', variant: 'info', icon: Play },
   pending_workshop_validation: { label: 'Pend. Validación Taller', variant: 'yellow', icon: Clock },
   pending_operations_validation: { label: 'Pend. Validación Operaciones', variant: 'yellow', icon: Clock },
@@ -65,9 +86,13 @@ function getSectorStatus(sectorItems: MaintenanceOrderItem[]): 'completed' | 'in
 
 interface ColumnsProps {
   onViewDetail: (order: WorkshopTrackingListItem) => void;
+  onViewHistory: (order: WorkshopTrackingListItem) => void;
 }
 
-export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): ColumnDef<WorkshopTrackingListItem>[] {
+export function getWorkshopTrackingColumns({
+  onViewDetail,
+  onViewHistory,
+}: ColumnsProps): ColumnDef<WorkshopTrackingListItem>[] {
   return [
     // ── N° Orden ─────────────────────────────────────────────────────────────
     {
@@ -78,33 +103,122 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
       cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.order_number || '-'}</span>,
     },
 
-    // ── Equipo (FK → vehicles) ────────────────────────────────────────────────
+    // ── Equipo (vehículo o equipamiento — ticket 596) ─────────────────────────
     {
       id: 'vehicle',
       meta: { title: 'Equipo' },
-      accessorFn: (row) => {
-        const v = row.vehicles;
-        return v?.domain || v?.serie || '';
-      },
+      accessorFn: (row) => getResourceLabel(row),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const vehicle = row.original.vehicles;
-        if (!vehicle) return <span className="text-muted-foreground">-</span>;
+        const internNumber = getResourceInternNumber(row.original);
+        const isOther = getResourceKind(row.original) === 'other_equipment';
         return (
-          <div>
-            <span className="font-medium">{vehicle.domain || vehicle.serie || '-'}</span>
-            {vehicle.intern_number && (
-              <span className="text-muted-foreground ml-1 text-xs">({vehicle.intern_number})</span>
+          <div className="min-w-0">
+            <span className="font-medium">{getResourceLabel(row.original)}</span>
+            {internNumber && <span className="text-muted-foreground ml-1 text-xs">({internNumber})</span>}
+            {/* En una tabla donde conviven ambos, "AB093KH" y "CT-4471" no se
+                distinguen solos: el equipamiento se marca explícitamente. */}
+            {isOther && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                Equipamiento
+              </Badge>
             )}
           </div>
         );
       },
       filterFn: (row, _id, value: string[]) => {
-        const vehicleId = row.original.vehicles?.id;
-        if (vehicleId == null) return value.includes(NULL_FILTER_VALUE);
-        return value.includes(vehicleId);
+        const resourceId = row.original.vehicles?.id ?? row.original.other_equipment?.id;
+        if (resourceId == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(resourceId);
       },
       enableSorting: true,
+    },
+
+    // ── Items ────────────────────────────────────────────────────────────────
+    {
+      id: 'items_count',
+      accessorFn: (row) => row.maintenance_order_items?.length ?? 0,
+      meta: { title: 'Items' },
+      header: 'Items',
+      cell: ({ row }) => {
+        const count = row.original.maintenance_order_items?.length ?? 0;
+        if (count === 0 && row.original.maintenance_requests?.source === 'preventive') {
+          return <PreventiveItemsBadge preventiveType={row.original.maintenance_requests?.preventive_type ?? ''} />;
+        }
+        return (
+          <Badge variant="secondary">
+            {count} {count === 1 ? 'item' : 'items'}
+          </Badge>
+        );
+      },
+      enableSorting: false,
+    },
+
+    // ── Fecha Planificada ────────────────────────────────────────────────────
+    {
+      id: 'scheduled_date',
+      accessorKey: 'scheduled_date',
+      meta: { title: 'Fecha Planificada' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Planificada" />,
+      cell: ({ row }) => {
+        const date = row.original.scheduled_date;
+        if (!date) return <span className="text-muted-foreground">-</span>;
+
+        const scheduledDate = moment(date);
+        const today = moment().startOf('day');
+        const isToday = scheduledDate.isSame(today, 'day');
+        const isPast = scheduledDate.isBefore(today);
+        const isTomorrow = scheduledDate.isSame(today.clone().add(1, 'day'), 'day');
+
+        return (
+          <div className="flex flex-col">
+            <span
+              className={
+                isToday ? 'font-bold text-green-600' : isPast ? 'text-red-600' : isTomorrow ? 'text-orange-600' : ''
+              }
+            >
+              {scheduledDate.format('DD/MM/YYYY')}
+            </span>
+            {isToday && <span className="text-xs text-green-600">Hoy</span>}
+            {isPast && <span className="text-xs text-red-600">Vencido</span>}
+            {isTomorrow && <span className="text-xs text-orange-600">Mañana</span>}
+          </div>
+        );
+      },
+    },
+
+    // ── Condición del vehículo ───────────────────────────────────────────────
+    {
+      id: 'condition',
+      accessorFn: (row) => getResourceCondition(row),
+      meta: { title: 'Condición Actual' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Condición Actual" />,
+      cell: ({ row }) => {
+        const condition = getResourceCondition(row.original);
+        const label = condition ? (conditionLabels[condition] ?? condition) : 'Sin datos';
+        const variant = condition ? (conditionVariants[condition] ?? 'secondary') : 'secondary';
+        return <Badge variant={variant}>{label}</Badge>;
+      },
+      enableSorting: false,
+      filterFn: (row, _id, value: string[]) => {
+        const cond = getResourceCondition(row.original);
+        if (cond == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(cond);
+      },
+    },
+
+    // ── Kilometraje ──────────────────────────────────────────────────────────
+    {
+      id: 'kilometer',
+      accessorFn: (row) => row.vehicles?.kilometer ?? null,
+      meta: { title: 'Km Actual' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Km Actual" />,
+      cell: ({ row }) => {
+        const km = row.original.vehicles?.kilometer;
+        if (!km) return <span className="text-muted-foreground">-</span>;
+        return <span>{Number(km).toLocaleString('es-AR')} km</span>;
+      },
+      enableSorting: false,
     },
 
     // ── Ingreso a Taller ─────────────────────────────────────────────────────
@@ -300,10 +414,21 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
       enableHiding: false,
       header: '',
       cell: ({ row }) => (
-        <Button variant="ghost" size="sm" onClick={() => onViewDetail(row.original)} className="gap-1">
-          <Eye className="h-4 w-4" />
-          Ver
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => onViewDetail(row.original)} className="gap-1">
+            <Eye className="h-4 w-4" />
+            Ver
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onViewHistory(row.original)}
+            title="Ver historial"
+            className="text-purple-600 hover:text-purple-700"
+          >
+            <History className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -371,5 +496,18 @@ export function getWorkshopTrackingExportFormatters() {
     },
     description: (_val: unknown, row: WorkshopTrackingListItem) =>
       row.description ?? row.maintenance_requests?.description ?? '',
+    scheduled_date: (val: unknown) => {
+      if (!val) return '';
+      return moment(val as string).format('DD/MM/YYYY');
+    },
+    condition: (_val: unknown, row: WorkshopTrackingListItem) => {
+      const cond = getResourceCondition(row);
+      return cond ? (conditionLabels[cond] ?? cond) : '';
+    },
+    kilometer: (_val: unknown, row: WorkshopTrackingListItem) => {
+      const km = row.vehicles?.kilometer;
+      return km ? Number(km).toLocaleString('es-AR') : '';
+    },
+    items_count: (_val: unknown, row: WorkshopTrackingListItem) => String(row.maintenance_order_items?.length ?? 0),
   };
 }

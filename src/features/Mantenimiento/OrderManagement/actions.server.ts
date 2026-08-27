@@ -12,6 +12,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../shared/maintenance-resource';
 import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 
 const logger = new Logger('OrderManagement/actions.server');
@@ -72,6 +73,16 @@ const ORDER_MANAGEMENT_SELECT = {
       types_of_vehicles: {
         select: { id: true, name: true },
       },
+    },
+  },
+  // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
+      intern_number: true,
+      condition: true,
+      horometer: true,
     },
   },
   maintenance_requests: {
@@ -212,10 +223,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
   }
 
   // ─── Condiciones AND para casos mixtos ────────────────────────────────────
-  const extraAndConditions: Record<string, unknown>[] = [
-    ...vehicleTextConditions,
-    ...vehicleTypeConditions,
-  ];
+  const extraAndConditions: Record<string, unknown>[] = [...vehicleTextConditions, ...vehicleTypeConditions];
 
   if (vehicleValues?.length) {
     const hasNull = vehicleValues.includes(NULL_FILTER_VALUE);
@@ -237,14 +245,15 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
 
   return {
     status: 'in_workshop' as const,
-    vehicles: { company_id: companyId },
     ...searchWhere,
     ...filtersWhere,
     ...dateFiltersWhere,
     ...orderNumberFilter,
     ...vehicleFilter,
     ...supervisorCondition,
-    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
+    // Empresa: vehiculo o equipamiento (ticket 596). Va dentro del AND porque
+    // produce un OR y chocaria con el OR de la busqueda global.
+    AND: [resourceCompanyCondition(companyId), ...extraAndConditions],
   };
 }
 
@@ -344,7 +353,7 @@ export async function getOrderManagementFacets(searchParams?: DataTableSearchPar
 
   const baseWhere = {
     status: 'in_workshop' as const,
-    vehicles: { company_id: companyId },
+    AND: [resourceCompanyCondition(companyId)],
     ...supervisorCondition,
   };
 
@@ -367,7 +376,9 @@ export async function getOrderManagementFacets(searchParams?: DataTableSearchPar
     return buildBaseWhere(companyId, modified);
   }
 
-  function toFacetMap(rows: { key: string | number | bigint | null | undefined; count: number }[]): Map<string, number> {
+  function toFacetMap(
+    rows: { key: string | number | bigint | null | undefined; count: number }[]
+  ): Map<string, number> {
     const map = new Map<string, number>();
     for (const { key, count } of rows) {
       if (key == null) {

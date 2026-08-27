@@ -27,7 +27,8 @@ export interface WorkOrderRowData {
   status: WorkOrderStatus;
   priority: WorkOrderPriority;
   // Equipo
-  equipmentId: string;
+  /** Nullable desde el ticket 596: la OT puede ser de un equipamiento, no de un vehículo */
+  equipmentId: string | null;
   vehicleDomain: string | null;
   vehicleSerie: string | null;
   vehicleInternNumber: string | null;

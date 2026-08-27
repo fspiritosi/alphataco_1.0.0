@@ -11,6 +11,7 @@ import {
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../../shared/maintenance-resource';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('PedidosMantenimiento/Pendientes');
@@ -33,12 +34,21 @@ const PENDING_ORDER_SELECT = {
   order_number: true,
   description: true,
   equipment_id: true,
+  other_equipment_id: true,
   maintenance_request_id: true,
   vehicles: {
     select: {
       id: true,
       domain: true,
       serie: true,
+      intern_number: true,
+    },
+  },
+  // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
       intern_number: true,
     },
   },
@@ -80,10 +90,18 @@ function buildWhereClause(
   // Filtros de rango de fecha
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, ['created_at', 'scheduled_date']);
 
-  // Filtro de vehículo (FK por ID)
-  const vehicleFilter = state.filters.vehicle?.length ? { equipment_id: { in: state.filters.vehicle } } : {};
+  // Filtro de recurso (FK por ID): el id puede ser de un vehiculo o de un
+  // equipamiento (ticket 596), asi que se compara contra las dos columnas.
+  const vehicleFilter = state.filters.vehicle?.length
+    ? {
+        OR: [
+          { equipment_id: { in: state.filters.vehicle } },
+          { other_equipment_id: { in: state.filters.vehicle } },
+        ],
+      }
+    : {};
 
-  // Búsqueda global: busca en equipo (domain, serie, intern_number) O en nro. pedido
+  // Búsqueda global: busca en el recurso (vehiculo o equipamiento) O en nro. pedido
   const searchCondition = state.search
     ? {
         OR: [
@@ -96,25 +114,39 @@ function buildWhereClause(
               ],
             },
           },
+          {
+            other_equipment: {
+              OR: [
+                { serial_number: { contains: state.search, mode: 'insensitive' as const } },
+                { intern_number: { contains: state.search, mode: 'insensitive' as const } },
+              ],
+            },
+          },
           { order_number: { contains: state.search, mode: 'insensitive' as const } },
         ],
       }
     : {};
 
   return {
-    // Status base de pendientes (puede ser sobrescrito por filtersWhere.status si el usuario filtra)
-    status: { in: ['pending_scheduling', 'scheduled'] },
-    // Vehicles con company_id (siempre requerido para aislar la empresa)
-    vehicles: { company_id: companyId },
-    // Búsqueda global si hay término de búsqueda
-    ...searchCondition,
+    // Status base de pendientes (puede ser sobrescrito por filtersWhere.status si el usuario filtra).
+    // Al programar la fecha el pedido pasa directo a 'date_confirmed', por eso ya no
+    // existen pedidos en 'scheduled' esperando aprobacion de Operaciones.
+    status: 'pending_scheduling',
+    // Empresa: vehiculo o equipamiento (ticket 596). Va dentro de AND porque
+    // produce un OR y chocaria con el OR de la busqueda global.
+    // Busqueda global y filtro de recurso tambien producen OR: los tres van
+    // dentro del AND para que ninguno pise a otro.
+    AND: [
+      resourceCompanyCondition(companyId),
+      ...(state.search ? [searchCondition] : []),
+      ...(state.filters.vehicle?.length ? [vehicleFilter] : []),
+    ],
     // Filtro de supervisor si aplica
     ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
     // Filtros del usuario (status sobrescribe el baseWhere si el usuario lo filtra)
     ...filtersWhere,
     ...textFiltersWhere,
     ...dateFiltersWhere,
-    ...vehicleFilter,
   };
 }
 
@@ -203,8 +235,8 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
     const crossWhere = (excludeColumn: string) => {
       if (!state) {
         return {
-          status: { in: ['pending_scheduling', 'scheduled'] },
-          vehicles: { company_id: companyId },
+          status: 'pending_scheduling',
+          AND: [resourceCompanyCondition(companyId)],
           ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
         };
       }
@@ -227,7 +259,7 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
         _count: true,
       }),
       prisma.maintenance_orders.groupBy({
-        by: ['equipment_id'],
+        by: ['equipment_id', 'other_equipment_id'],
         where: whereForVehicle,
         _count: true,
       }),
@@ -239,19 +271,49 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
     ]);
 
     // Ronda 2: resolver nombres de vehículos solo para los IDs que tienen datos
-    const vehicleIds = vehicleCounts.filter((r) => r.equipment_id).map((r) => r.equipment_id);
-    const vehicleOptions =
+    // `equipment_id` es nullable desde el ticket 596 (el pedido puede ser de un
+    // equipamiento): el filter descarta los null y el guard se lo dice a TypeScript.
+    const vehicleIds = vehicleCounts.map((r) => r.equipment_id).filter((id): id is string => id !== null);
+    const otherEquipmentIds = vehicleCounts
+      .map((r) => r.other_equipment_id)
+      .filter((id): id is string => id !== null);
+
+    const [vehicles, otherEquipment] = await Promise.all([
       vehicleIds.length > 0
-        ? await prisma.vehicles.findMany({
+        ? prisma.vehicles.findMany({
             where: { id: { in: vehicleIds } },
             select: { id: true, domain: true, serie: true, intern_number: true },
             orderBy: { domain: 'asc' },
           })
-        : [];
+        : Promise.resolve([]),
+      otherEquipmentIds.length > 0
+        ? prisma.other_equipment.findMany({
+            where: { id: { in: otherEquipmentIds } },
+            select: { id: true, serial_number: true, intern_number: true },
+            orderBy: { serial_number: 'asc' },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Los equipamientos se normalizan a la forma de vehiculo para que el filtro
+    // los muestre en la misma lista: su numero de serie ocupa el lugar del dominio.
+    const vehicleOptions = [
+      ...vehicles,
+      ...otherEquipment.map((oe) => ({
+        id: oe.id,
+        domain: oe.serial_number,
+        serie: null as string | null,
+        intern_number: oe.intern_number,
+      })),
+    ];
 
     return {
       status: new Map(statusCounts.map((r) => [r.status as string, r._count])),
-      vehicle: new Map(vehicleCounts.filter((r) => r.equipment_id).map((r) => [r.equipment_id!, r._count])),
+      vehicle: new Map(
+        vehicleCounts
+          .map((r) => [r.equipment_id ?? r.other_equipment_id, r._count] as const)
+          .filter((entry): entry is readonly [string, number] => entry[0] !== null)
+      ),
       vehicleOptions,
       source: new Map(sourceCounts.filter((r) => r.source != null).map((r) => [r.source as string, r._count])),
     };

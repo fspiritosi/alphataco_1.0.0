@@ -1,5 +1,6 @@
 'use client';
 
+import { getResourceInternNumber, getResourceLabel } from '../../shared/maintenance-resource';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,8 +43,9 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
   const [dateStr, setDateStr] = useState<string>('');
   const scheduleMutation = useScheduleMaintenanceOrder();
 
-  const equipmentLabel = order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar';
-  const internNumber = order.vehicles?.intern_number;
+  // Ticket 596: el pedido puede ser de un vehiculo o de un equipamiento
+  const equipmentLabel = getResourceLabel(order);
+  const internNumber = getResourceInternNumber(order);
   const itemCount = order.maintenance_order_items?.length ?? 0;
   const isPreventive = order.maintenance_requests?.source === 'preventive';
 
@@ -202,6 +204,13 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                     <div className="space-y-1.5">
                       {items?.map((item, index) => {
                         const deviation = item.maintenance_request_items?.checklist_deviations;
+                        // Ticket 592: en la carga manual no hay desvio de checklist —
+                        // el titulo del item es lo que escribio el supervisor.
+                        const itemLabel =
+                          deviation?.item_label ||
+                          item.maintenance_request_items?.free_text ||
+                          item.types_of_repairs?.name ||
+                          'Item sin descripción';
                         return (
                           <div key={item.id} className="p-2.5 border rounded-lg space-y-1">
                             <div className="flex items-start gap-2 min-w-0">
@@ -210,7 +219,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                               </span>
                               <div className="min-w-0">
                                 <p className="font-medium text-sm leading-snug">
-                                  {deviation?.item_label || 'Item sin descripción'}
+                                  {itemLabel}
                                 </p>
                                 {deviation?.section_code && (
                                   <p className="text-xs text-muted-foreground mt-0.5">

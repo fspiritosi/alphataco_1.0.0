@@ -3,6 +3,7 @@
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { resourceIdFields, type MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -298,6 +299,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
+  /** Vehiculo o equipamiento (ticket 596). Por defecto, vehiculo */
+  resourceKind?: MaintenanceResourceKind;
   /** Ítems manuales (texto libre, no del template) */
   manualItems?: Array<{ label: string }>;
   /** Descripción libre del pedido (utilizada cuando el origen es preventivo) */
@@ -327,7 +330,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
     const { request, order } = await prisma.$transaction(async (tx) => {
       const request = await tx.maintenance_requests.create({
         data: {
-          equipment_id: input.equipmentId,
+          ...resourceIdFields(input.resourceKind, input.equipmentId),
           supervisor_id: input.supervisorId,
           status: 'approved',
           approved_by: profile.id,
@@ -342,7 +345,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
 
       const order = await tx.maintenance_orders.create({
         data: {
-          equipment_id: input.equipmentId,
+          ...resourceIdFields(input.resourceKind, input.equipmentId),
           maintenance_request_id: request.id,
           status: 'pending_scheduling',
           kilometer_at_entry: input.kilometer ?? null,
@@ -677,6 +680,8 @@ export async function createMaintenanceRequestPendingApproval(input: {
   source?: 'preventive';
   preventiveType?: PreventiveType;
   driverEmployeeId?: string;
+  /** Vehiculo o equipamiento (ticket 596). Por defecto, vehiculo */
+  resourceKind?: MaintenanceResourceKind;
   /** Ítems manuales (texto libre, no del template) */
   manualItems?: Array<{ label: string }>;
   /** Descripción libre de la solicitud (utilizada cuando el origen es preventivo) */
@@ -706,7 +711,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
     const { request } = await prisma.$transaction(async (tx) => {
       const request = await tx.maintenance_requests.create({
         data: {
-          equipment_id: input.equipmentId,
+          ...resourceIdFields(input.resourceKind, input.equipmentId),
           supervisor_id: input.supervisorId,
           status: 'pending_approval',
           user_id: profile.id,
@@ -1001,3 +1006,141 @@ export async function getCurrentUserForSupervisorCheck() {
 }
 
 export type CurrentUserForSupervisorCheck = Awaited<ReturnType<typeof getCurrentUserForSupervisorCheck>>;
+
+/**
+ * Crea una solicitud de mantenimiento por CARGA MANUAL (ticket 592).
+ *
+ * A diferencia del flujo de checklist, acá las reparaciones se cargan directamente:
+ * cada item puede apuntar a un tipo de reparacion del sistema (`repairTypeId`) o
+ * ser texto libre (`freeText`) cuando el solicitante no encuentra la tarea que
+ * necesita — en ese caso el taller la asocia despues al tipo que corresponda.
+ *
+ * Los items NO tienen checklist_deviation_id: la columna es nullable desde este
+ * ticket, justamente porque este camino no parte de ninguna inspeccion.
+ *
+ * Las imagenes llegan como URLs ya subidas al bucket 'repair-images' desde el
+ * cliente; acá solo se persisten.
+ */
+export async function createManualMaintenanceRequest(input: {
+  equipmentId: string;
+  supervisorId: string;
+  kilometer?: string;
+  engine_hours?: string;
+  driverEmployeeId?: string;
+  /** Vehiculo o equipamiento (ticket 596). Por defecto, vehiculo */
+  resourceKind?: MaintenanceResourceKind;
+  /**
+   * El usuario que carga ES el supervisor: la solicitud queda aprobada y genera
+   * el pedido de una, igual que en los caminos de checklist y preventivo.
+   */
+  autoApprove?: boolean;
+  repairs: Array<{
+    repairTypeId: string | null;
+    freeText: string | null;
+    description: string;
+    images: string[];
+  }>;
+}) {
+  serverLogger.info('Creando solicitud de mantenimiento por carga manual', {
+    data: {
+      equipmentId: input.equipmentId,
+      supervisorId: input.supervisorId,
+      repairsCount: input.repairs.length,
+    },
+  });
+
+  if (input.repairs.length === 0) {
+    throw new Error('Debe incluirse al menos una reparación');
+  }
+
+  const profile = await requireServerAuthProfile();
+
+  const autoApprove = input.autoApprove === true;
+
+  try {
+    const request = await prisma.$transaction(async (tx) => {
+      const created = await tx.maintenance_requests.create({
+        data: {
+          ...resourceIdFields(input.resourceKind, input.equipmentId),
+          supervisor_id: input.supervisorId,
+          status: autoApprove ? 'approved' : 'pending_approval',
+          ...(autoApprove ? { approved_by: profile.id, approved_at: new Date() } : {}),
+          user_id: profile.id,
+          kilometer: input.kilometer ?? null,
+          engine_hours: input.engine_hours ?? null,
+          driver_employee_id: input.driverEmployeeId ?? null,
+          source: 'manual',
+        },
+      });
+
+      await tx.maintenance_request_items.createMany({
+        data: input.repairs.map((repair) => ({
+          maintenance_request_id: created.id,
+          checklist_deviation_id: null,
+          repair_type_id: repair.repairTypeId,
+          free_text: repair.freeText,
+          description: repair.description || null,
+          images: repair.images,
+          status: autoApprove ? 'approved' : 'pending',
+        })),
+      });
+
+      // Quien carga es el supervisor: el pedido se genera en el acto, sin pasar
+      // por la validación de Operaciones.
+      if (autoApprove) {
+        const order = await tx.maintenance_orders.create({
+          data: {
+            ...resourceIdFields(input.resourceKind, input.equipmentId),
+            maintenance_request_id: created.id,
+            status: 'pending_scheduling',
+            kilometer_at_entry: input.kilometer ?? null,
+            engine_hours_at_entry: input.engine_hours ?? null,
+            source: 'manual',
+          },
+        });
+
+        // Los items del pedido se cuelgan de los de la solicitud, para conservar
+        // la trazabilidad y arrastrar las fotos sin transformarlas.
+        const requestItems = await tx.maintenance_request_items.findMany({
+          where: { maintenance_request_id: created.id },
+          select: { id: true, repair_type_id: true, description: true, free_text: true, images: true },
+        });
+
+        await tx.maintenance_order_items.createMany({
+          data: requestItems.map((item) => ({
+            maintenance_order_id: order.id,
+            maintenance_request_item_id: item.id,
+            repair_type_id: item.repair_type_id,
+            // Sin tipo de reparación, el texto libre es lo único que describe la tarea
+            description: item.description ?? item.free_text ?? null,
+            images: item.images,
+          })),
+        });
+
+        await logActivity(tx, {
+          maintenanceRequestId: created.id,
+          maintenanceOrderId: order.id,
+          actionType: ACTIVITY_LOG.CREATED,
+          performedBy: profile.id,
+          notes: 'Pedido creado por carga manual',
+          metadata: { source: 'manual', supervisor_id: input.supervisorId },
+        });
+      }
+
+      return created;
+    });
+
+    serverLogger.info('Solicitud manual creada', {
+      data: { requestId: request.id, itemsCount: input.repairs.length, autoApprove },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
+
+    return request;
+  } catch (error) {
+    serverLogger.error('Error al crear solicitud manual', {
+      data: { error, equipmentId: input.equipmentId },
+    });
+    throw error;
+  }
+}

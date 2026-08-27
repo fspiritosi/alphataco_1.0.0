@@ -21,6 +21,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  getResourceCondition,
+  getResourceKind,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 
 interface EntradaTallerDialogProps {
@@ -30,6 +35,11 @@ interface EntradaTallerDialogProps {
 }
 
 export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialogProps) {
+  // Ticket 596: un equipamiento no lleva kilometraje — se mide por horómetro.
+  const isOtherEquipment = getResourceKind(order) === 'other_equipment';
+  const resourceLabel = getResourceLabel(order);
+  const resourceCondition = getResourceCondition(order);
+
   // Obtener kilometraje inicial y su origen
   const initialKm = useMemo(
     () => getInitialKilometer(order.vehicles?.kilometer, order.maintenance_order_items),
@@ -40,8 +50,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
 
   // Horómetro: precargado del vehículo (opcional)
   const initialEngineHours = useMemo(() => {
-    const vehicleHours = order.vehicles?.engine_hours;
-    return vehicleHours ? String(vehicleHours) : '';
+    const hours = order.other_equipment?.horometer ?? order.vehicles?.engine_hours;
+    return hours ? String(hours) : '';
   }, [order]);
   const [engineHours, setEngineHours] = useState(initialEngineHours);
   const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
@@ -89,7 +99,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   });
 
   const handleApprove = async () => {
-    if (!kilometer.trim()) {
+    if (!isOtherEquipment && !kilometer.trim()) {
       toast.error('Debe ingresar el kilometraje actual');
       return;
     }
@@ -104,10 +114,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
     try {
       await approveMutation.mutateAsync({
         orderId: order.id,
-        kilometer: kilometer.trim(),
+        ...(kilometer.trim() ? { kilometer: kilometer.trim() } : {}),
         ...(engineHours.trim() ? { engine_hours: engineHours.trim() } : {}),
       });
-      toast.success('Entrada a taller aprobada. El equipo ahora está "No Operativo"');
+      toast.success(
+        `Entrada a taller aprobada. El ${isOtherEquipment ? 'equipamiento' : 'equipo'} ahora está "No Operativo"`
+      );
       onClose();
     } catch {
       toast.error('Error al aprobar la entrada a taller');
@@ -123,9 +135,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
         <DialogHeader>
           <DialogTitle>Aprobar Entrada a Taller</DialogTitle>
           <DialogDescription>
-            Confirme la entrada del equipo{' '}
-            <span className="font-medium">{order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}</span>{' '}
-            al taller.
+            Confirme la entrada del {isOtherEquipment ? 'equipamiento' : 'equipo'}{' '}
+            <span className="font-medium">{resourceLabel}</span> al taller.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,7 +153,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                     No Operativo
                   </Badge>
                 </li>
-                <li>El kilometraje se actualizará al valor ingresado</li>
+                {!isOtherEquipment && <li>El kilometraje se actualizará al valor ingresado</li>}
                 {engineHours.trim() && <li>El horómetro se actualizará al valor ingresado</li>}
               </ul>
             </div>
@@ -152,17 +163,24 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           <div className="p-3 bg-muted rounded-lg space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Condición actual:</span>
-              <Badge variant={order.vehicles?.condition === 'operativo' ? 'success' : 'destructive'}>
-                {order.vehicles?.condition || 'Desconocido'}
+              <Badge variant={resourceCondition === 'operativo' ? 'success' : 'destructive'}>
+                {resourceCondition || 'Desconocido'}
               </Badge>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Km actual:</span>
-              <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
-            </div>
+            {!isOtherEquipment && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Km actual:</span>
+                <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Horómetro actual:</span>
-              <span className="font-medium">{order.vehicles?.engine_hours || '-'} hs</span>
+              <span className="font-medium">
+                {String(
+                  (isOtherEquipment ? order.other_equipment?.horometer : order.vehicles?.engine_hours) ?? '-'
+                )}{' '}
+                hs
+              </span>
             </div>
             {order.scheduled_date && (
               <div className="flex justify-between">
@@ -212,9 +230,11 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
 
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
-                        <div className="font-medium">{deviation?.item_label || 'Sin etiqueta'}</div>
+                        <div className="font-medium">
+                          {deviation?.item_label || item.maintenance_request_items?.free_text || 'Sin etiqueta'}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Código: {formattedCode}
+                          {formattedCode && <>Código: {formattedCode}</>}
                           {repairTypeNames.length > 0 && (
                             <span className="ml-2">
                               | Tipo{repairTypeNames.length > 1 ? 's' : ''}:{' '}
@@ -237,8 +257,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             </div>
           )}
 
-          {/* Input de kilometraje */}
-          <div className="space-y-2">
+          {/* Input de kilometraje — un equipamiento no lleva km (ticket 596) */}
+          <div className={`space-y-2 ${isOtherEquipment ? 'hidden' : ''}`}>
             <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
             <Input
               id="kilometer"
@@ -285,7 +305,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             ) : (
               <p className="text-xs text-muted-foreground">
                 {minEngineHours > 0
-                  ? `Valor precargado desde el vehículo (${minEngineHours.toLocaleString()} hs). El nuevo valor no puede ser menor.`
+                  ? `Valor precargado desde el ${isOtherEquipment ? 'equipamiento' : 'vehículo'} (${minEngineHours.toLocaleString()} hs). El nuevo valor no puede ser menor.`
                   : 'Opcional. Ingrese las horas de motor actuales.'}
               </p>
             )}
@@ -298,7 +318,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           </Button>
           <Button
             onClick={handleApprove}
-            disabled={approveMutation.isPending || !kilometer.trim() || !!validationError || !!engineHoursError}
+            disabled={
+              approveMutation.isPending ||
+              (!isOtherEquipment && !kilometer.trim()) ||
+              !!validationError ||
+              !!engineHoursError
+            }
           >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada

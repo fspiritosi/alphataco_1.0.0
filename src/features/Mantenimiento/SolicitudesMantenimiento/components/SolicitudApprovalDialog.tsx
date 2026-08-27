@@ -30,7 +30,8 @@ interface SolicitudApprovalDialogProps {
 }
 
 type DeviationItem = {
-  id: string; // checklist_deviation_id
+  /** checklist_deviation_id — null en los items de carga manual, que no vienen de un checklist */
+  id: string | null;
   itemId: string; // maintenance_request_item.id
   item_code: string;
   item_label: string;
