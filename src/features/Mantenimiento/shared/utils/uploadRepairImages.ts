@@ -36,9 +36,17 @@ export async function uploadRepairImages(files: File[], equipmentId: string): Pr
 
   // En paralelo: son pocas fotos por reparación y el flujo por QR se usa desde
   // el celular en obra, donde encadenar round trips se nota.
+  //
+  // El path lleva el indice ademas del timestamp: dentro de un `Promise.all` todas
+  // las subidas se crean en el mismo tick, asi que `Date.now()` devuelve el MISMO
+  // valor para todas. Dos archivos con igual nombre (dos capturas de pantalla, la
+  // misma foto elegida dos veces) generaban el mismo path y, con `upsert: false`,
+  // la segunda fallaba y se perdia el lote entero.
+  const batchStamp = Date.now();
+
   return Promise.all(
-    files.map(async (file) => {
-      const path = `${equipmentId}/${Date.now()}_${sanitizeFileName(file.name)}`;
+    files.map(async (file, index) => {
+      const path = `${equipmentId}/${batchStamp}_${index}_${sanitizeFileName(file.name)}`;
 
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
         cacheControl: '3600',

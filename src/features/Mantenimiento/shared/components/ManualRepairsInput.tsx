@@ -12,7 +12,7 @@ import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/upl
 import { cn } from '@/lib/utils';
 import { AlertTriangle, Check, ChevronsUpDown, ImagePlus, Loader2, PencilLine, Plus, Wrench, X } from 'lucide-react';
 import Image from 'next/image';
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 /** Máximo de fotos por reparación — mismo límite que el formulario anterior del sistema */
@@ -41,6 +41,19 @@ export type ManualRepair = {
   images: File[];
 };
 
+/**
+ * API imperativa para el paso que contiene este input.
+ *
+ * El borrador (tarea elegida, texto libre, descripcion, fotos) vive dentro de este
+ * componente, asi que el wizard no puede saber si quedo algo escrito sin agregar.
+ * Al avanzar de paso llama a `commitPendingDraft()`: si hay un borrador valido lo
+ * agrega solo — antes se descartaba en silencio y el usuario perdia la reparacion.
+ */
+export type ManualRepairsInputHandle = {
+  /** 'added' si habia borrador y se agrego; 'empty' si no habia nada pendiente */
+  commitPendingDraft: () => 'added' | 'empty';
+};
+
 type ManualRepairsInputProps = {
   repairs: ManualRepair[];
   onChange: (next: ManualRepair[]) => void;
@@ -50,6 +63,7 @@ type ManualRepairsInputProps = {
   hasRepairTypesError?: boolean;
   onRetryRepairTypes?: () => void;
   disabled?: boolean;
+  ref?: React.Ref<ManualRepairsInputHandle>;
 };
 
 function newLocalId(): string {
@@ -66,6 +80,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   hasRepairTypesError = false,
   onRetryRepairTypes,
   disabled = false,
+  ref,
 }: ManualRepairsInputProps) {
   // Borrador de la reparación que se está armando
   const [repairTypeId, setRepairTypeId] = useState<string | null>(null);
@@ -130,6 +145,19 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
     ]);
     resetDraft();
   }, [canAdd, onChange, repairs, repairTypeId, trimmedFreeText, description, images, resetDraft]);
+
+  // El wizard llama a esto al avanzar de paso para no perder lo que quedo escrito.
+  useImperativeHandle(
+    ref,
+    () => ({
+      commitPendingDraft: () => {
+        if (!canAdd) return 'empty';
+        handleAdd();
+        return 'added';
+      },
+    }),
+    [canAdd, handleAdd]
+  );
 
   const handleRemove = useCallback(
     (localId: string) => {

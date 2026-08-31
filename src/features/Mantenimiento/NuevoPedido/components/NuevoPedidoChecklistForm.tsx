@@ -20,7 +20,11 @@ import {
 } from '@/features/Mantenimiento/actions/equipment-basic';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shared/components/ManualItemsInput';
-import { ManualRepairsInput, type ManualRepair } from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
+import {
+  ManualRepairsInput,
+  type ManualRepair,
+  type ManualRepairsInputHandle,
+} from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
 import type { MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   PREVENTIVE_TYPES,
@@ -54,7 +58,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState, type KeyboardEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 import {
   createMaintenanceOrderFromDeviations,
@@ -257,6 +261,9 @@ export function NuevoPedidoChecklistForm({
 
   // Paso 3 (carga manual): reparaciones cargadas directamente, sin checklist
   const [manualRepairs, setManualRepairs] = useState<ManualRepair[]>([]);
+  // El borrador de reparacion vive dentro de ManualRepairsInput; este ref permite
+  // guardarlo al avanzar en vez de descartarlo en silencio.
+  const manualRepairsRef = useRef<ManualRepairsInputHandle>(null);
 
   // Tipos de reparación para el selector de carga manual
   const {
@@ -437,6 +444,21 @@ export function NuevoPedidoChecklistForm({
   // ============================================
   // HANDLERS
   // ============================================
+  /**
+   * Avanza de paso guardando primero lo que quedo escrito en el formulario de
+   * reparaciones. Antes, si el usuario escribia una reparacion y tocaba Siguiente
+   * sin "Agregar reparacion", se perdia sin aviso.
+   */
+  const handleAdvanceStep = useCallback(() => {
+    if (requestType === 'manual' && currentStepKey === 'items') {
+      const result = manualRepairsRef.current?.commitPendingDraft();
+      if (result === 'added') {
+        toast.info('Se agregó la reparación que habías escrito');
+      }
+    }
+    setCurrentStep((prev) => prev + 1);
+  }, [requestType, currentStepKey]);
+
   const handleSelectEquipment = useCallback(
     (equipId: string) => {
       // Se busca en la lista normalizada, no en `equipment`: esta última solo
@@ -1137,6 +1159,7 @@ export function NuevoPedidoChecklistForm({
       <ManualRepairsInput
         repairs={manualRepairs}
         onChange={setManualRepairs}
+        ref={manualRepairsRef}
         repairTypes={repairTypes}
         isLoadingRepairTypes={isLoadingRepairTypes}
         hasRepairTypesError={hasRepairTypesError}
@@ -1696,7 +1719,7 @@ export function NuevoPedidoChecklistForm({
           </Button>
 
           {currentStep < steps.length - 1 ? (
-            <Button onClick={() => setCurrentStep((prev) => prev + 1)} disabled={!canAdvanceStep}>
+            <Button onClick={handleAdvanceStep} disabled={!canAdvanceStep}>
               Siguiente
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
