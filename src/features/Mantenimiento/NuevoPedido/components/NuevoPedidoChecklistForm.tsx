@@ -264,6 +264,9 @@ export function NuevoPedidoChecklistForm({
   // El borrador de reparacion vive dentro de ManualRepairsInput; este ref permite
   // guardarlo al avanzar en vez de descartarlo en silencio.
   const manualRepairsRef = useRef<ManualRepairsInputHandle>(null);
+  // Habilita "Siguiente" cuando hay una reparacion escrita sin agregar: al avanzar
+  // se guarda sola (ver handleAdvanceStep).
+  const [hasPendingManualDraft, setHasPendingManualDraft] = useState(false);
 
   // Tipos de reparación para el selector de carga manual
   const {
@@ -762,7 +765,7 @@ export function NuevoPedidoChecklistForm({
         if (requestType === 'manual') return true;
         return !!selectedPreventiveType;
       case 'items':
-        if (requestType === 'manual') return manualRepairs.length > 0;
+        if (requestType === 'manual') return manualRepairs.length > 0 || hasPendingManualDraft;
         return selectedDeviations.length > 0 || manualItems.length > 0;
       case 'supervisor':
         if (isCurrentUserSupervisor === null) return false;
@@ -776,6 +779,7 @@ export function NuevoPedidoChecklistForm({
   }, [
     currentStepKey,
     requestType,
+    hasPendingManualDraft,
     selectedEquipmentId,
     selectedTemplateId,
     selectedPreventiveType,
@@ -1160,6 +1164,7 @@ export function NuevoPedidoChecklistForm({
         repairs={manualRepairs}
         onChange={setManualRepairs}
         ref={manualRepairsRef}
+        onPendingDraftChange={setHasPendingManualDraft}
         repairTypes={repairTypes}
         isLoadingRepairTypes={isLoadingRepairTypes}
         hasRepairTypesError={hasRepairTypesError}

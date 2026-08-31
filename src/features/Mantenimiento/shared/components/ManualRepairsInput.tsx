@@ -63,6 +63,13 @@ type ManualRepairsInputProps = {
   hasRepairTypesError?: boolean;
   onRetryRepairTypes?: () => void;
   disabled?: boolean;
+  /**
+   * Avisa si hay un borrador cargado sin agregar. El paso lo necesita para
+   * habilitar "Siguiente": con el boton deshabilitado el usuario no puede avanzar
+   * y su reparacion escrita queda en un limbo, sin forma de guardarla salvo
+   * descubriendo el boton "Agregar reparacion".
+   */
+  onPendingDraftChange?: (hasPendingDraft: boolean) => void;
   ref?: React.Ref<ManualRepairsInputHandle>;
 };
 
@@ -80,6 +87,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   hasRepairTypesError = false,
   onRetryRepairTypes,
   disabled = false,
+  onPendingDraftChange,
   ref,
 }: ManualRepairsInputProps) {
   // Borrador de la reparación que se está armando
@@ -145,6 +153,10 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
     ]);
     resetDraft();
   }, [canAdd, onChange, repairs, repairTypeId, trimmedFreeText, description, images, resetDraft]);
+
+  useEffect(() => {
+    onPendingDraftChange?.(canAdd);
+  }, [canAdd, onPendingDraftChange]);
 
   // El wizard llama a esto al avanzar de paso para no perder lo que quedo escrito.
   useImperativeHandle(
