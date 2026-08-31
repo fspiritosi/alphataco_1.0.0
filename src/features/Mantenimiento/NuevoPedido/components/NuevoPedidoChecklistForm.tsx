@@ -24,6 +24,7 @@ import {
   ManualRepairsInput,
   type ManualRepair,
   type ManualRepairsInputHandle,
+  type RepairGroupOption,
 } from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
 import type { MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
@@ -68,6 +69,7 @@ import {
   getCurrentUserForSupervisorCheck,
   type CreateDeviationFromNuevoPedido,
 } from '../actions/actionsServer';
+import { fetchMaintenanceGroupsWithRepairs } from '../actions/maintenance-groups';
 
 const logger = new Logger('NuevoPedidoChecklistForm');
 
@@ -284,6 +286,53 @@ export function NuevoPedidoChecklistForm({
   const handleRetryRepairTypes = useCallback(() => {
     void refetchRepairTypes();
   }, [refetchRepairTypes]);
+
+  // Grupos de reparación: atajo para cargar un pedido largo (ej: "Service de motor")
+  // sin tener que conocer una por una las tareas que lo componen.
+  const {
+    data: maintenanceGroups = [],
+    isLoading: isLoadingGroups,
+    isError: hasGroupsError,
+    refetch: refetchGroups,
+  } = useQuery({
+    queryKey: ['maintenance-groups-for-manual-request'],
+    queryFn: () => fetchMaintenanceGroupsWithRepairs(),
+    enabled: requestType === 'manual',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleRetryGroups = useCallback(() => {
+    void refetchGroups();
+  }, [refetchGroups]);
+
+  // Se aplana la pivote acá: el input de reparaciones no tiene por qué conocer la
+  // forma de la relación M:M. Además la referencia queda estable para el `memo`.
+  const repairGroupOptions = useMemo<RepairGroupOption[]>(
+    () =>
+      maintenanceGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        repairTypes: group.maintenance_group_type_of_repairs.map((relation) => ({
+          id: relation.types_of_repairs.id,
+          name: relation.types_of_repairs.name,
+        })),
+      })),
+    [maintenanceGroups]
+  );
+
+  // Nombres de las tareas para el resumen final. Incluye las que llegaron dentro de
+  // un grupo: si el listado general falló, esas reparaciones igual se muestran con
+  // su nombre en vez de quedar en blanco.
+  const manualRepairTypeNameById = useMemo(() => {
+    const index = new Map(repairTypes.map((type) => [type.id, type.name]));
+    repairGroupOptions.forEach((group) => {
+      group.repairTypes.forEach((type) => {
+        if (!index.has(type.id) && type.name) index.set(type.id, type.name);
+      });
+    });
+    return index;
+  }, [repairTypes, repairGroupOptions]);
 
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
@@ -743,7 +792,20 @@ export function NuevoPedidoChecklistForm({
       }
     } catch (error) {
       logger.error('Error al crear pedido', { data: { error } });
-      toast.error('Error al crear el pedido de mantenimiento');
+      // Un "failed to fetch" generico no le dice al usuario que reintentar. Las
+      // fotos se suben al storage ANTES de crear el pedido, asi que separar los dos
+      // casos evita que vuelva a cargar todo el formulario cuando solo fallo la red
+      // subiendo una imagen.
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('imagen')) {
+        toast.error(message, { description: 'El pedido no se creó. Revisá la conexión y probá de nuevo.' });
+      } else if (/fetch|network|NetworkError/i.test(message)) {
+        toast.error('Se perdió la conexión al crear el pedido', {
+          description: 'No se guardó nada. Verificá la conexión y volvé a intentar.',
+        });
+      } else {
+        toast.error('Error al crear el pedido de mantenimiento');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1169,6 +1231,10 @@ export function NuevoPedidoChecklistForm({
         isLoadingRepairTypes={isLoadingRepairTypes}
         hasRepairTypesError={hasRepairTypesError}
         onRetryRepairTypes={handleRetryRepairTypes}
+        groups={repairGroupOptions}
+        isLoadingGroups={isLoadingGroups}
+        hasGroupsError={hasGroupsError}
+        onRetryGroups={handleRetryGroups}
         disabled={isSubmitting}
       />
     </div>
@@ -1544,7 +1610,7 @@ export function NuevoPedidoChecklistForm({
               <ul className="space-y-2">
                 {manualRepairs.map((repair) => {
                   const repairTypeName = repair.repairTypeId
-                    ? repairTypes.find((t) => t.id === repair.repairTypeId)?.name ?? null
+                    ? manualRepairTypeNameById.get(repair.repairTypeId) ?? null
                     : null;
                   return (
                     <li key={repair.localId} className="text-sm flex items-start gap-2">

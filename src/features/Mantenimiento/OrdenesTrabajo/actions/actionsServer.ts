@@ -1,5 +1,8 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { work_order_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -685,6 +688,22 @@ export async function completeWorkOrder(workOrderId: string) {
       },
     });
 
+    // Registro en la OT y, ademas, en el historial del PEDIDO (lo pidio el cliente:
+    // antes no habia forma de ver en el historial cuando se finalizo la orden de trabajo).
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_CLOSED,
+      performedBy: profile.id,
+      newStatus: 'completed',
+      metadata: { status: 'completed' },
+    });
+
+    await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+      workOrderId,
+      finalStatus: 'completed',
+      performedBy: profile.id,
+    });
+
     logger.info('Orden de trabajo completada', { data: { workOrderId } });
 
     await invalidateCacheTags(INVALIDATION_MAP.completeWorkOrder);
@@ -991,6 +1010,22 @@ export async function completeWorkOrderPartial(workOrderId: string, reason?: str
         completed_at: now,
         notes: reason ? `[Finalizado con pendientes] ${reason}` : '[Finalizado con pendientes]',
       },
+    });
+
+    await logActivity(prisma, {
+      workOrderId,
+      actionType: ACTIVITY_LOG.WO_CLOSED,
+      performedBy: profile.id,
+      newStatus: 'completed_partial',
+      notes: reason ?? null,
+      metadata: { status: 'completed_partial' },
+    });
+
+    await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+      workOrderId,
+      finalStatus: 'completed_partial',
+      performedBy: profile.id,
+      notes: reason ?? null,
     });
 
     logger.info('Orden de trabajo completada parcialmente', {

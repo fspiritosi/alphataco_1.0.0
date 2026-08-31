@@ -2,9 +2,9 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -274,21 +274,17 @@ export function Step2SectorAssignment({
                     </div>
                     <div className="shrink-0 w-44">
                       <Label className="text-xs text-muted-foreground">Sector</Label>
-                      <Select
+                      {/* Combobox con buscador: la lista de sectores es larga y
+                          escribir es mas rapido que recorrerla a mano. */}
+                      <SearchableSelect
                         value={info.assignedSectorId || ''}
                         onValueChange={(value) => onAssignmentChange(info.item.id, value)}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSectors.map((sector) => (
-                            <SelectItem key={sector.id} value={sector.id}>
-                              {sector.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        options={availableSectors.map((sector) => ({ value: sector.id, label: sector.name }))}
+                        placeholder="Seleccionar..."
+                        searchPlaceholder="Buscar sector..."
+                        emptyMessage="No se encontro el sector"
+                        className="h-8 text-xs"
+                      />
                     </div>
                   </div>
                 </div>

@@ -10,7 +10,18 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/uploadRepairImages';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Check, ChevronsUpDown, ImagePlus, Loader2, PencilLine, Plus, Wrench, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronsUpDown,
+  ImagePlus,
+  Loader2,
+  Package,
+  PencilLine,
+  Plus,
+  Wrench,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import { memo, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -24,6 +35,20 @@ const FOCUS_RING = 'outline-none focus-visible:ring-[3px] focus-visible:ring-rin
 export type RepairTypeOption = {
   id: string;
   name: string | null;
+};
+
+/**
+ * Grupo de reparación ya expandido a sus tareas.
+ *
+ * El componente recibe los nombres resueltos (y no solo los ids) para poder
+ * mostrar la vista previa del grupo aunque el listado general de reparaciones
+ * todavía no haya cargado o haya fallado.
+ */
+export type RepairGroupOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  repairTypes: RepairTypeOption[];
 };
 
 /**
@@ -62,6 +87,12 @@ type ManualRepairsInputProps = {
   /** La carga de tipos falló: el combobox no sirve, pero el texto libre sigue disponible */
   hasRepairTypesError?: boolean;
   onRetryRepairTypes?: () => void;
+  /** Grupos de reparación disponibles. Si no se pasan, el camino del grupo no se muestra */
+  groups?: RepairGroupOption[];
+  isLoadingGroups?: boolean;
+  /** La carga de grupos falló: los otros dos caminos siguen disponibles */
+  hasGroupsError?: boolean;
+  onRetryGroups?: () => void;
   disabled?: boolean;
   /**
    * Avisa si hay un borrador cargado sin agregar. El paso lo necesita para
@@ -86,6 +117,10 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   isLoadingRepairTypes = false,
   hasRepairTypesError = false,
   onRetryRepairTypes,
+  groups = [],
+  isLoadingGroups = false,
+  hasGroupsError = false,
+  onRetryGroups,
   disabled = false,
   onPendingDraftChange,
   ref,
@@ -96,6 +131,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [typesOpen, setTypesOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // IDs únicos por instancia: el componente podría montarse más de una vez por página
@@ -103,6 +139,10 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   const typeLabelId = `${fieldId}-type-label`;
   const typeTriggerId = `${fieldId}-type-trigger`;
   const typeErrorId = `${fieldId}-type-error`;
+  const groupLabelId = `${fieldId}-group-label`;
+  const groupTriggerId = `${fieldId}-group-trigger`;
+  const groupHintId = `${fieldId}-group-hint`;
+  const groupErrorId = `${fieldId}-group-error`;
   const freeTextId = `${fieldId}-free-text`;
   const freeTextHintId = `${fieldId}-free-text-hint`;
   const descriptionId = `${fieldId}-description`;
@@ -129,6 +169,9 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
 
   const trimmedFreeText = freeText.trim();
   const canAdd = !disabled && (!!repairTypeId || trimmedFreeText.length > 0);
+  // Si el consumidor no pasa grupos, ese camino directamente no se dibuja: el
+  // formulario queda igual que antes en vez de mostrar un selector vacío.
+  const showGroupsPath = isLoadingGroups || hasGroupsError || groups.length > 0;
   const reachedImageLimit = images.length >= MAX_IMAGES_PER_REPAIR;
 
   const resetDraft = useCallback(() => {
@@ -186,6 +229,55 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
     setTypesOpen(false);
   }, []);
 
+  /**
+   * Expande un grupo: cada tarea entra como una reparación independiente para que
+   * el solicitante pueda quitar las que no apliquen a este pedido en particular.
+   * No pasa por el borrador (no hay una descripción ni fotos comunes a todo el
+   * grupo), por eso se agrega directo a la lista.
+   */
+  const handleSelectGroup = useCallback(
+    (groupId: string) => {
+      setGroupsOpen(false);
+      if (disabled) return;
+
+      const group = groups.find((g) => g.id === groupId);
+      if (!group) return;
+
+      // Un grupo sin tareas no puede fallar en silencio: el usuario creería que
+      // cargó el service completo y mandaría el pedido vacío.
+      if (group.repairTypes.length === 0) {
+        toast.warning(`El grupo "${group.name}" no tiene reparaciones cargadas`);
+        return;
+      }
+
+      const alreadyAdded = new Set(repairs.map((r) => r.repairTypeId).filter((id): id is string => id !== null));
+      const missing = group.repairTypes.filter((type) => !alreadyAdded.has(type.id));
+
+      if (missing.length === 0) {
+        toast.info(`Las reparaciones del grupo "${group.name}" ya están en la lista`);
+        return;
+      }
+
+      onChange([
+        ...repairs,
+        ...missing.map((type) => ({
+          localId: newLocalId(),
+          repairTypeId: type.id,
+          freeText: null,
+          description: '',
+          images: [] as File[],
+        })),
+      ]);
+
+      const skipped = group.repairTypes.length - missing.length;
+      toast.success(
+        `Se agregaron ${missing.length} ${missing.length === 1 ? 'reparación' : 'reparaciones'} del grupo "${group.name}"` +
+          (skipped > 0 ? ` (${skipped} ya estaban en la lista)` : '')
+      );
+    },
+    [disabled, groups, onChange, repairs]
+  );
+
   const handlePickImages = useCallback((fileList: FileList | null) => {
     if (!fileList) return;
     const picked = Array.from(fileList);
@@ -227,7 +319,17 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
 
   // Índice por id: la lista de reparaciones hace un lookup por fila y `repairTypes`
   // puede tener cientos de entradas.
-  const repairTypeNameById = useMemo(() => new Map(repairTypes.map((type) => [type.id, type.name])), [repairTypes]);
+  // Se suman los tipos que llegan dentro de los grupos: si el listado general falla
+  // pero los grupos cargan, las tareas agregadas igual muestran su nombre.
+  const repairTypeNameById = useMemo(() => {
+    const index = new Map(repairTypes.map((type) => [type.id, type.name]));
+    groups.forEach((group) => {
+      group.repairTypes.forEach((type) => {
+        if (!index.has(type.id)) index.set(type.id, type.name);
+      });
+    });
+    return index;
+  }, [repairTypes, groups]);
 
   const repairLabel = useCallback(
     (repair: ManualRepair) =>
@@ -297,7 +399,126 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-4 pt-0">
-          {/* Tarea de mantenimiento con buscador */}
+          {/* ── Camino 1: grupo de reparaciones ─────────────────────────────
+              Atajo para pedidos largos: el supervisor elige "Service de motor"
+              y el sistema expande todas las tareas que lo componen. */}
+          {showGroupsPath && (
+            <>
+              <div className="space-y-2 rounded-md border border-dashed bg-muted/40 p-3">
+                <Label id={groupLabelId}>Grupo de reparaciones</Label>
+                <Popover open={groupsOpen} onOpenChange={setGroupsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id={groupTriggerId}
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      // Igual que el combobox de tareas: el nombre accesible se arma
+                      // con el label del campo más el contenido del botón.
+                      aria-labelledby={`${groupLabelId} ${groupTriggerId}`}
+                      aria-busy={isLoadingGroups || undefined}
+                      aria-describedby={hasGroupsError ? groupErrorId : groupHintId}
+                      disabled={disabled || isLoadingGroups || hasGroupsError}
+                      className="w-full justify-between bg-background text-muted-foreground"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {isLoadingGroups ? (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                        ) : (
+                          <Package className="h-4 w-4 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {isLoadingGroups
+                            ? 'Cargando grupos...'
+                            : hasGroupsError
+                              ? 'No se pudieron cargar los grupos'
+                              : 'Buscá y elegí un grupo'}
+                        </span>
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar grupo..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontró el grupo</CommandEmpty>
+                        <CommandGroup>
+                          {groups.map((group) => {
+                            const previewNames = group.repairTypes
+                              .map((type) => type.name)
+                              .filter((name): name is string => !!name);
+
+                            return (
+                              <CommandItem
+                                key={group.id}
+                                // Se busca por nombre del grupo y por el de sus tareas:
+                                // el supervisor suele acordarse de una de las tareas,
+                                // no del nombre exacto del grupo.
+                                value={`${group.name} ${previewNames.join(' ')}`}
+                                onSelect={() => handleSelectGroup(group.id)}
+                                className="flex flex-col items-start gap-1 py-2.5"
+                              >
+                                <div className="flex w-full items-center gap-2">
+                                  <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                  <span className="truncate font-medium">{group.name}</span>
+                                  <Badge variant="secondary" className="ml-auto shrink-0 tabular-nums">
+                                    {group.repairTypes.length}
+                                  </Badge>
+                                </div>
+                                {previewNames.length > 0 && (
+                                  <p className="ml-6 text-xs text-muted-foreground">
+                                    {previewNames.slice(0, 3).join(', ')}
+                                    {previewNames.length > 3 && ` +${previewNames.length - 3} más`}
+                                  </p>
+                                )}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {hasGroupsError ? (
+                  <div
+                    id={groupErrorId}
+                    role="alert"
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-destructive"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <span>No se pudieron cargar los grupos. Podés cargar las reparaciones de a una.</span>
+                    {onRetryGroups && (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={onRetryGroups}
+                        disabled={disabled}
+                        className="h-auto p-0 text-xs text-destructive underline"
+                      >
+                        Reintentar
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <p id={groupHintId} className="text-xs text-muted-foreground">
+                    Agrega de una vez todas las tareas del grupo (ej: "Service de motor"). Después podés quitar de la
+                    lista las que no apliquen.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">o</span>
+                <Separator className="flex-1" />
+              </div>
+            </>
+          )}
+
+          {/* ── Camino 2: una tarea del listado, con buscador ───────────────── */}
           <div className="space-y-2">
             <Label id={typeLabelId}>Reparación del listado</Label>
             <Popover open={typesOpen} onOpenChange={setTypesOpen}>
@@ -397,7 +618,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
             <Separator className="flex-1" />
           </div>
 
-          {/* Texto libre: para lo que no existe como tipo en el sistema */}
+          {/* ── Camino 3: texto libre, para lo que no existe como tipo ─────── */}
           <div className="space-y-2">
             <Label htmlFor={freeTextId}>Escribí la reparación (si no está en el listado)</Label>
             <Textarea

@@ -9,10 +9,18 @@
 
 /** Todos los estados que el seguimiento puede llegar a mostrar */
 export const WORKSHOP_TRACKING_STATUSES: string[] = [
+  // Reunion 31/08/2026: el pedido aprobado que todavia no tiene fecha de taller
+  // tambien se sigue desde aca. Antes desaparecia de la vista del supervisor hasta
+  // que el taller lo programaba: "yo lo cargo y queda en la nada misma... dos
+  // semanas despues el taller sigue sin ponerle fecha y yo no tengo como
+  // reclamarle porque no corresponde".
+  'pending_scheduling',
   'date_confirmed',
   'in_workshop',
   'pending_workshop_validation',
-  'pending_operations_validation',
+  // `pending_operations_validation` quedo fuera del circuito (reunion 31/08/2026):
+  // el taller cierra sin pasar por Operaciones. Los registros historicos con ese
+  // estado ya se migraron a 'completed'.
   'operations_rejected',
   'workshop_rejected',
   'completed',

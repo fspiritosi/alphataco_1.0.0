@@ -154,7 +154,7 @@ const MAINTENANCE_ORDERS_SELECT = {
  */
 const ACTIVE_WORKSHOP_STATUSES = [
   'in_workshop',
-  'pending_operations_validation',
+  // Sin `pending_operations_validation`: Operaciones ya no valida (reunion 31/08/2026)
   'operations_rejected',
   'workshop_rejected',
 ];

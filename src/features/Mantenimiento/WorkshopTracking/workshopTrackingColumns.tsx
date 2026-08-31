@@ -16,7 +16,7 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { conditionLabels } from '@/shared/utils/mappers';
 import { type ColumnDef } from '@tanstack/react-table';
 import type { LucideIcon } from 'lucide-react';
-import { AlertCircle, CheckCircle2, Circle, Clock, Eye, History, Play, XCircle } from 'lucide-react';
+import { AlertCircle, CalendarClock, CheckCircle2, Circle, Clock, Eye, History, Play, XCircle } from 'lucide-react';
 import moment from 'moment';
 import { calculateRepairProgress } from '../utils/repairProgress';
 import type { WorkshopTrackingListItem } from './actions.server';
@@ -44,10 +44,14 @@ type StatusConfig = {
 };
 
 export const WORKSHOP_STATUS_CONFIG: Record<string, StatusConfig> = {
+  pending_scheduling: {
+    label: 'Pendiente de planificar fecha de taller',
+    variant: 'yellow',
+    icon: CalendarClock,
+  },
   date_confirmed: { label: 'Pendiente de ingreso a taller', variant: 'secondary', icon: Clock },
   in_workshop: { label: 'En Taller', variant: 'info', icon: Play },
   pending_workshop_validation: { label: 'Pend. Validación Taller', variant: 'yellow', icon: Clock },
-  pending_operations_validation: { label: 'Pend. Validación Operaciones', variant: 'yellow', icon: Clock },
   operations_rejected: { label: 'Rechazada por Ops', variant: 'destructive', icon: XCircle },
   workshop_rejected: { label: 'Rechazada por Taller', variant: 'destructive', icon: XCircle },
   completed: { label: 'Completada', variant: 'success', icon: CheckCircle2 },

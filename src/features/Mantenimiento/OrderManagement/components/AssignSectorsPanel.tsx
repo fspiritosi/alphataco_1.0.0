@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { Building2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -50,6 +50,20 @@ export function AssignSectorsPanel({
   const [assignments, setAssignments] = useState<SectorAssignment[]>([]);
   const [workshopAssignments, setWorkshopAssignments] = useState<WorkshopAssignment[]>([]);
   const [assignmentMode, setAssignmentMode] = useState<'internal' | 'external'>('internal');
+
+  // Opciones de los combobox con buscador (sectores y talleres externos)
+  const sectorOptions = useMemo(() => sectors.map((sector) => ({ value: sector.id, label: sector.name })), [sectors]);
+
+  const externalWorkshopOptions = useMemo(
+    () =>
+      externalWorkshops.map((ws) => ({
+        value: ws.id,
+        // El proveedor va en el label porque distingue talleres de nombre parecido
+        label: ws.provider_name ? `${ws.name} (${ws.provider_name})` : ws.name,
+        keywords: ws.provider_name ?? '',
+      })),
+    [externalWorkshops]
+  );
 
   // Items sin asignar sector (filtrar diagnostico y ya asignados)
   const unassignedItems = useMemo(() => {
@@ -254,18 +268,15 @@ export function AssignSectorsPanel({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Sector</Label>
-                    <Select value={selectedSectorId} onValueChange={handleSectorChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectors.map((sector) => (
-                          <SelectItem key={sector.id} value={sector.id}>
-                            {sector.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {/* Buscador integrado: la lista de sectores del taller es larga */}
+                    <SearchableSelect
+                      value={selectedSectorId}
+                      onValueChange={handleSectorChange}
+                      options={sectorOptions}
+                      placeholder="Seleccionar sector"
+                      searchPlaceholder="Buscar sector..."
+                      emptyMessage="No se encontro el sector"
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Orden de secuencia</Label>
@@ -282,19 +293,14 @@ export function AssignSectorsPanel({
               <TabsContent value="external" className="mt-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Taller Externo</Label>
-                  <Select value={selectedWorkshopId} onValueChange={setSelectedWorkshopId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar taller externo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {externalWorkshops.map((ws) => (
-                        <SelectItem key={ws.id} value={ws.id}>
-                          {ws.name}
-                          {ws.provider_name ? ` (${ws.provider_name})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={selectedWorkshopId}
+                    onValueChange={setSelectedWorkshopId}
+                    options={externalWorkshopOptions}
+                    placeholder="Seleccionar taller externo"
+                    searchPlaceholder="Buscar taller o proveedor..."
+                    emptyMessage="No se encontro el taller"
+                  />
                 </div>
               </TabsContent>
             </Tabs>
@@ -305,18 +311,14 @@ export function AssignSectorsPanel({
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div className="space-y-1">
                 <Label className="text-xs">Sector</Label>
-                <Select value={selectedSectorId} onValueChange={handleSectorChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar sector" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectors.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.id}>
-                        {sector.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={selectedSectorId}
+                  onValueChange={handleSectorChange}
+                  options={sectorOptions}
+                  placeholder="Seleccionar sector"
+                  searchPlaceholder="Buscar sector..."
+                  emptyMessage="No se encontro el sector"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Orden de secuencia</Label>

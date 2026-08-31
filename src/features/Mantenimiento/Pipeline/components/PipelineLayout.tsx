@@ -1,23 +1,15 @@
 'use client';
 
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import type { PipelineCounts, PipelineStep } from '../types';
 import { WorkflowPipelineChevrons } from './WorkflowPipelineChevrons';
-import type { PipelineStep, PipelineCounts } from '../types';
 
 /**
  * Prefijos de parámetros de URL relacionados con tablas paginadas.
  * Al cambiar de paso se eliminan para evitar estado obsoleto entre pasos.
  */
-const TABLE_PARAM_PREFIXES = [
-  'page',
-  'pageSize',
-  'sort',
-  'filter',
-  'search',
-  'col',
-  'visibility',
-];
+const TABLE_PARAM_PREFIXES = ['page', 'pageSize', 'sort', 'filter', 'search', 'col', 'visibility'];
 
 function hasTablePrefix(key: string): boolean {
   return TABLE_PARAM_PREFIXES.some((prefix) => key.startsWith(prefix));
@@ -45,13 +37,7 @@ interface PipelineLayoutProps {
  * - replaceState para actualizar la URL sin navegación Next.js
  * - TODOS los pasos se renderizan simultáneamente, show/hide con CSS
  */
-export function PipelineLayout({
-  steps,
-  counts,
-  initialStep,
-  paramName,
-  stepContents,
-}: PipelineLayoutProps) {
+export function PipelineLayout({ steps, counts, initialStep, paramName, stepContents }: PipelineLayoutProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // Leer la URL actual al montar (fuente de verdad), no el prop del servidor que puede
@@ -91,17 +77,15 @@ export function PipelineLayout({
       params.set(paramName, stepId);
       window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
     },
-    [activeStep, paramName, pathname],
+    [activeStep, paramName, pathname]
   );
 
   return (
-    <div className="space-y-6">
-      <WorkflowPipelineChevrons
-        steps={steps}
-        counts={counts}
-        activeStep={activeStep}
-        onStepClick={handleStepClick}
-      />
+    // pt-4: los chevrones quedaban pegados a la barra de tabs (Radix no deja gap
+    // entre TabsList y TabsContent). El pt-4 respeta el mismo ritmo que el
+    // gap-4 del TabsManager en el resto del dashboard.
+    <div className="pt-4 space-y-6">
+      <WorkflowPipelineChevrons steps={steps} counts={counts} activeStep={activeStep} onStepClick={handleStepClick} />
 
       {stepContents.map(({ id, content }) => (
         <div key={id} className={activeStep === id ? undefined : 'hidden'}>

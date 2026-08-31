@@ -20,6 +20,13 @@ export const ACTIVITY_LOG = {
   WORKSHOP_REJECTED_ALL_ITEMS: 'workshop_rejected_all_items',
   WORKSHOP_RESTORED_FROM_REJECTED: 'workshop_restored_from_rejected',
   WORK_ORDER_CREATED: 'work_order_created',
+  /**
+   * OT finalizada, registrada contra el PEDIDO (maintenance_order_id).
+   * El cierre de la OT ya se loguea contra la propia OT (WO_CLOSED / EXTERNAL_WO_COMPLETED),
+   * pero esos registros solo se ven en el acordeon de la OT: el historial del pedido
+   * los filtra por maintenance_order_id y por eso el evento no aparecia en la linea de tiempo.
+   */
+  WORK_ORDER_COMPLETED: 'work_order_completed',
 
   // ── OrderManagement (nuevos) ────────────────────────────────────
   ORDER_ITEMS_UPDATED: 'order_items_updated',

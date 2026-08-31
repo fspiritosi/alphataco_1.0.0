@@ -2,6 +2,7 @@
 
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -1052,6 +1053,16 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   } catch (logErr) {
     logger.error('Error logging wo_closed', { data: { logErr } });
   }
+
+  // El cierre tambien se registra contra el PEDIDO: el historial del pedido filtra
+  // por maintenance_order_id, asi que sin esto el evento solo se veia dentro de la OT.
+  await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+    workOrderId,
+    finalStatus,
+    performedBy: user?.id ?? null,
+    notes: notes ?? null,
+    maintenanceOrderId: maintenanceOrderId ?? null,
+  });
 
   revalidatePath('/operator');
 }

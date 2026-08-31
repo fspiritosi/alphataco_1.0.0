@@ -172,7 +172,9 @@ export async function getPendingOrdersPaginated(searchParams: DataTableSearchPar
     }
     // Default: pending_scheduling antes que scheduled, de más viejo a más reciente
     const safeOrderBy =
-      resolvedSorts.length > 0 ? resolvedSorts : [{ status: 'desc' as const }, { created_at: 'asc' as const }];
+      // El usuario espera ver primero lo ultimo que cargo: dentro de cada status,
+      // del mas reciente al mas viejo. El status sigue siendo el criterio primario.
+      resolvedSorts.length > 0 ? resolvedSorts : [{ status: 'desc' as const }, { created_at: 'desc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.maintenance_orders.findMany({
@@ -206,7 +208,8 @@ export async function getAllPendingOrdersForExport(searchParams: DataTableSearch
 
     return await prisma.maintenance_orders.findMany({
       where,
-      orderBy: [{ status: 'desc' as const }, { created_at: 'asc' as const }],
+      // Mismo orden que la tabla: status primero, luego lo mas reciente arriba.
+      orderBy: [{ status: 'desc' as const }, { created_at: 'desc' as const }],
       select: PENDING_ORDER_SELECT,
     });
   } catch (error) {

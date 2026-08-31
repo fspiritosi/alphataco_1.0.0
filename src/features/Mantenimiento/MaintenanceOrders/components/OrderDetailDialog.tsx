@@ -14,8 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
@@ -950,7 +948,7 @@ export function OrderDetailDialog({
   if (isLoadingOrder && !propOrder) {
     return (
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col items-center justify-center py-12">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col items-center justify-center py-12">
           <div className="flex items-center gap-3">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span className="text-sm text-muted-foreground">Cargando detalle de orden...</span>
@@ -964,7 +962,7 @@ export function OrderDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 flex-wrap">
             <span>Detalle de Orden</span>
@@ -1598,51 +1596,11 @@ export function OrderDetailDialog({
           </div>
         </div>
 
-        {/* Footer fijo: Supervisor de Operaciones (solo en pending_workshop_validation + workshop) */}
+        {/* Footer fijo: cierre del taller (solo en pending_workshop_validation + workshop).
+            Ya no se elige supervisor de Operaciones: desde la reunion del 31/08/2026
+            Operaciones no valida mas, el taller cierra el circuito. */}
         {status === 'pending_workshop_validation' && context === 'workshop' && (
           <div className="border-t pt-4 space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="ops-supervisor-select">Supervisor de Operaciones que validará</Label>
-              {isLoadingOperationsSupervisors ? (
-                <div className="text-sm text-muted-foreground">Cargando supervisores...</div>
-              ) : (
-                <Select
-                  value={selectedOperationsSupervisorId}
-                  onValueChange={setSelectedOperationsSupervisorId}
-                  disabled={workshopValidateMutation.isPending}
-                >
-                  <SelectTrigger id="ops-supervisor-select">
-                    <SelectValue placeholder="Seleccionar supervisor de operaciones..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operationsSupervisors && operationsSupervisors.length > 0 ? (
-                      operationsSupervisors.map((supervisor) => (
-                        <SelectItem key={supervisor.id} value={supervisor.id} disabled={!supervisor.isAvailable}>
-                          <div className="flex items-center gap-2">
-                            <span>{supervisor.fullName}</span>
-                            {!supervisor.hasLinkedEmployee && (
-                              <Badge variant="outline" className="text-[10px]">
-                                Sin empleado vinculado
-                              </Badge>
-                            )}
-                            {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
-                              <Badge variant="warning" className="text-[10px]">
-                                Sin diagrama activo
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="__none__" disabled>
-                        No hay supervisores disponibles
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
             <Textarea
               placeholder="Notas de validacion (opcional)"
               value={validationNotes}
@@ -1656,7 +1614,7 @@ export function OrderDetailDialog({
                   disabled={workshopValidateMutation.isPending}
                   className="flex-1"
                 >
-                  {workshopValidateMutation.isPending ? 'Validando...' : 'Validar y Enviar a Operaciones'}
+                  {workshopValidateMutation.isPending ? 'Cerrando...' : 'Validar y Cerrar Orden'}
                 </Button>
                 <Button
                   onClick={() => {

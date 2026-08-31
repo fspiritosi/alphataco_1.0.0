@@ -323,8 +323,8 @@ export async function getConfirmedOrdersPaginated(searchParams: DataTableSearchP
       }
     }
 
-    // Más viejo a más reciente (como en la implementación original)
-    const safeOrderBy = [...resolvedSorts, { created_at: 'asc' as const }];
+    // Lo ultimo cargado primero: es lo que el usuario espera ver al entrar a la tabla.
+    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.maintenance_orders.findMany({
@@ -362,7 +362,8 @@ export async function getAllConfirmedOrdersForExport(searchParams: DataTableSear
     const where = await buildBaseWhere(companyId, state);
 
     const data = await prisma.maintenance_orders.findMany({
-      orderBy: [{ created_at: 'asc' }],
+      // Mismo orden que la tabla: lo mas reciente arriba.
+      orderBy: [{ created_at: 'desc' }],
       where,
       select: CONFIRMED_ORDERS_SELECT,
     });

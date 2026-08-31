@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/OrdenesTrabajo/types';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import { useState } from 'react';
@@ -17,14 +18,8 @@ interface WorkOrderAccordionProps {
   children: React.ReactNode;
 }
 
-const statusLabels: Record<string, string> = {
-  pending: 'Pendiente',
-  in_progress: 'En progreso',
-  paused: 'Pausada',
-  completed: 'Completada',
-  completed_partial: 'Completada parcialmente',
-  cancelled: 'Cancelada',
-};
+// Se reutiliza el mapper de estados de OT del modulo: no se duplica el mapeo.
+const statusLabels: Record<string, string> = WORK_ORDER_STATUS_LABELS;
 
 export function WorkOrderAccordion({ workOrder, defaultOpen, children }: WorkOrderAccordionProps) {
   const [open, setOpen] = useState(defaultOpen);

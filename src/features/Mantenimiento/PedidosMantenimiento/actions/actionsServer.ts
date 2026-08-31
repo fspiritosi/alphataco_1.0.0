@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -234,8 +236,8 @@ export async function getMaintenanceOrdersPending() {
       orderBy: [
         // pending_scheduling (p) antes que scheduled (s) — desc porque 'p' > 's' alfabéticamente
         { status: 'desc' },
-        // De más viejo a más reciente
-        { created_at: 'asc' },
+        // Lo ultimo cargado primero
+        { created_at: 'desc' },
       ],
       select: {
         id: true,
@@ -343,7 +345,7 @@ export async function getMaintenanceOrdersConfirmed() {
         // Cuando no hay filtro de supervisor, omitimos la condición (todos los pedidos confirmados)
         ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
       },
-      orderBy: { created_at: 'asc' }, // De más viejo a más reciente
+      orderBy: { created_at: 'desc' }, // Lo ultimo cargado primero
       select: {
         id: true,
         equipment_id: true,
@@ -537,14 +539,37 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
   const profile = await requireServerAuthProfile();
 
   try {
-    const data = await prisma.maintenance_orders.update({
-      where: { id: input.orderId },
-      data: {
-        status: 'date_confirmed',
-        scheduled_date: input.scheduledDate ? new Date(input.scheduledDate) : null,
-        scheduled_by: profile.id,
-        scheduled_at: new Date(),
-      },
+    // Transaccion: el update y el registro de actividad van juntos para que el
+    // historial nunca quede sin el evento "fecha programada" (lo reclamo el cliente).
+    const data = await prisma.$transaction(async (tx) => {
+      const previous = await tx.maintenance_orders.findUnique({
+        where: { id: input.orderId },
+        select: { status: true },
+      });
+
+      const updated = await tx.maintenance_orders.update({
+        where: { id: input.orderId },
+        data: {
+          status: 'date_confirmed',
+          scheduled_date: input.scheduledDate ? new Date(input.scheduledDate) : null,
+          scheduled_by: profile.id,
+          scheduled_at: new Date(),
+        },
+      });
+
+      await logActivity(tx, {
+        maintenanceOrderId: updated.id,
+        actionType: ACTIVITY_LOG.SCHEDULED,
+        performedBy: profile.id,
+        previousStatus: previous?.status ?? null,
+        newStatus: 'date_confirmed',
+        metadata: {
+          // ISO: el historial lo formatea con moment al renderizar
+          scheduled_date: updated.scheduled_date?.toISOString() ?? null,
+        },
+      });
+
+      return updated;
     });
 
     serverLogger.info('Pedido planificado exitosamente', { data: { orderId: input.orderId } });

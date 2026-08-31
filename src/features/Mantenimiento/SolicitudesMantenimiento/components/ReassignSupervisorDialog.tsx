@@ -11,12 +11,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { Logger } from '@/lib/logger';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
@@ -46,6 +46,27 @@ export function ReassignSupervisorDialog({ request, open, onOpenChange, onSucces
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
+
+  // Opciones del combobox con buscador: la lista de supervisores es larga y
+  // buscar por nombre es mas rapido que recorrerla.
+  const supervisorOptions = useMemo(
+    () =>
+      (supervisors ?? []).map((supervisor) => ({
+        value: supervisor.id,
+        label: supervisor.fullName,
+        disabled: !supervisor.isAvailable,
+        trailing: !supervisor.hasLinkedEmployee ? (
+          <Badge variant="outline" className="shrink-0 text-[10px]">
+            Sin empleado vinculado
+          </Badge>
+        ) : !supervisor.hasActiveDiagram ? (
+          <Badge variant="warning" className="shrink-0 text-[10px]">
+            Sin diagrama activo
+          </Badge>
+        ) : null,
+      })),
+    [supervisors]
+  );
 
   const handleConfirm = async () => {
     if (!selectedSupervisorId) {
@@ -109,36 +130,16 @@ export function ReassignSupervisorDialog({ request, open, onOpenChange, onSucces
                 Cargando supervisores...
               </div>
             ) : (
-              <Select value={selectedSupervisorId} onValueChange={setSelectedSupervisorId} disabled={isSubmitting}>
-                <SelectTrigger id="supervisor-select">
-                  <SelectValue placeholder="Seleccionar supervisor..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {supervisors && supervisors.length > 0 ? (
-                    supervisors.map((supervisor) => (
-                      <SelectItem key={supervisor.id} value={supervisor.id} disabled={!supervisor.isAvailable}>
-                        <div className="flex items-center gap-2">
-                          <span>{supervisor.fullName}</span>
-                          {!supervisor.hasLinkedEmployee && (
-                            <Badge variant="outline" className="text-[10px]">
-                              Sin empleado vinculado
-                            </Badge>
-                          )}
-                          {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
-                            <Badge variant="warning" className="text-[10px]">
-                              Sin diagrama activo
-                            </Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="__none__" disabled>
-                      No hay supervisores disponibles
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id="supervisor-select"
+                value={selectedSupervisorId ?? ''}
+                onValueChange={setSelectedSupervisorId}
+                disabled={isSubmitting}
+                options={supervisorOptions}
+                placeholder="Seleccionar supervisor..."
+                searchPlaceholder="Buscar supervisor..."
+                emptyMessage="No hay supervisores disponibles"
+              />
             )}
           </div>
         </div>

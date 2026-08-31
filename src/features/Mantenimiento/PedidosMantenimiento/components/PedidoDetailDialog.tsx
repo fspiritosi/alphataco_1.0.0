@@ -63,7 +63,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
         {/* ── Header compacto ──────────────────────────────────────────── */}
         <div className="px-6 pt-6 pb-4 space-y-3">
           <DialogHeader className="space-y-1">
