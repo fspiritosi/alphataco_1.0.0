@@ -21,11 +21,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
+import {
+  getResourceCondition,
+  getResourceInternNumber,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   PREVENTIVE_TYPES,
   PREVENTIVE_TYPE_ICONS,
   type PreventiveType,
 } from '@/features/Mantenimiento/shared/preventive-maintenance';
+import {
+  getRepairItemDescription,
+  getRepairItemImages,
+  getRepairItemLabel,
+} from '@/features/Mantenimiento/shared/repair-item-label';
 import { getItemComments, getTechnicianComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -153,6 +165,14 @@ export function OrderDetailDialog({
   const vehicle = order?.vehicles;
   const items = order?.maintenance_order_items || [];
   const status = order?.status ?? '';
+
+  // Ticket 596: la orden puede ser de un equipamiento, así que la identificación
+  // del recurso se resuelve con los helpers en vez de leer `vehicles` a secas.
+  const resource = order ?? {};
+  const resourceLabel = order ? getResourceLabel(resource) : '';
+  const resourceKindLabel = order ? getResourceKindLabel(resource) : '';
+  const resourceInternNumber = order ? getResourceInternNumber(resource) : null;
+  const resourceCondition = order ? getResourceCondition(resource) : null;
 
   // Reset rejection state when dialog opens/closes
   const resetRejectionState = useCallback(() => {
@@ -563,6 +583,24 @@ export function OrderDetailDialog({
     return tasks;
   };
 
+  /**
+   * Ítems que traen fotos (ticket 592).
+   *
+   * Las tarjetas de sector muestran el trabajo a ejecutar, no el material de
+   * respaldo; las fotos que sacó el supervisor son lo que permite dimensionar la
+   * reparación antes de validarla, así que van en un bloque propio del detalle.
+   */
+  const itemsWithPhotos = useMemo(() => {
+    return items
+      .map((item) => ({
+        id: item.id,
+        label: getRepairItemLabel(item),
+        description: getRepairItemDescription(item),
+        images: getRepairItemImages(item),
+      }))
+      .filter((item) => item.images.length > 0);
+  }, [items]);
+
   // Collect per-item comments using getItemComments (handles dedup within each item)
   const itemsWithComments = useMemo(() => {
     const result: Array<{
@@ -583,14 +621,9 @@ export function OrderDetailDialog({
 
       if (allComments.length === 0) return;
 
-      // Get a meaningful label for this item (deviation label > repair type > generic)
-      const reqItem = item.maintenance_request_items as
-        | { checklist_deviations?: { item_label?: string; item_code?: string } | null }
-        | null
-        | undefined;
-      const deviation = reqItem?.checklist_deviations;
-
-      const itemLabel = deviation?.item_label || getRepairDisplayName(item);
+      // Ticket 592: el título sale del helper compartido, que cubre también los
+      // ítems de carga manual (free_text / tipo de reparación) sin desvío asociado
+      const itemLabel = getRepairItemLabel(item, getRepairDisplayName(item));
 
       result.push({ itemLabel, comments: allComments });
     });
@@ -938,8 +971,13 @@ export function OrderDetailDialog({
             {order.order_number && (
               <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">#{order.order_number}</code>
             )}
-            <Badge variant="outline">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</Badge>
-            {vehicle?.vehicle_type?.name && <Badge variant="secondary">{vehicle.vehicle_type.name}</Badge>}
+            <Badge variant="outline">{resourceLabel}</Badge>
+            {/* Un equipamiento no tiene tipo de vehículo: se rotula con su categoría de recurso */}
+            {vehicle?.vehicle_type?.name ? (
+              <Badge variant="secondary">{vehicle.vehicle_type.name}</Badge>
+            ) : (
+              <Badge variant="secondary">{resourceKindLabel}</Badge>
+            )}
             <Badge
               variant={
                 status === 'completed'
@@ -979,7 +1017,7 @@ export function OrderDetailDialog({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div>
                   <span className="text-xs text-muted-foreground block">N. Interno</span>
-                  <span className="font-medium">{vehicle?.intern_number || '-'}</span>
+                  <span className="font-medium">{resourceInternNumber || '-'}</span>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground block">Ingreso a taller</span>
@@ -999,10 +1037,10 @@ export function OrderDetailDialog({
                     {order.engine_hours_at_entry != null ? `${order.engine_hours_at_entry} hs` : '-'}
                   </span>
                 </div>
-                {vehicle?.condition && (
+                {resourceCondition && (
                   <div>
                     <span className="text-xs text-muted-foreground block">Condicion</span>
-                    <span className="font-medium capitalize">{String(vehicle.condition).replace(/_/g, ' ')}</span>
+                    <span className="font-medium capitalize">{resourceCondition.replace(/_/g, ' ')}</span>
                   </div>
                 )}
                 {order.source && (
@@ -1050,6 +1088,24 @@ export function OrderDetailDialog({
                 </div>
               );
             })()}
+
+            {/* Fotos adjuntas por el supervisor al pedir la reparación */}
+            {itemsWithPhotos.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+                <span className="text-xs text-muted-foreground block">Fotos de los ítems</span>
+                {itemsWithPhotos.map((item) => (
+                  <div key={item.id} className="space-y-1">
+                    <p className="text-sm font-medium leading-snug">{item.label}</p>
+                    {item.description && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                        {item.description}
+                      </p>
+                    )}
+                    <RepairItemPhotos images={item.images} label={item.label} />
+                  </div>
+                ))}
+              </div>
+            )}
 
             <Separator />
 
@@ -1192,7 +1248,7 @@ export function OrderDetailDialog({
                                   Externo
                                 </Badge>
                               )}
-                              <span className="truncate">{getRepairDisplayName(item)}</span>
+                              <span className="truncate">{getRepairItemLabel(item, getRepairDisplayName(item))}</span>
                               <Badge
                                 variant={
                                   woStatus === 'completed'
@@ -1412,15 +1468,8 @@ export function OrderDetailDialog({
                       return (
                         <div className="space-y-3">
                           {rejectedItems.map((item) => {
-                            const reqItem = item.maintenance_request_items as
-                              | { checklist_deviations?: { item_label?: string; item_code?: string } | null }
-                              | null
-                              | undefined;
-                            const deviation = reqItem?.checklist_deviations;
-                            const itemLabel =
-                              deviation?.item_label ||
-                              (item.types_of_repairs?.name ? String(item.types_of_repairs.name) : null) ||
-                              'Item sin nombre';
+                            const itemLabel = getRepairItemLabel(item, 'Item sin nombre');
+                            const itemImages = getRepairItemImages(item);
 
                             const sectorName =
                               item.workshop_sectors &&
@@ -1451,6 +1500,8 @@ export function OrderDetailDialog({
                                     </Badge>
                                   )}
                                 </div>
+
+                                <RepairItemPhotos images={itemImages} label={itemLabel} size="sm" />
 
                                 {itemComments.length > 0 && (
                                   <div className="space-y-1">

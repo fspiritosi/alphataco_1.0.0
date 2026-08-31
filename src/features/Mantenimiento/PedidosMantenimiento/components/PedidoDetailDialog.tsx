@@ -5,9 +5,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
-import { AlertTriangle, Calendar, Clock, Gauge, Truck } from 'lucide-react';
+import { AlertTriangle, Calendar, Clock, Gauge, Package, Truck } from 'lucide-react';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
+import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface PedidoDetailDialogProps {
@@ -37,11 +45,21 @@ function formatSectionCode(code: string | null | undefined): string {
 }
 
 export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogProps) {
-  const equipmentLabel = order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar';
-  const internNumber = order.vehicles?.intern_number;
+  // Ticket 596: el pedido puede ser de un vehiculo o de un equipamiento —
+  // leer `vehicles.domain` a secas mostraba "Sin identificar" en los equipamientos.
+  const isOtherEquipment = getResourceKind(order) === 'other_equipment';
+  const resourceLabel = getResourceLabel(order);
+  const resourceKindLabel = getResourceKindLabel(order);
+  const internNumber = getResourceInternNumber(order);
+  const ResourceIcon = isOtherEquipment ? Package : Truck;
   const statusInfo = STATUS_CONFIG[order.status] ?? { label: order.status, variant: 'secondary' as const };
   const itemCount = order.maintenance_order_items?.length ?? 0;
   const description = order.description ?? order.maintenance_requests?.description ?? null;
+
+  // Un equipamiento no lleva kilometraje; sus horas de uso viven en `horometer`.
+  const kilometer = isOtherEquipment ? null : order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer;
+  const engineHours =
+    order.other_equipment?.horometer ?? order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -57,8 +75,9 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
             </div>
             <DialogDescription className="flex items-center gap-3 text-xs">
               <span className="inline-flex items-center gap-1">
-                <Truck className="h-3 w-3" />
-                {equipmentLabel}
+                <ResourceIcon className="h-3 w-3" />
+                <span className="text-muted-foreground">{resourceKindLabel}</span>
+                {resourceLabel}
                 {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
               </span>
               <span className="text-muted-foreground">·</span>
@@ -67,9 +86,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
           </DialogHeader>
 
           {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
-          {(order.scheduled_date ||
-            order.maintenance_requests?.kilometer ||
-            order.maintenance_requests?.engine_hours) && (
+          {(order.scheduled_date || kilometer || engineHours) && (
             <div className="flex flex-wrap gap-4 text-sm">
               {order.scheduled_date && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -80,24 +97,16 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                   </span>
                 </div>
               )}
-              {(order.vehicles?.kilometer || order.maintenance_requests?.kilometer) && (
+              {kilometer && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Gauge className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">
-                    {Number(order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer).toLocaleString('es-AR')}{' '}
-                    km
-                  </span>
+                  <span className="text-foreground font-medium">{Number(kilometer).toLocaleString('es-AR')} km</span>
                 </div>
               )}
-              {(order.vehicles?.engine_hours || order.maintenance_requests?.engine_hours) && (
+              {engineHours && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">
-                    {Number(order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours).toLocaleString(
-                      'es-AR'
-                    )}{' '}
-                    hs
-                  </span>
+                  <span className="text-foreground font-medium">{Number(engineHours).toLocaleString('es-AR')} hs</span>
                 </div>
               )}
             </div>
@@ -181,8 +190,11 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         ? [item.types_of_repairs.name]
                         : [];
 
-                  const itemLabel = item.maintenance_request_items?.checklist_deviations?.item_label;
+                  // Ticket 592: el item puede venir de un checklist o de una carga
+                  // manual (texto libre / tarea del listado) — el helper resuelve los tres casos.
+                  const itemLabel = getRepairItemLabel(item, 'Sin título');
                   const sectionCode = item.maintenance_request_items?.checklist_deviations?.section_code;
+                  const itemImages = getRepairItemImages(item);
 
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
@@ -192,7 +204,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                             #{index + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-medium leading-snug">{itemLabel || 'Sin título'}</p>
+                            <p className="font-medium leading-snug">{itemLabel}</p>
                             {sectionCode && (
                               <p className="text-xs text-muted-foreground mt-0.5">{formatSectionCode(sectionCode)}</p>
                             )}
@@ -216,6 +228,9 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                           order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
                         }
                       />
+
+                      {/* Ticket 592: las fotos son el contexto que el taller necesita para dimensionar el trabajo */}
+                      <RepairItemPhotos images={itemImages} label={itemLabel} />
                     </div>
                   );
                 })}

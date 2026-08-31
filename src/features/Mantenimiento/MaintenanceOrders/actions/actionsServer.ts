@@ -81,6 +81,16 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             type_vehicles_typeTotype: { select: { id: true, name: true } },
           },
         },
+        // Ticket 596: la orden puede ser de un equipamiento en vez de un vehículo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -136,6 +146,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
                 driver_comment: true,
                 validator_comment: true,
                 description: true,
+                // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío de checklist)
+                free_text: true,
+                images: true,
                 supervisor_comment: true,
                 supervisor_comment_by: true,
                 driver_comment_by: true,
@@ -282,6 +295,16 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             type_vehicles_typeTotype: { select: { id: true, name: true } },
           },
         },
+        // Ticket 596: la orden puede ser de un equipamiento en vez de un vehículo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -337,6 +360,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
                 driver_comment: true,
                 validator_comment: true,
                 description: true,
+                // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío de checklist)
+                free_text: true,
+                images: true,
                 supervisor_comment: true,
                 supervisor_comment_by: true,
                 driver_comment_by: true,

@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateOnly, formatDateShort, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -370,7 +371,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                   <div>
                     <span className="text-muted-foreground">Identificación: </span>
                     <span className="font-medium">
-                      {detail.vehicleDomain || detail.vehicleSerie || 'Sin identificar'}
+                      {detail.resourceLabel}
                       {detail.vehicleInternNumber && ` (#${detail.vehicleInternNumber})`}
                     </span>
                   </div>
@@ -541,6 +542,9 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                             {item.completedRepairs}/{item.totalRepairs}
                           </span>
                         </div>
+
+                        {/* Fotos del ítem: el técnico necesita ver la falla antes de intervenir */}
+                        <RepairItemPhotos images={item.itemImages} label={item.itemLabel} size="sm" className="mb-2" />
 
                         {/* Comentarios del desvío */}
                         <div className="mb-2">

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento/utils/kilometerPreload';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
@@ -23,9 +24,12 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   getResourceCondition,
+  getResourceInternNumber,
   getResourceKind,
+  getResourceKindLabel,
   getResourceLabel,
 } from '../../shared/maintenance-resource';
+import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 
 interface EntradaTallerDialogProps {
@@ -38,6 +42,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   // Ticket 596: un equipamiento no lleva kilometraje — se mide por horómetro.
   const isOtherEquipment = getResourceKind(order) === 'other_equipment';
   const resourceLabel = getResourceLabel(order);
+  const resourceKindLabel = getResourceKindLabel(order);
+  const resourceInternNumber = getResourceInternNumber(order);
   const resourceCondition = getResourceCondition(order);
 
   // Obtener kilometraje inicial y su origen
@@ -135,8 +141,10 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
         <DialogHeader>
           <DialogTitle>Aprobar Entrada a Taller</DialogTitle>
           <DialogDescription>
-            Confirme la entrada del {isOtherEquipment ? 'equipamiento' : 'equipo'}{' '}
-            <span className="font-medium">{resourceLabel}</span> al taller.
+            Confirme la entrada del {resourceKindLabel.toLowerCase()}{' '}
+            <span className="font-medium">{resourceLabel}</span>
+            {resourceInternNumber && <span className="text-muted-foreground"> (#{resourceInternNumber})</span>} al
+            taller.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,10 +184,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Horómetro actual:</span>
               <span className="font-medium">
-                {String(
-                  (isOtherEquipment ? order.other_equipment?.horometer : order.vehicles?.engine_hours) ?? '-'
-                )}{' '}
-                hs
+                {String((isOtherEquipment ? order.other_equipment?.horometer : order.vehicles?.engine_hours) ?? '-')} hs
               </span>
             </div>
             {order.scheduled_date && (
@@ -213,26 +218,30 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           {items.length > 0 && (
             <div className="space-y-2">
               <Label>Items a Reparar</Label>
-              <div className="max-h-[150px] overflow-y-auto">
+              {/* Se amplia respecto de los 150px originales: los items ahora traen miniaturas (ticket 592) */}
+              <div className="max-h-[240px] overflow-y-auto">
                 <div className="space-y-2 pr-2">
                   {items.map((item, index) => {
                     const deviation = item.maintenance_request_items?.checklist_deviations;
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
-                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
                         : item.types_of_repairs?.name
                           ? [item.types_of_repairs.name]
                           : [];
 
+                    // Ticket 592: los items de carga manual no tienen desvio de checklist —
+                    // su titulo es el texto libre o la tarea elegida del listado.
+                    const itemLabel = getRepairItemLabel(item, 'Sin etiqueta');
+                    const itemImages = getRepairItemImages(item);
+
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
-                        <div className="font-medium">
-                          {deviation?.item_label || item.maintenance_request_items?.free_text || 'Sin etiqueta'}
-                        </div>
+                        <div className="font-medium">{itemLabel}</div>
                         <div className="text-xs text-muted-foreground">
                           {formattedCode && <>Código: {formattedCode}</>}
                           {repairTypeNames.length > 0 && (
@@ -249,6 +258,9 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                             order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
                           }
                         />
+
+                        {/* Ticket 592: el taller ve la foto antes de aceptar el ingreso */}
+                        <RepairItemPhotos images={itemImages} label={itemLabel} size="sm" className="mt-1.5" />
                       </div>
                     );
                   })}

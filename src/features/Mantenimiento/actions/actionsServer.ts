@@ -2,10 +2,7 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
-import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
-import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 
 const serverLogger = new Logger('Mantenimiento/actions');

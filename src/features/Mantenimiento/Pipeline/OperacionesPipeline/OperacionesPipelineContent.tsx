@@ -6,7 +6,7 @@ import { getOperacionesPipelineCounts } from './actions/pipeline-counts.server';
 // TabContent components existentes
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
-import { WorkshopTrackingTabContent, WorkshopTrackingSkeleton } from '@/features/Mantenimiento/WorkshopTracking';
+import { WorkshopTrackingSkeleton, WorkshopTrackingTabContent } from '@/features/Mantenimiento/WorkshopTracking';
 
 const PARAM_NAME = 'op_step';
 const DEFAULT_STEP = 'validate';
@@ -46,9 +46,7 @@ export async function OperacionesPipelineContent({ searchParams }: OperacionesPi
   // Determinar paso inicial desde la URL o usar el default
   const rawStep = searchParams[PARAM_NAME];
   const initialStep =
-    typeof rawStep === 'string' && OPERACIONES_STEPS.some((s) => s.id === rawStep)
-      ? rawStep
-      : DEFAULT_STEP;
+    typeof rawStep === 'string' && OPERACIONES_STEPS.some((s) => s.id === rawStep) ? rawStep : DEFAULT_STEP;
 
   // Todos los pasos se renderizan simultáneamente (show/hide con CSS)
   const stepContents: PipelineStepEntry[] = [

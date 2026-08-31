@@ -94,10 +94,7 @@ function buildWhereClause(
   // equipamiento (ticket 596), asi que se compara contra las dos columnas.
   const vehicleFilter = state.filters.vehicle?.length
     ? {
-        OR: [
-          { equipment_id: { in: state.filters.vehicle } },
-          { other_equipment_id: { in: state.filters.vehicle } },
-        ],
+        OR: [{ equipment_id: { in: state.filters.vehicle } }, { other_equipment_id: { in: state.filters.vehicle } }],
       }
     : {};
 
@@ -274,9 +271,7 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
     // `equipment_id` es nullable desde el ticket 596 (el pedido puede ser de un
     // equipamiento): el filter descarta los null y el guard se lo dice a TypeScript.
     const vehicleIds = vehicleCounts.map((r) => r.equipment_id).filter((id): id is string => id !== null);
-    const otherEquipmentIds = vehicleCounts
-      .map((r) => r.other_equipment_id)
-      .filter((id): id is string => id !== null);
+    const otherEquipmentIds = vehicleCounts.map((r) => r.other_equipment_id).filter((id): id is string => id !== null);
 
     const [vehicles, otherEquipment] = await Promise.all([
       vehicleIds.length > 0

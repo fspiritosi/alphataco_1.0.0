@@ -92,6 +92,8 @@ const CONFIRMED_ORDERS_SELECT = {
   maintenance_requests: {
     select: {
       id: true,
+      // Autor por defecto de los comentarios del pedido
+      profile_maintenance_requests_supervisor_idToprofile: { select: { id: true, fullname: true } },
       kilometer: true,
       created_at: true,
       source: true,
@@ -103,6 +105,10 @@ const CONFIRMED_ORDERS_SELECT = {
   maintenance_order_items: {
     select: {
       id: true,
+      description: true,
+      // Ticket 592: fotos del item; alimentan el visor de los dialogos de detalle
+      // y de entrada a taller. Sin esto las miniaturas nunca se renderizan.
+      images: true,
       maintenance_request_items: {
         select: {
           id: true,
@@ -110,6 +116,13 @@ const CONFIRMED_ORDERS_SELECT = {
           // Ticket 592: en la carga manual el item no tiene desvio de checklist,
           // su titulo es el texto libre que escribio el supervisor.
           free_text: true,
+          // Fotos cargadas al crear la solicitud (la orden puede no tenerlas propias)
+          images: true,
+          // Comentarios del circuito: sin estos campos el bloque <ItemComments>
+          // del dialogo se renderiza vacio aunque el item tenga observaciones.
+          driver_comment: true,
+          supervisor_comment: true,
+          validator_comment: true,
           checklist_deviations: {
             select: {
               id: true,

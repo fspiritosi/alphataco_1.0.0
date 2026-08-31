@@ -14,12 +14,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { cn } from '@/lib/utils';
 import { AlertCircle, AlertTriangle, Check, Info, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { RepairItemPhotos } from '../../shared/components/RepairItemPhotos';
+import { getRepairItemDescription, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 import { useApproveMaintenanceRequestItems, useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
 
@@ -39,6 +41,10 @@ type DeviationItem = {
   driver_comment: string | null;
   is_critical: boolean;
   is_non_propagating: boolean;
+  /** Aclaracion que escribio quien cargo el item (ticket 592) */
+  description: string | null;
+  /** Fotos del item cargado manualmente (ticket 592) */
+  images: string[];
 };
 
 // Estado simplificado: solo aprobado o rechazado con motivo
@@ -64,11 +70,15 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
             id: item.checklist_deviation_id,
             itemId: item.id,
             item_code: itemCode,
-            item_label: item.checklist_deviations?.item_label || 'Sin título',
+            // Un item de carga manual no tiene desvio de checklist: su titulo es
+            // el texto libre o el tipo de reparacion elegido (ticket 592).
+            item_label: getRepairItemLabel(item, 'Sin título'),
             section_code: item.checklist_deviations?.section_code || null,
             driver_comment: item.driver_comment || item.checklist_deviations?.driver_comment || null,
             is_critical: item.checklist_deviations?.is_critical ?? false,
             is_non_propagating: isNonPropagatingChecklistItem(templateId, itemCode),
+            description: getRepairItemDescription(item),
+            images: getRepairItemImages(item),
           };
         }) || []
     );
@@ -572,6 +582,9 @@ function ItemCard({
               Sección: {item.section_code.replace('_', ' ')}
             </p>
           )}
+          {item.description && <p className="mt-1 text-sm italic text-muted-foreground">{item.description}</p>}
+          {/* Fotos que adjunto el supervisor: son el contexto para decidir la aprobacion */}
+          <RepairItemPhotos images={item.images} label={item.item_label} size="sm" className="mt-2" />
           {/* Comentario del chofer */}
           {hasDriverComment && (
             <div className="mt-2 p-2 bg-muted/50 rounded text-sm">
@@ -703,6 +716,8 @@ function InformationalItemCard({ item }: { item: DeviationItem }) {
                 Sección: {item.section_code.replace('_', ' ')}
               </p>
             )}
+            {item.description && <p className="mt-0.5 text-sm italic text-muted-foreground/80">{item.description}</p>}
+            <RepairItemPhotos images={item.images} label={item.item_label} size="sm" className="mt-2" />
           </div>
         </div>
 

@@ -3,8 +3,8 @@
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
-import { resourceCompanyCondition } from '../../../shared/maintenance-resource';
 import { DEFAULT_TRACKING_STATUSES } from '../../../WorkshopTracking/statuses';
+import { resourceCompanyCondition } from '../../../shared/maintenance-resource';
 import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 

@@ -94,12 +94,19 @@ const MAINTENANCE_ORDERS_SELECT = {
       is_diagnostico: true,
       is_critical: true,
       description: true,
+      // Ticket 592: fotos que cargo el supervisor al pedir la reparacion
+      images: true,
       types_of_repairs: { select: { id: true, name: true } },
       maintenance_order_item_repair_types: {
         select: { types_of_repairs: { select: { id: true, name: true } } },
       },
       maintenance_request_items: {
         select: {
+          // Ticket 592: un item cargado a mano no tiene desvio de checklist —
+          // su titulo vive en free_text y su aclaracion/fotos en la solicitud
+          free_text: true,
+          description: true,
+          images: true,
           checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
         },
       },

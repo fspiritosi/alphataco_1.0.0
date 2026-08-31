@@ -6,6 +6,13 @@ import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import {
+  getResourceCondition,
+  getResourceInternNumber,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
+import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { WorkOrderDetail, WorkOrderItemDetail, WorkOrderRowData } from '../types';
 
 const logger = new Logger('OrdenesTrabajo/actions');
@@ -81,6 +88,15 @@ export async function getWorkOrders(status?: string | string[]) {
             },
           },
         },
+        // Ticket 596: la OT puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            type: { select: { name: true } },
+          },
+        },
         workshops: {
           select: {
             id: true,
@@ -119,10 +135,17 @@ export async function getWorkOrders(status?: string | string[]) {
         status: wo.status as WorkOrderRowData['status'],
         priority: wo.priority as WorkOrderRowData['priority'],
         equipmentId: wo.equipment_id,
+        // Ticket 596: la identificacion sale del vehiculo o del equipamiento.
+        // Los campos `vehicle*` se conservan para no romper a los consumidores
+        // que ya los leen; `resource*` es lo que hay que usar de aca en adelante.
         vehicleDomain: wo.vehicles?.domain || null,
         vehicleSerie: wo.vehicles?.serie || null,
         vehicleInternNumber: wo.vehicles?.intern_number || null,
         vehicleType: wo.vehicles?.types_of_vehicles?.name || null,
+        resourceLabel: getResourceLabel(wo),
+        resourceKindLabel: getResourceKindLabel(wo),
+        resourceInternNumber: getResourceInternNumber(wo),
+        resourceType: wo.other_equipment?.type?.name ?? wo.vehicles?.types_of_vehicles?.name ?? null,
         workshopId: wo.workshop_id,
         workshopName: wo.workshops?.name || '',
         workshopType: (wo.workshops?.type || 'interno') as WorkOrderRowData['workshopType'],
@@ -198,6 +221,17 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
             },
           },
         },
+        // Ticket 596: la OT puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+            type: { select: { name: true } },
+          },
+        },
         workshops: {
           select: {
             id: true,
@@ -252,6 +286,8 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
             id: true,
             description: true,
             repair_type_id: true,
+            // Ticket 592: fotos que cargó el supervisor al pedir la reparación
+            images: true,
             types_of_repairs: {
               select: { id: true, name: true },
             },
@@ -267,6 +303,9 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
               select: {
                 id: true,
                 description: true,
+                // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío)
+                free_text: true,
+                images: true,
                 driver_comment: true,
                 validator_comment: true,
                 checklist_deviations: {
@@ -349,7 +388,10 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
         driverComment: mri?.driver_comment || deviation?.driver_comment || null,
         validatorComment: mri?.validator_comment || null,
         deviationId: deviation?.id || null,
-        itemLabel: deviation?.item_label || moi?.types_of_repairs?.name || 'Sin descripción',
+        // Ticket 592: un ítem de carga manual no tiene desvío — su título es el
+        // texto libre o el tipo de reparación elegido
+        itemLabel: moi ? getRepairItemLabel(moi, 'Sin descripción') : 'Sin descripción',
+        itemImages: moi ? getRepairItemImages(moi) : [],
         itemCode: deviation?.item_code || null,
         sectionCode: deviation?.section_code || null,
       };
@@ -368,8 +410,18 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
       vehicleInternNumber: wo.vehicles?.intern_number || null,
       vehicleType: wo.vehicles?.types_of_vehicles?.name || null,
       vehicleKilometer: wo.vehicles?.kilometer || null,
-      vehicleEngineHours: wo.vehicles?.engine_hours != null ? Number(wo.vehicles.engine_hours) : null,
-      vehicleCondition: wo.vehicles?.condition || null,
+      // Un equipamiento no lleva kilometraje: se mide por horometro (ticket 596)
+      vehicleEngineHours:
+        wo.other_equipment?.horometer != null
+          ? Number(wo.other_equipment.horometer)
+          : wo.vehicles?.engine_hours != null
+            ? Number(wo.vehicles.engine_hours)
+            : null,
+      vehicleCondition: getResourceCondition(wo),
+      resourceLabel: getResourceLabel(wo),
+      resourceKindLabel: getResourceKindLabel(wo),
+      resourceInternNumber: getResourceInternNumber(wo),
+      resourceType: wo.other_equipment?.type?.name ?? wo.vehicles?.types_of_vehicles?.name ?? null,
       workshopId: wo.workshop_id,
       workshopName: wo.workshops?.name || '',
       workshopType: (wo.workshops?.type || 'interno') as WorkOrderDetail['workshopType'],

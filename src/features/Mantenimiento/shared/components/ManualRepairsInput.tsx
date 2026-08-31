@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/uploadRepairImages';
+import { cn } from '@/lib/utils';
 import { AlertTriangle, Check, ChevronsUpDown, ImagePlus, Loader2, PencilLine, Plus, Wrench, X } from 'lucide-react';
 import Image from 'next/image';
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -187,10 +187,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
 
   // Índice por id: la lista de reparaciones hace un lookup por fila y `repairTypes`
   // puede tener cientos de entradas.
-  const repairTypeNameById = useMemo(
-    () => new Map(repairTypes.map((type) => [type.id, type.name])),
-    [repairTypes]
-  );
+  const repairTypeNameById = useMemo(() => new Map(repairTypes.map((type) => [type.id, type.name])), [repairTypes]);
 
   const repairLabel = useCallback(
     (repair: ManualRepair) =>
@@ -224,9 +221,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
                     <Badge variant="outline" className="gap-1 text-xs">
                       <ImagePlus className="h-3 w-3" />
                       <span className="tabular-nums">{repair.images.length}</span>
-                      <span className="sr-only">
-                        {repair.images.length === 1 ? 'foto adjunta' : 'fotos adjuntas'}
-                      </span>
+                      <span className="sr-only">{repair.images.length === 1 ? 'foto adjunta' : 'fotos adjuntas'}</span>
                     </Badge>
                   )}
                 </div>
@@ -291,7 +286,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
                         ? 'Cargando tareas...'
                         : hasRepairTypesError
                           ? 'No se pudieron cargar las tareas'
-                          : (selectedType?.name ?? 'Buscá y elegí una reparación')}
+                          : selectedType?.name ?? 'Buscá y elegí una reparación'}
                     </span>
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

@@ -32,6 +32,11 @@ export interface WorkOrderRowData {
   vehicleDomain: string | null;
   vehicleSerie: string | null;
   vehicleInternNumber: string | null;
+  /** Ticket 596: identificacion del recurso, sea vehiculo o equipamiento */
+  resourceLabel: string;
+  resourceKindLabel: string;
+  resourceInternNumber: string | null;
+  resourceType: string | null;
   vehicleType: string | null;
   // Taller y sector
   workshopId: string;
@@ -86,6 +91,8 @@ export interface WorkOrderItemDetail {
   itemLabel: string | null;
   itemCode: string | null;
   sectionCode: string | null;
+  /** Ticket 592: fotos del ítem (bucket repair-images), vengan de la orden o de la solicitud */
+  itemImages: string[];
 }
 
 // Tipo para el detalle completo de una OT

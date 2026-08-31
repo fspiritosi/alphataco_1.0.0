@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
-import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import {
   getResourceCondition,
   getResourceInternNumber,
   getResourceKind,
   getResourceLabel,
 } from '@/features/Mantenimiento/shared/maintenance-resource';
+import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -195,8 +195,8 @@ export function getWorkshopTrackingColumns({
       header: ({ column }) => <DataTableColumnHeader column={column} title="Condición Actual" />,
       cell: ({ row }) => {
         const condition = getResourceCondition(row.original);
-        const label = condition ? (conditionLabels[condition] ?? condition) : 'Sin datos';
-        const variant = condition ? (conditionVariants[condition] ?? 'secondary') : 'secondary';
+        const label = condition ? conditionLabels[condition] ?? condition : 'Sin datos';
+        const variant = condition ? conditionVariants[condition] ?? 'secondary' : 'secondary';
         return <Badge variant={variant}>{label}</Badge>;
       },
       enableSorting: false,
@@ -502,7 +502,7 @@ export function getWorkshopTrackingExportFormatters() {
     },
     condition: (_val: unknown, row: WorkshopTrackingListItem) => {
       const cond = getResourceCondition(row);
-      return cond ? (conditionLabels[cond] ?? cond) : '';
+      return cond ? conditionLabels[cond] ?? cond : '';
     },
     kilometer: (_val: unknown, row: WorkshopTrackingListItem) => {
       const km = row.vehicles?.kilometer;

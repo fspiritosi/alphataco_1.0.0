@@ -4,11 +4,11 @@ import { PipelineLayout, type PipelineStepEntry } from '../components/PipelineLa
 import type { PipelineStep } from '../types';
 import { getTallerPipelineCounts } from './actions/pipeline-counts.server';
 
-import { PendientesTabContent } from '@/features/Mantenimiento/PedidosMantenimiento/Pendientes/PendientesTabContent';
+import { ApprovalInboxSkeleton, ApprovalInboxTabContent } from '@/features/Mantenimiento/ApprovalInbox';
+import { MaintenanceOrdersSkeleton, MaintenanceOrdersTabContent } from '@/features/Mantenimiento/MaintenanceOrders';
 import { ConfirmadosTabContent } from '@/features/Mantenimiento/PedidosMantenimiento/Confirmados/ConfirmadosTabContent';
+import { PendientesTabContent } from '@/features/Mantenimiento/PedidosMantenimiento/Pendientes/PendientesTabContent';
 import { PendientesTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
-import { MaintenanceOrdersTabContent, MaintenanceOrdersSkeleton } from '@/features/Mantenimiento/MaintenanceOrders';
-import { ApprovalInboxTabContent, ApprovalInboxSkeleton } from '@/features/Mantenimiento/ApprovalInbox';
 
 const PARAM_NAME = 'taller_step';
 const DEFAULT_STEP = 'schedule';
@@ -55,9 +55,7 @@ export async function TallerPipelineContent({ searchParams }: TallerPipelineCont
 
   const rawStep = searchParams[PARAM_NAME];
   const initialStep =
-    typeof rawStep === 'string' && TALLER_STEPS.some((s) => s.id === rawStep)
-      ? rawStep
-      : DEFAULT_STEP;
+    typeof rawStep === 'string' && TALLER_STEPS.some((s) => s.id === rawStep) ? rawStep : DEFAULT_STEP;
 
   // Todos los pasos se renderizan simultáneamente (show/hide con CSS)
   const stepContents: PipelineStepEntry[] = [

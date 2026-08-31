@@ -1,6 +1,5 @@
 'use client';
 
-import { getResourceInternNumber, getResourceLabel } from '../../shared/maintenance-resource';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,11 +16,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
-import { Clock, Gauge, Loader2, Truck, Wrench } from 'lucide-react';
+import { Clock, Gauge, Loader2, Package, Truck, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
+import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 import { useScheduleMaintenanceOrder } from '../hooks/useMaintenanceOrders';
 
@@ -44,10 +51,18 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
   const scheduleMutation = useScheduleMaintenanceOrder();
 
   // Ticket 596: el pedido puede ser de un vehiculo o de un equipamiento
-  const equipmentLabel = getResourceLabel(order);
+  const isOtherEquipment = getResourceKind(order) === 'other_equipment';
+  const resourceLabel = getResourceLabel(order);
+  const resourceKindLabel = getResourceKindLabel(order);
   const internNumber = getResourceInternNumber(order);
+  const ResourceIcon = isOtherEquipment ? Package : Truck;
   const itemCount = order.maintenance_order_items?.length ?? 0;
   const isPreventive = order.maintenance_requests?.source === 'preventive';
+
+  // Un equipamiento no lleva kilometraje; sus horas de uso viven en `horometer`.
+  const kilometer = isOtherEquipment ? null : order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer;
+  const engineHours =
+    order.other_equipment?.horometer ?? order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours;
 
   const handleSchedule = async () => {
     if (!dateStr) {
@@ -107,8 +122,9 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
             <DialogTitle className="text-base">Planificar Pedido de Mantenimiento</DialogTitle>
             <DialogDescription className="flex items-center gap-3 text-xs">
               <span className="inline-flex items-center gap-1">
-                <Truck className="h-3 w-3" />
-                {equipmentLabel}
+                <ResourceIcon className="h-3 w-3" />
+                <span className="text-muted-foreground">{resourceKindLabel}</span>
+                {resourceLabel}
                 {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
               </span>
               {order.order_number && (
@@ -121,29 +137,18 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
           </DialogHeader>
 
           {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
-          {(order.maintenance_requests?.kilometer ||
-            order.vehicles?.kilometer ||
-            order.maintenance_requests?.engine_hours ||
-            order.vehicles?.engine_hours) && (
+          {(kilometer || engineHours) && (
             <div className="flex flex-wrap gap-4 text-sm">
-              {(order.vehicles?.kilometer || order.maintenance_requests?.kilometer) && (
+              {kilometer && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Gauge className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">
-                    {Number(order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer).toLocaleString('es-AR')}{' '}
-                    km
-                  </span>
+                  <span className="text-foreground font-medium">{Number(kilometer).toLocaleString('es-AR')} km</span>
                 </div>
               )}
-              {(order.vehicles?.engine_hours || order.maintenance_requests?.engine_hours) && (
+              {engineHours && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">
-                    {Number(order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours).toLocaleString(
-                      'es-AR'
-                    )}{' '}
-                    hs
-                  </span>
+                  <span className="text-foreground font-medium">{Number(engineHours).toLocaleString('es-AR')} hs</span>
                 </div>
               )}
             </div>
@@ -206,11 +211,8 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                         const deviation = item.maintenance_request_items?.checklist_deviations;
                         // Ticket 592: en la carga manual no hay desvio de checklist —
                         // el titulo del item es lo que escribio el supervisor.
-                        const itemLabel =
-                          deviation?.item_label ||
-                          item.maintenance_request_items?.free_text ||
-                          item.types_of_repairs?.name ||
-                          'Item sin descripción';
+                        const itemLabel = getRepairItemLabel(item);
+                        const itemImages = getRepairItemImages(item);
                         return (
                           <div key={item.id} className="p-2.5 border rounded-lg space-y-1">
                             <div className="flex items-start gap-2 min-w-0">
@@ -218,9 +220,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                                 #{index + 1}
                               </span>
                               <div className="min-w-0">
-                                <p className="font-medium text-sm leading-snug">
-                                  {itemLabel}
-                                </p>
+                                <p className="font-medium text-sm leading-snug">{itemLabel}</p>
                                 {deviation?.section_code && (
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {formatSectionCode(deviation.section_code)}
@@ -236,6 +236,9 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                                   ?.fullname
                               }
                             />
+
+                            {/* Ticket 592: quien planifica necesita ver la foto para estimar la fecha */}
+                            <RepairItemPhotos images={itemImages} label={itemLabel} size="sm" />
                           </div>
                         );
                       })}

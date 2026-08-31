@@ -1,10 +1,5 @@
 'use client';
 
-import {
-  getResourceInternNumber,
-  getResourceKindLabel,
-  getResourceLabel,
-} from '../../shared/maintenance-resource';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
@@ -12,6 +7,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench } from 'lucide-react';
 import moment from 'moment';
+import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import { type PendingOrderListItem } from './actions.server';
 
 // ── Labels y badges de estado ─────────────────────────────────────────────────

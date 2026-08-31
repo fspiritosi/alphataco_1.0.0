@@ -44,7 +44,7 @@ export function getColumns({
       id: 'Equipo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const domain = row.original.vehicleDomain;
+        const domain = row.original.resourceLabel;
         const serie = row.original.vehicleSerie;
         const internNumber = row.original.vehicleInternNumber;
         return (
@@ -55,7 +55,7 @@ export function getColumns({
         );
       },
       filterFn: (row, id, value) => {
-        const vehicleLabel = row.original.vehicleDomain || row.original.vehicleSerie || 'Sin identificar';
+        const vehicleLabel = row.original.resourceLabel;
         return value.includes(vehicleLabel);
       },
       enableSorting: true,

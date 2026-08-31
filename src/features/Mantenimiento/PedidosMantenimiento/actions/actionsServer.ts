@@ -259,6 +259,8 @@ export async function getMaintenanceOrdersPending() {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        // Ticket 592: texto del pedido cargado manualmente (lo muestran los dialogos de detalle/entrada)
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -295,6 +297,7 @@ export async function getMaintenanceOrdersPending() {
             supervisor_id: true,
             source: true,
             preventive_type: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -363,6 +366,8 @@ export async function getMaintenanceOrdersConfirmed() {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        // Ticket 592: texto del pedido cargado manualmente (lo muestran los dialogos de detalle/entrada)
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -399,6 +404,7 @@ export async function getMaintenanceOrdersConfirmed() {
             supervisor_id: true,
             source: true,
             preventive_type: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
