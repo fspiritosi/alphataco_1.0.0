@@ -44,7 +44,14 @@ export function RepairItemPhotos({ images, label, size = 'md', className }: Repa
             aria-label={`Ampliar foto ${index + 1} de ${images.length} de ${itemLabel}`}
             className={`relative ${box} shrink-0 overflow-hidden rounded-md border transition hover:opacity-90 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
           >
-            <Image src={url} alt={`Foto ${index + 1} de ${itemLabel}`} fill sizes="64px" className="object-cover" />
+            <Image
+              src={url}
+              alt={`Foto ${index + 1} de ${itemLabel}`}
+              fill
+              sizes="64px"
+              unoptimized
+              className="object-cover"
+            />
           </button>
         ))}
       </div>
@@ -66,6 +73,7 @@ export function RepairItemPhotos({ images, label, size = 'md', className }: Repa
                   alt={`Foto ${openIndex + 1} de ${itemLabel}`}
                   fill
                   sizes="100vw"
+                  unoptimized
                   className="object-contain"
                 />
               </div>

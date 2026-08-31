@@ -87,6 +87,10 @@ const SECTOR_TASKS_SELECT = {
       vehicles: {
         select: { id: true, domain: true, serie: true, intern_number: true },
       },
+      // Ticket 596: la OM puede ser de un equipamiento en vez de un vehiculo
+      other_equipment: {
+        select: { id: true, serial_number: true, intern_number: true },
+      },
     },
   },
   // FK: orden de trabajo (OT) — puede ser null hasta que el item se envía a taller
