@@ -4,6 +4,7 @@ import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { AlertTriangle, Clock, RotateCcw, UserPlus } from 'lucide-react';
 import { TaskNotes } from './TaskNotes';
 
@@ -34,7 +35,15 @@ interface RepairData {
 
 interface TaskCardProps {
   repair: RepairData;
+  /**
+   * Titulo del item ya resuelto (desvio de checklist, texto libre o tipo de
+   * reparacion). Ticket 592: sin esto los items de carga manual sin tipo de
+   * reparacion se veian como "Tarea sin tipo".
+   */
+  title: string;
   description: string | null;
+  /** Fotos que cargo quien pidio la reparacion (ticket 592) */
+  images: string[];
   isBlockedByDiag: boolean;
   isBlockedByPending?: boolean;
   isMutating: boolean;
@@ -47,7 +56,9 @@ interface TaskCardProps {
 
 export function TaskCard({
   repair,
+  title,
   description,
+  images,
   isBlockedByDiag,
   isBlockedByPending,
   isMutating,
@@ -103,11 +114,16 @@ export function TaskCard({
                 isCompleted ? 'line-through text-muted-foreground' : ''
               }`}
             >
-              {repairType?.name || 'Tarea sin tipo'}
+              {title}
             </label>
 
             {/* Badges - compact */}
             <div className="flex flex-wrap gap-1">
+              {repairType?.name && repairType.name !== title && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  {repairType.name}
+                </Badge>
+              )}
               {repairType?.criticity && (
                 <Badge
                   variant={criticityVariants[repairType.criticity] || 'default'}
@@ -149,6 +165,15 @@ export function TaskCard({
 
             {/* Description */}
             {description && <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>}
+
+            {/* Fotos del pedido. Van fuera del atenuado de la tarjeta: son el contexto
+                que el mecanico usa para dimensionar el trabajo ANTES de iniciar la OT,
+                que es justo cuando la tarjeta esta bloqueada. */}
+            {images.length > 0 && (
+              <div className={isBlockedByDiag || isBlockedByPending ? 'pointer-events-auto opacity-100' : ''}>
+                <RepairItemPhotos images={images} label={title} size="md" />
+              </div>
+            )}
 
             {/* Rejection reason (from validation) */}
             {isRejected && repair.rejection_reason && (

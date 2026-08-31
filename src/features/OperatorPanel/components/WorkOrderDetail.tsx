@@ -1,6 +1,12 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -136,36 +142,21 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
   const allRepairs = workOrderItems.flatMap((item) => item.work_order_item_repairs || []);
   const completedRepairs = allRepairs.filter((r) => r.status === 'completed');
 
-  // Extract maintenance order info through nested relationship
-  type MoItem = {
-    maintenance_orders?: {
-      id?: string;
-      order_number?: string;
-      vehicles?: {
-        domain?: string;
-        serie?: string;
-        intern_number?: string;
-        kilometer?: number;
-        engine_hours?: number;
-        sub_type?: { name: string | null } | null;
-      } | null;
-    } | null;
-    description?: string | null;
-  };
-
+  // Numero de la orden de mantenimiento: se lee del primer item, que es el unico
+  // dato de la OM que necesita el encabezado
   const firstItem = workOrderItems[0];
-  const maintenanceOrderItem = (
-    Array.isArray(firstItem?.maintenance_order_items)
-      ? firstItem.maintenance_order_items[0]
-      : firstItem?.maintenance_order_items
-  ) as MoItem | undefined;
+  const maintenanceOrderItem = Array.isArray(firstItem?.maintenance_order_items)
+    ? firstItem.maintenance_order_items[0]
+    : firstItem?.maintenance_order_items;
   const maintenanceOrders = Array.isArray(maintenanceOrderItem?.maintenance_orders)
     ? maintenanceOrderItem.maintenance_orders[0]
     : maintenanceOrderItem?.maintenance_orders;
-  const vehicle = Array.isArray(maintenanceOrders?.vehicles)
-    ? maintenanceOrders.vehicles[0]
-    : maintenanceOrders?.vehicles;
   const maintenanceOrderId = maintenanceOrders?.id || '';
+
+  // Ticket 596: la OT apunta a un vehiculo O a un equipamiento. Se lee de la
+  // propia OT (no de la OM) porque ahi la BD garantiza que hay exactamente uno.
+  const resource = { vehicles: data.vehicles, other_equipment: data.other_equipment };
+  const hasResource = !!(data.vehicles || data.other_equipment);
 
   // --- Handlers ---
 
@@ -201,7 +192,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     status: item.status,
     work_order_item_repairs: item.work_order_item_repairs,
     maintenance_order_items: Array.isArray(item.maintenance_order_items)
-      ? (item.maintenance_order_items as Array<{ description?: string | null }>)[0] || null
+      ? item.maintenance_order_items[0] || null
       : item.maintenance_order_items,
   }));
 
@@ -214,7 +205,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         status={data.status}
         priority={data.priority}
         plannedStartDate={data.planned_start_date}
-        vehicle={vehicle || null}
+        resource={hasResource ? resource : null}
         completedCount={completedRepairs.length}
         totalCount={allRepairs.length}
         onStart={() => startMutation.mutate()}
@@ -273,12 +264,14 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
           workOrderId={data.id}
           maintenanceOrderId={maintenanceOrderId}
           maintenanceOrderNumber={maintenanceOrders?.order_number}
-          vehicleContext={
-            vehicle
+          resourceContext={
+            hasResource
               ? {
-                  domain: vehicle.domain,
-                  internNumber: vehicle.intern_number,
-                  subType: vehicle.sub_type?.name,
+                  label: getResourceLabel(resource),
+                  kindLabel: getResourceKindLabel(resource),
+                  isOtherEquipment: getResourceKind(resource) === 'other_equipment',
+                  internNumber: getResourceInternNumber(resource),
+                  subType: (data.other_equipment ?? data.vehicles)?.sub_type?.name ?? null,
                 }
               : null
           }

@@ -352,6 +352,7 @@ export async function getWorkOrdersForOperator(sectorId: string, includeComplete
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
       vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, sub_type(id, name)),
       work_order_items(
         id, status,
         work_order_item_repairs(id, status, is_diagnostico),
@@ -403,6 +404,7 @@ export async function getCompletedWorkOrdersForOperator(sectorId: string, page: 
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
       vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, sub_type(id, name)),
       work_order_items(
         id, status,
         work_order_item_repairs(id, status, is_diagnostico),
@@ -451,12 +453,18 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, notes,
       sector_id,
+      vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, kilometer, engine_hours, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, horometer, sub_type(id, name)),
       work_order_items(
         id, status, maintenance_order_item_id,
-        maintenance_order_items:maintenance_order_item_id(
-          id, description, maintenance_order_id,
-          maintenance_orders:maintenance_order_id(id, order_number, equipment_id,
-            vehicles:equipment_id(id, domain, serie, intern_number, kilometer, engine_hours, sub_type(id, name))
+        maintenance_order_items(
+          id, description, images, maintenance_order_id,
+          maintenance_orders(id, order_number),
+          types_of_repairs(id, name),
+          maintenance_order_item_repair_types(types_of_repairs(id, name)),
+          maintenance_request_items(
+            id, description, free_text, images,
+            checklist_deviations(id, item_label, section_code)
           )
         ),
         work_order_item_repairs(
