@@ -489,6 +489,18 @@ El 26/08/2026 un solo guardado en Comercial → Clientes → Empleados borró **
 
 Ojo adicional: `contractor_employee` no tiene triggers de auditoría ni historial, y el proyecto **no tiene PITR** (`archive_mode = off` en prod). Un borrado masivo en una pivote es irrecuperable salvo por el backup diario de Supabase o por el clon de dev. Extiende [[no culpar al operador: buscar el fallo silencioso]] y [[created_at no es fecha de alta si el código hace delete+insert]].
 
+### Cambiar un trigger que escribe texto: verificarlo con un evento NUEVO, no mirando el historial
+
+Al reemplazar un texto hardcodeado dentro de un trigger de Postgres, `pg_get_functiondef` confirma que la **función** cambió, pero eso NO prueba que la UI muestre el texto nuevo: las filas ya escritas conservan el texto viejo materializado en su columna. Abrir el historial de un registro existente y ver la frase anterior parece un fix que falló, y no lo es.
+
+La verificación correcta es **provocar un evento nuevo desde la UI** (en el 596: planificar un pedido para disparar `date_confirmed`) y leer la fila recién insertada. Además, hay que **decirle al usuario que los registros anteriores siguen mostrando el texto viejo** y dejarle a él la decisión de reescribirlos — es su dato histórico, no una decisión de implementación. En el 596 quedaron 894 filas con "Fecha aprobada por operaciones", incluidas las de los pedidos de prueba de la demo, que es justo donde el usuario iba a mirar.
+
+### "¿Lo verificaste?" es la señal de que reporté terminado demasiado pronto
+
+Correr `check-types`, consultar la BD y leer el diff **no es haber verificado una feature de UI**. En esta sesión reporté los cambios como listos y el usuario tuvo que preguntar "¿las subiste y las verificaste?": faltaba la pasada por el navegador, que es donde aparecieron los bugs de las sesiones anteriores (las 2 fotos que se perdían, el `commitPendingDraft` incompleto) — ninguno de los dos lo habría detectado el compilador.
+
+Regla: mientras falte la prueba en la app real, el estado se reporta como **"subido, verificación visual pendiente"**, nunca como "listo". Y al verificar, medir en el DOM (`getBoundingClientRect`, opacidad efectiva de los ancestros, cantidad de `<img>`) en vez de mirar un screenshot: el screenshot no distingue "0 fotos" de "fotos que no scrollée hasta ver", ni un modal que desborda de uno que scrollea. Extiende [[no culpar al operador: buscar el fallo silencioso]].
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
