@@ -232,7 +232,7 @@ export function _PendingOrderDataTable({
 
       {/* Loading mientras se cargan datos del pedido */}
       <Dialog open={isWaitingForDetail} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-xs" showCloseButton={false}>
+        <DialogContent className="max-w-xs max-h-[90vh] overflow-y-auto" showCloseButton={false}>
           <div className="flex flex-col items-center gap-3 py-4">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">

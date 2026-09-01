@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import {
   getRepairItemDescription,
@@ -51,6 +52,8 @@ interface MaintenanceOrderItemData {
 interface WorkOrderItemData {
   id: string;
   status: string | null;
+  /** Nombre del grupo de reparaciones del que salio el item, si vino de uno */
+  group_name?: string | null;
   work_order_item_repairs: RepairData[] | null;
   maintenance_order_items: MaintenanceOrderItemData | null;
 }
@@ -114,6 +117,7 @@ export function TaskList({
           title: title || repair.types_of_repairs?.name || 'Tarea sin tipo',
           description,
           images,
+          groupName: item.group_name ?? null,
         }));
     })
     .sort((a, b) => {
@@ -138,6 +142,7 @@ export function TaskList({
         title: moItem ? getRepairItemLabel(moItem) : 'Ítem sin descripción',
         description: moItem ? getRepairItemDescription(moItem) : null,
         images: moItem ? getRepairItemImages(moItem) : [],
+        groupName: item.group_name ?? null,
       };
     });
 
@@ -192,13 +197,14 @@ export function TaskList({
       {hasDiagnostico && allRepairs.length > 1 && <Separator />}
 
       {/* Regular task cards - sorted by criticity */}
-      {sortedRegularRepairs.map(({ repair, title, description, images }) => (
+      {sortedRegularRepairs.map(({ repair, title, description, images, groupName }) => (
         <TaskCard
           key={repair.id}
           repair={repair}
           title={title}
           description={description}
           images={images}
+          groupName={groupName}
           isBlockedByDiag={isBlockedByDiag}
           isBlockedByPending={isReadOnly}
           isMutating={isMutating}
@@ -218,6 +224,7 @@ export function TaskList({
               <Info className="h-5 w-5 text-sky-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0 space-y-2">
                 <p className="text-sm font-semibold sm:text-base leading-tight">{item.title}</p>
+                <RepairGroupBadge groupName={item.groupName} />
                 <p className="text-xs text-muted-foreground">
                   Ítem informativo del pedido: no tiene un tipo de reparación asignado, por eso no se marca como
                   completado.

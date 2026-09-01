@@ -475,8 +475,8 @@ export function ManageOrderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="max-w-5xl max-h-[90vh]">
-          <DialogHeader className="space-y-3">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="space-y-3 shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-lg">{order.order_number || 'Orden sin numero'}</span>
@@ -526,13 +526,13 @@ export function ManageOrderDialog({
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="items" className="flex-1">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="items" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2 shrink-0">
               <TabsTrigger value="items">Items del pedido ({regularItems.length})</TabsTrigger>
               <TabsTrigger value="asignar">Asignacion a Sectores</TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[60vh] mt-4">
+            <ScrollArea className="flex-1 min-h-0 mt-4">
               <TabsContent value="items" className="mt-0">
                 <div className="space-y-3">
                   {/* Header con botones */}
@@ -741,7 +741,7 @@ export function ManageOrderDialog({
 
           {/* Footer con botones de accion */}
           <Separator />
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
             {hasChanges && (
               <Button onClick={handleSave} disabled={isSaving} size="sm">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}

@@ -190,6 +190,8 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
   const normalizedItems = workOrderItems.map((item) => ({
     id: item.id,
     status: item.status,
+    // Grupo de reparaciones del que salio el item (lo resuelve la server action)
+    group_name: item.group_name,
     work_order_item_repairs: item.work_order_item_repairs,
     maintenance_order_items: Array.isArray(item.maintenance_order_items)
       ? item.maintenance_order_items[0] || null

@@ -93,6 +93,8 @@ export interface WorkOrderItemDetail {
   sectionCode: string | null;
   /** Ticket 592: fotos del ítem (bucket repair-images), vengan de la orden o de la solicitud */
   itemImages: string[];
+  /** Grupo de reparaciones del que salio el item, null si se cargo suelto */
+  itemGroupName: string | null;
 }
 
 // Tipo para el detalle completo de una OT

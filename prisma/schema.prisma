@@ -1823,6 +1823,9 @@ model maintenance_order_items {
   work_orders                                                        work_orders?                          @relation(fields: [work_order_id], references: [id], onUpdate: NoAction)
   profile_maintenance_order_items_workshop_chief_comment_byToprofile profile?                              @relation("maintenance_order_items_workshop_chief_comment_byToprofile", fields: [workshop_chief_comment_by], references: [id], onUpdate: NoAction)
   work_order_items                                                   work_order_items[]
+  /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
+  maintenance_group_id                                               String?                               @db.Uuid
+  maintenance_request_groups                                         maintenance_request_groups?           @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_order_items_group_fkey")
 
   @@index([maintenance_order_id], map: "idx_maintenance_order_items_order")
   @@index([maintenance_request_item_id], map: "idx_maintenance_order_items_request_item")
@@ -1831,6 +1834,7 @@ model maintenance_order_items {
   @@index([planned_start_date, planned_end_date], map: "idx_moi_planned_dates")
   @@index([work_order_id], map: "idx_moi_work_order")
   @@schema("public")
+  @@index([maintenance_group_id], map: "idx_maintenance_order_items_group")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1897,6 +1901,8 @@ model maintenance_request_groups {
   is_active                         Boolean                             @default(true)
   created_at                        DateTime                            @default(now()) @db.Timestamptz(6)
   maintenance_group_type_of_repairs maintenance_group_type_of_repairs[]
+  maintenance_order_items           maintenance_order_items[]
+  maintenance_request_items         maintenance_request_items[]
 
   @@schema("public")
 }
@@ -1930,12 +1936,16 @@ model maintenance_request_items {
   types_of_repairs                                                 types_of_repairs?         @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_request_items_supervisor_comment_byToprofile profile?                  @relation("maintenance_request_items_supervisor_comment_byToprofile", fields: [supervisor_comment_by], references: [id], onUpdate: NoAction)
   profile_maintenance_request_items_validator_comment_byToprofile  profile?                  @relation("maintenance_request_items_validator_comment_byToprofile", fields: [validator_comment_by], references: [id], onUpdate: NoAction)
+  /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
+  maintenance_group_id                                             String?                     @db.Uuid
+  maintenance_request_groups                                       maintenance_request_groups? @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_request_items_group_fkey")
 
   @@unique([maintenance_request_id, checklist_deviation_id])
   @@index([checklist_deviation_id], map: "idx_maintenance_request_items_deviation")
   @@index([maintenance_request_id], map: "idx_maintenance_request_items_request")
   @@index([status], map: "idx_maintenance_request_items_status")
   @@schema("public")
+  @@index([maintenance_group_id], map: "idx_maintenance_request_items_group")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

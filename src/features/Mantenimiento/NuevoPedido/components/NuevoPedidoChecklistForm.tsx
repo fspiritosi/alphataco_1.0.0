@@ -23,9 +23,11 @@ import { ManualItemsInput, type ManualItem } from '@/features/Mantenimiento/shar
 import {
   ManualRepairsInput,
   type ManualRepair,
+  type ManualRepairDraftState,
   type ManualRepairsInputHandle,
   type RepairGroupOption,
 } from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import type { MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   PREVENTIVE_TYPES,
@@ -269,6 +271,15 @@ export function NuevoPedidoChecklistForm({
   // Habilita "Siguiente" cuando hay una reparacion escrita sin agregar: al avanzar
   // se guarda sola (ver handleAdvanceStep).
   const [hasPendingManualDraft, setHasPendingManualDraft] = useState(false);
+  // Hay fotos/descripcion cargadas sin titulo. Tambien habilita "Siguiente", pero
+  // para poder EXPLICAR por que no avanza: con el boton deshabilitado el click no
+  // llegaba y el usuario no entendia que le faltaba.
+  const [hasOrphanManualDraft, setHasOrphanManualDraft] = useState(false);
+
+  const handleManualDraftStateChange = useCallback((state: ManualRepairDraftState) => {
+    setHasPendingManualDraft(state.canAdd);
+    setHasOrphanManualDraft(state.hasOrphanContent);
+  }, []);
 
   // Tipos de reparación para el selector de carga manual
   const {
@@ -333,6 +344,12 @@ export function NuevoPedidoChecklistForm({
     });
     return index;
   }, [repairTypes, repairGroupOptions]);
+
+  // Nombre del grupo del que salió cada reparación, para el resumen del paso final
+  const manualRepairGroupNameById = useMemo(
+    () => new Map(repairGroupOptions.map((group) => [group.id, group.name])),
+    [repairGroupOptions]
+  );
 
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
@@ -504,7 +521,24 @@ export function NuevoPedidoChecklistForm({
   const handleAdvanceStep = useCallback(() => {
     if (requestType === 'manual' && currentStepKey === 'items') {
       const result = manualRepairsRef.current?.commitPendingDraft();
-      if (result === 'added') {
+
+      // Fotos (y/o descripcion) sin tarea ni texto libre: no se puede agregar la
+      // reparacion, pero tampoco se descarta el trabajo en silencio. Se frena el
+      // avance y se dice exactamente que falta.
+      if (result?.status === 'incomplete') {
+        const cargado =
+          result.imageCount > 0
+            ? result.imageCount === 1
+              ? 'Cargaste 1 foto'
+              : `Cargaste ${result.imageCount} fotos`
+            : 'Escribiste una descripción';
+        toast.warning(`${cargado} pero falta elegir la tarea o escribir la reparación`, {
+          description: 'Completala y tocá "Agregar reparación", o quitá lo cargado para continuar.',
+        });
+        return;
+      }
+
+      if (result?.status === 'added') {
         toast.info('Se agregó la reparación que habías escrito');
       }
     }
@@ -673,6 +707,8 @@ export function NuevoPedidoChecklistForm({
             repairTypeId: repair.repairTypeId,
             freeText: repair.freeText,
             description: repair.description,
+            // El grupo se persiste para poder indicar el origen en todos los listados
+            groupId: repair.groupId,
             images: await uploadRepairImages(repair.images, selectedEquipmentId),
           }))
         );
@@ -827,7 +863,9 @@ export function NuevoPedidoChecklistForm({
         if (requestType === 'manual') return true;
         return !!selectedPreventiveType;
       case 'items':
-        if (requestType === 'manual') return manualRepairs.length > 0 || hasPendingManualDraft;
+        // El borrador incompleto tambien habilita el boton: el click tiene que
+        // llegar para poder avisar por que no se avanza (handleAdvanceStep).
+        if (requestType === 'manual') return manualRepairs.length > 0 || hasPendingManualDraft || hasOrphanManualDraft;
         return selectedDeviations.length > 0 || manualItems.length > 0;
       case 'supervisor':
         if (isCurrentUserSupervisor === null) return false;
@@ -842,6 +880,7 @@ export function NuevoPedidoChecklistForm({
     currentStepKey,
     requestType,
     hasPendingManualDraft,
+    hasOrphanManualDraft,
     selectedEquipmentId,
     selectedTemplateId,
     selectedPreventiveType,
@@ -1226,7 +1265,7 @@ export function NuevoPedidoChecklistForm({
         repairs={manualRepairs}
         onChange={setManualRepairs}
         ref={manualRepairsRef}
-        onPendingDraftChange={setHasPendingManualDraft}
+        onDraftStateChange={handleManualDraftStateChange}
         repairTypes={repairTypes}
         isLoadingRepairTypes={isLoadingRepairTypes}
         hasRepairTypesError={hasRepairTypesError}
@@ -1612,6 +1651,7 @@ export function NuevoPedidoChecklistForm({
                   const repairTypeName = repair.repairTypeId
                     ? manualRepairTypeNameById.get(repair.repairTypeId) ?? null
                     : null;
+                  const groupName = repair.groupId ? manualRepairGroupNameById.get(repair.groupId) ?? null : null;
                   return (
                     <li key={repair.localId} className="text-sm flex items-start gap-2">
                       <span className="text-muted-foreground">•</span>
@@ -1622,6 +1662,9 @@ export function NuevoPedidoChecklistForm({
                             {repair.images.length} {repair.images.length === 1 ? 'foto' : 'fotos'}
                           </Badge>
                         )}
+                        {/* Origen de la tarea: se confirma qué vino de un grupo y qué se
+                            cargó suelto, antes de mandar el pedido */}
+                        <RepairGroupBadge groupName={groupName} className="ml-2" />
                         {repair.description.trim() && (
                           <p className="text-xs text-muted-foreground mt-1 italic">
                             &quot;{repair.description.trim()}&quot;

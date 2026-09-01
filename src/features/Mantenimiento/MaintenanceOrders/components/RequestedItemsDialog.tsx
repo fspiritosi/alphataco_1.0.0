@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import {
   getResourceInternNumber,
@@ -11,6 +12,7 @@ import {
 } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   getRepairItemDescription,
+  getRepairItemGroupName,
   getRepairItemImages,
   getRepairItemLabel,
 } from '@/features/Mantenimiento/shared/repair-item-label';
@@ -53,8 +55,8 @@ export function RequestedItemsDialog({ order, open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Wrench className="h-5 w-5 text-muted-foreground" />
             Ítems solicitados
@@ -71,7 +73,7 @@ export function RequestedItemsDialog({ order, open, onClose }: Props) {
             <p>Esta orden no tiene ítems registrados.</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[60vh] pr-3">
+          <ScrollArea className="flex-1 min-h-0 pr-3">
             <ul className="space-y-2">
               {items.map((item, idx) => {
                 const label = getRepairItemLabel(item);
@@ -85,6 +87,7 @@ export function RequestedItemsDialog({ order, open, onClose }: Props) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-muted-foreground tabular-nums text-xs font-medium">#{idx + 1}</span>
                         <span className="font-medium leading-snug">{label}</span>
+                        <RepairGroupBadge groupName={getRepairItemGroupName(item)} />
                         {item.is_critical && (
                           <Badge variant="destructive" className="h-5 text-[10px]">
                             Crítico

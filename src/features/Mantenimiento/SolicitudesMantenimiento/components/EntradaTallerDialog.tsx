@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { getRepairItemGroupName, getRepairItemLabel } from '@/features/Mantenimiento/shared/repair-item-label';
 import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento/utils/kilometerPreload';
 import { AlertTriangle, Loader2 } from 'lucide-react';
@@ -90,8 +92,9 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      {/* Alto acotado + scroll solo en el cuerpo: header y footer quedan siempre visibles */}
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Aprobar Entrada a Taller</DialogTitle>
           <DialogDescription>
             Confirme la entrada del equipo{' '}
@@ -102,7 +105,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-4 flex-1 overflow-y-auto min-h-0">
           {/* Advertencia */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -162,7 +165,10 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
-                        <div className="font-medium">{deviation?.item_label || 'Sin etiqueta'}</div>
+                        {/* El helper cubre tambien la carga manual: sin desvio de checklist,
+                            `item_label` es null y el item se dibujaba en blanco. */}
+                        <div className="font-medium">{getRepairItemLabel(item, 'Sin etiqueta')}</div>
+                        <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                         <div className="text-xs text-muted-foreground">
                           Código: {formattedCode}
                           {repairType && (
@@ -212,7 +218,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>

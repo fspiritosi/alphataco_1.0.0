@@ -104,7 +104,7 @@ export function ReassignSupervisorDialog({ request, open, onOpenChange, onSucces
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Reasignar Supervisor</DialogTitle>
           <DialogDescription>

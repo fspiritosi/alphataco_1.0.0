@@ -135,6 +135,10 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             maintenance_order_item_repair_types: {
               select: { types_of_repairs: { select: { id: true, name: true } } },
             },
+            // El cliente pidio que la agrupacion de tareas se vea en TODO listado
+            // de items, asi que el nombre del grupo de origen viaja con el item.
+            maintenance_group_id: true,
+            maintenance_request_groups: { select: { id: true, name: true } },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
             work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
@@ -162,6 +166,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
                   select: { id: true, fullname: true },
                 },
                 checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
+                // Grupo de origen del item de la solicitud: el badge de grupo lo
+                // busca aca cuando el item de la orden no lo trae propio.
+                maintenance_request_groups: { select: { name: true } },
               },
             },
             work_order_items: {
@@ -349,6 +356,10 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             maintenance_order_item_repair_types: {
               select: { types_of_repairs: { select: { id: true, name: true } } },
             },
+            // El cliente pidio que la agrupacion de tareas se vea en TODO listado
+            // de items, asi que el nombre del grupo de origen viaja con el item.
+            maintenance_group_id: true,
+            maintenance_request_groups: { select: { id: true, name: true } },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
             work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
@@ -376,6 +387,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
                   select: { id: true, fullname: true },
                 },
                 checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
+                // Grupo de origen del item de la solicitud: el badge de grupo lo
+                // busca aca cuando el item de la orden no lo trae propio.
+                maintenance_request_groups: { select: { name: true } },
               },
             },
             work_order_items: {

@@ -74,7 +74,10 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn('w-[var(--radix-popover-trigger-width)] p-0', contentClassName)}>
+      <PopoverContent
+        align="start"
+        className={cn('w-[var(--radix-popover-trigger-width)] min-w-72 max-w-[min(28rem,90vw)] p-0', contentClassName)}
+      >
         <Command>
           <CommandInput placeholder={searchPlaceholder} className="h-9" />
           <CommandList>
@@ -87,6 +90,7 @@ export function SearchableSelect({
                   // el usuario pueda buscar por cualquiera de los datos visibles.
                   value={`${option.label} ${option.keywords ?? ''}`}
                   disabled={option.disabled}
+                  className="items-start"
                   onSelect={() => {
                     if (option.disabled) return;
                     onValueChange(option.value);
@@ -94,10 +98,10 @@ export function SearchableSelect({
                   }}
                 >
                   <Check
-                    className={cn('mr-2 h-4 w-4 shrink-0', value === option.value ? 'opacity-100' : 'opacity-0')}
+                    className={cn('mr-2 mt-0.5 h-4 w-4 shrink-0', value === option.value ? 'opacity-100' : 'opacity-0')}
                   />
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate">{option.label}</span>
+                  <span className="flex min-w-0 flex-1 items-start gap-2">
+                    <span className="min-w-0 flex-1 whitespace-normal break-words">{option.label}</span>
                     {option.trailing}
                   </span>
                 </CommandItem>

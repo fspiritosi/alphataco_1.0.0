@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento/utils/kilometerPreload';
@@ -29,7 +30,7 @@ import {
   getResourceKindLabel,
   getResourceLabel,
 } from '../../shared/maintenance-resource';
-import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 
 interface EntradaTallerDialogProps {
@@ -137,8 +138,10 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      {/* Alto acotado + scroll solo en el cuerpo: con muchos items el titulo quedaba
+          cortado arriba y "Confirmar Entrada" abajo (reportado en la demo). */}
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Aprobar Entrada a Taller</DialogTitle>
           <DialogDescription>
             Confirme la entrada del {resourceKindLabel.toLowerCase()}{' '}
@@ -148,7 +151,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-4 flex-1 overflow-y-auto min-h-0">
           {/* Advertencia */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -242,6 +245,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
                         <div className="font-medium">{itemLabel}</div>
+                        <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                         <div className="text-xs text-muted-foreground">
                           {formattedCode && <>Código: {formattedCode}</>}
                           {repairTypeNames.length > 0 && (
@@ -324,7 +328,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>

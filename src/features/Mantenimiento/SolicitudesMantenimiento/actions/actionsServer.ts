@@ -95,6 +95,10 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
       profile_maintenance_request_items_supervisor_comment_byToprofile: {
         select: PROFILE_SELECT,
       },
+      // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,

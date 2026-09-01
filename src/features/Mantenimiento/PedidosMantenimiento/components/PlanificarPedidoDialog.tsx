@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
 import { Clock, Gauge, Loader2, Package, Truck, Wrench } from 'lucide-react';
@@ -28,7 +29,7 @@ import {
   getResourceKindLabel,
   getResourceLabel,
 } from '../../shared/maintenance-resource';
-import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 import { useScheduleMaintenanceOrder } from '../hooks/useMaintenanceOrders';
 
@@ -115,7 +116,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* ── Header compacto ──────────────────────────────────────────── */}
         <div className="px-6 pt-6 pb-4 space-y-3">
           <DialogHeader className="space-y-1">
@@ -196,7 +197,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
               </h3>
             </div>
 
-            <ScrollArea className="max-h-[35vh]">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="px-6 pb-4 space-y-3">
                 {Object.entries(itemsByRepairType).map(([repairType, items]) => (
                   <div key={repairType} className="space-y-2">
@@ -221,6 +222,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                               </span>
                               <div className="min-w-0">
                                 <p className="font-medium text-sm leading-snug">{itemLabel}</p>
+                                <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                                 {deviation?.section_code && (
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {formatSectionCode(deviation.section_code)}
@@ -258,7 +260,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <Separator />
-        <DialogFooter className="px-6 py-4">
+        <DialogFooter className="px-6 py-4 shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>

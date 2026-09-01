@@ -15,7 +15,7 @@ import {
   getResourceKindLabel,
   getResourceLabel,
 } from '../../shared/maintenance-resource';
-import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { WorkOrderDetail, WorkOrderItemDetail, WorkOrderRowData } from '../types';
 
 const logger = new Logger('OrdenesTrabajo/actions');
@@ -294,6 +294,10 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
             types_of_repairs: {
               select: { id: true, name: true },
             },
+            // Grupo de reparaciones del que salio el item, para marcarlo en el detalle
+            maintenance_request_groups: {
+              select: { id: true, name: true },
+            },
             maintenance_order_item_repair_types: {
               select: {
                 repair_type_id: true,
@@ -309,6 +313,9 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
                 // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío)
                 free_text: true,
                 images: true,
+                maintenance_request_groups: {
+                  select: { id: true, name: true },
+                },
                 driver_comment: true,
                 validator_comment: true,
                 checklist_deviations: {
@@ -395,6 +402,7 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
         // texto libre o el tipo de reparación elegido
         itemLabel: moi ? getRepairItemLabel(moi, 'Sin descripción') : 'Sin descripción',
         itemImages: moi ? getRepairItemImages(moi) : [],
+        itemGroupName: moi ? getRepairItemGroupName(moi) : null,
         itemCode: deviation?.item_code || null,
         sectionCode: deviation?.section_code || null,
       };

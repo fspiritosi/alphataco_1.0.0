@@ -57,7 +57,7 @@ export function RepairItemPhotos({ images, label, size = 'md', className }: Repa
       </div>
 
       <Dialog open={openIndex !== null} onOpenChange={(open) => !open && setOpenIndex(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">Foto de la reparación</DialogTitle>
             <DialogDescription className="sr-only">

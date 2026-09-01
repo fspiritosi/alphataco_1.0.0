@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
@@ -15,7 +16,7 @@ import {
   getResourceKindLabel,
   getResourceLabel,
 } from '../../shared/maintenance-resource';
-import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface PedidoDetailDialogProps {
@@ -63,7 +64,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* ── Header compacto ──────────────────────────────────────────── */}
         <div className="px-6 pt-6 pb-4 space-y-3">
           <DialogHeader className="space-y-1">
@@ -179,7 +180,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
               </h3>
             </div>
 
-            <ScrollArea className="max-h-[45vh]">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="px-6 pb-6 space-y-3">
                 {order.maintenance_order_items?.map((item, index) => {
                   const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
@@ -205,6 +206,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                           </span>
                           <div className="min-w-0">
                             <p className="font-medium leading-snug">{itemLabel}</p>
+                            <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                             {sectionCode && (
                               <p className="text-xs text-muted-foreground mt-0.5">{formatSectionCode(sectionCode)}</p>
                             )}

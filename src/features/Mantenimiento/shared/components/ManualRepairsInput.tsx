@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/uploadRepairImages';
 import { cn } from '@/lib/utils';
 import {
@@ -64,6 +65,39 @@ export type ManualRepair = {
   description: string;
   /** Archivos elegidos; se suben al confirmar el pedido */
   images: File[];
+  /**
+   * Grupo del que salió esta reparación, o null si se cargó suelta.
+   *
+   * Se persiste (`maintenance_group_id`) para poder decir en TODO listado de qué
+   * grupo vino cada tarea: al expandir un grupo aparecen muchas reparaciones de
+   * golpe y sin esta marca el taller no distingue las que se agregaron a propósito
+   * de las que entraron por el paquete.
+   */
+  groupId: string | null;
+};
+
+/**
+ * Resultado de intentar guardar el borrador al avanzar de paso.
+ *
+ * `incomplete` es el caso del bug reportado en la demo: hay trabajo cargado
+ * (fotos, descripción) pero falta el título, así que la reparación no se puede
+ * agregar. Antes esto dejaba el botón "Siguiente" deshabilitado sin explicación y
+ * el usuario perdía el esfuerzo de sacar y subir las fotos.
+ */
+export type PendingDraftCommit =
+  | { status: 'added' }
+  | { status: 'empty' }
+  | { status: 'incomplete'; imageCount: number; hasDescription: boolean };
+
+/**
+ * Estado del borrador que el paso contenedor necesita conocer para decidir si
+ * habilita "Siguiente" y qué avisar al intentar avanzar.
+ */
+export type ManualRepairDraftState = {
+  /** Hay un borrador válido: se puede agregar solo al avanzar */
+  canAdd: boolean;
+  /** Hay trabajo cargado (fotos/descripción) sin título: no se puede agregar */
+  hasOrphanContent: boolean;
 };
 
 /**
@@ -75,9 +109,102 @@ export type ManualRepair = {
  * agrega solo — antes se descartaba en silencio y el usuario perdia la reparacion.
  */
 export type ManualRepairsInputHandle = {
-  /** 'added' si habia borrador y se agrego; 'empty' si no habia nada pendiente */
-  commitPendingDraft: () => 'added' | 'empty';
+  commitPendingDraft: () => PendingDraftCommit;
 };
+
+/**
+ * Minúsculas y sin tildes: el supervisor escribe "motor" y tiene que encontrar
+ * "Motor" o "Reparación de Motór" indistintamente.
+ */
+function normalizeText(value: string): string {
+  // NFD separa la tilde en un caracter aparte; se descartan las marcas
+  // combinantes (U+0300..U+036F) para que "motor" encuentre tambien "Motor".
+  const decomposed = value.normalize('NFD');
+  let result = '';
+  for (const char of decomposed) {
+    const code = char.charCodeAt(0);
+    if (code < 0x0300 || code > 0x036f) result += char;
+  }
+  return result.toLowerCase();
+}
+
+/**
+ * Palabras sueltas de lo buscado, normalizadas.
+ *
+ * Se busca por tokens y no por la frase entera para no perder la busqueda
+ * multi-palabra: "motor aceite" tiene que encontrar el grupo aunque "motor" este
+ * en el nombre y "aceite" en una tarea interna.
+ */
+function tokenizeQuery(query: string): string[] {
+  return normalizeText(query).split(/\s+/).filter(Boolean);
+}
+
+/** El texto contiene TODOS los tokens (no alcanza con uno) */
+function matchesAllTokens(text: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return true;
+  const normalized = normalizeText(text);
+  return tokens.every((token) => normalized.includes(token));
+}
+
+/** Tramos [inicio, fin) donde aparece alguno de los tokens, ya fusionados */
+function findTokenRanges(normalizedText: string, tokens: string[]): [number, number][] {
+  const ranges: [number, number][] = [];
+
+  for (const token of tokens) {
+    let from = normalizedText.indexOf(token);
+    while (from !== -1) {
+      ranges.push([from, from + token.length]);
+      from = normalizedText.indexOf(token, from + token.length);
+    }
+  }
+
+  ranges.sort((a, b) => a[0] - b[0]);
+
+  // Dos tokens pueden solaparse ("motor" y "mot"): se fusionan para no anidar <mark>
+  return ranges.reduce<[number, number][]>((merged, range) => {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) {
+      last[1] = Math.max(last[1], range[1]);
+      return merged;
+    }
+    merged.push([...range] as [number, number]);
+    return merged;
+  }, []);
+}
+
+/**
+ * Resalta dentro de `text` los tramos que coincidieron con lo buscado.
+ *
+ * El cliente reportó que el buscador "devuelve resultados erróneos": escribía
+ * "motor" y aparecían grupos sin esa palabra en el nombre, porque el match venía
+ * de una de sus tareas internas. Marcar la coincidencia hace evidente el porqué.
+ */
+function HighlightedText({ text, tokens }: { text: string; tokens: string[] }) {
+  const normalizedText = normalizeText(text);
+
+  // Los índices solo son trasladables al texto original si normalizar no cambió
+  // la longitud (pasa con caracteres ya descompuestos). Si cambió, no se resalta.
+  if (tokens.length === 0 || normalizedText.length !== text.length) return <>{text}</>;
+
+  const ranges = findTokenRanges(normalizedText, tokens);
+  if (ranges.length === 0) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+
+  for (const [start, end] of ranges) {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(
+      <mark key={start} className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+        {text.slice(start, end)}
+      </mark>
+    );
+    cursor = end;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+
+  return <>{parts}</>;
+}
 
 type ManualRepairsInputProps = {
   repairs: ManualRepair[];
@@ -95,12 +222,13 @@ type ManualRepairsInputProps = {
   onRetryGroups?: () => void;
   disabled?: boolean;
   /**
-   * Avisa si hay un borrador cargado sin agregar. El paso lo necesita para
+   * Avisa el estado del borrador cargado sin agregar. El paso lo necesita para
    * habilitar "Siguiente": con el boton deshabilitado el usuario no puede avanzar
    * y su reparacion escrita queda en un limbo, sin forma de guardarla salvo
-   * descubriendo el boton "Agregar reparacion".
+   * descubriendo el boton "Agregar reparacion". Tambien avisa el caso incompleto
+   * (fotos/descripcion sin titulo) para poder explicar por que no avanza.
    */
-  onPendingDraftChange?: (hasPendingDraft: boolean) => void;
+  onDraftStateChange?: (state: ManualRepairDraftState) => void;
   ref?: React.Ref<ManualRepairsInputHandle>;
 };
 
@@ -122,7 +250,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   hasGroupsError = false,
   onRetryGroups,
   disabled = false,
-  onPendingDraftChange,
+  onDraftStateChange,
   ref,
 }: ManualRepairsInputProps) {
   // Borrador de la reparación que se está armando
@@ -132,6 +260,9 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   const [images, setImages] = useState<File[]>([]);
   const [typesOpen, setTypesOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
+  // El buscador de grupos es controlado: se necesita el texto tecleado para poder
+  // mostrar POR QUE apareció cada grupo (el match puede venir de una tarea interna).
+  const [groupSearch, setGroupSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // IDs únicos por instancia: el componente podría montarse más de una vez por página
@@ -169,6 +300,9 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
 
   const trimmedFreeText = freeText.trim();
   const canAdd = !disabled && (!!repairTypeId || trimmedFreeText.length > 0);
+  // Trabajo cargado que todavía no se puede agregar porque falta el título. Las
+  // fotos son el caso caro: el usuario ya salió a sacarlas y esperó la subida.
+  const hasOrphanContent = !disabled && !canAdd && (images.length > 0 || description.trim().length > 0);
   // Si el consumidor no pasa grupos, ese camino directamente no se dibuja: el
   // formulario queda igual que antes en vez de mostrar un selector vacío.
   const showGroupsPath = isLoadingGroups || hasGroupsError || groups.length > 0;
@@ -192,26 +326,34 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
         freeText: repairTypeId ? null : trimmedFreeText,
         description: description.trim(),
         images,
+        // Cargada a mano: no pertenece a ningún grupo
+        groupId: null,
       },
     ]);
     resetDraft();
   }, [canAdd, onChange, repairs, repairTypeId, trimmedFreeText, description, images, resetDraft]);
 
   useEffect(() => {
-    onPendingDraftChange?.(canAdd);
-  }, [canAdd, onPendingDraftChange]);
+    onDraftStateChange?.({ canAdd, hasOrphanContent });
+  }, [canAdd, hasOrphanContent, onDraftStateChange]);
 
   // El wizard llama a esto al avanzar de paso para no perder lo que quedo escrito.
   useImperativeHandle(
     ref,
     () => ({
       commitPendingDraft: () => {
-        if (!canAdd) return 'empty';
-        handleAdd();
-        return 'added';
+        if (canAdd) {
+          handleAdd();
+          return { status: 'added' };
+        }
+        // Hay fotos/descripcion sin titulo: el paso avisa en vez de trabarse mudo
+        if (hasOrphanContent) {
+          return { status: 'incomplete', imageCount: images.length, hasDescription: description.trim().length > 0 };
+        }
+        return { status: 'empty' };
       },
     }),
-    [canAdd, handleAdd]
+    [canAdd, handleAdd, hasOrphanContent, images.length, description]
   );
 
   const handleRemove = useCallback(
@@ -238,6 +380,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   const handleSelectGroup = useCallback(
     (groupId: string) => {
       setGroupsOpen(false);
+      setGroupSearch('');
       if (disabled) return;
 
       const group = groups.find((g) => g.id === groupId);
@@ -266,6 +409,9 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
           freeText: null,
           description: '',
           images: [] as File[],
+          // Queda marcado el origen: expandir un grupo mete varias tareas de golpe
+          // y despues nadie sabe si se agregaron a proposito o vinieron en el paquete
+          groupId: group.id,
         })),
       ]);
 
@@ -337,6 +483,36 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
     [repairTypeNameById]
   );
 
+  // Nombre del grupo para mostrarlo en cada reparación que salió de uno
+  const groupNameById = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups]);
+
+  /**
+   * Grupos con la explicación del match ya calculada.
+   *
+   * El filtrado del popover se hace por substring (ver el `filter` del `Command`),
+   * así que acá se puede saber con exactitud qué tareas coincidieron y mostrarlas.
+   */
+  const searchTokens = useMemo(() => tokenizeQuery(groupSearch), [groupSearch]);
+  const groupsWithMatches = useMemo(() => {
+    return groups.map((group) => {
+      const previewNames = group.repairTypes.map((type) => type.name).filter((name): name is string => !!name);
+      const normalizedGroupName = normalizeText(group.name);
+
+      // Solo se explican las palabras que NO estan en el nombre del grupo: son las que
+      // hacen que el resultado parezca erroneo, porque el motivo esta en otro lado.
+      const tokensOutsideName = searchTokens.filter((token) => !normalizedGroupName.includes(token));
+      const matchedNames =
+        tokensOutsideName.length > 0
+          ? previewNames.filter((name) => {
+              const normalizedName = normalizeText(name);
+              return tokensOutsideName.some((token) => normalizedName.includes(token));
+            })
+          : [];
+
+      return { group, previewNames, matchedNames };
+    });
+  }, [groups, searchTokens]);
+
   return (
     <div className="space-y-4">
       {/* ── Reparaciones ya agregadas ─────────────────────────────────────── */}
@@ -344,49 +520,60 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
           VoiceOver deja de anunciar la lista */}
       {repairs.length > 0 && (
         <ul role="list" className="flex flex-col divide-y rounded-md border">
-          {repairs.map((repair) => (
-            <li key={repair.localId} className="flex items-start gap-3 px-3 py-2.5">
-              {repair.repairTypeId ? (
-                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              ) : (
-                <PencilLine className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium break-words">{repairLabel(repair)}</span>
-                  {!repair.repairTypeId && (
-                    <Badge variant="secondary" className="text-xs">
-                      Nuevo ítem
-                    </Badge>
-                  )}
-                  {repair.images.length > 0 && (
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <ImagePlus className="h-3 w-3" />
-                      <span className="tabular-nums">{repair.images.length}</span>
-                      <span className="sr-only">{repair.images.length === 1 ? 'foto adjunta' : 'fotos adjuntas'}</span>
-                    </Badge>
+          {repairs.map((repair) => {
+            const groupName = repair.groupId ? groupNameById.get(repair.groupId) ?? null : null;
+            return (
+              <li key={repair.localId} className="flex items-start gap-3 px-3 py-2.5">
+                {repair.repairTypeId ? (
+                  <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <PencilLine className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium break-words">{repairLabel(repair)}</span>
+                    {!repair.repairTypeId && (
+                      <Badge variant="secondary" className="text-xs">
+                        Nuevo ítem
+                      </Badge>
+                    )}
+                    {repair.images.length > 0 && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <ImagePlus className="h-3 w-3" />
+                        <span className="tabular-nums">{repair.images.length}</span>
+                        <span className="sr-only">
+                          {repair.images.length === 1 ? 'foto adjunta' : 'fotos adjuntas'}
+                        </span>
+                      </Badge>
+                    )}
+                    {/* De qué grupo vino: sin esto el usuario no distingue lo que
+                        agregó a propósito de lo que entró al expandir un grupo. Es el
+                        mismo badge que usan los demás listados del módulo. */}
+                    <RepairGroupBadge groupName={groupName} />
+                  </div>
+                  {repair.description && (
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                      {repair.description}
+                    </p>
                   )}
                 </div>
-                {repair.description && (
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{repair.description}</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRemove(repair.localId)}
-                disabled={disabled}
-                aria-label={`Quitar reparación ${repairLabel(repair)}`}
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-transparent',
-                  'text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive',
-                  FOCUS_RING,
-                  'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
-                )}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => handleRemove(repair.localId)}
+                  disabled={disabled}
+                  aria-label={`Quitar reparación ${repairLabel(repair)}`}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-transparent',
+                    'text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive',
+                    FOCUS_RING,
+                    'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
+                  )}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -439,42 +626,62 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar grupo..." />
+                    {/* Filtro por tokens (AND) en vez del fuzzy por defecto de cmdk: es
+                        el único modo de garantizar que lo que se resalta abajo sea
+                        exactamente el motivo por el que el grupo aparece en la lista.
+                        Se buscan las palabras por separado para que "motor aceite"
+                        encuentre el grupo aunque cada palabra este en un lado distinto. */}
+                    <Command filter={(value, search) => (matchesAllTokens(value, tokenizeQuery(search)) ? 1 : 0)}>
+                      <CommandInput
+                        placeholder="Buscar grupo o tarea..."
+                        value={groupSearch}
+                        onValueChange={setGroupSearch}
+                      />
                       <CommandList>
                         <CommandEmpty>No se encontró el grupo</CommandEmpty>
                         <CommandGroup>
-                          {groups.map((group) => {
-                            const previewNames = group.repairTypes
-                              .map((type) => type.name)
-                              .filter((name): name is string => !!name);
-
-                            return (
-                              <CommandItem
-                                key={group.id}
-                                // Se busca por nombre del grupo y por el de sus tareas:
-                                // el supervisor suele acordarse de una de las tareas,
-                                // no del nombre exacto del grupo.
-                                value={`${group.name} ${previewNames.join(' ')}`}
-                                onSelect={() => handleSelectGroup(group.id)}
-                                className="flex flex-col items-start gap-1 py-2.5"
-                              >
-                                <div className="flex w-full items-center gap-2">
-                                  <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                  <span className="truncate font-medium">{group.name}</span>
-                                  <Badge variant="secondary" className="ml-auto shrink-0 tabular-nums">
-                                    {group.repairTypes.length}
-                                  </Badge>
-                                </div>
-                                {previewNames.length > 0 && (
+                          {groupsWithMatches.map(({ group, previewNames, matchedNames }) => (
+                            <CommandItem
+                              key={group.id}
+                              // Se busca por nombre del grupo y por el de sus tareas:
+                              // el supervisor suele acordarse de una de las tareas,
+                              // no del nombre exacto del grupo.
+                              value={`${group.name} ${previewNames.join(' ')}`}
+                              onSelect={() => handleSelectGroup(group.id)}
+                              className="flex flex-col items-start gap-1 py-2.5"
+                            >
+                              <div className="flex w-full items-center gap-2">
+                                <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span className="truncate font-medium">
+                                  <HighlightedText text={group.name} tokens={searchTokens} />
+                                </span>
+                                <Badge variant="secondary" className="ml-auto shrink-0 tabular-nums">
+                                  {group.repairTypes.length}
+                                </Badge>
+                              </div>
+                              {/* El match vino de una tarea interna y no del nombre del
+                                  grupo: se dice cuál, o el resultado parece un error. */}
+                              {matchedNames.length > 0 ? (
+                                <p className="ml-6 text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">Coincide en: </span>
+                                  {matchedNames.slice(0, 3).map((name, index) => (
+                                    <span key={name}>
+                                      {index > 0 && ', '}
+                                      <HighlightedText text={name} tokens={searchTokens} />
+                                    </span>
+                                  ))}
+                                  {matchedNames.length > 3 && ` +${matchedNames.length - 3} más`}
+                                </p>
+                              ) : (
+                                previewNames.length > 0 && (
                                   <p className="ml-6 text-xs text-muted-foreground">
                                     {previewNames.slice(0, 3).join(', ')}
                                     {previewNames.length > 3 && ` +${previewNames.length - 3} más`}
                                   </p>
-                                )}
-                              </CommandItem>
-                            );
-                          })}
+                                )
+                              )}
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -722,6 +929,22 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
                 ? `Llegaste al máximo de ${MAX_IMAGES_PER_REPAIR} fotos. Quitá una para agregar otra.`
                 : `Podés adjuntar hasta ${MAX_IMAGES_PER_REPAIR} fotos de hasta 10 MB cada una.`}
             </p>
+            {/* Las fotos solas no alcanzan para agregar la reparación. El aviso va acá,
+                pegado a las fotos, porque el hint del botón queda abajo a la derecha y
+                el usuario no lo ve: creía que "Siguiente" estaba roto. */}
+            {images.length > 0 && !canAdd && !disabled && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs"
+              >
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  {images.length === 1 ? 'Cargaste 1 foto' : `Cargaste ${images.length} fotos`}, pero todavía falta
+                  elegir la tarea del listado o escribir la reparación. Sin eso no se puede agregar al pedido ni
+                  continuar.
+                </span>
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"

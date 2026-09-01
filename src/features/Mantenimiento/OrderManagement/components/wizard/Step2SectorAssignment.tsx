@@ -4,7 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
+import { getRepairItemGroupName, getRepairItemImages } from '@/features/Mantenimiento/shared/repair-item-label';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -198,11 +201,12 @@ export function Step2SectorAssignment({
               const sectorId = info.assignedSectorId;
               const sectorName = sectorId ? sectors.find((s) => s.id === sectorId)?.name || 'Desconocido' : '—';
               const label = getItemLabel(info.item);
+              const images = getRepairItemImages(info.item);
 
               return (
                 <div
                   key={info.item.id}
-                  className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border"
+                  className="flex items-start justify-between p-2.5 border rounded-lg bg-muted/30 border-border"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -211,8 +215,14 @@ export function Step2SectorAssignment({
                           {name}
                         </Badge>
                       ))}
+                      <RepairGroupBadge groupName={getRepairItemGroupName(info.item)} />
                     </div>
                     {label && <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>}
+                    {/* La foto es lo que dice si el desvio es soldadura, gomeria o
+                        mecanica: sin verla no se puede validar la auto-asignacion */}
+                    {images.length > 0 && (
+                      <RepairItemPhotos images={images} label={label} size="sm" className="mt-1.5" />
+                    )}
                   </div>
                   <Badge
                     variant="outline"
@@ -244,6 +254,7 @@ export function Step2SectorAssignment({
                   ? sectors.filter((s) => info.candidateSectorIds.includes(s.id))
                   : sectors;
               const label = getItemLabel(info.item);
+              const images = getRepairItemImages(info.item);
 
               return (
                 <div
@@ -269,8 +280,14 @@ export function Step2SectorAssignment({
                             Sin tipo
                           </Badge>
                         )}
+                        <RepairGroupBadge groupName={getRepairItemGroupName(info.item)} />
                       </div>
                       {label && <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>}
+                      {/* Estos son los desvios que el jefe de taller tiene que rutear a
+                          mano: la foto es el unico dato que le dice a que sector van */}
+                      {images.length > 0 && (
+                        <RepairItemPhotos images={images} label={label} size="sm" className="mt-1.5" />
+                      )}
                     </div>
                     <div className="shrink-0 w-44">
                       <Label className="text-xs text-muted-foreground">Sector</Label>

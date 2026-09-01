@@ -1039,6 +1039,13 @@ export async function createManualMaintenanceRequest(input: {
     freeText: string | null;
     description: string;
     images: string[];
+    /**
+     * Grupo de reparaciones del que salió esta tarea, o null si se cargó suelta.
+     * Se guarda para poder indicar el origen en todos los listados: al expandir un
+     * grupo entran muchas tareas de golpe y después nadie distingue cuáles fueron
+     * elegidas a propósito.
+     */
+    groupId?: string | null;
   }>;
 }) {
   serverLogger.info('Creando solicitud de mantenimiento por carga manual', {
@@ -1081,6 +1088,7 @@ export async function createManualMaintenanceRequest(input: {
           free_text: repair.freeText,
           description: repair.description || null,
           images: repair.images,
+          maintenance_group_id: repair.groupId ?? null,
           status: autoApprove ? 'approved' : 'pending',
         })),
       });
@@ -1103,7 +1111,14 @@ export async function createManualMaintenanceRequest(input: {
         // la trazabilidad y arrastrar las fotos sin transformarlas.
         const requestItems = await tx.maintenance_request_items.findMany({
           where: { maintenance_request_id: created.id },
-          select: { id: true, repair_type_id: true, description: true, free_text: true, images: true },
+          select: {
+            id: true,
+            repair_type_id: true,
+            description: true,
+            free_text: true,
+            images: true,
+            maintenance_group_id: true,
+          },
         });
 
         await tx.maintenance_order_items.createMany({
@@ -1114,6 +1129,9 @@ export async function createManualMaintenanceRequest(input: {
             // Sin tipo de reparación, el texto libre es lo único que describe la tarea
             description: item.description ?? item.free_text ?? null,
             images: item.images,
+            // El origen viaja del item de la solicitud al del pedido: el taller ve
+            // la misma agrupación que vio quien cargó
+            maintenance_group_id: item.maintenance_group_id,
           })),
         });
 

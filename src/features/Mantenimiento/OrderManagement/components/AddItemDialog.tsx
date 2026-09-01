@@ -133,13 +133,13 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Agregar Reparación</DialogTitle>
           <DialogDescription>Agregar una reparación extra a la orden de mantenimiento</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 overflow-y-auto min-h-0">
           <div className="space-y-2">
             <Label htmlFor="repair-description">
               Descripción <span className="text-destructive">*</span>
@@ -282,7 +282,7 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>

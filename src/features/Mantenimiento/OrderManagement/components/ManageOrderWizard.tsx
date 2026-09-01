@@ -63,6 +63,13 @@ export interface LocalItem {
   maintenance_order_item_repair_types: OrderItem['maintenance_order_item_repair_types'];
   maintenance_request_items: OrderItem['maintenance_request_items'];
   workshop_sectors: OrderItem['workshop_sectors'];
+  /**
+   * Fotos que cargo el supervisor (ticket 592). Sin esto el wizard no las
+   * arrastraba al estado local y el jefe de taller decidia el sector a ciegas.
+   */
+  images: OrderItem['images'];
+  /** Grupo de reparaciones del que salio el item, para mostrarlo en los listados */
+  maintenance_request_groups: OrderItem['maintenance_request_groups'];
   work_order_id: string | null;
   workshop_chief_comment: string | null;
   _isTemp?: boolean;
@@ -139,6 +146,8 @@ export function ManageOrderWizard({
         maintenance_order_item_repair_types: item.maintenance_order_item_repair_types,
         maintenance_request_items: item.maintenance_request_items,
         workshop_sectors: item.workshop_sectors,
+        images: item.images,
+        maintenance_request_groups: item.maintenance_request_groups,
         work_order_id: item.work_order_id,
         workshop_chief_comment: item.workshop_chief_comment,
         _rejected: item.is_rejected || false,
@@ -266,6 +275,9 @@ export function ManageOrderWizard({
       maintenance_order_item_repair_types: [],
       maintenance_request_items: null,
       workshop_sectors: null,
+      // Un item creado a mano en el wizard todavia no tiene fotos ni grupo
+      images: [],
+      maintenance_request_groups: null,
       work_order_id: null,
       workshop_chief_comment: null,
       _isTemp: true,
@@ -579,6 +591,8 @@ export function ManageOrderWizard({
           maintenance_order_item_repair_types: item.maintenance_order_item_repair_types,
           maintenance_request_items: item.maintenance_request_items,
           workshop_sectors: item.workshop_sectors,
+          images: item.images,
+          maintenance_request_groups: item.maintenance_request_groups,
           work_order_id: item.work_order_id,
           workshop_chief_comment: item.workshop_chief_comment,
           _rejected: item.is_rejected || false,

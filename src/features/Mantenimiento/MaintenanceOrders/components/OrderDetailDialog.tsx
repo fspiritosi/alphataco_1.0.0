@@ -10,15 +10,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { WORKSHOP_STATUS_CONFIG } from '@/features/Mantenimiento/WorkshopTracking/workshopTrackingColumns';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import {
   getResourceCondition,
@@ -33,6 +35,7 @@ import {
 } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import {
   getRepairItemDescription,
+  getRepairItemGroupName,
   getRepairItemImages,
   getRepairItemLabel,
 } from '@/features/Mantenimiento/shared/repair-item-label';
@@ -48,6 +51,7 @@ import {
   HardHat,
   History,
   MessageSquare,
+  Wrench,
   XCircle,
 } from 'lucide-react';
 import moment from 'moment';
@@ -67,9 +71,10 @@ import {
   workshopChiefReturnOrder,
   workshopChiefValidateOrder,
 } from '../actions/actionsServer';
+import { statusLabels as orderStatusLabels, statusVariants as orderStatusVariants } from '../table/columns';
 import { getRepairDisplayName } from '../utils/repairDisplayName';
 import { ExternalWorkshopCard } from './ExternalWorkshopCard';
-import { SectorCard } from './SectorCard';
+import { SectorCard, statusLabels as taskStatusLabels, statusBadgeVariants as taskStatusVariants } from './SectorCard';
 import { SectorTimeline, type SectorStatus, type SectorTimelineItem } from './SectorTimeline';
 
 interface OrderDetailDialogProps {
@@ -94,6 +99,37 @@ interface SectorGroup {
   sequenceOrder: number;
   items: MaintenanceOrderData['maintenance_order_items'];
 }
+
+/** Tarea individual mostrada en las tarjetas de sector y en el listado de items */
+interface TaskInfo {
+  id: string;
+  repairTypeName: string;
+  description?: string;
+  status: string;
+  isDiagnostico: boolean;
+  isAutorizable: boolean;
+  isOperatorAdded: boolean;
+}
+
+/** Variantes de badge admitidas — el estado sale de los mappers de las tablas */
+type StatusBadgeVariant = NonNullable<BadgeProps['variant']>;
+
+/** Estado resumido de un item del pedido (derivado de sus tareas o del rechazo) */
+type ItemStatusKey = 'rejected' | 'completed' | 'in_progress' | 'pending';
+
+const itemStatusLabels: Record<ItemStatusKey, string> = {
+  rejected: 'Rechazado',
+  completed: 'Completado',
+  in_progress: 'En progreso',
+  pending: 'Pendiente',
+};
+
+const itemStatusVariants: Record<ItemStatusKey, StatusBadgeVariant> = {
+  rejected: 'destructive',
+  completed: 'success',
+  in_progress: 'warning',
+  pending: 'secondary',
+};
 
 /** Represents a selectable repair item for rejection dialogs */
 interface SelectableRepair {
@@ -500,103 +536,122 @@ export function OrderDetailDialog({
     setSelectedOperationsSupervisorId(currentSupervisorId);
   }, [order?.id]);
 
-  // Build task list for each sector card — 1 task per individual repair
-  const getSectorTasks = (group: SectorGroup) => {
-    const tasks: Array<{
-      id: string;
-      repairTypeName: string;
-      description?: string;
-      status: string;
-      isDiagnostico: boolean;
-      isAutorizable: boolean;
-      isOperatorAdded: boolean;
-    }> = [];
+  /**
+   * Tareas de un item: 1 por reparacion individual.
+   *
+   * Se extrajo de `getSectorTasks` porque el listado de items del pedido necesita
+   * exactamente el mismo desglose (el cliente pidio ver "el estado de cada uno").
+   */
+  const getItemTasks = (item: MaintenanceOrderData['maintenance_order_items'][number]): TaskInfo[] => {
+    const tasks: TaskInfo[] = [];
+    const repairs = getRepairsForItem(item);
 
-    group.items.forEach((item) => {
-      const wo = item.work_orders;
-      const matchingWoItems =
-        wo && !Array.isArray(wo)
-          ? (wo.work_order_items || []).filter(
-              (woi: { maintenance_order_item_id?: string }) => woi.maintenance_order_item_id === item.id
-            )
-          : [];
-      const repairs = matchingWoItems.flatMap(
-        (woi: { work_order_item_repairs?: unknown[] }) =>
-          (woi.work_order_item_repairs || []) as Array<{
-            id: string;
-            status: string;
-            is_diagnostico?: boolean;
-            is_operator_added?: boolean;
-            types_of_repairs?: { name?: string; autorizable?: boolean } | null;
-          }>
-      );
-
-      if (repairs.length > 0) {
-        // Case A: OT exists — 1 task per work_order_item_repair (individual status)
-        repairs.forEach((repair) => {
-          tasks.push({
-            id: repair.id,
-            repairTypeName: repair.is_diagnostico ? 'DIAGNOSTICO' : String(repair.types_of_repairs?.name || 'Sin tipo'),
-            description: item.description || undefined,
-            status: String(repair.status),
-            isDiagnostico: repair.is_diagnostico ?? false,
-            isAutorizable: repair.types_of_repairs?.autorizable ?? false,
-            isOperatorAdded: repair.is_operator_added ?? false,
-          });
+    if (repairs.length > 0) {
+      // Caso A: ya existe la OT — 1 tarea por work_order_item_repair (estado propio)
+      repairs.forEach((repair) => {
+        tasks.push({
+          id: repair.id,
+          repairTypeName: repair.is_diagnostico ? 'DIAGNOSTICO' : String(repair.types_of_repairs?.name || 'Sin tipo'),
+          description: item.description || undefined,
+          status: String(repair.status),
+          isDiagnostico: repair.is_diagnostico ?? false,
+          isAutorizable: repair.types_of_repairs?.autorizable ?? false,
+          isOperatorAdded: repair.is_operator_added ?? false,
         });
-      } else {
-        // Case B: No OT yet — expand each repair type from the item as individual pending tasks
-        const pivotTypes = item.maintenance_order_item_repair_types?.filter((rt) => rt.types_of_repairs?.name);
+      });
+      return tasks;
+    }
 
-        if (pivotTypes && pivotTypes.length > 0) {
-          // M:M pivot: 1 task per repair type
-          pivotTypes.forEach((rt, idx) => {
-            tasks.push({
-              id: `${item.id}-pivot-${idx}`,
-              repairTypeName: item.is_diagnostico ? 'DIAGNOSTICO' : String(rt.types_of_repairs?.name),
-              description: item.description || undefined,
-              status: 'pending',
-              isDiagnostico: item.is_diagnostico ?? false,
-              isAutorizable: item.types_of_repairs?.autorizable ?? false,
-              isOperatorAdded: false,
-            });
-          });
-        } else {
-          // Single FK or description fallback
-          tasks.push({
-            id: item.id,
-            repairTypeName: item.is_diagnostico
-              ? 'DIAGNOSTICO'
-              : item.types_of_repairs?.name || item.description || 'Sin tipo',
-            description: item.description || undefined,
-            status: 'pending',
-            isDiagnostico: item.is_diagnostico ?? false,
-            isAutorizable: item.types_of_repairs?.autorizable ?? false,
-            isOperatorAdded: false,
-          });
-        }
-      }
+    // Caso B: sin OT — cada tipo de reparacion del item es una tarea pendiente
+    const pivotTypes = item.maintenance_order_item_repair_types?.filter((rt) => rt.types_of_repairs?.name);
+
+    if (pivotTypes && pivotTypes.length > 0) {
+      pivotTypes.forEach((rt, idx) => {
+        tasks.push({
+          id: `${item.id}-pivot-${idx}`,
+          repairTypeName: item.is_diagnostico ? 'DIAGNOSTICO' : String(rt.types_of_repairs?.name),
+          description: item.description || undefined,
+          status: 'pending',
+          isDiagnostico: item.is_diagnostico ?? false,
+          isAutorizable: item.types_of_repairs?.autorizable ?? false,
+          isOperatorAdded: false,
+        });
+      });
+      return tasks;
+    }
+
+    // FK simple o descripcion libre
+    tasks.push({
+      id: item.id,
+      repairTypeName: item.is_diagnostico
+        ? 'DIAGNOSTICO'
+        : item.types_of_repairs?.name || item.description || 'Sin tipo',
+      description: item.description || undefined,
+      status: 'pending',
+      isDiagnostico: item.is_diagnostico ?? false,
+      isAutorizable: item.types_of_repairs?.autorizable ?? false,
+      isOperatorAdded: false,
     });
 
     return tasks;
   };
 
+  // Build task list for each sector card — 1 task per individual repair
+  const getSectorTasks = (group: SectorGroup) => group.items.flatMap(getItemTasks);
+
   /**
-   * Ítems que traen fotos (ticket 592).
+   * Items del pedido con su estado (correccion pedida en la demo del cliente).
    *
-   * Las tarjetas de sector muestran el trabajo a ejecutar, no el material de
-   * respaldo; las fotos que sacó el supervisor son lo que permite dimensionar la
-   * reparación antes de validarla, así que van en un bloque propio del detalle.
+   * Antes el detalle solo mostraba las tarjetas por sector y un bloque suelto con
+   * todas las fotos juntas: no habia forma de ver QUE se pidio ni como quedo cada
+   * item si despues se rechazaba. Ahora cada item trae su estado, sus tareas, el
+   * motivo del rechazo si lo hubo y sus propias fotos (ya no van agrupadas).
    */
-  const itemsWithPhotos = useMemo(() => {
-    return items
-      .map((item) => ({
+  const detailItems = useMemo(() => {
+    return items.map((item) => {
+      const tasks = getItemTasks(item);
+      const total = tasks.length;
+      const completed = tasks.filter((task) => task.status === 'completed').length;
+      const hasStarted = tasks.some((task) => task.status === 'in_progress') || completed > 0;
+
+      // El rechazo pisa cualquier otro estado: es lo que el cliente necesita ver primero.
+      let statusKey: 'rejected' | 'completed' | 'in_progress' | 'pending';
+      if (item.is_rejected) {
+        statusKey = 'rejected';
+      } else if (total > 0 && completed === total) {
+        statusKey = 'completed';
+      } else if (hasStarted) {
+        statusKey = 'in_progress';
+      } else {
+        statusKey = 'pending';
+      }
+
+      const sectorName =
+        item.workshop_sectors && typeof item.workshop_sectors === 'object' && 'name' in item.workshop_sectors
+          ? (item.workshop_sectors.name as string)
+          : null;
+      const workshopName =
+        item.workshops && typeof item.workshops === 'object' && 'name' in item.workshops
+          ? (item.workshops.name as string)
+          : null;
+
+      return {
         id: item.id,
-        label: getRepairItemLabel(item),
+        label: getRepairItemLabel(item, getRepairDisplayName(item)),
         description: getRepairItemDescription(item),
         images: getRepairItemImages(item),
-      }))
-      .filter((item) => item.images.length > 0);
+        // Grupo de tareas de origen: el cliente pidio verlo en TODO listado de items
+        groupName: getRepairItemGroupName(item),
+        sectorName,
+        workshopName,
+        isDiagnostico: item.is_diagnostico ?? false,
+        rejectionReason: item.is_rejected ? item.rejection_reason ?? null : null,
+        statusKey,
+        tasks,
+        total,
+        completed,
+      };
+    });
   }, [items]);
 
   // Collect per-item comments using getItemComments (handles dedup within each item)
@@ -963,7 +1018,7 @@ export function OrderDetailDialog({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="shrink-0 pr-10">
           <DialogTitle className="flex items-center gap-3 flex-wrap">
             <span>Detalle de Orden</span>
             {order.order_number && (
@@ -976,31 +1031,26 @@ export function OrderDetailDialog({
             ) : (
               <Badge variant="secondary">{resourceKindLabel}</Badge>
             )}
-            <Badge
-              variant={
-                status === 'completed'
-                  ? 'success'
-                  : status === 'in_workshop'
-                    ? 'warning'
-                    : status === 'operations_rejected' || status === 'workshop_rejected'
-                      ? 'destructive'
-                      : 'default'
-              }
-            >
-              {status === 'in_workshop'
-                ? 'En taller'
-                : status === 'pending_workshop_validation'
-                  ? 'Pend. validacion taller'
-                  : status === 'pending_operations_validation'
-                    ? 'Pend. validacion operaciones'
-                    : status === 'operations_rejected'
-                      ? 'Rechazada por operaciones'
-                      : status === 'workshop_rejected'
-                        ? 'Rechazada por taller'
-                        : status === 'completed'
-                          ? 'Completada'
-                          : status}
-            </Badge>
+            {/* El estado se rotula con los mismos mappers que las tablas del modulo:
+                el ternario anterior no cubria todos los estados y dejaba el enum
+                crudo a la vista (ej. `date_confirmed`). */}
+            {(() => {
+              const trackingConfig = WORKSHOP_STATUS_CONFIG[status];
+              const label = trackingConfig?.label ?? orderStatusLabels[status] ?? status;
+              const variant: StatusBadgeVariant =
+                trackingConfig?.variant ??
+                (orderStatusVariants as Record<string, StatusBadgeVariant>)[status] ??
+                'default';
+              const StatusIcon = trackingConfig?.icon;
+              return (
+                <Badge variant={variant} className="gap-1">
+                  {StatusIcon && <StatusIcon className="h-3 w-3" />}
+                  {label}
+                </Badge>
+              );
+            })()}
+            {/* `ml-auto` mas el `pr-10` del header dejan libre la esquina donde el
+                DialogContent dibuja la X de cerrar (absolute top-4 right-4). */}
             <Button variant="outline" size="sm" className="ml-auto" onClick={() => setHistoryOpen(true)}>
               <Clock className="h-4 w-4 mr-1" />
               Ver historial
@@ -1008,7 +1058,7 @@ export function OrderDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
           <div className="space-y-4 pb-4">
             {/* Info del equipo */}
             <div className="bg-muted/50 rounded-lg p-3">
@@ -1087,21 +1137,86 @@ export function OrderDetailDialog({
               );
             })()}
 
-            {/* Fotos adjuntas por el supervisor al pedir la reparación */}
-            {itemsWithPhotos.length > 0 && (
-              <div className="bg-muted/50 rounded-lg p-3 space-y-3">
-                <span className="text-xs text-muted-foreground block">Fotos de los ítems</span>
-                {itemsWithPhotos.map((item) => (
-                  <div key={item.id} className="space-y-1">
-                    <p className="text-sm font-medium leading-snug">{item.label}</p>
-                    {item.description && (
-                      <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
-                        {item.description}
-                      </p>
-                    )}
-                    <RepairItemPhotos images={item.images} label={item.label} />
-                  </div>
-                ))}
+            {/* Items del pedido — cada uno con su estado, sus tareas y SUS fotos.
+                Las fotos ya no van en un bloque aparte: el cliente pidio verlas
+                pegadas al item que las origino. */}
+            {detailItems.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Ítems del pedido
+                  <span className="text-xs font-normal text-muted-foreground">({detailItems.length})</span>
+                </h4>
+
+                <div className="space-y-2">
+                  {detailItems.map((entry) => (
+                    <div key={entry.id} className="rounded-md border p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm font-medium leading-snug flex-1 min-w-0 break-words">
+                          {entry.label}
+                        </span>
+                        <Badge variant={itemStatusVariants[entry.statusKey]} className="shrink-0 text-[10px]">
+                          {itemStatusLabels[entry.statusKey]}
+                        </Badge>
+                      </div>
+
+                      {(entry.groupName || entry.sectorName || entry.workshopName || entry.isDiagnostico) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <RepairGroupBadge groupName={entry.groupName} />
+                          {entry.sectorName && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {entry.sectorName}
+                            </Badge>
+                          )}
+                          {!entry.sectorName && entry.workshopName && (
+                            <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700">
+                              {entry.workshopName}
+                            </Badge>
+                          )}
+                          {entry.isDiagnostico && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Diagnóstico
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {entry.description && (
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                          {entry.description}
+                        </p>
+                      )}
+
+                      {/* Estado tarea por tarea: si mas adelante se rechaza una sola,
+                          se ve cual sin salir del detalle. */}
+                      {entry.tasks.length > 0 && (
+                        <ul className="space-y-1">
+                          {entry.tasks.map((task) => (
+                            <li key={task.id} className="flex items-center gap-2 text-xs">
+                              <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1 truncate">{task.repairTypeName}</span>
+                              <Badge
+                                variant={taskStatusVariants[task.status] ?? 'secondary'}
+                                className="shrink-0 text-[10px]"
+                              >
+                                {taskStatusLabels[task.status] ?? task.status}
+                              </Badge>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {entry.rejectionReason && (
+                        <div className="rounded border border-destructive/20 bg-destructive/5 px-2 py-1.5 text-xs">
+                          <span className="font-medium text-destructive">Motivo del rechazo: </span>
+                          <span className="italic">{entry.rejectionReason}</span>
+                        </div>
+                      )}
+
+                      <RepairItemPhotos images={entry.images} label={entry.label} size="sm" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1600,7 +1715,7 @@ export function OrderDetailDialog({
             Ya no se elige supervisor de Operaciones: desde la reunion del 31/08/2026
             Operaciones no valida mas, el taller cierra el circuito. */}
         {status === 'pending_workshop_validation' && context === 'workshop' && (
-          <div className="border-t pt-4 space-y-3">
+          <div className="shrink-0 border-t pt-4 space-y-3">
             <Textarea
               placeholder="Notas de validacion (opcional)"
               value={validationNotes}
@@ -1644,7 +1759,7 @@ export function OrderDetailDialog({
       {/* WORKSHOP: Item-level rejection dialog                            */}
       {/* ================================================================ */}
       <AlertDialog open={showItemRejectDialog} onOpenChange={setShowItemRejectDialog}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Rechazar Items Especificos</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1699,7 +1814,7 @@ export function OrderDetailDialog({
       {/* OPERATIONS: Item-level rejection dialog                          */}
       {/* ================================================================ */}
       <AlertDialog open={showOpsItemRejectDialog} onOpenChange={setShowOpsItemRejectDialog}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Rechazar Items Especificos</AlertDialogTitle>
             <AlertDialogDescription>

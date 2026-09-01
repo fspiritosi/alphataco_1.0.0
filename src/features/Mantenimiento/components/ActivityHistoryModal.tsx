@@ -584,8 +584,8 @@ export function ActivityHistoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             {title}
@@ -607,7 +607,7 @@ export function ActivityHistoryModal({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[72vh] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           {isLoading ? (
             <ActivityHistorySkeleton showWorkOrders={isOrderView} />
           ) : (activityLog && activityLog.length > 0) || requestOrigin ? (

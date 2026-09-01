@@ -6,12 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { RepairItemPhotos } from '../../shared/components/RepairItemPhotos';
-import { getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface SolicitudDetailDialogProps {
@@ -190,6 +191,7 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                                 <p className="font-medium text-muted-foreground">
                                   {getRepairItemLabel(item, 'Sin título')}
                                 </p>
+                                <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                                 {item.checklist_deviations?.section_code && (
                                   <p className="text-sm text-muted-foreground/80">
                                     Sección: {formatSectionCode(item.checklist_deviations.section_code)}

@@ -13,11 +13,14 @@
 
 type DeviationShape = { item_label?: string | null } | null | undefined;
 
+type GroupShape = { name?: string | null } | null | undefined;
+
 type RequestItemShape =
   | {
       free_text?: string | null;
       description?: string | null;
       checklist_deviations?: DeviationShape;
+      maintenance_request_groups?: GroupShape;
     }
   | null
   | undefined;
@@ -28,6 +31,7 @@ export type RepairItemLike = {
   checklist_deviations?: DeviationShape;
   types_of_repairs?: { name?: string | null } | null;
   maintenance_order_item_repair_types?: { types_of_repairs?: { name?: string | null } | null }[] | null;
+  maintenance_request_groups?: GroupShape;
   maintenance_request_items?: RequestItemShape;
 };
 
@@ -73,4 +77,20 @@ export function getRepairItemImages(item: RepairItemLike & { images?: string[] |
   if (fromOrder && fromOrder.length > 0) return fromOrder;
   const fromRequest = (item.maintenance_request_items as { images?: string[] | null } | undefined)?.images;
   return fromRequest ?? [];
+}
+
+/**
+ * Nombre del grupo de reparaciones del que salio el item, o null si se cargo suelto.
+ *
+ * El grupo se persiste en `maintenance_group_id` al expandirlo (no se deriva de la
+ * pivote `maintenance_group_type_of_repairs`, porque un mismo tipo de reparacion puede
+ * pertenecer a varios grupos y el origen real quedaria ambiguo).
+ *
+ * Un item de orden hereda el grupo del item de solicitud que lo origino, asi que se
+ * busca primero en el propio item y despues en la solicitud.
+ */
+export function getRepairItemGroupName(item: RepairItemLike): string | null {
+  const name =
+    item.maintenance_request_groups?.name ?? item.maintenance_request_items?.maintenance_request_groups?.name;
+  return name?.trim() || null;
 }

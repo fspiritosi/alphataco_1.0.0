@@ -28,8 +28,15 @@ const MAINTENANCE_ORDER_ITEMS_INCLUDE = {
   types_of_repairs: {
     select: { id: true, name: true },
   },
+  // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+  maintenance_request_groups: {
+    select: { id: true, name: true },
+  },
   maintenance_request_items: {
     include: {
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,
@@ -66,8 +73,15 @@ const MAINTENANCE_ORDER_ITEMS_INCLUDE_WITH_ANSWER_DATA = {
   types_of_repairs: {
     select: { id: true, name: true },
   },
+  // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+  maintenance_request_groups: {
+    select: { id: true, name: true },
+  },
   maintenance_request_items: {
     include: {
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,

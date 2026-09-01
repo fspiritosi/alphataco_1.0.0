@@ -115,6 +115,9 @@ export async function getMaintenanceOrdersForManagement() {
                     driver_comment: true,
                   },
                 },
+                // Grupo del que salio la reparacion: al expandir un grupo entran
+                // muchos items de golpe y el taller necesita distinguirlos.
+                maintenance_request_groups: { select: { id: true, name: true } },
               },
             },
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
@@ -124,6 +127,7 @@ export async function getMaintenanceOrdersForManagement() {
               },
             },
             workshop_sectors: { select: { id: true, name: true } },
+            maintenance_request_groups: { select: { id: true, name: true } },
           },
         },
       },
@@ -160,6 +164,14 @@ export async function getMaintenanceOrdersForManagement() {
               rejection_reason: item.maintenance_request_items.rejection_reason,
               created_at: item.maintenance_request_items.created_at,
               description: item.maintenance_request_items.description,
+              // Ticket 592: el wizard arma el titulo con `free_text` y muestra las
+              // fotos que cargo el supervisor. Este re-mapeo enumeraba los campos a
+              // mano y los dejaba afuera, por eso el modal de gestion no mostraba
+              // NINGUNA foto aunque la query ya las traia.
+              free_text: item.maintenance_request_items.free_text,
+              images: item.maintenance_request_items.images,
+              maintenance_group_id: item.maintenance_request_items.maintenance_group_id,
+              maintenance_request_groups: item.maintenance_request_items.maintenance_request_groups,
               driver_comment: item.maintenance_request_items.driver_comment,
               validator_comment: item.maintenance_request_items.validator_comment,
               driver_comment_by: item.maintenance_request_items.driver_comment_by,
@@ -259,6 +271,9 @@ export async function getOrderForManagement(orderId: string) {
                     driver_comment: true,
                   },
                 },
+                // Grupo del que salio la reparacion: al expandir un grupo entran
+                // muchos items de golpe y el taller necesita distinguirlos.
+                maintenance_request_groups: { select: { id: true, name: true } },
               },
             },
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
@@ -268,6 +283,7 @@ export async function getOrderForManagement(orderId: string) {
               },
             },
             workshop_sectors: { select: { id: true, name: true } },
+            maintenance_request_groups: { select: { id: true, name: true } },
           },
         },
       },
@@ -308,6 +324,14 @@ export async function getOrderForManagement(orderId: string) {
               rejection_reason: item.maintenance_request_items.rejection_reason,
               created_at: item.maintenance_request_items.created_at,
               description: item.maintenance_request_items.description,
+              // Ticket 592: el wizard arma el titulo con `free_text` y muestra las
+              // fotos que cargo el supervisor. Este re-mapeo enumeraba los campos a
+              // mano y los dejaba afuera, por eso el modal de gestion no mostraba
+              // NINGUNA foto aunque la query ya las traia.
+              free_text: item.maintenance_request_items.free_text,
+              images: item.maintenance_request_items.images,
+              maintenance_group_id: item.maintenance_request_items.maintenance_group_id,
+              maintenance_request_groups: item.maintenance_request_items.maintenance_request_groups,
               driver_comment: item.maintenance_request_items.driver_comment,
               validator_comment: item.maintenance_request_items.validator_comment,
               driver_comment_by: item.maintenance_request_items.driver_comment_by,

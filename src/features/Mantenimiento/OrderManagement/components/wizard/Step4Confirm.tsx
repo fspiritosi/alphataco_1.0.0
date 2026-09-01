@@ -4,6 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
+import { getRepairItemGroupName, getRepairItemImages } from '@/features/Mantenimiento/shared/repair-item-label';
 import { ClipboardList, Info } from 'lucide-react';
 import moment from 'moment';
 import { useMemo } from 'react';
@@ -124,14 +127,21 @@ export function Step4Confirm({
             <div className="pl-8 space-y-1.5">
               {preview.items.map((item) => {
                 const label = getItemLabel(item);
+                const images = getRepairItemImages(item);
                 return (
-                  <div key={item.id} className="flex items-center gap-2 text-xs">
-                    {getItemRepairTypeNames(item, repairTypes).map((name, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs px-2 py-0.5">
-                        {name}
-                      </Badge>
-                    ))}
-                    {label && <span className="text-muted-foreground truncate">{label}</span>}
+                  <div key={item.id} className="space-y-1 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {getItemRepairTypeNames(item, repairTypes).map((name, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs px-2 py-0.5">
+                          {name}
+                        </Badge>
+                      ))}
+                      <RepairGroupBadge groupName={getRepairItemGroupName(item)} />
+                      {label && <span className="text-muted-foreground truncate">{label}</span>}
+                    </div>
+                    {/* Ultimo control antes de generar las OTs: que la foto siga
+                        acompañando al desvio que se va a mandar al sector */}
+                    {images.length > 0 && <RepairItemPhotos images={images} label={label} size="sm" />}
                   </div>
                 );
               })}

@@ -16,12 +16,18 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { cn } from '@/lib/utils';
 import { AlertCircle, AlertTriangle, Check, Info, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { RepairItemPhotos } from '../../shared/components/RepairItemPhotos';
-import { getRepairItemDescription, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
+import {
+  getRepairItemDescription,
+  getRepairItemGroupName,
+  getRepairItemImages,
+  getRepairItemLabel,
+} from '../../shared/repair-item-label';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 import { useApproveMaintenanceRequestItems, useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
 
@@ -37,6 +43,8 @@ type DeviationItem = {
   itemId: string; // maintenance_request_item.id
   item_code: string;
   item_label: string;
+  /** Grupo de reparaciones del que salio el item, null si se cargo suelto */
+  group_name: string | null;
   section_code: string | null;
   driver_comment: string | null;
   is_critical: boolean;
@@ -73,6 +81,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
             // Un item de carga manual no tiene desvio de checklist: su titulo es
             // el texto libre o el tipo de reparacion elegido (ticket 592).
             item_label: getRepairItemLabel(item, 'Sin título'),
+            group_name: getRepairItemGroupName(item),
             section_code: item.checklist_deviations?.section_code || null,
             driver_comment: item.driver_comment || item.checklist_deviations?.driver_comment || null,
             is_critical: item.checklist_deviations?.is_critical ?? false,
@@ -571,6 +580,7 @@ function ItemCard({
               <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
             )}
             <span className="font-medium">{item.item_label}</span>
+            <RepairGroupBadge groupName={item.group_name} />
             {item.is_critical && (
               <Badge variant="destructive" className="text-xs">
                 CRÍTICO
@@ -711,6 +721,7 @@ function InformationalItemCard({ item }: { item: DeviationItem }) {
           )}
           <div className="min-w-0 flex-1">
             <p className="font-medium text-muted-foreground">{item.item_label}</p>
+            <RepairGroupBadge groupName={item.group_name} className="mt-1" />
             {item.section_code && (
               <p className="mt-0.5 text-sm text-muted-foreground/80 capitalize">
                 Sección: {item.section_code.replace('_', ' ')}
