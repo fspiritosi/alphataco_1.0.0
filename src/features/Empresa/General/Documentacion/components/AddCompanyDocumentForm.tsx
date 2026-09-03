@@ -16,7 +16,7 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { useCountriesStore } from '@/shared/store/countries';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
+import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Cookies from 'js-cookie';
 import moment from 'moment';
@@ -111,7 +111,8 @@ function AddCompanyDocumentForm({
             companyName = companyData?.company_name ?? companyName ?? 'empresa';
             companyCuit = companyData?.company_cuit ?? companyCuit ?? 'sin-cuit';
           }
-          const companyFolder = `${companyName.toLowerCase().replace(/ /g, '-')}-(${companyCuit})`;
+          // El nombre se normaliza: Storage rechaza tildes y ñ en la key con `InvalidKey`.
+          const companyFolder = `${formatPathSegment(companyName)}-(${companyCuit})`;
 
           const formatedDocumentTypeName = formatDocumentTypeName(documentForId?.name || '');
           const hasExpiredDate = data.validity?.replace(/\//g, '-') ?? 'v0';
