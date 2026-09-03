@@ -1,5 +1,5 @@
 'use strict';
-import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
+import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
 import { clsx, type ClassValue } from 'clsx';
 import moment from 'moment';
 import { twMerge } from 'tailwind-merge';
@@ -138,9 +138,10 @@ export function calculateNameOFDocument(
   file_extension: string,
   resource: string
 ) {
-  const formatedCompanyName = company_name.toLowerCase().replace(/ /g, '-');
-  const formatedAppliesName = applies.toLowerCase().replace(/ /g, '-');
-  const formatedDocumentTypeName = formatDocumentTypeName(document_name).replace(/ /g, '-');
+  // Todo segmento del path se normaliza: Storage rechaza tildes y ñ con `InvalidKey`.
+  const formatedCompanyName = formatPathSegment(company_name);
+  const formatedAppliesName = formatPathSegment(applies);
+  const formatedDocumentTypeName = formatDocumentTypeName(document_name);
   const formatedVersion = version.replace(/\./g, '-');
   const formatedFileExtension = file_extension.replace(/\./g, '-');
 
@@ -153,8 +154,10 @@ export async function verifyDuplicatedDocument(
   resource: string,
   formatedAppliesNames: string
 ) {
-  const formatedCompanyName = company_name.toLowerCase().replace(/ /g, '-');
-  const formatedAppliesName = formatedAppliesNames.toLowerCase().replace(/ /g, '-');
+  // Misma normalizacion que calculateNameOFDocument: si difieren, la busqueda de duplicados
+  // apunta a una carpeta que no existe y nunca detecta el archivo ya subido.
+  const formatedCompanyName = formatPathSegment(company_name);
+  const formatedAppliesName = formatPathSegment(formatedAppliesNames);
   const supabase = supabaseBrowser();
   const path = `${formatedCompanyName}-(${company_cuit})/${resource}/${formatedAppliesPath}`;
 

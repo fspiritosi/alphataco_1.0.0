@@ -127,8 +127,16 @@ export const getUser = async () => {
   }
   return error;
 };
-export const formatDocumentTypeName = (documentType: string) => {
-  const formatedDocumentTypeName = documentType
+/**
+ * Normaliza un texto para usarlo como segmento de una ruta de Supabase Storage.
+ *
+ * Storage rechaza con `InvalidKey` cualquier caracter fuera de ASCII (tildes, ñ), asi que
+ * TODO segmento que provenga de datos cargados por el usuario (nombre de empresa, nombre del
+ * empleado, dominio del equipo, nombre del tipo de documento) debe pasar por aca antes de
+ * armar el path.
+ */
+export const formatPathSegment = (value: string) => {
+  return value
     .toLowerCase()
     .replace(/[áäàâ]/g, 'a')
     .replace(/[éëèê]/g, 'e')
@@ -140,7 +148,10 @@ export const formatDocumentTypeName = (documentType: string) => {
     .replace(/[^a-z0-9-]/g, '-') // Reemplaza cualquier carácter que no sea letra, número o guión por guión
     .replace(/-+/g, '-') // Reemplaza múltiples guiones consecutivos por uno solo
     .replace(/^-|-$/g, ''); // Elimina guiones al inicio y al final
-  return formatedDocumentTypeName;
+};
+
+export const formatDocumentTypeName = (documentType: string) => {
+  return formatPathSegment(documentType);
 };
 export const EMPLOYEES_TABLE: EmployeesTableOptions = {
   nationality: 'Nacionalidad',

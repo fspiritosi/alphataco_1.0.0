@@ -22,7 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import { formatDocumentTypeName } from '@/shared/utils/legacy-mappers';
+import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
 import moment from 'moment';
 import { toast } from 'sonner';
 // import { supabase } from '../../supabase/supabase';
@@ -254,12 +254,12 @@ export default function SimpleDocument({
         const period = formData.period;
         const hasExpiredDate = updateEntry?.validity?.replace(/\//g, '-') || period || 'v0';
         const documetType = documenTypes?.find((e) => e.id === formData.id_document_types);
-        const formatedCompanyName = actualCompany?.[0]?.company_name.toLowerCase().replace(/ /g, '-');
-        const formatedAppliesName = appliesName
-          ? `${appliesName?.name.toLowerCase().replace(/ /g, '-').replace('ñ', 'n')}-(${appliesName?.document})`
-          : `${idAppliesUser?.name.toLowerCase().replace(/ /g, '-').replace('ñ', 'n')}-(${idAppliesUser?.document})`;
+        // Todo segmento del path se normaliza: Storage rechaza tildes y ñ con `InvalidKey`.
+        const formatedCompanyName = formatPathSegment(actualCompany?.[0]?.company_name ?? '');
+        const resourceForPath = appliesName ?? idAppliesUser;
+        const formatedAppliesName = `${formatPathSegment(resourceForPath?.name ?? '')}-(${resourceForPath?.document})`;
         const formatedDocumentTypeName = formatDocumentTypeName(documetType?.name);
-        const formatedAppliesPath = documetType.applies.toLowerCase().replace(/ /g, '-');
+        const formatedAppliesPath = formatPathSegment(documetType.applies);
 
         // Verificar si el documento ya existe
         const { data, error: errorList } = await supabase.storage
