@@ -912,7 +912,7 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
       // Obtener el pedido para saber el equipment_id
       const order = await tx.maintenance_orders.findUnique({
         where: { id: input.orderId },
-        select: { equipment_id: true },
+        select: { equipment_id: true, other_equipment_id: true },
       });
 
       if (!order) {
@@ -930,16 +930,25 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
         },
       });
 
-      // Actualizar el equipo: condición a 'no_operativo' y kilometraje
-      await tx.vehicles.update({
-        where: { id: order.equipment_id },
-        data: {
-          condition: 'no_operativo',
-          kilometer: input.kilometer,
-        },
-      });
+      // Actualizar el recurso: condición a 'no_operativo' y kilometraje.
+      // El pedido es de un vehículo o de un equipamiento (ticket 596); los
+      // equipamientos no llevan kilometraje, solo cambian de condición.
+      if (order.equipment_id) {
+        await tx.vehicles.update({
+          where: { id: order.equipment_id },
+          data: {
+            condition: 'no_operativo',
+            kilometer: input.kilometer,
+          },
+        });
+      } else if (order.other_equipment_id) {
+        await tx.other_equipment.update({
+          where: { id: order.other_equipment_id },
+          data: { condition: 'no_operativo' },
+        });
+      }
 
-      return { equipmentId: order.equipment_id };
+      return { equipmentId: order.equipment_id ?? order.other_equipment_id };
     });
 
     serverLogger.info('Entrada a taller aprobada, equipo actualizado', {

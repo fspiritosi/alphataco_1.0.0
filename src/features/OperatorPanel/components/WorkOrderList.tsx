@@ -27,6 +27,26 @@ interface WorkOrderListProps {
 
 const PAGE_SIZE = 10;
 
+/**
+ * Busqueda libre sobre una OT.
+ *
+ * Ticket 596: el recurso puede ser un vehiculo (dominio/serie) o un equipamiento
+ * (numero de serie), asi que se contemplan los identificadores de los dos.
+ */
+function matchesQuery(workOrder: OperatorWorkOrder, query: string): boolean {
+  const haystack = [
+    workOrder.order_number,
+    workOrder.vehicles?.domain,
+    workOrder.vehicles?.serie,
+    workOrder.vehicles?.intern_number,
+    workOrder.other_equipment?.serial_number,
+    workOrder.other_equipment?.intern_number,
+    workOrder.work_order_items?.[0]?.maintenance_order_items?.maintenance_orders?.order_number,
+  ];
+
+  return haystack.some((value) => value?.toString().toLowerCase().includes(query));
+}
+
 export function WorkOrderList({ initialData }: WorkOrderListProps) {
   const { sectorId } = useOperatorContext();
   const [search, setSearch] = useState('');
@@ -63,23 +83,7 @@ export function WorkOrderList({ initialData }: WorkOrderListProps) {
 
     if (search.trim()) {
       const query = search.toLowerCase().trim();
-      orders = orders.filter((wo) => {
-        const orderNum = wo.order_number?.toString().toLowerCase() || '';
-        const domain = wo.vehicles?.domain?.toLowerCase() || '';
-        const serie = wo.vehicles?.serie?.toLowerCase() || '';
-        const internNum = wo.vehicles?.intern_number?.toString().toLowerCase() || '';
-        const omNumber =
-          wo.work_order_items?.[0]?.maintenance_order_items?.maintenance_orders?.order_number
-            ?.toString()
-            .toLowerCase() || '';
-        return (
-          orderNum.includes(query) ||
-          domain.includes(query) ||
-          serie.includes(query) ||
-          internNum.includes(query) ||
-          omNumber.includes(query)
-        );
-      });
+      orders = orders.filter((wo) => matchesQuery(wo, query));
     }
 
     return orders;
@@ -91,22 +95,7 @@ export function WorkOrderList({ initialData }: WorkOrderListProps) {
     if (!search.trim()) return orders;
 
     const query = search.toLowerCase().trim();
-    return orders.filter((wo) => {
-      const orderNum = wo.order_number?.toString().toLowerCase() || '';
-      const domain = wo.vehicles?.domain?.toLowerCase() || '';
-      const serie = wo.vehicles?.serie?.toLowerCase() || '';
-      const internNum = wo.vehicles?.intern_number?.toString().toLowerCase() || '';
-      const omNumber =
-        wo.work_order_items?.[0]?.maintenance_order_items?.maintenance_orders?.order_number?.toString().toLowerCase() ||
-        '';
-      return (
-        orderNum.includes(query) ||
-        domain.includes(query) ||
-        serie.includes(query) ||
-        internNum.includes(query) ||
-        omNumber.includes(query)
-      );
-    });
+    return orders.filter((wo) => matchesQuery(wo, query));
   }, [completedResult, search]);
 
   // Counts for badges
@@ -141,7 +130,7 @@ export function WorkOrderList({ initialData }: WorkOrderListProps) {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por OT, OM, dominio, serie..."
+          placeholder="Buscar por OT, OM, dominio, N° de serie o interno..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9 h-11 rounded-xl"

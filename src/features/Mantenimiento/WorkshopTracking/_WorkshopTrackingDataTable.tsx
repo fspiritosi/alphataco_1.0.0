@@ -1,5 +1,6 @@
 'use client';
 
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type {
@@ -7,6 +8,7 @@ import type {
   DataTableFilterOption,
   DataTableSearchParams,
 } from '@/shared/components/common/DataTable/types';
+import { conditionLabels } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
 import { CircleOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -55,6 +57,7 @@ export function _WorkshopTrackingDataTable({
   const [selectedOrder, setSelectedOrder] = useState<WorkshopTrackingListItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [historyOrder, setHistoryOrder] = useState<WorkshopTrackingListItem | null>(null);
 
   const handleViewDetail = (order: WorkshopTrackingListItem) => {
     setLoadingDetail(true);
@@ -62,9 +65,17 @@ export function _WorkshopTrackingDataTable({
     setDialogOpen(true);
   };
 
+  const handleViewHistory = (order: WorkshopTrackingListItem) => {
+    setHistoryOrder(order);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryOrder(null);
+  };
+
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = useMemo(
-    () => getWorkshopTrackingColumns({ onViewDetail: handleViewDetail }),
+    () => getWorkshopTrackingColumns({ onViewDetail: handleViewDetail, onViewHistory: handleViewHistory }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
@@ -100,6 +111,18 @@ export function _WorkshopTrackingDataTable({
       vehicleOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
     }
 
+    // Condition options
+    const conditionOptions: DataTableFilterOption[] = [];
+    if (facets?.condition) {
+      for (const value of facets.condition.keys()) {
+        if (value === NULL_FILTER_VALUE) continue;
+        conditionOptions.push({ value, label: conditionLabels[value] ?? value });
+      }
+      if (facets.condition.has(NULL_FILTER_VALUE)) {
+        conditionOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
+      }
+    }
+
     return [
       {
         columnId: 'status',
@@ -116,8 +139,20 @@ export function _WorkshopTrackingDataTable({
         externalCounts: facets?.vehicle,
       },
       {
+        columnId: 'condition',
+        title: 'Condición Actual',
+        type: 'faceted' as const,
+        options: conditionOptions,
+        externalCounts: facets?.condition,
+      },
+      {
         columnId: 'workshop_entry_date',
         title: 'Fecha Ingreso',
+        type: 'dateRange' as const,
+      },
+      {
+        columnId: 'scheduled_date',
+        title: 'Fecha Planificada',
         type: 'dateRange' as const,
       },
       {
@@ -143,6 +178,11 @@ export function _WorkshopTrackingDataTable({
       {
         columnId: 'intern_number',
         title: 'N° Interno',
+        type: 'text' as const,
+      },
+      {
+        columnId: 'kilometer',
+        title: 'Km Actual',
         type: 'text' as const,
       },
       {
@@ -216,6 +256,15 @@ export function _WorkshopTrackingDataTable({
         }}
         onLoaded={() => setLoadingDetail(false)}
         context="operations"
+      />
+
+      {/* Modal de historial */}
+      <ActivityHistoryModal
+        open={!!historyOrder}
+        onClose={handleCloseHistory}
+        maintenanceOrderId={historyOrder?.id}
+        maintenanceRequestId={historyOrder?.maintenance_requests?.id}
+        title="Historial de la Orden"
       />
     </>
   );

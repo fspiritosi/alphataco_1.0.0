@@ -9,26 +9,17 @@ import {
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  CheckCircle2,
-  CircleOff,
-  Settings2,
-  Truck,
-  Wrench,
-  XCircle,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, CircleOff, Settings2, Truck, Wrench, XCircle, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
 import { useMemo, useState } from 'react';
+import { EntradaTallerDialog } from '../../components/EntradaTallerDialog';
+import { PedidoDetailDialog } from '../../components/PedidoDetailDialog';
 import {
   getAllConfirmedOrdersForExport,
   getConfirmedOrdersFacets,
   type ConfirmedOrderListItem,
 } from '../actions.server';
-import { getConfirmedOrderColumns, HIDDEN_COLUMNS_BY_DEFAULT, SOURCE_ICONS, SOURCE_LABELS } from '../columns';
-import { EntradaTallerDialog } from '../../components/EntradaTallerDialog';
-import { PedidoDetailDialog } from '../../components/PedidoDetailDialog';
+import { HIDDEN_COLUMNS_BY_DEFAULT, SOURCE_ICONS, SOURCE_LABELS, getConfirmedOrderColumns } from '../columns';
 
 // ============================================================================
 // TYPES
@@ -288,15 +279,12 @@ export function _ConfirmedOrderDataTable({
         order_number: (val: unknown) => String(val ?? ''),
         description: (_val: unknown, row: ConfirmedOrderListItem) =>
           row.description ?? row.maintenance_requests?.description ?? '',
-        date_approved_at: (val: unknown) =>
-          val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '',
-        scheduled_date: (val: unknown) =>
-          val ? moment.utc(val as string).format('DD/MM/YYYY') : '',
-        created_at: (val: unknown) =>
-          val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '',
+        date_approved_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
+        scheduled_date: (val: unknown) => (val ? moment.utc(val as string).format('DD/MM/YYYY') : ''),
+        created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
         condition: (_val: unknown, row: ConfirmedOrderListItem) => {
           const condition = row.vehicles?.condition;
-          return condition ? (conditionLabels[condition] ?? condition) : '';
+          return condition ? conditionLabels[condition] ?? condition : '';
         },
         items: (_val: unknown, row: ConfirmedOrderListItem) => {
           const count = row.maintenance_order_items?.length ?? 0;
@@ -304,7 +292,7 @@ export function _ConfirmedOrderDataTable({
         },
         source: (_val: unknown, row: ConfirmedOrderListItem) => {
           const src = row.maintenance_requests?.source;
-          return src ? (SOURCE_LABELS[src] ?? src) : '';
+          return src ? SOURCE_LABELS[src] ?? src : '';
         },
       },
     }),
@@ -330,7 +318,15 @@ export function _ConfirmedOrderDataTable({
         showFilterToggle={true}
       />
 
-      {/* Diálogos de acción */}
+      {/* Diálogos de acción.
+
+          DEUDA TECNICA sobre el `as never` de abajo: los dialogos piden
+          `MaintenanceOrderData` (un `include` completo de la orden) pero esta tabla
+          usa un `select` acotado. El cast silencia esa diferencia, asi que un campo
+          que falte en CONFIRMED_ORDERS_SELECT no rompe el type-check: se ve vacio en
+          pantalla. Al agregar un dato nuevo a estos dialogos, verificar A MANO que el
+          select lo traiga. Se arregla tipando las props de los dialogos con lo que
+          realmente consumen, en vez del tipo completo. */}
       {selectedOrder && dialogType === 'view' && (
         <PedidoDetailDialog order={selectedOrder as never} open={true} onClose={handleCloseDialog} />
       )}

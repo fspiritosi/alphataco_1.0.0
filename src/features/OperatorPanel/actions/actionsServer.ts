@@ -2,6 +2,7 @@
 
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -352,6 +353,7 @@ export async function getWorkOrdersForOperator(sectorId: string, includeComplete
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
       vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, sub_type(id, name)),
       work_order_items(
         id, status,
         work_order_item_repairs(id, status, is_diagnostico),
@@ -403,6 +405,7 @@ export async function getCompletedWorkOrdersForOperator(sectorId: string, page: 
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
       vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, sub_type(id, name)),
       work_order_items(
         id, status,
         work_order_item_repairs(id, status, is_diagnostico),
@@ -451,12 +454,18 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
       `
       id, order_number, status, priority, planned_start_date, started_at, completed_at, notes,
       sector_id,
+      vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, kilometer, engine_hours, sub_type(id, name)),
+      other_equipment!work_orders_other_equipment_id_fkey(id, serial_number, intern_number, horometer, sub_type(id, name)),
       work_order_items(
         id, status, maintenance_order_item_id,
-        maintenance_order_items:maintenance_order_item_id(
-          id, description, maintenance_order_id,
-          maintenance_orders:maintenance_order_id(id, order_number, equipment_id,
-            vehicles:equipment_id(id, domain, serie, intern_number, kilometer, engine_hours, sub_type(id, name))
+        maintenance_order_items(
+          id, description, images, maintenance_order_id,
+          maintenance_orders(id, order_number),
+          types_of_repairs(id, name),
+          maintenance_order_item_repair_types(types_of_repairs(id, name)),
+          maintenance_request_items(
+            id, description, free_text, images,
+            checklist_deviations(id, item_label, section_code)
           )
         ),
         work_order_item_repairs(
@@ -513,7 +522,54 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
     }
   }
 
-  return { ...data, has_active_sibling_wo: hasActiveSiblingWo, active_sibling_sector: activeSiblingSector };
+  // Grupo de reparaciones del que salio cada item.
+  //
+  // Va por Prisma y no en el `select` de arriba porque los tipos generados de
+  // Supabase (`database.types.ts`) todavia no conocen la columna nueva
+  // `maintenance_group_id`, asi que embeber la relacion romperia el tipado.
+  const groupNameByMoItemId = new Map<string, string>();
+  const moItemIds = [...new Set((data?.work_order_items || []).map((i) => i.maintenance_order_item_id))].filter(
+    (id): id is string => !!id
+  );
+
+  if (moItemIds.length > 0) {
+    try {
+      const moItems = await prisma.maintenance_order_items.findMany({
+        where: { id: { in: moItemIds } },
+        select: {
+          id: true,
+          maintenance_request_groups: { select: { name: true } },
+          maintenance_request_items: { select: { maintenance_request_groups: { select: { name: true } } } },
+        },
+      });
+
+      for (const moItem of moItems) {
+        // El item de la orden hereda el grupo del item de la solicitud que lo origino
+        const name =
+          moItem.maintenance_request_groups?.name ??
+          moItem.maintenance_request_items?.maintenance_request_groups?.name ??
+          null;
+        if (name?.trim()) groupNameByMoItemId.set(moItem.id, name.trim());
+      }
+    } catch (groupError) {
+      // El grupo es informativo: si falla, la OT igual tiene que abrirse
+      logger.error('Error fetching maintenance groups for work order', {
+        data: { error: groupError, workOrderId },
+      });
+    }
+  }
+
+  const workOrderItems = (data?.work_order_items || []).map((item) => ({
+    ...item,
+    group_name: item.maintenance_order_item_id ? groupNameByMoItemId.get(item.maintenance_order_item_id) ?? null : null,
+  }));
+
+  return {
+    ...data,
+    work_order_items: workOrderItems,
+    has_active_sibling_wo: hasActiveSiblingWo,
+    active_sibling_sector: activeSiblingSector,
+  };
 }
 
 export type OperatorWorkOrderDetail = NonNullable<Awaited<ReturnType<typeof getWorkOrderDetailForOperator>>>;
@@ -1044,6 +1100,16 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   } catch (logErr) {
     logger.error('Error logging wo_closed', { data: { logErr } });
   }
+
+  // El cierre tambien se registra contra el PEDIDO: el historial del pedido filtra
+  // por maintenance_order_id, asi que sin esto el evento solo se veia dentro de la OT.
+  await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+    workOrderId,
+    finalStatus,
+    performedBy: user?.id ?? null,
+    notes: notes ?? null,
+    maintenanceOrderId: maintenanceOrderId ?? null,
+  });
 
   revalidatePath('/operator');
 }

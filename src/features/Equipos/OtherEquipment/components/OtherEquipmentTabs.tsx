@@ -11,6 +11,7 @@ import {
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import type { OtherEquipmentDetail } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
+import { OtherEquipmentMaintenanceTable } from '@/features/Equipos/OtherEquipment/maintenance/OtherEquipmentMaintenanceTable';
 import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import type { TabDefinition } from '@/features/TabsManager/types';
 import type { UseFormReturn } from 'react-hook-form';
@@ -90,7 +91,9 @@ export function OtherEquipmentTabs({
 
   const equipmentLabel = equipment?.serial_number || equipment?.intern_number || equipmentId || 'equipo';
 
-  const tabs: TabDefinition<'equipos'>[] = [
+  // 'mantenimiento' además de 'equipos': la tab de Mantenimiento hereda los
+  // permisos del historial de mantenimiento, que vive en ese módulo (ticket 596)
+  const tabs: TabDefinition<'equipos' | 'mantenimiento'>[] = [
     {
       value: 'basicData',
       label: (
@@ -186,6 +189,26 @@ export function OtherEquipmentTabs({
       tabSlug: 'certificaciones-otro',
       disabled: !showExtraContent,
       content: showExtraContent ? <div className="space-y-4">{certificationsComponent}</div> : null,
+    },
+    {
+      // Ticket 596: los equipamientos entran al circuito de mantenimiento.
+      // Hereda los permisos del historial de mantenimiento de vehículos.
+      value: 'maintenance',
+      label: 'Mantenimiento',
+      moduleSlug: 'mantenimiento',
+      tabSlug: 'ordenes_mantenimiento',
+      disabled: !showExtraContent,
+      content:
+        showExtraContent && equipmentId ? (
+          <div className="space-y-4">
+            <OtherEquipmentMaintenanceTable equipmentId={equipmentId} />
+          </div>
+        ) : (
+          // En alta todavía no hay id: se dice por qué, en vez de dejar la tab muda
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Guardá el equipamiento para registrar mantenimientos.
+          </p>
+        ),
     },
   ];
 

@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
-import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { RepairTypeCombobox } from '@/features/OperatorPanel/components/RepairTypeCombobox';
+import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,8 +37,13 @@ import {
 
 const logger = new Logger('AddTaskDialog');
 
-interface VehicleContext {
-  domain?: string | null;
+/** Recurso de la OT: vehiculo o equipamiento (ticket 596) */
+interface ResourceContext {
+  /** Dominio del vehiculo o numero de serie del equipamiento */
+  label: string;
+  kindLabel: string;
+  /** Decide el icono del encabezado: un equipamiento no es un vehiculo */
+  isOtherEquipment: boolean;
   internNumber?: string | null;
   subType?: string | null;
 }
@@ -47,7 +52,7 @@ interface AddTaskDialogProps {
   workOrderId: string;
   maintenanceOrderId: string | null;
   maintenanceOrderNumber?: string | null;
-  vehicleContext?: VehicleContext | null;
+  resourceContext?: ResourceContext | null;
   sectorName?: string | null;
   open: boolean;
   onClose: () => void;
@@ -57,7 +62,7 @@ export function AddTaskDialog({
   workOrderId,
   maintenanceOrderId,
   maintenanceOrderNumber,
-  vehicleContext,
+  resourceContext,
   sectorName,
   open,
   onClose,
@@ -195,22 +200,26 @@ export function AddTaskDialog({
   return (
     <ResponsiveDialog open={open} onOpenChange={handleClose} title="Agregar Tarea" className="sm:max-w-lg">
       {/* Contextual header */}
-      {(vehicleContext || maintenanceOrderNumber) && (
+      {(resourceContext || maintenanceOrderNumber) && (
         <div className="rounded-lg border bg-muted/40 px-3 py-2.5 mb-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Car className="h-4 w-4 text-muted-foreground shrink-0" />
-              {vehicleContext?.domain && (
-                <Badge variant="outline" className="font-mono text-xs shrink-0">
-                  {vehicleContext.domain}
+              {resourceContext?.isOtherEquipment ? (
+                <PackageOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              {resourceContext && (
+                <Badge variant="outline" className="font-mono text-xs shrink-0" title={resourceContext.kindLabel}>
+                  {resourceContext.label}
                 </Badge>
               )}
-              {vehicleContext?.subType && (
-                <span className="text-sm text-foreground truncate">{vehicleContext.subType}</span>
+              {resourceContext?.subType && (
+                <span className="text-sm text-foreground truncate">{resourceContext.subType}</span>
               )}
             </div>
-            {vehicleContext?.internNumber && (
-              <span className="text-xs text-muted-foreground shrink-0">N.I {vehicleContext.internNumber}</span>
+            {resourceContext?.internNumber && (
+              <span className="text-xs text-muted-foreground shrink-0">N.I {resourceContext.internNumber}</span>
             )}
           </div>
           {maintenanceOrderNumber && (

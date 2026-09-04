@@ -8,6 +8,7 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Settings2, Wrench } from 'lucide-react';
 import moment from 'moment';
+import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import type { MaintenanceOrderListItem } from './actions.server';
 
 // ============================================================================
@@ -151,22 +152,26 @@ export function getMaintenanceOrdersColumns({
     // ── Equipo / Vehículo (FK → vehicles) ──────────────────────────────────
     {
       id: 'vehicle',
-      accessorFn: (row) => row.vehicles?.domain ?? row.vehicles?.serie ?? '',
+      // Ticket 596: la fila puede ser de un vehiculo o de un equipamiento
+      accessorFn: (row) => getResourceLabel(row),
       meta: { title: 'Equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const vehicle = row.original.vehicles;
+        const internNumber = getResourceInternNumber(row.original);
         return (
           <div className="flex flex-col">
-            <span className="font-medium">{vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar'}</span>
-            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
+            <span className="font-medium">{getResourceLabel(row.original)}</span>
+            <span className="text-xs text-muted-foreground">
+              {getResourceKindLabel(row.original)}
+              {internNumber ? ` · #${internNumber}` : ''}
+            </span>
           </div>
         );
       },
       filterFn: (row, _id, value: string[]) => {
-        const vehicleId = row.original.vehicles?.id;
-        if (vehicleId == null) return value.includes(NULL_FILTER_VALUE);
-        return value.includes(vehicleId);
+        const resourceId = row.original.vehicles?.id ?? row.original.other_equipment?.id;
+        if (resourceId == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(resourceId);
       },
     },
 

@@ -16,6 +16,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateOnly, formatDateShort, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -332,7 +334,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <span className="font-mono">{workOrder.orderNumber}</span>
@@ -358,7 +360,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : detail ? (
-          <ScrollArea className="max-h-[60vh] pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="space-y-4">
               {/* Info del equipo */}
               <div className="p-3 bg-muted/50 rounded-lg space-y-2">
@@ -370,7 +372,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                   <div>
                     <span className="text-muted-foreground">Identificación: </span>
                     <span className="font-medium">
-                      {detail.vehicleDomain || detail.vehicleSerie || 'Sin identificar'}
+                      {detail.resourceLabel}
                       {detail.vehicleInternNumber && ` (#${detail.vehicleInternNumber})`}
                     </span>
                   </div>
@@ -533,6 +535,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex-1">
                             <p className="font-medium text-sm">{item.itemLabel}</p>
+                            <RepairGroupBadge groupName={item.itemGroupName} className="mt-1" />
                             {item.sectionCode && (
                               <p className="text-xs text-muted-foreground">Sección: {item.sectionCode}</p>
                             )}
@@ -541,6 +544,9 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                             {item.completedRepairs}/{item.totalRepairs}
                           </span>
                         </div>
+
+                        {/* Fotos del ítem: el técnico necesita ver la falla antes de intervenir */}
+                        <RepairItemPhotos images={item.itemImages} label={item.itemLabel} size="sm" className="mb-2" />
 
                         {/* Comentarios del desvío */}
                         <div className="mb-2">
@@ -738,7 +744,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
           </ScrollArea>
         ) : null}
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-col sm:flex-row gap-2 shrink-0">
           {/* Issue 6: Mostrar "Finalizar con pendientes" en lugar de "Cancelar" si hay al menos una tarea completada */}
           {!isFinished && !showCancelForm && !showPauseForm && !showPartialCompleteForm && (
             <PermissionGuard module="mantenimiento" tab="ordenes_trabajo" action="update">

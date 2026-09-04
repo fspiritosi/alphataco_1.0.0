@@ -3,6 +3,12 @@
 import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import type { OperatorWorkOrder } from '@/features/OperatorPanel/actions/actionsServer';
 import { ChevronRight, Clock, Lock, Stethoscope } from 'lucide-react';
 import moment from 'moment';
@@ -43,11 +49,17 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
   const totalRepairs = allRepairs.length;
   const progress = totalRepairs > 0 ? Math.round((completedRepairs.length / totalRepairs) * 100) : 0;
 
-  // Get vehicle info
-  const vehicle = workOrder.vehicles;
-  const vehicleDomain = vehicle?.domain || vehicle?.serie || 'Sin vehiculo';
-  const internNumber = vehicle?.intern_number ? `#${vehicle.intern_number}` : '';
-  const vehicleSubType = vehicle?.sub_type?.name || null;
+  // Ticket 596: la OT puede ser de un vehiculo o de un equipamiento
+  const resource = { vehicles: workOrder.vehicles, other_equipment: workOrder.other_equipment };
+  const hasResource = !!(workOrder.vehicles || workOrder.other_equipment);
+  const resourceLabel = hasResource ? getResourceLabel(resource) : 'Sin recurso';
+  const resourceInternNumber = hasResource ? getResourceInternNumber(resource) : null;
+  const internNumber = resourceInternNumber ? `#${resourceInternNumber}` : '';
+  const resourceSubType = (workOrder.other_equipment ?? workOrder.vehicles)?.sub_type?.name || null;
+  // El tipo se muestra solo para equipamientos: en una lista mixta "CT-4471" no
+  // se distingue solo de un dominio
+  const resourceKindLabel =
+    hasResource && getResourceKind(resource) === 'other_equipment' ? getResourceKindLabel(resource) : null;
 
   // Get OM number
   const omNumber = workOrder.work_order_items?.[0]?.maintenance_order_items?.maintenance_orders?.order_number || 'N/A';
@@ -91,11 +103,16 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
         {/* Row 1: Vehicle + Chevron */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-xl font-bold tracking-tight">{vehicleDomain}</h3>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h3 className="text-xl font-bold tracking-tight">{resourceLabel}</h3>
               {internNumber && <span className="text-sm font-medium text-muted-foreground">{internNumber}</span>}
+              {resourceKindLabel && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  {resourceKindLabel}
+                </Badge>
+              )}
             </div>
-            {vehicleSubType && <p className="text-xs text-muted-foreground mt-0.5 font-medium">{vehicleSubType}</p>}
+            {resourceSubType && <p className="text-xs text-muted-foreground mt-0.5 font-medium">{resourceSubType}</p>}
             <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
               OT {shortOtNumber} · OM {omNumber}
             </p>

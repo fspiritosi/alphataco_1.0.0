@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento/utils/kilometerPreload';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
@@ -21,6 +23,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  getResourceCondition,
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 
 interface EntradaTallerDialogProps {
@@ -30,6 +40,13 @@ interface EntradaTallerDialogProps {
 }
 
 export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialogProps) {
+  // Ticket 596: un equipamiento no lleva kilometraje — se mide por horómetro.
+  const isOtherEquipment = getResourceKind(order) === 'other_equipment';
+  const resourceLabel = getResourceLabel(order);
+  const resourceKindLabel = getResourceKindLabel(order);
+  const resourceInternNumber = getResourceInternNumber(order);
+  const resourceCondition = getResourceCondition(order);
+
   // Obtener kilometraje inicial y su origen
   const initialKm = useMemo(
     () => getInitialKilometer(order.vehicles?.kilometer, order.maintenance_order_items),
@@ -40,8 +57,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
 
   // Horómetro: precargado del vehículo (opcional)
   const initialEngineHours = useMemo(() => {
-    const vehicleHours = order.vehicles?.engine_hours;
-    return vehicleHours ? String(vehicleHours) : '';
+    const hours = order.other_equipment?.horometer ?? order.vehicles?.engine_hours;
+    return hours ? String(hours) : '';
   }, [order]);
   const [engineHours, setEngineHours] = useState(initialEngineHours);
   const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
@@ -89,7 +106,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   });
 
   const handleApprove = async () => {
-    if (!kilometer.trim()) {
+    if (!isOtherEquipment && !kilometer.trim()) {
       toast.error('Debe ingresar el kilometraje actual');
       return;
     }
@@ -104,10 +121,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
     try {
       await approveMutation.mutateAsync({
         orderId: order.id,
-        kilometer: kilometer.trim(),
+        ...(kilometer.trim() ? { kilometer: kilometer.trim() } : {}),
         ...(engineHours.trim() ? { engine_hours: engineHours.trim() } : {}),
       });
-      toast.success('Entrada a taller aprobada. El equipo ahora está "No Operativo"');
+      toast.success(
+        `Entrada a taller aprobada. El ${isOtherEquipment ? 'equipamiento' : 'equipo'} ahora está "No Operativo"`
+      );
       onClose();
     } catch {
       toast.error('Error al aprobar la entrada a taller');
@@ -119,17 +138,20 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      {/* Alto acotado + scroll solo en el cuerpo: con muchos items el titulo quedaba
+          cortado arriba y "Confirmar Entrada" abajo (reportado en la demo). */}
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Aprobar Entrada a Taller</DialogTitle>
           <DialogDescription>
-            Confirme la entrada del equipo{' '}
-            <span className="font-medium">{order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}</span>{' '}
-            al taller.
+            Confirme la entrada del {resourceKindLabel.toLowerCase()}{' '}
+            <span className="font-medium">{resourceLabel}</span>
+            {resourceInternNumber && <span className="text-muted-foreground"> (#{resourceInternNumber})</span>} al
+            taller.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-4 flex-1 overflow-y-auto min-h-0">
           {/* Advertencia */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -142,7 +164,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                     No Operativo
                   </Badge>
                 </li>
-                <li>El kilometraje se actualizará al valor ingresado</li>
+                {!isOtherEquipment && <li>El kilometraje se actualizará al valor ingresado</li>}
                 {engineHours.trim() && <li>El horómetro se actualizará al valor ingresado</li>}
               </ul>
             </div>
@@ -152,17 +174,21 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           <div className="p-3 bg-muted rounded-lg space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Condición actual:</span>
-              <Badge variant={order.vehicles?.condition === 'operativo' ? 'success' : 'destructive'}>
-                {order.vehicles?.condition || 'Desconocido'}
+              <Badge variant={resourceCondition === 'operativo' ? 'success' : 'destructive'}>
+                {resourceCondition || 'Desconocido'}
               </Badge>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Km actual:</span>
-              <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
-            </div>
+            {!isOtherEquipment && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Km actual:</span>
+                <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Horómetro actual:</span>
-              <span className="font-medium">{order.vehicles?.engine_hours || '-'} hs</span>
+              <span className="font-medium">
+                {String((isOtherEquipment ? order.other_equipment?.horometer : order.vehicles?.engine_hours) ?? '-')} hs
+              </span>
             </div>
             {order.scheduled_date && (
               <div className="flex justify-between">
@@ -195,26 +221,33 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           {items.length > 0 && (
             <div className="space-y-2">
               <Label>Items a Reparar</Label>
-              <div className="max-h-[150px] overflow-y-auto">
+              {/* Se amplia respecto de los 150px originales: los items ahora traen miniaturas (ticket 592) */}
+              <div className="max-h-[240px] overflow-y-auto">
                 <div className="space-y-2 pr-2">
                   {items.map((item, index) => {
                     const deviation = item.maintenance_request_items?.checklist_deviations;
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
-                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
                         : item.types_of_repairs?.name
                           ? [item.types_of_repairs.name]
                           : [];
 
+                    // Ticket 592: los items de carga manual no tienen desvio de checklist —
+                    // su titulo es el texto libre o la tarea elegida del listado.
+                    const itemLabel = getRepairItemLabel(item, 'Sin etiqueta');
+                    const itemImages = getRepairItemImages(item);
+
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
-                        <div className="font-medium">{deviation?.item_label || 'Sin etiqueta'}</div>
+                        <div className="font-medium">{itemLabel}</div>
+                        <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                         <div className="text-xs text-muted-foreground">
-                          Código: {formattedCode}
+                          {formattedCode && <>Código: {formattedCode}</>}
                           {repairTypeNames.length > 0 && (
                             <span className="ml-2">
                               | Tipo{repairTypeNames.length > 1 ? 's' : ''}:{' '}
@@ -229,6 +262,9 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                             order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
                           }
                         />
+
+                        {/* Ticket 592: el taller ve la foto antes de aceptar el ingreso */}
+                        <RepairItemPhotos images={itemImages} label={itemLabel} size="sm" className="mt-1.5" />
                       </div>
                     );
                   })}
@@ -237,8 +273,8 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             </div>
           )}
 
-          {/* Input de kilometraje */}
-          <div className="space-y-2">
+          {/* Input de kilometraje — un equipamiento no lleva km (ticket 596) */}
+          <div className={`space-y-2 ${isOtherEquipment ? 'hidden' : ''}`}>
             <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
             <Input
               id="kilometer"
@@ -285,20 +321,25 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             ) : (
               <p className="text-xs text-muted-foreground">
                 {minEngineHours > 0
-                  ? `Valor precargado desde el vehículo (${minEngineHours.toLocaleString()} hs). El nuevo valor no puede ser menor.`
+                  ? `Valor precargado desde el ${isOtherEquipment ? 'equipamiento' : 'vehículo'} (${minEngineHours.toLocaleString()} hs). El nuevo valor no puede ser menor.`
                   : 'Opcional. Ingrese las horas de motor actuales.'}
               </p>
             )}
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
           <Button
             onClick={handleApprove}
-            disabled={approveMutation.isPending || !kilometer.trim() || !!validationError || !!engineHoursError}
+            disabled={
+              approveMutation.isPending ||
+              (!isOtherEquipment && !kilometer.trim()) ||
+              !!validationError ||
+              !!engineHoursError
+            }
           >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada

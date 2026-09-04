@@ -2,6 +2,8 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { getRepairItemGroupName } from '@/features/Mantenimiento/shared/repair-item-label';
 import { XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import type { LocalItem } from '../ManageOrderWizard';
@@ -67,6 +69,7 @@ export function RejectedItemsList({
                         Sin tipo
                       </Badge>
                     )}
+                    <RepairGroupBadge groupName={getRepairItemGroupName(item)} />
                   </div>
                   {label && <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>}
                   {item._rejectionReason && (

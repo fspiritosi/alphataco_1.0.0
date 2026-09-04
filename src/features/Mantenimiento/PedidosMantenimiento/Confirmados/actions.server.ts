@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { resourceCompanyCondition } from '../../shared/maintenance-resource';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('PedidosMantenimiento/Confirmados/actions.server');
@@ -78,9 +79,21 @@ const CONFIRMED_ORDERS_SELECT = {
       engine_hours: true,
     },
   },
+  // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
+      intern_number: true,
+      condition: true,
+      horometer: true,
+    },
+  },
   maintenance_requests: {
     select: {
       id: true,
+      // Autor por defecto de los comentarios del pedido
+      profile_maintenance_requests_supervisor_idToprofile: { select: { id: true, fullname: true } },
       kilometer: true,
       created_at: true,
       source: true,
@@ -92,10 +105,24 @@ const CONFIRMED_ORDERS_SELECT = {
   maintenance_order_items: {
     select: {
       id: true,
+      description: true,
+      // Ticket 592: fotos del item; alimentan el visor de los dialogos de detalle
+      // y de entrada a taller. Sin esto las miniaturas nunca se renderizan.
+      images: true,
       maintenance_request_items: {
         select: {
           id: true,
           description: true,
+          // Ticket 592: en la carga manual el item no tiene desvio de checklist,
+          // su titulo es el texto libre que escribio el supervisor.
+          free_text: true,
+          // Fotos cargadas al crear la solicitud (la orden puede no tenerlas propias)
+          images: true,
+          // Comentarios del circuito: sin estos campos el bloque <ItemComments>
+          // del dialogo se renderiza vacio aunque el item tenga observaciones.
+          driver_comment: true,
+          supervisor_comment: true,
+          validator_comment: true,
           checklist_deviations: {
             select: {
               id: true,
@@ -256,7 +283,8 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
 
   return {
     status: 'date_confirmed' as const,
-    vehicles: { company_id: companyId },
+    // Vehiculo o equipamiento (ticket 596), dentro de AND para no chocar con el OR de busqueda
+    AND: [resourceCompanyCondition(companyId)],
     ...searchWhere,
     ...filtersWhere,
     ...textFiltersWhere,
@@ -295,8 +323,8 @@ export async function getConfirmedOrdersPaginated(searchParams: DataTableSearchP
       }
     }
 
-    // Más viejo a más reciente (como en la implementación original)
-    const safeOrderBy = [...resolvedSorts, { created_at: 'asc' as const }];
+    // Lo ultimo cargado primero: es lo que el usuario espera ver al entrar a la tabla.
+    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
 
     const [data, total] = await Promise.all([
       prisma.maintenance_orders.findMany({
@@ -334,7 +362,8 @@ export async function getAllConfirmedOrdersForExport(searchParams: DataTableSear
     const where = await buildBaseWhere(companyId, state);
 
     const data = await prisma.maintenance_orders.findMany({
-      orderBy: [{ created_at: 'asc' }],
+      // Mismo orden que la tabla: lo mas reciente arriba.
+      orderBy: [{ created_at: 'desc' }],
       where,
       select: CONFIRMED_ORDERS_SELECT,
     });
@@ -366,7 +395,8 @@ export async function getConfirmedOrdersFacets(searchParams?: DataTableSearchPar
 
   const baseWhere = {
     status: 'date_confirmed' as const,
-    vehicles: { company_id: companyId },
+    // Vehiculo o equipamiento (ticket 596), dentro de AND para no chocar con el OR de busqueda
+    AND: [resourceCompanyCondition(companyId)],
     ...supervisorCondition,
   };
 

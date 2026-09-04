@@ -19,6 +19,13 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
+        // Cualquier proyecto Supabase: dev y prod tienen refs distintos y al
+        // sumar un entorno nuevo las imagenes fallaban en silencio (se resolvia
+        // con `unoptimized`, que descarga el original completo).
+        protocol: 'https',
+        hostname: '*.supabase.co'
+      },
+      {
         protocol: 'https',
         hostname: 'zktcbhhlcksopklpnubj.supabase.co'
       },

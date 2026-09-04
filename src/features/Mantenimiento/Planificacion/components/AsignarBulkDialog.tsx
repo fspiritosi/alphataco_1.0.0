@@ -1,6 +1,5 @@
 'use client';
 
-import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -16,9 +15,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -99,6 +102,36 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
   const getOccupancyInfo = (sectorId: string): SectorOccupancy | undefined => {
     return sectorOccupancy.find((s) => s.id === sectorId);
   };
+
+  // Opciones de los combobox con buscador (talleres y sectores).
+  // El taller/sector se elige escribiendo: la lista puede ser larga y recorrerla
+  // a mano es lo mas lento del circuito.
+  const workshopOptions: SearchableSelectOption[] = workshops.map((workshop) => ({
+    value: workshop.id,
+    label: `${workshop.name} (${workshop.workshop_type === 'interno' ? 'Interno' : 'Externo'})`,
+    keywords: workshop.workshop_type === 'interno' ? 'Interno' : 'Externo',
+  }));
+
+  const sectorOptions: SearchableSelectOption[] = availableSectors.map((sector) => {
+    const occupancy = getOccupancyInfo(sector.id);
+    const hasCapacity = occupancy?.maxCapacity != null;
+    const isFull = hasCapacity && occupancy.currentOccupancy >= (occupancy.maxCapacity || 0);
+    const available = hasCapacity ? (occupancy.maxCapacity || 0) - occupancy.currentOccupancy : null;
+
+    return {
+      value: sector.id,
+      label: sector.name,
+      trailing: hasCapacity ? (
+        <Badge
+          variant={isFull ? 'destructive' : available !== null && available <= 2 ? 'warning' : 'secondary'}
+          className="ml-2 shrink-0 text-xs"
+        >
+          {occupancy.currentOccupancy}/{occupancy.maxCapacity}
+          {isFull ? ' (Lleno)' : ` (${available} disp.)`}
+        </Badge>
+      ) : null,
+    };
+  });
 
   // Handler para togglear tipo de reparación
   const handleToggleRepairType = (repairTypeId: string) => {
@@ -223,70 +256,38 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
               {/* Taller */}
               <div className="space-y-2">
                 <Label htmlFor="workshop-bulk">Taller *</Label>
-                <Select value={workshopId} onValueChange={handleWorkshopChange}>
-                  <SelectTrigger id="workshop-bulk">
-                    <SelectValue placeholder="Seleccionar taller" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workshops.map((workshop) => (
-                      <SelectItem key={workshop.id} value={workshop.id}>
-                        {workshop.name}
-                        <span className="text-muted-foreground text-xs ml-2">
-                          ({workshop.workshop_type === 'interno' ? 'Interno' : 'Externo'})
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  id="workshop-bulk"
+                  value={workshopId}
+                  onValueChange={handleWorkshopChange}
+                  options={workshopOptions}
+                  placeholder="Seleccionar taller"
+                  searchPlaceholder="Buscar taller..."
+                  emptyMessage="No se encontro el taller"
+                />
               </div>
 
               {/* Sector */}
               <div className="space-y-2">
                 <Label htmlFor="sector-bulk">Sector</Label>
-                <Select
+                <SearchableSelect
+                  id="sector-bulk"
                   value={sectorId}
                   onValueChange={setSectorId}
                   disabled={!workshopId || availableSectors.length === 0 || isLoadingOccupancy}
-                >
-                  <SelectTrigger id="sector-bulk">
-                    <SelectValue
-                      placeholder={
-                        !workshopId
-                          ? 'Seleccione taller primero'
-                          : isLoadingOccupancy
-                            ? 'Cargando disponibilidad...'
-                            : availableSectors.length === 0
-                              ? 'Sin sectores disponibles'
-                              : 'Seleccionar sector (opcional)'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSectors.map((sector) => {
-                      const occupancy = getOccupancyInfo(sector.id);
-                      const hasCapacity = occupancy?.maxCapacity != null;
-                      const isFull = hasCapacity && occupancy.currentOccupancy >= (occupancy.maxCapacity || 0);
-                      const available = hasCapacity ? (occupancy.maxCapacity || 0) - occupancy.currentOccupancy : null;
-
-                      return (
-                        <SelectItem key={sector.id} value={sector.id}>
-                          <div className="flex items-center justify-between w-full gap-2">
-                            <span>{sector.name}</span>
-                            {hasCapacity && (
-                              <Badge
-                                variant={isFull ? 'destructive' : available && available <= 2 ? 'warning' : 'secondary'}
-                                className="text-xs ml-2"
-                              >
-                                {occupancy.currentOccupancy}/{occupancy.maxCapacity}
-                                {isFull ? ' (Lleno)' : ` (${available} disp.)`}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                  options={sectorOptions}
+                  placeholder={
+                    !workshopId
+                      ? 'Seleccione taller primero'
+                      : isLoadingOccupancy
+                        ? 'Cargando disponibilidad...'
+                        : availableSectors.length === 0
+                          ? 'Sin sectores disponibles'
+                          : 'Seleccionar sector (opcional)'
+                  }
+                  searchPlaceholder="Buscar sector..."
+                  emptyMessage="No se encontro el sector"
+                />
                 {sectorId &&
                   (() => {
                     const occupancy = getOccupancyInfo(sectorId);

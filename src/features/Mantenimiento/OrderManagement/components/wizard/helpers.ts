@@ -1,16 +1,19 @@
+import { getRepairItemLabel } from '@/features/Mantenimiento/shared/repair-item-label';
+
 import type { LocalItem } from '../ManageOrderWizard';
 
 /**
  * Returns the best available label for a maintenance order item.
- * Fallback chain: description → request item description → checklist deviation label
+ *
+ * Delega en el helper compartido del modulo: la cadena propia solo miraba
+ * `description` y el label del checklist, asi que un item de carga manual (que guarda
+ * su texto en `free_text`, o solo tiene la tarea del listado) se dibujaba EN BLANCO
+ * justo en el paso donde el jefe de taller decide a que sector mandarlo.
+ *
+ * Se mantiene el retorno nullable porque los pasos ya tienen su propio fallback.
  */
 export function getItemLabel(item: LocalItem): string | null {
-  return (
-    (item.description as string | null) ||
-    (item.maintenance_request_items?.description as string | null) ||
-    (item.maintenance_request_items?.checklist_deviations?.item_label as string | null) ||
-    null
-  );
+  return getRepairItemLabel(item, '') || null;
 }
 
 /**

@@ -37,7 +37,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Detalle de Equipo en Planificación</DialogTitle>
           <DialogDescription>
@@ -46,7 +46,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-4 pr-4">
             {/* Info del equipo */}
             <div className="grid grid-cols-2 gap-4">
@@ -175,7 +175,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
           </div>
         </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cerrar
           </Button>

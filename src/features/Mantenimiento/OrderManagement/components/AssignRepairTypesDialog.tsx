@@ -89,13 +89,13 @@ export function AssignRepairTypesDialog({ item, repairTypes, open, onClose, onUp
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Asignar Tipos de Reparación</DialogTitle>
           <DialogDescription>Seleccione las tareas a realizar para la resolución del desvío</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-3 flex-1 overflow-y-auto min-h-0">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
@@ -194,7 +194,7 @@ export function AssignRepairTypesDialog({ item, repairTypes, open, onClose, onUp
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>

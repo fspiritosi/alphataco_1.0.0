@@ -15,10 +15,7 @@ import { PlanificarPedidoDialog } from '../../components/PlanificarPedidoDialog'
 import { PEDIDOS_PENDIENTES_QUERY_KEY } from '../../hooks/useMaintenanceOrders';
 import { getColumnsPendientes } from './columns';
 
-const STATUS_OPTIONS = [
-  { label: 'Pendiente Planificar', value: 'pending_scheduling' },
-  { label: 'Pendiente Aprobación', value: 'scheduled' },
-];
+const STATUS_OPTIONS = [{ label: 'Pendiente Planificar', value: 'pending_scheduling' }];
 
 interface PendientesTableClientProps {
   initialData: MaintenanceOrdersPendingData;

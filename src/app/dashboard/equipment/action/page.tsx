@@ -22,7 +22,10 @@ import {
   getVehicleOwners,
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
-import { getMaintenanceOrdersForEquipment } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
+import {
+  getMaintenanceOrdersForEquipment,
+  getRejectedRequestsForEquipment,
+} from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
 import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
 import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
@@ -151,8 +154,10 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
     }
   }
 
-  // Pre-fetch maintenance orders for the operations tab
-  const initialOrders = vehicle?.id ? await getMaintenanceOrdersForEquipment(vehicle.id) : [];
+  // Pre-fetch maintenance orders + rejected requests for the operations tab
+  const [initialOrders, initialRejectedRequests] = vehicle?.id
+    ? await Promise.all([getMaintenanceOrdersForEquipment(vehicle.id), getRejectedRequestsForEquipment(vehicle.id)])
+    : [[], []];
 
   const actualMode = id === 'new' ? 'new' : mode;
 
@@ -209,7 +214,13 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
           checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}
-          operationsComponent={<VehicleOperationsHistory equipmentId={vehicle?.id || ''} initialData={initialOrders} />}
+          operationsComponent={
+            <VehicleOperationsHistory
+              equipmentId={vehicle?.id || ''}
+              initialData={initialOrders}
+              initialRejectedRequests={initialRejectedRequests}
+            />
+          }
           tiresComponent={
             vehicle?.id ? (
               <VehicleTiresTab

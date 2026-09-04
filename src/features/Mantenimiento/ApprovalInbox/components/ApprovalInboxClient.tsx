@@ -532,7 +532,7 @@ export function ApprovalInboxClient({
 
       {/* ── Rechazar task dialog ── */}
       <Dialog open={!!rejectTarget} onOpenChange={(open) => !open && setRejectTarget(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Rechazar tarea</DialogTitle>
           </DialogHeader>
@@ -562,7 +562,7 @@ export function ApprovalInboxClient({
 
       {/* ── Reasignar task dialog ── */}
       <Dialog open={!!reassignTarget} onOpenChange={(open) => !open && setReassignTarget(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reasignar a sector</DialogTitle>
           </DialogHeader>

@@ -11,6 +11,7 @@ import { ManageOrderWizard } from '@/features/Mantenimiento/OrderManagement/comp
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { getResourceLabel } from '../../shared/maintenance-resource';
 import type { MaintenanceOrderData, MaintenanceOrdersData } from '../actions/actionsServer';
 import { useMaintenanceOrders } from '../hooks/useMaintenanceOrders';
 import { OrderDetailDialog } from './OrderDetailDialog';
@@ -92,8 +93,9 @@ export function MaintenanceOrdersClient({
   const equipmentOptions = useMemo(() => {
     const map = new Map<string, string>();
     (orders || []).forEach((order) => {
-      const domain = order.vehicles?.domain || order.vehicles?.serie;
-      if (domain) map.set(domain, domain);
+      // Ticket 596: sin esto los equipamientos quedaban fuera del filtro de equipo
+      const label = getResourceLabel(order);
+      if (label && label !== 'Sin identificar') map.set(label, label);
     });
     return Array.from(map.values()).map((v) => ({ label: v, value: v }));
   }, [orders]);

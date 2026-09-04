@@ -47,23 +47,6 @@ export const INVALIDATION_MAP = {
     T.TAB_EQUIPMENTS_DEVIATIONS,
   ],
 
-  // ── Aprobación/Rechazo de fechas (Pendientes de Ejecutar) ──
-  approveMaintenanceOrderDate: [
-    T.MAINTENANCE_ORDERS,
-    T.TAB_PENDIENTES_EJECUTAR,
-    T.TAB_PARA_TALLER,
-    T.TAB_CONFIRMADOS,
-    T.PIPELINE_OPERACIONES,
-    T.PIPELINE_TALLER,
-  ],
-  rejectMaintenanceOrderDate: [
-    T.MAINTENANCE_ORDERS,
-    T.TAB_PENDIENTES_EJECUTAR,
-    T.TAB_PEDIDOS_PENDIENTES,
-    T.PIPELINE_OPERACIONES,
-    T.PIPELINE_TALLER,
-  ],
-
   // ── Operaciones ──
   rejectMaintenanceOperation: [
     T.MAINTENANCE_ORDERS,

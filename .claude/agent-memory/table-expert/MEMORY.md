@@ -241,3 +241,29 @@ Para CADA columna en `columns.tsx`, preguntar:
   - `filterFn` de columna `employee` eliminada (era filtro text, no faceted — filterFn no aplica a text filters)
   - Filtros text agregados: `period` + `deny_reason` en TEXT_FILTER_COLUMNS y en buildWhereClause manualmente
   - `getMonthlyEmployeeDocumentsSingleFacet(columnId, searchParams?, employeeId?)` — función lazy-load con crossWhere
+
+### Ticket 595 — Tabla chica in-memory (Solicitudes Rechazadas del equipo)
+
+- `src/features/Equipos/EquipoID/components/rejected-requests/` — NUEVO patrón de referencia para tablas
+  chicas embebidas en un legajo (todo el dataset ya viene por prop, sin paginación server-side).
+  Usa `inMemory` prop del DataTable (NO `queryFn`/`queryKey` client-side mode, NO facets lazy-load).
+- **`inMemory` mode NO soporta filtro `dateRange`**: los params `_from`/`_to` se agregan a `columnFilters`
+  con id literal `columnId_from`/`columnId_to`, que no matchea ninguna columna real → TanStack los ignora
+  silenciosamente. Ningún in-memory table existente (`EmployeeAbsenceTable`, `DailyAbsenceTable`,
+  `DepartmentSummaryTable`) usa dateRange — confirma que es una limitación conocida, no un bug mío.
+  Para columnas de fecha en modo in-memory: solo sorting (accessorFn devuelve el `Date` crudo, NO
+  formateado a string, así el sort automático de TanStack funciona sin `inMemoryDateSortingFn`).
+  `inMemoryDateSortingFn` solo hace falta cuando el accessorFn devuelve un string ya formateado
+  ('DD/MM/YYYY' o similar, como en RPCs que devuelven fechas como texto).
+  Consecuencia: reportar SIEMPRE al usuario cuando se omite un filtro `dateRange` por esta limitación.
+- `LucideIcon` (type import de `lucide-react`) es el tipo correcto para `DataTableFilterOption.icon` —
+  `React.ComponentType<{ className?: string }>` NO es asignable (falta `$$typeof` del ForwardRefExoticComponent).
+- Filtros faceted "enum-like" con opciones fijas conocidas (ej. `source`: checklist/manual/preventive,
+  no es un enum real de Prisma sino `String` libre) se hardcodean como funciones `buildXFilter()` que
+  retornan `DataTableFacetedFilterConfig`, en vez de calcular opciones desde `data` — más robusto que
+  computar únicas cuando se conocen los valores posibles de antemano.
+- Filtros faceted sobre datos verdaderamente variables (ej. `rejectedBy`, nombre de perfil que validó)
+  SÍ se computan con `useMemo` sobre `data` en el Client Component, con "Sin asignar" vía `NULL_FILTER_VALUE`
+  cuando hay filas sin ese campo — pero el `accessorFn` de la columna NUNCA debe devolver el sentinel
+  `NULL_FILTER_VALUE` directamente (se filtraría al Excel como literal `__null__`); debe devolver el valor
+  real (`''` si falta) y el `filterFn` custom mapea `''` → `NULL_FILTER_VALUE` solo para el matching.

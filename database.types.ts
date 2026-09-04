@@ -3484,6 +3484,8 @@ export type Database = {
           description: string | null;
           driver_comment: string | null;
           driver_comment_by: string | null;
+          free_text: string | null;
+          images: string[] | null;
           id: string;
           maintenance_request_id: string;
           rejection_reason: string | null;
@@ -3500,6 +3502,8 @@ export type Database = {
           description?: string | null;
           driver_comment?: string | null;
           driver_comment_by?: string | null;
+          free_text?: string | null;
+          images?: string[] | null;
           id?: string;
           maintenance_request_id: string;
           rejection_reason?: string | null;
@@ -3516,6 +3520,8 @@ export type Database = {
           description?: string | null;
           driver_comment?: string | null;
           driver_comment_by?: string | null;
+          free_text?: string | null;
+          images?: string[] | null;
           id?: string;
           maintenance_request_id?: string;
           rejection_reason?: string | null;
@@ -5832,6 +5838,7 @@ export type Database = {
           created_at: string | null;
           created_by: string | null;
           equipment_id: string;
+          other_equipment_id: string | null;
           id: string;
           notes: string | null;
           order_number: string;
@@ -5862,6 +5869,7 @@ export type Database = {
           created_at?: string | null;
           created_by?: string | null;
           equipment_id: string;
+          other_equipment_id?: string | null;
           id?: string;
           notes?: string | null;
           order_number: string;
@@ -5892,6 +5900,7 @@ export type Database = {
           created_at?: string | null;
           created_by?: string | null;
           equipment_id?: string;
+          other_equipment_id?: string | null;
           id?: string;
           notes?: string | null;
           order_number?: string;
@@ -5951,6 +5960,13 @@ export type Database = {
             columns: ['equipment_id'];
             isOneToOne: false;
             referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_other_equipment_id_fkey';
+            columns: ['other_equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'other_equipment';
             referencedColumns: ['id'];
           },
           {

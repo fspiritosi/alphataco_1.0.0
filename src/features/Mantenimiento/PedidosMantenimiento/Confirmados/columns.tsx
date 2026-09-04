@@ -9,6 +9,12 @@ import { conditionLabels } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ClipboardList, Eye, History, LogIn, Shield, Wrench, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
+import {
+  getResourceCondition,
+  getResourceInternNumber,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '../../shared/maintenance-resource';
 import type { ConfirmedOrderListItem } from './actions.server';
 
 // ============================================================================
@@ -62,22 +68,26 @@ export function getConfirmedOrderColumns({
     // ── Equipo / Vehículo (FK → vehicles) ──────────────────────────────────
     {
       id: 'vehicle',
-      accessorFn: (row) => row.vehicles?.domain ?? row.vehicles?.serie ?? '',
+      // Ticket 596: la fila puede ser de un vehiculo o de un equipamiento
+      accessorFn: (row) => getResourceLabel(row),
       meta: { title: 'Equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const vehicle = row.original.vehicles;
+        const internNumber = getResourceInternNumber(row.original);
         return (
           <div className="flex flex-col">
-            <span className="font-medium">{vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar'}</span>
-            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
+            <span className="font-medium">{getResourceLabel(row.original)}</span>
+            <span className="text-xs text-muted-foreground">
+              {getResourceKindLabel(row.original)}
+              {internNumber ? ` · #${internNumber}` : ''}
+            </span>
           </div>
         );
       },
       filterFn: (row, _id, value: string[]) => {
-        const vehicleId = row.original.vehicles?.id;
-        if (vehicleId == null) return value.includes(NULL_FILTER_VALUE);
-        return value.includes(vehicleId);
+        const resourceId = row.original.vehicles?.id ?? row.original.other_equipment?.id;
+        if (resourceId == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(resourceId);
       },
     },
 
@@ -186,11 +196,12 @@ export function getConfirmedOrderColumns({
     // ── Condición actual del equipo (campo en vehicles) ────────────────────
     {
       id: 'condition',
-      accessorFn: (row) => row.vehicles?.condition ?? null,
+      // Ticket 596: la condicion sale del vehiculo o del equipamiento
+      accessorFn: (row) => getResourceCondition(row),
       meta: { title: 'Condición Actual' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Condición Actual" />,
       cell: ({ row }) => {
-        const condition = row.original.vehicles?.condition;
+        const condition = getResourceCondition(row.original);
         const variantMap: Record<string, 'success' | 'destructive' | 'secondary' | 'warning'> = {
           operativo: 'success',
           no_operativo: 'destructive',
@@ -204,7 +215,7 @@ export function getConfirmedOrderColumns({
       },
       enableSorting: false,
       filterFn: (row, _id, value: string[]) => {
-        const condition = row.original.vehicles?.condition ?? null;
+        const condition = getResourceCondition(row.original);
         if (condition == null) return value.includes(NULL_FILTER_VALUE);
         return value.includes(condition);
       },

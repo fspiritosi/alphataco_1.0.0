@@ -20,6 +20,7 @@ import { ClipboardList, Loader2 } from 'lucide-react';
 import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { getResourceLabel } from '../../shared/maintenance-resource';
 import {
   generateWorkOrdersForOrder,
   getOrderGenerationPreview,
@@ -85,16 +86,17 @@ export function GenerateWorkOrderDialog({ open, onClose, orderId }: GenerateWork
     }
   };
 
-  const vehicleDomain =
-    preview?.vehicle && typeof preview.vehicle === 'object'
-      ? ('domain' in preview.vehicle ? String(preview.vehicle.domain) : null) ||
-        ('serie' in preview.vehicle ? String(preview.vehicle.serie) : null) ||
-        '-'
-      : '-';
+  // Ticket 596: el pedido puede ser de un vehiculo (patente/serie) o de un
+  // equipamiento (N de serie/N interno). Antes solo leia `vehicle` y el resumen
+  // previo a generar las OTs mostraba "-" para todo equipamiento.
+  const resourceLabel = getResourceLabel({
+    vehicles: preview?.vehicle ?? null,
+    other_equipment: preview?.otherEquipment ?? null,
+  });
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
@@ -112,7 +114,7 @@ export function GenerateWorkOrderDialog({ open, onClose, orderId }: GenerateWork
             {/* Equipo */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Equipo:</span>
-              <Badge variant="outline">{vehicleDomain}</Badge>
+              <Badge variant="outline">{resourceLabel}</Badge>
             </div>
 
             <Separator />
