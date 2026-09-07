@@ -1,5 +1,6 @@
 'use server';
 
+import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
@@ -76,6 +77,118 @@ const ACTIVITY_LOG_SELECT = {
 function mapActivityLogEntry(entry: RawActivityLogEntry): MappedActivityLogEntry {
   const { profile, ...rest } = entry;
   return { ...rest, performer: profile };
+}
+
+// ─── Comentarios cargados sobre los items del pedido (ticket 649) ─────────────
+
+/**
+ * Select de los items de una solicitud con sus tres comentarios.
+ *
+ * No viajan por `maintenance_activity_log` (se escriben directo en la fila del
+ * item, sin generar un evento), así que el historial no los veía: hay que
+ * leerlos de la tabla.
+ */
+const REQUEST_ITEM_COMMENTS_SELECT = {
+  id: true,
+  description: true,
+  free_text: true,
+  driver_comment: true,
+  supervisor_comment: true,
+  validator_comment: true,
+  checklist_deviations: {
+    select: { item_label: true },
+  },
+  profile_maintenance_request_items_driver_comment_byToprofile: {
+    select: { id: true, fullname: true, email: true },
+  },
+  profile_maintenance_request_items_supervisor_comment_byToprofile: {
+    select: { id: true, fullname: true, email: true },
+  },
+  profile_maintenance_request_items_validator_comment_byToprofile: {
+    select: { id: true, fullname: true, email: true },
+  },
+} as const;
+
+type RawRequestItemComment = Prisma.maintenance_request_itemsGetPayload<{
+  select: typeof REQUEST_ITEM_COMMENTS_SELECT;
+}>;
+
+/** Un comentario suelto, ya resuelto a quién lo escribió y con qué rol */
+export type RequestItemComment = {
+  itemId: string;
+  /** Cómo se llama el item en pantalla (desvío del checklist, o el texto cargado a mano) */
+  itemLabel: string;
+  author: 'driver' | 'supervisor' | 'validator';
+  comment: string;
+  authorName: string | null;
+};
+
+const COMMENT_AUTHOR_ORDER: RequestItemComment['author'][] = ['driver', 'supervisor', 'validator'];
+
+/**
+ * Nombre visible del item: el desvío del checklist, o lo que se escribió a mano.
+ *
+ * `section_code` queda afuera a propósito: se guarda en snake_case crudo
+ * (`semi_remolque_vacio`) y no hay mapa a texto legible, así que anteponerlo
+ * ensucia la línea sin agregar nada — `item_label` ya viene redactado.
+ */
+function getRequestItemLabel(item: RawRequestItemComment): string {
+  return (
+    item.checklist_deviations?.item_label?.trim() ||
+    item.description?.trim() ||
+    item.free_text?.trim() ||
+    'Item del pedido'
+  );
+}
+
+/**
+ * Aplana los items a una lista de comentarios: un item con comentario del chofer
+ * y del supervisor produce dos entradas. Los items sin ningún comentario no
+ * aparecen — el ticket pide mostrar los que tienen algo escrito.
+ */
+function mapRequestItemComments(items: RawRequestItemComment[]): RequestItemComment[] {
+  const comments: RequestItemComment[] = [];
+
+  for (const item of items) {
+    const itemLabel = getRequestItemLabel(item);
+    const byAuthor = {
+      driver: { text: item.driver_comment, profile: item.profile_maintenance_request_items_driver_comment_byToprofile },
+      supervisor: {
+        text: item.supervisor_comment,
+        profile: item.profile_maintenance_request_items_supervisor_comment_byToprofile,
+      },
+      validator: {
+        text: item.validator_comment,
+        profile: item.profile_maintenance_request_items_validator_comment_byToprofile,
+      },
+    };
+
+    for (const author of COMMENT_AUTHOR_ORDER) {
+      const { text, profile } = byAuthor[author];
+      const comment = text?.trim();
+      if (!comment) continue;
+      comments.push({
+        itemId: item.id,
+        itemLabel,
+        author,
+        comment,
+        authorName: profile?.fullname ?? profile?.email ?? null,
+      });
+    }
+  }
+
+  return comments;
+}
+
+/** Los comentarios de los items de una solicitud, listos para el historial */
+async function getRequestItemComments(maintenanceRequestId: string | null | undefined) {
+  if (!maintenanceRequestId) return [];
+  const items = await prisma.maintenance_request_items.findMany({
+    where: { maintenance_request_id: maintenanceRequestId },
+    select: REQUEST_ITEM_COMMENTS_SELECT,
+    orderBy: { created_at: 'asc' },
+  });
+  return mapRequestItemComments(items);
 }
 
 // ─── Queries de maintenance_order_items ───────────────────────────────────────
@@ -416,8 +529,8 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
   serverLogger.debug('Obteniendo historial completo de solicitud', { data: { requestId } });
 
   try {
-    // 1. Obtener la solicitud y el activity log en paralelo
-    const [request, activityLogRaw] = await Promise.all([
+    // 1. Obtener la solicitud, el activity log y los comentarios de los items en paralelo
+    const [request, activityLogRaw, itemComments] = await Promise.all([
       prisma.maintenance_requests.findUnique({
         where: { id: requestId },
         select: {
@@ -453,6 +566,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
         select: ACTIVITY_LOG_SELECT,
         orderBy: { performed_at: 'asc' },
       }),
+      getRequestItemComments(requestId),
     ]);
 
     if (!request) {
@@ -503,7 +617,7 @@ export async function getMaintenanceRequestFullActivityLog(requestId: string) {
       };
     }
 
-    return { origin, history: activityLog };
+    return { origin, history: activityLog, itemComments };
   } catch (error) {
     serverLogger.error('Error al obtener historial completo de solicitud', { data: { error, requestId } });
     throw error;
@@ -559,7 +673,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
 
     const workOrderIds = workOrdersData.map((wo) => wo.id);
 
-    const [requestData, requestLogsRaw, orderLogsRaw, workOrderLogsRaw] = await Promise.all([
+    const [requestData, requestLogsRaw, orderLogsRaw, workOrderLogsRaw, itemComments] = await Promise.all([
       // 1. Origen desde la solicitud (si hay requestId)
       maintenanceRequestId
         ? prisma.maintenance_requests.findUnique({
@@ -615,6 +729,8 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
             orderBy: { performed_at: 'asc' },
           })
         : Promise.resolve([]),
+      // 5. Comentarios cargados sobre los items del pedido (ticket 649)
+      getRequestItemComments(maintenanceRequestId),
     ]);
 
     // 4. Construir información del origen
@@ -694,7 +810,7 @@ export async function getMaintenanceOrderFullActivityLog(orderId: string, reques
       history: woHistoryByWoId.get(wo.id) ?? [],
     }));
 
-    return { origin, history: omHistory, workOrders };
+    return { origin, history: omHistory, workOrders, itemComments };
   } catch (error) {
     serverLogger.error('Error al obtener historial completo de pedido', { data: { error, orderId } });
     throw error;
@@ -791,8 +907,8 @@ export async function getWorkOrderFullActivityLog(workOrderId: string) {
     const maintenanceRequestId =
       workOrder.work_order_items[0]?.maintenance_order_items?.maintenance_orders?.maintenance_request_id;
 
-    // 2. Obtener logs del pedido y OTs hermanas en paralelo (solo si hay maintenanceOrderId)
-    const [orderLogsRaw, siblingWorkOrdersRaw] = await Promise.all([
+    // 2. Obtener logs del pedido, OTs hermanas y comentarios de los items en paralelo
+    const [orderLogsRaw, siblingWorkOrdersRaw, itemComments] = await Promise.all([
       maintenanceOrderId
         ? prisma.maintenance_activity_log.findMany({
             where: { maintenance_order_id: maintenanceOrderId },
@@ -815,6 +931,8 @@ export async function getWorkOrderFullActivityLog(workOrderId: string) {
             select: { id: true, order_number: true, status: true },
           })
         : Promise.resolve([]),
+      // Comentarios de los items del pedido del que cuelga esta OT (ticket 649)
+      getRequestItemComments(maintenanceRequestId),
     ]);
 
     const orderLogs = orderLogsRaw.map(mapActivityLogEntry);
@@ -852,6 +970,7 @@ export async function getWorkOrderFullActivityLog(workOrderId: string) {
       maintenanceRequestId,
       siblingWorkOrders,
       vehicleInfo: workOrder.work_order_items[0]?.maintenance_order_items?.maintenance_orders?.vehicles,
+      itemComments,
     };
   } catch (error) {
     serverLogger.error('Error al obtener historial completo de orden de trabajo', { data: { error, workOrderId } });

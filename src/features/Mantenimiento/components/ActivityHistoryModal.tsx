@@ -49,6 +49,7 @@ import moment from 'moment';
 import { useMemo } from 'react';
 import { ActivityHistorySkeleton } from './ActivityHistory/ActivityHistorySkeleton';
 import { GroupedActionItem } from './ActivityHistory/GroupedActionItem';
+import { RequestItemComments } from './ActivityHistory/RequestItemComments';
 import { WorkOrderAccordion } from './ActivityHistory/WorkOrderAccordion';
 
 interface ActivityHistoryModalProps {
@@ -586,6 +587,17 @@ export function ActivityHistoryModal({
   // Obtener el origen (para Order view y Request only view)
   const requestOrigin = isOrderView ? fullOrderLog?.origin : isRequestOnlyView ? fullRequestLog?.origin : null;
 
+  /**
+   * Comentarios cargados sobre los items del pedido (ticket 649). Se resuelven en
+   * las tres vistas: aunque la de OT no muestra el bloque de origen, los
+   * comentarios del pedido son parte del historial que el taller necesita leer.
+   */
+  const itemComments = isWorkOrderView
+    ? fullWorkOrderLog?.itemComments ?? []
+    : isOrderView
+      ? fullOrderLog?.itemComments ?? []
+      : fullRequestLog?.itemComments ?? [];
+
   const siblingWorkOrders = isWorkOrderView ? fullWorkOrderLog?.siblingWorkOrders : [];
   const vehicleInfo = isWorkOrderView ? fullWorkOrderLog?.vehicleInfo : null;
 
@@ -645,11 +657,19 @@ export function ActivityHistoryModal({
         <div className="flex-1 min-h-0 overflow-y-auto pr-4">
           {isLoading ? (
             <ActivityHistorySkeleton showWorkOrders={isOrderView} />
-          ) : (activityLog && activityLog.length > 0) || requestOrigin ? (
+          ) : (activityLog && activityLog.length > 0) || requestOrigin || itemComments.length > 0 ? (
             <div>
               {/* Mostrar OTs hermanas si es vista de work order */}
               {isWorkOrderView && siblingWorkOrders && siblingWorkOrders.length > 0 && (
                 <SiblingWorkOrders siblings={siblingWorkOrders} />
+              )}
+
+              {/* En la vista de OT no hay bloque de origen, así que los comentarios
+                  del pedido se muestran arriba de todo (ticket 649) */}
+              {isWorkOrderView && itemComments.length > 0 && (
+                <div className="relative">
+                  <RequestItemComments comments={itemComments} hasMoreItems={activityLog.length > 0} />
+                </div>
               )}
 
               {/* Timeline.
@@ -657,10 +677,12 @@ export function ActivityHistoryModal({
                   (ticket 649); en las otras vistas sigue siendo una sola lista. */}
               {isOrderView ? (
                 <div className="space-y-5">
-                  {/* El origen del pedido abre la primera etapa */}
-                  {requestOrigin && (
+                  {/* El origen del pedido abre la primera etapa, seguido de lo que
+                      la gente escribió sobre sus items (ticket 649) */}
+                  {(requestOrigin || itemComments.length > 0) && (
                     <div className="relative">
-                      <OriginItem origin={requestOrigin} hasMoreItems={false} />
+                      {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={itemComments.length > 0} />}
+                      <RequestItemComments comments={itemComments} />
                     </div>
                   )}
                   {stagedActivityLog.map(({ stage, entries }) => (
@@ -694,7 +716,17 @@ export function ActivityHistoryModal({
               ) : (
                 <div className="relative">
                   {/* Mostrar origen como primer item (para vista de solicitud) */}
-                  {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={activityLog.length > 0} />}
+                  {requestOrigin && (
+                    <OriginItem
+                      origin={requestOrigin}
+                      hasMoreItems={activityLog.length > 0 || itemComments.length > 0}
+                    />
+                  )}
+
+                  {/* Comentarios sobre los items del pedido (ticket 649) */}
+                  {!isWorkOrderView && (
+                    <RequestItemComments comments={itemComments} hasMoreItems={activityLog.length > 0} />
+                  )}
 
                   {activityLog.map((entry, index) => {
                     if (entry.action_type === 'order_items_updated') {
