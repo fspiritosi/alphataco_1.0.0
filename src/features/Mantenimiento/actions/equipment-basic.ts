@@ -190,7 +190,10 @@ export const fetchAllOtherEquipmentBasicData = async () => {
     }));
   } catch (error) {
     logger.error('Error fetching other equipment', { data: { error } });
-    return [];
+    // Se relanza a propósito (ticket 651): devolver [] hacía que un fallo de la
+    // query llegara al selector como "No se encontró el equipamiento", en vez de
+    // activar la rama de error que ofrece reintentar.
+    throw error;
   }
 };
 

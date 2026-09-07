@@ -11,6 +11,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { OPEN_WORK_ONLY } from '../workshop-view-filters';
 
 const logger = new Logger('features/WorkshopView/WorkshopSectorTasksTable');
 
@@ -279,13 +280,17 @@ function buildWhereClause(sectorId: string, state: ReturnType<typeof parseSearch
     });
   }
 
+  // El recorte de OT cerradas va en el AND para que ningún filtro de la URL
+  // pueda pisarlo con un spread posterior.
+  extraAndConditions.push(OPEN_WORK_ONLY);
+
   return {
     assigned_sector_id: sectorId,
     ...searchWhere,
     ...filtersWhere,
     ...textFiltersWhere,
     ...dateFiltersWhere,
-    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
+    AND: extraAndConditions,
   };
 }
 

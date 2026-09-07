@@ -108,15 +108,29 @@ export function GroupedActionItem({ performedAt, performerName, metadata, isLast
                 <span className="font-medium">Secuencias actualizadas:</span> {meta.sequenceUpdates.length}
               </p>
             )}
+            {/* Ticket 649: el texto ya viaja en el metadata; antes solo se contaba
+                y el comentario quedaba invisible en el historial. */}
             {meta.descriptionUpdates && meta.descriptionUpdates.length > 0 && (
-              <p>
-                <span className="font-medium">Descripciones editadas:</span> {meta.descriptionUpdates.length}
-              </p>
+              <div>
+                <span className="font-medium">Descripciones editadas ({meta.descriptionUpdates.length}):</span>
+                <ul className="list-disc pl-4">
+                  {meta.descriptionUpdates.map((d, i) => (
+                    <li key={i}>{d.description}</li>
+                  ))}
+                </ul>
+              </div>
             )}
             {meta.chiefCommentUpdates && meta.chiefCommentUpdates.length > 0 && (
-              <p>
-                <span className="font-medium">Comentarios del jefe agregados:</span> {meta.chiefCommentUpdates.length}
-              </p>
+              <div>
+                <span className="font-medium">Comentarios del jefe ({meta.chiefCommentUpdates.length}):</span>
+                <ul className="list-disc pl-4">
+                  {meta.chiefCommentUpdates.map((c, i) => (
+                    <li key={i} className="whitespace-pre-wrap">
+                      {c.comment}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             {meta.workshopAssignments && meta.workshopAssignments.length > 0 && (
               <p>

@@ -222,6 +222,13 @@ type ManualRepairsInputProps = {
   onRetryGroups?: () => void;
   disabled?: boolean;
   /**
+   * Deja únicamente el camino de texto libre: se ocultan el grupo de reparaciones
+   * y el selector de tareas del listado (ticket 654). Los equipamientos no tienen
+   * tipos de reparación propios, así que leer del listado sólo ofrece tareas de
+   * vehículos que no les aplican. Las fotos siguen disponibles.
+   */
+  freeTextOnly?: boolean;
+  /**
    * Avisa el estado del borrador cargado sin agregar. El paso lo necesita para
    * habilitar "Siguiente": con el boton deshabilitado el usuario no puede avanzar
    * y su reparacion escrita queda en un limbo, sin forma de guardarla salvo
@@ -251,6 +258,7 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   onRetryGroups,
   disabled = false,
   onDraftStateChange,
+  freeTextOnly = false,
   ref,
 }: ManualRepairsInputProps) {
   // Borrador de la reparación que se está armando
@@ -305,7 +313,10 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
   const hasOrphanContent = !disabled && !canAdd && (images.length > 0 || description.trim().length > 0);
   // Si el consumidor no pasa grupos, ese camino directamente no se dibuja: el
   // formulario queda igual que antes en vez de mostrar un selector vacío.
-  const showGroupsPath = isLoadingGroups || hasGroupsError || groups.length > 0;
+  // Con `freeTextOnly` los dos caminos que leen del listado de reparaciones
+  // desaparecen y sólo queda el texto libre (ticket 654).
+  const showGroupsPath = !freeTextOnly && (isLoadingGroups || hasGroupsError || groups.length > 0);
+  const showRepairTypesPath = !freeTextOnly;
   const reachedImageLimit = images.length >= MAX_IMAGES_PER_REPAIR;
 
   const resetDraft = useCallback(() => {
@@ -726,108 +737,114 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
           )}
 
           {/* ── Camino 2: una tarea del listado, con buscador ───────────────── */}
-          <div className="space-y-2">
-            <Label id={typeLabelId}>Reparación del listado</Label>
-            <Popover open={typesOpen} onOpenChange={setTypesOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id={typeTriggerId}
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  // El Label no puede usar htmlFor contra un botón: el nombre accesible
-                  // se arma con el label del campo más el valor elegido.
-                  aria-labelledby={`${typeLabelId} ${typeTriggerId}`}
-                  aria-busy={isLoadingRepairTypes || undefined}
-                  aria-describedby={hasRepairTypesError ? typeErrorId : undefined}
-                  disabled={disabled || isLoadingRepairTypes || hasRepairTypesError}
-                  className={cn('w-full justify-between', !selectedType && 'text-muted-foreground')}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    {isLoadingRepairTypes ? (
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                    ) : (
-                      <Wrench className="h-4 w-4 shrink-0" />
-                    )}
-                    <span className="truncate">
-                      {isLoadingRepairTypes
-                        ? 'Cargando tareas...'
-                        : hasRepairTypesError
-                          ? 'No se pudieron cargar las tareas'
-                          : selectedType?.name ?? 'Buscá y elegí una reparación'}
-                    </span>
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar reparación..." />
-                  <CommandList>
-                    <CommandEmpty>No se encontró la tarea</CommandEmpty>
-                    <CommandGroup>
-                      {repairTypes.map((type) => (
-                        <CommandItem
-                          key={type.id}
-                          value={type.name ?? type.id}
-                          onSelect={() => handleSelectType(type.id)}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4 shrink-0',
-                              type.id === repairTypeId ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          <span className="truncate">{type.name}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {/* Error de carga: el listado no sirve, pero el texto libre de abajo sí */}
-            {hasRepairTypesError && (
-              <div
-                id={typeErrorId}
-                role="alert"
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-destructive"
-              >
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                <span>No se pudieron cargar las tareas. Podés escribir la reparación a mano acá abajo.</span>
-                {onRetryRepairTypes && (
+          {showRepairTypesPath && (
+            <div className="space-y-2">
+              <Label id={typeLabelId}>Reparación del listado</Label>
+              <Popover open={typesOpen} onOpenChange={setTypesOpen}>
+                <PopoverTrigger asChild>
                   <Button
+                    id={typeTriggerId}
                     type="button"
-                    variant="link"
-                    size="sm"
-                    onClick={onRetryRepairTypes}
-                    disabled={disabled}
-                    className="h-auto p-0 text-xs text-destructive underline"
+                    variant="outline"
+                    role="combobox"
+                    // El Label no puede usar htmlFor contra un botón: el nombre accesible
+                    // se arma con el label del campo más el valor elegido.
+                    aria-labelledby={`${typeLabelId} ${typeTriggerId}`}
+                    aria-busy={isLoadingRepairTypes || undefined}
+                    aria-describedby={hasRepairTypesError ? typeErrorId : undefined}
+                    disabled={disabled || isLoadingRepairTypes || hasRepairTypesError}
+                    className={cn('w-full justify-between', !selectedType && 'text-muted-foreground')}
                   >
-                    Reintentar
+                    <span className="flex min-w-0 items-center gap-2">
+                      {isLoadingRepairTypes ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                      ) : (
+                        <Wrench className="h-4 w-4 shrink-0" />
+                      )}
+                      <span className="truncate">
+                        {isLoadingRepairTypes
+                          ? 'Cargando tareas...'
+                          : hasRepairTypesError
+                            ? 'No se pudieron cargar las tareas'
+                            : selectedType?.name ?? 'Buscá y elegí una reparación'}
+                      </span>
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
-                )}
-              </div>
-            )}
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar reparación..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontró la tarea</CommandEmpty>
+                      <CommandGroup>
+                        {repairTypes.map((type) => (
+                          <CommandItem
+                            key={type.id}
+                            value={type.name ?? type.id}
+                            onSelect={() => handleSelectType(type.id)}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4 shrink-0',
+                                type.id === repairTypeId ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            <span className="truncate">{type.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
-            {/* Listado vacío legítimo: no hay tareas cargadas en el sistema */}
-            {!isLoadingRepairTypes && !hasRepairTypesError && repairTypes.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Todavía no hay reparaciones cargadas en el sistema. Escribila acá abajo.
-              </p>
-            )}
-          </div>
+              {/* Error de carga: el listado no sirve, pero el texto libre de abajo sí */}
+              {hasRepairTypesError && (
+                <div
+                  id={typeErrorId}
+                  role="alert"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-destructive"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>No se pudieron cargar las tareas. Podés escribir la reparación a mano acá abajo.</span>
+                  {onRetryRepairTypes && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={onRetryRepairTypes}
+                      disabled={disabled}
+                      className="h-auto p-0 text-xs text-destructive underline"
+                    >
+                      Reintentar
+                    </Button>
+                  )}
+                </div>
+              )}
 
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">o</span>
-            <Separator className="flex-1" />
-          </div>
+              {/* Listado vacío legítimo: no hay tareas cargadas en el sistema */}
+              {!isLoadingRepairTypes && !hasRepairTypesError && repairTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Todavía no hay reparaciones cargadas en el sistema. Escribila acá abajo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {showRepairTypesPath && (
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">o</span>
+              <Separator className="flex-1" />
+            </div>
+          )}
 
           {/* ── Camino 3: texto libre, para lo que no existe como tipo ─────── */}
           <div className="space-y-2">
-            <Label htmlFor={freeTextId}>Escribí la reparación (si no está en el listado)</Label>
+            <Label htmlFor={freeTextId}>
+              {showRepairTypesPath ? 'Escribí la reparación (si no está en el listado)' : 'Escribí la reparación'}
+            </Label>
             <Textarea
               id={freeTextId}
               aria-describedby={freeTextHintId}
@@ -960,7 +977,9 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             {!canAdd && !disabled && (
               <p id={addHintId} className="text-xs text-muted-foreground sm:order-first">
-                Elegí una tarea del listado o escribí la reparación para poder agregarla.
+                {showRepairTypesPath
+                  ? 'Elegí una tarea del listado o escribí la reparación para poder agregarla.'
+                  : 'Escribí la reparación para poder agregarla.'}
               </p>
             )}
             <Button
