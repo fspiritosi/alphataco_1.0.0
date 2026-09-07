@@ -1,9 +1,12 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
 import type { RequestItemComment } from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
-import { MessageSquare, User } from 'lucide-react';
-import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 /**
  * Comentarios que la gente escribió sobre los items del pedido (ticket 649).
@@ -14,19 +17,28 @@ import { useMemo } from 'react';
  * Por eso se agrupan por item, que es como el usuario los busca ("¿qué dijeron de
  * esta reparación?").
  */
+
+/**
+ * Estilo de cada autor.
+ *
+ * Se toma de `commentStyleConfig`, el mismo mapa que usan los 8 diálogos que ya
+ * muestran estos comentarios: ahí el chofer es ámbar y el supervisor azul. Tener
+ * un mapa propio hacía que el mismo comentario cambiara de color según la pantalla.
+ */
+const AUTHOR_STYLE: Record<RequestItemComment['author'], keyof typeof commentStyleConfig> = {
+  driver: 'driver',
+  supervisor: 'validator',
+  validator: 'validator',
+};
+
 const AUTHOR_LABELS: Record<RequestItemComment['author'], string> = {
   driver: 'Chofer',
   supervisor: 'Supervisor',
-  validator: 'Validación',
+  validator: 'Validador',
 };
 
-const AUTHOR_BADGE_CLASSES: Record<RequestItemComment['author'], string> = {
-  driver: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900',
-  supervisor:
-    'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900',
-  validator:
-    'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900',
-};
+/** Con pocos comentarios abre expandido: el caso barato no debe costar un clic */
+const AUTO_EXPAND_LIMIT = 3;
 
 interface RequestItemCommentsProps {
   comments: RequestItemComment[];
@@ -38,58 +50,78 @@ export function RequestItemComments({ comments, hasMoreItems = false }: RequestI
   // Un item puede tener comentario del chofer Y del supervisor: se muestran juntos
   // bajo el nombre del item en vez de repetir el encabezado por cada uno.
   const groups = useMemo(() => {
-    const byItem = new Map<string, { itemLabel: string; entries: RequestItemComment[] }>();
+    const byItem = new Map<string, { itemId: string; itemLabel: string; entries: RequestItemComment[] }>();
     for (const comment of comments) {
       const group = byItem.get(comment.itemId);
       if (group) group.entries.push(comment);
-      else byItem.set(comment.itemId, { itemLabel: comment.itemLabel, entries: [comment] });
+      else byItem.set(comment.itemId, { itemId: comment.itemId, itemLabel: comment.itemLabel, entries: [comment] });
     }
     return Array.from(byItem.values());
   }, [comments]);
 
+  const [open, setOpen] = useState(comments.length <= AUTO_EXPAND_LIMIT);
+
   if (groups.length === 0) return null;
+
+  const resumen = `${comments.length === 1 ? '1 comentario' : `${comments.length} comentarios`} en ${
+    groups.length === 1 ? '1 ítem' : `${groups.length} ítems`
+  }`;
 
   return (
     <div className="relative flex items-start gap-3 pl-1">
       {hasMoreItems && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-muted" />}
 
-      <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-violet-50 border-violet-600 dark:bg-violet-950/40">
+      <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-violet-50 border-violet-600 dark:bg-violet-950/40 dark:border-violet-400">
         <MessageSquare className="h-4 w-4 text-violet-600 dark:text-violet-300" />
       </div>
 
       <div className="flex-1 pt-0.5 pb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">Comentarios sobre los items del pedido</span>
-          <Badge variant="outline" className="text-xs">
-            {comments.length === 1 ? '1 comentario' : `${comments.length} comentarios`}
-          </Badge>
-        </div>
+        <Collapsible open={open} onOpenChange={setOpen}>
+          <CollapsibleTrigger className="flex items-center gap-1 text-left hover:underline">
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-medium text-sm">Comentarios sobre los ítems del pedido</span>
+            <Badge variant="outline" className="text-xs ml-1 tabular-nums">
+              {resumen}
+            </Badge>
+          </CollapsibleTrigger>
 
-        <div className="mt-2 space-y-2">
-          {groups.map((group, index) => (
-            <div key={index} className="rounded-md border bg-muted/40 p-2.5 text-sm">
-              <p className="font-medium text-xs text-muted-foreground">{group.itemLabel}</p>
-              <ul className="mt-1.5 space-y-1.5">
-                {group.entries.map((entry, i) => (
-                  <li key={i} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
-                    <Badge variant="outline" className={`text-[10px] shrink-0 ${AUTHOR_BADGE_CLASSES[entry.author]}`}>
-                      {AUTHOR_LABELS[entry.author]}
-                    </Badge>
-                    <div className="min-w-0">
-                      <p className="whitespace-pre-wrap break-words">{entry.comment}</p>
-                      {entry.authorName && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <User className="h-3 w-3" />
-                          {entry.authorName}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+          <CollapsibleContent className="mt-2 space-y-2">
+            {groups.map((group) => (
+              <div key={group.itemId} className="rounded-md border bg-muted/40 p-2.5">
+                {/* El nombre del ítem es el ancla de lectura: va primero en jerarquía */}
+                <p className="text-sm font-medium text-foreground">{group.itemLabel}</p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {group.entries.map((entry) => {
+                    const style = commentStyleConfig[AUTHOR_STYLE[entry.author]];
+                    const Icon = style.icon;
+                    return (
+                      <li
+                        key={`${entry.itemId}-${entry.author}`}
+                        className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2"
+                      >
+                        <Badge variant="outline" className={cn('text-xs shrink-0', style.badgeClass)}>
+                          {AUTHOR_LABELS[entry.author]}
+                        </Badge>
+                        <div className="min-w-0">
+                          {/* Tope de medida: a 1152px de modal una línea suelta pasa los 180 caracteres */}
+                          <p className="max-w-[70ch] whitespace-pre-wrap break-words text-sm leading-relaxed">
+                            {entry.comment}
+                          </p>
+                          {entry.authorName && (
+                            <p className={cn('mt-0.5 flex items-center gap-1 text-xs', style.labelClass)}>
+                              <Icon className="h-3 w-3 shrink-0" />
+                              {entry.authorName}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
   );

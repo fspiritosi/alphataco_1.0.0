@@ -1043,6 +1043,25 @@ export function NuevoPedidoChecklistForm({
                 }
                 onValueChange={setSearchTerm}
               />
+              {/* El aviso va ARRIBA del listado y como region estable (ticket 651).
+                  Abajo quedaba fuera de vista — el `CommandList` muestra ~6 filas de
+                  50, así que el usuario que creia que su equipo no existia nunca lo
+                  leia. Se renderiza siempre (vacio cuando no aplica) para que los
+                  lectores de pantalla anuncien el cambio. */}
+              <p
+                role="status"
+                aria-live="polite"
+                className={cn(
+                  'px-3 text-xs text-muted-foreground tabular-nums',
+                  totalMatchingResources > filteredEquipment.length ? 'border-b py-2' : 'sr-only'
+                )}
+              >
+                {totalMatchingResources > filteredEquipment.length
+                  ? `Mostrando ${filteredEquipment.length} de ${totalMatchingResources} ${
+                      isOtherEquipment ? 'equipamientos' : 'equipos'
+                    }. Escribí para afinar la búsqueda.`
+                  : ''}
+              </p>
               <CommandList>
                 <CommandEmpty>
                   {isOtherEquipment ? 'No se encontró el equipamiento' : 'No se encontró el equipo'}
@@ -1077,13 +1096,6 @@ export function NuevoPedidoChecklistForm({
                     </CommandItem>
                   ))}
                 </CommandGroup>
-                {/* El listado se recorta para no trabar el tipeo. Sin este aviso el
-                    usuario creía que su equipo no existía (ticket 651). */}
-                {totalMatchingResources > filteredEquipment.length && (
-                  <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-                    Mostrando {filteredEquipment.length} de {totalMatchingResources}. Escribí para afinar la búsqueda.
-                  </p>
-                )}
               </CommandList>
             </Command>
           </PopoverContent>

@@ -251,6 +251,27 @@ function getPerformerName(performer: PerformerType): string | null {
   return performer.fullname;
 }
 
+/**
+ * Borde del círculo del timeline, por color de icono.
+ *
+ * Las clases van escritas completas porque Tailwind v4 sólo emite las que
+ * encuentra literales en el código; componerlas con `replace()` deja sin estilo
+ * a las familias que no aparecen escritas en ningún otro archivo.
+ */
+const BORDER_BY_TEXT_COLOR: Record<string, string> = {
+  'text-blue-600': 'border-blue-600',
+  'text-cyan-600': 'border-cyan-600',
+  'text-emerald-600': 'border-emerald-600',
+  'text-gray-600': 'border-gray-600',
+  'text-green-600': 'border-green-600',
+  'text-indigo-600': 'border-indigo-600',
+  'text-orange-600': 'border-orange-600',
+  'text-purple-600': 'border-purple-600',
+  'text-red-600': 'border-red-600',
+  'text-slate-600': 'border-slate-600',
+  'text-yellow-600': 'border-yellow-600',
+};
+
 // Componente para renderizar un item del timeline
 function TimelineItem({
   entry,
@@ -297,9 +318,14 @@ function TimelineItem({
       {/* Línea conectora */}
       {!isLast && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-muted" />}
 
-      {/* Icono del timeline */}
+      {/* Icono del timeline.
+          El borde sale del mapa y NO de `config.color.replace('text-','border-')`:
+          Tailwind v4 escanea el código como texto, así que una clase armada en
+          runtime nunca se emite. De las 11 familias de `actionConfig`, cinco
+          (red, purple, indigo, cyan, emerald) no aparecían literalmente en `src/`
+          y esos círculos quedaban sin color de borde. */}
       <div
-        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 ${config.bgColor} ${config.color.replace('text-', 'border-')}`}
+        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 ${config.bgColor} ${BORDER_BY_TEXT_COLOR[config.color] ?? 'border-gray-600'}`}
       >
         <Icon className={`h-4 w-4 ${config.color}`} />
       </div>
@@ -613,11 +639,17 @@ export function ActivityHistoryModal({
       if (bucket) bucket.push(entry);
       else byStage.set(stage, [entry]);
     }
-    return ACTIVITY_STAGE_ORDER.filter((stage) => (byStage.get(stage)?.length ?? 0) > 0).map((stage) => ({
+    // "Pedido" se dibuja aunque no tenga eventos propios cuando hay que colgarle
+    // el origen o los comentarios de los items: si no, quedarían sin encabezado.
+    const keepEmptyRequestStage = Boolean(requestOrigin) || itemComments.length > 0;
+
+    return ACTIVITY_STAGE_ORDER.filter(
+      (stage) => (byStage.get(stage)?.length ?? 0) > 0 || (stage === 'request' && keepEmptyRequestStage)
+    ).map((stage) => ({
       stage,
       entries: byStage.get(stage) ?? [],
     }));
-  }, [activityLog]);
+  }, [activityLog, requestOrigin, itemComments.length]);
 
   /** La etapa Taller ya tiene eventos propios en el timeline (ver más abajo) */
   const hasWorkshopStage = stagedActivityLog.some(({ stage }) => stage === 'workshop');
@@ -654,7 +686,14 @@ export function ActivityHistoryModal({
             se dimensiona con `height: 100%`, que no resuelve contra un padre cuya
             altura la fija el flex — quedaba en la altura del contenido (758px
             dentro de un area de 367px) y el historial se cortaba sin barra. */}
-        <div className="flex-1 min-h-0 overflow-y-auto pr-4">
+        {/* `tabIndex` porque una región scrolleable sin elementos focusables adentro
+            (p. ej. la vista de solicitud) no se puede recorrer con teclado — antes
+            lo resolvía el viewport de Radix. */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          tabIndex={0}
+          aria-label="Historial de actividades"
+        >
           {isLoading ? (
             <ActivityHistorySkeleton showWorkOrders={isOrderView} />
           ) : (activityLog && activityLog.length > 0) || requestOrigin || itemComments.length > 0 ? (
@@ -677,41 +716,48 @@ export function ActivityHistoryModal({
                   (ticket 649); en las otras vistas sigue siendo una sola lista. */}
               {isOrderView ? (
                 <div className="space-y-5">
-                  {/* El origen del pedido abre la primera etapa, seguido de lo que
-                      la gente escribió sobre sus items (ticket 649) */}
-                  {(requestOrigin || itemComments.length > 0) && (
-                    <div className="relative">
-                      {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={itemComments.length > 0} />}
-                      <RequestItemComments comments={itemComments} />
-                    </div>
-                  )}
-                  {stagedActivityLog.map(({ stage, entries }) => (
-                    <div key={stage}>
-                      <div className="mb-2 flex items-baseline gap-2 border-b pb-1">
-                        <h4 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS[stage]}</h4>
-                        <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS[stage]}</span>
-                      </div>
-                      <div className="relative">
-                        {entries.map((entry, index) =>
-                          entry.action_type === 'order_items_updated' ? (
-                            <GroupedActionItem
-                              key={entry.id}
-                              performedAt={entry.performed_at}
-                              performerName={getPerformerName(entry.performer ?? null)}
-                              metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
-                              isLast={index === entries.length - 1}
+                  {stagedActivityLog.map(({ stage, entries }) => {
+                    // El origen y los comentarios de los items pertenecen a la etapa
+                    // "Pedido": dejarlos sueltos arriba empujaba el primer encabezado
+                    // fuera de la pantalla y los dejaba sin etapa a la que pertenecer.
+                    const isFirstStage = stage === 'request';
+                    return (
+                      <div key={stage}>
+                        <div className="sticky top-0 z-20 mb-2 flex items-baseline gap-2 border-b bg-background pb-1 pt-1">
+                          <h3 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS[stage]}</h3>
+                          <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS[stage]}</span>
+                        </div>
+                        <div className="relative">
+                          {isFirstStage && requestOrigin && (
+                            <OriginItem
+                              origin={requestOrigin}
+                              hasMoreItems={itemComments.length > 0 || entries.length > 0}
                             />
-                          ) : (
-                            <TimelineItem
-                              key={entry.id}
-                              entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
-                              isLast={index === entries.length - 1}
-                            />
-                          )
-                        )}
+                          )}
+                          {isFirstStage && (
+                            <RequestItemComments comments={itemComments} hasMoreItems={entries.length > 0} />
+                          )}
+                          {entries.map((entry, index) =>
+                            entry.action_type === 'order_items_updated' ? (
+                              <GroupedActionItem
+                                key={entry.id}
+                                performedAt={entry.performed_at}
+                                performerName={getPerformerName(entry.performer ?? null)}
+                                metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                                isLast={index === entries.length - 1}
+                              />
+                            ) : (
+                              <TimelineItem
+                                key={entry.id}
+                                entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
+                                isLast={index === entries.length - 1}
+                              />
+                            )
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="relative">
@@ -766,7 +812,7 @@ export function ActivityHistoryModal({
                         contra la OM y no contra la OT). */}
                     {!hasWorkshopStage && (
                       <div className="mb-2 flex items-baseline gap-2 border-b pb-1">
-                        <h4 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS.workshop}</h4>
+                        <h3 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS.workshop}</h3>
                         <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS.workshop}</span>
                       </div>
                     )}

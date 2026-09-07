@@ -842,8 +842,12 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
 
           {/* ── Camino 3: texto libre, para lo que no existe como tipo ─────── */}
           <div className="space-y-2">
+            {/* Sin el listado los dos textarea quedan pegados y con affordance
+                idéntica, así que el primero se nombra como título y el segundo
+                como detalle — antes ambos decían "escribí/describí la reparación"
+                y no se entendía qué iba en cada uno (ticket 654). */}
             <Label htmlFor={freeTextId}>
-              {showRepairTypesPath ? 'Escribí la reparación (si no está en el listado)' : 'Escribí la reparación'}
+              {showRepairTypesPath ? 'Escribí la reparación (si no está en el listado)' : '¿Qué hay que reparar?'}
             </Label>
             <Textarea
               id={freeTextId}
@@ -859,20 +863,29 @@ export const ManualRepairsInput = memo(function ManualRepairsInput({
               disabled={disabled}
               className="field-sizing-content max-h-[10rem] min-h-[3.5rem] resize-none"
             />
+            {/* Con `freeTextOnly` no hay listado ni "tarea de arriba" que mencionar:
+                el texto que habla de las dos opciones no aplica (ticket 654). */}
             <p id={freeTextHintId} className="text-xs text-muted-foreground">
-              Usalo si la tarea no está en el listado. Cargá una sola de las dos opciones: al escribir acá se
-              deselecciona la tarea de arriba. El taller la va a asociar al tipo que corresponda.
+              {showRepairTypesPath
+                ? 'Usalo si la tarea no está en el listado. Cargá una sola de las dos opciones: al escribir acá se deselecciona la tarea de arriba. El taller la va a asociar al tipo que corresponda.'
+                : 'Una línea alcanza. El taller la va a asociar al tipo que corresponda.'}
             </p>
           </div>
 
           {/* Descripción */}
           <div className="space-y-2">
-            <Label htmlFor={descriptionId}>Descripción (opcional)</Label>
+            <Label htmlFor={descriptionId}>
+              {showRepairTypesPath ? 'Descripción (opcional)' : 'Detalle (opcional)'}
+            </Label>
             <Textarea
               id={descriptionId}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Explicá brevemente la reparación"
+              placeholder={
+                showRepairTypesPath
+                  ? 'Explicá brevemente la reparación'
+                  : 'Contexto, síntomas o lo que haga falta aclarar'
+              }
               rows={2}
               disabled={disabled}
               className="field-sizing-content max-h-[10rem] min-h-[3.5rem] resize-none"
