@@ -2,7 +2,6 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { statusLabels as maintenanceOrderStatusLabels } from '@/features/Mantenimiento/MaintenanceOrders/table/columns';
 import {
@@ -13,6 +12,13 @@ import {
   type MaintenanceRequestOrigin,
 } from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
 import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import {
+  ACTIVITY_STAGE_DESCRIPTIONS,
+  ACTIVITY_STAGE_LABELS,
+  ACTIVITY_STAGE_ORDER,
+  getActivityStage,
+  type ActivityStage,
+} from '@/features/Mantenimiento/shared/activity-log/stages';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -40,6 +46,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import moment from 'moment';
+import { useMemo } from 'react';
 import { ActivityHistorySkeleton } from './ActivityHistory/ActivityHistorySkeleton';
 import { GroupedActionItem } from './ActivityHistory/GroupedActionItem';
 import { WorkOrderAccordion } from './ActivityHistory/WorkOrderAccordion';
@@ -582,9 +589,33 @@ export function ActivityHistoryModal({
   const siblingWorkOrders = isWorkOrderView ? fullWorkOrderLog?.siblingWorkOrders : [];
   const vehicleInfo = isWorkOrderView ? fullWorkOrderLog?.vehicleInfo : null;
 
+  /**
+   * Historial de la OM repartido en las tres etapas del circuito (ticket 649).
+   * Se omiten las etapas sin eventos para no dejar títulos vacíos.
+   */
+  const stagedActivityLog = useMemo(() => {
+    const byStage = new Map<ActivityStage, typeof activityLog>();
+    for (const entry of activityLog) {
+      const stage = getActivityStage(entry);
+      const bucket = byStage.get(stage);
+      if (bucket) bucket.push(entry);
+      else byStage.set(stage, [entry]);
+    }
+    return ACTIVITY_STAGE_ORDER.filter((stage) => (byStage.get(stage)?.length ?? 0) > 0).map((stage) => ({
+      stage,
+      entries: byStage.get(stage) ?? [],
+    }));
+  }, [activityLog]);
+
+  /** La etapa Taller ya tiene eventos propios en el timeline (ver más abajo) */
+  const hasWorkshopStage = stagedActivityLog.some(({ stage }) => stage === 'workshop');
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      {/* El ancho va con `sm:` a propósito (ticket 649): la clase base de
+          DialogContent trae `sm:max-w-2xl` y un `max-w-*` sin modifier no le gana
+          en el CSS, así que el modal quedaba angosto y muy alto. */}
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
@@ -607,7 +638,11 @@ export function ActivityHistoryModal({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 pr-4">
+        {/* Scroll nativo en vez de ScrollArea (ticket 649): el viewport de Radix
+            se dimensiona con `height: 100%`, que no resuelve contra un padre cuya
+            altura la fija el flex — quedaba en la altura del contenido (758px
+            dentro de un area de 367px) y el historial se cortaba sin barra. */}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-4">
           {isLoading ? (
             <ActivityHistorySkeleton showWorkOrders={isOrderView} />
           ) : (activityLog && activityLog.length > 0) || requestOrigin ? (
@@ -617,39 +652,92 @@ export function ActivityHistoryModal({
                 <SiblingWorkOrders siblings={siblingWorkOrders} />
               )}
 
-              {/* Timeline */}
-              <div className="relative">
-                {/* Mostrar origen como primer item (para vista de pedido o solicitud) */}
-                {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={activityLog.length > 0} />}
+              {/* Timeline.
+                  En la vista de OM se divide en las tres etapas del circuito
+                  (ticket 649); en las otras vistas sigue siendo una sola lista. */}
+              {isOrderView ? (
+                <div className="space-y-5">
+                  {/* El origen del pedido abre la primera etapa */}
+                  {requestOrigin && (
+                    <div className="relative">
+                      <OriginItem origin={requestOrigin} hasMoreItems={false} />
+                    </div>
+                  )}
+                  {stagedActivityLog.map(({ stage, entries }) => (
+                    <div key={stage}>
+                      <div className="mb-2 flex items-baseline gap-2 border-b pb-1">
+                        <h4 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS[stage]}</h4>
+                        <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS[stage]}</span>
+                      </div>
+                      <div className="relative">
+                        {entries.map((entry, index) =>
+                          entry.action_type === 'order_items_updated' ? (
+                            <GroupedActionItem
+                              key={entry.id}
+                              performedAt={entry.performed_at}
+                              performerName={getPerformerName(entry.performer ?? null)}
+                              metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                              isLast={index === entries.length - 1}
+                            />
+                          ) : (
+                            <TimelineItem
+                              key={entry.id}
+                              entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
+                              isLast={index === entries.length - 1}
+                            />
+                          )
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Mostrar origen como primer item (para vista de solicitud) */}
+                  {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={activityLog.length > 0} />}
 
-                {activityLog.map((entry, index) => {
-                  if (entry.action_type === 'order_items_updated') {
+                  {activityLog.map((entry, index) => {
+                    if (entry.action_type === 'order_items_updated') {
+                      return (
+                        <GroupedActionItem
+                          key={entry.id}
+                          performedAt={entry.performed_at}
+                          performerName={getPerformerName(entry.performer ?? null)}
+                          metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                          isLast={index === activityLog.length - 1}
+                        />
+                      );
+                    }
                     return (
-                      <GroupedActionItem
+                      <TimelineItem
                         key={entry.id}
-                        performedAt={entry.performed_at}
-                        performerName={getPerformerName(entry.performer ?? null)}
-                        metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                        entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
                         isLast={index === activityLog.length - 1}
+                        showSource={isWorkOrderView}
                       />
                     );
-                  }
-                  return (
-                    <TimelineItem
-                      key={entry.id}
-                      entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
-                      isLast={index === activityLog.length - 1}
-                      showSource={isWorkOrderView}
-                    />
-                  );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
 
-              {/* Sección de Órdenes de Trabajo (solo en vista de OM) */}
+              {/* Órdenes de Trabajo (solo en vista de OM).
+                  Es la etapa "Taller" del ticket 649: la ejecución se loguea contra
+                  cada OT, así que sus eventos no están en el timeline de la OM sino
+                  en estos acordeones. Va bajo el mismo encabezado de etapa que las
+                  dos anteriores para que las tres se lean como una sola secuencia. */}
               {isOrderView && fullOrderLog?.workOrders && fullOrderLog.workOrders.length > 0 && (
                 <>
                   <Separator className="my-4" />
                   <div className="space-y-2">
+                    {/* El encabezado solo si la etapa no se dibujó ya arriba con
+                        eventos propios (p. ej. `work_order_completed`, que se loguea
+                        contra la OM y no contra la OT). */}
+                    {!hasWorkshopStage && (
+                      <div className="mb-2 flex items-baseline gap-2 border-b pb-1">
+                        <h4 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS.workshop}</h4>
+                        <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS.workshop}</span>
+                      </div>
+                    )}
                     <h4 className="text-sm font-medium flex items-center gap-2">
                       <GitBranch className="h-4 w-4" />
                       Órdenes de Trabajo ({fullOrderLog.workOrders.length})
@@ -725,7 +813,7 @@ export function ActivityHistoryModal({
               <p>Sin historial registrado</p>
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

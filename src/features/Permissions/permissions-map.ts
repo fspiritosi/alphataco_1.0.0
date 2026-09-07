@@ -746,6 +746,13 @@ export const PERMISSIONS = {
             parent: 'detalle-equipo',
             allowedActions: ['view'],
           },
+          'historial-mantenimiento-equipo': {
+            slug: 'historial-mantenimiento-equipo',
+            name: 'Historial de Mantenimiento',
+            tabId: '30000000-0000-0000-0000-000000000058',
+            parent: 'detalle-equipo',
+            allowedActions: ['view'],
+          },
         },
       },
     },
@@ -1002,6 +1009,18 @@ export const PERMISSIONS = {
         allowedActions: ['view'],
         subtabs: {},
       },
+      // Tab raíz desde que se movió fuera de Operaciones (ver MantenimientoComponent).
+      // Mientras figuró como subtab de `maint_operaciones`, la visibilidad inferida
+      // del TabsManager hacía aparecer Operaciones a quien solo tuviera Nuevo Pedido
+      // (ticket 593).
+      nuevo_pedido: {
+        slug: 'nuevo_pedido',
+        name: 'Nuevo Pedido',
+        tabId: '60000000-0000-0000-0000-000000000024',
+        parent: null,
+        allowedActions: ['view', 'create'], // create = crear pedidos de mantenimiento
+        subtabs: {},
+      },
       // Tab 1: Operaciones
       maint_operaciones: {
         slug: 'maint_operaciones',
@@ -1033,13 +1052,6 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000023',
             parent: 'maint_operaciones',
             allowedActions: ['view', 'update', 'view_all_requests'],
-          },
-          nuevo_pedido: {
-            slug: 'nuevo_pedido',
-            name: 'Nuevo Pedido',
-            tabId: '60000000-0000-0000-0000-000000000024',
-            parent: 'maint_operaciones',
-            allowedActions: ['view', 'create'], // create = crear pedidos de mantenimiento
           },
           // Legacy — desconectada de la UI pero mantenida para compatibilidad.
           // Su información se migró al paso "Seguimiento" con el estado

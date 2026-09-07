@@ -96,6 +96,27 @@ const REQUEST_TYPE_ORDER: RequestType[] = ['checklist', 'preventive', 'manual'];
 /** Orden visual del paso "Recurso" — lo usa la navegación por flechas */
 const RESOURCE_KIND_ORDER: MaintenanceResourceKind[] = ['vehicle', 'other_equipment'];
 
+/**
+ * Tope de opciones que se renderizan en el selector de recursos.
+ * Con ~370 vehículos, pintarlos todos en el popover traba el tipeo.
+ */
+const MAX_RESOURCE_RESULTS = 50;
+
+/**
+ * Minúsculas y sin tildes, para que el buscador del selector de recursos
+ * encuentre "Grúa Hidráulica" tecleando "grua hidraulica" (ticket 651).
+ */
+function normalizeSearchText(value: string): string {
+  const decomposed = value.normalize('NFD');
+  let result = '';
+  for (const char of decomposed) {
+    const code = char.charCodeAt(0);
+    // Se descartan las marcas combinantes (U+0300..U+036F) que quedaron sueltas
+    if (code < 0x0300 || code > 0x036f) result += char;
+  }
+  return result.toLowerCase();
+}
+
 interface SelectableCardProps<T extends string> {
   value: T;
   /** Orden visual del grupo, para mover el foco con las flechas */
@@ -191,10 +212,21 @@ function SelectableCard<T extends string>({
   );
 }
 
-/** Tarjeta del paso "Tipo de pedido" */
-function RequestTypeCard(props: Omit<SelectableCardProps<RequestType>, 'value' | 'order'> & { type: RequestType }) {
-  const { type, ...rest } = props;
-  return <SelectableCard<RequestType> value={type} order={REQUEST_TYPE_ORDER} {...rest} />;
+/**
+ * Tarjeta del paso "Tipo de pedido".
+ *
+ * `order` es opcional porque el grupo cambia de tamaño: con equipamientos no se
+ * ofrece "Mant. Preventivo" (ticket 654) y la navegación por flechas tiene que
+ * recorrer solo las tarjetas visibles.
+ */
+function RequestTypeCard(
+  props: Omit<SelectableCardProps<RequestType>, 'value' | 'order'> & {
+    type: RequestType;
+    order?: readonly RequestType[];
+  }
+) {
+  const { type, order = REQUEST_TYPE_ORDER, ...rest } = props;
+  return <SelectableCard<RequestType> value={type} order={order} {...rest} />;
 }
 
 /** Tarjeta del paso "Recurso" (ticket 596) */
@@ -239,6 +271,16 @@ export function NuevoPedidoChecklistForm({
   // Tipo de recurso (ticket 596): define qué se lista en el selector del paso Equipo
   const [resourceKind, setResourceKind] = useState<MaintenanceResourceKind>('vehicle');
   const isOtherEquipment = resourceKind === 'other_equipment';
+
+  /**
+   * Tarjetas de "Tipo de pedido" que se ofrecen para el recurso elegido.
+   * Los equipamientos no tienen programa preventivo (ticket 654), así que su
+   * tarjeta no se renderiza y tampoco entra en la navegación por flechas.
+   */
+  const visibleRequestTypes = useMemo(
+    () => (isOtherEquipment ? REQUEST_TYPE_ORDER.filter((type) => type !== 'preventive') : REQUEST_TYPE_ORDER),
+    [isOtherEquipment]
+  );
 
   // Tipo de pedido
   const [requestType, setRequestType] = useState<RequestType>('checklist');
@@ -413,17 +455,32 @@ export function NuevoPedidoChecklistForm({
     [resourceOptions, selectedEquipmentId]
   );
 
-  // Filtrar por búsqueda (identificador o número interno)
-  const filteredEquipment = useMemo(() => {
-    if (!searchTerm) return resourceOptions.slice(0, 50);
-    const searchValue = searchTerm.toLowerCase();
-    return resourceOptions.filter(
-      (equip) =>
-        equip.label.toLowerCase().includes(searchValue) ||
-        String(equip.internNumber || '')
-          .toLowerCase()
-          .includes(searchValue)
-    );
+  /**
+   * Búsqueda del selector de recursos (ticket 651).
+   *
+   * Además del identificador y el número interno, matchea contra los campos de
+   * descripción que la propia lista muestra a la derecha (tipo, subtipo y tipo
+   * de unidad): el usuario los ve en pantalla y esperaba poder tipearlos.
+   *
+   * Se busca por tokens y sin tildes: "grua hidro" tiene que encontrar
+   * "Grúa Hidráulica" aunque las palabras estén en campos distintos.
+   */
+  const { visible: filteredEquipment, total: totalMatchingResources } = useMemo(() => {
+    const tokens = normalizeSearchText(searchTerm).split(/\s+/).filter(Boolean);
+    const matches =
+      tokens.length === 0
+        ? resourceOptions
+        : resourceOptions.filter((equip) => {
+            const haystack = normalizeSearchText(
+              [equip.label, equip.internNumber, equip.typeName, equip.subTypeName, equip.unitTypeName]
+                .filter(Boolean)
+                .join(' ')
+            );
+            return tokens.every((token) => haystack.includes(token));
+          });
+    // Se recorta para no renderizar cientos de filas de golpe; el total se
+    // conserva para avisar cuántas quedaron fuera (antes se cortaba en silencio).
+    return { visible: matches.slice(0, MAX_RESOURCE_RESULTS), total: matches.length };
   }, [resourceOptions, searchTerm]);
 
   // ============================================
@@ -619,9 +676,10 @@ export function NuevoPedidoChecklistForm({
    *
    * Descarta la selección de recurso: el equipo elegido no existe en la otra
    * lista, así que arrastrarlo dejaría el wizard en un estado inconsistente.
-   * Y si el camino era "Checklist" —que los equipamientos no tienen— se mueve
-   * la selección a una opción válida, para que el radiogroup nunca quede
-   * anclado en una tarjeta bloqueada.
+   * Y si el camino era "Checklist" —que los equipamientos no tienen— o
+   * "Mant. Preventivo" —que dejó de ofrecerse para equipamientos, ticket 654—
+   * se mueve la selección a "Carga Manual", para que el radiogroup nunca quede
+   * anclado en una tarjeta bloqueada o inexistente.
    */
   const handleChangeResourceKind = useCallback((kind: MaintenanceResourceKind) => {
     setResourceKind((current) => {
@@ -635,7 +693,9 @@ export function NuevoPedidoChecklistForm({
       setDeviationComments({});
       setManualItems([]);
       if (kind === 'other_equipment') {
-        setRequestType((type) => (type === 'checklist' ? 'manual' : type));
+        setRequestType('manual');
+        setSelectedPreventiveType('');
+        setPreventiveDescription('');
       }
       return kind;
     });
@@ -970,9 +1030,17 @@ export function NuevoPedidoChecklistForm({
           {/* w-[var(--radix-popover-trigger-width)] hace que el desplegable ocupe el mismo
               ancho que el campo, para que la info del equipo entre a lo largo */}
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-            <Command>
+            {/* shouldFilter={false}: el filtrado lo hace `filteredEquipment`. Con el
+                filtro interno de cmdk activo (que puntúa contra el `value` de cada
+                item, o sea solo el dominio) la búsqueda por número interno, tipo o
+                subtipo se descartaba y el desplegable decía "No se encontró". */}
+            <Command shouldFilter={false}>
               <CommandInput
-                placeholder={isOtherEquipment ? 'Buscar por serie o número…' : 'Buscar por dominio, serie o número…'}
+                placeholder={
+                  isOtherEquipment
+                    ? 'Buscar por serie, número, tipo o subtipo…'
+                    : 'Buscar por dominio, serie, número, tipo o subtipo…'
+                }
                 onValueChange={setSearchTerm}
               />
               <CommandList>
@@ -1009,6 +1077,13 @@ export function NuevoPedidoChecklistForm({
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                {/* El listado se recorta para no trabar el tipeo. Sin este aviso el
+                    usuario creía que su equipo no existía (ticket 651). */}
+                {totalMatchingResources > filteredEquipment.length && (
+                  <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+                    Mostrando {filteredEquipment.length} de {totalMatchingResources}. Escribí para afinar la búsqueda.
+                  </p>
+                )}
               </CommandList>
             </Command>
           </PopoverContent>
@@ -1120,33 +1195,37 @@ export function NuevoPedidoChecklistForm({
         <div
           role="radiogroup"
           aria-labelledby="request-type-label"
-          className="grid gap-3 mt-2 sm:grid-cols-3 items-stretch"
+          className={cn('grid gap-3 mt-2 items-stretch', isOtherEquipment ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}
         >
           <RequestTypeCard
             type="checklist"
+            order={visibleRequestTypes}
             icon={ClipboardList}
             title="Checklist"
             description="Desde desvíos de inspección"
             selected={requestType === 'checklist'}
             onSelect={handleChangeRequestType}
             disabledReason={
-              isOtherEquipment
-                ? 'No hay checklists configurados para equipamientos. Elegí Mant. Preventivo o Carga Manual.'
-                : undefined
+              isOtherEquipment ? 'No hay checklists configurados para equipamientos. Elegí Carga Manual.' : undefined
             }
           />
-          <RequestTypeCard
-            type="preventive"
-            icon={Wrench}
-            title="Mant. Preventivo"
-            description="Programa planificado de mantenimiento"
-            selected={requestType === 'preventive'}
-            onSelect={handleChangeRequestType}
-          />
+          {/* Ticket 654: los equipamientos no tienen programa preventivo, la tarjeta no se ofrece */}
+          {!isOtherEquipment && (
+            <RequestTypeCard
+              type="preventive"
+              order={visibleRequestTypes}
+              icon={Wrench}
+              title="Mant. Preventivo"
+              description="Programa planificado de mantenimiento"
+              selected={requestType === 'preventive'}
+              onSelect={handleChangeRequestType}
+            />
+          )}
           <RequestTypeCard
             type="manual"
+            order={visibleRequestTypes}
             icon={PencilLine}
-            title="Carga Manual"
+            title="Carga Manual - Mant. Correctivo"
             description="Cargá las reparaciones sin pasar por un checklist"
             selected={requestType === 'manual'}
             onSelect={handleChangeRequestType}
@@ -1275,6 +1354,9 @@ export function NuevoPedidoChecklistForm({
         hasGroupsError={hasGroupsError}
         onRetryGroups={handleRetryGroups}
         disabled={isSubmitting}
+        // Ticket 654: para equipamientos la carga es solo manual, sin leer del
+        // listado de reparaciones (que está armado para vehículos)
+        freeTextOnly={isOtherEquipment}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { OPEN_WORK_ONLY } from './workshop-view-filters';
 
 const logger = new Logger('features/WorkshopView');
 
@@ -18,6 +19,10 @@ const logger = new Logger('features/WorkshopView');
  * se usa la key `NULL_FILTER_VALUE` (representa "Sin OT").
  *
  * No filtra por company_id (decisión de negocio — se evaluará restricción por usuario más adelante).
+ *
+ * Sí excluye las tareas cuya OT ya terminó (ticket 650), con el mismo criterio
+ * que la tabla de cada sector: si los conteos incluyeran el trabajo cerrado, el
+ * acordeón mostraría un número que no coincide con las filas de adentro.
  */
 export async function getWorkshopSectorsWithCounts() {
   logger.debug('Obteniendo sectores de taller con conteos por estado');
@@ -36,7 +41,7 @@ export async function getWorkshopSectorsWithCounts() {
       }),
       prisma.maintenance_order_items.groupBy({
         by: ['assigned_sector_id', 'work_order_id'],
-        where: { assigned_sector_id: { not: null } },
+        where: { assigned_sector_id: { not: null }, ...OPEN_WORK_ONLY },
         _count: { _all: true },
       }),
     ]);
