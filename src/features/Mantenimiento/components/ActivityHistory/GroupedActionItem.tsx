@@ -1,9 +1,8 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { ChevronDown, ChevronRight, Settings, User } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 type GroupedMetadata = Partial<{
   adds: Array<{ description: string; repairTypeIds: string[] }>;
@@ -42,6 +41,7 @@ const SECTION_LABELS: Record<keyof GroupedMetadata, string> = {
 
 export function GroupedActionItem({ performedAt, performerName, metadata, isLast }: GroupedActionItemProps) {
   const [open, setOpen] = useState(false);
+  const detailsId = useId();
   const meta = metadata ?? {};
 
   const summary = (Object.entries(meta) as Array<[keyof GroupedMetadata, unknown]>)
@@ -60,14 +60,17 @@ export function GroupedActionItem({ performedAt, performerName, metadata, isLast
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={detailsId}
           className="flex items-center gap-1 text-left hover:underline"
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           <span className="font-medium text-sm">Gestión de items actualizada</span>
-          <Badge variant="outline" className="text-xs ml-1">
-            {summary || 'sin cambios'}
-          </Badge>
         </button>
+        {/* El resumen va fuera del Badge: es una frase de largo variable
+            ("3 items agregados, 5 descripciones editadas, …") y el Badge trae
+            `whitespace-nowrap` + `overflow-hidden`, así que la cortaba. */}
+        <p className="text-xs text-muted-foreground">{summary || 'Sin cambios registrados'}</p>
 
         {performerName && (
           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -77,7 +80,7 @@ export function GroupedActionItem({ performedAt, performerName, metadata, isLast
         )}
 
         {open && (
-          <div className="mt-2 space-y-1 text-xs text-muted-foreground border-l-2 border-muted pl-3">
+          <div id={detailsId} className="mt-2 space-y-1 text-xs text-muted-foreground border-l-2 border-muted pl-3">
             {meta.adds && meta.adds.length > 0 && (
               <div>
                 <span className="font-medium">Agregados ({meta.adds.length}):</span>
@@ -115,7 +118,9 @@ export function GroupedActionItem({ performedAt, performerName, metadata, isLast
                 <span className="font-medium">Descripciones editadas ({meta.descriptionUpdates.length}):</span>
                 <ul className="list-disc pl-4">
                   {meta.descriptionUpdates.map((d, i) => (
-                    <li key={i}>{d.description}</li>
+                    <li key={i} className="whitespace-pre-wrap text-sm text-foreground">
+                      {d.description}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -125,7 +130,7 @@ export function GroupedActionItem({ performedAt, performerName, metadata, isLast
                 <span className="font-medium">Comentarios del jefe ({meta.chiefCommentUpdates.length}):</span>
                 <ul className="list-disc pl-4">
                   {meta.chiefCommentUpdates.map((c, i) => (
-                    <li key={i} className="whitespace-pre-wrap">
+                    <li key={i} className="whitespace-pre-wrap text-sm text-foreground">
                       {c.comment}
                     </li>
                   ))}

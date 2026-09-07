@@ -145,6 +145,11 @@ function getRequestItemLabel(item: RawRequestItemComment): string {
  * Aplana los items a una lista de comentarios: un item con comentario del chofer
  * y del supervisor produce dos entradas. Los items sin ningún comentario no
  * aparecen — el ticket pide mostrar los que tienen algo escrito.
+ *
+ * Deduplica por item con el mismo criterio que `getItemComments` (driverInfo.ts):
+ * en estos datos los tres campos suelen repetir el mismo texto, y sin este filtro
+ * el historial mostraba la misma frase hasta tres veces. Gana el primer autor del
+ * orden chofer → supervisor → validación, que es el orden en que se escriben.
  */
 function mapRequestItemComments(items: RawRequestItemComment[]): RequestItemComment[] {
   const comments: RequestItemComment[] = [];
@@ -163,10 +168,17 @@ function mapRequestItemComments(items: RawRequestItemComment[]): RequestItemComm
       },
     };
 
+    const seenTexts = new Set<string>();
+
     for (const author of COMMENT_AUTHOR_ORDER) {
       const { text, profile } = byAuthor[author];
       const comment = text?.trim();
       if (!comment) continue;
+
+      const normalized = comment.toLowerCase();
+      if (seenTexts.has(normalized)) continue;
+      seenTexts.add(normalized);
+
       comments.push({
         itemId: item.id,
         itemLabel,
