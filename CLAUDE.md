@@ -435,6 +435,72 @@ Un empty state que dice "No hay desvíos registrados" parece correcto hasta que 
 
 Cinco series con hues a 5–10° de distancia son **el mismo color** en pantalla, aunque en el editor los valores se vean distintos. En el 578 dos pares daban ΔE de 6.1 y 7.5 (el piso para visión normal es 15) y la línea de meta verde era indistinguible de una serie en deuteranopía. Regla: al definir una paleta de N series, medir la diferencia perceptual de **todos los pares** en modo claro y oscuro, y para visión normal y CVD — el agente `ui-skills` tiene un validador ejecutable. Además, los colores van como tokens por tema (`theme: {light, dark}`) declarados en un ancestro común, no hardcodeados: los KPI que hacen de leyenda viven fuera del `ChartContainer` y no ven las variables que inyecta shadcn.
 
+### Un cambio que "depende" de trabajo sin liberar casi siempre puede independizarse
+
+Ante el pedido de llevar a `main` un ajuste construido sobre una feature que todavía vive solo en `dev`, mi primera lectura fue "es imposible: el fix renombra una tab que en main no existe". El usuario insistió, y tenía razón: el cambio **se independiza** creando la entidad desde cero en `main` en lugar de renombrar la de `dev`, con **una migración idempotente que converge en los dos entornos**:
+
+```sql
+INSERT INTO tabs (id, ...) VALUES ('...034', 'slug', 'Nombre nuevo', ...)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
+```
+
+En prod la crea; en dev, donde la fila ya existe por la migración de la feature, solo le corrige el nombre. Manteniendo el **mismo `tab_id` y el mismo slug** en ambas ramas, la migración vieja que después llegue a `main` (con timestamp anterior y `ON CONFLICT DO NOTHING`) se vuelve un no-op y no pisa nada.
+
+Flujo: rama desde `origin/main` con la versión autónoma → PR a `main`; después una segunda rama desde `origin/dev` que mergea la primera y resuelve los conflictos integrando lo de la feature (mover la carpeta, unificar la tab, un solo TabContent). Verificar SIEMPRE con `gh pr view <n> --json files` que el PR a main no arrastre archivos de la feature. Extiende [[mandar un fix aislado a main]].
+
+**Antes de declarar algo imposible por dependencias entre ramas, preguntarse qué parte del cambio es realmente autónoma y si el DDL puede escribirse para converger.**
+
+### El alcance lo define el ticket + la reunión grabada: si no se dice, NO se toca
+
+Regla del usuario, absoluta: **solo se modifica lo que el ticket o el video de la reunión dicen que hay que modificar.** Si algo no se menciona en ninguno de los dos, queda tal cual — aunque quede inconsistente con lo que sí se cambió, aunque "de paso" parezca una mejora obvia, aunque use un patrón deprecado.
+
+En el 594 esto aplicó dos veces: la pantalla **Equipos → Mantenimiento** (`EquiposComponent` → `RepairTypes` → `OperacionesTabContent`) monta un pipeline viejo con su propia tabla "Para Taller" y `BaseDataTable` (sistema deprecado); como el video solo habla del módulo Mantenimiento, no se tocó. Y la tabla de Seguimiento usa el patrón **bulk** de facets (`getXxxFacets` + `externalCounts`), deprecado a favor de `fetchFacet` lazy-load: se respetó el patrón existente en vez de migrarla.
+
+**Cuando aparezca una duda de alcance y exista un video de la reunión, la respuesta está ahí — hay que buscarla, no resolverla por criterio propio ni preguntar de entrada.** Cómo buscarla bien:
+
+1. **Barrido de keywords sobre el transcript completo** (`elimin|borr|sacar|volar|desaparec|limpi|queda|dejar` + el nombre de la pantalla), no solo del tramo que uno cree relevante.
+2. **Re-transcribir el tramo dudoso con `whisper-large-v3`** (no el turbo) pasando `language=es`, `temperature=0` y un `prompt` con la jerga del dominio. La diferencia es enorme: el turbo devolvió _"pendiente de ingresos de ayer"_ y _"que no ocurre a mí"_ donde en realidad decía _"pendiente de ingreso a taller"_ y _"se me ocurre a mí"_.
+3. **Mirar los frames de esos segundos exactos** con `--timestamps`: qué señala el mouse, qué pantalla está abierta, y sobre todo **qué está escribiendo en el ticket**. En el 594 la prueba decisiva fue ver que borraba su propia objeción (_"no lo veo recomendable por ahora"_) y la reemplazaba por la instrucción contraria. Una decisión puede revertirse dentro del mismo video: no alcanza con la primera frase que uno encuentra.
+
+Corolario sobre **borrar código**: el video decide sobre _pantallas_, no sobre archivos. Pero si al sacar algo de la UI el código queda sin ningún consumidor, **se borra** (el usuario lo autorizó explícitamente) — nunca sin antes mapear los importadores reales con grep, porque puede haber una pantalla viva colgando de ahí. Extiende [[analizar impacto en lo vinculado]] y [[cambios en componentes compartidos: opt-in]].
+
+### Una funcionalidad nueva HEREDA el comportamiento del flujo donde se inserta
+
+Al agregar un camino nuevo dentro de un flujo existente, el default es **replicar las reglas que ya rigen ese flujo**, no diseñar reglas propias. Si el sistema hoy auto-aprueba cuando quien carga es el supervisor, el camino nuevo también auto-aprueba. Cambiar eso es **cambiar el flujo**, y eso solo se hace si el ticket o el video lo piden.
+
+En el 592 hice que la "Carga Manual" pasara siempre por validación de Operaciones, razonando por mi cuenta que un pedido sin checklist que lo respalde merecía más control. El usuario lo cortó en seco: _"aquí no vinimos a cambiar flujos"_. Aunque el razonamiento sea defendible, introduce una asimetría que nadie pidió y que el usuario tiene que descubrir probando.
+
+**Señal de alerta**: si estoy por escribir en un comentario o en un reporte una justificación del tipo _"lo hice así porque me pareció más prudente"_ sobre una regla de negocio, es que estoy decidiendo algo que no me toca. La pregunta correcta no es _"¿qué comportamiento es mejor?"_ sino _"¿qué hace hoy el flujo del que esto forma parte?"_.
+
+Corolario técnico: heredar el comportamiento suele ser MÁS trabajo, no menos (en el 592 obligó a crear también la orden y sus items, mapeando el texto libre a la descripción para que el taller no viera un ítem en blanco). Ese trabajo extra es parte del ticket, no una razón para simplificar el comportamiento. Extiende [[alcance: lo fija el ticket + el video]].
+
+### Mutaciones M:M: enviar altas y bajas EXPLÍCITAS, nunca "borrar todo e insertar lo nuevo"
+
+Al actualizar una relación M:M (afectaciones cliente↔empleado/equipo, aptitudes, sectores de taller), **nunca** mandar el conjunto final para que el servidor borre por diferencia, ni hacer `deleteMany()` + `createMany()` de todo. Se envían **los ids explícitos**: si hay que quitar uno, va el id de ese; si hay que agregar dos, van esos dos. **La ausencia de un id no significa nada** — jamás debe implicar borrado.
+
+El 26/08/2026 un solo guardado en Comercial → Clientes → Empleados borró **149 afectaciones** de Vista Oil. El modal calculaba la preselección desde el estado de la pantalla (tres `setEmployees` asincrónicos compitiendo entre sí) y el botón "Cargar empleados" no estaba bloqueado durante la carga: se abrió con el combo vacío, el operador tildó un empleado y el servidor leyó "los otros 260 ya no están en la lista" = borrarlos. Y el toast dijo _"Empleados asignados correctamente"_ porque la server action capturaba el error y lo **devolvía** en vez de lanzarlo, así que el `catch` del cliente nunca corría.
+
+**Cómo se implementa** (referencia: `updateCustomerEmployeeAssignments` en `src/features/Empresa/Clientes/actions.ts`):
+
+1. Server action con firma `updateXxx(parentId, { add: string[], remove: string[] })`; el `DELETE` va acotado a `parent_id = X AND child_id IN (remove)` y el `INSERT` solo a `add`, todo en una `$transaction`. Retorna `{ added, removed }` reales.
+2. El baseline se lee **de la base al abrir el modal** (query directa a la pivote), nunca del estado de la pantalla. Sin baseline cargado **no se puede guardar**: combo deshabilitado con spinner y submit bloqueado.
+3. Mostrar el delta **antes** de confirmar ("N afectados actualmente. Se agregan X. Se quitan Y." — las bajas en rojo) y el toast con los números que devolvió el servidor.
+4. Un reemplazo total solo es aceptable si el formulario se renderiza **desde el servidor** con el estado real y acotado a UNA entidad (ej. `allocated_to` en el legajo del empleado, que sale de `employee.contractor_employee` en el mismo request): ahí no hay carrera posible.
+
+Ojo adicional: `contractor_employee` no tiene triggers de auditoría ni historial, y el proyecto **no tiene PITR** (`archive_mode = off` en prod). Un borrado masivo en una pivote es irrecuperable salvo por el backup diario de Supabase o por el clon de dev. Extiende [[no culpar al operador: buscar el fallo silencioso]] y [[created_at no es fecha de alta si el código hace delete+insert]].
+
+### Cambiar un trigger que escribe texto: verificarlo con un evento NUEVO, no mirando el historial
+
+Al reemplazar un texto hardcodeado dentro de un trigger de Postgres, `pg_get_functiondef` confirma que la **función** cambió, pero eso NO prueba que la UI muestre el texto nuevo: las filas ya escritas conservan el texto viejo materializado en su columna. Abrir el historial de un registro existente y ver la frase anterior parece un fix que falló, y no lo es.
+
+La verificación correcta es **provocar un evento nuevo desde la UI** (en el 596: planificar un pedido para disparar `date_confirmed`) y leer la fila recién insertada. Además, hay que **decirle al usuario que los registros anteriores siguen mostrando el texto viejo** y dejarle a él la decisión de reescribirlos — es su dato histórico, no una decisión de implementación. En el 596 quedaron 894 filas con "Fecha aprobada por operaciones", incluidas las de los pedidos de prueba de la demo, que es justo donde el usuario iba a mirar.
+
+### "¿Lo verificaste?" es la señal de que reporté terminado demasiado pronto
+
+Correr `check-types`, consultar la BD y leer el diff **no es haber verificado una feature de UI**. En esta sesión reporté los cambios como listos y el usuario tuvo que preguntar "¿las subiste y las verificaste?": faltaba la pasada por el navegador, que es donde aparecieron los bugs de las sesiones anteriores (las 2 fotos que se perdían, el `commitPendingDraft` incompleto) — ninguno de los dos lo habría detectado el compilador.
+
+Regla: mientras falte la prueba en la app real, el estado se reporta como **"subido, verificación visual pendiente"**, nunca como "listo". Y al verificar, medir en el DOM (`getBoundingClientRect`, opacidad efectiva de los ancestros, cantidad de `<img>`) en vez de mirar un screenshot: el screenshot no distingue "0 fotos" de "fotos que no scrollée hasta ver", ni un modal que desborda de uno que scrollea. Extiende [[no culpar al operador: buscar el fallo silencioso]].
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

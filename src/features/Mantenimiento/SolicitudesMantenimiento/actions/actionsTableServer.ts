@@ -60,8 +60,10 @@ function buildWhereClauseSync(
   });
 
   const baseWhere = {
-    // Solo solicitudes pendientes de aprobación y rechazadas (paso "Validar Solicitud")
-    status: { in: ['pending_approval', 'rejected'] },
+    // Solo solicitudes pendientes de aprobación (paso "Validar Solicitud").
+    // Las rechazadas se limpian de este listado: quedan como registro histórico
+    // en el legajo del equipo, tab "Historial de Mantenimiento".
+    status: 'pending_approval',
     ...filtersWhere,
     ...textFiltersWhere,
     ...dateFiltersWhere,

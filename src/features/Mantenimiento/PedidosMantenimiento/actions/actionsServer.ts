@@ -1,5 +1,7 @@
 'use server';
 
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -26,8 +28,15 @@ const MAINTENANCE_ORDER_ITEMS_INCLUDE = {
   types_of_repairs: {
     select: { id: true, name: true },
   },
+  // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+  maintenance_request_groups: {
+    select: { id: true, name: true },
+  },
   maintenance_request_items: {
     include: {
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,
@@ -64,8 +73,15 @@ const MAINTENANCE_ORDER_ITEMS_INCLUDE_WITH_ANSWER_DATA = {
   types_of_repairs: {
     select: { id: true, name: true },
   },
+  // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+  maintenance_request_groups: {
+    select: { id: true, name: true },
+  },
   maintenance_request_items: {
     include: {
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,
@@ -162,6 +178,16 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
             engine_hours: true,
           },
         },
+        // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -224,8 +250,8 @@ export async function getMaintenanceOrdersPending() {
       orderBy: [
         // pending_scheduling (p) antes que scheduled (s) — desc porque 'p' > 's' alfabéticamente
         { status: 'desc' },
-        // De más viejo a más reciente
-        { created_at: 'asc' },
+        // Lo ultimo cargado primero
+        { created_at: 'desc' },
       ],
       select: {
         id: true,
@@ -249,6 +275,8 @@ export async function getMaintenanceOrdersPending() {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        // Ticket 592: texto del pedido cargado manualmente (lo muestran los dialogos de detalle/entrada)
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -266,6 +294,16 @@ export async function getMaintenanceOrdersPending() {
             engine_hours: true,
           },
         },
+        // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -275,6 +313,7 @@ export async function getMaintenanceOrdersPending() {
             supervisor_id: true,
             source: true,
             preventive_type: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -320,7 +359,7 @@ export async function getMaintenanceOrdersConfirmed() {
         // Cuando no hay filtro de supervisor, omitimos la condición (todos los pedidos confirmados)
         ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
       },
-      orderBy: { created_at: 'asc' }, // De más viejo a más reciente
+      orderBy: { created_at: 'desc' }, // Lo ultimo cargado primero
       select: {
         id: true,
         equipment_id: true,
@@ -343,6 +382,8 @@ export async function getMaintenanceOrdersConfirmed() {
         date_rejection_reason: true,
         source: true,
         order_number: true,
+        // Ticket 592: texto del pedido cargado manualmente (lo muestran los dialogos de detalle/entrada)
+        description: true,
         workshop_validated_at: true,
         workshop_validation_notes: true,
         operations_validated_by: true,
@@ -360,6 +401,16 @@ export async function getMaintenanceOrdersConfirmed() {
             engine_hours: true,
           },
         },
+        // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -369,6 +420,7 @@ export async function getMaintenanceOrdersConfirmed() {
             supervisor_id: true,
             source: true,
             preventive_type: true,
+            description: true,
             profile_maintenance_requests_supervisor_idToprofile: {
               select: { id: true, fullname: true },
             },
@@ -441,6 +493,16 @@ export async function getMaintenanceOrderById(orderId: string) {
             engine_hours: true,
           },
         },
+        // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -476,7 +538,11 @@ export async function getMaintenanceOrderById(orderId: string) {
 // ─── Funciones WRITE ─────────────────────────────────────────────────────────
 
 /**
- * Planifica un pedido de mantenimiento asignando una fecha
+ * Planifica un pedido de mantenimiento asignando una fecha.
+ *
+ * La fecha que programa el taller es directamente la fecha de reparacion: ya no
+ * requiere aprobacion de Operaciones, por eso el pedido queda en 'date_confirmed'
+ * y pasa directo al paso "Por Ingresar" del taller.
  */
 export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
   serverLogger.info('Planificando pedido de mantenimiento', {
@@ -487,14 +553,37 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
   const profile = await requireServerAuthProfile();
 
   try {
-    const data = await prisma.maintenance_orders.update({
-      where: { id: input.orderId },
-      data: {
-        status: 'scheduled',
-        scheduled_date: input.scheduledDate ? new Date(input.scheduledDate) : null,
-        scheduled_by: profile.id,
-        scheduled_at: new Date(),
-      },
+    // Transaccion: el update y el registro de actividad van juntos para que el
+    // historial nunca quede sin el evento "fecha programada" (lo reclamo el cliente).
+    const data = await prisma.$transaction(async (tx) => {
+      const previous = await tx.maintenance_orders.findUnique({
+        where: { id: input.orderId },
+        select: { status: true },
+      });
+
+      const updated = await tx.maintenance_orders.update({
+        where: { id: input.orderId },
+        data: {
+          status: 'date_confirmed',
+          scheduled_date: input.scheduledDate ? new Date(input.scheduledDate) : null,
+          scheduled_by: profile.id,
+          scheduled_at: new Date(),
+        },
+      });
+
+      await logActivity(tx, {
+        maintenanceOrderId: updated.id,
+        actionType: ACTIVITY_LOG.SCHEDULED,
+        performedBy: profile.id,
+        previousStatus: previous?.status ?? null,
+        newStatus: 'date_confirmed',
+        metadata: {
+          // ISO: el historial lo formatea con moment al renderizar
+          scheduled_date: updated.scheduled_date?.toISOString() ?? null,
+        },
+      });
+
+      return updated;
     });
 
     serverLogger.info('Pedido planificado exitosamente', { data: { orderId: input.orderId } });
@@ -526,7 +615,7 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
     // Obtener el pedido para saber el equipment_id
     const order = await prisma.maintenance_orders.findUnique({
       where: { id: input.orderId },
-      select: { equipment_id: true },
+      select: { equipment_id: true, other_equipment_id: true },
     });
 
     if (!order) {
@@ -535,7 +624,9 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
       throw new Error(errorMsg);
     }
 
-    // Transacción atómica: actualizar pedido + vehículo simultáneamente
+    // Transacción atómica: actualizar pedido + recurso simultáneamente.
+    // El pedido es de un vehículo o de un equipamiento (ticket 596): los
+    // equipamientos no llevan kilometraje, y sus horas van en `horometer`.
     await prisma.$transaction([
       prisma.maintenance_orders.update({
         where: { id: input.orderId },
@@ -545,14 +636,29 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
           workshop_approved_by: profile.id,
         },
       }),
-      prisma.vehicles.update({
-        where: { id: order.equipment_id },
-        data: {
-          kilometer: input.kilometer,
-          condition: 'no_operativo',
-          ...(input.engine_hours ? { engine_hours: input.engine_hours } : {}),
-        },
-      }),
+      ...(order.equipment_id
+        ? [
+            prisma.vehicles.update({
+              where: { id: order.equipment_id },
+              data: {
+                ...(input.kilometer ? { kilometer: input.kilometer } : {}),
+                condition: 'no_operativo',
+                ...(input.engine_hours ? { engine_hours: input.engine_hours } : {}),
+              },
+            }),
+          ]
+        : []),
+      ...(order.other_equipment_id
+        ? [
+            prisma.other_equipment.update({
+              where: { id: order.other_equipment_id },
+              data: {
+                condition: 'no_operativo',
+                ...(input.engine_hours ? { horometer: Number(input.engine_hours) } : {}),
+              },
+            }),
+          ]
+        : []),
     ]);
 
     // Generar número de orden de mantenimiento (OM-DOMAIN-XXXXXX)

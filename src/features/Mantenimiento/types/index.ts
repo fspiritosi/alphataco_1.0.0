@@ -63,7 +63,8 @@ export interface ScheduleOrderInput {
 
 export interface ApproveWorkshopEntryInput {
   orderId: string;
-  kilometer: string;
+  /** Un equipamiento no lleva kilometraje (ticket 596): solo llega para vehiculos */
+  kilometer?: string;
   engine_hours?: string;
 }
 

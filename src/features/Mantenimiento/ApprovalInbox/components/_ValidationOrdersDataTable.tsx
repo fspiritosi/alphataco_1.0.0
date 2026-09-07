@@ -13,6 +13,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Clock, Eye } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
+import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import type { ValidationOrdersData } from '../actions/actionsServer';
 
 // ============================================================================
@@ -31,13 +32,9 @@ function getSectors(order: ValidationOrder): string[] {
   return [...new Set(names)];
 }
 
+/** Ticket 596: la orden puede ser de un vehiculo o de un equipamiento */
 function getVehicleLabel(order: ValidationOrder): string {
-  const v = order.vehicles;
-  if (!v) return 'Sin identificar';
-  if (v.domain) return v.domain;
-  if (v.serie) return v.serie;
-  if (v.intern_number) return `N° ${v.intern_number}`;
-  return 'Sin identificar';
+  return getResourceLabel(order);
 }
 
 // ============================================================================
@@ -100,13 +97,14 @@ function ValidationOrdersTable({
         meta: { title: 'Equipo' },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
         cell: ({ row }) => {
-          const vehicle = row.original.vehicles;
+          const internNumber = getResourceInternNumber(row.original);
           return (
             <div className="flex flex-col">
               <span className="font-medium">{getVehicleLabel(row.original)}</span>
-              {vehicle?.intern_number && (
-                <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-              )}
+              <span className="text-xs text-muted-foreground">
+                {getResourceKindLabel(row.original)}
+                {internNumber ? ` · #${internNumber}` : ''}
+              </span>
             </div>
           );
         },

@@ -2,6 +2,7 @@
 
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
+import { getResourceLabel } from '../../shared/maintenance-resource';
 import type { ExternalWorkshop, OrderManagementData, WorkshopSector } from '../actions/actionsServer';
 import { useOrderManagement } from '../hooks/useOrderManagement';
 import { ManageOrderWizard } from './ManageOrderWizard';
@@ -46,8 +47,9 @@ export function OrderManagementClient({
   const equipmentOptions = useMemo(() => {
     const map = new Map<string, string>();
     (orders || []).forEach((order) => {
-      const domain = order.vehicles?.domain || order.vehicles?.serie;
-      if (domain) map.set(domain, domain);
+      // Ticket 596: sin esto los equipamientos quedaban fuera del filtro de equipo
+      const label = getResourceLabel(order);
+      if (label && label !== 'Sin identificar') map.set(label, label);
     });
     return Array.from(map.values()).map((v) => ({ label: v, value: v }));
   }, [orders]);

@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import moment from 'moment';
+import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import type { WorkshopSectorTaskListItem } from './actions.server';
 
 // ============================================================================
@@ -184,18 +185,23 @@ export function getWorkshopSectorTasksColumns(): ColumnDef<WorkshopSectorTaskLis
     // ── Vehículo (a través de maintenance_orders.vehicles) ─────────────────
     {
       id: 'vehicle',
-      accessorFn: (row) => {
-        const v = row.maintenance_orders?.vehicles;
-        if (!v) return '';
-        return [v.domain, v.serie, v.intern_number ? `(${v.intern_number})` : ''].filter(Boolean).join(' ');
-      },
+      // Ticket 596: la tarea puede ser de un vehiculo o de un equipamiento
+      accessorFn: (row) => (row.maintenance_orders ? getResourceLabel(row.maintenance_orders) : ''),
       meta: { title: 'Equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const v = row.original.maintenance_orders?.vehicles;
-        if (!v) return <span className="text-muted-foreground">—</span>;
-        const label = [v.domain, v.serie, v.intern_number ? `(${v.intern_number})` : ''].filter(Boolean).join(' ');
-        return <span className="font-medium">{label}</span>;
+        const order = row.original.maintenance_orders;
+        if (!order) return <span className="text-muted-foreground">—</span>;
+        const internNumber = getResourceInternNumber(order);
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{getResourceLabel(order)}</span>
+            <span className="text-xs text-muted-foreground">
+              {getResourceKindLabel(order)}
+              {internNumber ? ` · #${internNumber}` : ''}
+            </span>
+          </div>
+        );
       },
       filterFn: (row, _id, value: string[]) => {
         const id = row.original.maintenance_orders?.vehicles?.id;

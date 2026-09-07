@@ -2,6 +2,11 @@
 
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import {
+  getResourceKind,
+  getResourceLabel,
+  resourceIdFields,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
@@ -11,6 +16,14 @@ import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../../utils/constants';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('OrderManagement/actions');
+
+/**
+ * `other_equipment.horometer` es un Decimal de Prisma: como instancia de clase no
+ * sobrevive el limite server → client de los Server Actions, asi que viaja como texto.
+ */
+function serializeOtherEquipment<T extends { horometer: { toString(): string } | null }>(equipment: T) {
+  return { ...equipment, horometer: equipment.horometer?.toString() ?? null };
+}
 
 // =============================================================================
 // QUERIES
@@ -48,6 +61,18 @@ export async function getMaintenanceOrdersForManagement() {
             kilometer: true,
             engine_hours: true,
             type_vehicles_typeTotype: { select: { id: true, name: true } },
+          },
+        },
+        // Ticket 596: el pedido puede apuntar a un equipamiento en vez de a un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            company_id: true,
+            condition: true,
+            horometer: true,
+            type: { select: { id: true, name: true } },
           },
         },
         maintenance_requests: {
@@ -90,6 +115,9 @@ export async function getMaintenanceOrdersForManagement() {
                     driver_comment: true,
                   },
                 },
+                // Grupo del que salio la reparacion: al expandir un grupo entran
+                // muchos items de golpe y el taller necesita distinguirlos.
+                maintenance_request_groups: { select: { id: true, name: true } },
               },
             },
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
@@ -99,6 +127,7 @@ export async function getMaintenanceOrdersForManagement() {
               },
             },
             workshop_sectors: { select: { id: true, name: true } },
+            maintenance_request_groups: { select: { id: true, name: true } },
           },
         },
       },
@@ -113,6 +142,7 @@ export async function getMaintenanceOrdersForManagement() {
             vehicle_type: order.vehicles.type_vehicles_typeTotype,
           }
         : null,
+      other_equipment: order.other_equipment ? serializeOtherEquipment(order.other_equipment) : null,
       maintenance_requests: order.maintenance_requests
         ? {
             ...order.maintenance_requests,
@@ -134,6 +164,14 @@ export async function getMaintenanceOrdersForManagement() {
               rejection_reason: item.maintenance_request_items.rejection_reason,
               created_at: item.maintenance_request_items.created_at,
               description: item.maintenance_request_items.description,
+              // Ticket 592: el wizard arma el titulo con `free_text` y muestra las
+              // fotos que cargo el supervisor. Este re-mapeo enumeraba los campos a
+              // mano y los dejaba afuera, por eso el modal de gestion no mostraba
+              // NINGUNA foto aunque la query ya las traia.
+              free_text: item.maintenance_request_items.free_text,
+              images: item.maintenance_request_items.images,
+              maintenance_group_id: item.maintenance_request_items.maintenance_group_id,
+              maintenance_request_groups: item.maintenance_request_items.maintenance_request_groups,
               driver_comment: item.maintenance_request_items.driver_comment,
               validator_comment: item.maintenance_request_items.validator_comment,
               driver_comment_by: item.maintenance_request_items.driver_comment_by,
@@ -181,6 +219,18 @@ export async function getOrderForManagement(orderId: string) {
             type_vehicles_typeTotype: { select: { id: true, name: true } },
           },
         },
+        // Ticket 596: el pedido puede apuntar a un equipamiento en vez de a un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            company_id: true,
+            condition: true,
+            horometer: true,
+            type: { select: { id: true, name: true } },
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -221,6 +271,9 @@ export async function getOrderForManagement(orderId: string) {
                     driver_comment: true,
                   },
                 },
+                // Grupo del que salio la reparacion: al expandir un grupo entran
+                // muchos items de golpe y el taller necesita distinguirlos.
+                maintenance_request_groups: { select: { id: true, name: true } },
               },
             },
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
@@ -230,6 +283,7 @@ export async function getOrderForManagement(orderId: string) {
               },
             },
             workshop_sectors: { select: { id: true, name: true } },
+            maintenance_request_groups: { select: { id: true, name: true } },
           },
         },
       },
@@ -248,6 +302,7 @@ export async function getOrderForManagement(orderId: string) {
             vehicle_type: order.vehicles.type_vehicles_typeTotype,
           }
         : null,
+      other_equipment: order.other_equipment ? serializeOtherEquipment(order.other_equipment) : null,
       maintenance_requests: order.maintenance_requests
         ? {
             ...order.maintenance_requests,
@@ -269,6 +324,14 @@ export async function getOrderForManagement(orderId: string) {
               rejection_reason: item.maintenance_request_items.rejection_reason,
               created_at: item.maintenance_request_items.created_at,
               description: item.maintenance_request_items.description,
+              // Ticket 592: el wizard arma el titulo con `free_text` y muestra las
+              // fotos que cargo el supervisor. Este re-mapeo enumeraba los campos a
+              // mano y los dejaba afuera, por eso el modal de gestion no mostraba
+              // NINGUNA foto aunque la query ya las traia.
+              free_text: item.maintenance_request_items.free_text,
+              images: item.maintenance_request_items.images,
+              maintenance_group_id: item.maintenance_request_items.maintenance_group_id,
+              maintenance_request_groups: item.maintenance_request_items.maintenance_request_groups,
               driver_comment: item.maintenance_request_items.driver_comment,
               validator_comment: item.maintenance_request_items.validator_comment,
               driver_comment_by: item.maintenance_request_items.driver_comment_by,
@@ -993,8 +1056,20 @@ export async function getOrderGenerationPreview(orderId: string) {
       select: {
         id: true,
         equipment_id: true,
+        // Ticket 596: el pedido puede apuntar a un equipamiento en vez de a un vehiculo
+        other_equipment_id: true,
         vehicles: {
-          select: { id: true, domain: true, serie: true, company_id: true },
+          select: { id: true, domain: true, serie: true, intern_number: true, company_id: true },
+        },
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            company_id: true,
+            condition: true,
+            horometer: true,
+          },
         },
         maintenance_order_items: {
           select: {
@@ -1086,7 +1161,9 @@ export async function getOrderGenerationPreview(orderId: string) {
     return {
       orderId: order.id,
       equipmentId: order.equipment_id,
+      otherEquipmentId: order.other_equipment_id,
       vehicle: order.vehicles,
+      otherEquipment: order.other_equipment ? serializeOtherEquipment(order.other_equipment) : null,
       sectors: Array.from(sectorMap.values()),
     };
   } catch (error) {
@@ -1117,16 +1194,18 @@ export async function generateWorkOrdersForOrder(
       throw new Error('No hay items elegibles para generar ordenes de trabajo');
     }
 
-    const vehicle = preview.vehicle;
-    if (!vehicle) {
-      throw new Error('No se pudo obtener informacion del vehiculo');
+    // Ticket 596: el pedido apunta a un vehiculo O a un equipamiento (excluyentes)
+    const resource = { vehicles: preview.vehicle, other_equipment: preview.otherEquipment };
+    const resourceId = preview.equipmentId ?? preview.otherEquipmentId;
+    const companyId = preview.vehicle?.company_id ?? preview.otherEquipment?.company_id ?? null;
+
+    if (!resourceId || !(preview.vehicle ?? preview.otherEquipment)) {
+      throw new Error('No se pudo obtener informacion del equipo');
     }
 
-    const companyId = vehicle.company_id;
-    const domain = vehicle.domain;
-    const serie = vehicle.serie;
-
     if (!companyId) throw new Error('No se pudo determinar la empresa');
+
+    const resourceKind = getResourceKind(resource);
 
     // 2. Obtener el workshop_id de la primera asignacion que tenga sector asignado
     const workshopItem = await prisma.maintenance_order_items.findFirst({
@@ -1162,8 +1241,12 @@ export async function generateWorkOrdersForOrder(
       const sequenceNumber = (lastWorkOrder?.sequence_number ?? 0) + 1;
 
       // Formatear numero de OT: OT-{EQUIPO}-{SECTOR/TALLER}-{SECUENCIA}
-      const identifier = domain ?? serie ?? 'EQUIPO';
-      const cleanIdentifier = identifier.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+      // El identificador sale del recurso: patente/serie del vehiculo, o N° de serie
+      // (o interno) del equipamiento, que no tiene dominio.
+      const cleanIdentifier =
+        getResourceLabel(resource)
+          .replace(/[^A-Z0-9]/gi, '')
+          .toUpperCase() || 'EQUIPO';
       const cleanSector = sector.sectorName
         .replace(/[^A-Z]/gi, '')
         .toUpperCase()
@@ -1183,7 +1266,7 @@ export async function generateWorkOrdersForOrder(
             order_number: orderNumber,
             sequence_number: sequenceNumber,
             company_id: companyId,
-            equipment_id: preview.equipmentId,
+            ...resourceIdFields(resourceKind, resourceId),
             workshop_id: woWorkshopId,
             sector_id: woSectorId ?? undefined,
             status: 'pending',
@@ -1660,7 +1743,5 @@ export async function getMaintenanceTaskGroupsWithRepairTypes() {
   }
 }
 
-export type MaintenanceTaskGroupsWithRepairTypes = Awaited<
-  ReturnType<typeof getMaintenanceTaskGroupsWithRepairTypes>
->;
+export type MaintenanceTaskGroupsWithRepairTypes = Awaited<ReturnType<typeof getMaintenanceTaskGroupsWithRepairTypes>>;
 export type MaintenanceTaskGroupWithRepairTypes = MaintenanceTaskGroupsWithRepairTypes[number];

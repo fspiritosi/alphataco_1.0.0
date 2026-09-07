@@ -43,7 +43,9 @@ interface SectorCardProps {
 
 type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
 
-const statusBadgeVariants: Record<string, BadgeVariant> = {
+// Exportados: el detalle de orden rotula el estado de cada tarea con los mismos
+// textos y colores que las tarjetas de sector, para que no haya dos vocabularios.
+export const statusBadgeVariants: Record<string, BadgeVariant> = {
   pending: 'secondary',
   pending_approval: 'warning',
   in_progress: 'warning',
@@ -54,7 +56,7 @@ const statusBadgeVariants: Record<string, BadgeVariant> = {
   blocked: 'outline',
 };
 
-const statusLabels: Record<string, string> = {
+export const statusLabels: Record<string, string> = {
   pending: 'Pendiente',
   pending_approval: 'Pend. Aprobacion',
   in_progress: 'En progreso',

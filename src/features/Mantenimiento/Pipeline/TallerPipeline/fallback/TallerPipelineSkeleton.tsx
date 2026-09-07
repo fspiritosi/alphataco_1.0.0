@@ -2,7 +2,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function TallerPipelineSkeleton() {
   return (
-    <div className="space-y-6">
+    // Mismo pt-4 que PipelineLayout para que no salte el layout al hidratar
+    <div className="pt-4 space-y-6">
       {/* Skeleton de chevrones del pipeline */}
       <div className="flex gap-0">
         {Array.from({ length: 4 }).map((_, i) => (

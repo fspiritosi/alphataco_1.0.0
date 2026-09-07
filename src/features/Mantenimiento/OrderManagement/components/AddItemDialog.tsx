@@ -14,16 +14,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Layers, Search, Wrench, X } from 'lucide-react';
@@ -67,10 +61,7 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
     [selectedRepairTypeIds, repairTypes]
   );
 
-  const selectedGroup = useMemo(
-    () => groups?.find((g) => g.id === selectedGroupId),
-    [groups, selectedGroupId]
-  );
+  const selectedGroup = useMemo(() => groups?.find((g) => g.id === selectedGroupId), [groups, selectedGroupId]);
 
   const handleToggleRepairType = (repairTypeId: string) => {
     setSelectedRepairTypeIds((prev) =>
@@ -125,15 +116,30 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
   const filteredCount = filteredRepairTypes.length;
   const groupsAvailable = (groups?.length ?? 0) > 0;
 
+  // Opciones del combobox: "Sin grupo" primero y el resto con el conteo de tareas.
+  // Se puede buscar tambien por el nombre de las tareas del grupo, que es lo que
+  // el supervisor suele recordar.
+  const groupOptions = useMemo(
+    () => [
+      { value: NONE_GROUP_VALUE, label: 'Sin grupo' },
+      ...(groups ?? []).map((group) => ({
+        value: group.id,
+        label: group.repairTypes.length > 0 ? `${group.name} (${group.repairTypes.length})` : group.name,
+        keywords: group.repairTypes.map((type) => type.name ?? '').join(' '),
+      })),
+    ],
+    [groups]
+  );
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Agregar Reparación</DialogTitle>
           <DialogDescription>Agregar una reparación extra a la orden de mantenimiento</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 overflow-y-auto min-h-0">
           <div className="space-y-2">
             <Label htmlFor="repair-description">
               Descripción <span className="text-destructive">*</span>
@@ -158,24 +164,16 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
             {isLoadingGroups ? (
               <Skeleton className="h-10 w-full" />
             ) : (
-              <Select value={selectedGroupId} onValueChange={handleSelectGroup} disabled={!groupsAvailable}>
-                <SelectTrigger id="task-group">
-                  <SelectValue
-                    placeholder={groupsAvailable ? 'Seleccionar un grupo de tareas' : 'No hay grupos disponibles'}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_GROUP_VALUE}>Sin grupo</SelectItem>
-                  {groups?.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                      {group.repairTypes.length > 0 && (
-                        <span className="ml-1 text-xs text-muted-foreground">({group.repairTypes.length})</span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id="task-group"
+                value={selectedGroupId}
+                onValueChange={handleSelectGroup}
+                disabled={!groupsAvailable}
+                options={groupOptions}
+                placeholder={groupsAvailable ? 'Seleccionar un grupo de tareas' : 'No hay grupos disponibles'}
+                searchPlaceholder="Buscar grupo o tarea..."
+                emptyMessage="No se encontro el grupo"
+              />
             )}
             {selectedGroup?.description && (
               <p className="text-xs text-muted-foreground italic">{selectedGroup.description}</p>
@@ -284,7 +282,7 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>

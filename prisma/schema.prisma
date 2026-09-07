@@ -1823,6 +1823,9 @@ model maintenance_order_items {
   work_orders                                                        work_orders?                          @relation(fields: [work_order_id], references: [id], onUpdate: NoAction)
   profile_maintenance_order_items_workshop_chief_comment_byToprofile profile?                              @relation("maintenance_order_items_workshop_chief_comment_byToprofile", fields: [workshop_chief_comment_by], references: [id], onUpdate: NoAction)
   work_order_items                                                   work_order_items[]
+  /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
+  maintenance_group_id                                               String?                               @db.Uuid
+  maintenance_request_groups                                         maintenance_request_groups?           @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_order_items_group_fkey")
 
   @@index([maintenance_order_id], map: "idx_maintenance_order_items_order")
   @@index([maintenance_request_item_id], map: "idx_maintenance_order_items_request_item")
@@ -1831,6 +1834,7 @@ model maintenance_order_items {
   @@index([planned_start_date, planned_end_date], map: "idx_moi_planned_dates")
   @@index([work_order_id], map: "idx_moi_work_order")
   @@schema("public")
+  @@index([maintenance_group_id], map: "idx_maintenance_order_items_group")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1838,7 +1842,10 @@ model maintenance_order_items {
 model maintenance_orders {
   id                                                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   maintenance_request_id                                   String?                    @db.Uuid
-  equipment_id                                             String                     @db.Uuid
+  /// Ticket 596: nullable — el pedido puede ser de un vehiculo O de un equipamiento
+  equipment_id                                             String?                    @db.Uuid
+  /// Ticket 596: equipamiento (other_equipment). Excluyente con equipment_id (CHECK en BD)
+  other_equipment_id                                       String?                    @db.Uuid
   status                                                   String                     @default("pending_scheduling")
   scheduled_date                                           DateTime?                  @db.Date
   scheduled_by                                             String?                    @db.Uuid
@@ -1870,7 +1877,8 @@ model maintenance_orders {
   maintenance_order_items                                  maintenance_order_items[]
   profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_orders_date_rejected_byToprofile     profile?                   @relation("maintenance_orders_date_rejected_byToprofile", fields: [date_rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vehicles                                                 vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles                                                 vehicles?                  @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_equipment                                          other_equipment?           @relation(fields: [other_equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   maintenance_requests                                     maintenance_requests?      @relation(fields: [maintenance_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                                                    users?                     @relation(fields: [operations_validated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_orders_rejected_byToprofile          profile?                   @relation("maintenance_orders_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1893,6 +1901,8 @@ model maintenance_request_groups {
   is_active                         Boolean                             @default(true)
   created_at                        DateTime                            @default(now()) @db.Timestamptz(6)
   maintenance_group_type_of_repairs maintenance_group_type_of_repairs[]
+  maintenance_order_items           maintenance_order_items[]
+  maintenance_request_items         maintenance_request_items[]
 
   @@schema("public")
 }
@@ -1902,12 +1912,17 @@ model maintenance_request_groups {
 model maintenance_request_items {
   id                                                               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   maintenance_request_id                                           String                    @db.Uuid
-  checklist_deviation_id                                           String                    @db.Uuid
+  /// Nullable desde el ticket 592: los items de carga manual no provienen de un checklist
+  checklist_deviation_id                                           String?                   @db.Uuid
   repair_type_id                                                   String?                   @db.Uuid
   status                                                           String                    @default("pending")
   rejection_reason                                                 String?
   created_at                                                       DateTime?                 @default(now()) @db.Timestamptz(6)
   description                                                      String?
+  /// Ticket 592: item de reparacion escrito a mano, sin tipo de reparacion en el sistema
+  free_text                                                        String?
+  /// Ticket 592: fotos del item (bucket repair-images). Espeja maintenance_order_items.images
+  images                                                           String[]
   driver_comment                                                   String?
   validator_comment                                                String?
   driver_comment_by                                                String?                   @db.Uuid
@@ -1915,18 +1930,22 @@ model maintenance_request_items {
   supervisor_comment_by                                            String?                   @db.Uuid
   validator_comment_by                                             String?                   @db.Uuid
   maintenance_order_items                                          maintenance_order_items[]
-  checklist_deviations                                             checklist_deviations      @relation(fields: [checklist_deviation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checklist_deviations                                             checklist_deviations?     @relation(fields: [checklist_deviation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_maintenance_request_items_driver_comment_byToprofile     profile?                  @relation("maintenance_request_items_driver_comment_byToprofile", fields: [driver_comment_by], references: [id], onUpdate: NoAction)
   maintenance_requests                                             maintenance_requests      @relation(fields: [maintenance_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   types_of_repairs                                                 types_of_repairs?         @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_request_items_supervisor_comment_byToprofile profile?                  @relation("maintenance_request_items_supervisor_comment_byToprofile", fields: [supervisor_comment_by], references: [id], onUpdate: NoAction)
   profile_maintenance_request_items_validator_comment_byToprofile  profile?                  @relation("maintenance_request_items_validator_comment_byToprofile", fields: [validator_comment_by], references: [id], onUpdate: NoAction)
+  /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
+  maintenance_group_id                                             String?                     @db.Uuid
+  maintenance_request_groups                                       maintenance_request_groups? @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_request_items_group_fkey")
 
   @@unique([maintenance_request_id, checklist_deviation_id])
   @@index([checklist_deviation_id], map: "idx_maintenance_request_items_deviation")
   @@index([maintenance_request_id], map: "idx_maintenance_request_items_request")
   @@index([status], map: "idx_maintenance_request_items_status")
   @@schema("public")
+  @@index([maintenance_group_id], map: "idx_maintenance_request_items_group")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1934,7 +1953,10 @@ model maintenance_request_items {
 model maintenance_requests {
   id                                                  String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   checklist_answer_id                                 String?                     @db.Uuid
-  equipment_id                                        String                      @db.Uuid
+  /// Ticket 596: nullable — la solicitud puede ser de un vehiculo O de un equipamiento
+  equipment_id                                        String?                     @db.Uuid
+  /// Ticket 596: equipamiento (other_equipment). Excluyente con equipment_id (CHECK en BD)
+  other_equipment_id                                  String?                     @db.Uuid
   employee_id                                         String?                     @db.Uuid
   user_id                                             String?                     @db.Uuid
   status                                              String                      @default("pending_approval")
@@ -1959,7 +1981,8 @@ model maintenance_requests {
   checklist_answers                                   checklist_answers?          @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   employees                                           employees?                  @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   driver_employee                                     employees?                  @relation("maintenance_request_driver", fields: [driver_employee_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  vehicles                                            vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles                                            vehicles?                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_equipment                                     other_equipment?            @relation(fields: [other_equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_maintenance_requests_rejected_byToprofile   profile?                    @relation("maintenance_requests_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_supervisor_idToprofile profile?                    @relation("maintenance_requests_supervisor_idToprofile", fields: [supervisor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_user_idToprofile       profile?                    @relation("maintenance_requests_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2066,6 +2089,10 @@ model other_equipment {
   created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
   contractor_other_equipment     contractor_other_equipment[]
   dailyreportequipmentrelations  dailyreportequipmentrelations[]
+  // Ticket 596: los equipamientos entran al circuito de mantenimiento
+  maintenance_requests           maintenance_requests[]
+  maintenance_orders             maintenance_orders[]
+  work_orders                    work_orders[]
   brand_vehicles                 brand_vehicles?                  @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                        company                          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   cost_center                    cost_center?                     @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3120,7 +3147,10 @@ model work_orders {
   order_number                              String                     @unique
   sequence_number                           Int
   company_id                                String                     @db.Uuid
-  equipment_id                              String                     @db.Uuid
+  /// Ticket 596: nullable — la OT puede ser de un vehiculo O de un equipamiento
+  equipment_id                              String?                    @db.Uuid
+  /// Ticket 596: equipamiento (other_equipment). Excluyente con equipment_id (CHECK en BD)
+  other_equipment_id                        String?                    @db.Uuid
   workshop_id                               String                     @db.Uuid
   sector_id                                 String?                    @db.Uuid
   status                                    work_order_status          @default(pending)
@@ -3151,7 +3181,8 @@ model work_orders {
   company                                   company                    @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_work_orders_completed_byToprofile profile?                   @relation("work_orders_completed_byToprofile", fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_work_orders_created_byToprofile   profile?                   @relation("work_orders_created_byToprofile", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vehicles                                  vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles                                  vehicles?                  @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_equipment                           other_equipment?           @relation(fields: [other_equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_work_orders_paused_byToprofile    profile?                   @relation("work_orders_paused_byToprofile", fields: [paused_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workshop_sectors                          workshop_sectors?          @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
   profile_work_orders_started_byToprofile   profile?                   @relation("work_orders_started_byToprofile", fields: [started_by], references: [id], onDelete: NoAction, onUpdate: NoAction)

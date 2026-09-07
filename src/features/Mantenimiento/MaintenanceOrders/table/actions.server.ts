@@ -68,6 +68,14 @@ const MAINTENANCE_ORDERS_SELECT = {
       condition: true,
     },
   },
+  // Ticket 596: el pedido puede ser de un equipamiento en vez de un vehiculo
+  other_equipment: {
+    select: {
+      id: true,
+      serial_number: true,
+      intern_number: true,
+    },
+  },
   maintenance_requests: {
     select: {
       id: true,
@@ -86,12 +94,19 @@ const MAINTENANCE_ORDERS_SELECT = {
       is_diagnostico: true,
       is_critical: true,
       description: true,
+      // Ticket 592: fotos que cargo el supervisor al pedir la reparacion
+      images: true,
       types_of_repairs: { select: { id: true, name: true } },
       maintenance_order_item_repair_types: {
         select: { types_of_repairs: { select: { id: true, name: true } } },
       },
       maintenance_request_items: {
         select: {
+          // Ticket 592: un item cargado a mano no tiene desvio de checklist —
+          // su titulo vive en free_text y su aclaracion/fotos en la solicitud
+          free_text: true,
+          description: true,
+          images: true,
           checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
         },
       },
@@ -130,7 +145,24 @@ const MAINTENANCE_ORDERS_SELECT = {
  * Solo muestra órdenes con status relevante para el taller.
  * Nota: maintenance_orders no tiene company_id — no se filtra por empresa.
  */
-function buildWhereClause(state: ReturnType<typeof parseSearchParams>, options?: { excludeColumn?: string }) {
+/**
+ * Estados que se muestran por defecto en el paso "En Taller".
+ *
+ * Ticket 595: las órdenes completadas salen del listado — el paso es de trabajo
+ * activo. Siguen siendo alcanzables filtrando explícitamente por "Completada",
+ * y el filtro conserva su contador gracias a `includeCompleted`.
+ */
+const ACTIVE_WORKSHOP_STATUSES = [
+  'in_workshop',
+  // Sin `pending_operations_validation`: Operaciones ya no valida (reunion 31/08/2026)
+  'operations_rejected',
+  'workshop_rejected',
+];
+
+function buildWhereClause(
+  state: ReturnType<typeof parseSearchParams>,
+  options?: { excludeColumn?: string; includeCompleted?: boolean }
+) {
   const excludeColumn = options?.excludeColumn;
 
   const cleanFilters = Object.fromEntries(Object.entries(state.filters).filter(([key]) => !IGNORED_PARAMS.has(key)));
@@ -250,7 +282,7 @@ function buildWhereClause(state: ReturnType<typeof parseSearchParams>, options?:
   // Si ya hay un filtro de status aplicado, NO sobreescribir
   if (!statusValues?.length) {
     where.status = {
-      in: ['in_workshop', 'pending_operations_validation', 'operations_rejected', 'workshop_rejected', 'completed'],
+      in: options?.includeCompleted ? [...ACTIVE_WORKSHOP_STATUSES, 'completed'] : ACTIVE_WORKSHOP_STATUSES,
     };
   }
 
@@ -351,7 +383,10 @@ export async function getMaintenanceOrdersFacets(searchParams?: DataTableSearchP
      * crossWhere: construye el WHERE excluyendo el filtro de la columna indicada.
      * Esto permite que los counts de cada facet sean precisos con otros filtros activos.
      */
-    const crossWhere = (excludeColumn: string) => buildWhereClause(state, { excludeColumn });
+    // Para la faceta de estado se incluyen las completadas: así "Completada" sigue
+    // apareciendo como opción filtrable con su contador (ticket 595).
+    const crossWhere = (excludeColumn: string) =>
+      buildWhereClause(state, { excludeColumn, includeCompleted: excludeColumn === 'status' });
 
     // Ejecutar todos los groupBy en paralelo con cross-filtering
     const [statusCounts, vehicleCounts] = await Promise.all([

@@ -137,7 +137,7 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
         if (!open) form.reset();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Alta masiva de cubiertas</DialogTitle>
         </DialogHeader>

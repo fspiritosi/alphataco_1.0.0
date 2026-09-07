@@ -6,10 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { RepairItemPhotos } from '../../shared/components/RepairItemPhotos';
+import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface SolicitudDetailDialogProps {
@@ -152,8 +155,11 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                 <div className="space-y-3">
                   {request.maintenance_request_items.map((item) => {
                     const templateId =
-                      (item.checklist_deviations as { checklist_answers?: { template_id?: string | null } | null } | null)
-                        ?.checklist_answers?.template_id ?? null;
+                      (
+                        item.checklist_deviations as {
+                          checklist_answers?: { template_id?: string | null } | null;
+                        } | null
+                      )?.checklist_answers?.template_id ?? null;
                     const itemCode = item.checklist_deviations?.item_code ?? null;
                     const isNonPropagating = isNonPropagatingChecklistItem(templateId, itemCode);
                     const isCritical = item.checklist_deviations?.is_critical ?? false;
@@ -183,13 +189,20 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                               )}
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-muted-foreground">
-                                  {item.checklist_deviations?.item_label || 'Sin título'}
+                                  {getRepairItemLabel(item, 'Sin título')}
                                 </p>
+                                <RepairGroupBadge groupName={getRepairItemGroupName(item)} className="mt-1" />
                                 {item.checklist_deviations?.section_code && (
                                   <p className="text-sm text-muted-foreground/80">
                                     Sección: {formatSectionCode(item.checklist_deviations.section_code)}
                                   </p>
                                 )}
+                                <RepairItemPhotos
+                                  images={getRepairItemImages(item)}
+                                  label={getRepairItemLabel(item)}
+                                  size="sm"
+                                  className="mt-2"
+                                />
                               </div>
                             </div>
                             <ItemComments
@@ -206,12 +219,18 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       <div key={item.id} className="p-3 border rounded-lg space-y-2">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-medium">{item.checklist_deviations?.item_label || 'Sin título'}</p>
+                            <p className="font-medium">{getRepairItemLabel(item, 'Sin título')}</p>
                             {item.checklist_deviations?.section_code && (
                               <p className="text-sm text-muted-foreground">
                                 Sección: {formatSectionCode(item.checklist_deviations.section_code)}
                               </p>
                             )}
+                            <RepairItemPhotos
+                              images={getRepairItemImages(item)}
+                              label={getRepairItemLabel(item)}
+                              size="sm"
+                              className="mt-2"
+                            />
                           </div>
                           <Badge variant={itemStatusConfig[item.status]?.variant || 'secondary'}>
                             {itemStatusConfig[item.status]?.label || item.status}

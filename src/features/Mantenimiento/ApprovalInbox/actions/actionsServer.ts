@@ -221,6 +221,14 @@ export async function getOrdersPendingValidation() {
             serie: true,
           },
         },
+        // Ticket 596: la orden puede ser de un equipamiento en vez de un vehiculo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,

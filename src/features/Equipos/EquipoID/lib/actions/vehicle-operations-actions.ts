@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 
 const logger = new Logger('Equipos/vehicle-operations-actions');
 
@@ -54,3 +55,64 @@ export async function getMaintenanceOrdersForEquipment(equipmentId: string) {
 
 export type EquipmentMaintenanceOrders = Awaited<ReturnType<typeof getMaintenanceOrdersForEquipment>>;
 export type EquipmentMaintenanceOrder = EquipmentMaintenanceOrders[number];
+
+/**
+ * Obtiene las solicitudes de mantenimiento RECHAZADAS de un equipo.
+ *
+ * Incluye dos casos, porque el rechazo puede ser total o parcial:
+ * 1. Solicitudes rechazadas por completo (maintenance_requests.status = 'rejected')
+ * 2. Solicitudes aprobadas que tienen al menos un item rechazado
+ *    (maintenance_request_items.status = 'rejected') — el caso mas frecuente
+ *
+ * Estas solicitudes no generan orden de mantenimiento, por eso no aparecen en el
+ * historial de ordenes: este es el unico lugar del sistema donde quedan registradas.
+ */
+export async function getRejectedRequestsForEquipment(equipmentId: string) {
+  logger.debug('Obteniendo solicitudes rechazadas del equipo', { data: { equipmentId } });
+
+  try {
+    const requests = await prisma.maintenance_requests.findMany({
+      where: {
+        equipment_id: equipmentId,
+        OR: [{ status: 'rejected' }, { maintenance_request_items: { some: { status: 'rejected' } } }],
+      },
+      select: {
+        id: true,
+        status: true,
+        created_at: true,
+        rejected_at: true,
+        rejection_reason: true,
+        source: true,
+        description: true,
+        preventive_type: true,
+        profile_maintenance_requests_rejected_byToprofile: {
+          select: { id: true, fullname: true },
+        },
+        profile_maintenance_requests_supervisor_idToprofile: {
+          select: { id: true, fullname: true },
+        },
+        // Solo los items rechazados: son los que interesan en esta vista
+        maintenance_request_items: {
+          where: { status: 'rejected' },
+          select: {
+            id: true,
+            rejection_reason: true,
+            validator_comment: true,
+            description: true,
+            types_of_repairs: { select: { id: true, name: true } },
+            checklist_deviations: { select: { id: true, item_label: true, item_code: true } },
+          },
+        },
+      },
+      orderBy: [{ rejected_at: 'desc' }, { created_at: 'desc' }],
+    });
+
+    return requests;
+  } catch (error) {
+    logger.error('Error al obtener solicitudes rechazadas del equipo', { data: { error, equipmentId } });
+    throw error;
+  }
+}
+
+export type EquipmentRejectedRequests = Awaited<ReturnType<typeof getRejectedRequestsForEquipment>>;
+export type EquipmentRejectedRequest = EquipmentRejectedRequests[number];

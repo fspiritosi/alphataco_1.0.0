@@ -3,6 +3,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -27,19 +32,24 @@ export function getColumnsPendientes({
       id: 'Equipo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const vehicle = row.original.vehicles;
+        // Vehiculo o equipamiento (ticket 596)
+        const internNumber = getResourceInternNumber(row.original);
+        const isOther = getResourceKind(row.original) === 'other_equipment';
         return (
-          <div className="flex flex-col">
-            <span className="font-medium">{vehicle?.domain || vehicle?.serie || 'Sin identificar'}</span>
-            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
+          <div className="flex min-w-0 flex-col">
+            <span className="flex items-center gap-2 font-medium">
+              {getResourceLabel(row.original)}
+              {isOther && (
+                <Badge variant="outline" className="text-xs">
+                  Equipamiento
+                </Badge>
+              )}
+            </span>
+            {internNumber && <span className="text-xs text-muted-foreground">#{internNumber}</span>}
           </div>
         );
       },
-      filterFn: (row, id, value) => {
-        const vehicle = row.original.vehicles;
-        const vehicleLabel = vehicle?.domain || vehicle?.serie || 'Sin identificar';
-        return value.includes(vehicleLabel);
-      },
+      filterFn: (row, id, value) => value.includes(getResourceLabel(row.original)),
       enableSorting: false,
     },
     {

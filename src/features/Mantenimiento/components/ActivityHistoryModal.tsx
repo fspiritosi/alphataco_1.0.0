@@ -2,8 +2,8 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { statusLabels as maintenanceOrderStatusLabels } from '@/features/Mantenimiento/MaintenanceOrders/table/columns';
 import {
   getMaintenanceOrderActivityLog,
   getMaintenanceOrderFullActivityLog,
@@ -11,6 +11,14 @@ import {
   getWorkOrderFullActivityLog,
   type MaintenanceRequestOrigin,
 } from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
+import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import {
+  ACTIVITY_STAGE_DESCRIPTIONS,
+  ACTIVITY_STAGE_LABELS,
+  ACTIVITY_STAGE_ORDER,
+  getActivityStage,
+  type ActivityStage,
+} from '@/features/Mantenimiento/shared/activity-log/stages';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -37,8 +45,11 @@ import {
   Wrench,
   XCircle,
 } from 'lucide-react';
+import moment from 'moment';
+import { useMemo } from 'react';
 import { ActivityHistorySkeleton } from './ActivityHistory/ActivityHistorySkeleton';
 import { GroupedActionItem } from './ActivityHistory/GroupedActionItem';
+import { RequestItemComments } from './ActivityHistory/RequestItemComments';
 import { WorkOrderAccordion } from './ActivityHistory/WorkOrderAccordion';
 
 interface ActivityHistoryModalProps {
@@ -50,20 +61,30 @@ interface ActivityHistoryModalProps {
   title?: string;
 }
 
-// Mapeo de estados (status) a español
-const statusLabels: Record<string, string> = {
-  // Estados de maintenance_orders
+/**
+ * Estados que no cubren los mappers existentes del modulo: son los del tramo previo
+ * del circuito (solicitud y planificacion de fecha). El resto se reutiliza de
+ * `statusLabels` de la tabla de pedidos y de `WORK_ORDER_STATUS_LABELS`, para no
+ * mantener dos mapeos distintos del mismo estado.
+ */
+const extraStatusLabels: Record<string, string> = {
   pending_scheduling: 'Pendiente de programación',
-  scheduled: 'Programado',
   date_confirmed: 'Fecha confirmada',
-  in_workshop: 'En taller',
-  completed: 'Completado',
-  rejected: 'Rechazado',
-  // Estados de work_orders
-  pending: 'Pendiente',
-  in_progress: 'En progreso',
-  paused: 'Pausado',
-  cancelled: 'Cancelado',
+  date_rejected: 'Fecha rechazada',
+  pending_approval: 'Pendiente de aprobación',
+  approved: 'Aprobada',
+  rejected: 'Rechazada',
+};
+
+/**
+ * Mapeo unico de estados a español: pedidos + ordenes de trabajo + solicitudes.
+ * Ningun estado debe mostrarse en crudo en el historial (el cliente reporto ver
+ * "pending_workshop_validation" sin traducir).
+ */
+const statusLabels: Record<string, string> = {
+  ...maintenanceOrderStatusLabels,
+  ...WORK_ORDER_STATUS_LABELS,
+  ...extraStatusLabels,
 };
 
 // Función para obtener el label en español de un status
@@ -141,6 +162,12 @@ const actionConfig: Record<
     bgColor: 'bg-indigo-50',
   },
   work_orders_generated: { label: 'OTs generadas', icon: GitBranch, color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
+  work_order_completed: {
+    label: 'Orden de trabajo finalizada',
+    icon: CheckCircle,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+  },
 
   workshop_returned_order: {
     label: 'OM devuelta al taller',
@@ -224,6 +251,27 @@ function getPerformerName(performer: PerformerType): string | null {
   return performer.fullname;
 }
 
+/**
+ * Borde del círculo del timeline, por color de icono.
+ *
+ * Las clases van escritas completas porque Tailwind v4 sólo emite las que
+ * encuentra literales en el código; componerlas con `replace()` deja sin estilo
+ * a las familias que no aparecen escritas en ningún otro archivo.
+ */
+const BORDER_BY_TEXT_COLOR: Record<string, string> = {
+  'text-blue-600': 'border-blue-600',
+  'text-cyan-600': 'border-cyan-600',
+  'text-emerald-600': 'border-emerald-600',
+  'text-gray-600': 'border-gray-600',
+  'text-green-600': 'border-green-600',
+  'text-indigo-600': 'border-indigo-600',
+  'text-orange-600': 'border-orange-600',
+  'text-purple-600': 'border-purple-600',
+  'text-red-600': 'border-red-600',
+  'text-slate-600': 'border-slate-600',
+  'text-yellow-600': 'border-yellow-600',
+};
+
 // Componente para renderizar un item del timeline
 function TimelineItem({
   entry,
@@ -262,15 +310,22 @@ function TimelineItem({
   const scheduledDate = metadata?.scheduled_date as string | undefined;
   const kilometerAtEntry = metadata?.kilometer_at_entry as string | undefined;
   const engineHoursAtEntry = metadata?.engine_hours_at_entry as number | undefined;
+  const workOrderNumber = metadata?.work_order_number as string | undefined;
+  const workOrderSectorName = metadata?.sector_name as string | undefined;
 
   return (
     <div className="relative flex items-start gap-3 pl-1">
       {/* Línea conectora */}
       {!isLast && <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-muted" />}
 
-      {/* Icono del timeline */}
+      {/* Icono del timeline.
+          El borde sale del mapa y NO de `config.color.replace('text-','border-')`:
+          Tailwind v4 escanea el código como texto, así que una clase armada en
+          runtime nunca se emite. De las 11 familias de `actionConfig`, cinco
+          (red, purple, indigo, cyan, emerald) no aparecían literalmente en `src/`
+          y esos círculos quedaban sin color de borde. */}
       <div
-        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 ${config.bgColor} ${config.color.replace('text-', 'border-')}`}
+        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 ${config.bgColor} ${BORDER_BY_TEXT_COLOR[config.color] ?? 'border-gray-600'}`}
       >
         <Icon className={`h-4 w-4 ${config.color}`} />
       </div>
@@ -287,9 +342,15 @@ function TimelineItem({
             </Badge>
           )}
 
-          {/* Badge de estado en español */}
+          {/* Badge de estado en español: si hubo transicion se muestra "anterior → nuevo" */}
           {entry.new_status && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs inline-flex items-center gap-1">
+              {entry.previous_status && entry.previous_status !== entry.new_status && (
+                <>
+                  <span className="text-muted-foreground">{getStatusLabel(entry.previous_status)}</span>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                </>
+              )}
               {getStatusLabel(entry.new_status)}
             </Badge>
           )}
@@ -322,40 +383,54 @@ function TimelineItem({
           </div>
         )}
 
-        {/* Tiempo total pausado - solo mostrar en resumed/completed cuando hay tiempo real (no 00:00:00) */}
-        {totalPausedTime && totalPausedTime !== '00:00:00' && entry.action_type !== 'paused' && (
-          <p className="text-xs text-muted-foreground mt-1">
-            <Clock className="h-3 w-3 inline mr-1" />
-            Tiempo total pausado: {totalPausedTime}
-          </p>
-        )}
+        {/* Metadatos del evento + timestamp en una sola fila que envuelve.
+            Antes cada dato ocupaba su propio renglon y estiraba el timeline en vertical;
+            al ensanchar el modal entran todos juntos y el historial se lee de un vistazo. */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {/* Tiempo total pausado - solo mostrar en resumed/completed cuando hay tiempo real (no 00:00:00) */}
+          {totalPausedTime && totalPausedTime !== '00:00:00' && entry.action_type !== 'paused' && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Tiempo total pausado: {totalPausedTime}
+            </span>
+          )}
 
-        {/* Fecha programada */}
-        {scheduledDate && entry.action_type === 'scheduled' && (
-          <p className="text-xs text-muted-foreground mt-1">
-            <Calendar className="h-3 w-3 inline mr-1" />
-            Fecha: {scheduledDate}
-          </p>
-        )}
+          {/* Fecha programada (se guarda en ISO, se muestra en formato local) */}
+          {scheduledDate && entry.action_type === 'scheduled' && (
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Fecha: {moment(scheduledDate).isValid() ? moment(scheduledDate).format('DD/MM/YYYY') : scheduledDate}
+            </span>
+          )}
 
-        {/* Kilometraje al ingresar */}
-        {kilometerAtEntry && (
-          <p className="text-xs text-muted-foreground mt-1">
-            <Truck className="h-3 w-3 inline mr-1" />
-            Kilometraje: {kilometerAtEntry} km
-          </p>
-        )}
+          {/* OT finalizada: de que orden de trabajo y sector se trata */}
+          {entry.action_type === 'work_order_completed' && (workOrderNumber || workOrderSectorName) && (
+            <span className="inline-flex items-center gap-1">
+              <GitBranch className="h-3 w-3" />
+              {workOrderNumber ? formatOrderNumber(workOrderNumber) : 'Orden de trabajo'}
+              {workOrderSectorName ? ` · ${workOrderSectorName}` : ''}
+            </span>
+          )}
 
-        {/* Horómetro al ingresar */}
-        {engineHoursAtEntry != null && (
-          <p className="text-xs text-muted-foreground mt-1">
-            <Clock className="h-3 w-3 inline mr-1" />
-            Horómetro: {engineHoursAtEntry} hs
-          </p>
-        )}
+          {/* Kilometraje al ingresar */}
+          {kilometerAtEntry && (
+            <span className="inline-flex items-center gap-1">
+              <Truck className="h-3 w-3" />
+              Kilometraje: {kilometerAtEntry} km
+            </span>
+          )}
 
-        {/* Timestamp */}
-        <p className="text-xs text-muted-foreground mt-1">{formatDateTime(entry.performed_at)}</p>
+          {/* Horómetro al ingresar */}
+          {engineHoursAtEntry != null && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Horómetro: {engineHoursAtEntry} hs
+            </span>
+          )}
+
+          {/* Timestamp */}
+          <span>{formatDateTime(entry.performed_at)}</span>
+        </div>
       </div>
     </div>
   );
@@ -427,7 +502,9 @@ function OriginItem({ origin, hasMoreItems }: { origin: MaintenanceRequestOrigin
         </div>
 
         {isChecklist && origin.checklist ? (
-          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm space-y-1">
+          // Datos del checklist en dos columnas: al ensanchar el modal la lista apilada
+          // dejaba mucho aire a la derecha y alargaba la tarjeta innecesariamente.
+          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm grid gap-x-6 gap-y-1 sm:grid-cols-2">
             {(origin.driverEmployee || origin.checklist?.chofer) && (
               <p className="flex items-center gap-1 text-blue-800 dark:text-blue-200">
                 <User className="h-3 w-3" />
@@ -462,7 +539,7 @@ function OriginItem({ origin, hasMoreItems }: { origin: MaintenanceRequestOrigin
               </p>
             )}
             {origin.checklist.respondedBy?.fullname && (
-              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1 sm:col-span-2">
                 Registrado por: {origin.checklist.respondedBy.fullname}
               </p>
             )}
@@ -536,13 +613,54 @@ export function ActivityHistoryModal({
   // Obtener el origen (para Order view y Request only view)
   const requestOrigin = isOrderView ? fullOrderLog?.origin : isRequestOnlyView ? fullRequestLog?.origin : null;
 
+  /**
+   * Comentarios cargados sobre los items del pedido (ticket 649). Se resuelven en
+   * las tres vistas: aunque la de OT no muestra el bloque de origen, los
+   * comentarios del pedido son parte del historial que el taller necesita leer.
+   */
+  const itemComments = isWorkOrderView
+    ? fullWorkOrderLog?.itemComments ?? []
+    : isOrderView
+      ? fullOrderLog?.itemComments ?? []
+      : fullRequestLog?.itemComments ?? [];
+
   const siblingWorkOrders = isWorkOrderView ? fullWorkOrderLog?.siblingWorkOrders : [];
   const vehicleInfo = isWorkOrderView ? fullWorkOrderLog?.vehicleInfo : null;
 
+  /**
+   * Historial de la OM repartido en las tres etapas del circuito (ticket 649).
+   * Se omiten las etapas sin eventos para no dejar títulos vacíos.
+   */
+  const stagedActivityLog = useMemo(() => {
+    const byStage = new Map<ActivityStage, typeof activityLog>();
+    for (const entry of activityLog) {
+      const stage = getActivityStage(entry);
+      const bucket = byStage.get(stage);
+      if (bucket) bucket.push(entry);
+      else byStage.set(stage, [entry]);
+    }
+    // "Pedido" se dibuja aunque no tenga eventos propios cuando hay que colgarle
+    // el origen o los comentarios de los items: si no, quedarían sin encabezado.
+    const keepEmptyRequestStage = Boolean(requestOrigin) || itemComments.length > 0;
+
+    return ACTIVITY_STAGE_ORDER.filter(
+      (stage) => (byStage.get(stage)?.length ?? 0) > 0 || (stage === 'request' && keepEmptyRequestStage)
+    ).map((stage) => ({
+      stage,
+      entries: byStage.get(stage) ?? [],
+    }));
+  }, [activityLog, requestOrigin, itemComments.length]);
+
+  /** La etapa Taller ya tiene eventos propios en el timeline (ver más abajo) */
+  const hasWorkshopStage = stagedActivityLog.some(({ stage }) => stage === 'workshop');
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
-        <DialogHeader>
+      {/* El ancho va con `sm:` a propósito (ticket 649): la clase base de
+          DialogContent trae `sm:max-w-2xl` y un `max-w-*` sin modifier no le gana
+          en el CSS, así que el modal quedaba angosto y muy alto. */}
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             {title}
@@ -564,49 +682,140 @@ export function ActivityHistoryModal({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
+        {/* Scroll nativo en vez de ScrollArea (ticket 649): el viewport de Radix
+            se dimensiona con `height: 100%`, que no resuelve contra un padre cuya
+            altura la fija el flex — quedaba en la altura del contenido (758px
+            dentro de un area de 367px) y el historial se cortaba sin barra. */}
+        {/* `tabIndex` porque una región scrolleable sin elementos focusables adentro
+            (p. ej. la vista de solicitud) no se puede recorrer con teclado — antes
+            lo resolvía el viewport de Radix. */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          tabIndex={0}
+          aria-label="Historial de actividades"
+        >
           {isLoading ? (
             <ActivityHistorySkeleton showWorkOrders={isOrderView} />
-          ) : (activityLog && activityLog.length > 0) || requestOrigin ? (
+          ) : (activityLog && activityLog.length > 0) || requestOrigin || itemComments.length > 0 ? (
             <div>
               {/* Mostrar OTs hermanas si es vista de work order */}
               {isWorkOrderView && siblingWorkOrders && siblingWorkOrders.length > 0 && (
                 <SiblingWorkOrders siblings={siblingWorkOrders} />
               )}
 
-              {/* Timeline */}
-              <div className="relative">
-                {/* Mostrar origen como primer item (para vista de pedido o solicitud) */}
-                {requestOrigin && <OriginItem origin={requestOrigin} hasMoreItems={activityLog.length > 0} />}
+              {/* En la vista de OT no hay bloque de origen, así que los comentarios
+                  del pedido se muestran arriba de todo (ticket 649) */}
+              {isWorkOrderView && itemComments.length > 0 && (
+                <div className="relative">
+                  <RequestItemComments comments={itemComments} hasMoreItems={activityLog.length > 0} />
+                </div>
+              )}
 
-                {activityLog.map((entry, index) => {
-                  if (entry.action_type === 'order_items_updated') {
+              {/* Timeline.
+                  En la vista de OM se divide en las tres etapas del circuito
+                  (ticket 649); en las otras vistas sigue siendo una sola lista. */}
+              {isOrderView ? (
+                <div className="space-y-5">
+                  {stagedActivityLog.map(({ stage, entries }) => {
+                    // El origen y los comentarios de los items pertenecen a la etapa
+                    // "Pedido": dejarlos sueltos arriba empujaba el primer encabezado
+                    // fuera de la pantalla y los dejaba sin etapa a la que pertenecer.
+                    const isFirstStage = stage === 'request';
                     return (
-                      <GroupedActionItem
+                      <div key={stage}>
+                        <div className="sticky top-0 z-20 mb-2 flex items-baseline gap-2 border-b bg-background pb-1 pt-1">
+                          <h3 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS[stage]}</h3>
+                          <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS[stage]}</span>
+                        </div>
+                        <div className="relative">
+                          {isFirstStage && requestOrigin && (
+                            <OriginItem
+                              origin={requestOrigin}
+                              hasMoreItems={itemComments.length > 0 || entries.length > 0}
+                            />
+                          )}
+                          {isFirstStage && (
+                            <RequestItemComments comments={itemComments} hasMoreItems={entries.length > 0} />
+                          )}
+                          {entries.map((entry, index) =>
+                            entry.action_type === 'order_items_updated' ? (
+                              <GroupedActionItem
+                                key={entry.id}
+                                performedAt={entry.performed_at}
+                                performerName={getPerformerName(entry.performer ?? null)}
+                                metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                                isLast={index === entries.length - 1}
+                              />
+                            ) : (
+                              <TimelineItem
+                                key={entry.id}
+                                entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
+                                isLast={index === entries.length - 1}
+                              />
+                            )
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Mostrar origen como primer item (para vista de solicitud) */}
+                  {requestOrigin && (
+                    <OriginItem
+                      origin={requestOrigin}
+                      hasMoreItems={activityLog.length > 0 || itemComments.length > 0}
+                    />
+                  )}
+
+                  {/* Comentarios sobre los items del pedido (ticket 649) */}
+                  {!isWorkOrderView && (
+                    <RequestItemComments comments={itemComments} hasMoreItems={activityLog.length > 0} />
+                  )}
+
+                  {activityLog.map((entry, index) => {
+                    if (entry.action_type === 'order_items_updated') {
+                      return (
+                        <GroupedActionItem
+                          key={entry.id}
+                          performedAt={entry.performed_at}
+                          performerName={getPerformerName(entry.performer ?? null)}
+                          metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                          isLast={index === activityLog.length - 1}
+                        />
+                      );
+                    }
+                    return (
+                      <TimelineItem
                         key={entry.id}
-                        performedAt={entry.performed_at}
-                        performerName={getPerformerName(entry.performer ?? null)}
-                        metadata={entry.metadata as Parameters<typeof GroupedActionItem>[0]['metadata']}
+                        entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
                         isLast={index === activityLog.length - 1}
+                        showSource={isWorkOrderView}
                       />
                     );
-                  }
-                  return (
-                    <TimelineItem
-                      key={entry.id}
-                      entry={entry as Parameters<typeof TimelineItem>[0]['entry']}
-                      isLast={index === activityLog.length - 1}
-                      showSource={isWorkOrderView}
-                    />
-                  );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
 
-              {/* Sección de Órdenes de Trabajo (solo en vista de OM) */}
+              {/* Órdenes de Trabajo (solo en vista de OM).
+                  Es la etapa "Taller" del ticket 649: la ejecución se loguea contra
+                  cada OT, así que sus eventos no están en el timeline de la OM sino
+                  en estos acordeones. Va bajo el mismo encabezado de etapa que las
+                  dos anteriores para que las tres se lean como una sola secuencia. */}
               {isOrderView && fullOrderLog?.workOrders && fullOrderLog.workOrders.length > 0 && (
                 <>
                   <Separator className="my-4" />
                   <div className="space-y-2">
+                    {/* El encabezado solo si la etapa no se dibujó ya arriba con
+                        eventos propios (p. ej. `work_order_completed`, que se loguea
+                        contra la OM y no contra la OT). */}
+                    {!hasWorkshopStage && (
+                      <div className="mb-2 flex items-baseline gap-2 border-b pb-1">
+                        <h3 className="text-sm font-semibold">{ACTIVITY_STAGE_LABELS.workshop}</h3>
+                        <span className="text-xs text-muted-foreground">{ACTIVITY_STAGE_DESCRIPTIONS.workshop}</span>
+                      </div>
+                    )}
                     <h4 className="text-sm font-medium flex items-center gap-2">
                       <GitBranch className="h-4 w-4" />
                       Órdenes de Trabajo ({fullOrderLog.workOrders.length})
@@ -682,7 +891,7 @@ export function ActivityHistoryModal({
               <p>Sin historial registrado</p>
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -4,6 +4,11 @@ import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import {
+  getResourceKindLabel,
+  getResourceLabel,
+  type WithMaintenanceResource,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { ArrowLeft, Calendar, Lock, Pause, Play } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
@@ -40,13 +45,66 @@ const priorityLabels: Record<string, string> = {
   low: 'Baja',
 };
 
-interface VehicleInfo {
-  domain?: string | null;
-  serie?: string | null;
-  intern_number?: string | null;
-  kilometer?: number | null;
-  engine_hours?: number | null;
-  sub_type?: { name: string | null } | null;
+/**
+ * Recurso de la OT: vehiculo o equipamiento (ticket 596).
+ *
+ * Se recibe la fila cruda con las dos relaciones y los helpers compartidos
+ * resuelven cual esta cargada, para no duplicar aca la logica del modulo.
+ */
+type WorkOrderResource = WithMaintenanceResource & {
+  vehicles?: {
+    domain?: string | null;
+    serie?: string | null;
+    intern_number?: string | null;
+    kilometer?: string | null;
+    engine_hours?: string | null;
+    sub_type?: { name: string | null } | null;
+  } | null;
+  other_equipment?: {
+    serial_number?: string | null;
+    intern_number?: string | null;
+    horometer?: number | string | null;
+    sub_type?: { name: string | null } | null;
+  } | null;
+};
+
+/** Km y horas llegan como texto desde la BD: se muestran con separador de miles */
+function formatMeter(value: number | string): string {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toLocaleString('es-AR') : String(value);
+}
+
+/** Dato suelto de la barra de identificacion del recurso */
+type ResourceField = { label: string; value: string; strong?: boolean };
+
+/**
+ * Arma la barra de identificacion segun el tipo de recurso: un vehiculo se
+ * reconoce por dominio + serie y mide kilometros; un equipamiento no tiene
+ * dominio ni odometro, se reconoce por numero de serie y mide horometro.
+ */
+function buildResourceFields(resource: WorkOrderResource): ResourceField[] {
+  const equipment = resource.other_equipment;
+
+  if (equipment) {
+    const fields: ResourceField[] = [{ label: 'N° Serie', value: getResourceLabel(resource), strong: true }];
+    if (equipment.sub_type?.name) fields.push({ label: 'Tipo', value: equipment.sub_type.name });
+    if (equipment.intern_number) fields.push({ label: 'Int.', value: `#${equipment.intern_number}` });
+    if (equipment.horometer != null) fields.push({ label: 'Hs', value: formatMeter(equipment.horometer) });
+    return fields;
+  }
+
+  const vehicle = resource.vehicles;
+  if (!vehicle) return [];
+
+  const fields: ResourceField[] = [
+    { label: 'Dominio', value: getResourceLabel(resource), strong: true },
+    { label: 'Serie', value: vehicle.serie || '-' },
+  ];
+  if (vehicle.sub_type?.name) fields.push({ label: 'Tipo', value: vehicle.sub_type.name });
+  if (vehicle.intern_number) fields.push({ label: 'Int.', value: `#${vehicle.intern_number}` });
+  if (vehicle.kilometer) fields.push({ label: 'Km', value: formatMeter(vehicle.kilometer) });
+  if (vehicle.engine_hours) fields.push({ label: 'Hs', value: formatMeter(vehicle.engine_hours) });
+  return fields;
 }
 
 interface WorkOrderHeaderProps {
@@ -55,7 +113,7 @@ interface WorkOrderHeaderProps {
   status: string;
   priority: string | null;
   plannedStartDate: string | null;
-  vehicle: VehicleInfo | null;
+  resource: WorkOrderResource | null;
   completedCount: number;
   totalCount: number;
   onStart: () => void;
@@ -74,7 +132,7 @@ export function WorkOrderHeader({
   status,
   priority,
   plannedStartDate,
-  vehicle,
+  resource,
   completedCount,
   totalCount,
   onStart,
@@ -87,6 +145,7 @@ export function WorkOrderHeader({
   blockedBySectorName,
 }: WorkOrderHeaderProps) {
   const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const resourceFields = resource ? buildResourceFields(resource) : [];
 
   return (
     <div className="flex-none border-b bg-card">
@@ -160,54 +219,21 @@ export function WorkOrderHeader({
           </div>
         )}
 
-        {/* Row 2: Vehicle info bar */}
-        {vehicle && (
+        {/* Row 2: barra de identificacion del recurso (vehiculo o equipamiento) */}
+        {resourceFields.length > 0 && (
           <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg px-3.5 py-2.5 overflow-x-auto">
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs text-muted-foreground">Dominio</span>
-              <span className="font-bold">{vehicle.domain || '-'}</span>
-            </div>
-            <span className="text-muted-foreground/40">|</span>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs text-muted-foreground">Serie</span>
-              <span className="font-semibold">{vehicle.serie || '-'}</span>
-            </div>
-            {vehicle.sub_type?.name && (
-              <>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground">Tipo</span>
-                  <span className="font-semibold">{vehicle.sub_type.name}</span>
+            <Badge variant="outline" className="text-[11px] px-2 py-0.5 flex-shrink-0">
+              {resource ? getResourceKindLabel(resource) : ''}
+            </Badge>
+            {resourceFields.map((field, index) => (
+              <div key={field.label} className="flex items-center gap-3 flex-shrink-0">
+                {index > 0 && <span className="text-muted-foreground/40">|</span>}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">{field.label}</span>
+                  <span className={field.strong ? 'font-bold' : 'font-semibold'}>{field.value}</span>
                 </div>
-              </>
-            )}
-            {vehicle.intern_number && (
-              <>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground">Int.</span>
-                  <span className="font-semibold">#{vehicle.intern_number}</span>
-                </div>
-              </>
-            )}
-            {vehicle.kilometer && (
-              <>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground">Km</span>
-                  <span className="font-semibold">{vehicle.kilometer.toLocaleString()}</span>
-                </div>
-              </>
-            )}
-            {vehicle.engine_hours != null && (
-              <>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground">Hs</span>
-                  <span className="font-semibold">{vehicle.engine_hours.toLocaleString()}</span>
-                </div>
-              </>
-            )}
+              </div>
+            ))}
           </div>
         )}
 

@@ -95,6 +95,10 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
       profile_maintenance_request_items_supervisor_comment_byToprofile: {
         select: PROFILE_SELECT,
       },
+      // Grupo de reparaciones del que salio el item, para marcarlo en los listados
+      maintenance_request_groups: {
+        select: { id: true, name: true },
+      },
       checklist_deviations: {
         select: {
           id: true,
@@ -188,7 +192,9 @@ export async function getMaintenanceRequests(filters?: MaintenanceRequestFilters
   if (filters?.to_date) createdAtFilter.lte = new Date(filters.to_date);
 
   const where = {
-    status: filters?.status ?? { in: ['pending_approval', 'rejected'] as string[] },
+    // Las rechazadas se excluyen: quedan como registro historico en el legajo
+    // del equipo, tab "Historial de Mantenimiento".
+    status: filters?.status ?? 'pending_approval',
     ...(filterInfo?.shouldFilterBySupervisor ? { supervisor_id: filterInfo.userId } : {}),
     ...(filters?.equipment_id ? { equipment_id: filters.equipment_id } : {}),
     ...(Object.keys(createdAtFilter).length > 0 ? { created_at: createdAtFilter } : {}),
@@ -501,8 +507,9 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
 
         serverLogger.info('Pedido de mantenimiento creado', { data: { orderId: order.id } });
 
-        // 7. Actualizar el kilometraje del vehículo si la solicitud tiene km
-        if (request.kilometer) {
+        // 7. Actualizar el kilometraje del vehículo si la solicitud tiene km.
+        //    Solo aplica a vehículos: los equipamientos no llevan kilometraje.
+        if (request.kilometer && request.equipment_id) {
           try {
             await tx.vehicles.update({
               where: { id: request.equipment_id },

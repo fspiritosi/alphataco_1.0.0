@@ -27,10 +27,16 @@ export interface WorkOrderRowData {
   status: WorkOrderStatus;
   priority: WorkOrderPriority;
   // Equipo
-  equipmentId: string;
+  /** Nullable desde el ticket 596: la OT puede ser de un equipamiento, no de un vehículo */
+  equipmentId: string | null;
   vehicleDomain: string | null;
   vehicleSerie: string | null;
   vehicleInternNumber: string | null;
+  /** Ticket 596: identificacion del recurso, sea vehiculo o equipamiento */
+  resourceLabel: string;
+  resourceKindLabel: string;
+  resourceInternNumber: string | null;
+  resourceType: string | null;
   vehicleType: string | null;
   // Taller y sector
   workshopId: string;
@@ -85,6 +91,10 @@ export interface WorkOrderItemDetail {
   itemLabel: string | null;
   itemCode: string | null;
   sectionCode: string | null;
+  /** Ticket 592: fotos del ítem (bucket repair-images), vengan de la orden o de la solicitud */
+  itemImages: string[];
+  /** Grupo de reparaciones del que salio el item, null si se cargo suelto */
+  itemGroupName: string | null;
 }
 
 // Tipo para el detalle completo de una OT

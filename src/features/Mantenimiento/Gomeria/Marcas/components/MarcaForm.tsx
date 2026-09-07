@@ -81,7 +81,7 @@ export function MarcaForm({ open, onOpenChange, companyId, brand, queryKey }: Ma
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Marca' : 'Nueva Marca'}</DialogTitle>
         </DialogHeader>

@@ -2,6 +2,7 @@
 
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
@@ -18,13 +19,16 @@ const logger = new Logger('MaintenanceOrders/actions');
 export async function getMaintenanceOrders(statusFilter?: string | string[]) {
   logger.debug('Obteniendo ordenes de mantenimiento', { data: { statusFilter } });
 
+  // Estados del trabajo en curso. Las completadas quedan fuera del listado por
+  // defecto (son la mayoria de los registros y ya se consultan desde el legajo
+  // del equipo); siguen accesibles eligiendo "Completada" en el filtro de estado,
+  // que llega por statusFilter y no pasa por este default.
   const defaultStatuses = [
     'in_workshop',
     'pending_workshop_validation',
     'pending_operations_validation',
     'operations_rejected',
     'workshop_rejected',
-    'completed',
   ];
 
   const statusWhere = Array.isArray(statusFilter)
@@ -78,6 +82,16 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             type_vehicles_typeTotype: { select: { id: true, name: true } },
           },
         },
+        // Ticket 596: la orden puede ser de un equipamiento en vez de un vehículo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -121,6 +135,10 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             maintenance_order_item_repair_types: {
               select: { types_of_repairs: { select: { id: true, name: true } } },
             },
+            // El cliente pidio que la agrupacion de tareas se vea en TODO listado
+            // de items, asi que el nombre del grupo de origen viaja con el item.
+            maintenance_group_id: true,
+            maintenance_request_groups: { select: { id: true, name: true } },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
             work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
@@ -133,6 +151,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
                 driver_comment: true,
                 validator_comment: true,
                 description: true,
+                // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío de checklist)
+                free_text: true,
+                images: true,
                 supervisor_comment: true,
                 supervisor_comment_by: true,
                 driver_comment_by: true,
@@ -145,6 +166,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
                   select: { id: true, fullname: true },
                 },
                 checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
+                // Grupo de origen del item de la solicitud: el badge de grupo lo
+                // busca aca cuando el item de la orden no lo trae propio.
+                maintenance_request_groups: { select: { name: true } },
               },
             },
             work_order_items: {
@@ -279,6 +303,16 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             type_vehicles_typeTotype: { select: { id: true, name: true } },
           },
         },
+        // Ticket 596: la orden puede ser de un equipamiento en vez de un vehículo
+        other_equipment: {
+          select: {
+            id: true,
+            serial_number: true,
+            intern_number: true,
+            condition: true,
+            horometer: true,
+          },
+        },
         maintenance_requests: {
           select: {
             id: true,
@@ -322,6 +356,10 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             maintenance_order_item_repair_types: {
               select: { types_of_repairs: { select: { id: true, name: true } } },
             },
+            // El cliente pidio que la agrupacion de tareas se vea en TODO listado
+            // de items, asi que el nombre del grupo de origen viaja con el item.
+            maintenance_group_id: true,
+            maintenance_request_groups: { select: { id: true, name: true } },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
             work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
@@ -334,6 +372,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
                 driver_comment: true,
                 validator_comment: true,
                 description: true,
+                // Ticket 592: título y fotos de un ítem cargado a mano (sin desvío de checklist)
+                free_text: true,
+                images: true,
                 supervisor_comment: true,
                 supervisor_comment_by: true,
                 driver_comment_by: true,
@@ -346,6 +387,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
                   select: { id: true, fullname: true },
                 },
                 checklist_deviations: { select: { id: true, item_code: true, item_label: true } },
+                // Grupo de origen del item de la solicitud: el badge de grupo lo
+                // busca aca cuando el item de la orden no lo trae propio.
+                maintenance_request_groups: { select: { name: true } },
               },
             },
             work_order_items: {
@@ -444,26 +488,62 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Actualizar estado de la orden
+      // El taller cierra el circuito: Operaciones ya no valida.
+      // El cliente lo pidio explicitamente ("operaciones ya no tiene que dar mas el
+      // ok de esto... ese paso se va, porque ellos mismos no lo hacen"): la orden
+      // pasa de la validacion del taller directo a completada.
+      const order = await tx.maintenance_orders.findUnique({
+        where: { id: orderId },
+        select: { equipment_id: true, other_equipment_id: true, maintenance_request_id: true },
+      });
+
+      if (!order) {
+        throw new Error('Orden no encontrada');
+      }
+
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: {
-          status: 'pending_operations_validation',
+          status: 'completed',
           workshop_approved_by: profile.id,
           workshop_validated_at: new Date(),
           workshop_validation_notes: notes ?? null,
+          // El cierre pasa a ser del taller, pero se siguen sellando estos campos
+          // para no perder la trazabilidad de quien y cuando cerro.
+          operations_validated_by: profile.id,
+          operations_validated_at: new Date(),
           updated_at: new Date(),
         },
       });
 
+      // El recurso vuelve a operativo salvo que le queden OTRAS ordenes en taller.
+      // Contempla vehiculos y equipamientos (ticket 596).
+      const resourceId = order.equipment_id ?? order.other_equipment_id;
+      if (resourceId) {
+        const isOtherEquipment = order.other_equipment_id != null;
+        const remainingInWorkshop = await tx.maintenance_orders.count({
+          where: {
+            ...(isOtherEquipment ? { other_equipment_id: resourceId } : { equipment_id: resourceId }),
+            status: 'in_workshop',
+            id: { not: orderId },
+          },
+        });
+        const nextCondition = remainingInWorkshop > 0 ? 'no_operativo' : 'operativo';
+
+        if (isOtherEquipment) {
+          await tx.other_equipment.update({ where: { id: resourceId }, data: { condition: nextCondition } });
+        } else {
+          await tx.vehicles.update({ where: { id: resourceId }, data: { condition: nextCondition } });
+        }
+
+        logger.info('Condición del recurso actualizada tras el cierre del taller', {
+          data: { resourceId, isOtherEquipment, nextCondition, remainingInWorkshop },
+        });
+      }
+
       // Actualizar supervisor de operaciones en la maintenance_request asociada
       if (operationsSupervisorId) {
-        const order = await tx.maintenance_orders.findUnique({
-          where: { id: orderId },
-          select: { maintenance_request_id: true },
-        });
-
-        if (order?.maintenance_request_id) {
+        if (order.maintenance_request_id) {
           await tx.maintenance_requests.update({
             where: { id: order.maintenance_request_id },
             data: { supervisor_id: operationsSupervisorId },
@@ -484,8 +564,8 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
         actionType: ACTIVITY_LOG.WORKSHOP_APPROVED,
         performedBy: profile.id,
         previousStatus: 'pending_workshop_validation',
-        newStatus: 'pending_operations_validation',
-        notes: notes ?? 'Aprobado por jefe de taller',
+        newStatus: 'completed',
+        notes: notes ?? 'Cerrado por jefe de taller',
       });
     });
 
@@ -1107,6 +1187,16 @@ export async function completeExternalWorkOrder(workOrderId: string) {
       const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id;
 
       if (maintenanceOrderId) {
+        // El historial del pedido filtra por maintenance_order_id, asi que sin este
+        // registro el cierre de una OT de taller EXTERNO no aparecia en el historial
+        // (solo quedaba anotado contra la OT).
+        await logWorkOrderCompletedOnMaintenanceOrder(tx, {
+          workOrderId,
+          finalStatus: 'completed',
+          performedBy: profileId,
+          maintenanceOrderId,
+        });
+
         // Verificar si todas las OTs de la OM están cerradas
         const allItems = await tx.maintenance_order_items.findMany({
           where: { maintenance_order_id: maintenanceOrderId },

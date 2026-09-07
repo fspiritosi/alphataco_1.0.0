@@ -19,6 +19,12 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import {
+  getResourceInternNumber,
+  getResourceKind,
+  getResourceKindLabel,
+  getResourceLabel,
+} from '@/features/Mantenimiento/shared/maintenance-resource';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
@@ -166,7 +172,12 @@ export function ManageOrderDialog({
     });
   }, [hasChanges, regularItems]);
 
-  const vehicle = order?.vehicles;
+  // Ticket 596: el pedido puede ser de un vehiculo o de un equipamiento, y el
+  // encabezado tiene que identificar bien a cualquiera de los dos.
+  const resource = { vehicles: order?.vehicles ?? null, other_equipment: order?.other_equipment ?? null };
+  const isOtherEquipment = getResourceKind(resource) === 'other_equipment';
+  const resourceInternNumber = getResourceInternNumber(resource);
+  const resourceTypeName = order?.other_equipment?.type?.name ?? order?.vehicles?.vehicle_type?.name ?? null;
 
   // --- Handlers ---
 
@@ -464,8 +475,8 @@ export function ManageOrderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="max-w-5xl max-h-[90vh]">
-          <DialogHeader className="space-y-3">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="space-y-3 shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-lg">{order.order_number || 'Orden sin numero'}</span>
@@ -483,14 +494,17 @@ export function ManageOrderDialog({
               </div>
             </DialogTitle>
 
-            {/* Vehicle info bar */}
-            <div className="flex items-center gap-3 px-3 py-2 bg-muted/50 rounded-lg text-sm">
+            {/* Datos del recurso: vehiculo o equipamiento */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-muted/50 rounded-lg text-sm flex-wrap">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</span>
-                {vehicle?.intern_number && <span className="text-muted-foreground">({vehicle.intern_number})</span>}
+                <span className="font-semibold">{getResourceLabel(resource)}</span>
+                {resourceInternNumber && <span className="text-muted-foreground">({resourceInternNumber})</span>}
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  {getResourceKindLabel(resource)}
+                </Badge>
               </div>
               <Separator orientation="vertical" className="h-4" />
-              <span className="text-muted-foreground">{vehicle?.vehicle_type?.name || 'Sin tipo'}</span>
+              <span className="text-muted-foreground">{resourceTypeName || 'Sin tipo'}</span>
               <Separator orientation="vertical" className="h-4" />
               <span className="text-muted-foreground">
                 Ingreso:{' '}
@@ -499,19 +513,26 @@ export function ManageOrderDialog({
                 </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
-              <span className="text-muted-foreground">
-                Km: <span className="text-foreground font-medium">{String(vehicle?.kilometer || '-')}</span>
-              </span>
+              {/* Un equipamiento no acumula kilometraje: solo se mide por horometro */}
+              {isOtherEquipment ? (
+                <span className="text-muted-foreground">
+                  Hs: <span className="text-foreground font-medium">{order.other_equipment?.horometer || '-'}</span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Km: <span className="text-foreground font-medium">{order.vehicles?.kilometer || '-'}</span>
+                </span>
+              )}
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="items" className="flex-1">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="items" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2 shrink-0">
               <TabsTrigger value="items">Items del pedido ({regularItems.length})</TabsTrigger>
               <TabsTrigger value="asignar">Asignacion a Sectores</TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[60vh] mt-4">
+            <ScrollArea className="flex-1 min-h-0 mt-4">
               <TabsContent value="items" className="mt-0">
                 <div className="space-y-3">
                   {/* Header con botones */}
@@ -720,7 +741,7 @@ export function ManageOrderDialog({
 
           {/* Footer con botones de accion */}
           <Separator />
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
             {hasChanges && (
               <Button onClick={handleSave} disabled={isSaving} size="sm">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}

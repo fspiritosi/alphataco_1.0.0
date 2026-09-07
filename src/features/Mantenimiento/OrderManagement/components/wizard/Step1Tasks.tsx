@@ -15,7 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
+import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
+import { RepairItemPhotos } from '@/features/Mantenimiento/shared/components/RepairItemPhotos';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
+import { getRepairItemGroupName, getRepairItemImages } from '@/features/Mantenimiento/shared/repair-item-label';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { AlertTriangle, Ban, MessageSquare, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
@@ -136,6 +139,9 @@ export function Step1Tasks({
             const hasWorkOrder = !!item.work_order_id;
             const isEditingComment = editingCommentItemId === item.id;
             const hasChiefComment = !!item.workshop_chief_comment;
+            const itemLabel = getItemLabel(item);
+            const itemImages = getRepairItemImages(item);
+            const groupName = getRepairItemGroupName(item);
 
             return (
               <div
@@ -180,14 +186,22 @@ export function Step1Tasks({
                           Autorizable
                         </Badge>
                       )}
+                      {/* Grupo de origen: al expandir un grupo entran varias
+                          reparaciones juntas y hay que poder distinguirlas */}
+                      <RepairGroupBadge groupName={groupName} />
                     </div>
                     {/* Description - READ ONLY */}
-                    {getItemLabel(item) && <p className="text-sm text-foreground">{getItemLabel(item)}</p>}
+                    {itemLabel && <p className="text-sm text-foreground">{itemLabel}</p>}
                     {/* Deviation info */}
                     {deviation && (
                       <p className="text-xs text-muted-foreground/80 italic">
                         Desvio: {String(deviation.item_label || deviation.item_code)}
                       </p>
+                    )}
+                    {/* Fotos que cargo el supervisor: son el contexto para decidir
+                        el tipo de reparacion y, en el paso siguiente, el sector */}
+                    {itemImages.length > 0 && (
+                      <RepairItemPhotos images={itemImages} label={itemLabel} size="sm" className="pt-0.5" />
                     )}
                     {/* Comments with attribution */}
                     <ItemComments

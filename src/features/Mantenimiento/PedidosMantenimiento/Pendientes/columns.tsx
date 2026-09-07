@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench } from 'lucide-react';
 import moment from 'moment';
+import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import { type PendingOrderListItem } from './actions.server';
 
 // ── Labels y badges de estado ─────────────────────────────────────────────────
@@ -80,23 +81,26 @@ export function getPendingOrderColumns(callbacks: PendingOrdersColumnCallbacks):
     // ── Equipo / Vehículo ────────────────────────────────────────────────────
     {
       id: 'vehicle',
-      accessorFn: (row) => row.vehicles?.domain || row.vehicles?.serie || 'Sin identificar',
+      // Ticket 596: la fila puede ser de un vehiculo o de un equipamiento
+      accessorFn: (row) => getResourceLabel(row),
       meta: { title: 'Equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
-        const vehicle = row.original.vehicles;
-        const label = vehicle?.domain || vehicle?.serie || 'Sin identificar';
+        const internNumber = getResourceInternNumber(row.original);
         return (
           <div className="flex flex-col">
-            <span className="font-medium">{label}</span>
-            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
+            <span className="font-medium">{getResourceLabel(row.original)}</span>
+            <span className="text-xs text-muted-foreground">
+              {getResourceKindLabel(row.original)}
+              {internNumber ? ` · #${internNumber}` : ''}
+            </span>
           </div>
         );
       },
       filterFn: (row, _id, value: string[]) => {
-        const vehicleId = row.original.vehicles?.id;
-        if (!vehicleId) return false;
-        return value.includes(vehicleId);
+        const resourceId = row.original.vehicles?.id ?? row.original.other_equipment?.id;
+        if (!resourceId) return false;
+        return value.includes(resourceId);
       },
       enableSorting: false,
     },
