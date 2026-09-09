@@ -3831,6 +3831,8 @@ export type Database = {
         Row: {
           blueprints: string[];
           brand_id: number | null;
+          certification_expiration_date: string | null;
+          certification_number: string | null;
           company_id: string;
           composition: string | null;
           condition: Database['public']['Enums']['condition_enum'] | null;
@@ -3841,6 +3843,7 @@ export type Database = {
           cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           created_at: string;
           currency: Database['public']['Enums']['currency_enum'] | null;
+          has_certification: boolean;
           horometer: number | null;
           id: string;
           initial_value: number | null;
@@ -3867,6 +3870,8 @@ export type Database = {
         Insert: {
           blueprints?: string[];
           brand_id?: number | null;
+          certification_expiration_date?: string | null;
+          certification_number?: string | null;
           company_id: string;
           composition?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
@@ -3877,6 +3882,7 @@ export type Database = {
           cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           created_at?: string;
           currency?: Database['public']['Enums']['currency_enum'] | null;
+          has_certification?: boolean;
           horometer?: number | null;
           id?: string;
           initial_value?: number | null;
@@ -3903,6 +3909,8 @@ export type Database = {
         Update: {
           blueprints?: string[];
           brand_id?: number | null;
+          certification_expiration_date?: string | null;
+          certification_number?: string | null;
           company_id?: string;
           composition?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
@@ -3913,6 +3921,7 @@ export type Database = {
           cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           created_at?: string;
           currency?: Database['public']['Enums']['currency_enum'] | null;
+          has_certification?: boolean;
           horometer?: number | null;
           id?: string;
           initial_value?: number | null;

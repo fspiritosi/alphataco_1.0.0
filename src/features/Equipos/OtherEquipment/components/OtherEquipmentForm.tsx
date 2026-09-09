@@ -56,6 +56,12 @@ const otherEquipmentBaseSchema = z.object({
   contract_start_date: z.date().nullable().optional(),
   contract_expiration_date: z.date().nullable().optional(),
   contract_number: z.string().nullable().optional(),
+  // Certificacion del equipamiento. Los dos datos dependientes son opcionales en
+  // la base y se vuelven obligatorios en el form cuando `has_certification` esta
+  // en true (ver createOtherEquipmentSchema).
+  has_certification: z.boolean().default(false),
+  certification_expiration_date: z.date().nullable().optional(),
+  certification_number: z.string().nullable().optional(),
   linked_vehicle_id: z.string().nullable().optional(),
   // Campos de asignación
   cost_center_id: z.string().nullable().optional(),
@@ -66,6 +72,24 @@ const otherEquipmentBaseSchema = z.object({
 
 function createOtherEquipmentSchema(excludeId?: string) {
   return otherEquipmentBaseSchema.superRefine(async (data, ctx) => {
+    // Si el equipamiento posee certificacion, sus dos datos son obligatorios
+    if (data.has_certification) {
+      if (!data.certification_expiration_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'La fecha de vencimiento de la certificación es requerida',
+          path: ['certification_expiration_date'],
+        });
+      }
+      if (!data.certification_number?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'El número de certificación es requerido',
+          path: ['certification_number'],
+        });
+      }
+    }
+
     if (!data.serial_number && !data.intern_number) return;
 
     const duplicates = await checkOtherEquipmentDuplicates(data.serial_number, data.intern_number, excludeId);
@@ -147,6 +171,11 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
         ? moment(equipment.contract_expiration_date).toDate()
         : null,
       contract_number: equipment?.contract_number ?? null,
+      has_certification: equipment?.has_certification ?? false,
+      certification_expiration_date: equipment?.certification_expiration_date
+        ? moment(equipment.certification_expiration_date).toDate()
+        : null,
+      certification_number: equipment?.certification_number ?? null,
       linked_vehicle_id: equipment?.vehicles?.id ?? null,
       cost_center_id: equipment?.cost_center?.id ?? null,
       cost_type: (equipment?.cost_type as OtherEquipmentFormData['cost_type']) ?? null,
@@ -189,6 +218,14 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
             ? moment(data.contract_expiration_date).format('YYYY-MM-DD')
             : null,
           contract_number: data.contract_number ?? null,
+          // Sin certificacion no se guardan los datos dependientes: si el usuario
+          // los cargo y despues destildo el check, no deben quedar en la base
+          has_certification: data.has_certification,
+          certification_expiration_date:
+            data.has_certification && data.certification_expiration_date
+              ? moment(data.certification_expiration_date).format('YYYY-MM-DD')
+              : null,
+          certification_number: data.has_certification ? data.certification_number?.trim() || null : null,
           linked_vehicle_id: data.linked_vehicle_id ?? null,
           cost_center_id: data.cost_center_id ?? null,
           cost_type: data.cost_type ?? null,
@@ -221,6 +258,14 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
             ? moment(data.contract_expiration_date).format('YYYY-MM-DD')
             : null,
           contract_number: data.contract_number ?? null,
+          // Sin certificacion no se guardan los datos dependientes: si el usuario
+          // los cargo y despues destildo el check, no deben quedar en la base
+          has_certification: data.has_certification,
+          certification_expiration_date:
+            data.has_certification && data.certification_expiration_date
+              ? moment(data.certification_expiration_date).format('YYYY-MM-DD')
+              : null,
+          certification_number: data.has_certification ? data.certification_number?.trim() || null : null,
           linked_vehicle_id: data.linked_vehicle_id ?? null,
           cost_center_id: data.cost_center_id ?? null,
           cost_type: data.cost_type ?? null,

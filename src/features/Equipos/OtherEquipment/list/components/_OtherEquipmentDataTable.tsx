@@ -27,7 +27,7 @@ import {
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
 import type { LucideIcon } from 'lucide-react';
-import { CircleOff, Plus } from 'lucide-react';
+import { Check, CircleOff, Plus, X } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
@@ -78,6 +78,23 @@ function buildEnumFacetResult(
         icon: icons[value],
       })),
       ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para booleanos con labels e iconos custom */
+function buildBooleanFacetResult(
+  trueLabel: string,
+  falseLabel: string,
+  trueIcon: LucideIcon,
+  falseIcon: LucideIcon,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      { value: 'true', label: trueLabel, icon: trueIcon },
+      { value: 'false', label: falseLabel, icon: falseIcon },
     ],
     counts,
   };
@@ -166,6 +183,9 @@ export function _OtherEquipmentDataTable({
       'purchase_date',
       'created_at',
       'termination_date',
+      'has_certification',
+      'certification_expiration_date',
+      'certification_number',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -184,6 +204,18 @@ export function _OtherEquipmentDataTable({
         const result = await getOtherEquipmentSingleFacet(columnId, params);
         if (!result) return { options: [], counts: new Map() };
         return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+      };
+    },
+    []
+  );
+
+  // Factory para booleanos
+  const makeBooleanFetchFacet = useCallback(
+    (columnId: string, trueLabel: string, falseLabel: string, trueIcon: LucideIcon, falseIcon: LucideIcon) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getOtherEquipmentSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildBooleanFacetResult(trueLabel, falseLabel, trueIcon, falseIcon, result.counts);
       };
     },
     []
@@ -248,6 +280,13 @@ export function _OtherEquipmentDataTable({
         ),
       },
 
+      // ── Booleanos ───────────────────────────────────────────────────────────
+      {
+        columnId: 'has_certification',
+        title: 'Posee certificación',
+        fetchFacet: makeBooleanFetchFacet('has_certification', 'Sí', 'No', Check, X),
+      },
+
       // ── FK UUID ─────────────────────────────────────────────────────────────
       { columnId: 'type', title: 'Tipo', fetchFacet: makeFkFetchFacet('type') },
       { columnId: 'sub_type', title: 'Subtipo', fetchFacet: makeFkFetchFacet('sub_type') },
@@ -306,13 +345,20 @@ export function _OtherEquipmentDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por valor...',
       },
+      {
+        columnId: 'certification_number',
+        title: 'N° de certificación',
+        type: 'text' as const,
+        placeholder: 'Buscar por N° de certificación...',
+      },
 
       // ── Filtros de rango de fechas ───────────────────────────────────────────
       { columnId: 'purchase_date', title: 'Fecha de compra', type: 'dateRange' as const },
       { columnId: 'created_at', title: 'Creado', type: 'dateRange' as const },
       { columnId: 'termination_date', title: 'Fecha de baja', type: 'dateRange' as const },
+      { columnId: 'certification_expiration_date', title: 'Vencimiento de certificación', type: 'dateRange' as const },
     ],
-    [makeEnumFetchFacet, makeFkFetchFacet]
+    [makeEnumFetchFacet, makeFkFetchFacet, makeBooleanFetchFacet]
   );
 
   // ─── Botón "Nuevo equipo" protegido por permisos ───────────────────────────
@@ -372,6 +418,8 @@ export function _OtherEquipmentDataTable({
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           initial_value: (val) => (val != null ? String(val) : ''),
           horometer: (val) => (val != null ? `${String(val)} h` : ''),
+          has_certification: (val) => (val ? 'Sí' : 'No'),
+          certification_expiration_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         },
       }}
     />
