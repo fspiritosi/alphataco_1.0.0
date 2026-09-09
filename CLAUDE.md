@@ -501,6 +501,48 @@ Correr `check-types`, consultar la BD y leer el diff **no es haber verificado un
 
 Regla: mientras falte la prueba en la app real, el estado se reporta como **"subido, verificación visual pendiente"**, nunca como "listo". Y al verificar, medir en el DOM (`getBoundingClientRect`, opacidad efectiva de los ancestros, cantidad de `<img>`) en vez de mirar un screenshot: el screenshot no distingue "0 fotos" de "fotos que no scrollée hasta ver", ni un modal que desborda de uno que scrollea. Extiende [[no culpar al operador: buscar el fallo silencioso]].
 
+### Antes de inventar un mapa visual (colores, iconos, labels), buscar el precedente en el módulo
+
+Al crear `RequestItemComments` definí mi propio mapa de colores por rol: chofer azul, supervisor ámbar. El módulo ya tenía uno — `commentStyleConfig` en `ItemComments.tsx`, que consumen 8 diálogos — y ahí es **al revés**: chofer ámbar + icono `Truck`, supervisor/validador azul + `ClipboardList`. Resultado: el mismo comentario del mismo chofer cambiaba de color según la pantalla desde la que se lo mirara.
+
+El error no fue elegir mal los colores, fue **no preguntarme si ya existían**. Regla: ante cualquier convención visual (color por estado/rol, icono por tipo, label de enum), grepear primero por el concepto en el módulo; si hay un mapa, **importarlo**, no replicarlo. Un mapa duplicado no se detecta con `check-types` ni en la pantalla que estás mirando: se ve recién cuando alguien compara dos pantallas.
+
+Corolario: si el mapa existente no encaja del todo, se extiende el compartido — nunca se crea uno paralelo.
+
+### Tailwind v4: una clase construida en runtime NO existe
+
+`config.color.replace('text-', 'border-')` parece elegante y es un bug silencioso: Tailwind v4 escanea el código **como texto plano**, así que solo emite las clases que aparecen escritas completas en algún archivo. En `ActivityHistoryModal` esto dejaba sin borde a 5 de las 11 familias del timeline (`red`, `purple`, `indigo`, `cyan`, `emerald`) — las que no figuraban literales en ningún otro `src/`. Las otras 6 funcionaban **por accidente**, porque otro archivo las usaba.
+
+Por eso el síntoma es tan raro: algunos círculos con color y otros neutros, sin patrón. No lo detecta `check-types`, no hay warning, y en dev con caché caliente puede verse distinto que en prod.
+
+Regla: las clases de Tailwind van **escritas completas**, en un `Record<string, string>` si hace falta variar. Nada de `replace()`, template literals con fragmentos, ni concatenación. Para verificar si una clase existe de verdad: `grep -r "border-purple-600" src/` — cero resultados significa que no se genera.
+
+### Un aviso dentro de una lista con `max-h` no lo ve nadie
+
+Puse el "Mostrando 50 de 387" al final del `CommandGroup`, dentro de un `CommandList` con `max-h-[300px]` que muestra ~6 filas: quedaba 44 filas más abajo. Yo mismo, verificando en el navegador, tuve que scrollear 20 ticks para encontrarlo — y no saqué la conclusión de que si a mí me costó, al usuario no le va a aparecer nunca.
+
+Regla: un aviso sobre el **contenido de una lista** va fuera del área scrolleable (arriba, junto al buscador, o `sticky bottom-0`). Y si mientras verificás tenés que scrollear para ver algo que debería ser evidente, ese es el hallazgo, no un paso más de la verificación.
+
+Complemento: los contadores que cambian mientras se tipea llevan `tabular-nums` (si no, los números saltan de ancho), el conteo lleva el sustantivo ("50 de 387 **equipos**"), y si el aviso tiene que anunciarse a lectores de pantalla, la región `role="status"` debe existir **siempre** en el DOM — una que se monta y desmonta no dispara el anuncio.
+
+### Entorno: el dev server de este proyecto no arranca con Turbopack
+
+`npm run dev` falla con `Turbopack Error: create symlink to ../../../node_modules/pg` (panic de Turbopack, la página queda en "An unexpected Turbopack error occurred"). Es del entorno, no del código: Windows sin modo desarrollador no permite crear symlinks, y el proyecto vive en OneDrive.
+
+**Levantarlo con `npx next dev --webpack`.** Arranca en 3s y funciona igual para verificar UI.
+
+Y **no borrar `.next` "para limpiar"**: mientras los symlinks ya existen, Turbopack anda; borrarlos obliga a recrearlos y ahí rompe. Yo lo borré ante un error de HMR y pasé de "una pantalla con error" a "no compila nada". Si hay que reiniciar el server, matar el proceso alcanza. Ojo también con el lock: `.next/dev/lock` queda tomado si el proceso anterior no murió (`Unable to acquire lock`).
+
+### No preguntar lo que el pedido ya respondió, y verificar la fuente externa ANTES de proponer usarla
+
+Dos errores en la misma tanda de preguntas del ticket de desvíos de "otros equipos":
+
+1. **Pregunté cosas que el propio pedido ya había contestado.** El usuario había escrito "agregar la lógica necesaria en todos lados que se necesite" y "muestralo como me dijiste" — o sea, ya había aceptado la propuesta de presentación y el alcance. Volver a ofrecerlas como opciones lo obliga a repetirse. Antes de armar un `AskUserQuestion`, releer el pedido y sacar todo lo que ya esté decidido ahí: quedan solo las decisiones que el texto del usuario no cubre (en ese caso eran dos, no cuatro).
+
+2. **Ofrecí cargar histórico desde una fuente externa sin haber verificado que aportara algo.** El usuario propuso sacar los mails de Thunderbird; al mirar el mbox, los 192 mails cubrían **exactamente** el rango 2026-02-05 → 2026-08-18 que la migración del 578 ya había cargado, y no había ninguno anterior. El trabajo habría sido cero. La verificación (localizar el archivo, contar los mails, comparar el rango contra lo que ya está en la BD) cuesta minutos y tiene que ir **antes** de plantear el plan, no después.
+
+**Cómo aplicarlo:** cuando el usuario propone una fuente de datos externa (una casilla de correo, un export, un PDF), primero medir qué cubre y contrastarlo con lo que ya está cargado; recién entonces proponer qué hacer con ella. Y al preguntar, que cada pregunta sea sobre algo genuinamente abierto.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._

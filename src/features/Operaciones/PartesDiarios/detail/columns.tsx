@@ -179,6 +179,104 @@ function EmployeeBadgeCell({ row, deviations }: { row: DailyReportDetailRow; dev
 // EQUIPMENT BADGE CELL (with RPC deviation data)
 // ============================================================================
 
+/**
+ * Un equipo del parte puede ser un vehiculo o un "otro equipo" (pileta,
+ * contenedor): la relacion es polimorfica y ambos tienen los mismos desvios.
+ */
+function renderEquipmentBadge(
+  equipmentId: string,
+  label: string,
+  rowId: string,
+  deviations: DeviationGetters,
+  key: string
+): React.ReactNode {
+  if (deviations.loadingValidations) {
+    return (
+      <Badge
+        key={key}
+        variant="secondary"
+        className="text-xs font-normal bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-default"
+      >
+        {label}
+      </Badge>
+    );
+  }
+
+  const dev = deviations.getEquipmentDeviation(equipmentId, rowId);
+
+  if (!dev) {
+    // Sin desviaciones — badge default (sólido, igual que prod)
+    return (
+      <TooltipProvider key={key} delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="default" className="text-xs font-normal select-none text-nowrap cursor-default">
+              {label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="bg-black text-white rounded-lg p-2">
+            <p className="text-xs">Equipo asignado correctamente</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Determinar color según prioridad y condición
+  const condition = dev.condition?.toLowerCase() ?? '';
+  const badgeClass = dev.is_duplicated
+    ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
+    : condition === 'no operativo'
+      ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
+      : condition === 'en reparacion' || condition === 'en_reparacion'
+        ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
+        : dev.is_unassigned_to_client
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
+          : condition === 'operativo condicionado'
+            ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 dark:border-sky-400'
+            : condition === 'en preparacion' || condition === 'en_preparacion'
+              ? 'border-gray-400 bg-transparent'
+              : 'dark:text-black';
+
+  const tooltipMessages: string[] = [];
+  if (dev.is_duplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+  if (condition === 'no operativo') tooltipMessages.push('Condición: No operativo');
+  if (condition === 'en reparacion' || condition === 'en_reparacion') tooltipMessages.push('Condición: En reparación');
+  if (dev.is_unassigned_to_client) tooltipMessages.push('No asignado al cliente de esta fila');
+  if (condition === 'operativo condicionado') tooltipMessages.push('Condición: Condicionado');
+  if (condition === 'en preparacion' || condition === 'en_preparacion')
+    tooltipMessages.push('Condición: En preparación');
+
+  if (tooltipMessages.length === 0) {
+    return (
+      <Badge key={key} variant="outline" className={cn('text-xs font-normal dark:text-black', badgeClass)}>
+        <AlertTriangle className="h-3 w-3 mr-1" />
+        {label}
+      </Badge>
+    );
+  }
+
+  return (
+    <TooltipProvider key={key} delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={cn('text-xs font-normal cursor-default', badgeClass)}>
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            {label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="bg-black text-white rounded-lg p-2 max-w-xs">
+          {tooltipMessages.map((msg, i) => (
+            <p key={i} className="text-xs">
+              {msg}
+            </p>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; deviations: DeviationGetters }) {
   const relations = row.dailyreportequipmentrelations;
 
@@ -192,112 +290,14 @@ function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; de
         if (rel.vehicles) {
           const v = rel.vehicles;
           const label = `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
-
-          if (deviations.loadingValidations) {
-            return (
-              <Badge
-                key={rel.id}
-                variant="secondary"
-                className="text-xs font-normal bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-default"
-              >
-                {label}
-              </Badge>
-            );
-          }
-
-          const dev = rel.equipment_id ? deviations.getEquipmentDeviation(rel.equipment_id, row.id) : null;
-
-          if (!dev) {
-            // Sin desviaciones — badge default (sólido, igual que prod)
-            return (
-              <TooltipProvider key={rel.id} delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="default" className="text-xs font-normal select-none text-nowrap cursor-default">
-                      {label}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-black text-white rounded-lg p-2">
-                    <p className="text-xs">Equipo asignado correctamente</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
-          }
-
-          // Determinar color según prioridad y condición
-          const condition = dev.condition?.toLowerCase() ?? '';
-          const badgeClass = dev.is_duplicated
-            ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
-            : condition === 'no operativo'
-              ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
-              : condition === 'en reparacion' || condition === 'en_reparacion'
-                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
-                : dev.is_unassigned_to_client
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
-                  : condition === 'operativo condicionado'
-                    ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 dark:border-sky-400'
-                    : condition === 'en preparacion' || condition === 'en_preparacion'
-                      ? 'border-gray-400 bg-transparent'
-                      : 'dark:text-black';
-
-          const tooltipMessages: string[] = [];
-          if (dev.is_duplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
-          if (condition === 'no operativo') tooltipMessages.push('Condición: No operativo');
-          if (condition === 'en reparacion' || condition === 'en_reparacion')
-            tooltipMessages.push('Condición: En reparación');
-          if (dev.is_unassigned_to_client) tooltipMessages.push('No asignado al cliente de esta fila');
-          if (condition === 'operativo condicionado') tooltipMessages.push('Condición: Condicionado');
-          if (condition === 'en preparacion' || condition === 'en_preparacion')
-            tooltipMessages.push('Condición: En preparación');
-
-          if (tooltipMessages.length === 0) {
-            return (
-              <Badge key={rel.id} variant="outline" className={cn('text-xs font-normal dark:text-black', badgeClass)}>
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                {label}
-              </Badge>
-            );
-          }
-
-          return (
-            <TooltipProvider key={rel.id} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className={cn('text-xs font-normal cursor-default', badgeClass)}>
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    {label}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent className="bg-black text-white rounded-lg p-2 max-w-xs">
-                  {tooltipMessages.map((msg, i) => (
-                    <p key={i} className="text-xs">
-                      {msg}
-                    </p>
-                  ))}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
+          return renderEquipmentBadge(rel.equipment_id ?? '', label, row.id, deviations, rel.id);
         }
 
         if (rel.other_equipment) {
+          // Los otros equipos no tienen patente: se los identifica por interno o serie
           const o = rel.other_equipment;
           const label = o.intern_number ?? o.serial_number ?? 'Equipo';
-          return (
-            <TooltipProvider key={rel.id} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-xs font-normal border-blue-400 cursor-default">
-                    {label}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent className="bg-black text-white rounded-lg p-2">
-                  <p className="text-xs">Otro Equipo Operativo</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
+          return renderEquipmentBadge(rel.other_equipment_id ?? '', label, row.id, deviations, rel.id);
         }
 
         return null;
