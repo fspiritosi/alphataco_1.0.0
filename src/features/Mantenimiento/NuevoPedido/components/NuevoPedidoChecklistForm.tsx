@@ -13,7 +13,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
-import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import {
   fetchAllEquipmentBasicData,
   fetchAllOtherEquipmentBasicData,
@@ -25,9 +24,7 @@ import {
   type ManualRepair,
   type ManualRepairDraftState,
   type ManualRepairsInputHandle,
-  type RepairGroupOption,
 } from '@/features/Mantenimiento/shared/components/ManualRepairsInput';
-import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import type { MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
 import {
   PREVENTIVE_TYPES,
@@ -71,7 +68,6 @@ import {
   getCurrentUserForSupervisorCheck,
   type CreateDeviationFromNuevoPedido,
 } from '../actions/actionsServer';
-import { fetchMaintenanceGroupsWithRepairs } from '../actions/maintenance-groups';
 
 const logger = new Logger('NuevoPedidoChecklistForm');
 
@@ -322,76 +318,6 @@ export function NuevoPedidoChecklistForm({
     setHasPendingManualDraft(state.canAdd);
     setHasOrphanManualDraft(state.hasOrphanContent);
   }, []);
-
-  // Tipos de reparación para el selector de carga manual
-  const {
-    data: repairTypes = [],
-    isLoading: isLoadingRepairTypes,
-    isError: hasRepairTypesError,
-    refetch: refetchRepairTypes,
-  } = useQuery({
-    queryKey: ['types-of-repairs-for-manual-request'],
-    queryFn: () => fetchAllTypesOfRepairs(),
-    enabled: requestType === 'manual',
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const handleRetryRepairTypes = useCallback(() => {
-    void refetchRepairTypes();
-  }, [refetchRepairTypes]);
-
-  // Grupos de reparación: atajo para cargar un pedido largo (ej: "Service de motor")
-  // sin tener que conocer una por una las tareas que lo componen.
-  const {
-    data: maintenanceGroups = [],
-    isLoading: isLoadingGroups,
-    isError: hasGroupsError,
-    refetch: refetchGroups,
-  } = useQuery({
-    queryKey: ['maintenance-groups-for-manual-request'],
-    queryFn: () => fetchMaintenanceGroupsWithRepairs(),
-    enabled: requestType === 'manual',
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const handleRetryGroups = useCallback(() => {
-    void refetchGroups();
-  }, [refetchGroups]);
-
-  // Se aplana la pivote acá: el input de reparaciones no tiene por qué conocer la
-  // forma de la relación M:M. Además la referencia queda estable para el `memo`.
-  const repairGroupOptions = useMemo<RepairGroupOption[]>(
-    () =>
-      maintenanceGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        description: group.description,
-        repairTypes: group.maintenance_group_type_of_repairs.map((relation) => ({
-          id: relation.types_of_repairs.id,
-          name: relation.types_of_repairs.name,
-        })),
-      })),
-    [maintenanceGroups]
-  );
-
-  // Nombres de las tareas para el resumen final. Incluye las que llegaron dentro de
-  // un grupo: si el listado general falló, esas reparaciones igual se muestran con
-  // su nombre en vez de quedar en blanco.
-  const manualRepairTypeNameById = useMemo(() => {
-    const index = new Map(repairTypes.map((type) => [type.id, type.name]));
-    repairGroupOptions.forEach((group) => {
-      group.repairTypes.forEach((type) => {
-        if (!index.has(type.id) && type.name) index.set(type.id, type.name);
-      });
-    });
-    return index;
-  }, [repairTypes, repairGroupOptions]);
-
-  // Nombre del grupo del que salió cada reparación, para el resumen del paso final
-  const manualRepairGroupNameById = useMemo(
-    () => new Map(repairGroupOptions.map((group) => [group.id, group.name])),
-    [repairGroupOptions]
-  );
 
   // Paso 4: Selección de supervisor
   const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
@@ -1357,18 +1283,11 @@ export function NuevoPedidoChecklistForm({
         onChange={setManualRepairs}
         ref={manualRepairsRef}
         onDraftStateChange={handleManualDraftStateChange}
-        repairTypes={repairTypes}
-        isLoadingRepairTypes={isLoadingRepairTypes}
-        hasRepairTypesError={hasRepairTypesError}
-        onRetryRepairTypes={handleRetryRepairTypes}
-        groups={repairGroupOptions}
-        isLoadingGroups={isLoadingGroups}
-        hasGroupsError={hasGroupsError}
-        onRetryGroups={handleRetryGroups}
         disabled={isSubmitting}
-        // Ticket 654: para equipamientos la carga es solo manual, sin leer del
-        // listado de reparaciones (que está armado para vehículos)
-        freeTextOnly={isOtherEquipment}
+        // La carga manual es siempre a mano, para equipos y equipamientos por igual:
+        // no se elige ni grupo de reparaciones ni tarea del listado. El taller asigna
+        // el tipo que corresponda al procesar el pedido.
+        freeTextOnly
       />
     </div>
   );
@@ -1742,23 +1661,16 @@ export function NuevoPedidoChecklistForm({
             <CardContent>
               <ul className="space-y-2">
                 {manualRepairs.map((repair) => {
-                  const repairTypeName = repair.repairTypeId
-                    ? manualRepairTypeNameById.get(repair.repairTypeId) ?? null
-                    : null;
-                  const groupName = repair.groupId ? manualRepairGroupNameById.get(repair.groupId) ?? null : null;
                   return (
                     <li key={repair.localId} className="text-sm flex items-start gap-2">
                       <span className="text-muted-foreground">•</span>
                       <div>
-                        <span className="font-medium">{repairTypeName ?? repair.freeText}</span>
+                        <span className="font-medium">{repair.freeText}</span>
                         {repair.images.length > 0 && (
                           <Badge variant="secondary" className="ml-2 text-xs">
                             {repair.images.length} {repair.images.length === 1 ? 'foto' : 'fotos'}
                           </Badge>
                         )}
-                        {/* Origen de la tarea: se confirma qué vino de un grupo y qué se
-                            cargó suelto, antes de mandar el pedido */}
-                        <RepairGroupBadge groupName={groupName} className="ml-2" />
                         {repair.description.trim() && (
                           <p className="text-xs text-muted-foreground mt-1 italic">
                             &quot;{repair.description.trim()}&quot;

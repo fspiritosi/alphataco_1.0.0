@@ -209,7 +209,8 @@ function HighlightedText({ text, tokens }: { text: string; tokens: string[] }) {
 type ManualRepairsInputProps = {
   repairs: ManualRepair[];
   onChange: (next: ManualRepair[]) => void;
-  repairTypes: RepairTypeOption[];
+  /** Tareas del listado del sistema. Sin ellas el camino del listado no se ofrece */
+  repairTypes?: RepairTypeOption[];
   isLoadingRepairTypes?: boolean;
   /** La carga de tipos falló: el combobox no sirve, pero el texto libre sigue disponible */
   hasRepairTypesError?: boolean;
@@ -224,8 +225,9 @@ type ManualRepairsInputProps = {
   /**
    * Deja únicamente el camino de texto libre: se ocultan el grupo de reparaciones
    * y el selector de tareas del listado (ticket 654). Los equipamientos no tienen
-   * tipos de reparación propios, así que leer del listado sólo ofrece tareas de
-   * vehículos que no les aplican. Las fotos siguen disponibles.
+   * tipos de reparación propios, y para los equipos se pidió el mismo criterio: la
+   * carga manual se escribe a mano y el taller asigna después el tipo que
+   * corresponda. Las fotos siguen disponibles.
    */
   freeTextOnly?: boolean;
   /**
@@ -248,7 +250,7 @@ function newLocalId(): string {
 export const ManualRepairsInput = memo(function ManualRepairsInput({
   repairs,
   onChange,
-  repairTypes,
+  repairTypes = [],
   isLoadingRepairTypes = false,
   hasRepairTypesError = false,
   onRetryRepairTypes,
