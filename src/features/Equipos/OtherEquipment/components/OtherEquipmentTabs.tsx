@@ -56,6 +56,8 @@ const BASIC_DATA_FIELDS: (keyof OtherEquipmentFormData)[] = [
   'currency',
   'purchase_date',
   'owner_id',
+  'certification_expiration_date',
+  'certification_number',
   'linked_vehicle_id',
 ];
 

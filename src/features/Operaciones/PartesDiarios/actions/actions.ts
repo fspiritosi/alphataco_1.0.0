@@ -1024,9 +1024,16 @@ export interface EmployeeDeviation {
 }
 
 export interface EquipmentDeviation {
+  /** Id efectivo de la relacion polimorfica: vehicles.id u other_equipment.id */
   equipment_id: string;
   equipment_domain: string;
   equipment_intern_number: string;
+  /** Identificador a mostrar: dominio del vehiculo, o N° de serie / interno si es otro equipo */
+  equipment_label: string;
+  /** Tipo del otro equipo (Pileta, Contenedor). null en vehiculos */
+  equipment_type: string | null;
+  /** true cuando la relacion apunta a other_equipment en vez de a vehicles */
+  is_other_equipment: boolean;
   condition: string;
   is_duplicated: boolean;
   is_unassigned_to_client: boolean;

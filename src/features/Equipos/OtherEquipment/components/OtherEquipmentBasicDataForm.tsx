@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -66,9 +67,24 @@ export function OtherEquipmentBasicDataForm({
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingSubTypes, setLoadingSubTypes] = useState(false);
 
-  // Watch currency y tipo de contrato
+  // Watch currency, tipo de contrato y certificacion
   const watchedCurrency = form.watch('currency');
   const typeOfContract = form.watch('type_of_contract');
+  const hasCertification = form.watch('has_certification');
+
+  /**
+   * Al destildar "Posee certificación" se limpian los datos dependientes: quedarian
+   * ocultos en pantalla pero seguirian viajando en el submit, y el usuario no
+   * tendria forma de darse cuenta.
+   */
+  const handleHasCertificationChange = (checked: boolean) => {
+    form.setValue('has_certification', checked);
+    if (!checked) {
+      form.setValue('certification_expiration_date', null);
+      form.setValue('certification_number', null);
+      form.clearErrors(['certification_expiration_date', 'certification_number']);
+    }
+  };
 
   const handleTypeOfContractChange = (type: string) => {
     form.setValue('type_of_contract', type as OtherEquipmentFormData['type_of_contract']);
@@ -698,6 +714,78 @@ export function OtherEquipmentBasicDataForm({
                 />
               </FormControl>
               <FormDescription>Número identificador del contrato</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* ── Certificación ───────────────────────────────────────────────── */}
+      <FormField
+        control={form.control}
+        name="has_certification"
+        render={({ field }) => (
+          <FormItem className="md:col-span-2 flex flex-row items-start gap-3 rounded-md border p-4">
+            <FormControl>
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={(checked) => handleHasCertificationChange(checked === true)}
+                disabled={readOnly}
+              />
+            </FormControl>
+            <div className="space-y-1 leading-none">
+              <FormLabel className="cursor-pointer">Posee certificación</FormLabel>
+              <FormDescription>
+                Al marcarlo se cargan la fecha de vencimiento y el número de certificación
+              </FormDescription>
+            </div>
+          </FormItem>
+        )}
+      />
+
+      {/* Fecha de vencimiento de la certificación — solo si posee certificación */}
+      {hasCertification && (
+        <FormField
+          control={form.control}
+          name="certification_expiration_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fecha de Vencimiento de la Certificación</FormLabel>
+              <FormControl>
+                <Input
+                  type="date"
+                  disabled={readOnly}
+                  value={field.value ? moment(field.value).format('YYYY-MM-DD') : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    field.onChange(val ? moment(val, 'YYYY-MM-DD').toDate() : null);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>Fecha en la que vence la certificación</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* Número de certificación — solo si posee certificación */}
+      {hasCertification && (
+        <FormField
+          control={form.control}
+          name="certification_number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Número de Certificación</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ''}
+                  disabled={readOnly}
+                  placeholder="Ingrese el número de certificación"
+                />
+              </FormControl>
+              <FormDescription>Número identificador de la certificación</FormDescription>
               <FormMessage />
             </FormItem>
           )}

@@ -39,6 +39,9 @@ const VALID_SORT_FIELDS = new Set([
   'reason_for_termination',
   'termination_date',
   'created_at',
+  'has_certification',
+  'certification_expiration_date',
+  'certification_number',
   // FK columns (sorted by relation name)
   'type',
   'sub_type',
@@ -79,10 +82,11 @@ const TEXT_FILTER_COLUMNS = [
   'year',
   'horometer',
   'initial_value',
+  'certification_number',
 ];
 
 /** Columnas con filtro de rango de fechas */
-const DATE_RANGE_COLUMNS = ['purchase_date', 'created_at', 'termination_date'];
+const DATE_RANGE_COLUMNS = ['purchase_date', 'created_at', 'termination_date', 'certification_expiration_date'];
 
 /**
  * Mapping de columnId (URL) → campo real en Prisma
@@ -119,6 +123,9 @@ const OTHER_EQUIPMENT_SELECT = {
   reason_for_termination: true,
   termination_date: true,
   created_at: true,
+  has_certification: true,
+  certification_expiration_date: true,
+  certification_number: true,
   // Raw Int FK IDs — seleccionados explícitamente para usar en filterFn.
   brand_id: true,
   model_id: true,
@@ -146,8 +153,8 @@ const OTHER_EQUIPMENT_SELECT = {
 function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
   const searchWhere = buildSearchWhere(state.search, ['serial_number', 'intern_number', 'manufacturer_plate']);
 
-  // Columnas manejadas manualmente (BigInt FK, M:M)
-  const MANUALLY_HANDLED = ['brand', 'model', 'contractor_other_equipment'];
+  // Columnas manejadas manualmente (BigInt FK, M:M, booleano)
+  const MANUALLY_HANDLED = ['brand', 'model', 'contractor_other_equipment', 'has_certification'];
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -209,6 +216,14 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     }
   }
 
+  // Boolean filter: has_certification (NOT NULL, sin opción "Sin asignar")
+  const booleanFilters: Record<string, unknown> = {};
+  const hasCertificationValues = state.filters['has_certification'];
+  if (hasCertificationValues?.length === 1) {
+    booleanFilters.has_certification = hasCertificationValues[0] === 'true';
+  }
+  // Si están seleccionados ambos valores (o ninguno), no se filtra — coincide con todos
+
   return {
     company_id: companyId,
     is_active: true,
@@ -218,6 +233,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     ...dateFiltersWhere,
     ...bigintFilters,
     ...m2mFilters,
+    ...booleanFilters,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 }
@@ -579,6 +595,14 @@ export async function getOtherEquipmentSingleFacet(
         counts: toFacetMap(
           rows.map((r) => ({ key: (r as Record<string, unknown>)[field] as string | null, count: r._count }))
         ),
+      };
+    }
+
+    // ── Boolean: has_certification ────────────────────────────────────────────
+    if (columnId === 'has_certification') {
+      const rows = await prisma.other_equipment.groupBy({ by: ['has_certification'], where, _count: true });
+      return {
+        counts: toFacetMap(rows.map((r) => ({ key: String(r.has_certification), count: r._count }))),
       };
     }
 

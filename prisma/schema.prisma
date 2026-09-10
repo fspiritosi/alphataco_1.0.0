@@ -2083,6 +2083,9 @@ model other_equipment {
   contract_start_date            DateTime?                        @db.Date
   contract_expiration_date       DateTime?                        @db.Date
   contract_number                String?
+  has_certification              Boolean                          @default(false)
+  certification_expiration_date  DateTime?                        @db.Date
+  certification_number           String?
   reason_for_termination         termination_reason_enum?
   termination_date               DateTime?                        @db.Date
   user_id                        String?                          @db.Uuid

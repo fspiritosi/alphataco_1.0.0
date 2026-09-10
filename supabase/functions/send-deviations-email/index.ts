@@ -26,6 +26,12 @@ interface EquipmentDeviation {
   equipment_id: string;
   equipment_domain: string;
   equipment_intern_number: string;
+  /** Identificador a mostrar: dominio del vehiculo, o N° de serie / interno si es otro equipo */
+  equipment_label: string;
+  /** Tipo del otro equipo (Pileta, Contenedor). NULL en vehiculos */
+  equipment_type: string | null;
+  /** true cuando la relacion apunta a other_equipment en vez de a vehicles */
+  is_other_equipment: boolean;
   condition: string;
   is_duplicated: boolean;
   is_unassigned_to_client: boolean;
@@ -102,6 +108,27 @@ function employeeDeviationBadges(d: EmployeeDeviation): string {
     badges.push(badge(`Día no laboral${d.diagram_type_name ? ` (${d.diagram_type_name})` : ''}`, '#fefce8', '#a16207'));
   if (d.is_duplicated) badges.push(badge('Duplicado', '#f5f3ff', '#7c3aed'));
   return badges.join(' ');
+}
+
+/**
+ * Los otros equipos (piletas, contenedores) no tienen patente: se los muestra
+ * por N° de serie con el tipo al lado, para distinguirlos de un vehiculo.
+ */
+function equipmentLabelCell(d: EquipmentDeviation): string {
+  const label = d.equipment_label || d.equipment_domain || '—';
+  if (!d.is_other_equipment || !d.equipment_type) return label;
+  return `${label} ${badge(d.equipment_type, '#f1f5f9', '#475569')}`;
+}
+
+/**
+ * En la mayoria de los otros equipos el N° de serie y el interno son el mismo
+ * string: se omite para no repetir el dato en la misma fila.
+ */
+function equipmentInternCell(d: EquipmentDeviation): string {
+  const intern = d.equipment_intern_number;
+  if (!intern || intern === '—') return '—';
+  if (intern === (d.equipment_label || d.equipment_domain)) return '—';
+  return `#${intern}`;
 }
 
 function equipmentDeviationBadges(d: EquipmentDeviation): string {
@@ -385,7 +412,7 @@ function formatDeviationsEmail(
                               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
                                 <thead>
                                   <tr style="background:#f1f5f9;">
-                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Dominio</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Equipo</th>
                                     <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">N&deg; Interno</th>
                                     <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Desv&iacute;os</th>
                                   </tr>
@@ -398,8 +425,8 @@ function formatDeviationsEmail(
           const eqBg = qi % 2 === 0 ? '#ffffff' : '#fafafa';
           html += `
                                   <tr style="background:${eqBg};">
-                                    <td style="padding:7px 10px;font-size:12px;color:#1e293b;font-weight:500;font-family:monospace;border-bottom:1px solid #f1f5f9;">${eq.equipment_domain}</td>
-                                    <td style="padding:7px 10px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;">#${eq.equipment_intern_number}</td>
+                                    <td style="padding:7px 10px;font-size:12px;color:#1e293b;font-weight:500;font-family:monospace;border-bottom:1px solid #f1f5f9;">${equipmentLabelCell(eq)}</td>
+                                    <td style="padding:7px 10px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;">${equipmentInternCell(eq)}</td>
                                     <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">${equipmentDeviationBadges(eq)}</td>
                                   </tr>
           `;
