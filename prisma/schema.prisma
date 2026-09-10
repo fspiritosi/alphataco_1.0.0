@@ -956,6 +956,7 @@ model company {
   tire_types          tire_types[]
   tire_service_orders tire_service_orders[]
   pre_employees       pre_employees[]
+  external_api_clients external_api_clients[]
 
   @@schema("public")
 }
@@ -2365,6 +2366,8 @@ model profile {
   pre_employees_pre_employees_created_byToprofile                                    pre_employees[]             @relation("pre_employees_created_byToprofile")
   pre_employees_pre_employees_reviewed_byToprofile                                   pre_employees[]             @relation("pre_employees_reviewed_byToprofile")
   documents_pre_employees                                                            documents_pre_employees[]
+  external_api_clients_created                                                       external_api_clients[]      @relation("external_api_clients_created_byToprofile")
+  external_api_clients_revoked                                                       external_api_clients[]      @relation("external_api_clients_revoked_byToprofile")
 
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
@@ -3926,5 +3929,59 @@ enum clothing_delivery_type {
   PLANNED_EPP
   REPLACEMENT
 
+  @@schema("public")
+}
+
+/// Credenciales de los sistemas externos que consultan la API de solo lectura
+/// (ticket 671). El secreto NUNCA se guarda en claro: solo su hash scrypt.
+model external_api_clients {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String                       @db.Uuid
+  name          String
+  /// Identificador publico que viaja como usuario en el Basic Auth
+  client_id     String                       @unique
+  /// Formato autodescriptivo scrypt$N$r$p$salt$hash
+  secret_hash   String
+  /// Primeros caracteres del secreto, solo para poder identificarlo en pantalla
+  secret_prefix String
+  is_active     Boolean                      @default(true)
+  revoked_at    DateTime?                    @db.Timestamptz(6)
+  last_used_at  DateTime?                    @db.Timestamptz(6)
+  notes         String?
+  created_at    DateTime                     @default(now()) @db.Timestamptz(6)
+  created_by    String?                      @db.Uuid
+  revoked_by    String?                      @db.Uuid
+
+  company       company                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  creator       profile?                     @relation("external_api_clients_created_byToprofile", fields: [created_by], references: [id], onDelete: SetNull)
+  revoker       profile?                     @relation("external_api_clients_revoked_byToprofile", fields: [revoked_by], references: [id], onDelete: SetNull)
+  access_logs   external_api_access_logs[]
+
+  @@index([company_id], map: "idx_external_api_clients_company")
+  @@schema("public")
+}
+
+/// Registro de cada consulta a la API externa, incluidos los intentos fallidos
+model external_api_access_logs {
+  id                     BigInt                @id @default(autoincrement())
+  external_api_client_id String?               @db.Uuid
+  /// client_id tal cual llego en el header, aunque no exista (detecta tanteo de credenciales)
+  attempted_client_id    String?
+  /// Nombre logico del recurso, estable aunque cambie la URL
+  endpoint               String
+  method                 String                @default("GET")
+  path                   String
+  query_params           Json?
+  status_code            Int
+  ip_address             String?
+  user_agent             String?
+  response_time_ms       Int?
+  error_message          String?
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+
+  external_api_client    external_api_clients? @relation(fields: [external_api_client_id], references: [id], onDelete: SetNull)
+
+  @@index([external_api_client_id, created_at(sort: Desc)], map: "idx_external_api_access_logs_client_date")
+  @@index([created_at], map: "idx_external_api_access_logs_created_at")
   @@schema("public")
 }

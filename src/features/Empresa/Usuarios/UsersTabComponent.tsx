@@ -1,8 +1,10 @@
+import { AccesosExternosTabContent } from '@/features/Empresa/AccesosExternos/AccesosExternosTabContent';
+import { ExternalApiClientsTableSkeleton } from '@/features/Empresa/AccesosExternos/list/fallback/ExternalApiClientsTableSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { RoleManagerContent } from '@/features/UserPermissionsManager/components';
 import { RoleManagerSkeleton } from '@/features/UserPermissionsManager/fallback/RoleManagerSkeleton';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
-import { Shield, Users } from 'lucide-react';
+import { KeyRound, Shield, Users } from 'lucide-react';
 import { Suspense } from 'react';
 import { UsersTableSkeleton } from './fallback/UsersTableSkeleton';
 import { UsersTableList } from './table/UsersTableList';
@@ -50,6 +52,25 @@ export default function UsersTabComponent({
           content: (
             <Suspense fallback={<RoleManagerSkeleton />}>
               <RoleManagerContent />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'accesos-externos',
+          label: (
+            <span className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              Accesos Externos
+            </span>
+          ),
+          moduleSlug: 'empresa',
+          tabSlug: 'accesos-externos',
+          content: (
+            <Suspense fallback={<ExternalApiClientsTableSkeleton />}>
+              <AccesosExternosTabContent
+                searchParams={searchParams as DataTableSearchParams}
+                permissionsMap={permissions}
+              />
             </Suspense>
           ),
         },
