@@ -39,11 +39,53 @@ import { Download, Pencil, Plus, Search, Shield, Trash2, Users } from 'lucide-re
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { ModulesWithTabsData, RoleWithCount } from '../actions.server';
+import { updateRoleHiddenEquipmentTypes } from '../actions/equipmentTypeVisibility.server';
+import {
+  equipmentTypeVisibilityKeys,
+  useRoleEquipmentTypesDraft,
+  type RoleEquipmentTypeChanges,
+} from '../hooks/useEquipmentTypeVisibility';
 import { ManageRoleUsersDialog } from './ManageRoleUsersDialog';
+import { RoleEquipmentTypesSection } from './RoleEquipmentTypesSection';
 import { RolePermissionsEditor } from './RolePermissionsEditor';
 import { RoleTemplateSelector } from './RoleTemplateSelector';
 
 const logger = new Logger('RoleManager');
+
+// ─── Tipos de equipamiento (ticket 690) ───────────────────────────────────────
+
+type EquipmentTypesSaveOutcome =
+  | { status: 'unchanged' }
+  | { status: 'saved'; hidden: number; shown: number }
+  | { status: 'failed' };
+
+/**
+ * Persiste el delta de tipos de equipamiento del rol después de guardar el rol.
+ * No lanza: si falla, el rol ya quedó guardado y el diálogo informa el error del bloque.
+ */
+async function saveRoleEquipmentTypeChanges(
+  roleId: number,
+  changes: RoleEquipmentTypeChanges
+): Promise<EquipmentTypesSaveOutcome> {
+  if (changes.hide.length === 0 && changes.show.length === 0) return { status: 'unchanged' };
+
+  try {
+    const result = await updateRoleHiddenEquipmentTypes(roleId, changes);
+    return { status: 'saved', ...result };
+  } catch (error) {
+    logger.error('Error al guardar tipos de equipamiento del rol', { data: { error, roleId } });
+    return { status: 'failed' };
+  }
+}
+
+function describeEquipmentTypesOutcome(outcome: EquipmentTypesSaveOutcome): string {
+  if (outcome.status !== 'saved') return '';
+  const parts = [
+    outcome.hidden > 0 ? `se ocultaron ${outcome.hidden}` : null,
+    outcome.shown > 0 ? `se volvieron a mostrar ${outcome.shown}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? ` Tipos de equipamiento: ${parts.join(' y ')}.` : '';
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,6 +207,19 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
   const [isImporting, setIsImporting] = useState(false);
   const [manageUsersRole, setManageUsersRole] = useState<RoleWithCount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [equipmentTypesSaveError, setEquipmentTypesSaveError] = useState<string | null>(null);
+
+  // Tipos de equipamiento visibles del rol: baseline de la BD al abrir + borrador local
+  const equipmentTypesDraft = useRoleEquipmentTypesDraft({
+    roleId: editingRole?.id ?? null,
+    enabled: isDialogOpen,
+  });
+
+  const invalidateEquipmentTypeVisibility = (roleId: number) => {
+    queryClient.invalidateQueries({ queryKey: equipmentTypeVisibilityKeys.role(roleId) });
+    // Lo que ve cada usuario se resuelve con sus roles
+    queryClient.invalidateQueries({ queryKey: equipmentTypeVisibilityKeys.allUsers });
+  };
 
   // Roles con SSR initial data
   const { data: roles = initialRoles } = useQuery({
@@ -182,15 +237,39 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
     return (localRolePermissions[roleId] ?? []).length;
   };
 
-  // Mutación: crear rol
+  // Mutación: crear rol (y después, con el id, sus tipos de equipamiento ocultos)
   const createRoleMutation = useMutation({
-    mutationFn: createRoleWithPermissions,
-    onSuccess: (newRole) => {
+    mutationFn: async ({
+      role,
+      equipmentTypeChanges,
+    }: {
+      role: Parameters<typeof createRoleWithPermissions>[0];
+      equipmentTypeChanges: RoleEquipmentTypeChanges;
+    }) => {
+      const newRole = await createRoleWithPermissions(role);
+      const equipmentTypes = await saveRoleEquipmentTypeChanges(newRole.id, equipmentTypeChanges);
+      return { newRole, equipmentTypes };
+    },
+    onSuccess: ({ newRole, equipmentTypes }) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       // Actualizar cache local de permisos
       setLocalRolePermissions((prev) => ({ ...prev, [newRole.id]: rolePermissions }));
+      invalidateEquipmentTypeVisibility(newRole.id);
+
+      if (equipmentTypes.status === 'failed') {
+        // El rol ya existe: el diálogo pasa a edición para reintentar sin crear un duplicado
+        setEditingRole({ ...newRole, userCount: 0, _count: { user_roles: 0 } });
+        setEquipmentTypesSaveError(
+          'El rol se creó, pero no se pudo guardar qué tipos de equipamiento ve. Vuelve a guardar para reintentar.'
+        );
+        toast.error('Tipos de equipamiento sin guardar', {
+          description: `El rol "${newRole.name}" se creó, pero no se pudo guardar qué tipos de equipamiento ve.`,
+        });
+        return;
+      }
+
       toast.success('Rol creado', {
-        description: `El rol "${newRole.name}" ha sido creado exitosamente`,
+        description: `El rol "${newRole.name}" ha sido creado exitosamente.${describeEquipmentTypesOutcome(equipmentTypes)}`,
       });
       setIsDialogOpen(false);
     },
@@ -202,15 +281,38 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
     },
   });
 
-  // Mutación: actualizar rol
+  // Mutación: actualizar rol (y después el delta de sus tipos de equipamiento ocultos)
   const updateRoleMutation = useMutation({
-    mutationFn: updateRoleWithPermissions,
-    onSuccess: (updatedRole) => {
+    mutationFn: async ({
+      role,
+      equipmentTypeChanges,
+    }: {
+      role: Parameters<typeof updateRoleWithPermissions>[0];
+      equipmentTypeChanges: RoleEquipmentTypeChanges;
+    }) => {
+      const updatedRole = await updateRoleWithPermissions(role);
+      const equipmentTypes = await saveRoleEquipmentTypeChanges(updatedRole.id, equipmentTypeChanges);
+      return { updatedRole, equipmentTypes };
+    },
+    onSuccess: ({ updatedRole, equipmentTypes }) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       // Actualizar cache local de permisos
       setLocalRolePermissions((prev) => ({ ...prev, [updatedRole.id]: rolePermissions }));
+      invalidateEquipmentTypeVisibility(updatedRole.id);
+
+      if (equipmentTypes.status === 'failed') {
+        // Los permisos se guardaron; el borrador de tipos queda para reintentar
+        setEquipmentTypesSaveError(
+          'Los permisos del rol se guardaron, pero no se pudo guardar qué tipos de equipamiento ve. Vuelve a guardar para reintentar.'
+        );
+        toast.error('Tipos de equipamiento sin guardar', {
+          description: `Los permisos de "${updatedRole.name}" se guardaron, pero no los tipos de equipamiento.`,
+        });
+        return;
+      }
+
       toast.success('Rol actualizado', {
-        description: `El rol "${updatedRole.name}" ha sido actualizado exitosamente`,
+        description: `El rol "${updatedRole.name}" ha sido actualizado exitosamente.${describeEquipmentTypesOutcome(equipmentTypes)}`,
       });
       setIsDialogOpen(false);
     },
@@ -248,6 +350,8 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
     setRoleColor('#3b82f6');
     setRolePermissions([]);
     setTemplateRoleIds([]);
+    equipmentTypesDraft.reset();
+    setEquipmentTypesSaveError(null);
     setIsDialogOpen(true);
   };
 
@@ -257,6 +361,8 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
     setRoleDescription(role.description || '');
     setRoleColor(role.color || '#3b82f6');
     setTemplateRoleIds([]);
+    equipmentTypesDraft.reset();
+    setEquipmentTypesSaveError(null);
 
     // Usar permisos del cache local o cargar desde server
     const cached = localRolePermissions[role.id];
@@ -282,23 +388,38 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
       return;
     }
 
+    // Sin baseline no se puede calcular qué cambió en los tipos de equipamiento
+    if (equipmentTypesDraft.hasChanges && !equipmentTypesDraft.isBaselineReady) return;
+
+    setEquipmentTypesSaveError(null);
+    const equipmentTypeChanges = equipmentTypesDraft.changes;
+
     if (editingRole) {
       updateRoleMutation.mutate({
-        id: editingRole.id,
-        name: roleName,
-        description: roleDescription,
-        color: roleColor,
-        permissions: rolePermissions,
+        role: {
+          id: editingRole.id,
+          name: roleName,
+          description: roleDescription,
+          color: roleColor,
+          permissions: rolePermissions,
+        },
+        equipmentTypeChanges,
       });
     } else {
       createRoleMutation.mutate({
-        name: roleName,
-        description: roleDescription,
-        color: roleColor,
-        permissions: rolePermissions,
+        role: {
+          name: roleName,
+          description: roleDescription,
+          color: roleColor,
+          permissions: rolePermissions,
+        },
+        equipmentTypeChanges,
       });
     }
   };
+
+  const isSavingRole = createRoleMutation.isPending || updateRoleMutation.isPending;
+  const isWaitingEquipmentTypesBaseline = equipmentTypesDraft.hasChanges && !equipmentTypesDraft.isBaselineReady;
 
   const handleImportPermissions = async () => {
     if (templateRoleIds.length === 0) {
@@ -481,6 +602,15 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
                       permissions={rolePermissions}
                       onPermissionsChange={setRolePermissions}
                       initialModules={initialModules}
+                      moduleAddons={{
+                        mantenimiento: (
+                          <RoleEquipmentTypesSection
+                            draft={equipmentTypesDraft}
+                            disabled={isSavingRole}
+                            saveError={equipmentTypesSaveError}
+                          />
+                        ),
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Total de permisos seleccionados: {rolePermissions.length}
@@ -494,13 +624,16 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
                   </Button>
                   <Button
                     onClick={handleSaveRole}
-                    disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
+                    disabled={isSavingRole || isWaitingEquipmentTypesBaseline}
+                    aria-busy={isSavingRole || isWaitingEquipmentTypesBaseline}
                   >
-                    {createRoleMutation.isPending || updateRoleMutation.isPending
+                    {isSavingRole
                       ? 'Guardando...'
-                      : editingRole
-                        ? 'Guardar Cambios'
-                        : 'Crear Rol'}
+                      : isWaitingEquipmentTypesBaseline
+                        ? 'Cargando tipos...'
+                        : editingRole
+                          ? 'Guardar Cambios'
+                          : 'Crear Rol'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

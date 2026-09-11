@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklist';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Formularios/actions/checklist-actions';
+import { isHitchSectionCode } from '@/features/Formularios/utils/hitchSections';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { AdditionalDeviationModal } from '@/features/Mantenimiento/shared/components/AdditionalDeviationModal';
 import { AllGoodDeviationPromptDialog } from '@/features/Mantenimiento/shared/components/AllGoodDeviationPromptDialog';
@@ -173,9 +174,18 @@ type NormalizedChecklistFormProps = {
 };
 
 /**
- * Genera el schema de Zod dinámicamente basado en la estructura del checklist
+ * Genera el schema de Zod dinámicamente basado en la estructura del checklist.
+ *
+ * `hiddenSectionCodes` recibe las secciones que no se están renderizando (hoy: la
+ * sección del enganche cuando no se declaró la unidad enganchada). Sus campos
+ * quedan fuera del schema, así que no se exigen y además Zod los descarta del
+ * resultado: nada de lo que el operario haya tipeado antes de quitar el enganche
+ * llega al guardado.
  */
-const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
+const generateChecklistSchema = (
+  template: NonNullable<ChecklistTemplate>,
+  hiddenSectionCodes?: ReadonlySet<string>
+) => {
   const schema: Record<string, z.ZodTypeAny> = {
     equipment_id: z.string().min(1, 'Debe seleccionar un equipo'),
     customer_id: z.string().optional(), // Cliente opcional
@@ -194,6 +204,11 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
   // Iterar sobre las secciones
   template.checklist_template_sections?.forEach((section) => {
     const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+
+    // Sección oculta: no se pide ni se guarda
+    if (hiddenSectionCodes?.has(sectionCode)) {
+      return;
+    }
 
     // Iterar sobre los items de la sección
     section.checklist_template_items?.forEach((item) => {
@@ -990,6 +1005,11 @@ export function NormalizedChecklistForm({
   const [criticalItemsFailed, setCriticalItemsFailed] = useState<string[]>([]);
   const [showDeviationsModal, setShowDeviationsModal] = useState(false);
   const [pendingDeviations, setPendingDeviations] = useState<Awaited<ReturnType<typeof getPendingDeviations>>>([]);
+  /**
+   * IDs de los desvíos que pertenecen al equipo enganchado (ticket 677). Sirven para
+   * mostrar en el modal a qué unidad se le va a imputar cada desvío.
+   */
+  const [hitchDeviationIds, setHitchDeviationIds] = useState<Set<string>>(new Set());
   const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>>([]);
   const [showAllGoodPrompt, setShowAllGoodPrompt] = useState(false);
   const [showAdditionalDeviationModal, setShowAdditionalDeviationModal] = useState(false);
@@ -1015,8 +1035,53 @@ export function NormalizedChecklistForm({
     is_tractor_unit: boolean;
   } | null>(null);
 
+  /**
+   * Códigos de las secciones que describen la unidad enganchada (ticket 677).
+   * Se calculan una vez por plantilla; el detalle de por qué no salen de la BD
+   * está en `utils/hitchSections.ts`.
+   */
+  const hitchSectionCodes = useMemo(() => {
+    const codes = new Set<string>();
+    template.checklist_template_sections?.forEach((section) => {
+      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      if (isHitchSectionCode(sectionCode)) {
+        codes.add(sectionCode);
+      }
+    });
+    return codes;
+  }, [template]);
+
+  /**
+   * La sección del enganche solo se muestra cuando el operario declaró qué unidad
+   * lleva enganchada. Sin esa declaración, esos ítems no aplican a nada y sus
+   * desvíos terminarían imputados a la unidad tractora.
+   */
+  const hiddenSectionCodes = useMemo(() => {
+    if (selectedHitchEquipment) return new Set<string>();
+
+    const hidden = new Set(hitchSectionCodes);
+
+    // En modo consulta no se esconde lo que ya quedó registrado: las respuestas
+    // anteriores al ticket 677 pudieron completar la sección del enganche sin
+    // declarar la unidad, y ese dato tiene que seguir siendo visible.
+    if (readOnly && defaultAnswers) {
+      const storedAnswers = defaultAnswers as Record<string, unknown>;
+      hitchSectionCodes.forEach((sectionCode) => {
+        const sectionAnswers = storedAnswers[sectionCode];
+        if (sectionAnswers && typeof sectionAnswers === 'object') {
+          const hasAnyAnswer = Object.values(sectionAnswers as Record<string, unknown>).some(
+            (value) => value !== null && value !== undefined && value !== ''
+          );
+          if (hasAnyAnswer) hidden.delete(sectionCode);
+        }
+      });
+    }
+
+    return hidden;
+  }, [selectedHitchEquipment, hitchSectionCodes, readOnly, defaultAnswers]);
+
   // Generar schema y valores por defecto
-  const schema = useMemo(() => generateChecklistSchema(template), [template]);
+  const schema = useMemo(() => generateChecklistSchema(template, hiddenSectionCodes), [template, hiddenSectionCodes]);
   const defaultValues = useMemo(
     () =>
       generateDefaultValues(
@@ -1053,6 +1118,40 @@ export function NormalizedChecklistForm({
   const sortedSections = useMemo(
     () => [...(template.checklist_template_sections || [])].sort((a, b) => (a.order_index || 0) - (b.order_index || 0)),
     [template]
+  );
+
+  /**
+   * Secciones que realmente se renderizan y se guardan. Coincide con `sortedSections`
+   * salvo cuando la plantilla tiene sección de enganche y no se declaró la unidad.
+   */
+  const visibleSections = useMemo(
+    () =>
+      sortedSections.filter(
+        (section) => !hiddenSectionCodes.has(section.code || section.section?.code || `section_${section.id}`)
+      ),
+    [sortedSections, hiddenSectionCodes]
+  );
+
+  /** Nombres de las secciones del enganche que quedaron ocultas por no declarar la unidad. */
+  const hiddenHitchSectionNames = useMemo(
+    () =>
+      sortedSections
+        .filter((section) => hiddenSectionCodes.has(section.code || section.section?.code || `section_${section.id}`))
+        .map((section) => section.name || section.section?.name || 'Sin nombre'),
+    [sortedSections, hiddenSectionCodes]
+  );
+
+  /** Etiquetas legibles de cada unidad, para aclarar en el modal a quién se imputa el desvío. */
+  const utEquipmentLabel = useMemo(
+    () => equipments.find((eq) => eq.value === currentEquipmentId)?.label ?? null,
+    [equipments, currentEquipmentId]
+  );
+  const hitchEquipmentLabel = useMemo(
+    () =>
+      compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label ??
+      equipments.find((eq) => eq.value === selectedHitchEquipment)?.label ??
+      null,
+    [compatibleHitchEquipment, equipments, selectedHitchEquipment]
   );
 
   /** Secciones abiertas del acordeón. Controlado para poder abrir la del primer error. */
@@ -1114,10 +1213,12 @@ export function NormalizedChecklistForm({
     [form, sectionByField]
   );
 
-  // Secciones e items adaptados al formato requerido por ChecklistItemPicker
+  // Secciones e items adaptados al formato requerido por ChecklistItemPicker.
+  // Se usan las visibles: si no se declaró el enganche, sus ítems no se pueden
+  // elegir como desvío adicional (no habría a qué unidad imputarlos).
   const pickableSections: PickableSection[] = useMemo(
     () =>
-      (template.checklist_template_sections ?? []).map((section) => ({
+      visibleSections.map((section) => ({
         id: section.id,
         code: section.code,
         name: section.name || section.section?.name || 'Sin nombre',
@@ -1132,7 +1233,7 @@ export function NormalizedChecklistForm({
             is_critical: item.is_critical ?? false,
           })),
       })),
-    [template]
+    [visibleSections]
   );
 
   // Detectar si el equipo seleccionado tiene enganche (COD-290)
@@ -1365,13 +1466,20 @@ export function NormalizedChecklistForm({
     try {
       // NUEVO FLUJO: Detectar TODOS los items con valor "M" (no solo los críticos)
       // Cada item incluye is_critical para diferenciar visualmente y en prioridad
-      const failedItems: Array<{
+      type FailedItem = {
         item_code: string;
         item_label: string;
         section_code: string;
         is_critical: boolean;
         driver_comment?: string;
-      }> = [];
+      };
+      const failedItems: FailedItem[] = [];
+      /**
+       * Desvíos de la sección del enganche (ticket 677). Se separan de los de la
+       * unidad tractora porque se guardan en el checklist del acoplado: así la
+       * solicitud de mantenimiento —y el costo— quedan imputados a su patente.
+       */
+      const hitchFailedItems: FailedItem[] = [];
 
       /**
        * Observaciones por item, indexadas por nombre de campo.
@@ -1382,8 +1490,9 @@ export function NormalizedChecklistForm({
        */
       const itemObservations: Record<string, string> = {};
 
-      sortedSections.forEach((section) => {
+      visibleSections.forEach((section) => {
         const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+        const isHitchSection = hitchSectionCodes.has(sectionCode);
         section.checklist_template_items?.forEach((item) => {
           const itemCode = item.code || `item_${item.id}`;
           const fieldName = `${sectionCode}__${itemCode}`;
@@ -1412,7 +1521,7 @@ export function NormalizedChecklistForm({
 
           // Si falló, agregarlo a la lista (crítico o no)
           if (hasFailed) {
-            failedItems.push({
+            const failedItem: FailedItem = {
               item_code: itemCode,
               item_label: item.label || itemCode,
               section_code: sectionCode,
@@ -1420,7 +1529,9 @@ export function NormalizedChecklistForm({
               // Lo que escribió el operario frente al equipo viaja al desvío y de
               // ahí a la orden de trabajo, en vez de pedírselo de nuevo después.
               ...(observation ? { driver_comment: observation } : {}),
-            });
+            };
+            // El desvío se imputa a la unidad que describe la sección
+            (isHitchSection ? hitchFailedItems : failedItems).push(failedItem);
           }
         });
       });
@@ -1430,7 +1541,7 @@ export function NormalizedChecklistForm({
 
       // Estructurar las respuestas por sección
       const answersBySection: Record<string, Record<string, any>> = {};
-      sortedSections.forEach((section) => {
+      visibleSections.forEach((section) => {
         const sectionCode = section.code || section.section?.code || `section_${section.id}`;
         answersBySection[sectionCode] = {};
 
@@ -1477,7 +1588,10 @@ export function NormalizedChecklistForm({
       setCreatedAnswerId(checklistAnswer.id);
 
       // Si hay enganche seleccionado, guardar el mismo checklist para el equipo enganchado (COD-290)
-      // IMPORTANTE: Los desvíos SOLO se crean en la unidad tractora, NO en el enganche
+      // IMPORTANTE (ticket 677): los desvíos de la sección del enganche se crean en ESTE
+      // checklist, no en el de la unidad tractora, para que la solicitud de mantenimiento
+      // (y por lo tanto el costo) se impute a la patente del acoplado.
+      let hitchAnswerId: string | null = null;
       if (selectedHitchEquipment) {
         try {
           const hitchChecklistAnswer = await CreateChecklistAnswer(template.id, {
@@ -1494,12 +1608,19 @@ export function NormalizedChecklistForm({
             observaciones: data.observaciones,
             answers: answersBySection, // Mismo resultado para ambos equipos
             [ITEM_OBSERVATIONS_KEY]: itemObservations,
-            critical_items_failed: [], // NO crear desvíos para el enganche
+            // Solo los desvíos de la sección que describe al enganche
+            failed_items: hitchFailedItems,
             ut_checklist_answer_id: checklistAnswer.id, // Vincular con el checklist del UT
           });
 
+          hitchAnswerId = hitchChecklistAnswer.id;
+
           logger.info('[CHECKLIST] Created duplicate checklist answer for hitched equipment', {
-            data: { hitchEquipmentId: selectedHitchEquipment, utAnswerId: checklistAnswer.id },
+            data: {
+              hitchEquipmentId: selectedHitchEquipment,
+              utAnswerId: checklistAnswer.id,
+              hitchDeviations: hitchFailedItems.length,
+            },
           });
         } catch (error) {
           logger.error('Error creating checklist answer for hitched equipment', { data: { error } });
@@ -1509,28 +1630,46 @@ export function NormalizedChecklistForm({
         }
       }
 
-      // NUEVO FLUJO: Mostrar modal si hay CUALQUIER item fallido (crítico o no)
-      if (failedItems.length > 0) {
-        setCriticalItemsFailed(failedItems.map((item) => item.item_label));
+      // NUEVO FLUJO: Mostrar modal si hay CUALQUIER item fallido (crítico o no),
+      // sea de la unidad tractora o del enganche.
+      const allFailedItems = [...failedItems, ...hitchFailedItems];
+      if (allFailedItems.length > 0) {
+        setCriticalItemsFailed(allFailedItems.map((item) => item.item_label));
 
         // Obtener los desvíos creados y los supervisores disponibles para el modal
         try {
           logger.info('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id', {
-            data: { equipmentId: data.equipment_id, checklistAnswerId: checklistAnswer.id },
+            data: {
+              equipmentId: data.equipment_id,
+              checklistAnswerId: checklistAnswer.id,
+              hitchEquipmentId: selectedHitchEquipment,
+              hitchAnswerId,
+            },
           });
           // Solo los desvíos de ESTE checklist: traer los de otros checklists hacía que la
           // solicitud se asociara al checklist equivocado y que los desvíos recién cargados
           // quedaran sin solicitud.
-          const [deviations, supervisorsList] = await Promise.all([
+          // Los del enganche viven en su propio checklist y bajo su propia patente,
+          // así que se piden por separado (ticket 677).
+          const [utDeviations, hitchDeviations, supervisorsList] = await Promise.all([
             getPendingDeviations(data.equipment_id, {
               checklistAnswerId: checklistAnswer.id,
               onlyWithoutRequest: true,
             }),
+            selectedHitchEquipment && hitchAnswerId
+              ? getPendingDeviations(selectedHitchEquipment, {
+                  checklistAnswerId: hitchAnswerId,
+                  onlyWithoutRequest: true,
+                })
+              : Promise.resolve([]),
             fetchSupervisorsForChecklist(),
           ]);
 
+          const deviations = [...utDeviations, ...hitchDeviations];
+          setHitchDeviationIds(new Set(hitchDeviations.map((deviation) => deviation.id)));
+
           logger.debug('[NormalizedChecklistForm] Desvíos obtenidos', {
-            data: { count: deviations?.length || 0, deviations },
+            data: { count: deviations.length, hitchCount: hitchDeviations.length, deviations },
           });
           logger.debug('[NormalizedChecklistForm] Supervisores obtenidos', {
             data: { count: supervisorsList?.length || 0 },
@@ -1542,18 +1681,17 @@ export function NormalizedChecklistForm({
           // NO redirigir aquí, esperar a que el modal se cierre
 
           // Contar críticos vs no críticos para el mensaje
-          const criticalCount = failedItems.filter((item) => item.is_critical).length;
-          const nonCriticalCount = failedItems.length - criticalCount;
+          const criticalCount = allFailedItems.filter((item) => item.is_critical).length;
 
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Por favor, registra los desvíos.`,
+            description: `Se detectaron ${allFailedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Por favor, registra los desvíos.`,
           });
         } catch (error) {
           logger.error('Error fetching deviations or supervisors', { data: { error } });
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedItems.length} item(s) con fallos`,
+            description: `Se detectaron ${allFailedItems.length} item(s) con fallos`,
           });
 
           // Si no se puede cargar el modal, redirigir a la lista de respuestas
@@ -1747,6 +1885,20 @@ export function NormalizedChecklistForm({
                             Enganche seleccionado:{' '}
                             {compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label}
                           </p>
+                        )}
+                        {/* Ticket 677: la sección del enganche no se muestra hasta declarar
+                            la unidad, así que se explica por qué falta. */}
+                        {!selectedHitchEquipment && !readOnly && hiddenHitchSectionNames.length > 0 && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              {hiddenHitchSectionNames.length === 1
+                                ? `La sección "${hiddenHitchSectionNames[0]}" describe la unidad enganchada.`
+                                : `Las secciones ${hiddenHitchSectionNames.map((name) => `"${name}"`).join(', ')} describen la unidad enganchada.`}{' '}
+                              Agregá el enganche para completarla: sus desvíos se imputan a la patente del acoplado, no
+                              a la de esta unidad.
+                            </AlertDescription>
+                          </Alert>
                         )}
                       </div>
                     )}
@@ -2020,8 +2172,8 @@ export function NormalizedChecklistForm({
           llegaban siquiera a existir en el DOM.
         */}
         <Accordion type="multiple" className="w-full space-y-6" value={openSections} onValueChange={setOpenSections}>
-          {/* Secciones del checklist */}
-          {sortedSections.map((section) => {
+          {/* Secciones del checklist (la del enganche solo si se declaró la unidad) */}
+          {visibleSections.map((section) => {
             const sectionCode = section.code || section.section?.code || `section_${section.id}`;
             const sectionName = section.name || section.section?.name || 'Sin nombre';
             const sectionDescription = section.section?.description || null;
@@ -2262,6 +2414,13 @@ export function NormalizedChecklistForm({
             checklistAnswerId: d.checklist_answer_id,
             driver_comment: d.driver_comment,
             created_at: d.created_at ?? new Date().toISOString(),
+            // Unidad a la que se le imputa el desvío. Solo se muestra cuando hay
+            // enganche declarado: sin él no hay ambigüedad que aclarar.
+            equipment_label: selectedHitchEquipment
+              ? hitchDeviationIds.has(d.id)
+                ? hitchEquipmentLabel
+                : utEquipmentLabel
+              : null,
           }))}
           equipmentId={currentEquipmentId}
           checklistAnswerId={createdAnswerId ?? undefined}

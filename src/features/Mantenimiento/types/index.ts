@@ -49,6 +49,11 @@ export interface ApproveRequestItemsInput {
   preventiveApproval?: boolean;
   /** Comentario del validador para aprobación preventiva */
   validatorComment?: string;
+  /**
+   * Descripción de lo aprobado, obligatoria cuando la aprobación genera un pedido.
+   * Se persiste en `maintenance_orders.description` y es lo que ve el taller.
+   */
+  description?: string;
 }
 
 export interface RejectRequestInput {
@@ -59,6 +64,13 @@ export interface RejectRequestInput {
 export interface ScheduleOrderInput {
   orderId: string;
   scheduledDate: string;
+}
+
+/** Ticket 676: rechazo del taller sobre un pedido del paso "Por Programar" */
+export interface RejectPendingOrderInput {
+  orderId: string;
+  /** Obligatorio: el taller debe indicar por que rechaza el pedido */
+  reason: string;
 }
 
 export interface ApproveWorkshopEntryInput {

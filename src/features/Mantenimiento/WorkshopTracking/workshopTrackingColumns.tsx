@@ -439,14 +439,16 @@ export function getWorkshopTrackingColumns({
 }
 
 // ============================================================================
-// STATUS FILTER OPTIONS (para los filtros faceted del cliente)
+// STATUS FILTER LABELS/ICONS (para el fetchFacet lazy-load del filtro "Estado")
 // ============================================================================
 
-export const WORKSHOP_STATUS_FILTER_OPTIONS = Object.entries(WORKSHOP_STATUS_CONFIG).map(([value, config]) => ({
-  value,
-  label: config.label,
-  icon: config.icon,
-}));
+export const WORKSHOP_STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(WORKSHOP_STATUS_CONFIG).map(([value, config]) => [value, config.label])
+);
+
+export const WORKSHOP_STATUS_ICONS: Record<string, LucideIcon | undefined> = Object.fromEntries(
+  Object.entries(WORKSHOP_STATUS_CONFIG).map(([value, config]) => [value, config.icon])
+);
 
 // ============================================================================
 // EXPORT CONFIG: formatters

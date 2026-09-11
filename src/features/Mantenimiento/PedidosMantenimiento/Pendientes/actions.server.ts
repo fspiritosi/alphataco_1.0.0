@@ -11,7 +11,8 @@ import {
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
 import { prisma } from '@/shared/lib/prisma';
-import { resourceCompanyCondition } from '../../shared/maintenance-resource';
+import { resourceCompanyCondition, visibleEquipmentTypeCondition } from '../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../utils/equipmentTypeVisibility';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('PedidosMantenimiento/Pendientes');
@@ -71,7 +72,8 @@ const PENDING_ORDER_SELECT = {
 function buildWhereClause(
   companyId: string,
   state: ReturnType<typeof parseSearchParams>,
-  supervisorId?: string | null
+  supervisorId: string | null | undefined,
+  hiddenTypeIds: readonly string[]
 ) {
   // Filtros facetados — columnas simples (status y source)
   // Excluir 'vehicle' porque se procesa aparte con equipment_id
@@ -124,6 +126,9 @@ function buildWhereClause(
       }
     : {};
 
+  // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+  const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+
   return {
     // Status base de pendientes (puede ser sobrescrito por filtersWhere.status si el usuario filtra).
     // Al programar la fecha el pedido pasa directo a 'date_confirmed', por eso ya no
@@ -137,6 +142,7 @@ function buildWhereClause(
       resourceCompanyCondition(companyId),
       ...(state.search ? [searchCondition] : []),
       ...(state.filters.vehicle?.length ? [vehicleFilter] : []),
+      ...(equipmentCondition ? [equipmentCondition] : []),
     ],
     // Filtro de supervisor si aplica
     ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
@@ -154,13 +160,17 @@ export async function getPendingOrdersPaginated(searchParams: DataTableSearchPar
   logger_fn.debug('Obteniendo pedidos pendientes paginados');
 
   try {
-    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
+    const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
+      getServerCompanyId(),
+      getSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
 
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
     const supervisorId = filterInfo?.shouldFilterBySupervisor ? filterInfo.userId : null;
-    const where = buildWhereClause(companyId, state, supervisorId);
+    const where = buildWhereClause(companyId, state, supervisorId, hiddenTypeIds);
 
     // Ordenamiento validado: pending_scheduling primero, luego scheduled; por created_at ASC
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -200,11 +210,15 @@ export async function getAllPendingOrdersForExport(searchParams: DataTableSearch
   logger.debug('Exportando pedidos pendientes');
 
   try {
-    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
+    const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
+      getServerCompanyId(),
+      getSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
 
     const state = parseSearchParams(searchParams);
     const supervisorId = filterInfo?.shouldFilterBySupervisor ? filterInfo.userId : null;
-    const where = buildWhereClause(companyId, state, supervisorId);
+    const where = buildWhereClause(companyId, state, supervisorId, hiddenTypeIds);
 
     return await prisma.maintenance_orders.findMany({
       where,
@@ -218,105 +232,121 @@ export async function getAllPendingOrdersForExport(searchParams: DataTableSearch
   }
 }
 
-// ── Facetas para filtros (counts + opciones FK) ───────────────────────────────
-// Implementa crossWhere para filtros precisos con otros filtros activos
+// ── Faceta individual (lazy-load, con cross-filtering) ─────────────────────────
+// Reemplaza al viejo getPendingOrdersFacets (bulk): carga counts + opciones de
+// UNA sola columna, bajo demanda (al abrir el popover del filtro correspondiente).
 
-export async function getPendingOrdersFacets(searchParams?: DataTableSearchParams) {
-  logger.debug('Obteniendo facetas de pedidos pendientes');
+export async function getPendingOrdersSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  logger.debug('Obteniendo facet individual de pedidos pendientes', { data: { columnId } });
 
   try {
-    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
-
-    const state = searchParams ? parseSearchParams(searchParams) : null;
+    const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
+      getServerCompanyId(),
+      getSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
     const supervisorId = filterInfo?.shouldFilterBySupervisor ? filterInfo.userId : null;
+    const state = parseSearchParams(searchParams || {});
 
-    // Función helper para construir el where de cross-filtering
     // Excluye el filtro de la columna propia para que los counts sean correctos
-    const crossWhere = (excludeColumn: string) => {
-      if (!state) {
-        return {
-          status: 'pending_scheduling',
-          AND: [resourceCompanyCondition(companyId)],
-          ...(supervisorId ? { maintenance_requests: { supervisor_id: supervisorId } } : {}),
-        };
+    function crossWhere(excludeColumn: string) {
+      const filteredFilters = { ...state.filters };
+      delete filteredFilters[excludeColumn];
+      const crossState = { ...state, filters: filteredFilters };
+      return buildWhereClause(companyId, crossState, supervisorId, hiddenTypeIds);
+    }
+
+    function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+      const map = new Map<string, number>();
+      for (const { key, count } of rows) {
+        // status/source/vehicle no admiten "Sin asignar" en esta tabla (comportamiento
+        // preexistente del bulk facet: los null se descartaban de los counts).
+        if (key == null) continue;
+        map.set(key, (map.get(key) ?? 0) + count);
       }
-      const stateWithout = {
-        ...state,
-        filters: Object.fromEntries(Object.entries(state.filters).filter(([key]) => key !== excludeColumn)),
-      };
-      return buildWhereClause(companyId, stateWithout, supervisorId);
-    };
+      return map;
+    }
 
-    // Ronda 1: groupBy para counts con cross-filtering
-    const whereForStatus = crossWhere('status');
-    const whereForVehicle = crossWhere('vehicle');
-    const whereForSource = crossWhere('source');
+    const where = crossWhere(columnId);
 
-    const [statusCounts, vehicleCounts, sourceCounts] = await Promise.all([
-      prisma.maintenance_orders.groupBy({
-        by: ['status'],
-        where: whereForStatus,
-        _count: true,
-      }),
-      prisma.maintenance_orders.groupBy({
-        by: ['equipment_id', 'other_equipment_id'],
-        where: whereForVehicle,
-        _count: true,
-      }),
-      prisma.maintenance_orders.groupBy({
-        by: ['source'],
-        where: whereForSource,
-        _count: true,
-      }),
-    ]);
+    switch (columnId) {
+      case 'status': {
+        const rows = await prisma.maintenance_orders.groupBy({
+          by: ['status'],
+          where,
+          _count: true,
+        });
+        return { counts: toFacetMap(rows.map((r) => ({ key: r.status, count: r._count }))) };
+      }
 
-    // Ronda 2: resolver nombres de vehículos solo para los IDs que tienen datos
-    // `equipment_id` es nullable desde el ticket 596 (el pedido puede ser de un
-    // equipamiento): el filter descarta los null y el guard se lo dice a TypeScript.
-    const vehicleIds = vehicleCounts.map((r) => r.equipment_id).filter((id): id is string => id !== null);
-    const otherEquipmentIds = vehicleCounts.map((r) => r.other_equipment_id).filter((id): id is string => id !== null);
+      case 'source': {
+        const rows = await prisma.maintenance_orders.groupBy({
+          by: ['source'],
+          where,
+          _count: true,
+        });
+        return { counts: toFacetMap(rows.map((r) => ({ key: r.source, count: r._count }))) };
+      }
 
-    const [vehicles, otherEquipment] = await Promise.all([
-      vehicleIds.length > 0
-        ? prisma.vehicles.findMany({
-            where: { id: { in: vehicleIds } },
-            select: { id: true, domain: true, serie: true, intern_number: true },
-            orderBy: { domain: 'asc' },
-          })
-        : Promise.resolve([]),
-      otherEquipmentIds.length > 0
-        ? prisma.other_equipment.findMany({
-            where: { id: { in: otherEquipmentIds } },
-            select: { id: true, serial_number: true, intern_number: true },
-            orderBy: { serial_number: 'asc' },
-          })
-        : Promise.resolve([]),
-    ]);
+      case 'vehicle': {
+        const rows = await prisma.maintenance_orders.groupBy({
+          by: ['equipment_id', 'other_equipment_id'],
+          where,
+          _count: true,
+        });
+        const counts = toFacetMap(rows.map((r) => ({ key: r.equipment_id ?? r.other_equipment_id, count: r._count })));
 
-    // Los equipamientos se normalizan a la forma de vehiculo para que el filtro
-    // los muestre en la misma lista: su numero de serie ocupa el lugar del dominio.
-    const vehicleOptions = [
-      ...vehicles,
-      ...otherEquipment.map((oe) => ({
-        id: oe.id,
-        domain: oe.serial_number,
-        serie: null as string | null,
-        intern_number: oe.intern_number,
-      })),
-    ];
+        // `equipment_id` es nullable desde el ticket 596 (el pedido puede ser de un
+        // equipamiento): el filter descarta los null y el guard se lo dice a TypeScript.
+        const vehicleIds = rows.map((r) => r.equipment_id).filter((id): id is string => id !== null);
+        const otherEquipmentIds = rows.map((r) => r.other_equipment_id).filter((id): id is string => id !== null);
 
-    return {
-      status: new Map(statusCounts.map((r) => [r.status as string, r._count])),
-      vehicle: new Map(
-        vehicleCounts
-          .map((r) => [r.equipment_id ?? r.other_equipment_id, r._count] as const)
-          .filter((entry): entry is readonly [string, number] => entry[0] !== null)
-      ),
-      vehicleOptions,
-      source: new Map(sourceCounts.filter((r) => r.source != null).map((r) => [r.source as string, r._count])),
-    };
+        const [vehicles, otherEquipment] = await Promise.all([
+          vehicleIds.length > 0
+            ? prisma.vehicles.findMany({
+                where: { id: { in: vehicleIds } },
+                select: { id: true, domain: true, serie: true, intern_number: true },
+                orderBy: { domain: 'asc' },
+              })
+            : Promise.resolve([]),
+          otherEquipmentIds.length > 0
+            ? prisma.other_equipment.findMany({
+                where: { id: { in: otherEquipmentIds } },
+                select: { id: true, serial_number: true, intern_number: true },
+                orderBy: { serial_number: 'asc' },
+              })
+            : Promise.resolve([]),
+        ]);
+
+        const resolvedOptions = [
+          ...vehicles.map((v) => ({
+            id: v.id,
+            name: v.intern_number
+              ? `${v.domain || v.serie || 'Sin identificar'} (#${v.intern_number})`
+              : v.domain || v.serie || 'Sin identificar',
+          })),
+          ...otherEquipment.map((oe) => ({
+            id: oe.id,
+            name: oe.intern_number
+              ? `${oe.serial_number || 'Sin identificar'} (#${oe.intern_number})`
+              : oe.serial_number || 'Sin identificar',
+          })),
+        ];
+
+        return { counts, resolvedOptions };
+      }
+
+      default:
+        return null;
+    }
   } catch (error) {
-    logger.error('Error al obtener facetas de pedidos pendientes', { data: { error } });
+    logger.error('Error al obtener facet individual de pedidos pendientes', { data: { error, columnId } });
     return null;
   }
 }
@@ -324,4 +354,3 @@ export async function getPendingOrdersFacets(searchParams?: DataTableSearchParam
 // ── Tipos exportados ──────────────────────────────────────────────────────────
 
 export type PendingOrderListItem = Awaited<ReturnType<typeof getPendingOrdersPaginated>>['data'][number];
-export type PendingOrderFacets = Awaited<ReturnType<typeof getPendingOrdersFacets>>;

@@ -1,17 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
-import { NULL_FILTER_VALUE, stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
+import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { _WorkshopSectorTasksDataTable } from './_WorkshopSectorTasksDataTable';
-import { getWorkshopSectorTasksPaginated } from './actions.server';
-
-/**
- * Filtro default de Estado OT al abrir el acordeón: muestra todo excepto las
- * finalizadas (`completed`, `completed_partial`) y `cancelled`. El filtro
- * queda marcado en la UI para que el usuario pueda quitarlo y ver los
- * finalizados/cancelados si lo desea.
- */
-const DEFAULT_WO_STATUS = `pending,in_progress,paused,${NULL_FILTER_VALUE}`;
+import { getWorkshopSectorWorkOrdersPaginated } from './actions.server';
 
 // ============================================================================
 // PROPS
@@ -31,26 +23,22 @@ interface WorkshopSectorTasksListProps {
 /**
  * WorkshopSectorTasksList — Server Component.
  *
- * Se instancia una vez por sector de taller en el acordeón de la vista Workshop.
- * El parent NO debe montarlo mientras el acordeón esté colapsado (condicional en el parent).
+ * Se instancia una vez por sector de taller en el acordeón de la Vista Taller y
+ * lista las ÓRDENES DE TRABAJO abiertas del sector (ticket 678).
  *
- * tableId único por sector para que los URL params de cada tabla en la página
- * no interfieran entre sí.
+ * tableId único por sector para que los URL params de cada tabla en la página no
+ * interfieran entre sí. El prefijo cambió respecto de la versión que listaba
+ * tareas: las columnas ya no son las mismas, así que reutilizar las preferencias
+ * guardadas dejaría visibilidades apuntando a columnas que ya no existen.
  */
 export async function WorkshopSectorTasksList({ sectorId, searchParams }: WorkshopSectorTasksListProps) {
-  // tableId único por sector — aísla URL params y preferencias de BD
-  const tableId = `workshop-sector-tasks-${sectorId}`;
+  const tableId = `workshop-sector-work-orders-${sectorId}`;
 
   // Strip del namespace antes de parsear los searchParams de esta tabla
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
 
-  // Aplicar filtro default de Estado OT si el usuario aún no definió uno
-  if (!tableParams.wo_status) {
-    tableParams.wo_status = DEFAULT_WO_STATUS;
-  }
-
   const [{ data, total }, preferences] = await Promise.all([
-    getWorkshopSectorTasksPaginated(sectorId, tableParams),
+    getWorkshopSectorWorkOrdersPaginated(sectorId, tableParams),
     getTablePreferences(tableId),
   ]);
 

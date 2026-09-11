@@ -418,6 +418,7 @@ model users {
   user_permissions_user_permissions_user_idTousers     user_permissions[]        @relation("user_permissions_user_idTousers")
   user_roles_user_roles_assigned_byTousers             user_roles[]              @relation("user_roles_assigned_byTousers")
   user_roles_user_roles_user_idTousers                 user_roles[]              @relation("user_roles_user_idTousers")
+  user_equipment_type_visibility                       user_equipment_type_visibility[]
 
   @@index([instance_id])
   @@index([is_anonymous])
@@ -2062,7 +2063,7 @@ model other_equipment {
   model_id                       Int?
   serial_number                  String?
   year                           String?
-  condition                      condition_enum?
+  condition                      condition_enum?                  @default(operativo)
   status                         status_type?
   is_active                      Boolean                          @default(true)
   intern_number                  String?
@@ -2494,7 +2495,41 @@ model roles {
   profile          profile[]
   role_permissions role_permissions[]
   user_roles       user_roles[]
+  role_hidden_equipment_types role_hidden_equipment_types[]
 
+  @@schema("public")
+}
+
+/// Ticket 690: tipos de equipamiento cuyas solicitudes de mantenimiento NO ve un rol.
+/// Opt-out: sin fila = el rol ve el tipo. Con varios roles, el tipo queda oculto solo
+/// si TODOS los roles activos del usuario lo ocultan (misma unión que role_permissions).
+model role_hidden_equipment_types {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id    BigInt
+  type_id    String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  roles      roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  type       type      @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([role_id, type_id])
+  @@index([type_id], map: "idx_role_hidden_equipment_types_type_id")
+  @@schema("public")
+}
+
+/// Ticket 690: excepción por usuario sobre lo que resuelven sus roles, igual que
+/// user_permissions sobre role_permissions. is_visible true = lo ve, false = no lo ve.
+model user_equipment_type_visibility {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  type_id    String    @db.Uuid
+  is_visible Boolean
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  type       type      @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, type_id])
+  @@index([type_id], map: "idx_user_equipment_type_visibility_type_id")
   @@schema("public")
 }
 
@@ -2699,6 +2734,8 @@ model type {
   type_hitch_types_type_hitch_types_compatible_type_idTotype type_hitch_types[]         @relation("type_hitch_types_compatible_type_idTotype")
   type_hitch_types_type_hitch_types_type_idTotype            type_hitch_types[]         @relation("type_hitch_types_type_idTotype")
   vehicles_vehicles_typeTotype                               vehicles[]                 @relation("vehicles_typeTotype")
+  role_hidden_equipment_types                                role_hidden_equipment_types[]
+  user_equipment_type_visibility                             user_equipment_type_visibility[]
 
   @@index([applies_to], map: "idx_type_applies_to")
   @@schema("public")

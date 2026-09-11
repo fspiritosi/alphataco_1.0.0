@@ -159,6 +159,47 @@ export async function getDashboardKpis() {
 export type DashboardKpisData = Awaited<ReturnType<typeof getDashboardKpis>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 1.b Checklist Missing Indicator (ticket 685)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Obtiene la cantidad de equipos (vehiculos, type_of_vehicle = 1 — el mismo universo
+ * que la tabla de Equipos/Vehiculos) sin ningun checklist cargado:
+ * - historicalCount: nunca se les hizo un checklist (historico completo).
+ * - monthCount: no tienen ningun checklist dentro del mes en curso.
+ *
+ * El corte del "mes en curso" queda aislado en `startOfMonth` para poder
+ * cambiarlo a "mes anterior" mas adelante sin tocar el resto de la funcion
+ * (mencionado explicitamente como posible cambio futuro en la reunion del ticket).
+ */
+export async function getChecklistMissingIndicator() {
+  logger.debug('Obteniendo indicador de equipos sin checklist');
+
+  try {
+    const companyId = await getServerCompanyId();
+    const startOfMonth = moment().utcOffset(-3).startOf('month').toDate();
+
+    const baseWhere = { company_id: companyId, is_active: true, type_of_vehicle: 1 } as const;
+
+    const [historicalCount, monthCount] = await Promise.all([
+      prisma.vehicles.count({
+        where: { ...baseWhere, checklist_answers: { none: {} } },
+      }),
+      prisma.vehicles.count({
+        where: { ...baseWhere, checklist_answers: { none: { created_at: { gte: startOfMonth } } } },
+      }),
+    ]);
+
+    return { historicalCount, monthCount };
+  } catch (error) {
+    logger.error('Error al obtener indicador de equipos sin checklist', { data: { error } });
+    return { historicalCount: 0, monthCount: 0 };
+  }
+}
+
+export type ChecklistMissingIndicatorData = Awaited<ReturnType<typeof getChecklistMissingIndicator>>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 2. Services Summary
 // ─────────────────────────────────────────────────────────────────────────────
 

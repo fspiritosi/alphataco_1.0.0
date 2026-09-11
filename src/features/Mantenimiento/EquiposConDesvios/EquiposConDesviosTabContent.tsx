@@ -1,21 +1,10 @@
-import { Card } from '@/components/ui/card';
-import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
-import { getEquipmentsWithPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
-import { EquipmentsWithDeviationsTableClient } from './components/EquipmentsWithDeviationsTableClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { EquiposConDesviosList } from './EquiposConDesviosList';
 
-export async function EquiposConDesviosTabContent() {
-  // Fetching en el servidor en paralelo
-  const [initialEquipments, initialRepairTypes] = await Promise.all([
-    getEquipmentsWithPendingDeviations(),
-    fetchAllTypesOfRepairs(),
-  ]);
+interface Props {
+  searchParams?: DataTableSearchParams;
+}
 
-  return (
-    <Card className="p-6">
-      <EquipmentsWithDeviationsTableClient
-        initialEquipments={initialEquipments}
-        initialRepairTypes={initialRepairTypes}
-      />
-    </Card>
-  );
+export async function EquiposConDesviosTabContent({ searchParams = {} }: Props) {
+  return <EquiposConDesviosList searchParams={searchParams} />;
 }

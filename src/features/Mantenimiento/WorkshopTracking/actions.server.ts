@@ -13,7 +13,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
-import { resourceCompanyCondition } from '../shared/maintenance-resource';
+import { resourceCompanyCondition, visibleEquipmentTypeCondition } from '../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../utils/equipmentTypeVisibility';
 import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 import { DEFAULT_TRACKING_STATUSES, WORKSHOP_TRACKING_STATUSES } from './statuses';
 
@@ -57,7 +58,16 @@ const COLUMN_MAP: Record<string, string> = {
   status: 'status',
 };
 
-/** Select común con todas las relaciones resueltas para el tracking */
+/**
+ * Select común con todas las relaciones resueltas para el tracking.
+ *
+ * `maintenance_order_items` viaja podado a solo lo que consumen las columnas
+ * "Recorrido Sectores" y "Progreso" (y sus equivalentes de export): sin
+ * `is_diagnostico`, sin `order_number`/`status` de `work_orders`, sin
+ * `id`/`status` de `work_order_items` y sin `repair_type_id` de las reparaciones
+ * — ninguno se lee en `workshopTrackingColumns.tsx`. La auditoría del ticket 673
+ * marcó este select como el más profundo (4 niveles) de la tabla.
+ */
 const WORKSHOP_TRACKING_SELECT = {
   id: true,
   order_number: true,
@@ -96,34 +106,26 @@ const WORKSHOP_TRACKING_SELECT = {
       preventive_type: true,
     },
   },
-  // Items con sectores, work orders y repairs (para "Recorrido Sectores" y progreso)
+  // Items con sectores y reparaciones (para "Recorrido Sectores" y "Progreso") — podado
   maintenance_order_items: {
     select: {
       id: true,
       assigned_sector_id: true,
       sector_sequence_order: true,
-      is_diagnostico: true,
       workshop_sectors: {
         select: {
-          id: true,
           name: true,
         },
       },
       work_orders: {
         select: {
-          id: true,
-          order_number: true,
-          status: true,
           work_order_items: {
             select: {
-              id: true,
               maintenance_order_item_id: true,
-              status: true,
               work_order_item_repairs: {
                 select: {
                   id: true,
                   status: true,
-                  repair_type_id: true,
                 },
               },
             },
@@ -139,21 +141,21 @@ const WORKSHOP_TRACKING_SELECT = {
 // ============================================================================
 
 /**
- * Construye el WHERE base para workshop tracking.
- * Aplica filtro de supervisor: si el usuario no tiene view_all_requests,
- * solo ve órdenes donde él es supervisor de la solicitud.
+ * Construye el WHERE compartido por el paginado, el export y las facets de
+ * workshop tracking. Aplica filtro de supervisor: si el usuario no tiene
+ * view_all_requests, solo ve órdenes donde él es supervisor de la solicitud.
  *
  * @param includeCompleted incluye las órdenes completadas en el universo base.
  *   Solo se usa al calcular la faceta de la columna "Estado", para que
  *   "Completada" aparezca con su count y el usuario pueda tildarla.
  *   Si el usuario filtra por estado, `filtersWhere` sobrescribe este default.
  */
-async function buildBaseWhere(
+async function buildWhereClause(
   companyId: string,
   state: ReturnType<typeof parseSearchParams>,
   includeCompleted = false
 ) {
-  const supervisorFilter = await getSupervisorFilterInfo();
+  const [supervisorFilter, hiddenTypeIds] = await Promise.all([getSupervisorFilterInfo(), getHiddenEquipmentTypeIds()]);
   const searchWhere = buildSearchWhere(state.search, ['order_number']);
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
@@ -257,6 +259,9 @@ async function buildBaseWhere(
     };
   }
 
+  // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+  const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+
   return {
     status: { in: includeCompleted ? WORKSHOP_TRACKING_STATUSES : DEFAULT_TRACKING_STATUSES },
 
@@ -269,8 +274,21 @@ async function buildBaseWhere(
     ...supervisorCondition,
     // El filtro de empresa (vehiculo o equipamiento, ticket 596) va dentro del AND:
     // produce un OR y al nivel raiz chocaria con el OR de la busqueda global.
-    AND: [resourceCompanyCondition(companyId), ...extraAndConditions],
+    AND: [
+      resourceCompanyCondition(companyId),
+      ...extraAndConditions,
+      ...(equipmentCondition ? [equipmentCondition] : []),
+    ],
   };
+}
+
+/** Suma con el estado parseado de un searchParams, descartando los params que no son filtros de la tabla */
+function parseTableState(searchParams?: DataTableSearchParams) {
+  const state = parseSearchParams(searchParams || {});
+  for (const key of IGNORED_PARAMS) {
+    delete state.filters[key];
+  }
+  return state;
 }
 
 // ============================================================================
@@ -281,13 +299,9 @@ export async function getWorkshopTrackingPaginated(searchParams: DataTableSearch
   const companyId = await getServerCompanyId();
 
   try {
-    const state = parseSearchParams(searchParams);
-    for (const key of IGNORED_PARAMS) {
-      delete state.filters[key];
-    }
-
+    const state = parseTableState(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = await buildBaseWhere(companyId, state);
+    const where = await buildWhereClause(companyId, state);
 
     // Safe multi-sort: solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -330,12 +344,8 @@ export async function getAllWorkshopTrackingForExport(searchParams: DataTableSea
   const companyId = await getServerCompanyId();
 
   try {
-    const state = parseSearchParams(searchParams);
-    for (const key of IGNORED_PARAMS) {
-      delete state.filters[key];
-    }
-
-    const where = await buildBaseWhere(companyId, state);
+    const state = parseTableState(searchParams);
+    const where = await buildWhereClause(companyId, state);
 
     const data = await prisma.maintenance_orders.findMany({
       orderBy: [{ created_at: 'desc' }],
@@ -351,129 +361,108 @@ export async function getAllWorkshopTrackingForExport(searchParams: DataTableSea
 }
 
 // ============================================================================
-// FACETS (con cross-filtering)
+// FACETS — lazy-load individual por columna (con cross-filtering)
 // ============================================================================
 
 /**
- * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
+ * Obtiene el facet (opciones + counts) de UNA sola columna, bajo demanda
+ * (lazy-load). Cada filtro facetado de la tabla llama esto al abrir su
+ * popover, en vez de cargar las 3 facetas juntas en un `useQuery` bulk.
+ *
+ * Implementa cross-filtering: excluye el filtro propio de la columna
+ * consultada (reutilizando `buildWhereClause` con ese filtro borrado del
+ * estado), igual que hacía el `crossWhere` del patrón bulk anterior.
  */
-export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchParams) {
+export async function getWorkshopTrackingSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
   const companyId = await getServerCompanyId();
-  const supervisorFilter = await getSupervisorFilterInfo();
-
-  // Filtro supervisor: si no tiene view_all_requests, solo ve las suyas
-  const supervisorCondition: Record<string, unknown> = {};
-  if (supervisorFilter?.shouldFilterBySupervisor) {
-    supervisorCondition.maintenance_requests = {
-      supervisor_id: supervisorFilter.userId,
-    };
-  }
-
-  /**
-   * Universo base sin filtros del usuario.
-   * `includeCompleted` solo se activa para la faceta de "Estado": ahí necesitamos
-   * que "Completada" aparezca con su count aunque no se muestre por defecto.
-   */
-  const baseWhereFor = (includeCompleted: boolean) => ({
-    status: { in: includeCompleted ? WORKSHOP_TRACKING_STATUSES : DEFAULT_TRACKING_STATUSES },
-
-    ...supervisorCondition,
-  });
-
-  const baseWhere = baseWhereFor(false);
-
-  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
-  if (searchParams && Object.keys(searchParams).length > 0) {
-    parsedState = parseSearchParams(searchParams);
-    for (const key of IGNORED_PARAMS) {
-      delete parsedState.filters[key];
-    }
-  }
-
-  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
-
-  async function crossWhere(excludeColumn: string): Promise<typeof baseWhere & Record<string, unknown>> {
-    // La faceta de "Estado" necesita ver también las completadas para poder ofrecerlas
-    const includeCompleted = excludeColumn === 'status';
-    if (!parsedState || !hasActiveFilters) return baseWhereFor(includeCompleted);
-    const modified = { ...parsedState, filters: { ...parsedState.filters } };
-    delete modified.filters[excludeColumn];
-    delete modified.filters[`${excludeColumn}_from`];
-    delete modified.filters[`${excludeColumn}_to`];
-    return buildBaseWhere(companyId, modified, includeCompleted);
-  }
-
-  function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
-    const map = new Map<string, number>();
-    for (const { key, count } of rows) {
-      if (key == null) {
-        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
-      } else {
-        map.set(String(key), count);
-      }
-    }
-    return map;
-  }
 
   try {
-    const [crossWhereStatus, crossWhereVehicle, crossWhereCondition, crossWhereEntryDate, crossWhereCreatedAt] =
-      await Promise.all([
-        crossWhere('status'),
-        crossWhere('vehicle'),
-        crossWhere('condition'),
-        crossWhere('workshop_entry_date'),
-        crossWhere('created_at'),
-      ]);
+    const state = parseTableState(searchParams);
 
-    const [statusCounts, vehicleCounts, conditionRows] = await Promise.all([
-      prisma.maintenance_orders.groupBy({
-        by: ['status'],
-        where: crossWhereStatus,
-        _count: { _all: true },
-      }),
-      prisma.maintenance_orders.groupBy({
-        by: ['equipment_id'],
-        where: crossWhereVehicle,
-        _count: { _all: true },
-      }),
-      // condition vive en vehicles (relación anidada) — groupBy no soporta campos anidados
-      prisma.maintenance_orders.findMany({
-        where: crossWhereCondition,
-        select: { vehicles: { select: { condition: true } } },
-      }),
-    ]);
-
-    // Resolver nombres de vehículos para el filtro
-    const vehicleIds = vehicleCounts.map((r) => r.equipment_id).filter(Boolean) as string[];
-    const vehicleOptions =
-      vehicleIds.length > 0
-        ? await prisma.vehicles.findMany({
-            where: { id: { in: vehicleIds } },
-            select: { id: true, domain: true, serie: true, intern_number: true },
-            orderBy: { domain: 'asc' },
-          })
-        : [];
-
-    const conditionCounts = new Map<string, number>();
-    for (const row of conditionRows) {
-      const key = row.vehicles?.condition ?? NULL_FILTER_VALUE;
-      conditionCounts.set(key, (conditionCounts.get(key) ?? 0) + 1);
+    function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+      const map = new Map<string, number>();
+      for (const { key, count } of rows) {
+        const mapKey = key ?? NULL_FILTER_VALUE;
+        map.set(mapKey, (map.get(mapKey) ?? 0) + count);
+      }
+      return map;
     }
 
-    // Usamos crossWhere params para date range (no agrupamos fechas, solo se usan para cross-filter)
-    void crossWhereEntryDate;
-    void crossWhereCreatedAt;
+    async function crossWhere(excludeColumn: string, includeCompleted = false) {
+      const filteredFilters = { ...state.filters };
+      delete filteredFilters[excludeColumn];
+      delete filteredFilters[`${excludeColumn}_from`];
+      delete filteredFilters[`${excludeColumn}_to`];
+      const crossState = { ...state, filters: filteredFilters };
+      return buildWhereClause(companyId, crossState, includeCompleted);
+    }
 
-    return {
-      status: toFacetMap(statusCounts.map((r) => ({ key: r.status, count: r._count._all }))),
-      vehicle: toFacetMap(vehicleCounts.map((r) => ({ key: r.equipment_id, count: r._count._all }))),
-      vehicleOptions,
-      condition: conditionCounts,
-    };
+    switch (columnId) {
+      case 'status': {
+        // La faceta de "Estado" necesita ver también las completadas para poder ofrecerlas
+        const where = await crossWhere('status', true);
+        const rows = await prisma.maintenance_orders.groupBy({
+          by: ['status'],
+          where,
+          _count: { _all: true },
+        });
+        return { counts: toFacetMap(rows.map((r) => ({ key: r.status, count: r._count._all }))) };
+      }
+
+      case 'vehicle': {
+        const where = await crossWhere('vehicle');
+        const rows = await prisma.maintenance_orders.groupBy({
+          by: ['equipment_id'],
+          where,
+          _count: { _all: true },
+        });
+        const counts = toFacetMap(rows.map((r) => ({ key: r.equipment_id, count: r._count._all })));
+
+        // Resolver nombres de vehículos para el filtro
+        const ids = rows.map((r) => r.equipment_id).filter((id): id is string => Boolean(id));
+        const vehicles =
+          ids.length > 0
+            ? await prisma.vehicles.findMany({
+                where: { id: { in: ids } },
+                select: { id: true, domain: true, serie: true, intern_number: true },
+                orderBy: { domain: 'asc' },
+              })
+            : [];
+        const resolvedOptions = vehicles.map((v) => ({
+          id: v.id,
+          name: [v.domain || v.serie || 'Sin dominio', v.intern_number ? `(${v.intern_number})` : '']
+            .filter(Boolean)
+            .join(' '),
+        }));
+        return { counts, resolvedOptions };
+      }
+
+      case 'condition': {
+        const where = await crossWhere('condition');
+        // condition vive en vehicles (relación anidada) — groupBy no soporta campos anidados
+        const rows = await prisma.maintenance_orders.findMany({
+          where,
+          select: { vehicles: { select: { condition: true } } },
+        });
+        const counts = new Map<string, number>();
+        for (const row of rows) {
+          const key = row.vehicles?.condition ?? NULL_FILTER_VALUE;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return { counts };
+      }
+
+      default:
+        return null;
+    }
   } catch (error) {
-    logger.error('Error al obtener facets de seguimiento de taller', { data: { error } });
-    return null;
+    logger.error('Error al obtener facet individual de seguimiento de taller', { data: { error, columnId } });
+    throw error;
   }
 }
-
-export type WorkshopTrackingFacets = Awaited<ReturnType<typeof getWorkshopTrackingFacets>>;

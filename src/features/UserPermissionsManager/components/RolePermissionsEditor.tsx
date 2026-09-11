@@ -1,6 +1,5 @@
 'use client';
 
-import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import type { ModulesWithTabsData } from '@/features/UserPermissionsManager/actions.server';
 import { getModulesWithTabsServer } from '@/features/UserPermissionsManager/actions.server';
+import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
@@ -28,7 +28,7 @@ import {
   UsersRound,
   Wrench,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,8 @@ interface RolePermissionsEditorProps {
   permissions: Array<{ tabId: string; actionId: string }>;
   onPermissionsChange: (permissions: Array<{ tabId: string; actionId: string }>) => void;
   initialModules: ModulesWithTabsData;
+  /** Contenido extra al final de un módulo, por slug (ej. tipos de equipamiento en Mantenimiento) */
+  moduleAddons?: Partial<Record<string, ReactNode>>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ export function RolePermissionsEditor({
   permissions,
   onPermissionsChange,
   initialModules,
+  moduleAddons,
 }: RolePermissionsEditorProps) {
   // Usa initialModules como SSR data; re-fetch transparente en background
   const { data: modules = initialModules } = useQuery({
@@ -412,6 +415,13 @@ export function RolePermissionsEditor({
                   </Accordion>
                 ) : (
                   <div className="text-xs text-muted-foreground pt-1">No hay tabs disponibles</div>
+                )}
+
+                {module.slug && moduleAddons?.[module.slug] && (
+                  <>
+                    <Separator className="my-3" />
+                    {moduleAddons[module.slug]}
+                  </>
                 )}
               </AccordionContent>
             </AccordionItem>

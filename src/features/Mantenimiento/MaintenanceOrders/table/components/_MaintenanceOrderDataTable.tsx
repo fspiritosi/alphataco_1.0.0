@@ -11,21 +11,21 @@ import {
   DataTable,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import { useQuery } from '@tanstack/react-query';
 import { Activity, CheckCircle2, CircleOff, Clock, Settings, Truck, XCircle, type LucideIcon } from 'lucide-react';
-import moment from 'moment';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { OrderDetailDialog } from '../../components/OrderDetailDialog';
 import { RequestedItemsDialog } from '../../components/RequestedItemsDialog';
 import {
-  getAllMaintenanceOrdersForExport,
-  getMaintenanceOrdersFacets,
+  getMaintenanceOrdersPaginated,
+  getMaintenanceOrdersSingleFacet,
   type MaintenanceOrderListItem,
 } from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getMaintenanceOrdersColumns, statusLabels } from '../columns';
+import { _ExportTasksButton } from './_ExportTasksButton';
 
 // ============================================================================
 // TYPES
@@ -63,6 +63,43 @@ const statusIcons: Record<string, LucideIcon> = {
   workshop_rejected: XCircle,
   completed: CheckCircle2,
 };
+
+// ============================================================================
+// HELPERS — builders para FacetResult (lazy-load, ver DOCS.md "Lazy-Load Facets")
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({ value, label: labels[value] ?? value, icon: icons[value] })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK: opciones resueltas del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar',
+  icon?: LucideIcon
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '', icon })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
 
 // ============================================================================
 // CLIENT COMPONENT
@@ -132,19 +169,15 @@ export function _MaintenanceOrderDataTable({
     setSelectedOrder(null);
   };
 
-  // ─── Extraer params de facets (sin page/sort) ─────────────────────────────
-  const facetParams = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation: estado reactivo para queries dependientes (export) ────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // ─── Facets con cross-filtering ───────────────────────────────────────────
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['maintenance-orders-facets', facetParams],
-    queryFn: () => getMaintenanceOrdersFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla (sin router.push, sin re-render de la página)
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getMaintenanceOrdersPaginated(params), []);
 
   // ─── Columnas ─────────────────────────────────────────────────────────────
   const columns = useMemo(
@@ -164,62 +197,56 @@ export function _MaintenanceOrderDataTable({
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // ─── Filter visibility ────────────────────────────────────────────────────
-  const mergedFilterVisibility = useMemo(() => {
-    if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
-      return initialFilterVisibility;
-    }
-    const allFilterIds = [
-      'status',
-      'vehicle',
-      'workshop_entry_date',
-      'created_at',
-      'domain',
-      'serie',
-      'intern_number',
-      'order_number',
-      'description',
-    ];
-    return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
-  }, [initialFilterVisibility]);
+  // ─── fetchFacet factories: cada filtro carga sus opciones+counts bajo demanda ──────
 
-  // ─── Filtros facetados ────────────────────────────────────────────────────
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons: Record<string, LucideIcon | undefined>,
+      nullLabel = 'Sin asignar'
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getMaintenanceOrdersSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, icons, result.counts, nullLabel);
+      };
+    },
+    []
+  );
+
+  const makeFkFetchFacet = useCallback((columnId: string, nullLabel = 'Sin asignar', icon?: LucideIcon) => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getMaintenanceOrdersSingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel, icon);
+    };
+  }, []);
+
+  // ─── Filtros facetados (lazy-load — cada uno se carga al abrir su popover) ────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       // Estado (enum status)
       {
         columnId: 'status',
         title: 'Estado',
-        options: [
-          ...Object.entries(statusLabels).map(([value, label]) => ({
-            value,
-            label,
-            icon: statusIcons[value],
-          })),
-          ...(facets?.status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet('status', Object.keys(statusLabels), statusLabels, statusIcons, 'Sin estado'),
       },
 
       // Equipo (FK UUID → vehicles)
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        options: [
-          ...(facets?.vehicleOptions?.map((v) => ({
-            value: v.id,
-            label: [v.domain ?? v.serie ?? 'Sin identificar', v.intern_number ? `#${v.intern_number}` : '']
-              .filter(Boolean)
-              .join(' '),
-            icon: Truck,
-          })) ?? []),
-          ...(facets?.vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin equipo', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.vehicle,
+        fetchFacet: makeFkFetchFacet('vehicle', 'Sin equipo', Truck),
+      },
+
+      // Sector actual (calculado — ticket 675: Fabricio pidió poder filtrar
+      // "cuántas órdenes tiene ahora mismo tal sector", no solo verlo en la columna)
+      {
+        columnId: 'currentSector',
+        title: 'Sector Actual',
+        fetchFacet: makeFkFetchFacet('currentSector'),
       },
 
       // Fecha ingreso a taller (dateRange)
@@ -276,65 +303,16 @@ export function _MaintenanceOrderDataTable({
         placeholder: 'Buscar por descripción...',
       },
     ],
-    [facets]
+    [makeEnumFetchFacet, makeFkFetchFacet]
   );
 
-  // ─── Export config ─────────────────────────────────────────────────────────
-  const exportConfig = useMemo(
-    () => ({
-      options: { filename: 'ordenes-mantenimiento', sheetName: 'Órdenes de Mantenimiento' },
-      fetchAllData: () => getAllMaintenanceOrdersForExport(searchParams),
-      formatters: {
-        vehicle: (_val: unknown, row: MaintenanceOrderListItem) => {
-          const vehicle = row.vehicles;
-          const label = vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar';
-          return vehicle?.intern_number ? `${label} (#${vehicle.intern_number})` : label;
-        },
-        description: (_val: unknown, row: MaintenanceOrderListItem) =>
-          row.description ?? row.maintenance_requests?.description ?? '',
-        workshop_entry_date: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
-        created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
-        status: (val: unknown) => {
-          const status = val as string;
-          return statusLabels[status] ?? status ?? '';
-        },
-        progress: (_val: unknown, row: MaintenanceOrderListItem) => {
-          let total = 0;
-          let completed = 0;
-          for (const item of row.maintenance_order_items ?? []) {
-            if (item.is_diagnostico) continue;
-            const wo = item.work_orders;
-            if (wo) {
-              for (const woItem of wo.work_order_items ?? []) {
-                for (const repair of woItem.work_order_item_repairs ?? []) {
-                  total++;
-                  if (repair.status === 'completed') completed++;
-                }
-              }
-            }
-          }
-          const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-          return `${percent}%`;
-        },
-        currentSector: (_val: unknown, row: MaintenanceOrderListItem) => {
-          const items = row.maintenance_order_items ?? [];
-          const sectorMap = new Map<string, { name: string; order: number }>();
-          for (const item of items) {
-            const sectorId = item.assigned_sector_id;
-            if (!sectorId) continue;
-            const sectorName = item.workshop_sectors?.name ?? 'Sin nombre';
-            if (!sectorMap.has(sectorId)) {
-              sectorMap.set(sectorId, { name: sectorName, order: item.sector_sequence_order ?? 999 });
-            }
-          }
-          if (sectorMap.size === 0) return 'Sin asignar';
-          const sorted = Array.from(sectorMap.values()).sort((a, b) => a.order - b.order);
-          return sorted[0].name;
-        },
-      },
-    }),
-    [searchParams]
-  );
+  // ─── Filter visibility ────────────────────────────────────────────────────
+  const mergedFilterVisibility = useMemo(() => {
+    if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
+      return initialFilterVisibility;
+    }
+    return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTER_IDS.includes(f.columnId)]));
+  }, [initialFilterVisibility, facetedFilters]);
 
   return (
     <>
@@ -346,13 +324,18 @@ export function _MaintenanceOrderDataTable({
         paramNamespace={tableId}
         tableId={tableId}
         facetedFilters={facetedFilters}
-        isFetchingFacets={isFetchingFacets}
-        exportConfig={exportConfig}
+        // Botón de export a nivel de tarea (ticket 682) reemplaza al export estándar del DataTable —
+        // usa currentParams para reflejar los filtros activos en modo client-side.
+        toolbarActions={<_ExportTasksButton searchParams={currentParams} />}
         initialColumnVisibility={mergedColumnVisibility}
         initialFilterVisibility={mergedFilterVisibility}
         searchPlaceholder="Buscar por N° orden, dominio..."
         emptyMessage="No hay órdenes de mantenimiento"
         showFilterToggle={true}
+        // Client-side navigation: fetch instantáneo vía React Query, sin router.push
+        queryFn={tableQueryFn}
+        queryKey={['maintenance-orders-paginated']}
+        onStateChange={handleStateChange}
       />
 
       {/* Loading overlay para carga de detalle */}

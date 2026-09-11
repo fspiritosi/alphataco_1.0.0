@@ -8,29 +8,34 @@ import type {
   DataTableSearchParams,
   FacetResult,
 } from '@/shared/components/common/DataTable/types';
-import { AlertTriangle, Check, CheckCircle2, CircleDashed, CircleOff, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, CircleOff, Stethoscope, X, XCircle } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { OPEN_WORK_ORDER_STATUSES } from '../workshop-view-filters';
 import {
-  getAllWorkshopSectorTasksForExport,
-  getWorkshopSectorTasksPaginated,
-  getWorkshopSectorTasksSingleFacet,
-  type WorkshopSectorTaskListItem,
+  getAllWorkshopSectorWorkOrdersForExport,
+  getWorkshopSectorWorkOrdersPaginated,
+  getWorkshopSectorWorkOrdersSingleFacet,
+  type WorkshopSectorWorkOrderListItem,
 } from './actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   IS_CRITICAL_LABELS,
+  IS_DIAGNOSTICO_LABELS,
   IS_REJECTED_LABELS,
   MO_STATUS_CONFIG,
   WO_STATUS_CONFIG,
-  getWorkshopSectorTasksColumns,
-  getWorkshopSectorTasksExportFormatters,
+  getWorkshopSectorWorkOrdersColumns,
+  getWorkshopSectorWorkOrdersExportFormatters,
 } from './columns';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const DEFAULT_VISIBLE_FILTERS = ['wo_status', 'mo_status', 'repair_type'];
+const DEFAULT_VISIBLE_FILTERS = ['wo_status', 'vehicle', 'repair_type'];
+
+/** Columnas virtuales que sólo existen para colgarles un filtro */
+const FILTER_ONLY_COLUMNS = ['wo_status', 'mo_status', 'repair_type', 'is_critical', 'is_rejected', 'is_diagnostico'];
 
 // ============================================================================
 // PROPS
@@ -38,7 +43,7 @@ const DEFAULT_VISIBLE_FILTERS = ['wo_status', 'mo_status', 'repair_type'];
 
 interface Props {
   sectorId: string;
-  data: WorkshopSectorTaskListItem[];
+  data: WorkshopSectorWorkOrderListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
@@ -63,7 +68,7 @@ function buildFkFacetResult(
 ): FacetResult {
   return {
     options: [
-      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(resolvedOptions?.map((option) => ({ value: option.id, label: option.name ?? '' })) ?? []),
       ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
     ],
     counts,
@@ -74,6 +79,12 @@ function buildFkFacetResult(
 // COMPONENT
 // ============================================================================
 
+/**
+ * Tabla de ÓRDENES DE TRABAJO de un sector de taller (ticket 678).
+ *
+ * Una fila = una OT = una unidad. La cantidad de tareas va en su propia columna
+ * y el detalle se abre con el botón "Ver" de la columna de acciones.
+ */
 export function _WorkshopSectorTasksDataTable({
   sectorId,
   data,
@@ -92,24 +103,20 @@ export function _WorkshopSectorTasksDataTable({
 
   // ── Query fn estable para client-side navigation mode ─────────────────────
   const tableQueryFn = useCallback(
-    (params: DataTableSearchParams) => getWorkshopSectorTasksPaginated(sectorId, params),
+    (params: DataTableSearchParams) => getWorkshopSectorWorkOrdersPaginated(sectorId, params),
     [sectorId]
   );
 
   // ── Columns ───────────────────────────────────────────────────────────────
-  const columns = useMemo(() => getWorkshopSectorTasksColumns(), []);
+  const columns = useMemo(() => getWorkshopSectorWorkOrdersColumns(), []);
 
   // ── fetchFacet factories: lazy-load por columna ────────────────────────────
 
-  /**
-   * Factory para filtros enum: construye un fetchFacet que llama a
-   * getWorkshopSectorTasksSingleFacet y construye las opciones a partir de
-   * un array estático de opciones con sus iconos.
-   */
+  /** Filtros enum: opciones estáticas con iconos + counts del servidor */
   const makeEnumFetchFacet = useCallback(
     (columnId: string, staticOptions: DataTableFilterOption[]) => {
       return async (params: DataTableSearchParams): Promise<FacetResult> => {
-        const result = await getWorkshopSectorTasksSingleFacet(columnId, sectorId, params);
+        const result = await getWorkshopSectorWorkOrdersSingleFacet(columnId, sectorId, params);
         if (!result) return { options: staticOptions, counts: new Map() };
         return buildEnumFacetResult(staticOptions, result.counts);
       };
@@ -117,14 +124,11 @@ export function _WorkshopSectorTasksDataTable({
     [sectorId]
   );
 
-  /**
-   * Factory para filtros FK: construye un fetchFacet que llama a
-   * getWorkshopSectorTasksSingleFacet y usa las opciones resueltas del servidor.
-   */
+  /** Filtros FK: opciones resueltas por el servidor + counts */
   const makeFkFetchFacet = useCallback(
     (columnId: string, nullLabel = 'Sin asignar') => {
       return async (params: DataTableSearchParams): Promise<FacetResult> => {
-        const result = await getWorkshopSectorTasksSingleFacet(columnId, sectorId, params);
+        const result = await getWorkshopSectorWorkOrdersSingleFacet(columnId, sectorId, params);
         if (!result) return { options: [], counts: new Map() };
         return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
       };
@@ -132,28 +136,25 @@ export function _WorkshopSectorTasksDataTable({
     [sectorId]
   );
 
-  // Opciones estáticas para los filtros enum (con iconos semánticos)
+  // Estado OT: sólo los estados abiertos — la Vista Taller nunca muestra OT
+  // cerradas, así que ofrecerlas sería ofrecer filtros que siempre dan cero.
   const woStatusStaticOptions = useMemo<DataTableFilterOption[]>(
-    () => [
-      ...Object.entries(WO_STATUS_CONFIG).map(([value, cfg]) => ({
+    () =>
+      OPEN_WORK_ORDER_STATUSES.map((value) => ({
         value,
-        label: cfg.label,
-        icon: cfg.icon,
+        label: WO_STATUS_CONFIG[value]?.label ?? value,
+        icon: WO_STATUS_CONFIG[value]?.icon,
       })),
-      { value: NULL_FILTER_VALUE, label: 'Sin OT', icon: CircleDashed },
-    ],
     []
   );
 
   const moStatusStaticOptions = useMemo<DataTableFilterOption[]>(
-    () => [
-      ...Object.entries(MO_STATUS_CONFIG).map(([value, cfg]) => ({
+    () =>
+      Object.entries(MO_STATUS_CONFIG).map(([value, cfg]) => ({
         value,
         label: cfg.label,
         icon: cfg.icon,
       })),
-      { value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff },
-    ],
     []
   );
 
@@ -175,8 +176,8 @@ export function _WorkshopSectorTasksDataTable({
 
   const isDiagnosticoStaticOptions = useMemo<DataTableFilterOption[]>(
     () => [
-      { value: 'true', label: 'Sí', icon: Check },
-      { value: 'false', label: 'No', icon: X },
+      { value: 'true', label: IS_DIAGNOSTICO_LABELS['true'], icon: Stethoscope },
+      { value: 'false', label: IS_DIAGNOSTICO_LABELS['false'], icon: X },
     ],
     []
   );
@@ -190,9 +191,9 @@ export function _WorkshopSectorTasksDataTable({
         fetchFacet: makeEnumFetchFacet('wo_status', woStatusStaticOptions),
       },
       {
-        columnId: 'mo_status',
-        title: 'Estado OM',
-        fetchFacet: makeEnumFetchFacet('mo_status', moStatusStaticOptions),
+        columnId: 'vehicle',
+        title: 'Equipo',
+        fetchFacet: makeFkFetchFacet('vehicle', 'Sin equipo'),
       },
       {
         columnId: 'repair_type',
@@ -200,9 +201,9 @@ export function _WorkshopSectorTasksDataTable({
         fetchFacet: makeFkFetchFacet('repair_type', 'Sin tipo'),
       },
       {
-        columnId: 'vehicle',
-        title: 'Equipo',
-        fetchFacet: makeFkFetchFacet('vehicle', 'Sin equipo'),
+        columnId: 'mo_status',
+        title: 'Estado OM',
+        fetchFacet: makeEnumFetchFacet('mo_status', moStatusStaticOptions),
       },
       {
         columnId: 'is_critical',
@@ -230,20 +231,14 @@ export function _WorkshopSectorTasksDataTable({
         type: 'dateRange' as const,
       },
       {
-        columnId: 'assigned_at',
-        title: 'Asignada el',
+        columnId: 'started_at',
+        title: 'Iniciada el',
         type: 'dateRange' as const,
       },
       {
         columnId: 'created_at',
         title: 'Creada el',
         type: 'dateRange' as const,
-      },
-      {
-        columnId: 'description',
-        title: 'Descripción',
-        type: 'text' as const,
-        placeholder: 'Buscar por descripción...',
       },
       {
         columnId: 'work_order',
@@ -282,8 +277,7 @@ export function _WorkshopSectorTasksDataTable({
     () => ({
       ...Object.fromEntries(HIDDEN_COLUMNS_BY_DEFAULT.map((c) => [c, false])),
       // Columnas virtuales de filtro: siempre ocultas
-      mo_status: false,
-      wo_status: false,
+      ...Object.fromEntries(FILTER_ONLY_COLUMNS.map((c) => [c, false])),
       // Las preferencias guardadas tienen prioridad sobre los defaults
       ...(initialColumnVisibility ?? {}),
     }),
@@ -291,15 +285,15 @@ export function _WorkshopSectorTasksDataTable({
   );
 
   // ── Export config ─────────────────────────────────────────────────────────
-  const exportFormatters = useMemo(() => getWorkshopSectorTasksExportFormatters(), []);
+  const exportFormatters = useMemo(() => getWorkshopSectorWorkOrdersExportFormatters(), []);
 
   const exportConfig = useMemo(
     () => ({
       options: {
-        filename: `tareas-sector-${sectorId.slice(0, 8)}`,
-        sheetName: 'Tareas',
+        filename: `ot-sector-${sectorId.slice(0, 8)}`,
+        sheetName: 'Órdenes de trabajo',
       },
-      fetchAllData: () => getAllWorkshopSectorTasksForExport(sectorId, currentParams),
+      fetchAllData: () => getAllWorkshopSectorWorkOrdersForExport(sectorId, currentParams),
       formatters: exportFormatters,
     }),
     [sectorId, currentParams, exportFormatters]
@@ -313,18 +307,18 @@ export function _WorkshopSectorTasksDataTable({
       totalRows={totalRows}
       searchParams={searchParams}
       queryFn={tableQueryFn}
-      queryKey={['workshop-sector-tasks', sectorId]}
+      queryKey={['workshop-sector-work-orders', sectorId]}
       onStateChange={handleStateChange}
       tableId={tableId}
       paramNamespace={tableId}
-      searchPlaceholder="Buscar por descripción, N° OT o N° OM..."
-      emptyMessage="No hay tareas asignadas a este sector"
+      searchPlaceholder="Buscar por N° OT, N° OM o descripción de la tarea..."
+      emptyMessage="No hay órdenes de trabajo abiertas en este sector"
       showFilterToggle={true}
       facetedFilters={facetedFilters}
       exportConfig={exportConfig}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
-      data-testid={`workshop-sector-tasks-table-${sectorId}`}
+      data-testid={`workshop-sector-work-orders-table-${sectorId}`}
     />
   );
 }

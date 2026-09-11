@@ -39,6 +39,7 @@ export function DataTableToolbar<TData>({
   paramNamespace,
   isFetchingFacets,
   facetParams,
+  facetScope,
   onSearchChange,
   searchValue: externalSearchValue,
   hasActiveFilters: externalHasActiveFilters,
@@ -113,6 +114,7 @@ export function DataTableToolbar<TData>({
                 isFetching={isFetchingFacets}
                 fetchFacet={filter.fetchFacet}
                 facetParams={facetParams}
+                facetScope={facetScope}
               />
             );
           })}

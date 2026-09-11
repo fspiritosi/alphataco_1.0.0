@@ -1,6 +1,5 @@
 'use client';
 
-import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   AlertDialog,
@@ -32,6 +31,7 @@ import {
   type UserRolesData,
 } from '@/features/UserPermissionsManager/actions.server';
 import { Logger } from '@/lib/logger';
+import { HandshakeIcon } from '@/shared/components/common/Icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -50,6 +50,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { UserEquipmentTypesSection } from './UserEquipmentTypesSection';
 
 const logger = new Logger('ModulePermissions');
 
@@ -905,6 +906,13 @@ export function ModulePermissions({
                       </Accordion>
                     ) : (
                       <div className="text-sm text-muted-foreground pt-2">No hay tabs disponibles para este módulo</div>
+                    )}
+
+                    {module.slug === 'mantenimiento' && (
+                      <>
+                        <Separator className="my-4" />
+                        <UserEquipmentTypesSection userId={userId} disabled={disabled} />
+                      </>
                     )}
                   </AccordionContent>
                 </AccordionItem>

@@ -3,9 +3,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PreventiveItemsBadge } from '@/features/Mantenimiento/components/PreventiveItemsBadge';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench } from 'lucide-react';
+import { Calendar, ClipboardList, Clock, Eye, History, HourglassIcon, Shield, Wrench, XCircle } from 'lucide-react';
 import moment from 'moment';
 import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
 import { type PendingOrderListItem } from './actions.server';
@@ -52,6 +53,8 @@ export interface PendingOrdersColumnCallbacks {
   onView: (order: PendingOrderListItem) => void;
   onSchedule: (order: PendingOrderListItem) => void;
   onViewHistory: (order: PendingOrderListItem) => void;
+  /** Ticket 676: el taller rechaza el pedido indicando un motivo obligatorio */
+  onReject: (order: PendingOrderListItem) => void;
 }
 
 // ── Definición de columnas ────────────────────────────────────────────────────
@@ -236,6 +239,21 @@ export function getPendingOrderColumns(callbacks: PendingOrdersColumnCallbacks):
               >
                 <Calendar className="h-4 w-4" />
               </Button>
+            )}
+            {/* Ticket 676: rechazo del taller (ej. solicitud duplicada). Se oculta
+                la accion puntual, nunca la columna completa. */}
+            {isPendingScheduling && (
+              <PermissionGuard module="mantenimiento" tab="pedidos_pendientes" action="update">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => callbacks.onReject(order)}
+                  title="Rechazar pedido"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </PermissionGuard>
             )}
           </div>
         );

@@ -4,7 +4,8 @@ import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { DEFAULT_TRACKING_STATUSES } from '../../../WorkshopTracking/statuses';
-import { resourceCompanyCondition } from '../../../shared/maintenance-resource';
+import { resourceCompanyCondition, visibleEquipmentTypeCondition } from '../../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../../utils/equipmentTypeVisibility';
 import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 
@@ -20,18 +21,26 @@ const logger = new Logger('Pipeline/Operaciones/counts');
  */
 export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
   try {
-    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
+    const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
+      getServerCompanyId(),
+      getSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
+
+    // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+    const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+    const equipmentAnd = equipmentCondition ? [equipmentCondition] : [];
 
     // Filtro base para maintenance_requests: por company (vehiculo o equipamiento,
     // ticket 596) y supervisor si aplica
     const requestsWhere = {
-      AND: [resourceCompanyCondition(companyId)],
+      AND: [resourceCompanyCondition(companyId), ...equipmentAnd],
       ...(filterInfo?.shouldFilterBySupervisor ? { supervisor_id: filterInfo.userId } : {}),
     };
 
     // Filtro base para maintenance_orders: por company y supervisor via request si aplica
     const ordersWhere = {
-      AND: [resourceCompanyCondition(companyId)],
+      AND: [resourceCompanyCondition(companyId), ...equipmentAnd],
       ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
     };
 

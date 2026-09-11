@@ -1,30 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { approveWorkshopEntry } from '../../Operaciones/actions/actionsServer';
-import type {
-  ApproveRequestItemsInput,
-  ApproveWorkshopEntryInput,
-  MaintenanceRequestFilters,
-  RejectRequestInput,
-} from '../../types';
+import type { ApproveRequestItemsInput, ApproveWorkshopEntryInput, RejectRequestInput } from '../../types';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import {
   approveMaintenanceRequestItems,
-  getMaintenanceRequests,
   rejectMaintenanceRequest,
   rejectMaintenanceRequestItems,
 } from '../actions/actionsServer';
 
 export const MAINTENANCE_REQUESTS_QUERY_KEY = ['maintenance-requests'];
-
-/**
- * Hook para obtener solicitudes de mantenimiento
- */
-export function useMaintenanceRequests(filters?: MaintenanceRequestFilters) {
-  return useQuery({
-    queryKey: [...MAINTENANCE_REQUESTS_QUERY_KEY, filters],
-    queryFn: () => getMaintenanceRequests(filters),
-  });
-}
 
 /**
  * Hook para aprobar items de una solicitud

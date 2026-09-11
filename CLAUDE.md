@@ -245,6 +245,10 @@ Siempre consultar `/frontend-design:frontend-design` antes de implementar para d
 
 La descripción del ticket suele ser el sintoma percibido por el usuario final; los **comentarios** (`manage_task_comments` action=list) contienen el diagnostico real del equipo. Ej: ticket 292 describia "no puedo asignar recurso empleado", pero el comentario de Fabricio aclaraba "al asignar uno nuevo me borra los anteriores, desde comercial". Leer comentarios ANTES de invertir en investigacion de codigo: reorienta la causa raiz y evita perseguir la hipotesis equivocada.
 
+### El campo "análisis y supuestos" del ticket manda sobre la descripción
+
+En TaskApp, `analysis_notes` (análisis y supuestos del equipo) es la bajada del pedido y **define el alcance por encima de la `description`** del cliente. Orden de lectura y autoridad: `analysis_notes` / `acceptance_criteria` → comentarios → `description`. En el 690 la descripción hablaba de "solapa Taller, contenedores y trailer", y el análisis de "todas las solicitudes de Equipamientos, permisos por tipo de equipamiento, en el Rol": pregunté cuatro cosas que el análisis ya respondía. Preguntar solo lo que ninguno de los dos resuelve.
+
 ### Alertas de documentos: excluir bajas SALVO los tipos "Documento de baja"
 
 Al excluir empleados/equipos dados de baja (`is_active = false`) de la generacion de alertas de documentos pendientes, los tipos marcados como **"Documento de baja"** (`document_types.down_document = true`) **DEBEN seguir generando alertas a los recursos dados de baja** (son la documentacion de egreso). Regla: crear/mantener alerta `<=> (down_document = true) OR (recurso is_active = true)`. Los **documentos reales** (con `document_path`) de bajas NUNCA se borran; la limpieza solo elimina filas `state='pendiente'` **sin archivo**. La generacion vive en triggers SQL de Postgres (`controlar_alertas_single_document_all_employees/vehicles`, `controlar_alertas_documentos_single_employee/vehicle`) — modificarlos es migracion Prisma, no MCP.
@@ -356,7 +360,7 @@ Aplicar una migración a dev **no es "ir adelantando trabajo"**: dev es el entor
 
 Reglas:
 
-1. **La migración se escribe, se muestra, y se aplica recién con el OK explícito.** El paso `prisma db execute` no se ejecuta "para avanzar".
+1. **La migración se escribe, se muestra, y se aplica recién con el OK explícito.** El paso `prisma db execute` no se ejecuta "para avanzar". _Actualización 2026-09-11: el usuario autorizó en forma permanente aplicar en DEV ("todas las migraciones en dev las puedes aplicar sin problemas") las migraciones cuyo alcance ya está validado; lo que sigue exigiendo mostrar primero es un diseño no validado. PROD nunca._
 2. **Antes de diseñar esquema, buscar si la capacidad YA existe y solo está mal nombrada o mal ubicada.** El 546 ("necesito adjuntar documentos a las piletas") se resolvió renombrando el label de una tab que ya hacía exactamente eso. El camino más corto suele ser texto, no DDL.
 3. **Si el usuario dice "es simple" o "no requiere migraciones", eso es un dato de alcance, no una subestimación a corregir.** Ajustar la solución hacia abajo, no defender el diseño grande.
 4. Si hay que revertir: reconstruir el estado original consultando **PROD** los valores que la migración pisó (`tabs.name`, `description`, `role_permissions`), no adivinarlos. Y borrar la fila de `_prisma_migrations` para dejar el historial limpio.

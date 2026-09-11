@@ -39,6 +39,7 @@ export function DataTableFacetedFilter<TData, TValue>({
   isFetching: propIsFetching,
   fetchFacet,
   facetParams,
+  facetScope,
 }: DataTableFacetedFilterProps<TData, TValue>) {
   // ── Lazy-load state ──────────────────────────────────────────────────────
   const [hasOpened, setHasOpened] = useState(false);
@@ -49,8 +50,14 @@ export function DataTableFacetedFilter<TData, TValue>({
   const hasSelectedValues = (selectedFromTable?.length ?? 0) > 0;
 
   // React Query interno: solo se activa en modo lazy
+  // Con facetScope la key identifica a la tabla: evita que dos tablas montadas a la vez
+  // (ej. pestañas de Mantenimiento) compartan el facet de una misma columna.
+  // Sin facetScope la key queda como antes. El prefijo 'datatable-facet' se conserva
+  // para las invalidaciones existentes.
   const { data: lazyData, isFetching: isLazyFetching } = useQuery({
-    queryKey: ['datatable-facet', column?.id, facetParams],
+    queryKey: facetScope
+      ? ['datatable-facet', facetScope, column?.id, facetParams]
+      : ['datatable-facet', column?.id, facetParams],
     queryFn: () => fetchFacet!(facetParams ?? {}),
     enabled: isLazy && (hasOpened || hasSelectedValues),
     placeholderData: keepPreviousData,

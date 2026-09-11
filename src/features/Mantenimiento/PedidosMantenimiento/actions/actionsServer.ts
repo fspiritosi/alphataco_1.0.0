@@ -10,7 +10,12 @@ import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { cacheTag } from 'next/cache';
 import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/actionsServer';
-import type { ApproveWorkshopEntryInput, MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
+import type {
+  ApproveWorkshopEntryInput,
+  MaintenanceOrderFilters,
+  RejectPendingOrderInput,
+  ScheduleOrderInput,
+} from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
@@ -593,6 +598,103 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
     return data;
   } catch (error) {
     serverLogger.error('Error al planificar pedido', { data: { error, orderId: input.orderId } });
+    throw error;
+  }
+}
+
+/**
+ * Rechaza un pedido de mantenimiento desde el paso "Por Programar" del taller.
+ *
+ * Ticket 676: una vez que Operaciones aprueba la solicitud, el taller no tenia
+ * forma de rechazar el pedido. El caso tipico es la solicitud cargada dos veces
+ * (doble clic): en vez de bloquear la carga duplicada, el taller la rechaza
+ * indicando el motivo, que es obligatorio.
+ *
+ * Reutiliza el mecanismo de rechazo del modulo (status + rejection_reason +
+ * rejected_by + rejected_at) y registra el evento en el historial de actividad.
+ *
+ * El rechazo se propaga a la solicitud de origen para que el pedido quede
+ * registrado en el historial de mantenimiento del equipo, en la sub-tab
+ * "Solicitudes Rechazadas", junto a las que rechazo el supervisor en
+ * Operaciones. Los pedidos sin solicitud asociada (preventivos creados
+ * directamente) solo quedan en la sub-tab "Ordenes de Mantenimiento".
+ */
+export async function rejectPendingOrder(input: RejectPendingOrderInput) {
+  const reason = input.reason.trim();
+
+  if (!reason) {
+    throw new Error('El motivo del rechazo es obligatorio');
+  }
+
+  serverLogger.info('Rechazando pedido de mantenimiento', { data: { orderId: input.orderId } });
+
+  const profile = await requireServerAuthProfile();
+
+  try {
+    const data = await prisma.$transaction(async (tx) => {
+      const current = await tx.maintenance_orders.findUnique({
+        where: { id: input.orderId },
+        select: { status: true, maintenance_request_id: true },
+      });
+
+      if (!current) {
+        throw new Error('Pedido no encontrado');
+      }
+
+      // Guarda: el rechazo del taller solo aplica al paso "Por Programar".
+      // Si el pedido ya avanzo (fecha confirmada, en taller) el circuito tiene
+      // sus propios mecanismos y este no debe pisarlos.
+      if (current.status !== 'pending_scheduling') {
+        throw new Error('Solo se pueden rechazar pedidos pendientes de programar');
+      }
+
+      const rejectedAt = new Date();
+
+      const updated = await tx.maintenance_orders.update({
+        where: { id: input.orderId },
+        data: {
+          status: 'rejected',
+          rejection_reason: reason,
+          rejected_by: profile.id,
+          rejected_at: rejectedAt,
+          updated_at: rejectedAt,
+        },
+      });
+
+      if (current.maintenance_request_id) {
+        await tx.maintenance_requests.update({
+          where: { id: current.maintenance_request_id },
+          data: {
+            status: 'rejected',
+            rejection_reason: reason,
+            rejected_by: profile.id,
+            rejected_at: rejectedAt,
+          },
+        });
+      }
+
+      // Solo contra el pedido: el historial combina los registros de la solicitud
+      // y los del pedido, asi que cargar los dos ids duplicaria la entrada.
+      await logActivity(tx, {
+        maintenanceOrderId: updated.id,
+        actionType: ACTIVITY_LOG.REJECTED,
+        performedBy: profile.id,
+        previousStatus: current.status,
+        newStatus: 'rejected',
+        rejectionReason: reason,
+        metadata: { rejected_from: 'pedidos_pendientes' },
+      });
+
+      return updated;
+    });
+
+    serverLogger.info('Pedido rechazado', { data: { orderId: input.orderId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.rejectPendingOrder);
+
+    return data;
+  } catch (error) {
+    serverLogger.error('Error al rechazar pedido', { data: { error, orderId: input.orderId } });
     throw error;
   }
 }

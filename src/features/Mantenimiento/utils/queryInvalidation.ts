@@ -21,6 +21,12 @@ export function invalidateAllMaintenanceQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
   queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });
   queryClient.invalidateQueries({ queryKey: ['operator-work-orders-completed'] });
+  // DataTables en client-side mode: sus filas salen solo de React Query, así que
+  // router.refresh() no las actualiza. Sus keys no comparten prefijo con las de arriba.
+  queryClient.invalidateQueries({ queryKey: ['maintenance-requests-paginated'] });
+  queryClient.invalidateQueries({ queryKey: ['maintenance-orders-paginated'] });
+  queryClient.invalidateQueries({ queryKey: ['workshop-tracking-paginated'] });
+  queryClient.invalidateQueries({ queryKey: ['equipments-with-deviations-list'] });
 }
 
 /**

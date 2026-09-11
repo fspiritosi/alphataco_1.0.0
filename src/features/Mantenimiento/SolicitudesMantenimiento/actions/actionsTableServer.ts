@@ -11,12 +11,24 @@ import {
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { cache } from 'react';
+import { visibleEquipmentTypeCondition } from '../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../utils/equipmentTypeVisibility';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const logger = new Logger('SolicitudesMantenimiento/actionsTableServer');
 
-// Columnas de texto filtrable
-const TEXT_COLUMNS: string[] = [];
+/**
+ * Memoiza getSupervisorFilterInfo dentro del mismo request del servidor.
+ * NO se exporta — solo se usa internamente en este módulo. Evita que
+ * getMaintenanceRequestsPaginated / getAllMaintenanceRequestsForExport /
+ * getMaintenanceRequestSingleFacet repitan las 2 queries de permisos cada una
+ * cuando se resuelven en el mismo request (ej: SSR inicial de la página).
+ */
+const getCachedSupervisorFilterInfo = cache(getSupervisorFilterInfo);
+
+// Columnas de texto filtrable (usan "contains" insensitive)
+const TEXT_COLUMNS = ['kilometer', 'engine_hours'];
 
 // Columnas de fecha
 const DATE_COLUMNS = ['created_at'];
@@ -31,12 +43,36 @@ const COLUMN_MAP: Record<string, string> = {
 };
 
 // Campos válidos para ordenamiento (deben existir en el modelo Prisma)
-const VALID_SORT_FIELDS = new Set(['created_at', 'status', 'source', 'updated_at']);
+const VALID_SORT_FIELDS = new Set(['created_at', 'status', 'source', 'updated_at', 'kilometer', 'engine_hours']);
 
-// Mapeo de columnas FK a orderBy de Prisma con relación
+// Mapeo de columnas FK/derivadas a orderBy de Prisma con relación
 const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
   vehicle: (dir) => ({ vehicles: { domain: dir } }),
+  // Cascada de 3 fuentes (driver_employee FK → JSON legacy → employees FK vieja): no hay un
+  // orderBy de Prisma que la cubra entera. Se ordena por la fuente canónica hacia adelante
+  // (driver_employee, ya que los registros nuevos siempre la traen poblada), igual que ya
+  // se hace con `vehicle` sobre `vehicles.domain`. Los registros legacy (sin driver_employee_id)
+  // quedan agrupados por el null, comportamiento documentado en la auditoría del ticket 673.
+  driver: (dir) => ({ driver_employee: { lastname: dir } }),
+  fileNumber: (dir) => ({ driver_employee: { file: dir } }),
+  supervisor: (dir) => ({ profile_maintenance_requests_supervisor_idToprofile: { fullname: dir } }),
+  items_count: (dir) => ({ maintenance_request_items: { _count: dir } }),
 };
+
+// Select del vehículo/equipamiento asociado a la solicitud (excluyentes: equipment_id XOR other_equipment_id)
+const VEHICLE_SELECT = {
+  id: true,
+  domain: true,
+  serie: true,
+  intern_number: true,
+} as const;
+
+const OTHER_EQUIPMENT_SELECT = {
+  id: true,
+  intern_number: true,
+  serial_number: true,
+  type: { select: { name: true } },
+} as const;
 
 /**
  * Construye el where base para consultas, aplicando filtros de supervisor si corresponde.
@@ -44,14 +80,15 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
  */
 function buildWhereClauseSync(
   state: ReturnType<typeof parseSearchParams>,
-  filterInfo: Awaited<ReturnType<typeof getSupervisorFilterInfo>>
+  filterInfo: Awaited<ReturnType<typeof getSupervisorFilterInfo>>,
+  hiddenTypeIds: readonly string[]
 ) {
   // Filtros facetados
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: [...TEXT_COLUMNS, ...DATE_COLUMNS],
+    exclude: [...TEXT_COLUMNS, ...DATE_COLUMNS, 'fileNumber'],
   });
 
-  // Filtros de texto
+  // Filtros de texto (kilometer, engine_hours — "contains" insensitive)
   const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_COLUMNS);
 
   // Filtros de rango de fechas
@@ -59,7 +96,23 @@ function buildWhereClauseSync(
     created_at: 'created_at',
   });
 
-  const baseWhere = {
+  // Legajo del chofer — coincidencia EXACTA (no "contains"), busca en las dos fuentes de FK
+  // posibles (driver_employee nuevo, employees viejo). El chofer legacy vía JSON no tiene
+  // legajo asociado y no es filtrable por este campo.
+  const fileNumberValue = state.filters.fileNumber?.[0];
+  const fileNumberCondition = fileNumberValue
+    ? { OR: [{ driver_employee: { file: fileNumberValue } }, { employees: { file: fileNumberValue } }] }
+    : null;
+
+  // Tipos de equipamiento ocultos para el usuario actual (ticket 690). Igual que
+  // fileNumberCondition, produce un OR: va dentro del AND, nunca spreadeado en la raíz.
+  const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+
+  const andConditions: Record<string, unknown>[] = [];
+  if (fileNumberCondition) andConditions.push(fileNumberCondition);
+  if (equipmentCondition) andConditions.push(equipmentCondition);
+
+  const baseWhere: Record<string, unknown> = {
     // Solo solicitudes pendientes de aprobación (paso "Validar Solicitud").
     // Las rechazadas se limpian de este listado: quedan como registro histórico
     // en el legajo del equipo, tab "Historial de Mantenimiento".
@@ -67,6 +120,7 @@ function buildWhereClauseSync(
     ...filtersWhere,
     ...textFiltersWhere,
     ...dateFiltersWhere,
+    ...(andConditions.length > 0 ? { AND: andConditions } : {}),
   };
 
   // Aplicar filtro de supervisor si corresponde
@@ -91,19 +145,21 @@ export async function getMaintenanceRequestsPaginated(searchParams: DataTableSea
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const filterInfo = await getSupervisorFilterInfo();
-    const where = buildWhereClauseSync(state, filterInfo);
+    const [filterInfo, hiddenTypeIds] = await Promise.all([
+      getCachedSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
+    const where = buildWhereClauseSync(state, filterInfo, hiddenTypeIds);
 
-    // Resolver ordenamiento con validación y soporte de FK
+    // Resolver ordenamiento con validación y soporte de FK/relaciones derivadas
     const resolvedSorts: Record<string, unknown>[] = [];
     for (const s of state.sorting) {
-      if (VALID_SORT_FIELDS.has(s.id)) {
-        const dir: 'asc' | 'desc' = s.desc ? 'desc' : 'asc';
-        const fkMapper = FK_SORT_MAP[s.id];
-        resolvedSorts.push(fkMapper ? fkMapper(dir) : { [s.id]: dir });
-      } else if (FK_SORT_MAP[s.id]) {
-        const dir: 'asc' | 'desc' = s.desc ? 'desc' : 'asc';
-        resolvedSorts.push(FK_SORT_MAP[s.id](dir));
+      const dir: 'asc' | 'desc' = s.desc ? 'desc' : 'asc';
+      const fkMapper = FK_SORT_MAP[s.id];
+      if (fkMapper) {
+        resolvedSorts.push(fkMapper(dir));
+      } else if (VALID_SORT_FIELDS.has(s.id)) {
+        resolvedSorts.push({ [s.id]: dir });
       }
     }
     const orderBy = resolvedSorts.length > 0 ? resolvedSorts : [{ created_at: 'desc' as const }];
@@ -124,14 +180,8 @@ export async function getMaintenanceRequestsPaginated(searchParams: DataTableSea
           engine_hours: true,
           supervisor_id: true,
           rejection_reason: true,
-          vehicles: {
-            select: {
-              id: true,
-              domain: true,
-              serie: true,
-              intern_number: true,
-            },
-          },
+          vehicles: { select: VEHICLE_SELECT },
+          other_equipment: { select: OTHER_EQUIPMENT_SELECT },
           employees: {
             select: {
               id: true,
@@ -198,8 +248,11 @@ export async function getAllMaintenanceRequestsForExport(searchParams: DataTable
 
   try {
     const state = parseSearchParams(searchParams);
-    const filterInfo = await getSupervisorFilterInfo();
-    const where = buildWhereClauseSync(state, filterInfo);
+    const [filterInfo, hiddenTypeIds] = await Promise.all([
+      getCachedSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
+    const where = buildWhereClauseSync(state, filterInfo, hiddenTypeIds);
 
     const data = await prisma.maintenance_requests.findMany({
       where,
@@ -214,14 +267,8 @@ export async function getAllMaintenanceRequestsForExport(searchParams: DataTable
         engine_hours: true,
         rejection_reason: true,
         supervisor_id: true,
-        vehicles: {
-          select: {
-            id: true,
-            domain: true,
-            serie: true,
-            intern_number: true,
-          },
-        },
+        vehicles: { select: VEHICLE_SELECT },
+        other_equipment: { select: OTHER_EQUIPMENT_SELECT },
         employees: {
           select: {
             id: true,
@@ -276,131 +323,111 @@ export async function getAllMaintenanceRequestsForExport(searchParams: DataTable
 }
 
 /**
- * Construye el where para cross-filtering de facets.
- * Excluye la columna propia para mostrar counts correctos con filtros activos.
+ * Obtiene el facet (opciones + counts) de UNA sola columna, bajo demanda (lazy-load).
+ * Implementa cross-filtering: excluye el filtro propio de la columna consultada.
  */
-function buildCrossWhere(
-  state: ReturnType<typeof parseSearchParams>,
-  excludeColumn: string,
-  filterInfo: Awaited<ReturnType<typeof getSupervisorFilterInfo>>
-) {
-  const filteredFilters = { ...state.filters };
-  delete filteredFilters[excludeColumn];
-
-  const crossState = { ...state, filters: filteredFilters };
-  return buildWhereClauseSync(crossState, filterInfo);
-}
-
-/**
- * Obtiene los facets (counts por valor) para los filtros del DataTable.
- * Implementa cross-filtering: cada groupBy excluye su propio filtro.
- */
-export async function getMaintenanceRequestFacets(searchParams?: DataTableSearchParams) {
-  logger.debug('Obteniendo facets de solicitudes de mantenimiento');
+export async function getMaintenanceRequestSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  logger.debug('Obteniendo facet individual de solicitudes de mantenimiento', { data: { columnId } });
 
   try {
     const state = parseSearchParams(searchParams || {});
-
-    // Cargar filterInfo una sola vez y reutilizarlo
-    const filterInfo = await getSupervisorFilterInfo();
-
-    // Construir cross-where para cada facet (excluye su propia columna)
-    // El excludeColumn debe coincidir con el columnId de la URL (no el campo de BD)
-    const crossWhereForStatus = buildCrossWhere(state, 'status', filterInfo);
-    const crossWhereForVehicle = buildCrossWhere(state, 'vehicle', filterInfo);
-    const crossWhereForSource = buildCrossWhere(state, 'source', filterInfo);
-    const crossWhereForSupervisor = buildCrossWhere(state, 'supervisor', filterInfo);
-
-    const [statusGroups, vehicleGroups, sourceGroups, supervisorGroups] = await Promise.all([
-      // Status facet
-      prisma.maintenance_requests.groupBy({
-        by: ['status'],
-        where: crossWhereForStatus,
-        _count: { status: true },
-      }),
-      // Vehicle facet
-      prisma.maintenance_requests.groupBy({
-        by: ['equipment_id'],
-        where: crossWhereForVehicle,
-        _count: { equipment_id: true },
-      }),
-      // Source facet
-      prisma.maintenance_requests.groupBy({
-        by: ['source'],
-        where: crossWhereForSource,
-        _count: { source: true },
-      }),
-      // Supervisor facet
-      prisma.maintenance_requests.groupBy({
-        by: ['supervisor_id'],
-        where: crossWhereForSupervisor,
-        _count: { supervisor_id: true },
-      }),
+    const [filterInfo, hiddenTypeIds] = await Promise.all([
+      getCachedSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
     ]);
 
-    // Resolver nombres de vehículos
-    const vehicleIds = vehicleGroups.map((g) => g.equipment_id).filter(Boolean) as string[];
-
-    const vehicles =
-      vehicleIds.length > 0
-        ? await prisma.vehicles.findMany({
-            where: { id: { in: vehicleIds } },
-            select: { id: true, domain: true, serie: true, intern_number: true },
-          })
-        : [];
-
-    const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
-
-    // Resolver nombres de supervisores
-    const supervisorIds = supervisorGroups.map((g) => g.supervisor_id).filter(Boolean) as string[];
-
-    const supervisorProfiles =
-      supervisorIds.length > 0
-        ? await prisma.profile.findMany({
-            where: { id: { in: supervisorIds } },
-            select: { id: true, fullname: true },
-          })
-        : [];
-
-    const supervisorDetailsMap = new Map(supervisorProfiles.map((p) => [p.id, p]));
-
-    // Construir Maps de counts
-    const statusMap = new Map<string, number>();
-    for (const g of statusGroups) {
-      const key = g.status ?? NULL_FILTER_VALUE;
-      statusMap.set(key, g._count.status);
+    function crossWhere(excludeColumn: string) {
+      const filteredFilters = { ...state.filters };
+      delete filteredFilters[excludeColumn];
+      const crossState = { ...state, filters: filteredFilters };
+      return buildWhereClauseSync(crossState, filterInfo, hiddenTypeIds);
     }
 
-    const vehicleCountMap = new Map<string, number>();
-    for (const g of vehicleGroups) {
-      const key = g.equipment_id ?? NULL_FILTER_VALUE;
-      vehicleCountMap.set(key, g._count.equipment_id);
+    function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+      const map = new Map<string, number>();
+      for (const { key, count } of rows) {
+        const mapKey = key ?? NULL_FILTER_VALUE;
+        map.set(mapKey, (map.get(mapKey) ?? 0) + count);
+      }
+      return map;
     }
 
-    const sourceMap = new Map<string, number>();
-    for (const g of sourceGroups) {
-      const key = g.source ?? NULL_FILTER_VALUE;
-      sourceMap.set(key, g._count.source);
-    }
+    const where = crossWhere(columnId);
 
-    const supervisorMap = new Map<string, number>();
-    for (const g of supervisorGroups) {
-      const key = g.supervisor_id ?? NULL_FILTER_VALUE;
-      supervisorMap.set(key, g._count.supervisor_id);
-    }
+    switch (columnId) {
+      case 'status': {
+        const rows = await prisma.maintenance_requests.groupBy({
+          by: ['status'],
+          where,
+          _count: { status: true },
+        });
+        return { counts: toFacetMap(rows.map((r) => ({ key: r.status, count: r._count.status }))) };
+      }
 
-    return {
-      status: statusMap,
-      vehicles: vehicleCountMap,
-      vehicleDetails: vehicleMap,
-      source: sourceMap,
-      supervisors: supervisorMap,
-      supervisorDetails: supervisorDetailsMap,
-    };
+      case 'source': {
+        const rows = await prisma.maintenance_requests.groupBy({
+          by: ['source'],
+          where,
+          _count: { source: true },
+        });
+        return { counts: toFacetMap(rows.map((r) => ({ key: r.source, count: r._count.source }))) };
+      }
+
+      case 'vehicle': {
+        const rows = await prisma.maintenance_requests.groupBy({
+          by: ['equipment_id'],
+          where,
+          _count: { equipment_id: true },
+        });
+        const counts = toFacetMap(rows.map((r) => ({ key: r.equipment_id, count: r._count.equipment_id })));
+        const ids = rows.map((r) => r.equipment_id).filter((id): id is string => Boolean(id));
+        const vehicles =
+          ids.length > 0
+            ? await prisma.vehicles.findMany({
+                where: { id: { in: ids } },
+                select: VEHICLE_SELECT,
+              })
+            : [];
+        const resolvedOptions = vehicles.map((v) => ({
+          id: v.id,
+          name: v.intern_number
+            ? `${v.domain || v.serie || 'Sin identificar'} (#${v.intern_number})`
+            : v.domain || v.serie || 'Sin identificar',
+        }));
+        return { counts, resolvedOptions };
+      }
+
+      case 'supervisor': {
+        const rows = await prisma.maintenance_requests.groupBy({
+          by: ['supervisor_id'],
+          where,
+          _count: { supervisor_id: true },
+        });
+        const counts = toFacetMap(rows.map((r) => ({ key: r.supervisor_id, count: r._count.supervisor_id })));
+        const ids = rows.map((r) => r.supervisor_id).filter((id): id is string => Boolean(id));
+        const profiles =
+          ids.length > 0
+            ? await prisma.profile.findMany({
+                where: { id: { in: ids } },
+                select: { id: true, fullname: true },
+              })
+            : [];
+        return { counts, resolvedOptions: profiles.map((p) => ({ id: p.id, name: p.fullname })) };
+      }
+
+      default:
+        return null;
+    }
   } catch (error) {
-    logger.error('Error al obtener facets de solicitudes de mantenimiento', { data: { error } });
+    logger.error('Error al obtener facet individual de solicitudes de mantenimiento', {
+      data: { error, columnId },
+    });
     throw error;
   }
 }
-
-export type MaintenanceRequestFacets = Awaited<ReturnType<typeof getMaintenanceRequestFacets>>;

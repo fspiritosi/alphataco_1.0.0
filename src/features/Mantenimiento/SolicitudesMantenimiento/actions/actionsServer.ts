@@ -1,5 +1,6 @@
 'use server';
 
+import { MIN_APPROVAL_DESCRIPTION_LENGTH } from '@/features/Mantenimiento/constants/approval';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
@@ -365,8 +366,24 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
 
   const profile = await requireServerAuthProfile();
 
+  // Descripción que verá el taller. Es obligatoria siempre que la aprobación
+  // genere un pedido; la validación de longitud se repite acá porque el modal
+  // no es la única barrera posible contra esta action.
+  const description = input.description?.trim() || null;
+
+  function assertDescription() {
+    if (!description || description.length < MIN_APPROVAL_DESCRIPTION_LENGTH) {
+      throw new Error(
+        `La descripción es obligatoria y debe tener al menos ${MIN_APPROVAL_DESCRIPTION_LENGTH} caracteres`
+      );
+    }
+  }
+
   // --- PREVENTIVE APPROVAL BRANCH ---
   if (input.preventiveApproval) {
+    // Una aprobación preventiva siempre genera pedido.
+    assertDescription();
+
     const request = await prisma.maintenance_requests.findUniqueOrThrow({
       where: { id: input.requestId },
       select: { equipment_id: true, kilometer: true, engine_hours: true, source: true, preventive_type: true },
@@ -390,6 +407,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
           kilometer_at_entry: request.kilometer ?? null,
           source: request.source,
           preventive_type: request.preventive_type,
+          description,
         },
       });
 
@@ -444,17 +462,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         select: { id: true, equipment_id: true, kilometer: true },
       });
 
-      // 4. Actualizar estado de la solicitud
-      await tx.maintenance_requests.update({
-        where: { id: input.requestId },
-        data: {
-          status: 'approved',
-          approved_by: profile.id,
-          approved_at: new Date(),
-        },
-      });
-
-      // 5. Filtrar items "no propagables" según matriz checklist × item.
+      // 4. Filtrar items "no propagables" según matriz checklist × item.
       //    Estos items SI quedan aprobados como maintenance_request_items (paso 1),
       //    pero NO generan maintenance_order_items, por lo que no llegan al taller.
       const approvedItemContexts = await tx.maintenance_request_items.findMany({
@@ -494,14 +502,50 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         });
       }
 
+      // 5. Actualizar estado de la solicitud.
+      //    Solo se aprueba si algo llega al taller. Si no quedó ningún item propagable
+      //    y hubo rechazos, la solicitud se cierra como rechazada — antes quedaba
+      //    'approved' sin pedido asociado, desaparecía de la bandeja y no figuraba
+      //    como rechazada en ningún lado.
+      const willCreateOrder = propagatingApprovedItems.length > 0;
+      const isFullyRejected = !willCreateOrder && input.rejectedItems.length > 0;
+
+      if (willCreateOrder) {
+        assertDescription();
+      }
+
+      if (isFullyRejected) {
+        const reasons = [...new Set(input.rejectedItems.map((item) => item.reason.trim()).filter(Boolean))];
+
+        await tx.maintenance_requests.update({
+          where: { id: input.requestId },
+          data: {
+            status: 'rejected',
+            rejection_reason: reasons.join('; '),
+            rejected_by: profile.id,
+            rejected_at: new Date(),
+          },
+        });
+      } else {
+        await tx.maintenance_requests.update({
+          where: { id: input.requestId },
+          data: {
+            status: 'approved',
+            approved_by: profile.id,
+            approved_at: new Date(),
+          },
+        });
+      }
+
       // 6. Crear pedido de mantenimiento si hay items propagables
-      if (propagatingApprovedItems.length > 0) {
+      if (willCreateOrder) {
         const order = await tx.maintenance_orders.create({
           data: {
             maintenance_request_id: input.requestId,
             equipment_id: request.equipment_id,
             status: 'pending_scheduling',
             kilometer_at_entry: request.kilometer ?? null,
+            description,
           },
         });
 
@@ -620,9 +664,12 @@ const OPEN_REQUEST_STATUSES = ['pending_approval', 'rejected'] as const;
  *
  * Reglas:
  * - Los desvíos que YA pertenecen a una solicitud solo reciben actualización de comentarios.
- * - Los desvíos SIN solicitud se agrupan por su checklist de origen: cada checklist genera
- *   (o reutiliza) su propia solicitud, porque `maintenance_requests.checklist_answer_id`
- *   admite un único checklist por solicitud.
+ * - Los desvíos SIN solicitud se agrupan por su checklist de origen Y por el equipo al que
+ *   pertenecen: cada checklist genera (o reutiliza) su propia solicitud, porque
+ *   `maintenance_requests.checklist_answer_id` admite un único checklist por solicitud.
+ * - La solicitud se crea sobre el `equipment_id` DEL DESVÍO, no sobre el `input.equipmentId`
+ *   (ticket 677). Un checklist de unidad tractora con enganche produce desvíos de las dos
+ *   unidades; imputarlos todos a la tractora cargaba al camión el gasto del acoplado.
  * - Solo se reutiliza una solicitud existente si sigue abierta (pending_approval / rejected).
  *   Una solicitud ya aprobada NUNCA se modifica: se crea una nueva.
  *
@@ -691,6 +738,8 @@ export async function createOrUpdateMaintenanceRequest(input: {
       select: {
         id: true,
         checklist_answer_id: true,
+        // Ticket 677: cada desvío sabe a qué unidad pertenece; la solicitud se crea sobre esa
+        equipment_id: true,
         maintenance_request_items: { select: { maintenance_request_id: true } },
       },
     });
@@ -706,37 +755,60 @@ export async function createOrUpdateMaintenanceRequest(input: {
     const alreadyLinked = deviations.filter((d) => d.maintenance_request_items.length > 0);
     const unlinked = deviations.filter((d) => d.maintenance_request_items.length === 0);
 
-    // 3. Agrupar los desvíos sin solicitud por su checklist de origen.
+    // 3. Agrupar los desvíos sin solicitud por checklist de origen + equipo al que aplican.
     //    Cada checklist necesita su propia solicitud: maintenance_requests.checklist_answer_id
     //    referencia un único checklist, así que mezclarlos falsearía el origen de los desvíos.
+    //    Y cada equipo también: una solicitud apunta a un único `equipment_id`, así que los
+    //    desvíos del enganche no pueden convivir con los de la unidad tractora (ticket 677).
     const NO_CHECKLIST = '__no_checklist__';
-    const deviationsByChecklist = new Map<string, string[]>();
+    const groupKey = (checklistAnswerId: string, equipmentId: string) => `${checklistAnswerId}|${equipmentId}`;
+    const deviationGroups = new Map<
+      string,
+      { checklistAnswerId: string | null; equipmentId: string; deviationIds: string[] }
+    >();
 
     for (const deviation of unlinked) {
-      const key = deviation.checklist_answer_id ?? input.checklistAnswerId ?? NO_CHECKLIST;
-      const group = deviationsByChecklist.get(key) ?? [];
-      group.push(deviation.id);
-      deviationsByChecklist.set(key, group);
+      const checklistKey = deviation.checklist_answer_id ?? input.checklistAnswerId ?? NO_CHECKLIST;
+      const equipmentId = deviation.equipment_id ?? input.equipmentId;
+      const key = groupKey(checklistKey, equipmentId);
+      const group = deviationGroups.get(key) ?? {
+        checklistAnswerId: checklistKey === NO_CHECKLIST ? null : checklistKey,
+        equipmentId,
+        deviationIds: [],
+      };
+      group.deviationIds.push(deviation.id);
+      deviationGroups.set(key, group);
     }
 
-    // 4. Buscar solicitudes ABIERTAS del equipo para reutilizar (una aprobada nunca se modifica)
-    const checklistKeys = [...deviationsByChecklist.keys()].filter((key) => key !== NO_CHECKLIST);
+    // 4. Buscar solicitudes ABIERTAS para reutilizar (una aprobada nunca se modifica).
+    //    La coincidencia es por checklist Y equipo: son las dos columnas que definen la solicitud.
+    const checklistKeys = [
+      ...new Set(
+        [...deviationGroups.values()]
+          .map((group) => group.checklistAnswerId)
+          .filter((checklistAnswerId): checklistAnswerId is string => !!checklistAnswerId)
+      ),
+    ];
+
+    const equipmentIds = [...new Set([...deviationGroups.values()].map((group) => group.equipmentId))];
 
     const openRequests = checklistKeys.length
       ? await prisma.maintenance_requests.findMany({
           where: {
-            equipment_id: input.equipmentId,
+            equipment_id: { in: equipmentIds },
             status: { in: [...OPEN_REQUEST_STATUSES] },
             checklist_answer_id: { in: checklistKeys },
           },
-          select: { id: true, checklist_answer_id: true },
+          select: { id: true, checklist_answer_id: true, equipment_id: true },
         })
       : [];
 
-    const openRequestByChecklist = new Map<string, string>();
+    const openRequestByGroup = new Map<string, string>();
     for (const request of openRequests) {
-      if (request.checklist_answer_id && !openRequestByChecklist.has(request.checklist_answer_id)) {
-        openRequestByChecklist.set(request.checklist_answer_id, request.id);
+      if (!request.checklist_answer_id || !request.equipment_id) continue;
+      const key = groupKey(request.checklist_answer_id, request.equipment_id);
+      if (!openRequestByGroup.has(key)) {
+        openRequestByGroup.set(key, request.id);
       }
     }
 
@@ -757,27 +829,33 @@ export async function createOrUpdateMaintenanceRequest(input: {
       ...new Set(alreadyLinked.flatMap((d) => d.maintenance_request_items.map((item) => item.maintenance_request_id))),
     ];
 
-    const openLinkedRequestIds = linkedRequestIds.length
-      ? (
-          await prisma.maintenance_requests.findMany({
-            where: { id: { in: linkedRequestIds }, status: { in: [...OPEN_REQUEST_STATUSES] } },
-            select: { id: true },
-          })
-        ).map((request) => request.id)
+    const openLinkedRequests = linkedRequestIds.length
+      ? await prisma.maintenance_requests.findMany({
+          where: { id: { in: linkedRequestIds }, status: { in: [...OPEN_REQUEST_STATUSES] } },
+          select: { id: true, equipment_id: true },
+        })
       : [];
+
+    const openLinkedRequestIds = openLinkedRequests.map((request) => request.id);
+    /** Solicitudes abiertas de la unidad desde la que se abrió el modal (no las del enganche) */
+    const openLinkedContextRequestIds = openLinkedRequests
+      .filter((request) => request.equipment_id === input.equipmentId)
+      .map((request) => request.id);
 
     let createdCount = 0;
     let updatedCount = 0;
     let itemsAdded = 0;
     let primaryRequestId: string | undefined;
+    /** Solicitud correspondiente a la unidad del contexto: es donde van los ítems manuales */
+    let contextRequestId: string | undefined;
 
     await prisma.$transaction(async (tx) => {
       const touchedRequestIds = new Set<string>(openLinkedRequestIds);
 
-      // 5. Una solicitud por checklist: reutilizar la abierta o crear una nueva
-      for (const [checklistKey, groupDeviationIds] of deviationsByChecklist) {
-        const checklistAnswerId = checklistKey === NO_CHECKLIST ? null : checklistKey;
-        const reusableRequestId = checklistAnswerId ? openRequestByChecklist.get(checklistAnswerId) : undefined;
+      // 5. Una solicitud por checklist + equipo: reutilizar la abierta o crear una nueva
+      for (const [key, group] of deviationGroups) {
+        const { checklistAnswerId, equipmentId: groupEquipmentId, deviationIds: groupDeviationIds } = group;
+        const reusableRequestId = checklistAnswerId ? openRequestByGroup.get(key) : undefined;
         let targetRequestId: string;
 
         if (reusableRequestId) {
@@ -785,14 +863,20 @@ export async function createOrUpdateMaintenanceRequest(input: {
           updatedCount += 1;
         } else {
           const sourceAnswer = checklistAnswerId ? checklistAnswerById.get(checklistAnswerId) : undefined;
+          // El kilometraje del checklist es el del odómetro de la unidad tractora. Si la
+          // solicitud es de otra unidad (el enganche), no le corresponde: al aprobar la
+          // entrada a taller ese valor se escribe en `vehicles.kilometer` del recurso, y
+          // le estaríamos cargando al acoplado los km del camión (ticket 677).
+          const isContextEquipment = groupEquipmentId === input.equipmentId;
 
           const created = await tx.maintenance_requests.create({
             data: {
               checklist_answer_id: checklistAnswerId,
-              equipment_id: input.equipmentId,
+              // Ticket 677: la unidad del desvío, no la del contexto del modal
+              equipment_id: groupEquipmentId,
               employee_id: input.employeeId ?? sourceAnswer?.employee_id ?? null,
               user_id: input.userId ?? sourceAnswer?.user_id ?? profile.id,
-              kilometer: input.kilometer ?? sourceAnswer?.kilometraje?.toString() ?? null,
+              kilometer: isContextEquipment ? input.kilometer ?? sourceAnswer?.kilometraje?.toString() ?? null : null,
               supervisor_id: input.supervisorId,
               status: 'pending_approval',
               driver_employee_id: input.driverEmployeeId ?? sourceAnswer?.chofer_employee_id ?? null,
@@ -810,6 +894,10 @@ export async function createOrUpdateMaintenanceRequest(input: {
           primaryRequestId = targetRequestId;
         }
 
+        if (!contextRequestId && groupEquipmentId === input.equipmentId) {
+          contextRequestId = targetRequestId;
+        }
+
         const { count } = await tx.maintenance_request_items.createMany({
           data: groupDeviationIds.map((deviationId) => ({
             maintenance_request_id: targetRequestId,
@@ -825,9 +913,11 @@ export async function createOrUpdateMaintenanceRequest(input: {
         itemsAdded += count;
       }
 
-      // 6. Ítems manuales (texto libre): van a la solicitud del checklist en curso
+      // 6. Ítems manuales (texto libre): van a la solicitud del checklist en curso, y siempre
+      //    sobre la unidad desde la que se abrió el modal — nunca sobre la del enganche, que
+      //    tiene su propia solicitud (ticket 677).
       if (manualItemLabels.length > 0) {
-        let manualRequestId = primaryRequestId ?? openLinkedRequestIds[0];
+        let manualRequestId = contextRequestId ?? openLinkedContextRequestIds[0];
         let manualChecklistAnswerId = input.checklistAnswerId ?? null;
 
         if (!manualRequestId) {

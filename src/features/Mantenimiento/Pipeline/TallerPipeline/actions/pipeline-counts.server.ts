@@ -3,7 +3,8 @@
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
-import { resourceCompanyCondition } from '../../../shared/maintenance-resource';
+import { resourceCompanyCondition, visibleEquipmentTypeCondition } from '../../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../../utils/equipmentTypeVisibility';
 import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 
@@ -24,7 +25,11 @@ const logger = new Logger('Pipeline/Taller/counts');
  */
 export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
   try {
-    const [companyId, supervisorFilter] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
+    const [companyId, supervisorFilter, hiddenTypeIds] = await Promise.all([
+      getServerCompanyId(),
+      getSupervisorFilterInfo(),
+      getHiddenEquipmentTypeIds(),
+    ]);
 
     const supervisorCondition: Record<string, unknown> = {};
     if (supervisorFilter?.shouldFilterBySupervisor) {
@@ -33,9 +38,13 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
       };
     }
 
+    // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+    const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+    const equipmentAnd = equipmentCondition ? [equipmentCondition] : [];
+
     // Vehiculo o equipamiento (ticket 596)
     const ordersWhere = {
-      AND: [resourceCompanyCondition(companyId)],
+      AND: [resourceCompanyCondition(companyId), ...equipmentAnd],
       ...supervisorCondition,
     };
 
@@ -64,7 +73,7 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
             work_order_items: {
               maintenance_order_items: {
                 maintenance_orders: {
-                  AND: [resourceCompanyCondition(companyId)],
+                  AND: [resourceCompanyCondition(companyId), ...equipmentAnd],
                   ...supervisorCondition,
                 },
               },
@@ -78,7 +87,7 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
             work_order_items: {
               maintenance_order_items: {
                 maintenance_orders: {
-                  AND: [resourceCompanyCondition(companyId)],
+                  AND: [resourceCompanyCondition(companyId), ...equipmentAnd],
                   ...supervisorCondition,
                 },
               },

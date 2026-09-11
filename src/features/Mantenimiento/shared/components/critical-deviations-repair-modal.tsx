@@ -38,6 +38,12 @@ type Deviation = {
    * arranca cargado en vez de pedirle que lo escriba de nuevo.
    */
   driver_comment?: string | null;
+  /**
+   * Unidad a la que se imputa el desvío. Solo viene cuando en la misma operación
+   * conviven dos equipos (unidad tractora + enganche, ticket 677); en el resto de
+   * los casos no hay ambigüedad y no se muestra.
+   */
+  equipment_label?: string | null;
 };
 
 type Supervisor = {
@@ -278,6 +284,12 @@ export function CriticalDeviationsRepairModal({
   // genera su propia solicitud, así que se avisa antes de registrar.
   const distinctChecklistCount = new Set(deviations.map((d) => d.checklistAnswerId).filter(Boolean)).size;
 
+  // Unidades involucradas. Con enganche son dos (tractora + acoplado) y cada una
+  // recibe su propia solicitud, así que conviene decirlo antes de registrar.
+  const distinctEquipmentLabels = [
+    ...new Set(deviations.map((d) => d.equipment_label).filter((label): label is string => !!label)),
+  ];
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -290,14 +302,25 @@ export function CriticalDeviationsRepairModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          {distinctChecklistCount > 1 && (
+          {distinctEquipmentLabels.length > 1 ? (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Estos desvíos provienen de <strong>{distinctChecklistCount} checklists</strong> distintos. Se generará
-                una solicitud de mantenimiento por cada uno, con el supervisor que elijas.
+                Los desvíos corresponden a <strong>{distinctEquipmentLabels.length} unidades</strong> (
+                {distinctEquipmentLabels.join(' y ')}). Se generará una solicitud de mantenimiento por cada una, de modo
+                que el gasto quede imputado a la unidad que corresponde.
               </AlertDescription>
             </Alert>
+          ) : (
+            distinctChecklistCount > 1 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Estos desvíos provienen de <strong>{distinctChecklistCount} checklists</strong> distintos. Se generará
+                  una solicitud de mantenimiento por cada uno, con el supervisor que elijas.
+                </AlertDescription>
+              </Alert>
+            )
           )}
 
           {/* Selector de Supervisor de Turno */}
@@ -522,6 +545,11 @@ function DeviationItem({
             {isCritical && (
               <Badge variant="destructive" className="text-xs">
                 CRÍTICO
+              </Badge>
+            )}
+            {deviation.equipment_label && (
+              <Badge variant="outline" className="text-xs">
+                {deviation.equipment_label}
               </Badge>
             )}
           </div>

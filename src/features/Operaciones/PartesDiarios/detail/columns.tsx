@@ -15,6 +15,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle2, Info, UserCog } from 'lucide-react';
 import moment from 'moment';
 import type { EmployeeDeviation, EquipmentDeviation } from '../actions/actions';
+import { ResourceCell } from './components/ResourceCell';
 import type { DailyReportDetailRow } from './types';
 
 // ============================================================================
@@ -69,6 +70,14 @@ function buildEmployeeLabel(emp: {
   firstname?: string | null;
 }): string {
   return `[${emp.file ?? '?'}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
+}
+
+/** Contexto de la fila, para que el modal de recursos indique de qué línea se trata. */
+function buildRowDescription(row: DailyReportDetailRow): string {
+  const parts = [row.customers?.name, row.customer_services?.service_name, row.service_items?.item_name].filter(
+    (part): part is string => Boolean(part)
+  );
+  return parts.length > 0 ? parts.join(' · ') : 'Recursos asignados a esta fila del parte diario.';
 }
 
 // ============================================================================
@@ -163,15 +172,20 @@ function EmployeeBadgeCell({ row, deviations }: { row: DailyReportDetailRow; dev
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
+  const items = relations
+    .filter((rel) => Boolean(rel.employees))
+    .map((rel) =>
+      renderEmployeeBadge(
+        rel.employee_id ?? '',
+        buildEmployeeLabel(rel.employees!),
+        row.id,
+        deviations,
+        rel.employee_id ?? rel.id
+      )
+    );
+
   return (
-    <div className="flex flex-col gap-1">
-      {relations.map((rel) => {
-        const emp = rel.employees;
-        if (!emp) return null;
-        const label = buildEmployeeLabel(emp);
-        return renderEmployeeBadge(rel.employee_id ?? '', label, row.id, deviations, rel.employee_id ?? rel.id);
-      })}
-    </div>
+    <ResourceCell items={items} title="Empleados" buttonLabel="Ver empleados" description={buildRowDescription(row)} />
   );
 }
 
@@ -284,25 +298,27 @@ function EquipmentBadgeCell({ row, deviations }: { row: DailyReportDetailRow; de
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
+  const items = relations
+    .map((rel) => {
+      if (rel.vehicles) {
+        const v = rel.vehicles;
+        const label = `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
+        return renderEquipmentBadge(rel.equipment_id ?? '', label, row.id, deviations, rel.id);
+      }
+
+      if (rel.other_equipment) {
+        // Los otros equipos no tienen patente: se los identifica por interno o serie
+        const o = rel.other_equipment;
+        const label = o.intern_number ?? o.serial_number ?? 'Equipo';
+        return renderEquipmentBadge(rel.other_equipment_id ?? '', label, row.id, deviations, rel.id);
+      }
+
+      return null;
+    })
+    .filter((node): node is NonNullable<React.ReactNode> => node !== null);
+
   return (
-    <div className="flex flex-col gap-1">
-      {relations.map((rel) => {
-        if (rel.vehicles) {
-          const v = rel.vehicles;
-          const label = `${v.domain ?? v.intern_number ?? 'Equipo'}${v.brand_vehicles?.name ? ` — ${v.brand_vehicles.name}` : ''}`;
-          return renderEquipmentBadge(rel.equipment_id ?? '', label, row.id, deviations, rel.id);
-        }
-
-        if (rel.other_equipment) {
-          // Los otros equipos no tienen patente: se los identifica por interno o serie
-          const o = rel.other_equipment;
-          const label = o.intern_number ?? o.serial_number ?? 'Equipo';
-          return renderEquipmentBadge(rel.other_equipment_id ?? '', label, row.id, deviations, rel.id);
-        }
-
-        return null;
-      })}
-    </div>
+    <ResourceCell items={items} title="Equipos" buttonLabel="Ver equipos" description={buildRowDescription(row)} />
   );
 }
 
@@ -317,15 +333,20 @@ function CustomerEquipmentBadgeCell({ row }: { row: DailyReportDetailRow }) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
+  const items = relations.map((rel) => (
+    <Badge key={rel.id} variant="default" className="select-none text-nowrap text-xs">
+      {rel.equipos_clientes?.name}
+      {rel.equipos_clientes?.type ? ` (${rel.equipos_clientes.type})` : ''}
+    </Badge>
+  ));
+
   return (
-    <div className="flex flex-col gap-1">
-      {relations.map((rel) => (
-        <Badge key={rel.id} variant="default" className="select-none text-nowrap text-xs">
-          {rel.equipos_clientes?.name}
-          {rel.equipos_clientes?.type ? ` (${rel.equipos_clientes.type})` : ''}
-        </Badge>
-      ))}
-    </div>
+    <ResourceCell
+      items={items}
+      title="Equipos del cliente"
+      buttonLabel="Ver equipos"
+      description={buildRowDescription(row)}
+    />
   );
 }
 
@@ -557,18 +578,22 @@ export function getColumns(
         if (rels.length === 0) {
           return <span className="text-muted-foreground text-xs italic">Opcional</span>;
         }
+        const items = rels.map((rel) =>
+          renderEmployeeBadge(
+            rel.employee_id ?? '',
+            buildEmployeeLabel(rel.employees!),
+            row.original.id,
+            deviations,
+            `ayudante_dia_${rel.employee_id ?? rel.id}`
+          )
+        );
         return (
-          <div className="flex flex-col gap-1">
-            {rels.map((rel) =>
-              renderEmployeeBadge(
-                rel.employee_id ?? '',
-                buildEmployeeLabel(rel.employees!),
-                row.original.id,
-                deviations,
-                `ayudante_dia_${rel.employee_id ?? rel.id}`
-              )
-            )}
-          </div>
+          <ResourceCell
+            items={items}
+            title="Ayudantes Día"
+            buttonLabel="Ver ayudantes"
+            description={buildRowDescription(row.original)}
+          />
         );
       },
     },
@@ -642,18 +667,22 @@ export function getColumns(
         if (rels.length === 0) {
           return <span className="text-muted-foreground text-xs italic">Opcional</span>;
         }
+        const items = rels.map((rel) =>
+          renderEmployeeBadge(
+            rel.employee_id ?? '',
+            buildEmployeeLabel(rel.employees!),
+            row.original.id,
+            deviations,
+            `ayudante_noche_${rel.employee_id ?? rel.id}`
+          )
+        );
         return (
-          <div className="flex flex-col gap-1">
-            {rels.map((rel) =>
-              renderEmployeeBadge(
-                rel.employee_id ?? '',
-                buildEmployeeLabel(rel.employees!),
-                row.original.id,
-                deviations,
-                `ayudante_noche_${rel.employee_id ?? rel.id}`
-              )
-            )}
-          </div>
+          <ResourceCell
+            items={items}
+            title="Ayudantes Noche"
+            buttonLabel="Ver ayudantes"
+            description={buildRowDescription(row.original)}
+          />
         );
       },
     },

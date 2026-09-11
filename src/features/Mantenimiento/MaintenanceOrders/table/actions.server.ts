@@ -14,6 +14,13 @@ import type { DataTableSearchParams } from '@/shared/components/common/DataTable
 import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
 import { prisma } from '@/shared/lib/prisma';
 import { cacheLife, cacheTag } from 'next/cache';
+import {
+  getResourceInternNumber,
+  getResourceLabel,
+  visibleEquipmentTypeCondition,
+} from '../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../utils/equipmentTypeVisibility';
+import { computeCurrentSector, type CurrentSectorItemLike } from '../utils/currentSector';
 
 const logger = new Logger('MaintenanceOrders/table/actions.server');
 
@@ -159,10 +166,60 @@ const ACTIVE_WORKSHOP_STATUSES = [
   'workshop_rejected',
 ];
 
-function buildWhereClause(
+/**
+ * Sector actual (ticket 675): NO es un campo de BD, se calcula por orden a
+ * partir de sus `maintenance_order_items` (ver `computeCurrentSector`). Como
+ * no es filtrable directamente con Prisma, se resuelve en dos pasos:
+ * 1. Se buscan las órdenes que cumplen el resto de los filtros (sin el de sector).
+ * 2. Se calcula el sector actual de cada una en JS y se filtra por el/los
+ *    sector(es) seleccionados, devolviendo los IDs que matchean.
+ * El `where` resultante se combina con `id: { in: matchedIds }`.
+ */
+async function getOrdersWithCurrentSector(
+  where: Record<string, unknown>
+): Promise<Array<{ id: string; sector: ReturnType<typeof computeCurrentSector> }>> {
+  const rows = await prisma.maintenance_orders.findMany({
+    where,
+    select: {
+      id: true,
+      maintenance_order_items: {
+        select: {
+          assigned_sector_id: true,
+          sector_sequence_order: true,
+          workshop_sectors: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    sector: computeCurrentSector(row.maintenance_order_items as CurrentSectorItemLike[]),
+  }));
+}
+
+async function resolveCurrentSectorOrderIds(
+  baseWhereWithoutSector: Record<string, unknown>,
+  sectorValues: string[]
+): Promise<string[]> {
+  const hasNull = sectorValues.includes(NULL_FILTER_VALUE);
+  const realValues = sectorValues.filter((v) => v !== NULL_FILTER_VALUE);
+
+  const orders = await getOrdersWithCurrentSector(baseWhereWithoutSector);
+
+  return orders
+    .filter((o) => {
+      if (o.sector == null) return hasNull;
+      return realValues.includes(o.sector.id);
+    })
+    .map((o) => o.id);
+}
+
+async function buildWhereClause(
   state: ReturnType<typeof parseSearchParams>,
+  hiddenTypeIds: readonly string[],
   options?: { excludeColumn?: string; includeCompleted?: boolean }
-) {
+): Promise<Record<string, unknown>> {
   const excludeColumn = options?.excludeColumn;
 
   const cleanFilters = Object.fromEntries(Object.entries(state.filters).filter(([key]) => !IGNORED_PARAMS.has(key)));
@@ -184,6 +241,7 @@ function buildWhereClause(
         ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
         'vehicle',
         'status',
+        'currentSector',
       ],
     }
   );
@@ -272,9 +330,14 @@ function buildWhereClause(
     ...statusConditions,
   };
 
-  // Añadir condiciones de texto en vehicles como AND
-  if (vehicleTextConditions.length > 0) {
-    where.AND = vehicleTextConditions;
+  // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+  const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+  const equipmentAndConditions = equipmentCondition ? [equipmentCondition] : [];
+
+  // Añadir condiciones de texto en vehicles + equipamiento oculto como AND
+  const combinedAndConditions = [...vehicleTextConditions, ...equipmentAndConditions];
+  if (combinedAndConditions.length > 0) {
+    where.AND = combinedAndConditions;
   }
 
   // Filtrar para mostrar solo órdenes relevantes de taller (excluir scheduled/pending_scheduling)
@@ -286,6 +349,15 @@ function buildWhereClause(
     };
   }
 
+  // ─── Filtro Sector Actual (calculado — ticket 675) ─────────────────────────
+  // Se resuelve al final, con el resto del where ya armado, para que la
+  // subquery de sector solo considere órdenes que ya cumplen los demás filtros.
+  const currentSectorValues = excludeColumn === 'currentSector' ? undefined : cleanState.filters['currentSector'];
+  if (currentSectorValues?.length) {
+    const matchedIds = await resolveCurrentSectorOrderIds(where, currentSectorValues);
+    where.id = { in: matchedIds };
+  }
+
   return where;
 }
 
@@ -293,7 +365,16 @@ function buildWhereClause(
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getMaintenanceOrdersPaginated(searchParams: DataTableSearchParams) {
+/**
+ * Cacheada con `'use cache'`: NO puede leer cookies/sesión (por eso recibe
+ * `hiddenTypeIds` ya resuelto, en vez de llamar a `getHiddenEquipmentTypeIds`
+ * acá adentro). Entra en la key del cache, así un usuario nunca ve el cache
+ * de otro con distintos tipos ocultos (ticket 690).
+ */
+async function getMaintenanceOrdersPaginatedCached(
+  searchParams: DataTableSearchParams,
+  hiddenTypeIds: readonly string[]
+) {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
   cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
@@ -315,7 +396,7 @@ export async function getMaintenanceOrdersPaginated(searchParams: DataTableSearc
     }
     const safeOrderBy = resolvedSorts.length > 0 ? resolvedSorts : [{ created_at: 'desc' as const }];
 
-    const where = buildWhereClause(state);
+    const where = await buildWhereClause(state, hiddenTypeIds);
 
     const [data, total] = await Promise.all([
       prisma.maintenance_orders.findMany({
@@ -335,13 +416,21 @@ export async function getMaintenanceOrdersPaginated(searchParams: DataTableSearc
   }
 }
 
+export async function getMaintenanceOrdersPaginated(searchParams: DataTableSearchParams) {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getMaintenanceOrdersPaginatedCached(searchParams, hiddenTypeIds);
+}
+
 export type MaintenanceOrderListItem = Awaited<ReturnType<typeof getMaintenanceOrdersPaginated>>['data'][number];
 
 // ============================================================================
 // EXPORT QUERY
 // ============================================================================
 
-export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSearchParams) {
+async function getAllMaintenanceOrdersForExportCached(
+  searchParams: DataTableSearchParams,
+  hiddenTypeIds: readonly string[]
+) {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
   cacheLife({ expire: CACHE_TTL.EXPORT, revalidate: CACHE_TTL.EXPORT, stale: 30 });
@@ -350,7 +439,7 @@ export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSe
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = await buildWhereClause(state, hiddenTypeIds);
 
     const data = await prisma.maintenance_orders.findMany({
       where,
@@ -365,78 +454,242 @@ export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSe
   }
 }
 
+export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSearchParams) {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getAllMaintenanceOrdersForExportCached(searchParams, hiddenTypeIds);
+}
+
 // ============================================================================
-// FACETS QUERY (con cross-filtering)
+// SINGLE FACET (lazy-load individual, con cross-filtering)
 // ============================================================================
 
-export async function getMaintenanceOrdersFacets(searchParams?: DataTableSearchParams) {
+/**
+ * Opciones y counts para UN SOLO filtro facetado, bajo demanda (lazy-load).
+ * Cada filtro del cliente llama a esta función al abrir su popover.
+ *
+ * Implementa cross-filtering: excluye el filtro propio de la columna consultada
+ * del WHERE, para que su count no se vea afectado por su propia selección.
+ */
+async function getMaintenanceOrdersSingleFacetCached(
+  columnId: string,
+  hiddenTypeIds: readonly string[],
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
   cacheLife({ expire: CACHE_TTL.FACETS, revalidate: CACHE_TTL.FACETS, stale: 30 });
 
-  logger.debug('Obteniendo facets de órdenes de mantenimiento', { data: { searchParams } });
+  logger.debug('Obteniendo facet individual de órdenes de mantenimiento', { data: { columnId, searchParams } });
 
   try {
     const state = searchParams ? parseSearchParams(searchParams) : parseSearchParams({});
 
-    /**
-     * crossWhere: construye el WHERE excluyendo el filtro de la columna indicada.
-     * Esto permite que los counts de cada facet sean precisos con otros filtros activos.
-     */
-    // Para la faceta de estado se incluyen las completadas: así "Completada" sigue
-    // apareciendo como opción filtrable con su contador (ticket 595).
-    const crossWhere = (excludeColumn: string) =>
-      buildWhereClause(state, { excludeColumn, includeCompleted: excludeColumn === 'status' });
+    switch (columnId) {
+      // Para la faceta de estado se incluyen las completadas: así "Completada" sigue
+      // apareciendo como opción filtrable con su contador (ticket 595).
+      case 'status': {
+        const where = await buildWhereClause(state, hiddenTypeIds, { excludeColumn: 'status', includeCompleted: true });
+        const rows = await prisma.maintenance_orders.groupBy({ by: ['status'], where, _count: true });
+        const counts = new Map<string, number>();
+        for (const r of rows) {
+          const key = r.status == null ? NULL_FILTER_VALUE : r.status;
+          counts.set(key, r._count);
+        }
+        return { counts };
+      }
 
-    // Ejecutar todos los groupBy en paralelo con cross-filtering
-    const [statusCounts, vehicleCounts] = await Promise.all([
-      // Status: contar por valor de status
-      prisma.maintenance_orders.groupBy({
-        by: ['status'],
-        where: crossWhere('status'),
-        _count: true,
-      }),
-      // Vehicle (equipment_id): contar por FK
-      prisma.maintenance_orders.groupBy({
-        by: ['equipment_id'],
-        where: crossWhere('vehicle'),
-        _count: true,
-      }),
-    ]);
+      case 'vehicle': {
+        const where = await buildWhereClause(state, hiddenTypeIds, { excludeColumn: 'vehicle' });
+        const rows = await prisma.maintenance_orders.groupBy({ by: ['equipment_id'], where, _count: true });
+        const counts = new Map<string, number>();
+        for (const r of rows) {
+          const key = r.equipment_id == null ? NULL_FILTER_VALUE : r.equipment_id;
+          counts.set(key, r._count);
+        }
 
-    // Resolver nombres de vehículos
-    const vehicleIds = vehicleCounts.filter((r) => r.equipment_id).map((r) => r.equipment_id!);
-    const vehicleOptions =
-      vehicleIds.length > 0
-        ? await prisma.vehicles.findMany({
-            where: { id: { in: vehicleIds } },
-            select: { id: true, domain: true, serie: true, intern_number: true },
-            orderBy: { domain: 'asc' },
-          })
-        : [];
+        const vehicleIds = rows.filter((r) => r.equipment_id).map((r) => r.equipment_id!);
+        const vehicles =
+          vehicleIds.length > 0
+            ? await prisma.vehicles.findMany({
+                where: { id: { in: vehicleIds } },
+                select: { id: true, domain: true, serie: true, intern_number: true },
+                orderBy: { domain: 'asc' },
+              })
+            : [];
+        const resolvedOptions = vehicles.map((v) => ({
+          id: v.id,
+          name: [v.domain ?? v.serie ?? 'Sin identificar', v.intern_number ? `#${v.intern_number}` : '']
+            .filter(Boolean)
+            .join(' '),
+        }));
 
-    // Construir Maps
-    const statusMap = new Map<string, number>();
-    for (const r of statusCounts) {
-      const key = r.status == null ? NULL_FILTER_VALUE : r.status;
-      statusMap.set(key, r._count);
+        return { counts, resolvedOptions };
+      }
+
+      // Sector actual (ticket 675): no es un campo de BD — se calcula por orden
+      // (ver `computeCurrentSector`) sobre las órdenes que cumplen el resto de filtros.
+      case 'currentSector': {
+        const where = await buildWhereClause(state, hiddenTypeIds, { excludeColumn: 'currentSector' });
+        const orders = await getOrdersWithCurrentSector(where);
+
+        const counts = new Map<string, number>();
+        const nameById = new Map<string, string>();
+        for (const o of orders) {
+          if (o.sector == null) {
+            counts.set(NULL_FILTER_VALUE, (counts.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            counts.set(o.sector.id, (counts.get(o.sector.id) ?? 0) + 1);
+            nameById.set(o.sector.id, o.sector.name);
+          }
+        }
+        const resolvedOptions = Array.from(nameById.entries())
+          .map(([id, name]) => ({ id, name }))
+          .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+
+        return { counts, resolvedOptions };
+      }
+
+      default:
+        logger.warn('getMaintenanceOrdersSingleFacet: columnId desconocido', { data: { columnId } });
+        return null;
     }
-
-    const vehicleMap = new Map<string, number>();
-    for (const r of vehicleCounts) {
-      const key = r.equipment_id == null ? NULL_FILTER_VALUE : r.equipment_id;
-      vehicleMap.set(key, r._count);
-    }
-
-    return {
-      status: statusMap,
-      vehicle: vehicleMap,
-      vehicleOptions,
-    };
   } catch (error) {
-    logger.error('Error al obtener facets de órdenes de mantenimiento', { data: { error } });
+    logger.error('Error al obtener facet individual de órdenes de mantenimiento', { data: { error, columnId } });
     throw error;
   }
 }
 
-export type MaintenanceOrdersFacets = Awaited<ReturnType<typeof getMaintenanceOrdersFacets>>;
+export async function getMaintenanceOrdersSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getMaintenanceOrdersSingleFacetCached(columnId, hiddenTypeIds, searchParams);
+}
+
+// ============================================================================
+// TASKS EXPORT (ticket 682) — Excel a nivel de tarea, no de orden
+// ============================================================================
+
+/**
+ * Datos de la orden (OM) que se repiten en cada fila de tarea del export.
+ * Mismos campos que `MAINTENANCE_ORDERS_SELECT` a nivel raíz — sin los items,
+ * que acá se recorren desde `work_order_item_repairs` hacia arriba.
+ */
+const TASK_EXPORT_ORDER_SELECT = {
+  order_number: true,
+  description: true,
+  status: true,
+  workshop_entry_date: true,
+  created_at: true,
+  vehicles: { select: { id: true, domain: true, serie: true, intern_number: true } },
+  other_equipment: { select: { id: true, serial_number: true, intern_number: true } },
+  maintenance_requests: { select: { description: true } },
+} as const;
+
+export interface MaintenanceOrderTaskExportRow {
+  om_order_number: string | null;
+  ot_order_number: string | null;
+  vehicle_label: string;
+  task_name: string;
+  type_of_maintenance: string | null;
+  task_status: string;
+  task_sector: string | null;
+  is_diagnostico: boolean;
+  om_status: string;
+  workshop_entry_date: Date | null;
+  created_at: Date | null;
+  description: string;
+}
+
+/**
+ * Excel a nivel de tarea (ticket 682): una fila por `work_order_item_repairs`
+ * en vez de una fila por orden de mantenimiento. Fabricio pidió poder ver, por
+ * cada tarea: la OT a la que pertenece, el tipo de tarea (tipo de
+ * mantenimiento), su propio estado (no el de la OM completa), y el sector de
+ * taller de ESA tarea (el de su OT — puede diferir del "sector actual" de la
+ * orden, que es el de su item pendiente más próximo).
+ *
+ * Recorre la jerarquía real: work_order_item_repairs → work_order_items →
+ * (work_orders [OT] + maintenance_order_items → maintenance_orders [OM]).
+ * Reutiliza `buildWhereClause` para respetar exactamente los mismos filtros
+ * activos que la grilla (incluido el nuevo filtro de Sector Actual).
+ */
+export async function getMaintenanceOrderTasksForExport(
+  searchParams: DataTableSearchParams
+): Promise<MaintenanceOrderTaskExportRow[]> {
+  logger.debug('Exportando tareas de órdenes de mantenimiento', { data: { searchParams } });
+
+  try {
+    const state = parseSearchParams(searchParams);
+    const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+    const where = await buildWhereClause(state, hiddenTypeIds);
+
+    const repairs = await prisma.work_order_item_repairs.findMany({
+      where: {
+        work_order_items: {
+          maintenance_order_items: {
+            maintenance_orders: where,
+          },
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        is_diagnostico: true,
+        types_of_repairs: { select: { name: true, type_of_maintenance: true } },
+        work_order_items: {
+          select: {
+            work_orders: {
+              select: { order_number: true, workshop_sectors: { select: { name: true } } },
+            },
+            maintenance_order_items: {
+              select: { maintenance_orders: { select: TASK_EXPORT_ORDER_SELECT } },
+            },
+          },
+        },
+      },
+    });
+
+    const rows: MaintenanceOrderTaskExportRow[] = repairs.map((repair) => {
+      const workOrder = repair.work_order_items.work_orders;
+      const order = repair.work_order_items.maintenance_order_items.maintenance_orders;
+
+      return {
+        om_order_number: order.order_number,
+        ot_order_number: workOrder.order_number,
+        vehicle_label:
+          getResourceLabel(order) + (getResourceInternNumber(order) ? ` (#${getResourceInternNumber(order)})` : ''),
+        task_name: repair.types_of_repairs.name,
+        type_of_maintenance: repair.types_of_repairs.type_of_maintenance,
+        task_status: repair.status,
+        task_sector: workOrder.workshop_sectors?.name ?? null,
+        is_diagnostico: repair.is_diagnostico,
+        om_status: order.status,
+        workshop_entry_date: order.workshop_entry_date,
+        created_at: order.created_at,
+        description: order.description ?? order.maintenance_requests?.description ?? '',
+      };
+    });
+
+    // Orden: N° OM, luego N° OT, luego nombre de tarea
+    rows.sort((a, b) => {
+      const omCompare = (a.om_order_number ?? '').localeCompare(b.om_order_number ?? '');
+      if (omCompare !== 0) return omCompare;
+      const otCompare = (a.ot_order_number ?? '').localeCompare(b.ot_order_number ?? '');
+      if (otCompare !== 0) return otCompare;
+      return a.task_name.localeCompare(b.task_name);
+    });
+
+    return rows;
+  } catch (error) {
+    logger.error('Error al exportar tareas de órdenes de mantenimiento', { data: { error } });
+    throw error;
+  }
+}

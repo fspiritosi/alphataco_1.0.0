@@ -9,6 +9,11 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, Settings2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { getResourceInternNumber, getResourceKindLabel, getResourceLabel } from '../../shared/maintenance-resource';
+// Import directo al modulo del boton (no hay barrel en `pdf/`): el boton carga
+// react-pdf y el layout recien al hacer clic, asi que esta linea no mete el
+// renderer en el chunk de la tabla.
+import { MaintenanceOrderReportButton } from '../pdf/MaintenanceOrderReportButton';
+import { computeCurrentSector } from '../utils/currentSector';
 import type { MaintenanceOrderListItem } from './actions.server';
 
 // ============================================================================
@@ -89,26 +94,9 @@ function calculateProgress(order: MaintenanceOrderListItem): { total: number; co
 // CURRENT SECTOR HELPER
 // ============================================================================
 
-function getCurrentSector(order: MaintenanceOrderListItem): string | null {
-  const items = order.maintenance_order_items ?? [];
-  const sectorMap = new Map<string, { name: string; order: number }>();
-
-  for (const item of items) {
-    const sectorId = item.assigned_sector_id;
-    if (!sectorId) continue;
-    const sectorName = item.workshop_sectors?.name ?? 'Sin nombre';
-    if (!sectorMap.has(sectorId)) {
-      sectorMap.set(sectorId, {
-        name: sectorName,
-        order: item.sector_sequence_order ?? 999,
-      });
-    }
-  }
-
-  if (sectorMap.size === 0) return null;
-
-  const sorted = Array.from(sectorMap.values()).sort((a, b) => a.order - b.order);
-  return sorted[0].name;
+/** Ver `computeCurrentSector` en `../utils/currentSector` — lógica compartida con el filtro server-side. */
+function getCurrentSector(order: MaintenanceOrderListItem) {
+  return computeCurrentSector(order.maintenance_order_items);
 }
 
 // ============================================================================
@@ -210,17 +198,24 @@ export function getMaintenanceOrdersColumns({
       enableSorting: false,
     },
 
-    // ── Sector actual (calculado desde items) ──────────────────────────────
+    // ── Sector actual (calculado desde items, filtrable server-side — ticket 675) ──
     {
       id: 'currentSector',
-      accessorFn: (row) => getCurrentSector(row) ?? '',
+      accessorFn: (row) => getCurrentSector(row)?.name ?? '',
       meta: { title: 'Sector Actual' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sector Actual" />,
       cell: ({ row }) => {
-        const sectorName = getCurrentSector(row.original);
-        if (!sectorName) return <Badge variant="outline">Sin asignar</Badge>;
-        return <Badge variant="default">{sectorName}</Badge>;
+        const sector = getCurrentSector(row.original);
+        if (!sector) return <Badge variant="outline">Sin asignar</Badge>;
+        return <Badge variant="default">{sector.name}</Badge>;
       },
+      filterFn: (row, _id, value: string[]) => {
+        const sector = getCurrentSector(row.original);
+        if (!sector) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(sector.id);
+      },
+      // Es una columna calculada sin campo en BD — el sort se resuelve server-side
+      // vía subquery, no vía orderBy de Prisma, así que no es ordenable en la grilla.
       enableSorting: false,
     },
 
@@ -301,6 +296,7 @@ export function getMaintenanceOrdersColumns({
                   Ítems
                 </Button>
               )}
+              <MaintenanceOrderReportButton orderId={order.id} orderNumber={order.order_number} />
             </div>
           );
         }
@@ -317,6 +313,7 @@ export function getMaintenanceOrdersColumns({
                 Ítems
               </Button>
             )}
+            <MaintenanceOrderReportButton orderId={order.id} orderNumber={order.order_number} />
           </div>
         );
       },

@@ -33,6 +33,28 @@ export function resourceCompanyCondition(companyId: string) {
   };
 }
 
+/**
+ * Condición que deja afuera los equipamientos de los tipos que el usuario no ve
+ * (ticket 690). Los vehículos pasan siempre. Los ids salen de
+ * `getHiddenEquipmentTypeIds()` (utils/equipmentTypeVisibility.ts).
+ *
+ * Devuelve `null` cuando no hay tipos ocultos, para no agregar nada al `where`.
+ * Mismo cuidado que `resourceCompanyCondition`: es un `OR`, **va dentro de un `AND`**.
+ * Aplica a cualquier modelo con `other_equipment_id` + relación `other_equipment`
+ * (maintenance_requests, maintenance_orders, work_orders); para modelos hijos se anida
+ * bajo la relación (ej. `{ maintenance_orders: condition }`).
+ *
+ * @example
+ * const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+ * where: { AND: [resourceCompanyCondition(companyId), ...(equipmentCondition ? [equipmentCondition] : [])] }
+ */
+export function visibleEquipmentTypeCondition(hiddenTypeIds: readonly string[]) {
+  if (hiddenTypeIds.length === 0) return null;
+  return {
+    OR: [{ other_equipment_id: null }, { other_equipment: { type_id: { notIn: [...hiddenTypeIds] } } }],
+  };
+}
+
 /** Forma mínima que necesitan los helpers de presentación */
 type VehicleShape = {
   domain?: string | null;

@@ -7,17 +7,22 @@ import type {
   DataTableFacetedFilterConfig,
   DataTableFilterOption,
   DataTableSearchParams,
+  FacetResult,
 } from '@/shared/components/common/DataTable/types';
 import { conditionLabels } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
 import { CircleOff } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { OrderDetailDialog } from '../MaintenanceOrders/components/OrderDetailDialog';
-import type { WorkshopTrackingListItem } from './actions.server';
-import { getAllWorkshopTrackingForExport, getWorkshopTrackingFacets } from './actions.server';
+import {
+  getAllWorkshopTrackingForExport,
+  getWorkshopTrackingPaginated,
+  getWorkshopTrackingSingleFacet,
+  type WorkshopTrackingListItem,
+} from './actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
-  WORKSHOP_STATUS_FILTER_OPTIONS,
+  WORKSHOP_STATUS_ICONS,
+  WORKSHOP_STATUS_LABELS,
   getWorkshopTrackingColumns,
   getWorkshopTrackingExportFormatters,
 } from './workshopTrackingColumns';
@@ -80,70 +85,73 @@ export function _WorkshopTrackingDataTable({
     []
   );
 
-  // ── Facets (cross-filtering) ──────────────────────────────────────────────
-  const facetParams = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams as Record<string, unknown>;
-    return rest as DataTableSearchParams;
-  }, [searchParams]);
+  // ── Client-side navigation: estado reactivo para queries dependientes (export) ──
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['workshop-tracking-facets', facetParams],
-    queryFn: () => getWorkshopTrackingFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla (sin router.push, sin re-render de toda la página)
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getWorkshopTrackingPaginated(params), []);
+
+  // ── fetchFacet: cada filtro carga sus opciones+counts bajo demanda (lazy-load) ──
+
+  const statusFetchFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getWorkshopTrackingSingleFacet('status', params);
+    if (!result) return { options: [], counts: new Map() };
+    // Solo se muestran los estados que tienen registros en el universo filtrado
+    // actual (mismo comportamiento que el patrón bulk anterior).
+    const options: DataTableFilterOption[] = Object.keys(WORKSHOP_STATUS_LABELS)
+      .filter((value) => result.counts.size === 0 || result.counts.has(value))
+      .map((value) => ({ value, label: WORKSHOP_STATUS_LABELS[value], icon: WORKSHOP_STATUS_ICONS[value] }));
+    return { options, counts: result.counts };
+  }, []);
+
+  const vehicleFetchFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getWorkshopTrackingSingleFacet('vehicle', params);
+    if (!result) return { options: [], counts: new Map() };
+    const options: DataTableFilterOption[] = (result.resolvedOptions ?? []).map((v) => ({
+      value: v.id,
+      label: v.name ?? '',
+    }));
+    if (result.counts.has(NULL_FILTER_VALUE)) {
+      options.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
+    }
+    return { options, counts: result.counts };
+  }, []);
+
+  const conditionFetchFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getWorkshopTrackingSingleFacet('condition', params);
+    if (!result) return { options: [], counts: new Map() };
+    const options: DataTableFilterOption[] = [];
+    for (const value of result.counts.keys()) {
+      if (value === NULL_FILTER_VALUE) continue;
+      options.push({ value, label: conditionLabels[value] ?? value });
+    }
+    if (result.counts.has(NULL_FILTER_VALUE)) {
+      options.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
+    }
+    return { options, counts: result.counts };
+  }, []);
 
   // ── Faceted Filters ────────────────────────────────────────────────────────
-  const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(() => {
-    // Status options (always all statuses + null if needed)
-    const statusOptions = WORKSHOP_STATUS_FILTER_OPTIONS.filter(
-      (opt) => !facets?.status || facets.status.has(opt.value) || facets.status.size === 0
-    );
-
-    // Vehicle options
-    const vehicleOptions: DataTableFilterOption[] = (facets?.vehicleOptions ?? []).map((v) => ({
-      value: v.id,
-      label: [v.domain || v.serie || 'Sin dominio', v.intern_number ? `(${v.intern_number})` : '']
-        .filter(Boolean)
-        .join(' '),
-    }));
-    if (facets?.vehicle?.has(NULL_FILTER_VALUE)) {
-      vehicleOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-    }
-
-    // Condition options
-    const conditionOptions: DataTableFilterOption[] = [];
-    if (facets?.condition) {
-      for (const value of facets.condition.keys()) {
-        if (value === NULL_FILTER_VALUE) continue;
-        conditionOptions.push({ value, label: conditionLabels[value] ?? value });
-      }
-      if (facets.condition.has(NULL_FILTER_VALUE)) {
-        conditionOptions.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-      }
-    }
-
-    return [
+  const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
+    () => [
       {
         columnId: 'status',
         title: 'Estado',
-        type: 'faceted' as const,
-        options: statusOptions,
-        externalCounts: facets?.status,
+        fetchFacet: statusFetchFacet,
       },
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        type: 'faceted' as const,
-        options: vehicleOptions,
-        externalCounts: facets?.vehicle,
+        fetchFacet: vehicleFetchFacet,
       },
       {
         columnId: 'condition',
         title: 'Condición Actual',
-        type: 'faceted' as const,
-        options: conditionOptions,
-        externalCounts: facets?.condition,
+        fetchFacet: conditionFetchFacet,
       },
       {
         columnId: 'workshop_entry_date',
@@ -190,8 +198,9 @@ export function _WorkshopTrackingDataTable({
         title: 'Descripción',
         type: 'text' as const,
       },
-    ];
-  }, [facets]);
+    ],
+    [statusFetchFacet, vehicleFetchFacet, conditionFetchFacet]
+  );
 
   // ── Filter visibility ─────────────────────────────────────────────────────
   const mergedFilterVisibility = useMemo(() => {
@@ -204,14 +213,19 @@ export function _WorkshopTrackingDataTable({
   // ── Export config ─────────────────────────────────────────────────────────
   const exportFormatters = useMemo(() => getWorkshopTrackingExportFormatters(), []);
 
-  const exportConfig = {
-    options: {
-      filename: 'seguimiento-taller',
-      sheetName: 'Seguimiento Taller',
-    },
-    fetchAllData: () => getAllWorkshopTrackingForExport(searchParams),
-    formatters: exportFormatters,
-  };
+  const exportConfig = useMemo(
+    () => ({
+      options: {
+        filename: 'seguimiento-taller',
+        sheetName: 'Seguimiento Taller',
+      },
+      // Usa currentParams (estado reactivo del client-side mode), NO la prop searchParams
+      // (solo el valor inicial de SSR), para que la exportación respete los filtros activos.
+      fetchAllData: () => getAllWorkshopTrackingForExport(currentParams),
+      formatters: exportFormatters,
+    }),
+    [currentParams, exportFormatters]
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -227,13 +241,16 @@ export function _WorkshopTrackingDataTable({
         emptyMessage="No hay órdenes de mantenimiento en taller"
         showFilterToggle={true}
         facetedFilters={facetedFilters}
-        isFetchingFacets={isFetchingFacets}
         exportConfig={exportConfig}
         initialColumnVisibility={{
           ...Object.fromEntries(HIDDEN_COLUMNS_BY_DEFAULT.map((c) => [c, false])),
           ...(initialColumnVisibility ?? {}),
         }}
         initialFilterVisibility={mergedFilterVisibility}
+        // Client-side navigation: fetch instantáneo vía React Query, sin router.push
+        queryFn={tableQueryFn}
+        queryKey={['workshop-tracking-paginated']}
+        onStateChange={handleStateChange}
       />
 
       {/* Loading overlay para carga de detalle */}

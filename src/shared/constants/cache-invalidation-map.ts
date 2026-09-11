@@ -76,6 +76,19 @@ export const INVALIDATION_MAP = {
     T.PIPELINE_OPERACIONES,
     T.PIPELINE_TALLER,
   ],
+  /**
+   * Ticket 676: rechazo del taller en el paso "Por Programar". Toca el pedido y
+   * su solicitud de origen, asi que invalida los dos pipelines y la tab de
+   * solicitudes ademas del listado de pendientes.
+   */
+  rejectPendingOrder: [
+    T.MAINTENANCE_ORDERS,
+    T.MAINTENANCE_REQUESTS,
+    T.TAB_PEDIDOS_PENDIENTES,
+    T.TAB_SOLICITUDES,
+    T.PIPELINE_OPERACIONES,
+    T.PIPELINE_TALLER,
+  ],
   assignWorkshopToItems: [T.MAINTENANCE_ORDERS, T.TAB_PEDIDOS_PENDIENTES],
   createWorkOrder: [T.MAINTENANCE_ORDERS, T.TAB_PEDIDOS_PENDIENTES, T.TAB_IN_WORKSHOP, T.PIPELINE_TALLER],
 

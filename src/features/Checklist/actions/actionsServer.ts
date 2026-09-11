@@ -2,7 +2,9 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { CACHE_TAGS } from '@/shared/constants/cache';
 import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 
@@ -141,10 +143,15 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
   serverLogger.info('Checklist answer creado', { data: { answerId: data.id, result: computedResult } });
 
   // Si hay items fallidos, crear registros en checklist_deviations
-  // IMPORTANTE: NO crear desvíos si este checklist es de enganche (ut_checklist_answer_id existe)
-  // Los desvíos solo se crean en la unidad tractora
   // NUEVO FLUJO: Ahora se detectan TODOS los items con valor "M", no solo los críticos
-  if (failedItems.length > 0 && data && !answerData.ut_checklist_answer_id) {
+  //
+  // Ticket 677: el checklist del enganche TAMBIÉN crea desvíos, con su propio
+  // `equipment_id`. Antes se bloqueaban acá (`!answerData.ut_checklist_answer_id`)
+  // porque el checklist del enganche era una copia entera del de la unidad tractora
+  // y habría duplicado todo. Hoy el formulario le manda únicamente los ítems de la
+  // sección que describe al acoplado, así que el desvío —y la solicitud de
+  // mantenimiento que sale de él— quedan imputados a la patente correcta.
+  if (failedItems.length > 0 && data) {
     // Crear registros de desvíos para cada item fallido (crítico o no)
     const deviationsToInsert = failedItems.map((item: any) => {
       // Soporta tanto formato antiguo (string) como nuevo (objeto)
@@ -193,6 +200,9 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
       // Los desvíos quedan registrados sin solicitud de mantenimiento.
       // El usuario debe crear la solicitud desde el modal que aparece al finalizar
       // o desde la tabla de "Equipos con Desvíos" en el módulo de Mantenimiento.
+      // Por eso invalidamos su cache acá: es el único punto donde se crean desvíos
+      // pendientes sin quedar linkeados a una solicitud en la misma operación.
+      await invalidateCacheTags([CACHE_TAGS.TAB_EQUIPMENTS_DEVIATIONS]);
     }
   }
 
