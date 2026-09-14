@@ -1,8 +1,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams, type DataTableSearchParams } from '@/shared/components/common/DataTable';
-import { getAllMaintenanceRequestsForExport, getMaintenanceRequestFacets, getMaintenanceRequestsPaginated } from './actions/actionsTableServer';
 import { MaintenanceRequestDataTable } from './_MaintenanceRequestDataTable';
+import { getAllMaintenanceRequestsForExport, getMaintenanceRequestsPaginated } from './actions/actionsTableServer';
 
 export const TABLE_ID = 'maintenance-requests';
 
@@ -11,17 +11,14 @@ interface MaintenanceRequestListProps {
   canApproveReject?: boolean;
 }
 
-export async function MaintenanceRequestList({
-  searchParams,
-  canApproveReject = false,
-}: MaintenanceRequestListProps) {
+export async function MaintenanceRequestList({ searchParams, canApproveReject = false }: MaintenanceRequestListProps) {
   // Aislar parámetros de URL para esta tabla específica
   const tableSearchParams = stripPrefixFromSearchParams(searchParams, TABLE_ID);
 
-  const [{ data, total }, preferences, facets] = await Promise.all([
+  // Facets se cargan lazy (on-demand al abrir cada popover) — no en SSR
+  const [{ data, total }, preferences] = await Promise.all([
     getMaintenanceRequestsPaginated(tableSearchParams),
     getTablePreferences(TABLE_ID),
-    getMaintenanceRequestFacets(tableSearchParams),
   ]);
 
   return (
@@ -32,7 +29,6 @@ export async function MaintenanceRequestList({
           totalRows={total}
           searchParams={tableSearchParams}
           tableId={TABLE_ID}
-          initialFacets={facets}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
           canApproveReject={canApproveReject}

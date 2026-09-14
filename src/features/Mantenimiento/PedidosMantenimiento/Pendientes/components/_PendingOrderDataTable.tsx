@@ -6,18 +6,24 @@ import {
   type DataTableExportConfig,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { useQuery } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { Clock, HourglassIcon, Loader2 } from 'lucide-react';
 import moment from 'moment';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { getMaintenanceOrderById, type MaintenanceOrderData } from '../../actions/actionsServer';
 import { PedidoDetailDialog } from '../../components/PedidoDetailDialog';
 import { PlanificarPedidoDialog } from '../../components/PlanificarPedidoDialog';
-import { PEDIDOS_PENDIENTES_QUERY_KEY } from '../../hooks/useMaintenanceOrders';
-import { getAllPendingOrdersForExport, getPendingOrdersFacets, type PendingOrderListItem } from '../actions.server';
+import {
+  getAllPendingOrdersForExport,
+  getPendingOrdersPaginated,
+  getPendingOrdersSingleFacet,
+  type PendingOrderListItem,
+} from '../actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   PENDING_STATUS_LABELS,
@@ -25,9 +31,10 @@ import {
   SOURCE_LABELS,
   getPendingOrderColumns,
 } from '../columns';
+import { RechazarPedidoDialog } from './RechazarPedidoDialog';
 
 // ── Íconos de estado para filtros ─────────────────────────────────────────────
-const STATUS_ICONS = {
+const STATUS_ICONS: Record<string, LucideIcon> = {
   pending_scheduling: HourglassIcon,
   scheduled: Clock,
 };
@@ -43,6 +50,37 @@ interface Props {
   initialFilterVisibility?: Record<string, boolean>;
 }
 
+// ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  labels: Record<string, string>,
+  icons: Record<string, React.ComponentType<{ className?: string }> | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: Object.entries(labels).map(([value, label]) => ({
+      value,
+      label,
+      icon: icons[value] as LucideIcon | undefined,
+    })),
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK: opciones resueltas del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? [],
+    counts,
+  };
+}
+
 export function _PendingOrderDataTable({
   data,
   totalRows,
@@ -55,6 +93,9 @@ export function _PendingOrderDataTable({
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'schedule' | null>(null);
   const [historyOrder, setHistoryOrder] = useState<PendingOrderListItem | null>(null);
+  // Ticket 676: rechazo del taller. Se resuelve con la fila del listado (no
+  // necesita el detalle completo del pedido), asi que no pasa por la query de detalle.
+  const [rejectOrder, setRejectOrder] = useState<PendingOrderListItem | null>(null);
 
   // ── Query para cargar detalles completos al abrir diálogo ─────────────────
   const { data: selectedOrderDetail, isLoading: isLoadingDetail } = useQuery({
@@ -66,24 +107,15 @@ export function _PendingOrderDataTable({
 
   const isWaitingForDetail = !!selectedOrderId && !!dialogType && isLoadingDetail;
 
-  // ── Facetas (opciones de filtros + counts del servidor) ───────────────────
-  const facetParams = useMemo(() => {
-    const {
-      page: _page,
-      pageSize: _pageSize,
-      sort: _sort,
-      sortBy: _sortBy,
-      sortOrder: _sortOrder,
-      ...rest
-    } = searchParams as Record<string, unknown>;
-    return rest as DataTableSearchParams;
-  }, [searchParams]);
+  // ── Client-side navigation: estado reactivo para queries dependientes (export) ────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: [...PEDIDOS_PENDIENTES_QUERY_KEY, 'facets', facetParams],
-    queryFn: () => getPendingOrdersFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla (sin router.push, sin re-render de toda la página)
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getPendingOrdersPaginated(params), []);
 
   // ── Columnas ──────────────────────────────────────────────────────────────
   const callbacks = useMemo(
@@ -98,6 +130,9 @@ export function _PendingOrderDataTable({
       },
       onViewHistory: (order: PendingOrderListItem) => {
         setHistoryOrder(order);
+      },
+      onReject: (order: PendingOrderListItem) => {
+        setRejectOrder(order);
       },
     }),
     []
@@ -115,40 +150,48 @@ export function _PendingOrderDataTable({
       ? savedColumnVisibility
       : defaultColumnVisibility;
 
-  // ── Filtros facetados ─────────────────────────────────────────────────────
+  // ── fetchFacet factories: cada filtro carga sus opciones+counts bajo demanda ──────
+
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      labels: Record<string, string>,
+      icons: Record<string, React.ComponentType<{ className?: string }> | undefined>
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getPendingOrdersSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(labels, icons, result.counts);
+      };
+    },
+    []
+  );
+
+  const makeFkFetchFacet = useCallback((columnId: string) => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getPendingOrdersSingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildFkFacetResult(result.resolvedOptions, result.counts);
+    };
+  }, []);
+
+  // ── Filtros facetados (lazy-load — cada uno se carga al abrir su popover) ─
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       {
         columnId: 'status',
         title: 'Estado',
-        options: Object.entries(PENDING_STATUS_LABELS).map(([value, label]) => ({
-          value,
-          label,
-          icon: STATUS_ICONS[value as keyof typeof STATUS_ICONS],
-        })),
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet('status', PENDING_STATUS_LABELS, STATUS_ICONS),
       },
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        options:
-          facets?.vehicleOptions?.map((v) => ({
-            value: v.id,
-            label: [v.domain || v.serie || 'Sin identificar', v.intern_number ? `#${v.intern_number}` : '']
-              .filter(Boolean)
-              .join(' '),
-          })) ?? [],
-        externalCounts: facets?.vehicle,
+        fetchFacet: makeFkFetchFacet('vehicle'),
       },
       {
         columnId: 'source',
         title: 'Origen',
-        options: Object.entries(SOURCE_LABELS).map(([value, label]) => ({
-          value,
-          label,
-          icon: SOURCE_ICONS[value as keyof typeof SOURCE_ICONS],
-        })),
-        externalCounts: facets?.source,
+        fetchFacet: makeEnumFetchFacet('source', SOURCE_LABELS, SOURCE_ICONS),
       },
       {
         columnId: 'order_number',
@@ -171,7 +214,7 @@ export function _PendingOrderDataTable({
         type: 'dateRange' as const,
       },
     ],
-    [facets]
+    [makeEnumFetchFacet, makeFkFetchFacet]
   );
 
   // ── Visibilidad de filtros por defecto ────────────────────────────────────
@@ -185,7 +228,9 @@ export function _PendingOrderDataTable({
   // ── Exportación a Excel ───────────────────────────────────────────────────
   const exportConfig: DataTableExportConfig<PendingOrderListItem> = useMemo(
     () => ({
-      fetchAllData: () => getAllPendingOrdersForExport(searchParams),
+      // Usa currentParams (estado reactivo del client-side mode), NO searchParams (prop inicial de SSR),
+      // para que la exportación respete los filtros activos en el momento del click.
+      fetchAllData: () => getAllPendingOrdersForExport(currentParams),
       options: {
         filename: 'pedidos-pendientes',
         title: 'Pedidos Pendientes de Mantenimiento',
@@ -201,7 +246,7 @@ export function _PendingOrderDataTable({
         items: (val) => (val != null ? String(val) : ''),
       },
     }),
-    [searchParams]
+    [currentParams]
   );
 
   // ── Handlers de cierre ────────────────────────────────────────────────────
@@ -221,13 +266,19 @@ export function _PendingOrderDataTable({
         tableId={tableId}
         searchPlaceholder="Buscar por equipo (dominio, serie) o nro. pedido..."
         facetedFilters={facetedFilters}
-        isFetchingFacets={isFetchingFacets}
         exportConfig={exportConfig}
         showFilterToggle={true}
         emptyMessage="No hay pedidos pendientes"
         initialColumnVisibility={initialColumnVisibility}
         initialFilterVisibility={mergedFilterVisibility}
         data-testid="pedidos-pendientes-table"
+        // Client-side navigation: fetch instantáneo vía React Query, sin router.push.
+        // El primer elemento de queryKey ('maintenance-orders') coincide con el que
+        // invalida `invalidateAllMaintenanceQueries` — así las acciones de fila
+        // (rechazar, planificar) refrescan esta tabla tras su mutación.
+        queryFn={tableQueryFn}
+        queryKey={['maintenance-orders', 'pending-paginated']}
+        onStateChange={handleStateChange}
       />
 
       {/* Loading mientras se cargan datos del pedido */}
@@ -259,6 +310,9 @@ export function _PendingOrderDataTable({
           onClose={handleCloseDialog}
         />
       )}
+
+      {/* Diálogo de rechazo (ticket 676) */}
+      {rejectOrder && <RechazarPedidoDialog order={rejectOrder} open={true} onClose={() => setRejectOrder(null)} />}
 
       {/* Modal de historial de actividad */}
       <ActivityHistoryModal

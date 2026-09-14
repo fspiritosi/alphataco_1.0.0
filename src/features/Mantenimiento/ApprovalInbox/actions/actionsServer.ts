@@ -9,6 +9,8 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { cacheLife, cacheTag } from 'next/cache';
+import { visibleEquipmentTypeCondition } from '../../shared/maintenance-resource';
+import { getHiddenEquipmentTypeIds } from '../../utils/equipmentTypeVisibility';
 
 const logger = new Logger('ApprovalInbox/actions');
 
@@ -19,8 +21,12 @@ const logger = new Logger('ApprovalInbox/actions');
 /**
  * Obtiene tareas pendientes de aprobacion (status: pending_approval)
  * Estas son tareas agregadas por operarios con tipos de reparacion autorizables
+ *
+ * Cacheada con `'use cache'`: NO puede leer cookies/sesión, por eso recibe
+ * `hiddenTypeIds` ya resuelto (ticket 690) — entra en la key del cache, así un
+ * usuario nunca ve el cache de otro con distintos tipos ocultos.
  */
-export async function getPendingApprovalTasks() {
+async function getPendingApprovalTasksCached(hiddenTypeIds: readonly string[]) {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_APPROVALS, CACHE_TAGS.WORK_ORDER_REPAIRS);
   cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
@@ -28,8 +34,15 @@ export async function getPendingApprovalTasks() {
   logger.debug('Obteniendo tareas pendientes de aprobacion');
 
   try {
+    // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+    const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+    const where: Record<string, unknown> = { status: 'pending_approval' };
+    if (equipmentCondition) {
+      where.work_order_items = { maintenance_order_items: { maintenance_orders: equipmentCondition } };
+    }
+
     const data = await prisma.work_order_item_repairs.findMany({
-      where: { status: 'pending_approval' },
+      where,
       orderBy: { created_at: 'desc' },
       select: {
         id: true,
@@ -100,13 +113,21 @@ export async function getPendingApprovalTasks() {
   }
 }
 
+export async function getPendingApprovalTasks() {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getPendingApprovalTasksCached(hiddenTypeIds);
+}
+
 export type PendingTasksData = Awaited<ReturnType<typeof getPendingApprovalTasks>>;
 export type PendingTaskData = PendingTasksData[number];
 
 /**
  * Obtiene tareas devueltas por reasignacion (status: reassignment_requested)
+ *
+ * Cacheada con `'use cache'`: recibe `hiddenTypeIds` ya resuelto (ticket 690),
+ * igual que `getPendingApprovalTasksCached`.
  */
-export async function getReturnedTasks() {
+async function getReturnedTasksCached(hiddenTypeIds: readonly string[]) {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_APPROVALS, CACHE_TAGS.WORK_ORDER_REPAIRS);
   cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
@@ -114,8 +135,15 @@ export async function getReturnedTasks() {
   logger.debug('Obteniendo tareas devueltas por reasignacion');
 
   try {
+    // Tipos de equipamiento ocultos para el usuario actual (ticket 690)
+    const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+    const where: Record<string, unknown> = { status: 'reassignment_requested' };
+    if (equipmentCondition) {
+      where.work_order_items = { maintenance_order_items: { maintenance_orders: equipmentCondition } };
+    }
+
     const data = await prisma.work_order_item_repairs.findMany({
-      where: { status: 'reassignment_requested' },
+      where,
       orderBy: { created_at: 'desc' },
       select: {
         id: true,
@@ -187,14 +215,22 @@ export async function getReturnedTasks() {
   }
 }
 
+export async function getReturnedTasks() {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getReturnedTasksCached(hiddenTypeIds);
+}
+
 export type ReturnedTasksData = Awaited<ReturnType<typeof getReturnedTasks>>;
 export type ReturnedTaskData = ReturnedTasksData[number];
 
 /**
  * Obtiene ordenes de mantenimiento pendientes de validacion del jefe de taller.
  * Estas son ordenes donde todas las OTs fueron completadas y necesitan revision.
+ *
+ * Cacheada con `'use cache'`: recibe `hiddenTypeIds` ya resuelto (ticket 690),
+ * igual que `getPendingApprovalTasksCached`.
  */
-export async function getOrdersPendingValidation() {
+async function getOrdersPendingValidationCached(hiddenTypeIds: readonly string[]) {
   'use cache';
   cacheTag(CACHE_TAGS.TAB_APPROVALS, CACHE_TAGS.MAINTENANCE_ORDERS);
   cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
@@ -202,8 +238,16 @@ export async function getOrdersPendingValidation() {
   logger.debug('Obteniendo ordenes pendientes de validacion');
 
   try {
+    // Tipos de equipamiento ocultos para el usuario actual (ticket 690). Va dentro
+    // de AND (nunca spreadeado en la raíz): es un OR y podría chocar con otro futuro.
+    const equipmentCondition = visibleEquipmentTypeCondition(hiddenTypeIds);
+    const where: Record<string, unknown> = {
+      status: 'pending_workshop_validation',
+      ...(equipmentCondition ? { AND: [equipmentCondition] } : {}),
+    };
+
     const orders = await prisma.maintenance_orders.findMany({
-      where: { status: 'pending_workshop_validation' },
+      where,
       orderBy: { updated_at: 'desc' },
       select: {
         id: true,
@@ -266,6 +310,11 @@ export async function getOrdersPendingValidation() {
     logger.error('Error al obtener ordenes pendientes de validacion', { data: { error } });
     throw error;
   }
+}
+
+export async function getOrdersPendingValidation() {
+  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  return getOrdersPendingValidationCached(hiddenTypeIds);
 }
 
 export type ValidationOrdersData = Awaited<ReturnType<typeof getOrdersPendingValidation>>;

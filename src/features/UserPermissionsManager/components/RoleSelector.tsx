@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield } from 'lucide-react';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
+import { equipmentTypeVisibilityKeys } from '../hooks/useEquipmentTypeVisibility';
 
 interface RoleSelectorProps {
   userId: string;
@@ -65,6 +66,8 @@ export function RoleSelector({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      // Los tipos de equipamiento que ve el usuario se resuelven con sus roles
+      queryClient.invalidateQueries({ queryKey: equipmentTypeVisibilityKeys.user(userId) });
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
       queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
       toast.success('El rol ha sido asignado correctamente');
@@ -79,6 +82,7 @@ export function RoleSelector({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: equipmentTypeVisibilityKeys.user(userId) });
       queryClient.invalidateQueries({ queryKey: ['permissions'] });
       queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
       toast.success('El rol ha sido removido correctamente');

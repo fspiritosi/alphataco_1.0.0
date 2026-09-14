@@ -13,11 +13,13 @@ interface WorkshopViewTabContentProps {
  * Vista Taller (COD-394) — agrupa las tareas de mantenimiento por sector.
  *
  * Arquitectura:
- *  - Una sola query trae todos los sectores activos + count de tareas (`_count`).
- *  - Cada acordeón recibe la tabla de tareas de su sector pre-renderizada,
+ *  - Una sola llamada trae todos los sectores activos con su cupo y el conteo de
+ *    ÓRDENES DE TRABAJO abiertas por estado (ticket 678: antes contaba tareas).
+ *  - Cada acordeón recibe la tabla de OT de su sector pre-renderizada,
  *    envuelta en un Suspense propio para streaming independiente.
- *  - Acordeones colapsados siguen mostrando el count; su contenido se desmonta
- *    del DOM (Radix) pero ya vive en el RSC payload — expandir es instantáneo.
+ *  - Acordeones colapsados siguen mostrando los contadores y el semáforo de
+ *    cupos; su contenido se desmonta del DOM (Radix) pero ya vive en el RSC
+ *    payload — expandir es instantáneo.
  */
 export async function WorkshopViewTabContent({ searchParams }: WorkshopViewTabContentProps) {
   const sectors = await getWorkshopSectorsWithCounts();

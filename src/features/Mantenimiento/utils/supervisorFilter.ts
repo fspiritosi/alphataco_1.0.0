@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { cache } from 'react';
 
 const logger = new Logger('Mantenimiento/supervisorFilter');
 
@@ -25,9 +26,17 @@ export interface SupervisorFilterInfo {
  * - Si el usuario tiene el permiso 'view_all_requests' en alguna tab de operaciones → puede ver TODAS las solicitudes
  * - Si el usuario NO tiene el permiso → solo ve solicitudes donde supervisor_id = su user_id
  *
+ * Memoizada por request con React.cache: el módulo monta todas sus pestañas en
+ * el mismo render y cada tabla la consulta (listado, export, facets, contadores
+ * del pipeline). Sin memoizar eran 2 round-trips repetidos por cada llamada.
+ *
  * @returns SupervisorFilterInfo con la información del usuario y si debe aplicar filtro
  */
 export async function getSupervisorFilterInfo(): Promise<SupervisorFilterInfo | null> {
+  return loadSupervisorFilterInfo();
+}
+
+const loadSupervisorFilterInfo = cache(async (): Promise<SupervisorFilterInfo | null> => {
   const profile = await getServerAuthProfile();
 
   if (!profile) {
@@ -91,7 +100,7 @@ export async function getSupervisorFilterInfo(): Promise<SupervisorFilterInfo | 
       shouldFilterBySupervisor: true,
     };
   }
-}
+});
 
 /**
  * Aplica el filtro de supervisor a un array de solicitudes de mantenimiento.

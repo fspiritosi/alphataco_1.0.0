@@ -1,28 +1,46 @@
 /**
- * Criterio de "trabajo abierto" de la Vista Taller (ticket 650).
+ * Criterios compartidos de la Vista Taller.
  *
  * Vive en un módulo sin directiva porque lo comparten dos archivos `'use server'`
  * (los conteos del acordeón y la tabla de cada sector) y esos sólo pueden
  * exportar funciones async.
  */
 
+import type { work_order_status } from '@/generated/prisma/enums';
+
 /**
  * Estados terminales de una orden de trabajo.
  *
- * La Vista Taller es la pantalla del trabajo pendiente: una tarea cuya OT ya
- * terminó no se muestra. Como una OM puede tener varias OT, el filtro va a nivel
- * de la OT — la OM deja de aparecer sola cuando todas sus tareas quedaron
- * cerradas.
+ * La Vista Taller es la pantalla del trabajo pendiente: una OT que ya terminó
+ * no se muestra (ticket 650).
  */
 export const CLOSED_WORK_ORDER_STATUSES = ['completed', 'completed_partial', 'cancelled'] as const;
 
 /**
- * Condición Prisma sobre `maintenance_order_items` que deja sólo trabajo abierto.
+ * Estados de OT que la Vista Taller sí muestra (el complemento de los cerrados).
  *
- * El `work_order_id: null` va explícito: una condición sobre la relación no
- * matchea cuando la relación no existe, y una tarea sin OT generada todavía es
- * justamente trabajo pendiente que el taller tiene que ver.
+ * Se usa también para las opciones del filtro "Estado OT": ofrecer los cerrados
+ * sería ofrecer filtros que siempre devuelven cero.
  */
-export const OPEN_WORK_ONLY = {
-  OR: [{ work_order_id: null }, { work_orders: { status: { notIn: [...CLOSED_WORK_ORDER_STATUSES] } } }],
+export const OPEN_WORK_ORDER_STATUSES: work_order_status[] = ['pending', 'in_progress', 'paused'];
+
+/**
+ * Condición Prisma sobre `work_orders` que deja sólo el trabajo abierto.
+ */
+export const OPEN_WORK_ORDERS_ONLY = {
+  status: { notIn: [...CLOSED_WORK_ORDER_STATUSES] },
 };
+
+/**
+ * Estados de OT que ocupan un cupo del sector (ticket 678).
+ *
+ * Criterio de Fabricio: el cupo cuenta **unidades dentro del taller**, y una OT
+ * pendiente todavía no entró ("la que está pendiente no cuenta como cupo porque
+ * se supone que no está dentro del taller"). Una OT pausada sí: alguien la
+ * inició, así que la unidad está adentro — es además el criterio que ya usa
+ * `getSectorOccupancy` de Planificación, del que sólo se saca `pending`.
+ *
+ * Cada OT es una unidad (la BD garantiza que apunta a un vehículo O a un
+ * equipamiento), así que contar OT es contar patentes.
+ */
+export const OCCUPYING_WORK_ORDER_STATUSES: work_order_status[] = ['in_progress', 'paused'];

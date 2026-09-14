@@ -37,6 +37,8 @@ type OrderStatus =
   | 'pending_operations_validation'
   | 'operations_rejected'
   | 'workshop_rejected'
+  // Ticket 676: el taller puede rechazar un pedido desde el paso "Por Programar".
+  | 'rejected'
   | 'pending_scheduling'
   | 'date_confirmed'
   | 'completed';
@@ -47,6 +49,7 @@ const statusLabels: Record<OrderStatus, string> = {
   pending_scheduling: 'Por programar',
   date_confirmed: 'Pendiente de ingreso a taller',
   workshop_rejected: 'Rechazada por Taller',
+  rejected: 'Rechazada por Taller',
   scheduled: 'Programada',
   in_workshop: 'En Taller',
   pending_workshop_validation: 'Pend. Validacion Taller',
@@ -59,6 +62,7 @@ const statusVariants: Record<OrderStatus, BadgeVariant> = {
   pending_scheduling: 'secondary',
   date_confirmed: 'secondary',
   workshop_rejected: 'destructive',
+  rejected: 'destructive',
   scheduled: 'warning',
   in_workshop: 'info',
   pending_workshop_validation: 'yellow',

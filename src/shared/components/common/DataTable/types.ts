@@ -338,6 +338,8 @@ export interface DataTableToolbarProps<TData> {
   isFetchingFacets?: boolean;
   /** Params actuales de la tabla (sin page/sort) para lazy-load de facets */
   facetParams?: DataTableSearchParams;
+  /** Identidad de la tabla en la queryKey de los facets lazy (ver DataTableFacetedFilterProps.facetScope) */
+  facetScope?: readonly unknown[];
   /**
    * Handler externo para cambios de búsqueda global (sincroniza con URL via router).
    * Cuando se provee, reemplaza el comportamiento local de TanStack Table (setGlobalFilter).
@@ -400,6 +402,12 @@ export interface DataTableFacetedFilterProps<TData, TValue> {
   fetchFacet?: (facetParams: DataTableSearchParams) => Promise<FacetResult>;
   /** Params actuales de la tabla (sin page/sort) para queryKey de React Query */
   facetParams?: DataTableSearchParams;
+  /**
+   * Identidad de la tabla dueña del filtro (su `queryKey`). Va en la queryKey del facet:
+   * sin ella, dos tablas montadas a la vez con el mismo columnId (ej. `status`) y los
+   * mismos params comparten la entrada de cache y una muestra las opciones de la otra.
+   */
+  facetScope?: readonly unknown[];
 }
 
 /**

@@ -180,6 +180,8 @@ export function _VehicleDataTable({
       'contract_start_date',
       'termination_date',
       'created_at',
+      'checklist_count',
+      'last_checklist_date',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -359,6 +361,12 @@ export function _VehicleDataTable({
         type: 'text' as const,
         placeholder: 'Buscar por precio...',
       },
+      {
+        columnId: 'checklist_count',
+        title: 'Cantidad de Checklist',
+        type: 'text' as const,
+        placeholder: 'Ej: 0 = sin checklist...',
+      },
 
       // Filtros de rango de fechas
       {
@@ -379,6 +387,11 @@ export function _VehicleDataTable({
       {
         columnId: 'created_at',
         title: 'Creado',
+        type: 'dateRange' as const,
+      },
+      {
+        columnId: 'last_checklist_date',
+        title: 'Último Checklist',
         type: 'dateRange' as const,
       },
     ],
@@ -437,6 +450,7 @@ export function _VehicleDataTable({
           termination_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           price: (val) => (val != null ? String(val) : ''),
+          last_checklist_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         },
       }}
     />

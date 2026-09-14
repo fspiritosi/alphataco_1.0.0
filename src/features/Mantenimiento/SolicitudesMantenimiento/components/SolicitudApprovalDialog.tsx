@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { PreventiveInfoCard } from '@/features/Mantenimiento/components/PreventiveInfoCard';
+import { MIN_APPROVAL_DESCRIPTION_LENGTH } from '@/features/Mantenimiento/constants/approval';
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,8 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
           };
         });
       setDecisions(initialDecisions);
+      setOrderDescription('');
+      setShowDescriptionError(false);
     }
   }, [open, pendingItems]);
 
@@ -119,6 +122,18 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
   const [preventiveAction, setPreventiveAction] = useState<'approve' | 'reject' | null>(null);
   const [preventiveComment, setPreventiveComment] = useState('');
   const [preventiveRejectionReason, setPreventiveRejectionReason] = useState('');
+
+  // Descripción de lo aprobado. Es lo que el taller ve para planificar sin abrir
+  // el detalle, así que se exige siempre que la aprobación genere un pedido.
+  const [orderDescription, setOrderDescription] = useState('');
+  const [showDescriptionError, setShowDescriptionError] = useState(false);
+
+  const isDescriptionValid = orderDescription.trim().length >= MIN_APPROVAL_DESCRIPTION_LENGTH;
+
+  const handleDescriptionChange = (value: string) => {
+    setOrderDescription(value);
+    if (value.trim().length >= MIN_APPROVAL_DESCRIPTION_LENGTH) setShowDescriptionError(false);
+  };
 
   const approveMutation = useApproveMaintenanceRequestItems();
   const rejectMutation = useRejectMaintenanceRequestItems();
@@ -237,11 +252,19 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
         validatorComment: d.validatorComment?.trim() || undefined,
       }));
 
+    // Solo se exige descripción cuando algo queda aprobado: si se rechaza todo,
+    // no se genera pedido y no hay nada que describirle al taller.
+    if (approvedItems.length > 0 && !isDescriptionValid) {
+      setShowDescriptionError(true);
+      return;
+    }
+
     try {
       await approveMutation.mutateAsync({
         requestId: request.id,
         approvedItems: [...approvedItems, ...nonPropagatingItems],
         rejectedItems,
+        description: approvedItems.length > 0 ? orderDescription.trim() : undefined,
       });
 
       const approvedCount = approvedItems.length;
@@ -264,6 +287,12 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
   };
 
   const handlePreventiveSubmit = async () => {
+    // Aprobar una preventiva siempre genera pedido, así que la descripción es obligatoria.
+    if (preventiveAction !== 'reject' && !isDescriptionValid) {
+      setShowDescriptionError(true);
+      return;
+    }
+
     try {
       if (preventiveAction === 'approve' || preventiveAction === null) {
         await approveMutation.mutateAsync({
@@ -272,6 +301,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
           rejectedItems: [],
           preventiveApproval: true,
           validatorComment: preventiveComment.trim() || undefined,
+          description: orderDescription.trim(),
         });
         toast.success('Solicitud preventiva aprobada');
       } else if (preventiveAction === 'reject') {
@@ -350,6 +380,15 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                   disabled={approveMutation.isPending || rejectMutation.isPending}
                 />
               </div>
+
+              {preventiveAction !== 'reject' && (
+                <ApprovalDescriptionField
+                  value={orderDescription}
+                  onChange={handleDescriptionChange}
+                  showError={showDescriptionError}
+                  disabled={approveMutation.isPending}
+                />
+              )}
 
               {preventiveAction === 'reject' && (
                 <div className="space-y-2">
@@ -468,6 +507,17 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                   )}
                 </div>
               </div>
+
+              {/* Solo se pide descripción si algo queda aprobado: si se rechaza
+                  todo, no se genera pedido y el taller no ve nada. */}
+              {approvedCount > 0 && (
+                <ApprovalDescriptionField
+                  value={orderDescription}
+                  onChange={handleDescriptionChange}
+                  showError={showDescriptionError}
+                  disabled={approveMutation.isPending}
+                />
+              )}
             </>
           )}
         </div>
@@ -503,7 +553,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                   </Button>
                   <Button
                     onClick={handlePreventiveSubmit}
-                    disabled={approveMutation.isPending}
+                    disabled={approveMutation.isPending || !isDescriptionValid}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -518,7 +568,10 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
               <Button variant="outline" onClick={onClose} disabled={approveMutation.isPending}>
                 Cancelar
               </Button>
-              <Button onClick={handleSubmit} disabled={approveMutation.isPending || pendingCount > 0}>
+              <Button
+                onClick={handleSubmit}
+                disabled={approveMutation.isPending || pendingCount > 0 || (approvedCount > 0 && !isDescriptionValid)}
+              >
                 {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Procesar Solicitud
               </Button>
@@ -527,6 +580,59 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Descripción obligatoria de lo que se aprueba.
+ *
+ * Se persiste en `maintenance_orders.description` y es lo que el taller lee en la
+ * columna "Descripción" del paso 1, para saber qué hay que hacer sin tener que
+ * abrir el detalle de la orden.
+ */
+function ApprovalDescriptionField({
+  value,
+  onChange,
+  showError,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  showError: boolean;
+  disabled: boolean;
+}) {
+  const length = value.trim().length;
+  const isValid = length >= MIN_APPROVAL_DESCRIPTION_LENGTH;
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="approval-description">
+        Descripción para el taller <span className="text-destructive">*</span>
+      </Label>
+      <Textarea
+        id="approval-description"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={`Describa qué se aprueba y qué hay que hacer (mínimo ${MIN_APPROVAL_DESCRIPTION_LENGTH} caracteres)`}
+        rows={3}
+        disabled={disabled}
+        className={showError ? 'border-destructive' : ''}
+      />
+      <div className="flex items-start justify-between gap-2">
+        {showError ? (
+          <p className="text-sm text-destructive">
+            La descripción debe tener al menos {MIN_APPROVAL_DESCRIPTION_LENGTH} caracteres
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">El taller usa este texto para planificar el trabajo.</p>
+        )}
+        {!isValid && (
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {length}/{MIN_APPROVAL_DESCRIPTION_LENGTH}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

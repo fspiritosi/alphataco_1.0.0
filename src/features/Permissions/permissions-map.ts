@@ -205,6 +205,13 @@ export const PERMISSIONS = {
                 parent: 'users',
                 allowedActions: ['view', 'update'],
               },
+              'accesos-externos': {
+                slug: 'accesos-externos',
+                name: 'Accesos Externos',
+                tabId: '10000000-0000-0000-0000-000000000144',
+                parent: 'users',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
             },
           },
           documentacion: {

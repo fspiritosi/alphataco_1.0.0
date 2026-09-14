@@ -5,18 +5,19 @@ import {
   DataTable,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { conditionLabels } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, CircleOff, Settings2, Truck, Wrench, XCircle, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { EntradaTallerDialog } from '../../components/EntradaTallerDialog';
 import { PedidoDetailDialog } from '../../components/PedidoDetailDialog';
 import {
   getAllConfirmedOrdersForExport,
-  getConfirmedOrdersFacets,
+  getConfirmedOrdersPaginated,
+  getConfirmedOrdersSingleFacet,
   type ConfirmedOrderListItem,
 } from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, SOURCE_ICONS, SOURCE_LABELS, getConfirmedOrderColumns } from '../columns';
@@ -36,10 +37,66 @@ interface Props {
 }
 
 // ============================================================================
-// DEFAULT VISIBLE FILTERS
+// CONSTANTS
 // ============================================================================
 
 const DEFAULT_VISIBLE_FILTER_IDS = ['vehicle', 'condition', 'scheduled_date'];
+
+const CONDITION_ICONS: Record<string, LucideIcon> = {
+  operativo: CheckCircle2,
+  no_operativo: XCircle,
+  en_reparacion: Wrench,
+  operativo_condicionado: AlertCircle,
+  en_preparacion: Settings2,
+};
+
+// ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para la columna vehicle: opciones resueltas + ícono fijo de recurso */
+function buildVehicleFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '', icon: Truck })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin equipo', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para condition: enum con ícono propio por valor */
+function buildConditionFacetResult(counts: Map<string, number>): FacetResult {
+  return {
+    options: [
+      ...Object.keys(conditionLabels).map((value) => ({
+        value,
+        label: conditionLabels[value] ?? value,
+        icon: CONDITION_ICONS[value],
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin condición', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para source: enum con ícono propio por valor */
+function buildSourceFacetResult(counts: Map<string, number>): FacetResult {
+  return {
+    options: [
+      ...Object.keys(SOURCE_LABELS).map((value) => ({
+        value,
+        label: SOURCE_LABELS[value] ?? value,
+        icon: SOURCE_ICONS[value],
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin origen', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
 
 // ============================================================================
 // CLIENT COMPONENT
@@ -82,19 +139,15 @@ export function _ConfirmedOrderDataTable({
     setHistoryOrder(null);
   };
 
-  // ─── Extraer params de facets (sin page/sort) ────────────────────────────
-  const facetParams = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation: estado reactivo para queries dependientes (export) ──
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // ─── Facets con cross-filtering ──────────────────────────────────────────
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['confirmed-orders-facets', facetParams],
-    queryFn: () => getConfirmedOrdersFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla (sin router.push, sin re-render de toda la página)
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getConfirmedOrdersPaginated(params), []);
 
   // ─── Columnas ────────────────────────────────────────────────────────────
   const columns = useMemo(
@@ -115,90 +168,48 @@ export function _ConfirmedOrderDataTable({
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // ─── Filter visibility ───────────────────────────────────────────────────
-  const mergedFilterVisibility = useMemo(() => {
-    if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
-      return initialFilterVisibility;
-    }
-    const allFilterIds = [
-      'vehicle',
-      'condition',
-      'source',
-      'order_number',
-      'description',
-      'scheduled_date',
-      'created_at',
-      'date_approved_at',
-      'domain',
-      'serie',
-      'intern_number',
-    ];
-    return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
-  }, [initialFilterVisibility]);
+  // ─── fetchFacet factories: cada filtro carga sus opciones+counts bajo demanda ────
 
-  // ─── Filtros facetados ───────────────────────────────────────────────────
+  const fetchVehicleFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getConfirmedOrdersSingleFacet('vehicle', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildVehicleFacetResult(result.resolvedOptions, result.counts);
+  }, []);
+
+  const fetchConditionFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getConfirmedOrdersSingleFacet('condition', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildConditionFacetResult(result.counts);
+  }, []);
+
+  const fetchSourceFacet = useCallback(async (params: DataTableSearchParams): Promise<FacetResult> => {
+    const result = await getConfirmedOrdersSingleFacet('source', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildSourceFacetResult(result.counts);
+  }, []);
+
+  // ─── Filtros facetados (lazy-load — cada uno se carga al abrir su popover) ─
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       // Vehículo (FK UUID → vehicles)
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        options: [
-          ...(facets?.vehicleOptions?.map((v) => ({
-            value: v.id,
-            label: [v.domain ?? v.serie ?? 'Sin identificar', v.intern_number ? `#${v.intern_number}` : '']
-              .filter(Boolean)
-              .join(' '),
-            icon: Truck,
-          })) ?? []),
-          ...(facets?.vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin equipo', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.vehicle,
+        fetchFacet: fetchVehicleFacet,
       },
 
       // Condición actual del equipo (enum condition_enum en vehicles)
       {
         columnId: 'condition',
         title: 'Condición',
-        options: [
-          ...Object.keys(conditionLabels).map((value) => {
-            const iconMap: Record<string, LucideIcon> = {
-              operativo: CheckCircle2,
-              no_operativo: XCircle,
-              en_reparacion: Wrench,
-              operativo_condicionado: AlertCircle,
-              en_preparacion: Settings2,
-            };
-            return {
-              value,
-              label: conditionLabels[value] ?? value,
-              icon: iconMap[value] as LucideIcon | undefined,
-            };
-          }),
-          ...(facets?.condition?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin condición', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.condition,
+        fetchFacet: fetchConditionFacet,
       },
 
       // Origen del pedido (facetado — campo source en maintenance_requests)
       {
         columnId: 'source',
         title: 'Origen',
-        options: [
-          ...Object.keys(SOURCE_LABELS).map((value) => ({
-            value,
-            label: SOURCE_LABELS[value] ?? value,
-            icon: SOURCE_ICONS[value],
-          })),
-          ...(facets?.source?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin origen', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.source,
+        fetchFacet: fetchSourceFacet,
       },
 
       // Número de pedido (texto libre)
@@ -262,14 +273,24 @@ export function _ConfirmedOrderDataTable({
         placeholder: 'Buscar por número interno...',
       },
     ],
-    [facets]
+    [fetchVehicleFacet, fetchConditionFacet, fetchSourceFacet]
   );
+
+  // ─── Filter visibility ───────────────────────────────────────────────────
+  const mergedFilterVisibility = useMemo(() => {
+    if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
+      return initialFilterVisibility;
+    }
+    return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTER_IDS.includes(f.columnId)]));
+  }, [initialFilterVisibility, facetedFilters]);
 
   // ─── Export config ────────────────────────────────────────────────────────
   const exportConfig = useMemo(
     () => ({
       options: { filename: 'pedidos-confirmados', sheetName: 'Pedidos Confirmados' },
-      fetchAllData: () => getAllConfirmedOrdersForExport(searchParams),
+      // Usa currentParams (estado reactivo del client-side mode), NO searchParams (prop inicial de SSR),
+      // para que la exportación respete los filtros activos en el momento del click.
+      fetchAllData: () => getAllConfirmedOrdersForExport(currentParams),
       formatters: {
         vehicle: (_val: unknown, row: ConfirmedOrderListItem) => {
           const vehicle = row.vehicles;
@@ -296,7 +317,7 @@ export function _ConfirmedOrderDataTable({
         },
       },
     }),
-    [searchParams]
+    [currentParams]
   );
 
   return (
@@ -309,13 +330,19 @@ export function _ConfirmedOrderDataTable({
         paramNamespace={tableId}
         tableId={tableId}
         facetedFilters={facetedFilters}
-        isFetchingFacets={isFetchingFacets}
         exportConfig={exportConfig}
         initialColumnVisibility={mergedColumnVisibility}
         initialFilterVisibility={mergedFilterVisibility}
         searchPlaceholder="Buscar por dominio, serie..."
         emptyMessage="No hay pedidos confirmados"
         showFilterToggle={true}
+        // Client-side navigation: fetch instantáneo vía React Query, sin router.push.
+        // El primer elemento de queryKey ('maintenance-orders') coincide con el que
+        // invalida `invalidateAllMaintenanceQueries` — así las acciones de fila
+        // (aprobar entrada a taller) refrescan esta tabla tras su mutación.
+        queryFn={tableQueryFn}
+        queryKey={['maintenance-orders', 'confirmed-paginated']}
+        onStateChange={handleStateChange}
       />
 
       {/* Diálogos de acción.

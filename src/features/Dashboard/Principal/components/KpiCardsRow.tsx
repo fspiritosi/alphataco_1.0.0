@@ -2,10 +2,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Activity, ClipboardList, Container, Truck, Users } from 'lucide-react';
-import { getDashboardKpis } from '../actions/actions.server';
+import { getChecklistMissingIndicator, getDashboardKpis } from '../actions/actions.server';
+import { ChecklistMissingCard } from './ChecklistMissingCard';
 
 export async function KpiCardsRow() {
-  const kpis = await getDashboardKpis();
+  const [kpis, checklistMissing] = await Promise.all([getDashboardKpis(), getChecklistMissingIndicator()]);
 
   const cards = [
     {
@@ -54,7 +55,7 @@ export async function KpiCardsRow() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {cards.map((card) => {
           const Icon = card.icon;
           const isPercentage = card.label === 'Operatividad';
@@ -87,6 +88,11 @@ export async function KpiCardsRow() {
 
           return content;
         })}
+
+        <ChecklistMissingCard
+          historicalCount={checklistMissing.historicalCount}
+          monthCount={checklistMissing.monthCount}
+        />
       </div>
     </TooltipProvider>
   );

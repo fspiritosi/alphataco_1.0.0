@@ -28,6 +28,8 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
   pending_operations_validation: { label: 'Pend. validación operaciones', variant: 'yellow', icon: Clock },
   operations_rejected: { label: 'Rechazada por operaciones', variant: 'destructive', icon: XCircle },
   workshop_rejected: { label: 'Rechazada por taller', variant: 'destructive', icon: XCircle },
+  // Ticket 676: el taller puede rechazar un pedido desde el paso "Por Programar".
+  rejected: { label: 'Rechazada por taller', variant: 'destructive', icon: XCircle },
   completed: { label: 'Completada', variant: 'success', icon: CheckCircle2 },
 };
 

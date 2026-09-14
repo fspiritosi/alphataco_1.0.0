@@ -47,7 +47,6 @@ const BASIC_DATA_FIELDS: (keyof OtherEquipmentFormData)[] = [
   'serial_number',
   'intern_number',
   'year',
-  'condition',
   'horometer',
   'manufacturer_plate',
   'composition',

@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { resolveDriverName } from '@/features/Mantenimiento/utils/driverInfo';
+import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { ColumnDef } from '@tanstack/react-table';
@@ -93,30 +93,67 @@ export function getMaintenanceRequestColumns({
   canApproveReject = false,
 }: ColumnsProps): ColumnDef<MaintenanceRequestListItem>[] {
   return [
-    // Equipo (vehicle FK)
+    // Equipo (vehicle FK, o other_equipment cuando la solicitud es de equipamiento — excluyentes)
     {
       id: 'vehicle',
       accessorFn: (row) => {
-        const v = row.vehicles;
-        return v?.domain || v?.serie || 'Sin identificar';
+        if (row.vehicles) {
+          return row.vehicles.domain || row.vehicles.serie || 'Sin identificar';
+        }
+        if (row.other_equipment) {
+          return row.other_equipment.type?.name || row.other_equipment.serial_number || 'Sin identificar';
+        }
+        return 'Sin identificar';
       },
       meta: { title: 'Equipo' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
         const vehicle = row.original.vehicles;
-        if (!vehicle) return <span className="text-muted-foreground">-</span>;
-        const label = vehicle.domain || vehicle.serie || 'Sin identificar';
-        return (
-          <div className="flex flex-col">
-            <span className="font-medium">{label}</span>
-            {vehicle.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
-          </div>
-        );
+        if (vehicle) {
+          const label = vehicle.domain || vehicle.serie || 'Sin identificar';
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium">{label}</span>
+              {vehicle.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
+            </div>
+          );
+        }
+        const equipment = row.original.other_equipment;
+        if (equipment) {
+          const label = equipment.type?.name || equipment.serial_number || 'Equipamiento';
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium">{label}</span>
+              {equipment.intern_number && (
+                <span className="text-xs text-muted-foreground">#{equipment.intern_number}</span>
+              )}
+            </div>
+          );
+        }
+        return <span className="text-muted-foreground">-</span>;
       },
+      // El filtro facetado de "Equipo" solo cubre vehículos (equipment_id). Las solicitudes de
+      // other_equipment quedan fuera de este filtro por ahora — alcance no incluido en el ticket 673.
       filterFn: (row, _id, value: string[]) => {
         const vehicleId = row.original.vehicles?.id;
         if (!vehicleId) return value.includes(NULL_FILTER_VALUE);
         return value.includes(vehicleId);
+      },
+      enableSorting: true,
+    },
+
+    // Legajo del chofer — columna separada ANTES del nombre (regla de proyecto: el legajo
+    // identifica unívocamente al empleado, el nombre puede repetirse). Cascada: driver_employee
+    // (FK nueva) → employees (FK vieja). El chofer legacy vía JSON no tiene legajo asociado.
+    {
+      id: 'fileNumber',
+      accessorFn: (row) => resolveDriverInfo(row).fileNumber ?? '',
+      meta: { title: 'Legajo' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Legajo" />,
+      cell: ({ row }) => {
+        const fileNumber = resolveDriverInfo(row.original).fileNumber;
+        if (!fileNumber) return <span className="text-muted-foreground">-</span>;
+        return <span className="font-mono text-sm">{fileNumber}</span>;
       },
       enableSorting: true,
     },
@@ -154,13 +191,13 @@ export function getMaintenanceRequestColumns({
           </Badge>
         );
       },
-      enableSorting: false,
+      enableSorting: true,
     },
 
     // Chofer / Empleado
     {
       id: 'driver',
-      accessorFn: (row) => resolveDriverName(row),
+      accessorFn: (row) => resolveDriverInfo(row).name,
       meta: { title: 'Chofer' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,
       cell: ({ row }) => {
@@ -181,7 +218,7 @@ export function getMaintenanceRequestColumns({
         }
         return <span className="text-muted-foreground">-</span>;
       },
-      enableSorting: false,
+      enableSorting: true,
     },
 
     // Supervisor
@@ -200,7 +237,7 @@ export function getMaintenanceRequestColumns({
         if (!supervisorId) return value.includes(NULL_FILTER_VALUE);
         return value.includes(supervisorId);
       },
-      enableSorting: false,
+      enableSorting: true,
     },
 
     // Estado (con lógica dual: approved → estado del pedido; sino → estado de la solicitud)
@@ -270,7 +307,7 @@ export function getMaintenanceRequestColumns({
         if (!km) return <span className="text-muted-foreground">-</span>;
         return <span>{km} km</span>;
       },
-      enableSorting: false,
+      enableSorting: true,
     },
 
     // Horas de motor (hidden by default)
@@ -284,7 +321,7 @@ export function getMaintenanceRequestColumns({
         if (!hours) return <span className="text-muted-foreground">-</span>;
         return <span>{hours} hs</span>;
       },
-      enableSorting: false,
+      enableSorting: true,
     },
 
     // Acciones

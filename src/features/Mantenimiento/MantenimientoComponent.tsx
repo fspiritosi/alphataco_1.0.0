@@ -163,7 +163,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
           tabSlug: 'equipments_with_deviations',
           content: (
             <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
-              <EquiposConDesviosTabContent />
+              <EquiposConDesviosTabContent searchParams={searchParams} />
             </Suspense>
           ),
         },

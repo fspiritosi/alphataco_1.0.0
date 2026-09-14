@@ -17,6 +17,12 @@ export const CACHE_TTL = {
   FACETS: 180,
   /** Datos de exportacion */
   EXPORT: 120,
+  /**
+   * Agregacion de desvios pendientes por vehiculo (tabla "Equipos con Desvios").
+   * Es el computo caro (anti-join en memoria sobre ~1600+ desvios); TTL corto
+   * como red de seguridad, la frescura real la da la invalidacion por tags.
+   */
+  EQUIPMENTS_DEVIATIONS_AGGREGATE: 60,
 } as const;
 
 export const CACHE_TAGS = {

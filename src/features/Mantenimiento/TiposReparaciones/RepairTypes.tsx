@@ -61,7 +61,7 @@ export default async function RepairTypes({
       tabSlug: 'equipments_with_deviations' as const,
       content: (
         <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
-          <EquiposConDesviosTabContent />
+          <EquiposConDesviosTabContent searchParams={searchParams} />
         </Suspense>
       ),
     },

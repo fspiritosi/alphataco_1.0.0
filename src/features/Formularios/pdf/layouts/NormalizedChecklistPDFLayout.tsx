@@ -891,9 +891,32 @@ function hasCriticalItems(sections: ProcessedSection[]): boolean {
  */
 const TEMPLATE_CODES_WITH_ITEM_OBSERVATIONS = new Set(['hidrogrua']);
 
-/** Código y revisión del formulario en papel que replica cada plantilla */
-const PAPER_FORM_CODES: Record<string, { code: string; revision: string }> = {
-  hidrogrua: { code: '06-1', revision: '02' },
+/**
+ * Nomenclatura oficial del formulario en papel que replica cada plantilla
+ * (ticket 689): código RO, fecha de emisión y revisión del documento. Van en el
+ * encabezado en lugar del `code` interno y de la fecha de generación del PDF;
+ * la fecha de la inspección sigue al pie.
+ *
+ * `revision` es string porque '0' es una revisión válida; vacío = el documento
+ * no la informa. `hideTransportedFluid` saca la celda "Fluido Transportable" en
+ * los formularios que no la llevan.
+ */
+const PAPER_FORM_CODES: Record<
+  string,
+  { code: string; issueDate: string; revision: string; hideTransportedFluid?: boolean }
+> = {
+  hidrogrua: { code: '06-1', issueDate: '02/03/2026', revision: '3' },
+  pick_up: { code: '01-2', issueDate: '02/03/2026', revision: '5' },
+  carreton_petrol: { code: '01-17', issueDate: '02/03/2026', revision: '0' },
+  porta_acopl: { code: '01-10', issueDate: '02/03/2026', revision: '5' },
+  camilla: { code: '01-9', issueDate: '05/03/2026', revision: '' },
+  retro: { code: '01-6', issueDate: '05/03/2026', revision: '6' },
+  vactor: { code: '08-2', issueDate: '02/03/2026', revision: '4' },
+  eq_vacio_c_semi: { code: '01-18', issueDate: '05/03/2026', revision: '0' },
+  tte_personal: { code: '01-16', issueDate: '05/03/2026', revision: '1', hideTransportedFluid: true },
+  eq_lavado: { code: '08-5', issueDate: '05/03/2026', revision: '1' },
+  testeo: { code: '07-3', issueDate: '05/03/2026', revision: '0' },
+  vuelta_360: { code: '05-2', issueDate: '03/03/2026', revision: '6' },
 };
 
 /**
@@ -974,14 +997,15 @@ export const NormalizedChecklistPDFLayout = ({
   const partsDiagramRight = partsDiagram ? partsDiagram.parts.slice(partsDiagramSplit) : [];
 
   // Formatear el código. Las plantillas que replican un formulario en papel usan
-  // el código y la revisión reales del documento; el resto mantiene el `code`
-  // interno, como venía.
+  // el código, la fecha de emisión y la revisión reales del documento; el resto
+  // mantiene el `code` interno y la fecha del día, como venía.
   const paper = PAPER_FORM_CODES[templateCode];
   const formattedCode = paper ? `RO ${paper.code}` : templateCode ? `RO ${templateCode}` : '';
-  const displayRevision = paper?.revision ?? revision;
+  const displayRevision = paper ? `Rev.:${paper.revision}` : revision || 'Rev.:1';
+  const showTransportedFluid = !paper?.hideTransportedFluid;
 
-  // Fecha actual formateada si no se proporciona
   const displayDate =
+    paper?.issueDate ||
     date ||
     new Date().toLocaleDateString('es-AR', {
       day: '2-digit',
@@ -1013,14 +1037,16 @@ export const NormalizedChecklistPDFLayout = ({
                 <Text style={styles.titleSubLabel}>Tipo de Equipo:</Text>
                 <Text style={styles.titleSubValue}>{tipoEquipo}</Text>
               </View>
-              <View style={styles.titleSubCell}>
+              <View style={showTransportedFluid ? styles.titleSubCell : styles.titleSubCellLast}>
                 <Text style={styles.titleSubLabel}>Cliente:</Text>
                 <Text style={styles.titleSubValue}>{cliente}</Text>
               </View>
-              <View style={styles.titleSubCellLast}>
-                <Text style={styles.titleSubLabel}>Fluido Transportable:</Text>
-                <Text style={styles.titleSubValue}>{fluidoTransportable}</Text>
-              </View>
+              {showTransportedFluid && (
+                <View style={styles.titleSubCellLast}>
+                  <Text style={styles.titleSubLabel}>Fluido Transportable:</Text>
+                  <Text style={styles.titleSubValue}>{fluidoTransportable}</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -1033,9 +1059,7 @@ export const NormalizedChecklistPDFLayout = ({
               <Text style={styles.headerInfoText}>{displayDate}</Text>
             </View>
             <View style={styles.headerInfoCellLast}>
-              <Text style={styles.headerInfoText}>
-                {displayRevision ? (paper ? `Rev.:${displayRevision}` : displayRevision) : 'Rev.:1'}
-              </Text>
+              <Text style={styles.headerInfoText}>{displayRevision}</Text>
             </View>
           </View>
         </View>

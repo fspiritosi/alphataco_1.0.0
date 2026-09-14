@@ -2,7 +2,6 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
@@ -64,123 +63,136 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-        {/* ── Header compacto ──────────────────────────────────────────── */}
-        <div className="px-6 pt-6 pb-4 space-y-3">
-          <DialogHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-              <DialogTitle className="text-base">
-                {order.order_number ? `Pedido #${order.order_number}` : 'Pedido de Mantenimiento'}
-              </DialogTitle>
-            </div>
-            <DialogDescription className="flex items-center gap-3 text-xs">
-              <span className="inline-flex items-center gap-1">
-                <ResourceIcon className="h-3 w-3" />
-                <span className="text-muted-foreground">{resourceKindLabel}</span>
-                {resourceLabel}
-                {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
-              </span>
-              <span className="text-muted-foreground">·</span>
-              <span>Creado {formatDateTime(order.created_at)}</span>
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[90svh] flex flex-col p-0 gap-0 overflow-hidden">
+        {/*
+          Ticket 676: el modal no scrolleaba. Antes solo la lista de items tenia
+          su propio ScrollArea: si el pedido no tenia items (o el encabezado era
+          alto) el contenido se recortaba contra el `overflow-hidden` y no habia
+          forma de llegar al final salvo haciendo zoom out.
+          Ahora hay un unico contenedor scrolleable con TODO el contenido: nunca
+          queda contenido fuera de alcance, en ninguna resolucion.
+        */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* ── Header compacto ──────────────────────────────────────────── */}
+          <div className="px-6 pt-6 pb-4 space-y-3">
+            <DialogHeader className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                <DialogTitle className="text-base">
+                  {order.order_number ? `Pedido #${order.order_number}` : 'Pedido de Mantenimiento'}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="flex items-center gap-3 text-xs">
+                <span className="inline-flex items-center gap-1">
+                  <ResourceIcon className="h-3 w-3" />
+                  <span className="text-muted-foreground">{resourceKindLabel}</span>
+                  {resourceLabel}
+                  {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span>Creado {formatDateTime(order.created_at)}</span>
+              </DialogDescription>
+            </DialogHeader>
 
-          {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
-          {(order.scheduled_date || kilometer || engineHours) && (
-            <div className="flex flex-wrap gap-4 text-sm">
-              {order.scheduled_date && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>
-                    Planificado:{' '}
-                    <span className="text-foreground font-medium">{formatDateOnly(order.scheduled_date)}</span>
-                  </span>
-                </div>
-              )}
-              {kilometer && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Gauge className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">{Number(kilometer).toLocaleString('es-AR')} km</span>
-                </div>
-              )}
-              {engineHours && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">{Number(engineHours).toLocaleString('es-AR')} hs</span>
-                </div>
-              )}
-            </div>
-          )}
+            {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
+            {(order.scheduled_date || kilometer || engineHours) && (
+              <div className="flex flex-wrap gap-4 text-sm">
+                {order.scheduled_date && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>
+                      Planificado:{' '}
+                      <span className="text-foreground font-medium">{formatDateOnly(order.scheduled_date)}</span>
+                    </span>
+                  </div>
+                )}
+                {kilometer && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Gauge className="h-3.5 w-3.5" />
+                    <span className="text-foreground font-medium">{Number(kilometer).toLocaleString('es-AR')} km</span>
+                  </div>
+                )}
+                {engineHours && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="text-foreground font-medium">
+                      {Number(engineHours).toLocaleString('es-AR')} hs
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* ── Alert de reprogramación ──────────────────────────────── */}
-          {order.date_rejection_reason && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Motivo de reprogramación
-                  </span>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{order.date_rejection_reason}</p>
-                  {order.date_rejected_at && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      Rechazado el {formatDateTime(order.date_rejected_at)}
-                    </p>
-                  )}
+            {/* ── Alert de reprogramación ──────────────────────────────── */}
+            {order.date_rejection_reason && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      Motivo de reprogramación
+                    </span>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{order.date_rejection_reason}</p>
+                    {order.date_rejected_at && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Rechazado el {formatDateTime(order.date_rejected_at)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <Separator />
+          <Separator />
 
-        {/* ── Descripción del pedido ──────────────────────────────────── */}
-        {description && (
-          <>
-            <div className="px-6 pt-3 pb-1">
-              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Descripción</h3>
-            </div>
-            <div className="px-6 pb-3">
-              <p className="text-sm whitespace-pre-wrap break-words">{description}</p>
-            </div>
-            <Separator />
-          </>
-        )}
-
-        {/* ── Tipo de mantenimiento (solo preventivo) ─────────────────── */}
-        {order.maintenance_requests?.source === 'preventive' && (
-          <>
-            <div className="px-6 pt-3 pb-1">
-              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-                Tipo de mantenimiento
-              </h3>
-            </div>
-            <div className="px-6 pb-3">
-              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
-                <Badge variant="secondary">
-                  {PREVENTIVE_TYPES[order.maintenance_requests?.preventive_type as PreventiveType] ??
-                    order.maintenance_requests?.preventive_type ??
-                    'Preventivo'}
-                </Badge>
+          {/* ── Descripción del pedido ──────────────────────────────────── */}
+          {description && (
+            <>
+              <div className="px-6 pt-3 pb-1">
+                <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Descripción</h3>
               </div>
-            </div>
-          </>
-        )}
+              <div className="px-6 pb-3">
+                <p className="text-sm whitespace-pre-wrap break-words">{description}</p>
+              </div>
+              <Separator />
+            </>
+          )}
 
-        {/* ── Items / Necesidades — siempre que existan ────────────────── */}
-        {itemCount > 0 && (
-          <>
-            <div className="px-6 pt-3 pb-1">
-              <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-                {order.maintenance_requests?.source === 'preventive' ? 'Necesidades' : 'Items a reparar'}
-                <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
-              </h3>
-            </div>
+          {/* ── Tipo de mantenimiento (solo preventivo) ─────────────────── */}
+          {order.maintenance_requests?.source === 'preventive' && (
+            <>
+              <div className="px-6 pt-3 pb-1">
+                <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+                  Tipo de mantenimiento
+                </h3>
+              </div>
+              <div className="px-6 pb-3">
+                <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-medium text-sm">Mantenimiento Preventivo</h4>
+                  <Badge variant="secondary">
+                    {PREVENTIVE_TYPES[order.maintenance_requests?.preventive_type as PreventiveType] ??
+                      order.maintenance_requests?.preventive_type ??
+                      'Preventivo'}
+                  </Badge>
+                </div>
+              </div>
+            </>
+          )}
 
-            <ScrollArea className="flex-1 min-h-0">
+          {/* ── Items / Necesidades — siempre que existan ────────────────── */}
+          {itemCount > 0 && (
+            <>
+              <div className="px-6 pt-3 pb-1">
+                <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+                  {order.maintenance_requests?.source === 'preventive' ? 'Necesidades' : 'Items a reparar'}
+                  <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
+                </h3>
+              </div>
+
+              {/* Sin ScrollArea propio: el scroll es unico y vive en el contenedor
+                  de arriba. Anidar dos areas scrolleables era justo lo que dejaba
+                  el contenido inalcanzable. */}
               <div className="px-6 pb-6 space-y-3">
                 {order.maintenance_order_items?.map((item, index) => {
                   const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
@@ -237,9 +249,9 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                   );
                 })}
               </div>
-            </ScrollArea>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

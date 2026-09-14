@@ -314,7 +314,11 @@ export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdat
   const supabase = await supabaseServer();
   const company_id = await getCompanyId();
 
-  const { contractors, ...equipmentData } = data;
+  // La condición no se toca desde la edición (mismo criterio que vehicles): la
+  // administran los flujos de mantenimiento y la acción del header
+  // (updateEquipmentCondition). Se descarta acá aunque llegue, porque una server
+  // action puede invocarse con cualquier payload y pisaría el estado del taller.
+  const { contractors, condition: _ignoredCondition, ...equipmentData } = data;
 
   // Validar que serial_number e intern_number no estén duplicados (excluyendo el registro actual)
   await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number, id);

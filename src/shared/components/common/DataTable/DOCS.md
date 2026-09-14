@@ -1323,6 +1323,42 @@ Filtro click
 - **gcTime global**: configurado a 5 minutos en `TanstackQueryInicializador.tsx` — datos se mantienen en cache al cambiar de tab y volver
 - **El efecto deshabilitado (opacity-50)**: usa `isPlaceholderData` — solo se aplica cuando se muestran datos stale de un query key anterior mientras carga nuevos. Si los datos vienen del cache, no se aplica
 
+### No re-fetchea al montar (evita la cola serial de Server Actions)
+
+Next.js despacha las Server Actions **de a una por cliente** (comportamiento documentado de
+Next.js). Una página con varias tablas en client-side mode montadas a la vez (ej.
+`/dashboard/maintenance`, ~25 tablas entre todas las tabs) dispara esa cantidad de server
+actions en fila apenas carga si cada tabla re-pide al montar los mismos datos que el SSR ya
+le entregó por props (`data`/`totalRows`) — y cualquier facet que el usuario abra mientras
+tanto queda esperando detrás de toda la cola (medido: la cola tardó más de 30s en drenar).
+
+Por eso el `useQuery` interno siembra el cache con `initialData` — pero **solo para la query
+key que corresponde al estado con el que el SSR renderizó la tabla** (capturada una única vez
+al montar). En cuanto el usuario cambia filtro/página/orden/búsqueda, la key cambia y esa key
+nueva no tiene `initialData` → fetch real, como siempre. `staleTime: 30s` acota cuánto tiempo
+se confía en ese dato sembrado (o en cualquier dato ya cacheado): pasado ese tiempo, volver a
+esa key (incluida la inicial) dispara un refetch normal en vez de mostrar la foto del primer
+render indefinidamente. `queryClient.invalidateQueries({ queryKey })` sigue refrescando de
+inmediato sin importar `staleTime` — marca la query activa como inválida y la re-fetchea ya
+mismo, sea o no la key inicial.
+
+**Guard obligatorio — `data`/`totalRows` deben ser datos reales**: la siembra con
+`initialData` solo se activa cuando `totalRows > 0 || data.length > 0` en el primer render.
+Motivo: no todas las tablas en client-side mode reciben SSR real por esas props — varios
+diálogos (`AvailableEmployeesDialog`, `EmployeeSelectorDialog`, etc.) pasan `data={[]}` /
+`totalRows={0}` como placeholder mientras resuelven su propio `useQuery` externo, y dependen
+100% de esta tabla para traer los datos reales. Si se sembrara `initialData` con ese
+placeholder, la tabla quedaría "vacía" para siempre: una vez que una query tiene estado
+`success` para una key (aunque sea con el placeholder), un `propData` nuevo que llegue después
+NO la reemplaza y, al no estar stale, tampoco hay refetch automático. Con el guard, esas tablas
+simplemente no reciben la optimización (siguen haciendo su fetch normal al montar, como antes
+de este cambio) — el único costo es que una tabla con SSR real cuya primera página da 0
+resultados tampoco recibe la optimización esa vez en particular; es un trade-off consciente por
+seguridad, no un caso roto.
+
+**No afecta**: tablas en modo server (sin `queryFn`) ni en modo `inMemory` — ninguna de las dos
+pasa por este `useQuery`.
+
 ### Tablas migradas
 
 - [x] Empleados activos / inactivos (`_EmployeeDataTable.tsx`)
@@ -1408,6 +1444,7 @@ Los filtros facetados pueden cargarse bajo demanda (al abrir el popover) en vez 
 3. Los resultados se cachean en React Query (staleTime 5min) — re-abrir es instantáneo
 4. Si hay filtros activos (desde URL), se cargan automáticamente para mostrar labels
 5. Cuando cambian los filtros de la tabla, los facets ya cargados se refetchean (cross-filtering)
+6. La queryKey del facet es `['datatable-facet', queryKey de la tabla, columnId, facetParams]` cuando la tabla pasa `queryKey` (client-side mode); si no, `['datatable-facet', columnId, facetParams]`. Por eso, en páginas que montan varias tablas a la vez (pestañas de Mantenimiento, una tabla por sector), **cada tabla debe tener un `queryKey` distinto**: si no, dos columnas con el mismo id (`status`, `vehicle`) comparten el cache y un filtro muestra las opciones del otro.
 
 ### Implementación
 

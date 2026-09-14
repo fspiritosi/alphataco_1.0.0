@@ -233,15 +233,63 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     onStateChangeRef.current?.(stateSearchParams);
   }, [stateSearchParams]);
 
-  // React Query para fetch client-side
-  // NO usar initialData — se aplica a cada query key nuevo (cada filtro), dando datos SSR incorrectos.
-  // En su lugar: placeholderData: keepPreviousData muestra datos anteriores mientras carga,
-  // y propData es fallback en el primer render (antes de la primera fetch).
+  // React Query para fetch client-side.
+  //
+  // Next.js despacha las Server Actions de a UNA por cliente (documentado: "Next.js
+  // dispatches Server Actions one at a time per client"). Una página con muchas tablas en
+  // client-side mode (ej. /dashboard/maintenance monta ~25 a la vez, una por tab) dispara
+  // ~25 server actions en fila apenas monta si cada tabla re-pide al montar los mismos datos
+  // que el SSR ya le entregó por props — cualquier facet que el usuario abra mientras tanto
+  // espera detrás de toda esa cola serial (medido: >30s para drenarla).
+  //
+  // Por eso SÍ sembramos el cache con `initialData`, pero SOLO para la query key que
+  // corresponde al estado con el que el SSR renderizó esta tabla (capturado una única vez,
+  // en `initialQueryStateKeyRef`, en el primer render de este componente). React Query
+  // evalúa `initialData` por query key: en cuanto el usuario cambia un filtro/página/orden,
+  // la key cambia, `isInitialQueryState` pasa a false y esa key nueva no tiene `initialData`
+  // → fetch real como siempre. `placeholderData: keepPreviousData` sigue cubriendo esas
+  // transiciones (muestra los datos anteriores mientras carga los nuevos).
+  //
+  // IMPORTANTE: `data`/`totalRows` NO siempre son datos reales de SSR — varios usos (diálogos
+  // client-only: AvailableEmployeesDialog, EmployeeSelectorDialog, etc.) pasan `data={[]}`/
+  // `totalRows={0}` como placeholder mientras resuelven SU PROPIO useQuery externo, y dependen
+  // 100% del `queryFn` de este componente para traer los datos reales. Si sembráramos
+  // `initialData` con ese placeholder, la tabla quedaría mostrando "vacío" indefinidamente: una
+  // vez que React Query tiene datos "success" para una key (aunque sea el placeholder), un
+  // propData nuevo que llegue después NO lo reemplaza (`tableData` prioriza `queryResult.data`
+  // sobre `propData`) y, al no estar la key stale, tampoco se refetchea solo. Por eso solo se
+  // siembra cuando hay evidencia de que `propData`/`propTotalRows` son datos reales (no vacíos):
+  // en el peor caso (un SSR real cuya primera página da 0 resultados) simplemente no se aplica
+  // la optimización y la tabla hace su fetch normal, igual que antes de este cambio.
+  const hasRealInitialData = propTotalRows > 0 || propData.length > 0;
+
+  const initialMountAtRef = React.useRef<number | null>(null);
+  if (initialMountAtRef.current === null) {
+    initialMountAtRef.current = Date.now();
+  }
+
+  const stateSearchParamsKey = React.useMemo(() => JSON.stringify(stateSearchParams), [stateSearchParams]);
+
+  const initialQueryStateKeyRef = React.useRef<string | null>(null);
+  if (initialQueryStateKeyRef.current === null) {
+    initialQueryStateKeyRef.current = stateSearchParamsKey;
+  }
+  const isInitialQueryState = stateSearchParamsKey === initialQueryStateKeyRef.current && hasRealInitialData;
+
   const { data: queryResult, isPlaceholderData } = useQuery({
     queryKey: [...(queryKeyProp ?? ['data-table']), stateSearchParams],
     queryFn: () => queryFn!(stateSearchParams),
     placeholderData: keepPreviousData,
     enabled: isRemoteQuery,
+    // Acotado (no Infinity): pasado este tiempo, volver a esta key (incluida la inicial)
+    // dispara un refetch normal en vez de confiar para siempre en el dato sembrado/cacheado.
+    staleTime: 30 * 1000,
+    ...(isInitialQueryState
+      ? {
+          initialData: () => ({ data: propData, total: propTotalRows }),
+          initialDataUpdatedAt: initialMountAtRef.current,
+        }
+      : {}),
   });
 
   // Datos finales para la tabla
@@ -443,6 +491,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           paramNamespace={paramNamespace}
           isFetchingFacets={isFetchingFacets}
           facetParams={facetParams}
+          facetScope={queryKeyProp}
           onSearchChange={onGlobalFilterChange}
           searchValue={state.search}
           hasActiveFilters={hasActiveFilters}

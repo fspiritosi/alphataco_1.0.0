@@ -18,7 +18,10 @@ import {
 } from '../types';
 import { CategorySection } from './CategorySection';
 import { MaintenanceByTypeCard } from './MaintenanceByTypeCard';
+import { MaintenanceKindCard } from './MaintenanceKindCard';
+import { MaintenanceStatsColorVars } from './MaintenanceStatsColorVars';
 import { OwnershipDonutChart } from './OwnershipDonutChart';
+import { RequestSourceCard } from './RequestSourceCard';
 
 const MONTH_KEY_FORMAT = 'YYYY-MM';
 
@@ -39,9 +42,7 @@ function emptyConditionCounts(): Record<VehicleStatus, number> {
 }
 
 // Suma una lista de Records de conditionCounts en uno solo.
-function sumConditionCounts(
-  records: Record<VehicleStatus, number>[]
-): Record<VehicleStatus, number> {
+function sumConditionCounts(records: Record<VehicleStatus, number>[]): Record<VehicleStatus, number> {
   const acc = emptyConditionCounts();
   for (const rec of records) {
     for (const s of VEHICLE_STATUSES) acc[s] += rec[s];
@@ -282,6 +283,15 @@ export function MantenimientoChartsClient({ initialSummary, initialMonthKey }: P
 
       {/* Equipos en mantenimiento por tipo (ticket 233) — autonomo, con su propio mes */}
       <MaintenanceByTypeCard />
+
+      {/* Tarjetas de los tickets 680 y 682 — autonomas, con su propio corte
+          temporal (dia / mes / trimestre / anio). Comparten la paleta que
+          declara MaintenanceStatsColorVars sobre el contenedor de abajo. */}
+      <div data-maintenance-stats className="grid grid-cols-1 gap-3">
+        <MaintenanceStatsColorVars />
+        <RequestSourceCard />
+        <MaintenanceKindCard />
+      </div>
 
       {/* 3 secciones — cada una se autoabastece via useQuery cuando esta abierta */}
       {OWNERSHIP_CATEGORIES.map((category) => (

@@ -40,10 +40,9 @@ const otherEquipmentBaseSchema = z.object({
   serial_number: z.string().nullable().optional(),
   intern_number: z.string().nullable().optional(),
   year: z.string().nullable().optional(),
-  condition: z
-    .enum(['operativo', 'no operativo', 'en reparacion', 'operativo condicionado', 'en preparacion'])
-    .nullable()
-    .optional(),
+  // La condición NO se edita desde este formulario (mismo criterio que vehicles):
+  // todo equipo nace 'operativo' y solo la cambian los flujos de mantenimiento
+  // y la acción del header. Si el form la mandara, pisaría lo que puso el taller.
   horometer: z.coerce.number().nullable().optional(),
   manufacturer_plate: z.string().nullable().optional(),
   composition: z.string().nullable().optional(),
@@ -156,7 +155,6 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
       serial_number: equipment?.serial_number ?? null,
       intern_number: equipment?.intern_number ?? null,
       year: equipment?.year ?? null,
-      condition: (equipment?.condition as OtherEquipmentFormData['condition']) ?? null,
       horometer: equipment?.horometer ?? null,
       manufacturer_plate: equipment?.manufacturer_plate ?? null,
       composition: equipment?.composition ?? null,
@@ -203,7 +201,6 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
           serial_number: data.serial_number ?? null,
           intern_number: data.intern_number ?? null,
           year: data.year ?? null,
-          condition: data.condition ?? null,
           horometer: data.horometer ?? null,
           manufacturer_plate: data.manufacturer_plate ?? null,
           composition: data.composition ?? null,
@@ -243,7 +240,6 @@ export function OtherEquipmentForm({ equipment, mode, equipmentId, ...otherProps
           serial_number: data.serial_number ?? null,
           intern_number: data.intern_number ?? null,
           year: data.year ?? null,
-          condition: data.condition ?? null,
           horometer: data.horometer ?? null,
           manufacturer_plate: data.manufacturer_plate ?? null,
           composition: data.composition ?? null,

@@ -1,21 +1,25 @@
 'use client';
 
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
+import type {
+  DataTableFacetedFilterConfig,
+  DataTableSearchParams,
+  FacetResult,
+} from '@/shared/components/common/DataTable';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
 import { useQuery } from '@tanstack/react-query';
-import { CircleOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { CircleOff } from 'lucide-react';
 import moment from 'moment';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { getMaintenanceRequestById } from './actions/actionsServer';
 import {
   getAllMaintenanceRequestsForExport,
-  getMaintenanceRequestFacets,
-  type MaintenanceRequestFacets,
+  getMaintenanceRequestSingleFacet,
+  getMaintenanceRequestsPaginated,
   type MaintenanceRequestListItem,
 } from './actions/actionsTableServer';
-import { getMaintenanceRequestById } from './actions/actionsServer';
 import { ReassignSupervisorDialog } from './components/ReassignSupervisorDialog';
 import { SolicitudApprovalDialog } from './components/SolicitudApprovalDialog';
 import { SolicitudDetailDialog } from './components/SolicitudDetailDialog';
@@ -37,11 +41,49 @@ interface MaintenanceRequestDataTableProps {
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
-  initialFacets: MaintenanceRequestFacets;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
   canApproveReject?: boolean;
   fetchAllForExport: typeof getAllMaintenanceRequestsForExport;
+}
+
+// ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({
+        value,
+        label: labels[value] ?? value,
+        icon: icons[value],
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK: opciones resueltas del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
 }
 
 export function MaintenanceRequestDataTable({
@@ -49,7 +91,6 @@ export function MaintenanceRequestDataTable({
   totalRows,
   searchParams,
   tableId,
-  initialFacets,
   initialColumnVisibility,
   initialFilterVisibility,
   canApproveReject = false,
@@ -76,19 +117,15 @@ export function MaintenanceRequestDataTable({
     staleTime: 0,
   });
 
-  // Parámetros para facets (sin page/sort para cross-filtering)
-  const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams as Record<string, unknown>;
-    return rest as DataTableSearchParams;
-  }, [searchParams]);
+  // ─── Client-side navigation: estado reactivo para queries dependientes (export) ────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // Cargar facets en el cliente con cross-filtering
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['maintenance-request-facets', facetParams],
-    queryFn: () => getMaintenanceRequestFacets(facetParams),
-    staleTime: 5 * 60 * 1000,
-    initialData: initialFacets,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla (sin router.push, sin re-render de toda la página)
+  const tableQueryFn = useCallback((params: DataTableSearchParams) => getMaintenanceRequestsPaginated(params), []);
 
   // Handlers de acciones
   const handleView = (request: MaintenanceRequestListItem) => {
@@ -138,99 +175,59 @@ export function MaintenanceRequestDataTable({
     [canApproveReject]
   );
 
-  // Construir opciones de vehículos para el filtro facetado
-  const vehicleOptions = useMemo(() => {
-    if (!facets?.vehicles) return [];
-    const opts: Array<{ value: string; label: string; icon?: LucideIcon }> = [];
-    for (const [vehicleId] of facets.vehicles.entries()) {
-      if (vehicleId === NULL_FILTER_VALUE) continue;
-      const vehicle = facets.vehicleDetails?.get(vehicleId);
-      if (vehicle) {
-        const label = vehicle.domain || vehicle.serie || 'Sin identificar';
-        const displayLabel = vehicle.intern_number ? `${label} (#${vehicle.intern_number})` : label;
-        opts.push({ value: vehicleId, label: displayLabel });
-      }
-    }
-    opts.sort((a, b) => a.label.localeCompare(b.label));
-    if (facets.vehicles.has(NULL_FILTER_VALUE)) {
-      opts.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-    }
-    return opts;
-  }, [facets]);
+  // ─── fetchFacet factories: cada filtro carga sus opciones+counts bajo demanda ──────
 
-  // Construir opciones de supervisores para el filtro facetado
-  const supervisorOptions = useMemo(() => {
-    if (!facets?.supervisors) return [];
-    const opts: Array<{ value: string; label: string; icon?: LucideIcon }> = [];
-    for (const [supervisorId] of facets.supervisors.entries()) {
-      if (supervisorId === NULL_FILTER_VALUE) continue;
-      const profile = facets.supervisorDetails?.get(supervisorId);
-      if (profile) {
-        opts.push({ value: supervisorId, label: profile.fullname ?? supervisorId });
-      }
-    }
-    opts.sort((a, b) => a.label.localeCompare(b.label));
-    if (facets.supervisors.has(NULL_FILTER_VALUE)) {
-      opts.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-    }
-    return opts;
-  }, [facets]);
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons: Record<string, LucideIcon | undefined>
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getMaintenanceRequestSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+      };
+    },
+    []
+  );
 
-  // Construir opciones de status para el filtro facetado
-  const statusOptions = useMemo(() => {
-    if (!facets?.status) return [];
-    return (['pending_approval', 'approved', 'rejected'] as const)
-      .filter((s) => (facets.status?.get(s) ?? 0) > 0)
-      .map((s) => ({
-        value: s,
-        label: REQUEST_STATUS_LABELS[s],
-        icon: STATUS_ICONS[s],
-      }));
-  }, [facets]);
+  const makeFkFetchFacet = useCallback((columnId: string, nullLabel = 'Sin asignar') => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getMaintenanceRequestSingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+    };
+  }, []);
 
-  // Construir opciones de source para el filtro facetado
-  const sourceOptions = useMemo(() => {
-    if (!facets?.source) return [];
-    const opts: Array<{ value: string; label: string; icon?: LucideIcon }> = [];
-    for (const [sourceVal] of facets.source.entries()) {
-      if (sourceVal === NULL_FILTER_VALUE) continue;
-      opts.push({
-        value: sourceVal,
-        label: SOURCE_LABELS[sourceVal] ?? sourceVal,
-      });
-    }
-    if (facets.source.has(NULL_FILTER_VALUE)) {
-      opts.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff });
-    }
-    return opts;
-  }, [facets]);
-
-  // Configuración de filtros facetados
-  const facetedFilters = useMemo(
+  // Configuración de filtros facetados (lazy-load — cada uno se carga al abrir su popover)
+  const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       {
         columnId: 'status',
         title: 'Estado',
-        options: statusOptions,
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet(
+          'status',
+          Object.keys(REQUEST_STATUS_LABELS),
+          REQUEST_STATUS_LABELS,
+          STATUS_ICONS
+        ),
       },
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        options: vehicleOptions,
-        externalCounts: facets?.vehicles,
+        fetchFacet: makeFkFetchFacet('vehicle'),
       },
       {
         columnId: 'source',
         title: 'Origen',
-        options: sourceOptions,
-        externalCounts: facets?.source,
+        fetchFacet: makeEnumFetchFacet('source', Object.keys(SOURCE_LABELS), SOURCE_LABELS, {}),
       },
       {
         columnId: 'supervisor',
         title: 'Supervisor',
-        options: supervisorOptions,
-        externalCounts: facets?.supervisors,
+        fetchFacet: makeFkFetchFacet('supervisor'),
       },
       // Filtro de fecha (dateRange) — columna created_at
       {
@@ -238,8 +235,27 @@ export function MaintenanceRequestDataTable({
         title: 'Fecha Solicitud',
         type: 'dateRange' as const,
       },
+      // Legajo del chofer — coincidencia EXACTA (ingresar el número completo)
+      {
+        columnId: 'fileNumber',
+        title: 'Legajo (exacto)',
+        type: 'text' as const,
+        placeholder: 'Nro. de legajo completo...',
+      },
+      {
+        columnId: 'kilometer',
+        title: 'Kilometraje',
+        type: 'text' as const,
+        placeholder: 'Buscar por kilometraje...',
+      },
+      {
+        columnId: 'engine_hours',
+        title: 'Horas Motor',
+        type: 'text' as const,
+        placeholder: 'Buscar por horas...',
+      },
     ],
-    [statusOptions, vehicleOptions, sourceOptions, supervisorOptions, facets]
+    [makeEnumFetchFacet, makeFkFetchFacet]
   );
 
   // Visibilidad de filtros por defecto (preferencias de BD tienen prioridad)
@@ -247,9 +263,7 @@ export function MaintenanceRequestDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    return Object.fromEntries(
-      facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)])
-    );
+    return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)]));
   }, [initialFilterVisibility, facetedFilters]);
 
   // Visibilidad de columnas por defecto
@@ -265,10 +279,11 @@ export function MaintenanceRequestDataTable({
         filename: `solicitudes-mantenimiento-${moment().format('YYYY-MM-DD')}`,
         sheetName: 'Solicitudes',
       },
-      fetchAllData: () => fetchAllForExport(searchParams),
+      // Usa currentParams (estado reactivo del client-side mode), NO searchParams (prop inicial de SSR),
+      // para que la exportación respete los filtros activos en el momento del click.
+      fetchAllData: () => fetchAllForExport(currentParams),
       formatters: {
-        created_at: (val: unknown) =>
-          val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '-',
+        created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '-'),
         status: (val: unknown) => {
           const s = val as string;
           return REQUEST_STATUS_LABELS[s] ?? ORDER_STATUS_LABELS[s] ?? s ?? '-';
@@ -280,10 +295,11 @@ export function MaintenanceRequestDataTable({
         // accessorFn retorna string vacío cuando no hay valor — normalizar a '-'
         supervisor: (val: unknown) => (val ? String(val) : 'Sin asignar'),
         driver: (val: unknown) => (val ? String(val) : '-'),
+        fileNumber: (val: unknown) => (val ? String(val) : '-'),
         vehicle: (val: unknown) => (val ? String(val) : '-'),
       },
     }),
-    [fetchAllForExport, searchParams]
+    [fetchAllForExport, currentParams]
   );
 
   return (
@@ -296,40 +312,31 @@ export function MaintenanceRequestDataTable({
         paramNamespace={tableId}
         tableId={tableId}
         facetedFilters={facetedFilters}
-        isFetchingFacets={isFetchingFacets}
         exportConfig={exportConfig}
         initialColumnVisibility={columnVisibility}
         initialFilterVisibility={mergedFilterVisibility}
         searchPlaceholder="Buscar solicitudes..."
         emptyMessage="No hay solicitudes de mantenimiento"
         showFilterToggle={true}
+        // Client-side navigation: fetch instantáneo vía React Query, sin router.push
+        queryFn={tableQueryFn}
+        queryKey={['maintenance-requests-paginated']}
+        onStateChange={handleStateChange}
       />
 
       {selectedRequestId && dialogType === 'view' && fullRequest && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudDetailDialog
-          request={fullRequest as any}
-          open={true}
-          onClose={handleCloseDialog}
-        />
+        <SolicitudDetailDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
       )}
 
       {selectedRequestId && dialogType === 'approve' && fullRequest && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudApprovalDialog
-          request={fullRequest as any}
-          open={true}
-          onClose={handleCloseDialog}
-        />
+        <SolicitudApprovalDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
       )}
 
       {selectedRequestId && dialogType === 'reject' && fullRequest && (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudRejectDialog
-          request={fullRequest as any}
-          open={true}
-          onClose={handleCloseDialog}
-        />
+        <SolicitudRejectDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
       )}
 
       {reassignRequestId && fullReassignRequest && (

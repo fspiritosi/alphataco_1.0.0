@@ -216,6 +216,40 @@ export const columns: ColumnDef<VehicleListItem>[] = [
     },
   },
 
+  // ─── Cantidad de Checklist (virtual — ticket 685) ─────────────────────────
+  {
+    id: 'checklist_count',
+    accessorFn: (row) => row._count?.checklist_answers ?? 0,
+    meta: { title: 'Cantidad de Checklist' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cantidad de Checklist" />,
+    cell: ({ row }) => {
+      const count = row.original._count?.checklist_answers ?? 0;
+      if (count === 0) {
+        return <Badge variant="destructive">Sin checklist</Badge>;
+      }
+      return <Badge variant="outline">{count}</Badge>;
+    },
+  },
+
+  // ─── Fecha del último Checklist (virtual — ticket 685) ────────────────────
+  {
+    id: 'last_checklist_date',
+    accessorFn: (row) => row.checklist_answers?.[0]?.created_at ?? null,
+    meta: { title: 'Último Checklist' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Último Checklist" />,
+    cell: ({ row }) => {
+      const lastDate = row.original.checklist_answers?.[0]?.created_at;
+      return lastDate ? (
+        <span>{moment(lastDate).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      );
+    },
+    // Prisma no soporta ordenar por MAX(created_at) de una relacion 1:N sin SQL
+    // crudo — se deja sin ordenamiento (ver nota en actions.server.ts VALID_SORT_FIELDS).
+    enableSorting: false,
+  },
+
   // ─── Kilómetros ───────────────────────────────────────────────────────────
   {
     accessorKey: 'kilometer',

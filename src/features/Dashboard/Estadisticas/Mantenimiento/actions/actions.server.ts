@@ -4,12 +4,15 @@ import {
   contract_type_vehicles_enum,
   daily_report_status,
   repair_state,
+  type_of_maintenance_ENUM,
+  work_order_item_status,
   work_order_status,
 } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
+import { UNKNOWN_SOURCE_KEY } from '../chart-constants';
 import type {
   MaintenanceMonthSummary,
   MaintenanceTypeOption,
@@ -18,6 +21,7 @@ import type {
   VehicleStatus,
   WorkdaysAggregate,
 } from '../types';
+import { resolvePeriodRange, type PeriodGranularity } from '../utils/periods';
 
 const logger = new Logger('Dashboard/Estadisticas/Mantenimiento');
 
@@ -456,6 +460,165 @@ export async function getMaintenanceByTypeForMonth(monthKey: string): Promise<Ma
     return Array.from(byType.values()).sort((a, b) => b.count - a.count);
   } catch (error) {
     logger.error('Error fetching maintenance by type for month', { data: { error, monthKey } });
+    throw error;
+  }
+}
+
+// ============================================================================
+// ORIGEN DE LAS SOLICITUDES DE MANTENIMIENTO (ticket 680)
+// ============================================================================
+
+export type RequestSourceSlice = {
+  /** Valor crudo de `maintenance_requests.source` (o UNKNOWN_SOURCE_KEY si es null). */
+  source: string;
+  count: number;
+};
+
+export type RequestSourceStats = {
+  /** Rango efectivo consultado, en ISO — para que la UI pueda mostrarlo si hace falta. */
+  from: string;
+  to: string;
+  total: number;
+  slices: RequestSourceSlice[];
+};
+
+/**
+ * Ticket 680 — de dónde vienen las solicitudes de mantenimiento creadas dentro
+ * del período (checklist / manual / preventivo).
+ *
+ * Agrega en la base con `groupBy`: nunca trae las solicitudes para contarlas en
+ * memoria. El período se corta por `created_at`, que es la fecha en la que
+ * nació la solicitud (el dato que el gráfico dice mostrar).
+ */
+export async function getMaintenanceRequestSourceStats(
+  granularity: PeriodGranularity,
+  anchor: string
+): Promise<RequestSourceStats> {
+  const companyId = await getServerCompanyId();
+  logger.debug('Fetching maintenance request source stats', { data: { companyId, granularity, anchor } });
+
+  try {
+    const { start, end } = resolvePeriodRange(granularity, anchor);
+
+    const grouped = await prisma.maintenance_requests.groupBy({
+      by: ['source'],
+      where: {
+        created_at: { gte: start.toDate(), lt: end.toDate() },
+        // La solicitud es de un vehiculo O de un equipamiento (excluyentes por
+        // CHECK en BD). En los dos casos la empresa sale del recurso.
+        OR: [{ vehicles: { company_id: companyId } }, { other_equipment: { company_id: companyId } }],
+      },
+      _count: { _all: true },
+    });
+
+    let total = 0;
+    const slices: RequestSourceSlice[] = grouped.map((row) => {
+      const count = row._count._all;
+      total += count;
+      return { source: row.source ?? UNKNOWN_SOURCE_KEY, count };
+    });
+
+    slices.sort((a, b) => b.count - a.count);
+
+    return { from: start.toISOString(), to: end.toISOString(), total, slices };
+  } catch (error) {
+    logger.error('Error fetching maintenance request source stats', {
+      data: { error, granularity, anchor },
+    });
+    throw error;
+  }
+}
+
+// ============================================================================
+// PREVENTIVO VS CORRECTIVO (ticket 682)
+// ============================================================================
+
+export type MaintenanceKindStats = {
+  from: string;
+  to: string;
+  /** Tareas ejecutadas clasificadas, por tipo de mantenimiento. */
+  counts: Record<type_of_maintenance_ENUM, number>;
+  /** Suma de `counts` — el denominador de los porcentajes. */
+  total: number;
+  /**
+   * Tareas ejecutadas cuyo tipo de reparación no tiene tipo de mantenimiento
+   * cargado. No entran en los porcentajes; se avisan aparte para no inflar ni
+   * ocultar el dato.
+   */
+  unclassified: number;
+  /**
+   * Tareas de diagnóstico completadas en el período. Se excluyen del cálculo
+   * porque el diagnóstico se genera siempre y no es una reparación ejecutada
+   * (criterio del cliente en la reunión del 10/09).
+   */
+  diagnostics: number;
+};
+
+/**
+ * Ticket 682 — qué porcentaje del trabajo que ejecutó el taller fue preventivo
+ * y qué porcentaje correctivo.
+ *
+ * La unidad es la TAREA EJECUTADA (`work_order_item_repairs` en estado
+ * `completed`), que es lo único en el sistema que lleva el dato: la tarea
+ * apunta a su tipo de reparación y el tipo de reparación tiene el tipo de
+ * mantenimiento. El período se corta por `completed_at` — cuándo se ejecutó, no
+ * cuándo se planificó.
+ *
+ * Se agrega en la base por `repair_type_id` y recién después se traduce a tipo
+ * de mantenimiento con un único lookup de los tipos presentes (tabla chica):
+ * Prisma no puede agrupar por un campo de la relación.
+ */
+export async function getMaintenanceKindStats(
+  granularity: PeriodGranularity,
+  anchor: string
+): Promise<MaintenanceKindStats> {
+  const companyId = await getServerCompanyId();
+  logger.debug('Fetching maintenance kind stats', { data: { companyId, granularity, anchor } });
+
+  try {
+    const { start, end } = resolvePeriodRange(granularity, anchor);
+
+    const periodWhere = {
+      status: work_order_item_status.completed,
+      completed_at: { gte: start.toDate(), lt: end.toDate() },
+      work_order_items: { work_orders: { company_id: companyId } },
+    } as const;
+
+    const [grouped, diagnostics] = await Promise.all([
+      prisma.work_order_item_repairs.groupBy({
+        by: ['repair_type_id'],
+        where: { ...periodWhere, is_diagnostico: false },
+        _count: { _all: true },
+      }),
+      prisma.work_order_item_repairs.count({ where: { ...periodWhere, is_diagnostico: true } }),
+    ]);
+
+    const counts: Record<type_of_maintenance_ENUM, number> = {
+      [type_of_maintenance_ENUM.Preventivo]: 0,
+      [type_of_maintenance_ENUM.Correctivo]: 0,
+      [type_of_maintenance_ENUM.Otro]: 0,
+    };
+    let unclassified = 0;
+
+    if (grouped.length > 0) {
+      const repairTypes = await prisma.types_of_repairs.findMany({
+        where: { id: { in: grouped.map((row) => row.repair_type_id) } },
+        select: { id: true, type_of_maintenance: true },
+      });
+      const kindByRepairType = new Map(repairTypes.map((t) => [t.id, t.type_of_maintenance]));
+
+      for (const row of grouped) {
+        const kind = kindByRepairType.get(row.repair_type_id) ?? null;
+        if (kind) counts[kind] += row._count._all;
+        else unclassified += row._count._all;
+      }
+    }
+
+    const total = counts.Preventivo + counts.Correctivo + counts.Otro;
+
+    return { from: start.toISOString(), to: end.toISOString(), counts, total, unclassified, diagnostics };
+  } catch (error) {
+    logger.error('Error fetching maintenance kind stats', { data: { error, granularity, anchor } });
     throw error;
   }
 }
