@@ -649,6 +649,8 @@ const CATALOG_MAP: Record<string, CatalogEntry> = {
   sub_type: {
     // 'sub_type' = vehicle subtype. Si se reciben parentIds (tipos elegidos),
     // filtra los subtipos por su columna escalar 'type' (FK -> type.id).
+    // Sin `take`: el catálogo es chico y con varios tipos elegidos supera los 20,
+    // así que un límite dejaba subtipos válidos fuera de la lista (ticket 695).
     find: async (query, companyId, parentIds) => {
       const rows = await prisma.sub_type.findMany({
         where: {
@@ -659,7 +661,6 @@ const CATALOG_MAP: Record<string, CatalogEntry> = {
         },
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
-        take: 20,
       });
       return rows.map((r) => ({ id: r.id, name: r.name }));
     },
@@ -670,7 +671,7 @@ export type CatalogKey = keyof typeof CATALOG_MAP;
 
 /**
  * Busca opciones en un catálogo para los MultiSelectField de condiciones.
- * Retorna hasta 20 coincidencias ordenadas por nombre.
+ * Retorna coincidencias ordenadas por nombre (hasta 20 por catálogo, salvo subtipos que van completos).
  */
 export async function searchCatalogForConditions(
   catalogKey: CatalogKey,
