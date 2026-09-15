@@ -9,13 +9,19 @@ import { cn } from '@/lib/utils';
 import { defaultFilter } from 'cmdk';
 import { Check, ChevronsUpDown, Info, Truck, X } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
-import type { OtherEquipmentItem, VehicleForForm } from '../../actions.server';
+import type { DailyReportRowForForm, OtherEquipmentItem, VehicleForForm } from '../../actions.server';
 import type { DailyReportRowFormValues } from './schema';
+
+export type SavedOtherEquipment = NonNullable<
+  NonNullable<DailyReportRowForForm>['dailyreportequipmentrelations'][number]['other_equipment']
+>;
 
 interface EquipmentSectionProps {
   form: UseFormReturn<DailyReportRowFormValues>;
   vehicles: VehicleForForm[];
   otherEquipment: OtherEquipmentItem[];
+  /** Otros equipos ya guardados en la fila que se edita (incluye dados de baja / no operativos). */
+  savedOtherEquipment?: SavedOtherEquipment[];
   selectedCustomerId: string | null;
   itemNeedsEquipment: boolean;
   selectedItemName: string;
@@ -27,6 +33,7 @@ export function EquipmentSection({
   form,
   vehicles,
   otherEquipment,
+  savedOtherEquipment = [],
   selectedCustomerId,
   itemNeedsEquipment,
   selectedItemName,
@@ -389,7 +396,35 @@ export function EquipmentSection({
               <div className="flex flex-wrap gap-2 mt-2">
                 {field.value?.map((eqId) => {
                   const eq = otherEquipment.find((e) => e.id === eqId);
-                  if (!eq) return null;
+                  if (!eq) {
+                    // Ya guardado en la fila pero fuera de la lista de opciones (dado de baja o no
+                    // operativo): se muestra igual para que se vea y se pueda quitar.
+                    const saved = savedOtherEquipment.find((s) => s.id === eqId);
+                    if (!saved) return null;
+                    return (
+                      <div
+                        key={eqId}
+                        className="text-xs px-2 py-1 rounded-md flex items-center gap-1 bg-red-50 text-red-800 border border-red-300"
+                      >
+                        {saved.intern_number ?? saved.serial_number ?? 'Sin número'}
+                        <Badge
+                          variant="outline"
+                          className="ml-1 bg-red-100 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                        >
+                          {saved.is_active ? 'No operativo' : 'Dado de baja'}
+                        </Badge>
+                        <button
+                          type="button"
+                          aria-label={`Quitar ${saved.intern_number ?? saved.serial_number ?? 'equipo'}`}
+                          onClick={() => field.onChange((field.value ?? []).filter((id) => id !== eqId))}
+                          disabled={disabled}
+                          className="ml-1 hover:opacity-80"
+                        >
+                          <X className="h-3 w-3 text-red-500" />
+                        </button>
+                      </div>
+                    );
+                  }
                   const isAssigned = eq.contractor_other_equipment?.some(
                     (ce) => ce.customers?.id === selectedCustomerId
                   );

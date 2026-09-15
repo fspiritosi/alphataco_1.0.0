@@ -1612,6 +1612,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
           select: {
             equipment_id: true,
             other_equipment_id: true,
+            other_equipment: { select: { is_active: true } },
           },
         },
         dailyreport_customer_equipment_relations: {
@@ -1707,9 +1708,11 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
                 .map((rel) => rel.equipment_id!)
             : [];
 
+          // Otros equipos: solo activos, igual que los empleados — un equipo dado de baja
+          // no se vuelve a asignar en las filas clonadas (ticket 697).
           const otherEquipmentToCopy = includeEquipment
             ? originalRow.dailyreportequipmentrelations
-                .filter((rel) => rel.other_equipment_id != null)
+                .filter((rel) => rel.other_equipment_id != null && rel.other_equipment?.is_active !== false)
                 .map((rel) => rel.other_equipment_id!)
             : [];
 
@@ -2093,6 +2096,10 @@ export async function getDailyReportRowForForm(rowId: string) {
             id: true,
             equipment_id: true,
             other_equipment_id: true,
+            // Para mostrar en el form los ya guardados que no están en la lista de opciones
+            other_equipment: {
+              select: { id: true, intern_number: true, serial_number: true, is_active: true },
+            },
           },
         },
         dailyreport_customer_equipment_relations: {

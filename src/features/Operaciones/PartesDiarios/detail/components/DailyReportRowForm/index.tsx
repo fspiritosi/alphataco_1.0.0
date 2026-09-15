@@ -24,7 +24,7 @@ import {
 } from '../../actions.server';
 import { CustomerServiceSection } from './CustomerServiceSection';
 import { EmployeeSection } from './EmployeeSection';
-import { EquipmentSection } from './EquipmentSection';
+import { EquipmentSection, type SavedOtherEquipment } from './EquipmentSection';
 import { JornadaSection } from './JornadaSection';
 import { ScheduleSection } from './ScheduleSection';
 import { DailyReportRowFormValues, dailyReportRowSchema } from './schema';
@@ -83,6 +83,9 @@ export function DailyReportRowForm({
   const { isOpen, editingRowId, mode, close } = useDailyReportDetailFormStore();
   const queryClient = useQueryClient();
   const [isLoadingRow, setIsLoadingRow] = useState(false);
+  // Otros equipos ya guardados en la fila que se edita. Hace falta para mostrar (y poder
+  // quitar) los que ya no están en la lista de opciones: dados de baja o no operativos.
+  const [savedOtherEquipment, setSavedOtherEquipment] = useState<SavedOtherEquipment[]>([]);
 
   // Modo "solo recursos": el supervisor de operaciones únicamente puede asignar
   // personal y equipos; el resto de los campos se muestra pero queda bloqueado.
@@ -118,7 +121,10 @@ export function DailyReportRowForm({
         type Role = 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche';
         const findRole = (role: Role) => employeeRels.find((e) => e.role === role)?.employee_id ?? undefined;
         const filterRole = (role: Role) =>
-          employeeRels.filter((e) => e.role === role).map((e) => e.employee_id ?? '').filter(Boolean);
+          employeeRels
+            .filter((e) => e.role === role)
+            .map((e) => e.employee_id ?? '')
+            .filter(Boolean);
 
         const anyHasRole = employeeRels.some((e) =>
           ['chofer_dia', 'chofer_noche', 'ayudante_dia', 'ayudante_noche'].includes(e.role ?? '')
@@ -130,16 +136,17 @@ export function DailyReportRowForm({
         const shift12h: 'dia' | 'noche' | undefined = is12Hours
           ? row.shift_12h ??
             (findRole('chofer_noche') || filterRole('ayudante_noche').length > 0
-            ? findRole('chofer_dia') || filterRole('ayudante_dia').length > 0
-              ? 'dia'
-              : 'noche'
-            : 'dia')
+              ? findRole('chofer_dia') || filterRole('ayudante_dia').length > 0
+                ? 'dia'
+                : 'noche'
+              : 'dia')
           : undefined;
 
         // Equipment ids
         const equipmentRels = row.dailyreportequipmentrelations ?? [];
         const vehicleIds = equipmentRels.filter((r) => r.equipment_id != null).map((r) => r.equipment_id!);
         const otherEqIds = equipmentRels.filter((r) => r.other_equipment_id != null).map((r) => r.other_equipment_id!);
+        setSavedOtherEquipment(equipmentRels.flatMap((r) => (r.other_equipment ? [r.other_equipment] : [])));
 
         // Customer equipment ids
         const customerEqIds = (row.dailyreport_customer_equipment_relations ?? [])
@@ -197,6 +204,7 @@ export function DailyReportRowForm({
     form.reset(EMPTY_FORM_VALUES);
     originalEmployeeIdsRef.current = [];
     originalEquipmentIdsRef.current = [];
+    setSavedOtherEquipment([]);
   };
 
   const onSubmit = async (data: DailyReportRowFormValues) => {
@@ -367,12 +375,9 @@ export function DailyReportRowForm({
     const wdLower = watchedWorkingDay?.toLowerCase() ?? '';
     const isRoleBased = wdLower === 'jornada 12 horas' || wdLower === 'jornada 24 horas';
     const currentEmployeeIds = isRoleBased
-      ? [
-          watchedChoferDia,
-          watchedChoferNoche,
-          ...(watchedAyudanteDia ?? []),
-          ...(watchedAyudanteNoche ?? []),
-        ].filter((x): x is string => Boolean(x))
+      ? [watchedChoferDia, watchedChoferNoche, ...(watchedAyudanteDia ?? []), ...(watchedAyudanteNoche ?? [])].filter(
+          (x): x is string => Boolean(x)
+        )
       : watchedEmployees ?? [];
     const currentEquipmentIds = watchedEquipment ?? [];
 
@@ -456,6 +461,7 @@ export function DailyReportRowForm({
                   form={form}
                   vehicles={vehicles}
                   otherEquipment={otherEquipment}
+                  savedOtherEquipment={savedOtherEquipment}
                   selectedCustomerId={watchedCustomerId || null}
                   itemNeedsEquipment={itemNeedsEquipment}
                   selectedItemName={selectedItemName}
