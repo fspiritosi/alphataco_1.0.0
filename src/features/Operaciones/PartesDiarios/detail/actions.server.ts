@@ -2218,7 +2218,9 @@ export async function getOtherEquipmentForForm() {
 
   try {
     const data = await prisma.other_equipment.findMany({
-      where: { condition: 'operativo' },
+      // Excluir dados de baja, igual que getVehiclesForForm: si no, el equipo
+      // dado de baja aparece duplicado junto a su reemplazo con el mismo interno.
+      where: { condition: 'operativo', is_active: true },
       select: {
         id: true,
         intern_number: true,

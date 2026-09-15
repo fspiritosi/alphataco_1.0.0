@@ -6,6 +6,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { defaultFilter } from 'cmdk';
 import { Check, ChevronsUpDown, Info, Truck, X } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import type { OtherEquipmentItem, VehicleForForm } from '../../actions.server';
@@ -294,7 +295,10 @@ export function EquipmentSection({
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-full p-0">
-                <Command>
+                {/* Cada item se identifica por id (dos equipos pueden compartir interno). La búsqueda
+                    usa el mismo puntaje difuso de cmdk, pero solo sobre interno/serie: así el uuid
+                    del value no ensucia los resultados y "pl53" sigue encontrando "GH-PL-53". */}
+                <Command filter={(_value, search, keywords) => defaultFilter((keywords ?? []).join(' '), search)}>
                   <CommandInput placeholder="Buscar otros equipos..." />
                   <CommandList>
                     <CommandEmpty>
@@ -329,7 +333,8 @@ export function EquipmentSection({
                                 );
                                 return (
                                   <CommandItem
-                                    value={eq.intern_number ?? eq.serial_number ?? eq.id}
+                                    value={eq.id}
+                                    keywords={[eq.intern_number, eq.serial_number].filter((k): k is string => !!k)}
                                     key={eq.id}
                                     onSelect={() => {
                                       const currentValues = field.value ?? [];
