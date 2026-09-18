@@ -2885,6 +2885,9 @@ model vehicles {
   contract_expiration_date      DateTime?                       @db.Date
   contract_start_date           DateTime?                       @db.Date
   contract_number               String?
+  has_certification             Boolean                         @default(false)
+  certification_expiration_date DateTime?                       @db.Date
+  certification_number          String?
   currency                      currency_enum?
   price                         Decimal?                        @db.Decimal(15, 2)
   cost_type                     cost_type_enum?

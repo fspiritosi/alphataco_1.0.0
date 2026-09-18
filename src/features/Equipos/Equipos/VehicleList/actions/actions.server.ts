@@ -43,6 +43,9 @@ const VALID_SORT_FIELDS = new Set([
   'termination_date',
   'reason_for_termination',
   'created_at',
+  'has_certification',
+  'certification_expiration_date',
+  'certification_number',
   // FK columns (sorted by relation name)
   'type',
   'sub_type',
@@ -91,6 +94,7 @@ const TEXT_FILTER_COLUMNS = [
   'kilometer',
   'engine_hours',
   'price',
+  'certification_number',
 ];
 
 /**
@@ -101,7 +105,13 @@ const TEXT_FILTER_COLUMNS = [
 const CHECKLIST_VIRTUAL_COLUMNS = ['checklist_count', 'last_checklist_date'];
 
 /** Columnas con filtro de rango de fechas */
-const DATE_RANGE_COLUMNS = ['contract_expiration_date', 'contract_start_date', 'termination_date', 'created_at'];
+const DATE_RANGE_COLUMNS = [
+  'contract_expiration_date',
+  'contract_start_date',
+  'termination_date',
+  'created_at',
+  'certification_expiration_date',
+];
 
 /**
  * Mapping de columnId (URL) → campo real en Prisma
@@ -124,6 +134,9 @@ const COLUMN_MAP: Record<string, string> = {
  */
 const VEHICLE_LIST_SELECT = {
   ...VEHICLE_SELECT,
+  has_certification: true,
+  certification_expiration_date: true,
+  certification_number: true,
   _count: { select: { checklist_answers: true } },
   checklist_answers: {
     orderBy: { created_at: 'desc' as const },
@@ -182,8 +195,14 @@ function buildLastChecklistDateFilter(state: ReturnType<typeof parseSearchParams
 async function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
   const searchWhere = buildSearchWhere(state.search, ['domain', 'chassis', 'intern_number', 'engine']);
 
-  // Columnas manejadas manualmente (BigInt FK, M:M, virtuales de checklist)
-  const MANUALLY_HANDLED = ['brand', 'model', 'contractor_equipment', ...CHECKLIST_VIRTUAL_COLUMNS];
+  // Columnas manejadas manualmente (BigInt FK, M:M, virtuales de checklist, booleano)
+  const MANUALLY_HANDLED = [
+    'brand',
+    'model',
+    'contractor_equipment',
+    'has_certification',
+    ...CHECKLIST_VIRTUAL_COLUMNS,
+  ];
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -252,6 +271,14 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
   if (checklistCountFilter) extraAndConditions.push(checklistCountFilter);
   if (lastChecklistDateFilter) extraAndConditions.push(lastChecklistDateFilter);
 
+  // Boolean filter: has_certification (NOT NULL, sin opción "Sin asignar")
+  const booleanFilters: Record<string, unknown> = {};
+  const hasCertificationValues = state.filters['has_certification'];
+  if (hasCertificationValues?.length === 1) {
+    booleanFilters.has_certification = hasCertificationValues[0] === 'true';
+  }
+  // Si están seleccionados ambos valores (o ninguno), no se filtra — coincide con todos
+
   return {
     company_id: companyId,
     is_active: true,
@@ -262,6 +289,7 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
     ...dateFiltersWhere,
     ...bigintFilters,
     ...m2mFilters,
+    ...booleanFilters,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 }
@@ -423,6 +451,12 @@ export async function getVehicleSingleFacet(
       case 'reason_for_termination': {
         const rows = await prisma.vehicles.groupBy({ by: ['reason_for_termination'], where, _count: true });
         return { counts: toFacetMap(rows.map((r) => ({ key: r.reason_for_termination, count: r._count }))) };
+      }
+
+      // ── Boolean columns ─────────────────────────────────────────────────────
+      case 'has_certification': {
+        const rows = await prisma.vehicles.groupBy({ by: ['has_certification'], where, _count: true });
+        return { counts: toFacetMap(rows.map((r) => ({ key: String(r.has_certification), count: r._count }))) };
       }
 
       // ── FK UUID columns ─────────────────────────────────────────────────────

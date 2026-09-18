@@ -43,6 +43,9 @@ export type VehicleFormData = {
   contract_expiration_date?: Date | null;
   contract_start_date?: Date | null;
   contract_number?: string;
+  has_certification: boolean;
+  certification_expiration_date?: Date | null;
+  certification_number?: string | null;
   price?: number;
   currency?: 'USD' | 'EUR' | 'GBP' | 'ARS';
 };
