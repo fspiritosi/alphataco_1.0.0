@@ -137,19 +137,6 @@ export async function uploadEmployeeDocument(
   return data;
 }
 
-export async function deleteEmployeeDocument(documentId: string) {
-  const supabase = await supabaseServer();
-
-  const { error } = await supabase.from('documents_employees').delete().eq('id', documentId);
-
-  if (error) {
-    logger.error('Error deleting document', { data: { error } });
-    throw new Error(error.message);
-  }
-
-  return true;
-}
-
 export async function updateDocumentStatus(documentId: string, status: DocumentState) {
   const supabase = await supabaseServer();
 

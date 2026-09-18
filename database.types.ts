@@ -5398,6 +5398,8 @@ export type Database = {
         Row: {
           allocated_to: string[] | null;
           brand: number | null;
+          certification_expiration_date: string | null;
+          certification_number: string | null;
           chassis: string | null;
           company_id: string | null;
           condition: Database['public']['Enums']['condition_enum'] | null;
@@ -5411,6 +5413,7 @@ export type Database = {
           domain: string | null;
           engine: string;
           engine_hours: string | null;
+          has_certification: boolean;
           id: string;
           intern_number: string | null;
           is_active: boolean | null;
@@ -5436,6 +5439,8 @@ export type Database = {
         Insert: {
           allocated_to?: string[] | null;
           brand?: number | null;
+          certification_expiration_date?: string | null;
+          certification_number?: string | null;
           chassis?: string | null;
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
@@ -5449,6 +5454,7 @@ export type Database = {
           domain?: string | null;
           engine: string;
           engine_hours?: string | null;
+          has_certification?: boolean;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;
@@ -5474,6 +5480,8 @@ export type Database = {
         Update: {
           allocated_to?: string[] | null;
           brand?: number | null;
+          certification_expiration_date?: string | null;
+          certification_number?: string | null;
           chassis?: string | null;
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
@@ -5487,6 +5495,7 @@ export type Database = {
           domain?: string | null;
           engine?: string;
           engine_hours?: string | null;
+          has_certification?: boolean;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;

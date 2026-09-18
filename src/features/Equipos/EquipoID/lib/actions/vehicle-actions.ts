@@ -39,6 +39,23 @@ function normalizeVehicleFkFields<T extends Record<string, unknown>>(vehicleData
   return normalized;
 }
 
+/**
+ * Ticket 727: si el equipo no posee certificacion, su numero y vencimiento se guardan en `null`
+ * (aunque el form ya los limpia al destildar, este es el limite contra la BD). El numero se
+ * recorta y un string vacio pasa a `null`, igual que en equipamientos.
+ */
+function normalizeVehicleCertificationFields<T extends Record<string, unknown>>(vehicleData: T): T {
+  if (vehicleData.has_certification === undefined) return vehicleData;
+  const hasCertification = vehicleData.has_certification === true;
+  const number = typeof vehicleData.certification_number === 'string' ? vehicleData.certification_number.trim() : '';
+  return {
+    ...vehicleData,
+    has_certification: hasCertification,
+    certification_expiration_date: hasCertification ? vehicleData.certification_expiration_date ?? null : null,
+    certification_number: hasCertification && number ? number : null,
+  };
+}
+
 export async function getVehicleById(id: string) {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
@@ -189,7 +206,7 @@ export async function createVehicle(vehicleData: any) {
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
-      ...normalizeVehicleFkFields(vehicleData),
+      ...normalizeVehicleCertificationFields(normalizeVehicleFkFields(vehicleData)),
       company_id,
       // Solo los vehículos (no "Otros") nacen en "en preparacion"
       condition,
@@ -239,7 +256,7 @@ export async function updateVehicle(id: string, vehicleData: any) {
   const { data, error } = await supabase
     .from('vehicles')
     .update({
-      ...normalizeVehicleFkFields(vehicleData),
+      ...normalizeVehicleCertificationFields(normalizeVehicleFkFields(vehicleData)),
       allocated_to: undefined, // Remove this as it's handled separately
     })
     .eq('id', id)

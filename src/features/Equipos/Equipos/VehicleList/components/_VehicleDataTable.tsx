@@ -27,7 +27,7 @@ import {
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
 import type { LucideIcon } from 'lucide-react';
-import { CircleOff, Plus } from 'lucide-react';
+import { Check, CircleOff, Plus, X } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
@@ -87,6 +87,23 @@ function buildEnumFacetResult(
   return { options, counts };
 }
 
+/** Construye FacetResult para booleanos con labels e iconos custom */
+function buildBooleanFacetResult(
+  trueLabel: string,
+  falseLabel: string,
+  trueIcon: LucideIcon,
+  falseIcon: LucideIcon,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      { value: 'true', label: trueLabel, icon: trueIcon },
+      { value: 'false', label: falseLabel, icon: falseIcon },
+    ],
+    counts,
+  };
+}
+
 // ============================================================================
 // CLIENT COMPONENT
 // ============================================================================
@@ -132,6 +149,16 @@ export function _VehicleDataTable({
         const result = await getVehicleSingleFacet(columnId, params);
         if (!result) return { options: [], counts: new Map() };
         return buildEnumFacetResult(enumValues, labels, result.counts, icons);
+      },
+    []
+  );
+
+  const makeBooleanFetchFacet = useCallback(
+    (columnId: string, trueLabel: string, falseLabel: string, trueIcon: LucideIcon, falseIcon: LucideIcon) =>
+      async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getVehicleSingleFacet(columnId, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildBooleanFacetResult(trueLabel, falseLabel, trueIcon, falseIcon, result.counts);
       },
     []
   );
@@ -182,6 +209,9 @@ export function _VehicleDataTable({
       'created_at',
       'checklist_count',
       'last_checklist_date',
+      'has_certification',
+      'certification_expiration_date',
+      'certification_number',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -300,6 +330,13 @@ export function _VehicleDataTable({
         ),
       },
 
+      // has_certification (boolean)
+      {
+        columnId: 'has_certification',
+        title: 'Posee certificación',
+        fetchFacet: makeBooleanFetchFacet('has_certification', 'Sí', 'No', Check, X),
+      },
+
       // Filtros de texto libre por columna
       {
         columnId: 'domain',
@@ -367,6 +404,12 @@ export function _VehicleDataTable({
         type: 'text' as const,
         placeholder: 'Ej: 0 = sin checklist...',
       },
+      {
+        columnId: 'certification_number',
+        title: 'N° de certificación',
+        type: 'text' as const,
+        placeholder: 'Buscar por N° de certificación...',
+      },
 
       // Filtros de rango de fechas
       {
@@ -394,8 +437,13 @@ export function _VehicleDataTable({
         title: 'Último Checklist',
         type: 'dateRange' as const,
       },
+      {
+        columnId: 'certification_expiration_date',
+        title: 'Vencimiento de certificación',
+        type: 'dateRange' as const,
+      },
     ],
-    [makeFkFetchFacet, makeEnumFetchFacet]
+    [makeFkFetchFacet, makeEnumFetchFacet, makeBooleanFetchFacet]
   );
 
   // ─── Botón "Nuevo vehículo" protegido por permisos ────────────────────────
@@ -451,6 +499,8 @@ export function _VehicleDataTable({
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           price: (val) => (val != null ? String(val) : ''),
           last_checklist_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          has_certification: (val) => (val ? 'Sí' : 'No'),
+          certification_expiration_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
         },
       }}
     />

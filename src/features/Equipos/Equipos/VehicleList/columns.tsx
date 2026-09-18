@@ -13,7 +13,7 @@ import {
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, CheckCircle2, Clock, Wrench, XCircle } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, Clock, Wrench, X, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import React from 'react';
@@ -62,6 +62,8 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = [
   'reason_for_termination',
   'termination_date',
   'created_at',
+  'certification_expiration_date',
+  'certification_number',
 ];
 
 // ============================================================================
@@ -214,6 +216,50 @@ export const columns: ColumnDef<VehicleListItem>[] = [
       if (val == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(val as string);
     },
+  },
+
+  // ─── Posee certificación (boolean) ───────────────────────────────────────
+  {
+    accessorKey: 'has_certification',
+    id: 'has_certification',
+    meta: { title: 'Posee certificación' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Posee certificación" />,
+    cell: ({ row }) =>
+      row.original.has_certification ? (
+        <Badge variant="success" className="flex w-fit items-center gap-1">
+          <Check className="h-3 w-3" />
+          Sí
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="flex w-fit items-center gap-1 opacity-60">
+          <X className="h-3 w-3" />
+          No
+        </Badge>
+      ),
+    filterFn: (row, id, value: string[]) => {
+      return value.includes(String(row.getValue(id)));
+    },
+  },
+
+  // ─── Vencimiento de certificación — OCULTA POR DEFAULT ───────────────────
+  {
+    accessorKey: 'certification_expiration_date',
+    meta: { title: 'Vencimiento de certificación' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento de certificación" />,
+    cell: ({ row }) =>
+      row.original.certification_expiration_date ? (
+        <span>{moment(row.original.certification_expiration_date).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
+  // ─── N° de certificación — OCULTA POR DEFAULT ────────────────────────────
+  {
+    accessorKey: 'certification_number',
+    meta: { title: 'N° de certificación' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="N° de certificación" />,
+    cell: ({ row }) => <span>{row.original.certification_number ?? '-'}</span>,
   },
 
   // ─── Cantidad de Checklist (virtual — ticket 685) ─────────────────────────

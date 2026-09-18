@@ -84,6 +84,12 @@ const vehicleSchema = z
     contract_expiration_date: z.date().optional().nullable(),
     contract_start_date: z.date().optional().nullable(),
     contract_number: z.string().optional().nullable(),
+    // Certificacion del equipo (ticket 727, idem equipamientos). Los dos datos
+    // dependientes son opcionales en la base y se vuelven obligatorios cuando
+    // `has_certification` esta en true (ver el superRefine de abajo).
+    has_certification: z.boolean().default(false),
+    certification_expiration_date: z.date().optional().nullable(),
+    certification_number: z.string().optional().nullable(),
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
@@ -94,6 +100,24 @@ const vehicleSchema = z
     // Price Data
     price: z.number().positive('El precio debe ser mayor a 0').optional(),
     currency: z.enum(['USD', 'EUR', 'GBP', 'ARS']).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Si el equipo posee certificacion, sus dos datos son obligatorios (idem equipamientos)
+    if (!data.has_certification) return;
+    if (!data.certification_expiration_date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'La fecha de vencimiento de la certificación es requerida',
+        path: ['certification_expiration_date'],
+      });
+    }
+    if (!data.certification_number?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'El número de certificación es requerido',
+        path: ['certification_number'],
+      });
+    }
   })
   .refine(
     (data) => {
@@ -221,15 +245,26 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
     submitLockRef.current = true;
     setIsSubmitting(true);
     let createdVehicleId;
+    // La fecha de certificacion viaja como 'YYYY-MM-DD' (formateada en la zona del navegador),
+    // igual que en equipamientos. Si viajara como Date, un navegador al este de UTC la
+    // serializa como el dia anterior (medianoche local del 15 = 14 a las 23:00 UTC) y la
+    // columna DATE guarda un dia menos.
+    const payload = {
+      ...data,
+      certification_expiration_date:
+        data.has_certification && data.certification_expiration_date
+          ? moment(data.certification_expiration_date).format('YYYY-MM-DD')
+          : null,
+    };
     try {
       if (mode === 'new') {
-        const result = await createVehicle(data);
+        const result = await createVehicle(payload);
         if (result?.id) {
           createdVehicleId = result.id;
         }
         toast.success('Equipo creado correctamente');
       } else {
-        await updateVehicle(vehicleId!, data);
+        await updateVehicle(vehicleId!, payload);
         toast.success('Equipo actualizado correctamente');
       }
       // El boton queda deshabilitado a proposito: la navegacion a la vista de detalle
@@ -273,6 +308,11 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
         : null,
       contract_start_date: vehicle?.contract_start_date ? moment(vehicle.contract_start_date).toDate() : null,
       contract_number: vehicle?.contract_number || '',
+      has_certification: vehicle?.has_certification ?? false,
+      certification_expiration_date: vehicle?.certification_expiration_date
+        ? moment(vehicle.certification_expiration_date).toDate()
+        : null,
+      certification_number: vehicle?.certification_number ?? null,
       price: vehicle?.price || undefined,
       currency: vehicle?.currency || 'USD',
     },
