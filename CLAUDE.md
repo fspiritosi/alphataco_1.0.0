@@ -460,7 +460,7 @@ Regla del usuario, absoluta: **solo se modifica lo que el ticket o el video de l
 
 En el 594 esto aplicó dos veces: la pantalla **Equipos → Mantenimiento** (`EquiposComponent` → `RepairTypes` → `OperacionesTabContent`) monta un pipeline viejo con su propia tabla "Para Taller" y `BaseDataTable` (sistema deprecado); como el video solo habla del módulo Mantenimiento, no se tocó. Y la tabla de Seguimiento usa el patrón **bulk** de facets (`getXxxFacets` + `externalCounts`), deprecado a favor de `fetchFacet` lazy-load: se respetó el patrón existente en vez de migrarla.
 
-**Cuando aparezca una duda de alcance y exista un video de la reunión, la respuesta está ahí — hay que buscarla, no resolverla por criterio propio ni preguntar de entrada.** Cómo buscarla bien:
+**Cuando aparezca una duda de alcance y exista un video de la reunión, la respuesta está ahí — hay que buscarla, no resolverla por criterio propio ni preguntar de entrada.** Pero **"exista" lo dice el usuario, no yo**: no salir a rastrear `CodeControl\_reuniones` ni otras carpetas por iniciativa propia para ver si hay un video del ticket. En el 727 lo hice (y además me cambié de directorio de trabajo con un `cd` que quedó persistido) y el usuario lo cortó: _"no hay, si llega a haber yo te aviso"_. Si el ticket no trae análisis y el usuario no mencionó reunión, el alcance sale del texto del ticket y lo que quede abierto se pregunta. Cómo buscarla bien, cuando el usuario indica que hay video:
 
 1. **Barrido de keywords sobre el transcript completo** (`elimin|borr|sacar|volar|desaparec|limpi|queda|dejar` + el nombre de la pantalla), no solo del tramo que uno cree relevante.
 2. **Re-transcribir el tramo dudoso con `whisper-large-v3`** (no el turbo) pasando `language=es`, `temperature=0` y un `prompt` con la jerga del dominio. La diferencia es enorme: el turbo devolvió _"pendiente de ingresos de ayer"_ y _"que no ocurre a mí"_ donde en realidad decía _"pendiente de ingreso a taller"_ y _"se me ocurre a mí"_.
@@ -546,6 +546,30 @@ Dos errores en la misma tanda de preguntas del ticket de desvíos de "otros equi
 2. **Ofrecí cargar histórico desde una fuente externa sin haber verificado que aportara algo.** El usuario propuso sacar los mails de Thunderbird; al mirar el mbox, los 192 mails cubrían **exactamente** el rango 2026-02-05 → 2026-08-18 que la migración del 578 ya había cargado, y no había ninguno anterior. El trabajo habría sido cero. La verificación (localizar el archivo, contar los mails, comparar el rango contra lo que ya está en la BD) cuesta minutos y tiene que ir **antes** de plantear el plan, no después.
 
 **Cómo aplicarlo:** cuando el usuario propone una fuente de datos externa (una casilla de correo, un export, un PDF), primero medir qué cubre y contrastarlo con lo que ya está cargado; recién entonces proponer qué hacer con ella. Y al preguntar, que cada pregunta sea sobre algo genuinamente abierto.
+
+### Agregar o modificar un trigger: auditar el grafo completo y MEDIR antes de escribirlo
+
+Un trigger nuevo no se agrega "porque falta". Antes hay que mapear el grafo completo de disparos de las tablas involucradas y medir el costo, porque el riesgo no está donde parece. En el 712 iba a agregar un `AFTER DELETE` sobre `documents_employees` y el usuario me frenó: _"los triggers pueden afectar negativamente muchas cosas, auto llamados en bucle, muchas ejecuciones sin querer, problemas en otras funcionalidades"_. Tenía razón y la auditoría cambió el diseño.
+
+**Qué verificar, en este orden:**
+
+1. **Ciclos**: qué escribe la función del trigger, y si esa escritura puede volver a disparar algo que toque la tabla original. Se verifica sobre la BASE VIVA (`pg_trigger` + `pg_get_functiondef`), no sobre las migraciones — puede haber triggers viejos sin dropear. En este proyecto la protección es la guarda `WHEN` con lista explícita de columnas: `status` no está en la de `controlar_alertas_employees`/`_vehicles`, y por eso escribir `status` no reabre la cadena. Hay además un flag de sesión (`myapp.inside_controlar_alertas`) como segunda barrera.
+2. **Cuántas veces se dispara de verdad**: un trigger **statement-level se dispara aunque la sentencia afecte 0 filas**. Si hay un `DELETE`/`UPDATE` dentro de un `FOR ... LOOP` de plpgsql, son N disparos por recurso (en el 712: 40 tipos obligatorios de Persona → ~80 sentencias por empleado → ~10.400 disparos al afectar 260 empleados a un cliente).
+3. **Medir antes y después, y con/sin el trigger**: la medición base (`clock_timestamp() - statement_timestamp()` sobre el flujo real, no `EXPLAIN` de una query aislada) es lo que convierte la discusión en datos. Para aislar el costo del trigger: `BEGIN; ALTER TABLE x DISABLE TRIGGER y; ...medir...; ROLLBACK;` alternando corridas.
+
+**Mitigar en el diseño, no aceptar la carga:** (a) early-return en la función del trigger (`SELECT array_agg(...) INTO ids FROM affected_rows; IF ids IS NULL THEN RETURN NULL;`) para que los disparos vacíos cuesten nada; (b) que el `UPDATE` solo escriba lo que cambia (`WHERE t.col IS DISTINCT FROM calc.nuevo`), así un recálculo redundante no genera WAL ni despierta otros triggers; (c) sacar las escrituras de dentro del loop — que el loop solo CLASIFIQUE en arrays (`v_archivar`, `v_desarchivar`, …) y las sentencias se ejecuten agrupadas al final. En el 712 eso bajó de 80 sentencias a 4 por recurso y el flujo terminó **22% más rápido que antes** (21,8 → 17,0 ms por recurso) pese a sumar un trigger.
+
+**Probar la equivalencia con datos reales, en transacción descartada.** `BEGIN; ...; ROLLBACK;` permite correr la función reescrita sobre TODA la tabla y comparar un snapshot antes/después (filas creadas, borradas, cambios de estado y de archivo). En el 712 dio 0 diferencias sobre 11.627 documentos y 3 cambios de vigencia que hubo que justificar uno por uno. **Ojo con los proxies al justificar**: evalué "¿cumple la condición?" mirando `conditions[0].values` sobre `company_position` y me dio un falso negativo que parecía un bug — el tipo tenía 2 conditions y una era una relación M:M. La condición real solo la dice `build_employee_where_alias`. Y probar los `ON DELETE CASCADE`: borrar un `document_type` arrastra cientos de documentos en una sola sentencia.
+
+Extiende [[cambiar guardas/triggers row-level]] y [[analizar impacto en lo vinculado]].
+
+### Una columna calculada con la misma regla escrita en varios lugares va a divergir
+
+El bug del 712 fue eso: `employees.status` / `vehicles.status` se calculaba con TRES fórmulas distintas (el trigger de documentos, las dos funciones SQL de reconciliación por recurso, y `recalculateResourceStatus` en TypeScript), y dos estaban mal. Una contaba como faltantes los tipos de documento especiales que no le corresponden al recurso — así que **no podía devolver 'Completo' nunca**: verificado en PROD, 0 de 583 empleados activos y 0 de 349 equipos. La otra era igual pero además sin filtrar `archived_at`, y los documentos archivados vencidos marcaban "Completo con doc vencida" falso.
+
+El síntoma para el usuario era intermitente y por eso difícil: al subir un documento corría la fórmula correcta y el legajo se arreglaba solo; al editar el empleado o afectarlo a un cliente corría la rota y quedaba "Incompleto" pegado. Un reclamo del tipo _"en unos casos se corrige solo y en este no"_ es la firma de dos fórmulas compitiendo, no de un dato corrupto.
+
+**Cómo detectarlo:** cuando un valor guardado parece desactualizado, no alcanza con recalcularlo — hay que buscar TODOS los lugares que lo escriben (grep del nombre de la columna, `SET <col>`, y las funciones de la BD con `pg_get_functiondef`) y comparar las fórmulas entre sí. **Cómo cerrarlo:** una sola función (acá una función SQL que reciben `uuid[]` + tipo de recurso) que llamen todos los escritores, incluido el TypeScript. Dejar copias "porque el cambio es más chico" es reproducir la causa raíz.
 
 ---
 

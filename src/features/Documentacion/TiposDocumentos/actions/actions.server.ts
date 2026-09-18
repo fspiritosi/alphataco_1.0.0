@@ -1298,6 +1298,15 @@ export async function fixDocumentTypeConsistency(
 /**
  * Recalcula el status de un conjunto de recursos (empleados o equipos) dentro de una transacción.
  * Helper interno — no exportado.
+ *
+ * Ticket 712: delega en la función SQL `recalcular_status_documentacion`, que es la
+ * única definición del status de documentación (la misma que usan el trigger de
+ * documentos y las funciones de reconciliación por recurso). Antes esta función
+ * tenía su propia copia de la fórmula, que contaba como faltantes los tipos
+ * especiales que no le corresponden al recurso y no filtraba los archivados, por
+ * lo que nunca podía dar 'Completo'.
+ *
+ * Retorna void en SQL, por lo que se invoca con `$executeRaw*` y NO con `$queryRaw*`.
  */
 async function recalculateResourceStatus(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
@@ -1306,51 +1315,11 @@ async function recalculateResourceStatus(
 ) {
   if (resourceIds.length === 0) return;
 
-  if (resourceType === 'Persona') {
-    await tx.$executeRawUnsafe(
-      `
-      UPDATE employees SET status = CASE
-        WHEN EXISTS (
-          SELECT 1 FROM documents_employees de
-          WHERE de.applies = employees.id AND de.state = 'vencido'
-        ) THEN 'Completo con doc vencida'::status_type
-        WHEN EXISTS (
-          SELECT 1 FROM document_types dt
-          WHERE dt.mandatory = true AND dt.applies = 'Persona' AND dt.is_active = true
-            AND NOT EXISTS (
-              SELECT 1 FROM documents_employees de2
-              WHERE de2.id_document_types = dt.id AND de2.applies = employees.id
-            )
-        ) THEN 'Incompleto'::status_type
-        ELSE 'Completo'::status_type
-      END
-      WHERE employees.id = ANY($1::uuid[])
-    `,
-      resourceIds
-    );
-  } else {
-    await tx.$executeRawUnsafe(
-      `
-      UPDATE vehicles SET status = CASE
-        WHEN EXISTS (
-          SELECT 1 FROM documents_equipment de
-          WHERE de.applies = vehicles.id AND de.state = 'vencido'
-        ) THEN 'Completo con doc vencida'::status_type
-        WHEN EXISTS (
-          SELECT 1 FROM document_types dt
-          WHERE dt.mandatory = true AND dt.applies = 'Equipos' AND dt.is_active = true
-            AND NOT EXISTS (
-              SELECT 1 FROM documents_equipment de2
-              WHERE de2.id_document_types = dt.id AND de2.applies = vehicles.id
-            )
-        ) THEN 'Incompleto'::status_type
-        ELSE 'Completo'::status_type
-      END
-      WHERE vehicles.id = ANY($1::uuid[])
-    `,
-      resourceIds
-    );
-  }
+  await tx.$executeRawUnsafe(
+    `SELECT public.recalcular_status_documentacion($1::uuid[], $2::text)`,
+    resourceIds,
+    resourceType
+  );
 }
 
 /**
