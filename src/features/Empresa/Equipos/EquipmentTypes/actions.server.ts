@@ -390,6 +390,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
         is_operative: formData.applies_to === 'other_equipment' ? formData.is_operative : false,
         is_tractor_unit: formData.is_tractor_unit,
         has_hitch: formData.is_tractor_unit ? formData.has_hitch : false,
+        company_id: await getActiveCompanyId(),
       },
       select: { id: true },
     });

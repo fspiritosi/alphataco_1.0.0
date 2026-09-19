@@ -362,7 +362,7 @@ export async function getWorkOrderTasks(workOrderId: string) {
         select: { id: true, order_number: true, status: true },
       }),
       prisma.maintenance_order_items.findMany({
-        where: { work_order_id: workOrderId },
+        where: { work_order_id: workOrderId, work_orders: { company_id: companyId } },
         orderBy: [{ is_critical: 'desc' }, { created_at: 'asc' }],
         select: {
           id: true,

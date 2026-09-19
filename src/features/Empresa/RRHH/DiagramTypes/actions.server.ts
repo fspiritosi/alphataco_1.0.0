@@ -11,7 +11,8 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
-import { cookies } from 'next/headers';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -31,17 +32,6 @@ const VALID_SORT_FIELDS = new Set([
   'computes_absenteeism',
   'created_at',
 ]);
-
-// ============================================================================
-// company_id helper — leer de cookie (sin filtrar por empresa según la regla del proyecto)
-// NOTA: El schema tiene company_id pero la regla del proyecto es NO filtrar por company_id
-// Igualmente se lee para usarlo en las mutaciones de creación
-// ============================================================================
-
-async function getCompanyId(): Promise<string | null> {
-  const cookiesStore = await cookies();
-  return cookiesStore.get('actualComp')?.value ?? null;
-}
 
 // ============================================================================
 // WHERE BUILDER — DRY helper compartido por paginated, export y facets
@@ -120,7 +110,8 @@ export async function getDiagramTypesPaginated(searchParams: DataTableSearchPara
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const companyId = await getActiveCompanyId();
+    const where = withCompany(buildWhereClause(state), companyId);
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -166,7 +157,8 @@ export async function getDiagramTypesPaginated(searchParams: DataTableSearchPara
 export async function getAllDiagramTypesForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const companyId = await getActiveCompanyId();
+    const where = withCompany(buildWhereClause(state), companyId);
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -218,7 +210,8 @@ export async function getDiagramTypeSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const companyId = await getActiveCompanyId();
+    const crossWhere = withCompany(buildWhereClause(crossState), companyId);
 
     switch (columnId) {
       case 'work_active': {
@@ -311,8 +304,7 @@ export async function createDiagramTypePrisma(data: {
   computes_absenteeism: boolean;
 }) {
   try {
-    const company_id = await getCompanyId();
-    if (!company_id) throw new Error('No se encontró la empresa activa');
+    const company_id = await getActiveCompanyId();
 
     const result = await prisma.diagram_type.create({
       data: {

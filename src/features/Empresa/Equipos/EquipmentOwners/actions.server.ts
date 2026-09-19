@@ -660,6 +660,7 @@ export async function createEquipmentOwnerPrisma(data: {
         name: data.name,
         is_active: data.is_active,
         cuit: data.cuit,
+        company_id: await getActiveCompanyId(),
         // Campo legacy requerido por el schema: usar el primero de la lista
         contract_type: data.contract_types[0] as 'Leasing' | 'Alquiler' | 'Prendado',
         equipment_owner_contract_types: {
