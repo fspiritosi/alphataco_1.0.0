@@ -630,6 +630,27 @@ Relevadas en Task 3.3 (los 29 archivos `*.server.ts`/`*Server.ts` con `findMany`
 
 Decisión de producto pendiente: si alphataco es multi-empresa real, estas tablas necesitan columna `company_id` + backfill (Fase 4, por carpeta); si no, se documenta que son globales.
 
+#### Modelos con company_id aún sin filtrar (backfill pendiente, Fase 4)
+
+Estos modelos **sí tienen** columna `company_id` (nullable), pero sus listados siguen sin `withCompany` porque las filas históricas la tienen en `NULL`: filtrar hoy las haría desaparecer de la UI.
+
+| Modelo | Archivo | Motivo |
+| --- | --- | --- |
+| `brand_vehicles` | `Empresa/Equipos/EquipmentBrands/actions.server.ts` (listado, export y facets) | Altas históricas con `company_id NULL` |
+| `type` | `Empresa/Equipos/EquipmentTypes/actions.server.ts` (listado, export y facets) | Altas históricas con `company_id NULL` |
+| `equipment_owners` | `Empresa/Equipos/EquipmentOwners/actions.server.ts` (listado, export y facets) | Altas históricas con `company_id NULL` |
+| `workshops` | `Mantenimiento/OrderManagement/actions/actionsServer.ts:383` (`getActiveExternalWorkshops`) | Altas históricas con `company_id NULL` |
+
+Las altas setean `company_id` desde Fase 3; falta backfill `UPDATE ... SET company_id = <empresa> WHERE company_id IS NULL` antes de filtrar.
+
+#### Regla ESLint `no-restricted-syntax` (actualComp)
+
+Es documental hasta la Fase 7: el repo tiene ESLint 9 sin flat config (`.eslintrc.json` legacy, sin script `lint`; CI corre sólo `check-types` + `test` y lint-staged sólo `prettier`), así que ningún script/CI/hook la ejecuta. Al activarla hay ~113 usos de `.get('actualComp')` en actions (`/actions/`, `*.server.ts`, `*Server.ts`, `*.actions.ts`; medido 2026-09-19) que migrar (Fase 4, por carpeta).
+
+#### NoActiveCompanyError sin manejo
+
+Un usuario logueado sin empresa (sin `app_metadata.company` ni cookie `actualComp`) hoy cae en el `error.tsx` genérico del dashboard, porque `getActiveCompanyId()` lanza `NoActiveCompanyError` y nadie la captura. En Fase 4.13 (pages → features) agregar en el layout del dashboard un catch que redirija a `/dashboard/company/new`.
+
 ---
 
 ## Fase 4 — Migración Supabase → Prisma por carpeta (+ eliminación de `any`)
