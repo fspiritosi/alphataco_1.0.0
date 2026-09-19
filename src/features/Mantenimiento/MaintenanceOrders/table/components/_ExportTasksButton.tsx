@@ -15,7 +15,10 @@
 
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { WORK_ORDER_ITEM_STATUS_LABELS, type WorkOrderItemStatus } from '@/features/Mantenimiento/shared/work-order-types';
+import {
+  WORK_ORDER_ITEM_STATUS_LABELS,
+  type WorkOrderItemStatus,
+} from '@/features/Mantenimiento/shared/work-order-types';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
 import { exportToExcel, type ExcelColumn } from '@/shared/lib/excel-export';
 import { typeOfMaintenanceLabels } from '@/shared/utils/mappers';

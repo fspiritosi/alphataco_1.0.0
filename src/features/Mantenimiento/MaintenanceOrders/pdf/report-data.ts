@@ -40,17 +40,17 @@
  */
 
 import {
-  WORK_ORDER_ITEM_STATUS_LABELS,
-  WORK_ORDER_PRIORITY_LABELS,
-  type WorkOrderItemStatus,
-  type WorkOrderPriority,
-} from '@/features/Mantenimiento/shared/work-order-types';
-import {
   getMoStatusConfig,
   getWoStatusConfig,
 } from '@/features/Mantenimiento/WorkshopView/WorkshopSectorTasksTable/work-order-status';
 import { getResourceKindLabel } from '@/features/Mantenimiento/shared/maintenance-resource';
 import { PREVENTIVE_TYPES, SOURCE_LABELS_EXTENDED } from '@/features/Mantenimiento/shared/preventive-maintenance';
+import {
+  WORK_ORDER_ITEM_STATUS_LABELS,
+  WORK_ORDER_PRIORITY_LABELS,
+  type WorkOrderItemStatus,
+  type WorkOrderPriority,
+} from '@/features/Mantenimiento/shared/work-order-types';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
