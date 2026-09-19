@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import CustomerEquipmentTabWrapper from '@/features/Comercial/Comerce/components/CustomerEquipmentTabWrapper';
 import CustomerTabWrapper from '@/features/Comercial/Comerce/components/CustomerTabWrapper';
 import DataCustomersWrapper from '@/features/Comercial/Comerce/components/DataCustomersWrapper';
-import DayliReportWraper from '@/features/Comercial/Comerce/components/DayliReportWraper';
+import DailyReportWrapper from '@/features/Comercial/Comerce/components/DailyReportWrapper';
 import MensureUnitsWrapper from '@/features/Comercial/Comerce/components/MensureUnitsWrapper';
 import SectorTabsWrapper from '@/features/Comercial/Comerce/components/SectorTabsWrapper';
 import ServiceComponentWrapper from '@/features/Comercial/Comerce/components/ServiceComponentWrapper';
@@ -132,7 +132,7 @@ export default function ComerceTabContent({
           tabSlug: 'daily_reports',
           content: (
             <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-              <DayliReportWraper />
+              <DailyReportWrapper />
             </Suspense>
           ),
         },

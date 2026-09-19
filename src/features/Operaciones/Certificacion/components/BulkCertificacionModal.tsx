@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { transformDailyReports } from '@/features/Comercial/Comerce/components/DayliReportWraper';
+import { transformDailyReports } from '@/features/Comercial/Comerce/components/DailyReportWrapper';
 import { updateDailyReportStatusAndRemitNumberClient } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
