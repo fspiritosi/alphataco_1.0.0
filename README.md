@@ -1,39 +1,7 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# alphataco
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Sistema de gestión integral (empleados, equipos, documentación, operaciones, mantenimiento, comercial). Base: Next.js 16 + Prisma 7 + Supabase.
+Ver `CLAUDE.md` para convenciones y `docs/superpowers/plans/` para planes.
 
 ## Actualizar Supabase DB
 
@@ -138,42 +106,3 @@ export interface VehiclesWithBrand extends Omit<Vehicles, 'brand'> {
   brand: Brand; // Relación con la tabla de marcas
 }
 ```
-
-## 📋 Licencia
-
-**Software Propietario - Todos los derechos reservados**
-
-- **Propietario:** Grupo Horizonte SRL
-- **Desarrollador:** Codecontrol SAS
-- **Uso:** Exclusivo interno de Grupo Horizonte SRL
-
-Este software y su código fuente son propiedad exclusiva de Grupo Horizonte SRL. 
-
-### ⚠️ Restricciones
-
-Este repositorio contiene código propietario. Queda **estrictamente prohibido**:
-
-- ❌ Copiar, modificar o distribuir el código
-- ❌ Usar el software fuera de Grupo Horizonte SRL
-- ❌ Realizar ingeniería inversa
-- ❌ Crear obras derivadas
-- ❌ Compartir o divulgar el código fuente
-
-### 📜 Marco Legal
-
-Protegido por las leyes argentinas:
-- Ley 11.723 de Propiedad Intelectual
-- Ley 25.036 de Software
-- Código Civil y Comercial de la Nación
-
-### 📞 Contacto
-
-**Grupo Horizonte SRL**  
-[Información de contacto]
-
-**Soporte Técnico - Codecontrol SAS**  
-ventas@codecontrol.com.ar
-
----
-
-Copyright © 2025 Grupo Horizonte SRL. Todos los derechos reservados.
