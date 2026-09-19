@@ -622,7 +622,7 @@ export function withCompany<T extends object>(where: T | undefined, companyId: s
 | 4.5 | `src/features/Equipos/EquipoID/lib/actions/vehicle-actions.ts` y resto de Equipos | 13 | 45 | `toggleVehicleStatus(vehicleData: any)`, `createVehicle`, `updateVehicle`. Tipar con `Prisma.vehiclesCreateInput`. |
 | 4.6 | `src/features/Documentacion/**` | 13 | 27 | Unificar `SimpleDocument` y `UploadDocumentMulti*` en un único flujo (`uploadMultiResourceDocument` con N=1). |
 | 4.7 | `src/features/Mantenimiento/**` + `OperatorPanel` + `Checklist` | 15 | 41 | Tras Fase 2 queda menos. |
-| 4.8 | `src/features/Operaciones/**` | 6 | 60 | `preparte.ts` (update masivo en Supabase → `prisma.preparte.updateMany`), `actions.ts`. |
+| 4.8 | `src/features/Operaciones/**` | 6 | 60 | `preparte.ts` (update masivo en Supabase → `prisma.preparte.updateMany`), `actions.ts`. `Operaciones/Certificacion/actions/actions.ts` usa `supabaseBrowser()` en un archivo de actions — migrar a server action Prisma (`bulkCertifyRows`). |
 | 4.9 | `src/features/Formularios/**` | 7 | 65 | `checklist-actions.ts`. Separar en `Formularios` (custom_form) y `Checklists` (templates) como features distintas. |
 | 4.10 | `src/features/Dashboard/**`, `Layout`, `Comercial`, `Clothing`, `Ayuda` | 3+2+1+2+2 | 11+2+21 | Chicos; cerrar la fase. |
 | 4.11 | `src/features/Permissions/**` + `UserPermissionsManager` | 2 | 19 | RPC se queda; CRUD de roles/tabs pasa a Prisma. Unificar `Permissions/actions.ts` con `UserPermissionsManager/actions.server.ts` (una sola capa). |
