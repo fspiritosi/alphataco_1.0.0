@@ -158,11 +158,6 @@ export function EquipmentRow({ vehicle, daysElapsed }: EquipmentRowProps) {
                         · {workflows.workOrders} orden{workflows.workOrders === 1 ? '' : 'es'} de trabajo
                       </li>
                     )}
-                    {workflows.repairs > 0 && (
-                      <li>
-                        · {workflows.repairs} solicitud{workflows.repairs === 1 ? '' : 'es'} de reparación
-                      </li>
-                    )}
                   </ul>
                 </TooltipContent>
               </Tooltip>

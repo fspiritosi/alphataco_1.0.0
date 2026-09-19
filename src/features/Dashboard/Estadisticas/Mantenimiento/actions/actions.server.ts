@@ -3,7 +3,6 @@
 import {
   contract_type_vehicles_enum,
   daily_report_status,
-  repair_state,
   type_of_maintenance_ENUM,
   work_order_item_status,
   work_order_status,
@@ -47,11 +46,6 @@ const CONTRACT_TYPES_BY_CATEGORY: Record<OwnershipCategory, contract_type_vehicl
 // Estados terminales de los workflows. Todo lo no terminal cuenta como "abierto".
 const TERMINAL_REQUEST_STATUSES = ['rejected', 'completed', 'cancelled'];
 const TERMINAL_ORDER_STATUSES = ['cancelled', 'completed'];
-const TERMINAL_REPAIR_STATES: repair_state[] = [
-  repair_state.Finalizado,
-  repair_state.Rechazado,
-  repair_state.Cancelado,
-];
 const TERMINAL_WORK_ORDER_STATUSES: work_order_status[] = [
   work_order_status.completed,
   work_order_status.cancelled,
@@ -277,7 +271,6 @@ export async function getMaintenanceCategoryVehicles(
             select: {
               maintenance_requests: { where: { status: { notIn: TERMINAL_REQUEST_STATUSES } } },
               maintenance_orders: { where: { status: { notIn: TERMINAL_ORDER_STATUSES } } },
-              repair_solicitudes: { where: { state: { notIn: TERMINAL_REPAIR_STATES } } },
               work_orders: { where: { status: { notIn: TERMINAL_WORK_ORDER_STATUSES } } },
             },
           },
@@ -327,7 +320,6 @@ export async function getMaintenanceCategoryVehicles(
     const vehicles: MaintenanceVehicle[] = vehiclesRaw.map((v) => {
       const requests = v._count.maintenance_requests;
       const orders = v._count.maintenance_orders;
-      const repairs = v._count.repair_solicitudes;
       const workOrders = v._count.work_orders;
       // condition es nullable pero por defecto es 'operativo'. Si llega null, asumimos operativo.
       const status: VehicleStatus = (v.condition as VehicleStatus | null) ?? 'operativo';
@@ -343,10 +335,9 @@ export async function getMaintenanceCategoryVehicles(
         subTypeName: v.sub_type?.name ?? null,
         status,
         workflows: {
-          total: requests + orders + repairs + workOrders,
+          total: requests + orders + workOrders,
           requests,
           orders,
-          repairs,
           workOrders,
         },
         workedDays: daysByVehicle.get(v.id)?.size ?? 0,
@@ -422,7 +413,6 @@ export async function getMaintenanceByTypeForMonth(monthKey: string): Promise<Ma
           select: {
             maintenance_requests: { where: { status: { notIn: TERMINAL_REQUEST_STATUSES } } },
             maintenance_orders: { where: { status: { notIn: TERMINAL_ORDER_STATUSES } } },
-            repair_solicitudes: { where: { state: { notIn: TERMINAL_REPAIR_STATES } } },
             work_orders: { where: { status: { notIn: TERMINAL_WORK_ORDER_STATUSES } } },
           },
         },
@@ -443,7 +433,6 @@ export async function getMaintenanceByTypeForMonth(monthKey: string): Promise<Ma
       const openCount =
         v._count.maintenance_requests +
         v._count.maintenance_orders +
-        v._count.repair_solicitudes +
         v._count.work_orders;
       group.vehicles.push({
         id: v.id,

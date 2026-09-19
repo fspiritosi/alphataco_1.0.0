@@ -49,7 +49,6 @@ export type MaintenanceVehicleWorkflows = {
   total: number;
   requests: number;
   orders: number;
-  repairs: number;
   workOrders: number;
 };
 
