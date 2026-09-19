@@ -20,6 +20,7 @@ import Cookies from 'js-cookie';
 import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { CompanySelectorProps } from '../../types/navbar.types';
 
 export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany }: CompanySelectorProps) {
@@ -32,14 +33,17 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
   const totalCompanies = [...sharedCompanies, ...allCompanies];
 
   const handleNewCompany = async (company: Company) => {
-    if (company.id) {
-      Cookies.set('actualComp', company.id);
-      Cookies.set('actualCompName', company.company_name);
-      await setNewCompanyUserMetadata(company.id);
-      setSelectedCompany(company);
-      setOpen(false);
-      location.reload();
+    if (!company.id) return;
+    const result = await setNewCompanyUserMetadata(company.id);
+    if (!result.ok) {
+      toast.error(result.error ?? 'No se pudo cambiar de empresa');
+      return;
     }
+    Cookies.set('actualComp', company.id);
+    Cookies.set('actualCompName', company.company_name);
+    setSelectedCompany(company);
+    setOpen(false);
+    location.reload();
   };
 
   const groups = [
