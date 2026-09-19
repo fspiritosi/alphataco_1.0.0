@@ -25,7 +25,7 @@ import {
 import {
   transformDailyReports,
   transformDailyReportsType,
-} from '../../../../../Comercial/Comerce/components/DayliReportWraper';
+} from '@/features/Comercial/Comerce/components/DayliReportWraper';
 
 // Tipo extendido para columnas con propiedades adicionales de exportación
 type ExtendedColumnDef<TData> = ColumnDef<TData> & {

@@ -11,7 +11,7 @@ import {
   getFilteredDailyReportRowsType,
   getServicesByCustomer,
   type Service,
-} from '@/features/Empresa/Clientes/components/operations/actions/actions';
+} from '@/features/Operaciones/Certificacion/actions/actions';
 import { getCustomers } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
@@ -20,9 +20,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Filter, Search, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import { DailyReportRowFormRefactored } from '../../../Empresa/Clientes/components/operations/components/DailyReportRowFormRefactored';
-import EnhancedComercialReportTable from '../../../Empresa/Clientes/components/operations/components/EnhancedComercialReportTable';
-import { useFilterOptions } from '../../../Empresa/Clientes/components/operations/hooks/useFilterOptions';
+import { DailyReportRowFormRefactored } from '@/features/Operaciones/Certificacion/components/DailyReportRowFormRefactored';
+import EnhancedComercialReportTable from '@/features/Operaciones/Certificacion/components/EnhancedComercialReportTable';
+import { useFilterOptions } from '@/features/Operaciones/Certificacion/hooks/useFilterOptions';
 
 interface ReportFilters {
   customer?: string[];
