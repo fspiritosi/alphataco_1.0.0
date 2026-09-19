@@ -317,7 +317,7 @@ git add prisma
 git commit -m "chore(db): eliminar tabla hired_modules sin consumidores"
 ```
 
-**Criterio de terminado Fase 1:** `api_routes` ≤ 34, `check-types` verde, E2E igual o mejor que baseline, PR mergeado.
+**Criterio de terminado Fase 1:** `api_routes` ≤ 33, `check-types` verde, E2E igual o mejor que baseline, PR mergeado.
 
 ---
 
@@ -614,8 +614,8 @@ export function withCompany<T extends object>(where: T | undefined, companyId: s
 |---|---|---|---|---|
 | 4.1 | `src/shared/actions/document-actions.ts` y `src/shared/**` | 18 | — | `fetchAllDocumentTypes`, `getDocument*ById` con `select('*')`. Base para todo lo documental. |
 | 4.2 | `src/features/Empresa/Clientes/actions/*` | (parte de 54) | (parte de 320) | `customer.ts`, `service.ts` (server) y `services.ts`, `itemsService.ts` (**browser en actions**). Unificar en `Clientes/actions/*.server.ts` con Prisma. |
-| 4.3 | Resto de `src/features/Empresa/**` | 54 total | 320 total | Subcarpetas General, Usuarios, RRHH, Equipos, CCT (mover mutaciones fuera de componentes), Contactos, AccesosExternos. Una sub-fase por subcarpeta. |
-| 4.4 | `src/features/Employees/Diagrams/**` | 14 (Employees) | 69 (Employees) | `diagram-mutations.ts`, `diagram-queries.ts`, `action.ts`, `supabase-query.ts` → Prisma; ya existen `diagram-massive-actions.ts`/`diagram-search-actions.ts` como referencia. Después el resto de Employees. |
+| 4.3 | Resto de `src/features/Empresa/**` | 54 total | 320 total | Subcarpetas General, Usuarios, RRHH, Equipos, CCT (mover mutaciones fuera de componentes), Contactos, AccesosExternos. Una sub-fase por subcarpeta. **Incluye consolidar los forms legacy que la Fase 1 no pudo borrar por tener importadores vivos:** `Equipos/{brand,sub_types,types}` (forms usados por `EquipmentsTabContent.tsx` y los `_*DataTable.tsx`), `RRHH/components/{AptitudesTecnicas,verActivosButton.tsx,work-diagram-form.tsx}` — mover cada form a la carpeta nueva de su DataTable y borrar el resto. |
+| 4.4 | `src/features/Employees/Diagrams/**` | 14 (Employees) | 69 (Employees) | `diagram-mutations.ts`, `diagram-queries.ts`, `action.ts`, `supabase-query.ts` → Prisma; ya existen `diagram-massive-actions.ts`/`diagram-search-actions.ts` como referencia. `DiagramEmployeeViewCOPI.tsx` está vivo (lo importa `EmployesDiagramWrapper.tsx`): renombrarlo a `DiagramEmployeeView.tsx` y corregir el typo `Employes`. Después el resto de Employees. |
 | 4.5 | `src/features/Equipos/EquipoID/lib/actions/vehicle-actions.ts` y resto de Equipos | 13 | 45 | `toggleVehicleStatus(vehicleData: any)`, `createVehicle`, `updateVehicle`. Tipar con `Prisma.vehiclesCreateInput`. |
 | 4.6 | `src/features/Documentacion/**` | 13 | 27 | Unificar `SimpleDocument` y `UploadDocumentMulti*` en un único flujo (`uploadMultiResourceDocument` con N=1). |
 | 4.7 | `src/features/Mantenimiento/**` + `OperatorPanel` + `Checklist` | 15 | 41 | Tras Fase 2 queda menos. |
