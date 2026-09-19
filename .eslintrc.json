@@ -4,5 +4,19 @@
     "@next/next/no-img-element": "off",
     "react-hooks/exhaustive-deps": "off",
     "react-hooks/rules-of-hooks": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/features/**/actions/**", "src/features/**/*.server.ts"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.property.name='get'][arguments.0.value='actualComp']",
+            "message": "Usar getActiveCompanyId()"
+          }
+        ]
+      }
+    }
+  ]
 }

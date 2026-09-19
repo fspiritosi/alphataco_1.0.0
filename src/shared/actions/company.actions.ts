@@ -1,20 +1,14 @@
 'use server';
 
-import { getCompanyId } from '@/lib/company-config';
 import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 /**
  * Obtiene el company_id del contexto actual.
- * Usa la empresa por defecto si no hay cookie configurada.
  */
 export const getServerCompanyId = async (): Promise<string> => {
-  const cookieStore = await cookies();
-  const cookieValue = cookieStore.get('actualComp')?.value;
-
-  // Usar la función centralizada que maneja el fallback
-  return getCompanyId(cookieValue);
+  return getActiveCompanyId();
 };
 
 export const fetchCurrentCompany = async () => {

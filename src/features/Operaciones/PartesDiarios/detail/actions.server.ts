@@ -12,6 +12,7 @@ import {
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
 import { withAuditUser } from '@/shared/lib/prisma-audit';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 
 const logger = new Logger('features/Operaciones/PartesDiarios/detail');
@@ -1625,11 +1626,8 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
       throw new Error('No se encontraron las filas a clonar');
     }
 
-    // 2. Obtener company_id desde la cookie (necesario para crear dailyreport headers)
-    const { cookies } = await import('next/headers');
-    const { getCompanyId } = await import('@/lib/company-config');
-    const cookieStore = await cookies();
-    const companyId = getCompanyId(cookieStore.get('actualComp')?.value);
+    // 2. Obtener company_id activo (necesario para crear dailyreport headers)
+    const companyId = await getActiveCompanyId();
 
     // 3. Verificar qué fechas ya tienen un dailyreport
     const existingReports = await prisma.dailyreport.findMany({
@@ -1848,11 +1846,8 @@ export async function getCloneConflicts(
       }
     }
 
-    // 2. Obtener company_id desde la cookie
-    const { cookies } = await import('next/headers');
-    const { getCompanyId } = await import('@/lib/company-config');
-    const cookieStore = await cookies();
-    const companyId = getCompanyId(cookieStore.get('actualComp')?.value);
+    // 2. Obtener company_id activo
+    const companyId = await getActiveCompanyId();
 
     // 3. Resolver dailyreports destino
     const reports = await prisma.dailyreport.findMany({

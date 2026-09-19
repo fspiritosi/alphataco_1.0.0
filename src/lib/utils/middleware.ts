@@ -1,4 +1,3 @@
-import { DEFAULT_COMPANY_ID, DEFAULT_COMPANY_NAME } from '@/lib/company-config';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -69,17 +68,23 @@ export async function updateSession(req: NextRequest): Promise<UpdateSessionResu
   if (user && !user.is_anonymous) {
     const actualComp = req.cookies.get('actualComp')?.value;
 
-    // Si no hay cookie o es inválida, setear la empresa por defecto
+    // Si no hay cookie o es inválida, intentar setearla desde la empresa del JWT
     if (!actualComp || actualComp === 'undefined' || actualComp.trim() === '') {
-      const cookieOptions = {
-        path: '/',
-        maxAge: 60 * 60 * 24 * 365, // 1 año
-        sameSite: 'lax' as const,
-        secure: process.env.NODE_ENV === 'production',
-      };
+      const fromJwt = user.app_metadata?.company;
 
-      response.cookies.set('actualComp', DEFAULT_COMPANY_ID, cookieOptions);
-      response.cookies.set('actualCompName', DEFAULT_COMPANY_NAME, cookieOptions);
+      // Si tampoco hay empresa en el JWT, no fijar nada — proxy.ts redirige a
+      // /dashboard/company/new cuando has_company === false
+      if (typeof fromJwt === 'string' && fromJwt) {
+        const cookieOptions = {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 365, // 1 año
+          sameSite: 'lax' as const,
+          secure: process.env.NODE_ENV === 'production',
+        };
+
+        // El nombre de la empresa lo resuelve la UI — no se fija actualCompName aquí
+        response.cookies.set('actualComp', fromJwt, cookieOptions);
+      }
     }
   }
 
