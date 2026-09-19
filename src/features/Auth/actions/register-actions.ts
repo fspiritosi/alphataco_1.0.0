@@ -33,7 +33,7 @@ export async function signup(formData: FormData, url: string) {
       id: user.user?.id,
       credential_id: user.user?.id || '',
       email: formData.get('email') as string,
-      role: 'CodeControlClient',
+      role: 'User',
       fullname: `${firstname} ${lastname}`,
     } as any)
     .select();

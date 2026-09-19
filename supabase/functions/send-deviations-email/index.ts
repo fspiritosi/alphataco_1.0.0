@@ -555,9 +555,22 @@ Deno.serve(async (req: Request) => {
     // Legacy: emails (string[]) or recipient_email (string) mapped to "to"
     // ========================================
     const emailTo: string[] =
-      body.to || body.emails || (body.recipient_email ? [body.recipient_email] : ['yordanpz@hotmail.com']);
+      body.to ||
+      body.emails ||
+      (body.recipient_email ? [body.recipient_email] : undefined) ||
+      (Deno.env.get('DEVIATIONS_RECIPIENTS') || '')
+        .split(',')
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
     const emailCc: string[] = body.cc || [];
     const emailBcc: string[] = body.bcc || [];
+
+    if (emailTo.length === 0) {
+      return new Response(JSON.stringify({ error: 'missing recipients' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // ========================================
     // GET DEVIATIONS
