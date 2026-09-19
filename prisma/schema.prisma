@@ -938,7 +938,6 @@ model company {
   employees           employees[]
   equipment_owners    equipment_owners[]
   guild               guild[]
-  hired_modules       hired_modules[]
   kpis                kpis[]
   notifications       notifications[]
   other_equipment     other_equipment[]
@@ -1670,19 +1669,6 @@ model hierarchy {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model hired_modules {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at DateTime  @default(now()) @db.Timestamptz(6)
-  company_id String?   @db.Uuid
-  module_id  String?   @db.Uuid
-  due_to     DateTime? @default(dbgenerated("(CURRENT_DATE + '1 mon'::interval)")) @db.Date
-  company    company?  @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  modules    modules?  @relation(fields: [module_id], references: [id], onDelete: Restrict)
-
-  @@schema("public")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model industry_type {
   id         BigInt   @id @default(autoincrement())
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -2032,7 +2018,6 @@ model modules {
   order_index   Int?            @default(0)
   slug          String?         @unique
   updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
-  hired_modules hired_modules[]
   tabs          tabs[]
 
   @@schema("public")
