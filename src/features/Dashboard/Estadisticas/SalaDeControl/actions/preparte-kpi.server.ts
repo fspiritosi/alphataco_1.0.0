@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 
 const logger = new Logger('Dashboard/Estadisticas/SalaDeControl/PreparteKpi');
@@ -37,9 +38,12 @@ export async function getPreparteKpiData(): Promise<PreparteKpiData> {
   logger.debug('Fetching preparte KPI data', { data: { since } });
 
   try {
+    const companyId = await getActiveCompanyId();
     const records = await prisma.preparte.findMany({
       where: {
         created_at: { gte: new Date(since) },
+        // Mismo alcance que el listado de Preparte: filas legacy sin company_id se consideran de la empresa
+        OR: [{ company_id: companyId }, { company_id: null }],
       },
       select: {
         status: true,
