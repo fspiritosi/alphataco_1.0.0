@@ -541,20 +541,6 @@ model category_employee {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model checklist_answer_repairs {
-  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  checklist_answer_id String             @db.Uuid
-  repair_solicitud_id String             @db.Uuid
-  item_code           String
-  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
-  checklist_answers   checklist_answers  @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  repair_solicitudes  repair_solicitudes @relation(fields: [repair_solicitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([checklist_answer_id, repair_solicitud_id, item_code])
-  @@index([checklist_answer_id], map: "idx_checklist_answer_repairs_answer")
-  @@index([repair_solicitud_id], map: "idx_checklist_answer_repairs_repair")
-  @@schema("public")
-}
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -575,7 +561,6 @@ model checklist_answers {
   customer_id                                               String?                    @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'customer_id'::text) IS NOT NULL) AND ((answer_data ->> 'customer_id'::text) <> 'null'::text)) THEN ((answer_data ->> 'customer_id'::text))::uuid\n    ELSE NULL::uuid\nEND")) @db.Uuid
   horometro                                                 Decimal?                   @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'horometro'::text) IS NOT NULL) AND ((answer_data ->> 'horometro'::text) <> ''::text) AND ((answer_data ->> 'horometro'::text) ~ '^[0-9]+(\\.[0-9]+)?$'::text)) THEN ((answer_data ->> 'horometro'::text))::numeric\n    ELSE NULL::numeric\nEND")) @db.Decimal
   kilometraje                                               Decimal?                   @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'kilometraje'::text) IS NOT NULL) AND ((answer_data ->> 'kilometraje'::text) <> ''::text) AND ((answer_data ->> 'kilometraje'::text) ~ '^[0-9]+(\\.[0-9]+)?$'::text)) THEN ((answer_data ->> 'kilometraje'::text))::numeric\n    ELSE NULL::numeric\nEND")) @db.Decimal
-  checklist_answer_repairs                                  checklist_answer_repairs[]
   employees_checklist_answers_chofer_employee_idToemployees employees?                 @relation("checklist_answers_chofer_employee_idToemployees", fields: [chofer_employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   employees                                                 employees?                 @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicles                                                  vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1548,8 +1533,6 @@ model employees {
   maintenance_requests                                              maintenance_requests[]
   maintenance_request_driver                                        maintenance_requests[] @relation("maintenance_request_driver")
   profile                                                           profile[]
-  repair_solicitudes                                                repair_solicitudes[]
-  repairlogs                                                        repairlogs[]
   clothing_deliveries_received                                      clothing_deliveries[]  @relation("clothing_deliveries_employee_idToemployees")
   clothing_deliveries_given                                         clothing_deliveries[]  @relation("clothing_deliveries_delivered_by_idToemployees")
   pre_employees                                                     pre_employees?
@@ -2333,9 +2316,6 @@ model profile {
   employees                                                                          employees?                  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
   users_profile_idTousers                                                            users                       @relation("profile_idTousers", fields: [id], references: [id], onDelete: Cascade)
   roles                                                                              roles?                      @relation(fields: [role], references: [name], onDelete: NoAction, onUpdate: NoAction)
-  repair_solicitudes_repair_solicitudes_mechanic_idToprofile                         repair_solicitudes[]        @relation("repair_solicitudes_mechanic_idToprofile")
-  repair_solicitudes_repair_solicitudes_user_idToprofile                             repair_solicitudes[]        @relation("repair_solicitudes_user_idToprofile")
-  repairlogs                                                                         repairlogs[]
   share_company_users                                                                share_company_users[]
   vehicles                                                                           vehicles[]
   work_order_item_repairs_work_order_item_repairs_added_byToprofile                  work_order_item_repairs[]   @relation("work_order_item_repairs_added_byToprofile")
@@ -2403,50 +2383,8 @@ model remitos {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model repair_solicitudes {
-  id                                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at                                      DateTime                   @default(now()) @db.Timestamptz(6)
-  reparation_type                                 String                     @db.Uuid
-  equipment_id                                    String                     @db.Uuid
-  state                                           repair_state
-  user_description                                String?
-  mechanic_description                            String?
-  end_date                                        DateTime?                  @db.Date
-  user_id                                         String?                    @db.Uuid
-  mechanic_id                                     String?                    @db.Uuid
-  mechanic_images                                 String[]
-  user_images                                     String[]
-  employee_id                                     String?                    @db.Uuid
-  kilometer                                       String?
-  scheduled                                       DateTime?                  @db.Timestamptz(6)
-  updated_at                                      DateTime?                  @db.Timestamptz(6)
-  checklist_answer_repairs                        checklist_answer_repairs[]
-  employees                                       employees?                 @relation(fields: [employee_id], references: [id])
-  vehicles                                        vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
-  profile_repair_solicitudes_mechanic_idToprofile profile?                   @relation("repair_solicitudes_mechanic_idToprofile", fields: [mechanic_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  types_of_repairs                                types_of_repairs           @relation(fields: [reparation_type], references: [id], onDelete: Cascade)
-  profile_repair_solicitudes_user_idToprofile     profile?                   @relation("repair_solicitudes_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  repairlogs                                      repairlogs[]
-
-  @@schema("public")
-}
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model repairlogs {
-  id                   String              @id(map: "reparirlogs_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at           DateTime            @default(now()) @db.Timestamptz(6)
-  title                String?
-  description          String?
-  repair_id            String?             @db.Uuid
-  kilometer            String?
-  modified_by_employee String?             @db.Uuid
-  modified_by_user     String?             @db.Uuid
-  employees            employees?          @relation(fields: [modified_by_employee], references: [id])
-  profile              profile?            @relation(fields: [modified_by_user], references: [id])
-  repair_solicitudes   repair_solicitudes? @relation(fields: [repair_id], references: [id], onDelete: Cascade, map: "reparirlogs_repair_id_fkey")
-
-  @@schema("public")
-}
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model role_permissions {
@@ -2781,7 +2719,6 @@ model types_of_repairs {
   maintenance_order_item_repair_types maintenance_order_item_repair_types[]
   maintenance_order_items             maintenance_order_items[]
   maintenance_request_items           maintenance_request_items[]
-  repair_solicitudes                  repair_solicitudes[]
   sector_repair_types                 sector_repair_types[]
   company                             company?                              @relation(fields: [company_id], references: [id], onDelete: Cascade)
   work_order_item_repairs             work_order_item_repairs[]
@@ -2887,7 +2824,6 @@ model vehicles {
   maintenance_orders            maintenance_orders[]
   maintenance_requests          maintenance_requests[]
   other_equipment               other_equipment[]
-  repair_solicitudes            repair_solicitudes[]
   vehicle_tire_positions        vehicle_tire_positions[]
   vehicle_axle_tire_sizes       vehicle_axle_tire_sizes[]
   tire_service_orders_vehicle   tire_service_orders[]           @relation("tire_service_vehicle")
