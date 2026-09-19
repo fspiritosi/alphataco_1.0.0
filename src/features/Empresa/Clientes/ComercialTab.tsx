@@ -2,7 +2,6 @@
 // import CustomerEquipmentTabWrapper from '../../Comercial/Comerce/components/CustomerEquipmentTabWrapper';
 // import CustomerTabWrapper from '../../Comercial/Comerce/components/CustomerTabWrapper';
 // import DataCustomersWrapper from '../../Comercial/Comerce/components/DataCustomersWrapper';
-// import DayliReportWraper from '../../Comercial/Comerce/components/DayliReportWraper';
 // import MensureUnitsWrapper from '../../Comercial/Comerce/components/MensureUnitsWrapper';
 // import SectorTabsWrapper from '../../Comercial/Comerce/components/SectorTabsWrapper';
 // import ServiceComponentWrapper from '../../Comercial/Comerce/components/ServiceComponentWrapper';
@@ -120,19 +119,6 @@
 //           buttonActioRestricted: [''],
 //           buttonAction: [''],
 //           component: <MensureUnitsWrapper />,
-//         },
-//       },
-//       {
-//         value: 'daily_reports',
-//         name: 'Partes Diarios',
-//         restricted: [''],
-//         tab: tabValue,
-//         content: {
-//           title: 'Partes Diarios',
-//           //description: 'Información de la empresa',
-//           buttonActioRestricted: [''],
-//           buttonAction: [''],
-//           component: <DayliReportWraper />,
 //         },
 //       },
 //     ],

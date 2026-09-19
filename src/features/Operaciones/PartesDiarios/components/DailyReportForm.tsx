@@ -26,7 +26,7 @@ const FormSchema = z.object({
   }),
 });
 
-export default function DayliReportForm() {
+export default function DailyReportForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);

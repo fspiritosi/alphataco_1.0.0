@@ -3,7 +3,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { Suspense } from 'react';
-import DayliReportForm from './components/DayliReportForm';
+import DailyReportForm from './components/DailyReportForm';
 import { DailyReportList } from './list/DailyReportList';
 import { DailyReportTableSkeleton } from './list/fallback/DailyReportTableSkeleton';
 
@@ -33,7 +33,7 @@ export default async function PartesDiariosTabContent({ searchParams = {} }: Pro
             <>
               <ResizablePanel id="daily-report-form" defaultSize={30}>
                 <div className="p-4">
-                  <DayliReportForm />
+                  <DailyReportForm />
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
