@@ -10,6 +10,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('Formularios/list/actions.server');
 
@@ -50,7 +52,7 @@ export type FormListItem = {
  * Construye el WHERE clause para checklist_templates.
  * custom_form no tiene filtros por campo (sin is_active, sin code).
  */
-function buildChecklistWhere(state: ReturnType<typeof parseSearchParams>) {
+function buildChecklistWhere(state: ReturnType<typeof parseSearchParams>, companyId: string) {
   const searchWhere = buildSearchWhere(state.search, ['name', 'description', 'code']);
 
   const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_FILTER_COLUMNS);
@@ -69,25 +71,31 @@ function buildChecklistWhere(state: ReturnType<typeof parseSearchParams>) {
     }
   }
 
-  return {
-    ...searchWhere,
-    ...textFiltersWhere,
-    ...dateFiltersWhere,
-    ...manualFilters,
-  };
+  return withCompany(
+    {
+      ...searchWhere,
+      ...textFiltersWhere,
+      ...dateFiltersWhere,
+      ...manualFilters,
+    },
+    companyId
+  );
 }
 
-function buildCustomFormWhere(state: ReturnType<typeof parseSearchParams>) {
+function buildCustomFormWhere(state: ReturnType<typeof parseSearchParams>, companyId: string) {
   // custom_form solo tiene 'name' como campo de texto filtrable (sin description ni code)
   const searchWhere = buildSearchWhere(state.search, ['name']);
   const textFiltersWhere = buildTextFiltersWhere(state.filters, ['name']);
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
 
-  return {
-    ...searchWhere,
-    ...textFiltersWhere,
-    ...dateFiltersWhere,
-  };
+  return withCompany(
+    {
+      ...searchWhere,
+      ...textFiltersWhere,
+      ...dateFiltersWhere,
+    },
+    companyId
+  );
 }
 
 // ============================================================================
@@ -153,8 +161,9 @@ export async function getFormsPaginated(searchParams: DataTableSearchParams) {
     const includeChecklist = !sourceFilter?.length || sourceFilter.includes('checklist_template');
     const includeCustomForm = !sourceFilter?.length || sourceFilter.includes('custom_form');
 
-    const checklistWhere = buildChecklistWhere(state);
-    const customFormWhere = buildCustomFormWhere(state);
+    const companyId = await getActiveCompanyId();
+    const checklistWhere = buildChecklistWhere(state, companyId);
+    const customFormWhere = buildCustomFormWhere(state, companyId);
 
     // Si hay filtro is_active activo, los custom_forms (siempre activos) se excluyen
     // cuando el usuario filtra por "Inactivo" o "Sin asignar"
@@ -274,8 +283,9 @@ export async function getAllFormsForExport(searchParams: DataTableSearchParams) 
     const includeChecklist = !sourceFilter?.length || sourceFilter.includes('checklist_template');
     const includeCustomForm = !sourceFilter?.length || sourceFilter.includes('custom_form');
 
-    const checklistWhere = buildChecklistWhere(state);
-    const customFormWhere = buildCustomFormWhere(state);
+    const companyId = await getActiveCompanyId();
+    const checklistWhere = buildChecklistWhere(state, companyId);
+    const customFormWhere = buildCustomFormWhere(state, companyId);
 
     const isActiveValues = state.filters['is_active'];
     const hasIsActiveFilter = isActiveValues?.length > 0;
@@ -333,20 +343,20 @@ export async function getAllFormsForExport(searchParams: DataTableSearchParams) 
  * Construye WHERE para facets, excluyendo el filtro de una columna específica
  * (patrón crossWhere idéntico al de Vehicles/OtherEquipment/Employees).
  */
-function crossChecklistWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string) {
+function crossChecklistWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string, companyId: string) {
   const modified = { ...state, filters: { ...state.filters } };
   delete modified.filters[excludeColumn];
   delete modified.filters[`${excludeColumn}_from`];
   delete modified.filters[`${excludeColumn}_to`];
-  return buildChecklistWhere(modified);
+  return buildChecklistWhere(modified, companyId);
 }
 
-function crossCustomFormWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string) {
+function crossCustomFormWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string, companyId: string) {
   const modified = { ...state, filters: { ...state.filters } };
   delete modified.filters[excludeColumn];
   delete modified.filters[`${excludeColumn}_from`];
   delete modified.filters[`${excludeColumn}_to`];
-  return buildCustomFormWhere(modified);
+  return buildCustomFormWhere(modified, companyId);
 }
 
 export async function getFormsFacets(searchParams?: DataTableSearchParams) {
@@ -361,14 +371,16 @@ export async function getFormsFacets(searchParams?: DataTableSearchParams) {
     }
 
     const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+    const companyId = await getActiveCompanyId();
+    const companyOnlyWhere = withCompany({}, companyId);
 
     // ── Facet is_active: WHERE con todos los filtros EXCEPTO is_active ──
     // Para checklist_templates: cross-filter excluyendo is_active
     // Para custom_form: aplicar todos los filtros (custom_form no tiene is_active)
     const checklistWhereForIsActive =
-      parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'is_active') : {};
+      parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'is_active', companyId) : companyOnlyWhere;
     const customFormWhereForIsActive =
-      parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'is_active') : {};
+      parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'is_active', companyId) : companyOnlyWhere;
 
     // Además, para custom_form en el facet is_active: si hay filtro source activo
     // que excluye custom_form, el count de custom_form debe ser 0
@@ -377,8 +389,10 @@ export async function getFormsFacets(searchParams?: DataTableSearchParams) {
     const includeChecklistInIsActive = !sourceFilter.length || sourceFilter.includes('checklist_template');
 
     // ── Facet source: WHERE con todos los filtros EXCEPTO source ──
-    const checklistWhereForSource = parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'source') : {};
-    const customFormWhereForSource = parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'source') : {};
+    const checklistWhereForSource =
+      parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'source', companyId) : companyOnlyWhere;
+    const customFormWhereForSource =
+      parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'source', companyId) : companyOnlyWhere;
 
     // Para el facet source, si hay filtro is_active que excluye activos,
     // custom_form (siempre activo) debe quedar en 0
