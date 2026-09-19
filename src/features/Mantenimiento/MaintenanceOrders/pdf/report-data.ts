@@ -44,7 +44,7 @@ import {
   WORK_ORDER_PRIORITY_LABELS,
   type WorkOrderItemStatus,
   type WorkOrderPriority,
-} from '@/features/Mantenimiento/OrdenesTrabajo/types';
+} from '@/features/Mantenimiento/shared/work-order-types';
 import {
   getMoStatusConfig,
   getWoStatusConfig,

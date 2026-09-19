@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { WORK_ORDER_PRIORITY_LABELS, type WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import { WORK_ORDER_PRIORITY_LABELS, type WorkOrderPriority } from '@/features/Mantenimiento/shared/work-order-types';
 import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import {

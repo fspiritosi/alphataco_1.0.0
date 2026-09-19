@@ -1,6 +1,6 @@
 'use server';
 
-import type { WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import type { WorkOrderPriority } from '@/features/Mantenimiento/shared/work-order-types';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';

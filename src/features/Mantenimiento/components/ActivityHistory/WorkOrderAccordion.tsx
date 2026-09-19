@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/shared/work-order-types';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import { useState } from 'react';

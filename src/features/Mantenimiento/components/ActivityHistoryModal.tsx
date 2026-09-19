@@ -11,7 +11,7 @@ import {
   getWorkOrderFullActivityLog,
   type MaintenanceRequestOrigin,
 } from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
-import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/shared/work-order-types';
 import {
   ACTIVITY_STAGE_DESCRIPTIONS,
   ACTIVITY_STAGE_LABELS,
