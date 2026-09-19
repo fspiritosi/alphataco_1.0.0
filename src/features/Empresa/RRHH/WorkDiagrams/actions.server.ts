@@ -11,6 +11,8 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -359,7 +361,9 @@ export async function getWorkDiagramSingleFacet(
  */
 export async function getAllDiagramTypes() {
   try {
+    const companyId = await getActiveCompanyId();
     return await prisma.diagram_type.findMany({
+      where: withCompany({}, companyId),
       select: { id: true, name: true, work_active: true },
       orderBy: { name: 'asc' },
     });

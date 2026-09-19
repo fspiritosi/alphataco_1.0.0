@@ -13,6 +13,8 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -243,7 +245,8 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 
 function buildVehicleWhereClause(
   ownerId: string,
-  state: ReturnType<typeof parseSearchParams>
+  state: ReturnType<typeof parseSearchParams>,
+  companyId: string
 ): Prisma.vehiclesWhereInput {
   const AND: Prisma.vehiclesWhereInput[] = [{ owner_id: ownerId }];
 
@@ -348,7 +351,7 @@ function buildVehicleWhereClause(
     }
   }
 
-  return { AND };
+  return withCompany({ AND }, companyId);
 }
 
 export async function getVehiclesByOwnerPaginated(ownerId: string, searchParams: DataTableSearchParams) {
@@ -356,7 +359,8 @@ export async function getVehiclesByOwnerPaginated(ownerId: string, searchParams:
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildVehicleWhereClause(ownerId, state);
+    const companyId = await getActiveCompanyId();
+    const where = buildVehicleWhereClause(ownerId, state, companyId);
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -417,7 +421,8 @@ export async function getVehiclesByOwnerPaginated(ownerId: string, searchParams:
 export async function getAllVehiclesByOwnerForExport(ownerId: string, searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildVehicleWhereClause(ownerId, state);
+    const companyId = await getActiveCompanyId();
+    const where = buildVehicleWhereClause(ownerId, state, companyId);
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -482,7 +487,8 @@ export async function getVehicleByOwnerSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildVehicleWhereClause(ownerId, crossState);
+    const companyId = await getActiveCompanyId();
+    const crossWhere = buildVehicleWhereClause(ownerId, crossState, companyId);
 
     switch (columnId) {
       case 'condition': {

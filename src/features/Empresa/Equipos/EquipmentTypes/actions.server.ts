@@ -11,6 +11,8 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
 // ============================================================================
@@ -306,8 +308,9 @@ export async function getEquipmentTypeSingleFacet(
 /** Obtiene todos los checklists activos para el select del formulario */
 export async function getActiveChecklistsForForm() {
   try {
+    const companyId = await getActiveCompanyId();
     const data = await prisma.checklist_templates.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: { id: true, name: true, code: true },
       orderBy: { name: 'asc' },
     });
