@@ -1,7 +1,8 @@
-'use server';
+import 'server-only';
 
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 export class NoActiveCompanyError extends Error {
   constructor() {
@@ -9,8 +10,14 @@ export class NoActiveCompanyError extends Error {
   }
 }
 
-/** Empresa activa del request: app_metadata.company del JWT, con fallback a la cookie actualComp. Lanza NoActiveCompanyError si no hay ninguna. */
-export async function getActiveCompanyId(): Promise<string> {
+/**
+ * Empresa activa del request: app_metadata.company del JWT, con fallback a la cookie actualComp.
+ * Lanza NoActiveCompanyError si no hay ninguna.
+ *
+ * Helper server-only (NO es una Server Action): se memoiza por request con React `cache()`,
+ * así varias actions/páginas del mismo request no repiten `auth.getUser()`.
+ */
+export const getActiveCompanyId = cache(async (): Promise<string> => {
   const supabase = await supabaseServer();
   const { data } = await supabase.auth.getUser();
   const fromJwt = data.user?.app_metadata?.company;
@@ -18,4 +25,4 @@ export async function getActiveCompanyId(): Promise<string> {
   const fromCookie = (await cookies()).get('actualComp')?.value;
   if (fromCookie && fromCookie !== 'undefined') return fromCookie;
   throw new NoActiveCompanyError();
-}
+});
