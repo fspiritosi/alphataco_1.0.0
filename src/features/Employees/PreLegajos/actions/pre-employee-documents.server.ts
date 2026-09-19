@@ -5,6 +5,8 @@ import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
 const logger = new Logger('features/PreLegajos/documents');
@@ -83,11 +85,11 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
   const hasPermission = await checkPermissionServer('empleados', 'pre-legajos', 'update');
   if (!hasPermission) return { ok: false, error: 'No tenés permiso para cargar documentos del pre legajo' };
 
-  const profile = await requireServerAuthProfile();
+  const [profile, companyId] = await Promise.all([requireServerAuthProfile(), getActiveCompanyId()]);
 
   const [preEmployee, documentType] = await Promise.all([
-    prisma.pre_employees.findUnique({
-      where: { id: preEmployeeId },
+    prisma.pre_employees.findFirst({
+      where: withCompany({ id: preEmployeeId }, companyId),
       select: {
         id: true,
         status: true,
