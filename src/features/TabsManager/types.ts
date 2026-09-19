@@ -63,7 +63,7 @@ export interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
    * Autocompleta automáticamente todos los tabs y subtabs válidos (hasta 3 niveles de anidación):
    * - Nivel 1: Tabs principales (ej: 'employees', 'diagrams')
    * - Nivel 2: Subtabs (ej: 'empleados-activos', 'empleados-inactivos')
-   * - Nivel 3: Sub-subtabs (ej: 'carga-individual', 'carga-multiple')
+   * - Nivel 3: Sub-subtabs (ej: 'indicadores', 'graficos')
    *
    * Cuando hay múltiples módulos en el array, acepta tabs válidos de cualquiera de esos módulos.
    * Se valida en tiempo de compilación que el tabSlug existe en permissions-map.ts.

@@ -614,13 +614,6 @@ export const PERMISSIONS = {
         parent: null,
         allowedActions: ['view'],
         subtabs: {
-          created_solicitudes: {
-            slug: 'created_solicitudes',
-            name: 'Solicitudes',
-            tabId: '30000000-0000-0000-0000-000000000041',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'update'],
-          },
           type_of_repair: {
             slug: 'type_of_repair',
             name: 'Tipos de Reparación',
@@ -634,29 +627,6 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000015',
             parent: 'type_of_repairs',
             allowedActions: ['view'],
-          },
-          type_of_repair_new_entry: {
-            slug: 'type_of_repair_new_entry',
-            name: 'Nueva Solicitud',
-            tabId: '30000000-0000-0000-0000-000000000043',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
-            subtabs: {
-              'carga-individual': {
-                slug: 'carga-individual',
-                name: 'Carga Individual',
-                tabId: '30000000-0000-0000-0000-000000000431',
-                parent: 'type_of_repair_new_entry',
-                allowedActions: ['view'],
-              },
-              'carga-multiple': {
-                slug: 'carga-multiple',
-                name: 'Carga Múltiple',
-                tabId: '30000000-0000-0000-0000-000000000432',
-                parent: 'type_of_repair_new_entry',
-                allowedActions: ['view'],
-              },
-            },
           },
           maintenance_groups: {
             slug: 'maintenance_groups',
@@ -989,24 +959,6 @@ export const PERMISSIONS = {
     name: 'Mantenimiento',
     moduleId: '421e96da-5235-4857-bf81-e63336447f13',
     tabs: {
-      // Solicitudes Activas
-      created_solicitudes: {
-        slug: 'created_solicitudes',
-        name: 'Solicitudes Activas',
-        tabId: '60000000-0000-0000-0000-000000000011',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {},
-      },
-      // Nueva Solicitud
-      type_of_repair_new_entry: {
-        slug: 'type_of_repair_new_entry',
-        name: 'Nueva Solicitud',
-        tabId: '60000000-0000-0000-0000-000000000013',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {},
-      },
       // Vista Taller (COD-394) — agrupada por sector de taller
       workshop_view: {
         slug: 'workshop_view',
@@ -1138,13 +1090,6 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000041',
             parent: 'maint_taller',
             allowedActions: ['view', 'update'],
-          },
-          ordenes_trabajo: {
-            slug: 'ordenes_trabajo',
-            name: 'Órdenes de Trabajo (Legacy)',
-            tabId: '60000000-0000-0000-0000-000000000042',
-            parent: 'maint_taller',
-            allowedActions: ['view', 'create', 'update', 'delete'],
           },
         },
       },
