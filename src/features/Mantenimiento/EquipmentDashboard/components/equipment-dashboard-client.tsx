@@ -12,7 +12,6 @@ import {
   CheckCircle,
   CircleDot,
   ClipboardList,
-  Clock,
   LogOut,
   Truck,
   Wrench,
@@ -176,13 +175,6 @@ export default function EquipmentDashboardClient({
                 onClick={() => router.push(`/maintenance/equipment/${equipmentId}/request`)}
               />
             )}
-
-            <ActionButton
-              icon={Clock}
-              label="Ver Solicitudes Pendientes"
-              description="Consultar estado de reparaciones"
-              onClick={() => router.push(`/maintenance/equipment/${equipmentId}/requests`)}
-            />
 
             <ActionButton
               icon={ClipboardList}
