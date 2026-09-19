@@ -599,6 +599,39 @@ export function withCompany<T extends object>(where: T | undefined, companyId: s
 
 ---
 
+### Tablas sin company_id (decisión multi-tenant pendiente)
+
+Relevadas en Task 3.3 (los 29 archivos `*.server.ts`/`*Server.ts` con `findMany` sin filtro de empresa). Estos modelos **no tienen columna `company_id`**, así que `withCompany` no se puede aplicar: hoy sus listados son globales.
+
+| Modelo | Archivos que lo consultan sin filtro de empresa |
+| --- | --- |
+| `aptitudes_tecnicas` | `Empresa/RRHH/AptitudesTecnicas/actions.server.ts`, `Empresa/RRHH/Positions/actions.server.ts` |
+| `checklist_answers` | `Mantenimiento/SolicitudesMantenimiento/actions/actionsServer.ts` |
+| `checklist_deviations` | `Mantenimiento/SolicitudesMantenimiento/actions/actionsServer.ts` |
+| `checklist_template_types` | `Empresa/Equipos/EquipmentTypes/actions.server.ts` |
+| `company_positions` | `Empresa/RRHH/AptitudesTecnicas/actions.server.ts`, `Empresa/RRHH/Positions/actions.server.ts` |
+| `cost_center` | `Empresa/General/CostCenter/actions.server.ts` |
+| `documents_company` | `Documentacion/DocumentosEmpresa/actions.server.ts`, `Empresa/General/Documentacion/actions.server.ts` |
+| `documents_pre_employees` | `Employees/PreLegajos/actions/pre-employee-documents.server.ts` |
+| `hierarchy` | `Empresa/General/Hierarchy/actions.server.ts`, `Empresa/RRHH/Positions/actions.server.ts` |
+| `maintenance_activity_log` | `Mantenimiento/MaintenanceOrders/actions/actionsServer.ts`, `Mantenimiento/Operaciones/actions/actionsServer.ts` |
+| `maintenance_order_items` | `Mantenimiento/NuevoPedido/actions/actionsServer.ts`, `Mantenimiento/WorkshopView/WorkshopSectorTasksTable/actions.server.ts` |
+| `maintenance_orders` | `Equipos/OtherEquipment/maintenance/actions.server.ts`, `Mantenimiento/actions/actionsServer.ts`, `Mantenimiento/ApprovalInbox/actions/actionsServer.ts`, `Mantenimiento/MaintenanceOrders/actions/actionsServer.ts`, `Mantenimiento/Operaciones/actions/actionsServer.ts`, `Mantenimiento/OrderManagement/actions.server.ts`, `Mantenimiento/PedidosMantenimiento/actions/actionsServer.ts`, `Mantenimiento/PedidosMantenimiento/Confirmados/actions.server.ts`, `Mantenimiento/PedidosMantenimiento/Pendientes/actions.server.ts`, `Mantenimiento/WorkshopTracking/actions.server.ts` |
+| `maintenance_request_items` | `Mantenimiento/Operaciones/actions/actionsServer.ts`, `Mantenimiento/SolicitudesMantenimiento/actions/actionsServer.ts` |
+| `maintenance_requests` | `Mantenimiento/Operaciones/actions/actionsServer.ts`, `Mantenimiento/PedidosMantenimiento/Confirmados/actions.server.ts`, `Mantenimiento/SolicitudesMantenimiento/actions/actionsServer.ts`, `Mantenimiento/SolicitudesMantenimiento/actions/actionsTableServer.ts` |
+| `model_vehicles` | `Empresa/Equipos/EquipmentModels/actions.server.ts` |
+| `profile` | `Documentacion/DocumentosEmpresa/actions.server.ts`, `Empresa/General/Documentacion/actions.server.ts`, `Mantenimiento/SolicitudesMantenimiento/actions/actionsTableServer.ts` |
+| `type_hitch_types` | `Empresa/Equipos/EquipmentTypes/actions.server.ts` |
+| `types_of_contract` | `Empresa/RRHH/ContractTypes/actions.server.ts` |
+| `work_diagram` | `Empresa/RRHH/WorkDiagrams/actions.server.ts` |
+| `work_diagram_active_novelties` | `Empresa/RRHH/WorkDiagrams/actions.server.ts` |
+| `work_order_item_repairs` | `Mantenimiento/ApprovalInbox/actions/actionsServer.ts`, `Mantenimiento/MaintenanceOrders/actions/actionsServer.ts` |
+| `workshop_sectors` | `Mantenimiento/ApprovalInbox/actions/actionsServer.ts` |
+
+Decisión de producto pendiente: si alphataco es multi-empresa real, estas tablas necesitan columna `company_id` + backfill (Fase 4, por carpeta); si no, se documenta que son globales.
+
+---
+
 ## Fase 4 — Migración Supabase → Prisma por carpeta (+ eliminación de `any`)
 
 **Regla de la fase:** se migra **carpeta completa**, nunca archivo suelto, para no dejar mezclas. Cada carpeta recibe su plan detallado con `superpowers:writing-plans` en el momento de arrancarla. Supabase client queda permitido únicamente para: `auth.*`, `storage.*`, `.rpc()` a funciones SQL, y realtime.
