@@ -16,7 +16,7 @@
 - Commits: **sólo línea de asunto**, sin cuerpo, sin `Co-Authored-By` (regla del repo). Formato `tipo(scope): descripción`.
 - Ramas: una rama `chore/deuda-fase-N-<tema>` por fase, PR contra `dev`. No mergear con `check-types` o E2E rojos.
 - Borrado de código: sólo tras confirmar **0 importadores** con `grep -rl` (los conteos de este plan se midieron el 18/09/2026; re-verificar al ejecutar).
-- Migraciones de BD: `npx prisma migrate dev --create-only --name <nombre>` + SQL manual; **nunca aplicar a dev sin validar el alcance** con el responsable del proyecto.
+- Migraciones de BD: **nunca `npx prisma migrate dev`** (el shadow DB rompe con `0_baseline`). Flujo de `.claude/rules/migrations.md`: crear a mano `prisma/migrations/<YYYYMMDDHHMMSS>_<nombre>/migration.sql` → `npx prisma db execute --file <ruta>` → `npx prisma migrate resolve --applied <carpeta>` → `npx prisma generate`. **Nunca aplicar a dev sin validar el alcance** con el responsable; y ojo: `npm run build` ejecuta `prisma migrate deploy`, así que toda migración mergeada a `dev` se aplica sola en el deploy.
 - Decisiones ya tomadas para alphataco (no re-discutir en ejecución):
   1. El circuito legacy de reparaciones (`repair_solicitudes`/`repairlogs`) **se elimina completo**; sobrevive sólo `maintenance_requests → maintenance_orders → work_orders`.
   2. La familia de rutas QR que sobrevive es **`/maintenance/equipment/[id]/*`** (Prisma). `/maintenance/[id]` y `features/Mantenimiento/QR` se eliminan.
@@ -289,14 +289,15 @@ Expected: sin salida → `git rm` de ambos, `npm run check-types`, commit `chore
 - Create: `prisma/migrations/<timestamp>_drop_hired_modules/migration.sql`
 - Modify: `prisma/schema.prisma` (quitar `model hired_modules` y la relación inversa en `company` y `modules`)
 
-- [ ] **Step 1: Confirmar 0 usos y crear migración**
+- [ ] **Step 1: Confirmar 0 usos y crear migración a mano**
 
 ```sh
 grep -rn "hired_modules" src --include='*.ts' --include='*.tsx' | grep -v generated     # esperado: vacío
-npx prisma migrate dev --create-only --name drop_hired_modules
 ```
+Crear la carpeta `prisma/migrations/<timestamp>_drop_hired_modules/migration.sql` a mano (flujo de `.claude/rules/migrations.md`).
 Contenido de `migration.sql`:
 ```sql
+DROP FUNCTION IF EXISTS public.delete_expired_subscriptions();
 DROP TABLE IF EXISTS "public"."hired_modules";
 ```
 
@@ -305,9 +306,9 @@ DROP TABLE IF EXISTS "public"."hired_modules";
 Run: `npx prisma generate && npm run check-types`
 Expected: exit 0.
 
-- [ ] **Step 3: Validar alcance con el responsable y aplicar en dev**
+- [ ] **Step 3: Validar alcance con el responsable y aplicar**
 
-Run: `npx prisma migrate dev`
+Tras validar alcance: `npx prisma db execute --file prisma/migrations/<timestamp>_drop_hired_modules/migration.sql` + `npx prisma migrate resolve --applied <timestamp>_drop_hired_modules`.
 Expected: migración aplicada; `npm run db:status` sin pendientes.
 
 - [ ] **Step 4: Commit**
@@ -336,6 +337,7 @@ git commit -m "chore(db): eliminar tabla hired_modules sin consumidores"
 - Modify: `src/features/Mantenimiento/MantenimientoComponent.tsx` (borrar las tabs comentadas `created_solicitudes`/`type_of_repair_new_entry`)
 - Modify: `src/types/globals.ts`, `src/shared/types/legacy.ts`, `src/lib/utils.ts` (quitar tipos/helpers de repair)
 - Modify: `src/features/Permissions/permissions-map.ts` (quitar tabs del flujo viejo si sólo existen para él) + migración SQL que borre esas `tabs`/`role_permissions`
+- Modify: `src/features/Permissions/permissions-map.ts:1142-1148` — quitar la entrada legacy `ordenes_trabajo` ("Órdenes de Trabajo (Legacy)", sin UI desde que se borró `OrdenesTrabajo`) e incluir su `tab_id` en la migración que borra `tabs`/`role_permissions` del flujo viejo.
 - Create (al final): migración `drop_repair_solicitudes` que elimine `checklist_answer_repairs`, `repairlogs`, `repair_solicitudes` y quite los modelos del schema
 
 - [ ] **Step 1: Ordenar el borrado desde las hojas**
@@ -356,12 +358,13 @@ Expected: los specs `type_of_repairs--created_solicitudes` y `type_of_repairs--t
 
 - [ ] **Step 4: Migración de BD (última, tras validar alcance)**
 
+Crear a mano `prisma/migrations/<timestamp>_drop_repair_solicitudes/migration.sql` (flujo de `.claude/rules/migrations.md`):
 ```sql
 DROP TABLE IF EXISTS "public"."checklist_answer_repairs";
 DROP TABLE IF EXISTS "public"."repairlogs";
 DROP TABLE IF EXISTS "public"."repair_solicitudes";
 ```
-Quitar los tres modelos de `schema.prisma`, `npx prisma generate`, `check-types`.
+Quitar los tres modelos de `schema.prisma`. Tras validar alcance: `npx prisma db execute --file <ruta>` → `npx prisma migrate resolve --applied <carpeta>` → `npx prisma generate` → `check-types`.
 
 - [ ] **Step 5: Commits (uno por bloque)**
 
