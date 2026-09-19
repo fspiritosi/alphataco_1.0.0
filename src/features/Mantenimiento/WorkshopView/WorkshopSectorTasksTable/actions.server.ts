@@ -9,6 +9,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { visibleEquipmentTypeCondition } from '../../shared/maintenance-resource';
 import { getHiddenEquipmentTypeIds } from '../../utils/equipmentTypeVisibility';
 import { OPEN_WORK_ORDERS_ONLY } from '../workshop-view-filters';
@@ -134,7 +136,8 @@ function mapWorkOrderRow(row: {
 function buildWhereClause(
   sectorId: string,
   state: ReturnType<typeof parseSearchParams>,
-  hiddenTypeIds: readonly string[]
+  hiddenTypeIds: readonly string[],
+  companyId: string
 ) {
   const and: Record<string, unknown>[] = [];
 
@@ -244,7 +247,7 @@ function buildWhereClause(
     else if (wantsFalse) and.push({ maintenance_order_items: { none: { [flag]: true } } });
   }
 
-  return { sector_id: sectorId, AND: and };
+  return withCompany({ sector_id: sectorId, AND: and }, companyId);
 }
 
 // ============================================================================
@@ -255,8 +258,8 @@ export async function getWorkshopSectorWorkOrdersPaginated(sectorId: string, sea
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const hiddenTypeIds = await getHiddenEquipmentTypeIds();
-    const where = buildWhereClause(sectorId, state, hiddenTypeIds);
+    const [hiddenTypeIds, companyId] = await Promise.all([getHiddenEquipmentTypeIds(), getActiveCompanyId()]);
+    const where = buildWhereClause(sectorId, state, hiddenTypeIds, companyId);
 
     // Multi-sort: solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -305,8 +308,8 @@ export type WorkshopSectorWorkOrderListItem = Awaited<
 export async function getAllWorkshopSectorWorkOrdersForExport(sectorId: string, searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const hiddenTypeIds = await getHiddenEquipmentTypeIds();
-    const where = buildWhereClause(sectorId, state, hiddenTypeIds);
+    const [hiddenTypeIds, companyId] = await Promise.all([getHiddenEquipmentTypeIds(), getActiveCompanyId()]);
+    const where = buildWhereClause(sectorId, state, hiddenTypeIds, companyId);
 
     const rows = await prisma.work_orders.findMany({
       orderBy: [{ status: 'asc' as const }, { planned_start_date: 'asc' as const }],
@@ -352,9 +355,10 @@ function deriveTaskStatus(repairStatuses: string[]): 'pending' | 'in_progress' |
  */
 export async function getWorkOrderTasks(workOrderId: string) {
   try {
+    const companyId = await getActiveCompanyId();
     const [workOrder, items] = await Promise.all([
-      prisma.work_orders.findUnique({
-        where: { id: workOrderId },
+      prisma.work_orders.findFirst({
+        where: withCompany({ id: workOrderId }, companyId),
         select: { id: true, order_number: true, status: true },
       }),
       prisma.maintenance_order_items.findMany({
@@ -471,18 +475,18 @@ export async function getWorkshopSectorWorkOrdersSingleFacet(
   }
 
   const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
-  const hiddenTypeIds = await getHiddenEquipmentTypeIds();
+  const [hiddenTypeIds, companyId] = await Promise.all([getHiddenEquipmentTypeIds(), getActiveCompanyId()]);
 
   /** Construye el WHERE excluyendo el filtro de la columna propia (cross-filter). */
   function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
-      return buildWhereClause(sectorId, parseSearchParams({}), hiddenTypeIds);
+      return buildWhereClause(sectorId, parseSearchParams({}), hiddenTypeIds, companyId);
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(sectorId, modified, hiddenTypeIds);
+    return buildWhereClause(sectorId, modified, hiddenTypeIds, companyId);
   }
 
   try {
