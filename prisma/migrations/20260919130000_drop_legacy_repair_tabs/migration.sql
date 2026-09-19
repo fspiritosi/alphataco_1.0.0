@@ -21,6 +21,9 @@
 --   60000000-0000-0000-0000-000000000011  mantenimiento / created_solicitudes
 --   60000000-0000-0000-0000-000000000013  mantenimiento / type_of_repair_new_entry
 --   60000000-0000-0000-0000-000000000042  mantenimiento / maint_taller / ordenes_trabajo
+--   60000000-0000-0000-0000-000000000060  mantenimiento / maint_operaciones / repair_solicitudes ("Peticiones de
+--                                          Mantenimiento") — tab huérfana del mismo circuito legacy: existe en BD
+--                                          (supabase/seed.sql:7457) pero nunca estuvo en permissions-map.ts.
 -- ============================================================================
 
 DELETE FROM public.role_permissions
@@ -31,7 +34,8 @@ WHERE tab_id IN (
   '30000000-0000-0000-0000-000000000043',
   '60000000-0000-0000-0000-000000000011',
   '60000000-0000-0000-0000-000000000013',
-  '60000000-0000-0000-0000-000000000042'
+  '60000000-0000-0000-0000-000000000042',
+  '60000000-0000-0000-0000-000000000060'
 );
 
 DELETE FROM public.user_permissions
@@ -42,14 +46,17 @@ WHERE tab_id IN (
   '30000000-0000-0000-0000-000000000043',
   '60000000-0000-0000-0000-000000000011',
   '60000000-0000-0000-0000-000000000013',
-  '60000000-0000-0000-0000-000000000042'
+  '60000000-0000-0000-0000-000000000042',
+  '60000000-0000-0000-0000-000000000060'
 );
 
--- Subtabs de nivel 3 (hijas de type_of_repair_new_entry en Equipos)
+-- Subtabs de nivel 3 (hijas de type_of_repair_new_entry en Equipos, y
+-- repair_solicitudes -hoja huérfana- hija de maint_operaciones en Mantenimiento)
 DELETE FROM public.tabs
 WHERE id IN (
   '30000000-0000-0000-0000-000000000431',
-  '30000000-0000-0000-0000-000000000432'
+  '30000000-0000-0000-0000-000000000432',
+  '60000000-0000-0000-0000-000000000060'
 );
 
 -- Tabs padre

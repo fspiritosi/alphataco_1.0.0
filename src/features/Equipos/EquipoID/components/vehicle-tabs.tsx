@@ -62,7 +62,6 @@ interface VehicleTabsProps {
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   documentsComponent?: React.ReactNode;
-  repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
   operationsComponent?: React.ReactNode;
@@ -85,7 +84,6 @@ export function VehicleTabs({
   hierarchicalPositionsPromise,
   documentsComponent,
   qrComponent,
-  repairsComponent,
   checklistsComponent,
   operationsComponent,
   tiresComponent,

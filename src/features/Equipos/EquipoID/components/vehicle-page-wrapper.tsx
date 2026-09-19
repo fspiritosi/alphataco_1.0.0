@@ -64,7 +64,6 @@ export function VehiclePageWrapper({
                 documentsComponent={
                     <div>Documentos aqui</div>
                 }
-                repairsComponent={<div>repairsComponent aqui</div>}
                 formErrors={formErrors}
             /> */}
     </Card>

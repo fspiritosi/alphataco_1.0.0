@@ -32,7 +32,6 @@ export default async function MantenimientoPage({
 
   return (
     <div>
-      {/*<RepairTypes mechanic searchParams={resolvedSearchParams} moduleSlug="mantenimiento" permissions={permissions} />*/}
       <MantenimientoComponent searchParams={resolvedSearchParams} permissions={permissions} />
     </div>
   );

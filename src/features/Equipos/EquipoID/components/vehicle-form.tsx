@@ -40,7 +40,6 @@ interface VehicleFormProps {
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   documentsComponent?: React.ReactNode;
-  repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
   operationsComponent?: React.ReactNode;
