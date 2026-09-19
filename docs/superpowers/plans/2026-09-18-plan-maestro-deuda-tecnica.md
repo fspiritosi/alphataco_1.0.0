@@ -61,22 +61,24 @@ Expected: exit 0 (si falla, anotar los errores en el baseline; no arreglar todav
 cd $(git rev-parse --show-toplevel)
 {
   echo "# Baseline $(date -I)"
-  echo "supabase_files: $(grep -rlE 'supabaseServer\(|supabaseBrowser\(|createClient\(' src --include='*.ts' --include='*.tsx' | wc -l)"
-  echo "prisma_files: $(grep -rl 'shared/lib/prisma' src | wc -l)"
-  echo "any_usages: $(grep -rE ':\s*any\b|as any' src --include='*.ts' --include='*.tsx' | wc -l)"
-  echo "console_usages: $(grep -rE 'console\.(log|error|warn)' src --include='*.ts' --include='*.tsx' | wc -l)"
+  # src/generated (cliente Prisma) se excluye: es código generado y distorsiona todo
+  G=--exclude-dir=generated
+  echo "supabase_files: $(grep -rlE $G 'supabaseServer\(|supabaseBrowser\(|createClient\(' src --include='*.ts' --include='*.tsx' | wc -l)"
+  echo "prisma_files: $(grep -rl $G 'shared/lib/prisma' src | wc -l)"
+  echo "any_usages: $(grep -rE $G ':\s*any\b|as any' src --include='*.ts' --include='*.tsx' | wc -l)"
+  echo "console_usages: $(grep -rE $G 'console\.(log|error|warn)' src --include='*.ts' --include='*.tsx' | wc -l)"
   echo "api_routes: $(find src/app/api -name route.ts | wc -l)"
-  echo "files_over_1000: $(find src -name '*.ts*' | xargs wc -l | awk '$1>1000 && $2!="total"' | wc -l)"
-  echo "date_fns_files: $(grep -rl "from 'date-fns'" src | wc -l)"
+  echo "files_over_1000: $(find src -path src/generated -prune -o -name '*.ts*' -print | xargs wc -l | awk '$1>1000 && $2!="total"' | wc -l)"
+  echo "date_fns_files: $(grep -rl $G "from 'date-fns'" src | wc -l)"
 } > docs/superpowers/plans/baseline-2026-09-18.md
 cat docs/superpowers/plans/baseline-2026-09-18.md
 ```
-Expected (valores del 18/09): supabase 217 · prisma 122 · any 905 · console 354 · api_routes 48 · files_over_1000 14 · date_fns 41.
+Expected (valores del 18/09): supabase 217 · prisma 122 · any 905 · console 354 · api_routes 48 · files_over_1000 32 · date_fns 41.
 
 - [ ] **Step 3: Correr E2E completo una vez con Supabase local**
 
 Run: `npm run local` (en otra terminal) y luego `npm run test:e2e`
-Expected: registrar en el baseline qué specs pasan y cuáles fallan **antes** de tocar nada. Los que fallan hoy no bloquean fases posteriores, pero no pueden aumentar.
+Expected: registrar en el baseline qué specs pasan y cuáles fallan **antes** de tocar nada. Los que fallan hoy no bloquean fases posteriores, pero no pueden aumentar. Si no se puede ejecutar (otra instancia de Supabase local ocupando los puertos, sin `cypress.env.json`), registrar `E2E: no ejecutado — <motivo>` y completarlo cuando haya entorno.
 
 - [ ] **Step 4: Commit**
 
