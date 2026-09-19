@@ -2,8 +2,6 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { Filter, queryWithPagination } from '@/shared/actions/supabase-query';
-import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 
 const logger = new Logger('RepairTypeActions');
@@ -113,103 +111,6 @@ export async function deleteTypeOfRepair(id: string) {
       return [];
     }
     return types_of_repairs || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export async function fetchAllRepairSolicitudesData(options: {
-  sorting: SortingState;
-  columnFilters: ColumnFiltersState;
-  filters?: Filter<'repair_solicitudes'>[];
-  server?: boolean;
-}) {
-  const result = await queryWithPagination(
-    'repair_solicitudes',
-    '*,user_id(*),employees(*),vehicles(*,type(*),sub_type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))',
-    {
-      pageIndex: 0,
-      pageSize: 10000, // Límite alto para obtener todos los datos
-      sorting: [...options.sorting, { id: 'created_at', desc: true }],
-      columnFilters: options.columnFilters,
-      filters: options.filters,
-      server: options.server ?? false,
-    }
-  );
-
-  return result;
-}
-
-// Función específica para empleados (ejemplo)
-export async function fetchRepairSolicitudes(options: {
-  pageIndex: number;
-  pageSize: number;
-  sorting: SortingState;
-  columnFilters: ColumnFiltersState;
-  filters?: Filter<'repair_solicitudes'>[];
-}) {
-  const data = await queryWithPagination(
-    'repair_solicitudes',
-    '*,user_id(*),employees(*),vehicles(*,type(*),sub_type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))',
-    {
-      ...options,
-      sorting: [...options.sorting, { id: 'created_at', desc: true }],
-      columnFilters: [...options.columnFilters],
-      filters: options.filters,
-      server: true,
-    }
-  );
-  return data;
-}
-
-export async function fetchAllRepairSolicitudes() {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
-  try {
-    let { data, error } = await supabase
-      .from('repair_solicitudes')
-      .select(
-        '*,user_id(*),employees(*),vehicles(*,type(*),subType(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
-      )
-      .not('equipment_id', 'is', null);
-
-    if (error) {
-      return [];
-    }
-    return data || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-type RepairSolicitudInsert = Database['public']['Tables']['repair_solicitudes']['Insert'];
-
-export async function createRepairSolicitud(data: RepairSolicitudInsert | RepairSolicitudInsert[]) {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
-  try {
-    // Type assertion needed since Supabase accepts both single and array
-    const { data: repair_solicitudes, error } = await supabase
-      .from('repair_solicitudes')
-      .insert(data as RepairSolicitudInsert)
-      .select();
-
-    if (error) {
-      return [];
-    }
-    return repair_solicitudes || [];
   } catch (error) {
     return [];
   }

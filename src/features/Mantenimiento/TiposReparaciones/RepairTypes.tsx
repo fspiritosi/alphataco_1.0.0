@@ -8,47 +8,23 @@ import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimie
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, Calendar, ClipboardCheck, ClipboardList, Plus, Settings, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardCheck, Settings, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
-import RepairEntryWrapper from './RepairEntryWrapper';
-import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from './RepairTypeFormWrapper';
 
 export default async function RepairTypes({
-  mechanic,
-  equipment_id,
   searchParams,
   hiddenTabs,
   moduleSlug = 'equipos',
   permissions,
-  canEditSolicitudes = false,
 }: {
-  mechanic?: boolean;
-  equipment_id?: string;
   searchParams: { [key: string]: string | string[] | undefined };
   hiddenTabs?: string[];
   moduleSlug?: 'equipos' | 'mantenimiento';
   permissions: Record<string, boolean>;
-  canEditSolicitudes?: boolean;
 }) {
   const allTabs = [
-    {
-      value: 'created_solicitudes',
-      label: (
-        <span className="flex items-center gap-2">
-          <ClipboardList className="h-4 w-4" />
-          {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
-        </span>
-      ),
-      moduleSlug: moduleSlug,
-      tabSlug: 'created_solicitudes' as const,
-      content: (
-        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-          <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} canEdit={canEditSolicitudes} />
-        </Suspense>
-      ),
-    },
     {
       value: 'equipments_with_deviations',
       label: (
@@ -78,22 +54,6 @@ export default async function RepairTypes({
       content: (
         <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <RepairTypeFormWrapper />
-        </Suspense>
-      ),
-    },
-    {
-      value: 'type_of_repair_new_entry',
-      label: (
-        <span className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nueva Solicitud
-        </span>
-      ),
-      moduleSlug: moduleSlug,
-      tabSlug: 'type_of_repair_new_entry' as const,
-      content: (
-        <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
-          <RepairEntryWrapper equipment_id={equipment_id} searchParams={searchParams} permissions={permissions} />
         </Suspense>
       ),
     },
@@ -170,7 +130,7 @@ export default async function RepairTypes({
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
-      defaultTab="created_solicitudes"
+      defaultTab="equipments_with_deviations"
       permissions={permissions}
       tabs={filteredTabs}
     />

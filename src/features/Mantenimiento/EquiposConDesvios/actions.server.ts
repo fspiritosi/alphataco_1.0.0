@@ -86,13 +86,11 @@ type PendingDeviationAggEntry = { equipmentId: string; count: number; lastDeviat
 
 /**
  * Reproduce en Prisma la lógica de la vista SQL `equipments_with_pending_deviations`:
- * un desvío está pendiente si NO tiene una reparación asociada en el sistema viejo
- * (`checklist_answer_repairs`, match por checklist_answer_id + item_code) Y NO
- * pertenece a ningún item de solicitud del sistema nuevo (`maintenance_request_items`).
+ * un desvío está pendiente si NO pertenece a ningún item de solicitud de
+ * mantenimiento (`maintenance_request_items`).
  *
- * No existe una relación Prisma directa para el primer caso (el match es por par de
- * campos, no por FK), así que se resuelve con un anti-join manual en memoria sobre
- * TODOS los desvíos de la empresa (~1600+ filas) — es el cómputo caro de esta tabla.
+ * Se resuelve con un anti-join manual en memoria sobre TODOS los desvíos de la
+ * empresa (~1600+ filas) — es el cómputo caro de esta tabla.
  *
  * Cacheada con `'use cache'`: solo puede recibir argumentos serializables (por eso
  * `companyId` como string, sin leer cookies/sesión acá) y solo puede devolver datos
@@ -115,8 +113,6 @@ async function getPendingDeviationsAggregateCached(companyId: string): Promise<P
     select: {
       id: true,
       equipment_id: true,
-      checklist_answer_id: true,
-      item_code: true,
       created_at: true,
     },
   });
@@ -124,29 +120,18 @@ async function getPendingDeviationsAggregateCached(companyId: string): Promise<P
   if (deviations.length === 0) return [];
 
   const deviationIds = deviations.map((d) => d.id);
-  const checklistAnswerIds = [...new Set(deviations.map((d) => d.checklist_answer_id).filter((v): v is string => !!v))];
 
-  const [resolvedOld, requestItems] = await Promise.all([
-    checklistAnswerIds.length > 0
-      ? prisma.checklist_answer_repairs.findMany({
-          where: { checklist_answer_id: { in: checklistAnswerIds } },
-          select: { checklist_answer_id: true, item_code: true },
-        })
-      : Promise.resolve([]),
-    prisma.maintenance_request_items.findMany({
-      where: { checklist_deviation_id: { in: deviationIds } },
-      select: { checklist_deviation_id: true },
-    }),
-  ]);
+  const requestItems = await prisma.maintenance_request_items.findMany({
+    where: { checklist_deviation_id: { in: deviationIds } },
+    select: { checklist_deviation_id: true },
+  });
 
-  const resolvedSet = new Set(resolvedOld.map((r) => `${r.checklist_answer_id}|${r.item_code}`));
   const inRequestSet = new Set(requestItems.map((r) => r.checklist_deviation_id).filter(Boolean));
 
   const aggregate = new Map<string, { count: number; lastDeviationDate: Date }>();
 
   for (const d of deviations) {
     if (inRequestSet.has(d.id)) continue;
-    if (d.checklist_answer_id && resolvedSet.has(`${d.checklist_answer_id}|${d.item_code}`)) continue;
 
     const createdAt = d.created_at ?? new Date(0);
     const entry = aggregate.get(d.equipment_id);

@@ -26,8 +26,7 @@ import {
   getMaintenanceOrdersForEquipment,
   getRejectedRequestsForEquipment,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
-import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
-import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import BackButton from '@/shared/components/common/BackButton';
 
@@ -58,10 +57,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   const mode = resolvedSearchParams.action || 'view';
   const isOtherEquipment = resolvedSearchParams.type === 'other';
 
-  const [permissions, canEditSolicitudes] = await Promise.all([
-    getUserPermissionsMapServer(),
-    checkPermissionServer('equipos', 'created_solicitudes', 'update'),
-  ]);
+  const permissions = await getUserPermissionsMapServer();
 
   // ─── OTROS EQUIPOS ────────────────────────────────────────────────────────
 
@@ -193,24 +189,6 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           hierarchicalPositionsPromise={getHierarchicalPositions()}
           documentsComponent={
             <EquipmentDocumentDetail equipmentId={vehicle?.id || ''} searchParams={resolvedSearchParams} />
-          }
-          repairsComponent={
-            <RepairTypes
-              searchParams={resolvedSearchParams}
-              equipment_id={resolvedSearchParams.id}
-              moduleSlug="equipos"
-              permissions={permissions}
-              canEditSolicitudes={canEditSolicitudes}
-              hiddenTabs={[
-                'equipments_with_deviations',
-                'type_of_repair',
-                'type_of_repair_new_entry',
-                'maintenance_groups',
-                'maintenance_requests',
-                'maintenance_orders',
-                'maintenance_operations',
-              ]}
-            />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
           checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}

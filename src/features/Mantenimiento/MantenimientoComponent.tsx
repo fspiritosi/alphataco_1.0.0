@@ -23,8 +23,6 @@ interface MantenimientoComponentProps {
  * Componente principal del módulo Mantenimiento.
  *
  * Estructura de tabs raíz:
- * - Solicitudes Activas: tabla general de solicitudes creadas
- * - Nueva Solicitud: formulario para crear solicitud
  * - Operaciones: pipeline visual con 4 pasos (Validar → Aprobar Fecha → Para Taller → Seguimiento)
  * - Taller: pipeline visual con 4 pasos (Por Programar → Confirmados → En Taller → Aprobaciones)
  * - Nuevo Pedido: formulario de nuevo pedido de mantenimiento
@@ -40,38 +38,6 @@ export default async function MantenimientoComponent({ searchParams, permissions
       permissions={permissions}
       dependentParams={['gomeria_tab', 'config_subtab']}
       tabs={[
-        // {
-        //   value: 'created_solicitudes',
-        //   label: (
-        //     <span className="flex items-center gap-2">
-        //       <ClipboardList className="h-4 w-4" />
-        //       Solicitudes Activas
-        //     </span>
-        //   ),
-        //   moduleSlug: 'mantenimiento',
-        //   tabSlug: 'created_solicitudes' as const,
-        //   content: (
-        //     <Suspense fallback={<RepairSolicitudesSkeleton />}>
-        //       <RepairSolicitudesTabContent searchParams={searchParams} />
-        //     </Suspense>
-        //   ),
-        // },
-        // {
-        //   value: 'type_of_repair_new_entry',
-        //   label: (
-        //     <span className="flex items-center gap-2">
-        //       <Plus className="h-4 w-4" />
-        //       Nueva Solicitud
-        //     </span>
-        //   ),
-        //   moduleSlug: 'mantenimiento',
-        //   tabSlug: 'type_of_repair_new_entry' as const,
-        //   content: (
-        //     <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
-        //       <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
-        //     </Suspense>
-        //   ),
-        // },
         // ============================================
         // TAB: OPERACIONES (Pipeline visual)
         // ============================================

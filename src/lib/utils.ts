@@ -328,28 +328,6 @@ export const getAllDocumentsByIdDocumentTypeCientSide = async (
   return data ?? [];
 };
 
-export const getOpenRepairsSolicitudesByArrayClientSide = async (
-  vehiclesIds: string[],
-  repairTypeId: string,
-  company_id: string
-) => {
-  if (!company_id) return [];
-  const supabase = supabaseBrowser();
-  let { data, error } = await supabase
-    .from('repair_solicitudes')
-    .select('*,equipment_id(*)')
-    .in('equipment_id', vehiclesIds)
-    .eq('reparation_type', repairTypeId)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación'])
-    .returns<RepairRequestWithVehicle[]>();
-
-  if (error || !data) {
-    //console.error('error', error);
-    return [];
-  }
-  return data;
-};
-
 export const formatEmployeeDocuments = (doc: EmployeeDocumentWithContractors) => {
   return {
     date: moment(doc.created_at).format('DD/MM/YYYY'),

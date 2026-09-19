@@ -25,9 +25,7 @@ declare global {
   type TypeOfVehicle = DB['public']['Tables']['type']['Row']; // Anteriormente: type_of_vehicle
   type CompanyDocument = DB['public']['Tables']['documents_company']['Row']; // Anteriormente: DocumentsCompany
   type UserProfile = DB['public']['Tables']['profile']['Row']; // Anteriormente: Profile
-  type RepairRequest = DB['public']['Tables']['repair_solicitudes']['Row']; // Anteriormente: RepairsSolicituds
   type RepairType = DB['public']['Tables']['types_of_repairs']['Row']; // Anteriormente: TypeOfRepair
-  type RepairLog = DB['public']['Tables']['repairlogs']['Row']; // Anteriormente: RepairLogs
   type EmployeeDiagram = DB['public']['Tables']['employees_diagram']['Row']; // Anteriormente: DiagramEmployee
   type EmployeeDiagramInsert = DB['public']['Tables']['employees_diagram']['Insert']; // Anteriormente: DiagramEmployee
   type DiagramType = DB['public']['Tables']['diagram_type']['Row']; // Anteriormente: DiagramType
@@ -51,7 +49,6 @@ declare global {
   type company_position = DB['public']['Tables']['company_positions']['Row'];
 
   //! Enums
-  type RepairStatusEnum = DB['public']['Enums']['repair_state']; // Anteriormente: EnumOfRepairStatus
   type VehicleConditionEnum = DB['public']['Enums']['condition_enum']; // Anteriormente: EnumVehicleCondition
   type ModulosEnum = DB['public']['Enums']['modulos'];
 
@@ -157,28 +154,6 @@ declare global {
   interface EmployeeDiagramWithType extends Omit<EmployeeDiagram, 'diagram_type'> {
     // Anteriormente: DiagramEmployeeWithDiagramType
     diagram_type: DiagramType; // Anteriormente: DiagramType
-  }
-
-  // Relaciones de RepairLog
-  interface RepairLogDetailed extends Omit<RepairLog, 'modified_by_employee' | 'modified_by_user'> {
-    // Anteriormente: RepairLogsWithRelations
-    modified_by_employee: Employee; // Anteriormente: Employees
-    modified_by_user: UserProfile; // Anteriormente: Profile
-  }
-
-  // Relaciones de RepairRequest
-  interface RepairRequestWithVehicle extends Omit<RepairRequest, 'equipment_id'> {
-    // Anteriormente: RepairSoliciudesWithOnlyVechicleRelations
-    equipment_id: Vehicle; // Anteriormente: Vehicles
-  }
-  interface RepairRequestDetailed
-    extends Omit<RepairRequest, 'user_id' | 'employee_id' | 'equipment_id' | 'reparation_type' | 'repairlogs'> {
-    // Anteriormente: RepairSolicitudesWithRelations
-    user_id: UserProfile; // Anteriormente: Profile
-    employee_id: Employee; // Anteriormente: Employees
-    equipment_id: VehicleDetailed; // Anteriormente: VehiclestWithRelations
-    reparation_type: RepairType; // Anteriormente: TypeOfRepair
-    repairlogs: RepairLogDetailed[]; // Anteriormente: RepairLogsWithRelations[]
   }
 
   // Relaciones de CompanyDocument

@@ -162,7 +162,7 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   const employeePhone = (employee.phone as string | null) ?? null;
   const employeeName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
 
-  // 3) Asegurar profile (necesario para FKs como repair_solicitudes.user_id -> profile.id)
+  // 3) Asegurar profile (necesario para FKs que apuntan a profile.id)
   // Evitar choque por UNIQUE(email): si el email ya pertenece a otro profile, lo omitimos en profile y lo dejamos en user_metadata.
   let emailForProfile: string | null = employeeEmail;
   if (emailForProfile) {
@@ -439,9 +439,8 @@ interface PendingDeviationsOptions {
 /**
  * Obtiene los desvíos pendientes (sin resolver) para un equipo.
  *
- * Por defecto un desvío se considera resuelto si:
- * - tiene una solicitud de reparación asociada (`checklist_answer_repairs` — sistema antiguo), o
- * - su ítem de solicitud ya tiene tipo de reparación asignado (`maintenance_request_items.repair_type_id`).
+ * Por defecto un desvío se considera resuelto si su ítem de solicitud ya tiene
+ * tipo de reparación asignado (`maintenance_request_items.repair_type_id`).
  *
  * Con `onlyWithoutRequest` se aplica el criterio más estricto de la tabla "Equipos con Desvíos":
  * cualquier desvío que ya esté dentro de una solicitud queda excluido.
@@ -515,22 +514,7 @@ export async function getPendingDeviations(equipmentId: string, options?: Pendin
 
   const deviationIds = allDeviations.map((d) => d.id);
 
-  // 1. Desvíos resueltos en checklist_answer_repairs (sistema antiguo)
-  const { data: resolvedDeviations, error: resolvedError } = await supabase
-    .from('checklist_answer_repairs')
-    .select('item_code, checklist_answer_id')
-    .in(
-      'checklist_answer_id',
-      allDeviations.map((d) => d.checklist_answer_id)
-    );
-
-  if (resolvedError) {
-    deviationsLogger.error('Error al obtener desvíos resueltos (sistema antiguo)', {
-      data: { error: resolvedError, equipmentId },
-    });
-  }
-
-  // 2. Desvíos que ya tienen solicitud de mantenimiento (sistema nuevo)
+  // Desvíos que ya tienen solicitud de mantenimiento
   const { data: maintenanceRequestItems, error: maintenanceError } = await supabase
     .from('maintenance_request_items')
     .select('checklist_deviation_id, maintenance_request_id, repair_type_id')
@@ -541,16 +525,6 @@ export async function getPendingDeviations(equipmentId: string, options?: Pendin
       data: { error: maintenanceError, equipmentId },
     });
   }
-
-  // Map de item_codes resueltos por checklist_answer_id (sistema antiguo)
-  const resolvedMap = new Map<string, Set<string>>();
-  resolvedDeviations?.forEach((resolved) => {
-    const key = resolved.checklist_answer_id;
-    if (!resolvedMap.has(key)) {
-      resolvedMap.set(key, new Set());
-    }
-    resolvedMap.get(key)!.add(resolved.item_code);
-  });
 
   // Desvíos que ya están dentro de una solicitud, con o sin tipo de reparación asignado
   const deviationsInRequest = new Set<string>();
@@ -570,14 +544,8 @@ export async function getPendingDeviations(equipmentId: string, options?: Pendin
       return false;
     }
 
-    // Tiene tipo de reparación asignado (sistema nuevo)
+    // Tiene tipo de reparación asignado
     if (deviationsWithRepairTypeAssigned.has(deviation.id)) {
-      return false;
-    }
-
-    // Tiene solicitud de reparación (sistema antiguo)
-    const resolvedSet = deviation.checklist_answer_id ? resolvedMap.get(deviation.checklist_answer_id) : undefined;
-    if (resolvedSet && resolvedSet.has(deviation.item_code)) {
       return false;
     }
 
@@ -685,320 +653,5 @@ export async function getTractorUnitsWithPendingDeviations() {
   } catch (error) {
     console.error('[DASHBOARD] Error in getTractorUnitsWithPendingDeviations:', error);
     return [];
-  }
-}
-
-/**
- * Crea solicitudes de reparación desde desvíos de checklist
- * @param equipmentId ID del equipo
- * @param repairRequests Array de objetos con repair_type_id, selected_deviations, description, images
- * @returns Resultado de la operación
- */
-export async function createRepairRequestsFromDeviations(
-  equipmentId: string,
-  repairRequests: Array<{
-    repair_type_id: string;
-    selected_deviations: string[]; // IDs de los desvíos
-    description?: string;
-    images?: (string | null)[];
-    kilometer?: string;
-  }>
-): Promise<Ok<{ success: true; repairRequestIds: string[] }> | Err> {
-  if (!equipmentId || !repairRequests || repairRequests.length === 0) {
-    return { ok: false, error: 'Datos inválidos para crear solicitudes de reparación' };
-  }
-
-  const supabase = await supabaseServer();
-
-  // Obtener usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Obtener employee_id
-  const employeeIdFromMetadata =
-    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
-  const finalEmployeeId = employeeIdFromMetadata ?? null;
-
-  // Obtener kilometraje del equipo si no se proporciona
-  let equipmentKilometer: string | undefined;
-  if (!repairRequests[0]?.kilometer) {
-    const { data: equipment } = await supabase.from('vehicles').select('kilometer').eq('id', equipmentId).single();
-    equipmentKilometer = equipment?.kilometer || undefined;
-  }
-
-  try {
-    // 1. Obtener todos los desvíos que se van a asociar
-    const allDeviationIds = repairRequests.flatMap((req) => req.selected_deviations);
-    const { data: deviations, error: deviationsError } = await supabase
-      .from('checklist_deviations')
-      .select('id, checklist_answer_id, item_code, section_code, equipment_id')
-      .in('id', allDeviationIds)
-      .eq('equipment_id', equipmentId);
-
-    if (deviationsError || !deviations) {
-      return { ok: false, error: 'Error al obtener los desvíos' };
-    }
-
-    // Validar que todos los desvíos pertenezcan al mismo equipo
-    const allSameEquipment = deviations.every((d) => d.equipment_id === equipmentId);
-    if (!allSameEquipment) {
-      return { ok: false, error: 'Los desvíos deben pertenecer al mismo equipo' };
-    }
-
-    // Buscar si hay un equipo enganchado relacionado (COD-290)
-    // Si se resuelven desvíos en un UT, también resolverlos en el enganche relacionado
-    const utChecklistAnswerId = deviations[0]?.checklist_answer_id;
-    let hitchEquipmentInfo: { hitchEquipmentId: string; hitchChecklistAnswerId: string } | null = null;
-    let hitchDeviations: Array<{
-      id: string;
-      checklist_answer_id: string;
-      item_code: string;
-      section_code: string | null;
-    }> = [];
-
-    if (utChecklistAnswerId) {
-      try {
-        const { findRelatedHitchEquipmentId } = await import('@/features/Mantenimiento/actions/equipment-basic');
-        hitchEquipmentInfo = await findRelatedHitchEquipmentId(utChecklistAnswerId);
-
-        // Si hay un equipo enganchado relacionado, buscar los desvíos idénticos (mismo item_code y section_code)
-        if (hitchEquipmentInfo) {
-          const itemCodes = [...new Set(deviations.map((d) => d.item_code))];
-          const sectionCodes = [...new Set(deviations.map((d) => d.section_code).filter(Boolean))];
-
-          const { data: hitchDeviationsData, error: hitchDeviationsError } = await supabase
-            .from('checklist_deviations')
-            .select('id, checklist_answer_id, item_code, section_code, equipment_id')
-            .eq('equipment_id', hitchEquipmentInfo.hitchEquipmentId)
-            .eq('checklist_answer_id', hitchEquipmentInfo.hitchChecklistAnswerId)
-            .in('item_code', itemCodes);
-
-          if (!hitchDeviationsError && hitchDeviationsData) {
-            // Filtrar solo los que coincidan exactamente en item_code y section_code
-            // y que tengan checklist_answer_id definido
-            hitchDeviations = hitchDeviationsData.filter(
-              (hitchDev): hitchDev is typeof hitchDev & { checklist_answer_id: string } => {
-                if (!hitchDev.checklist_answer_id) return false;
-                const utDeviation = deviations.find(
-                  (d) => d.item_code === hitchDev.item_code && d.section_code === hitchDev.section_code
-                );
-                return utDeviation !== undefined;
-              }
-            );
-
-            console.log(
-              `[HITCH] Found ${hitchDeviations.length} matching deviations in hitched equipment ${hitchEquipmentInfo.hitchEquipmentId}`
-            );
-          }
-        }
-      } catch (error) {
-        console.error('[MAINTENANCE] Error finding related hitch equipment:', error);
-        // Continuar sin el equipo enganchado, no es crítico
-      }
-    }
-
-    // 2. Crear las solicitudes de reparación para el equipo UT
-    const repairSolicitudesToInsert = repairRequests.map((req) => ({
-      reparation_type: req.repair_type_id,
-      equipment_id: equipmentId,
-      user_description: req.description || null,
-      user_id: user?.id || null,
-      user_images: req.images || null,
-      state: 'Pendiente' as const,
-      employee_id: finalEmployeeId,
-      kilometer: req.kilometer || equipmentKilometer || null,
-    }));
-
-    const { data: createdRepairs, error: createRepairsError } = await supabase
-      .from('repair_solicitudes')
-      .insert(
-        repairSolicitudesToInsert.map((r) => ({
-          ...r,
-          user_images: r.user_images?.filter((img): img is string => img !== null) || null,
-        }))
-      )
-      .select('id');
-
-    if (createRepairsError || !createdRepairs) {
-      console.error('[MAINTENANCE] Error creating repair requests:', createRepairsError);
-      return { ok: false, error: 'Error al crear las solicitudes de reparación' };
-    }
-
-    // 2b. Si hay equipo enganchado relacionado, crear también las solicitudes de reparación para el enganche (COD-290)
-    let hitchRepairIds: string[] = [];
-    if (hitchEquipmentInfo && hitchDeviations.length > 0) {
-      try {
-        // Obtener kilometraje del equipo enganchado
-        const { data: hitchEquipment } = await supabase
-          .from('vehicles')
-          .select('kilometer')
-          .eq('id', hitchEquipmentInfo.hitchEquipmentId)
-          .single();
-
-        const hitchKilometer = hitchEquipment?.kilometer || equipmentKilometer || null;
-
-        // Crear las mismas solicitudes de reparación para el equipo enganchado
-        const hitchRepairSolicitudesToInsert = repairRequests.map((req) => ({
-          reparation_type: req.repair_type_id,
-          equipment_id: hitchEquipmentInfo.hitchEquipmentId,
-          user_description: req.description || null,
-          user_id: user?.id || null,
-          user_images: req.images || null,
-          state: 'Pendiente' as const,
-          employee_id: finalEmployeeId,
-          kilometer: req.kilometer || hitchKilometer || null,
-        }));
-
-        const { data: createdHitchRepairs, error: createHitchRepairsError } = await supabase
-          .from('repair_solicitudes')
-          .insert(
-            hitchRepairSolicitudesToInsert.map((r) => ({
-              ...r,
-              user_images: r.user_images?.filter((img): img is string => img !== null) || null,
-            }))
-          )
-          .select('id');
-
-        if (createHitchRepairsError || !createdHitchRepairs) {
-          console.error('[MAINTENANCE] Error creating repair requests for hitch equipment:', createHitchRepairsError);
-          // No fallar completamente, pero loguear el error
-        } else {
-          hitchRepairIds = createdHitchRepairs.map((r) => r.id);
-          console.log(
-            `[HITCH] Created ${hitchRepairIds.length} repair requests for hitched equipment ${hitchEquipmentInfo.hitchEquipmentId}`
-          );
-
-          // Actualizar condición del equipo enganchado a "no operativo"
-          const { error: updateHitchError } = await supabase
-            .from('vehicles')
-            .update({ condition: 'no operativo' })
-            .eq('id', hitchEquipmentInfo.hitchEquipmentId);
-
-          if (updateHitchError) {
-            console.error('[MAINTENANCE] Error updating hitch equipment condition:', updateHitchError);
-          }
-        }
-      } catch (error) {
-        console.error('[MAINTENANCE] Error creating repair requests for hitch equipment:', error);
-        // No fallar completamente, pero loguear el error
-      }
-    }
-
-    // 3. Crear registros en checklist_answer_repairs para el equipo UT
-    const answerRepairsToInsert: Array<{
-      checklist_answer_id: string;
-      repair_solicitud_id: string;
-      item_code: string;
-    }> = [];
-
-    for (let i = 0; i < repairRequests.length; i++) {
-      const repairRequest = repairRequests[i];
-      const repairId = createdRepairs[i]?.id;
-      if (!repairId) continue;
-
-      for (const deviationId of repairRequest.selected_deviations) {
-        const deviation = deviations.find((d) => d.id === deviationId);
-        if (deviation && deviation.checklist_answer_id) {
-          answerRepairsToInsert.push({
-            checklist_answer_id: deviation.checklist_answer_id,
-            repair_solicitud_id: repairId,
-            item_code: deviation.item_code,
-          });
-        }
-      }
-    }
-
-    // Insertar registros en checklist_answer_repairs para el UT
-    if (answerRepairsToInsert.length > 0) {
-      const { error: answerRepairsError } = await supabase
-        .from('checklist_answer_repairs')
-        .insert(answerRepairsToInsert);
-
-      if (answerRepairsError) {
-        console.error('[MAINTENANCE] Error creating checklist_answer_repairs:', answerRepairsError);
-        // No fallar completamente, pero loguear el error
-      }
-    }
-
-    // 3b. Crear registros en checklist_answer_repairs para el equipo enganchado (COD-290)
-    // Resolver los mismos desvíos en el equipo enganchado relacionado
-    if (hitchEquipmentInfo && hitchDeviations.length > 0 && hitchRepairIds.length > 0) {
-      try {
-        const hitchAnswerRepairsToInsert: Array<{
-          checklist_answer_id: string;
-          repair_solicitud_id: string;
-          item_code: string;
-        }> = [];
-
-        // Mapear desvíos del UT a desvíos del enganche por item_code y section_code
-        for (let i = 0; i < repairRequests.length; i++) {
-          const repairRequest = repairRequests[i];
-          const hitchRepairId = hitchRepairIds[i];
-          if (!hitchRepairId) continue;
-
-          for (const deviationId of repairRequest.selected_deviations) {
-            const utDeviation = deviations.find((d) => d.id === deviationId);
-            if (!utDeviation) continue;
-
-            // Buscar el desvío correspondiente en el enganche (mismo item_code y section_code)
-            const hitchDeviation = hitchDeviations.find(
-              (hd) => hd.item_code === utDeviation.item_code && hd.section_code === utDeviation.section_code
-            );
-
-            if (hitchDeviation) {
-              hitchAnswerRepairsToInsert.push({
-                checklist_answer_id: hitchDeviation.checklist_answer_id,
-                repair_solicitud_id: hitchRepairId,
-                item_code: hitchDeviation.item_code,
-              });
-            }
-          }
-        }
-
-        // Insertar registros en checklist_answer_repairs para el enganche
-        if (hitchAnswerRepairsToInsert.length > 0) {
-          const { error: hitchAnswerRepairsError } = await supabase
-            .from('checklist_answer_repairs')
-            .insert(hitchAnswerRepairsToInsert);
-
-          if (hitchAnswerRepairsError) {
-            console.error('[MAINTENANCE] Error creating checklist_answer_repairs for hitch:', hitchAnswerRepairsError);
-            // No fallar completamente, pero loguear el error
-          } else {
-            console.log(
-              `[HITCH] Created ${hitchAnswerRepairsToInsert.length} checklist_answer_repairs for hitched equipment`
-            );
-          }
-        }
-      } catch (error) {
-        console.error('[MAINTENANCE] Error processing hitch deviations:', error);
-        // No fallar completamente, pero loguear el error
-      }
-    }
-
-    // 4. Actualizar la condición del equipo a "no operativo" cuando se generan solicitudes de reparación
-    // por items críticos fallidos (no eliminamos los desvíos, solo los marcamos como asociados a solicitudes)
-    const { error: updateError } = await supabase
-      .from('vehicles')
-      .update({ condition: 'no operativo' })
-      .eq('id', equipmentId);
-
-    if (updateError) {
-      console.error('[MAINTENANCE] Error updating equipment condition to "no operativo":', updateError);
-      // No fallar completamente, pero loguear el error
-    } else {
-      console.log(`[MAINTENANCE] Updated equipment ${equipmentId} condition to "no operativo"`);
-    }
-
-    return {
-      ok: true,
-      success: true,
-      repairRequestIds: createdRepairs.map((r) => r.id),
-    };
-  } catch (error) {
-    console.error('[MAINTENANCE] Unexpected error in createRepairRequestsFromDeviations:', error);
-    return { ok: false, error: 'Error inesperado al procesar las solicitudes' };
   }
 }
