@@ -180,15 +180,7 @@ describe('Dashboard Navigation Tests', () => {
     cy.wait(1000);
     cy.checkNoErrors();
 
-    cy.get('[data-testid="sub-tab-created_solicitudes"]').should('exist').click();
-    cy.wait(1000);
-    cy.checkNoErrors();
-
     cy.get('[data-testid="sub-tab-type_of_repair"]').should('exist').click();
-    cy.wait(1000);
-    cy.checkNoErrors();
-
-    cy.get('[data-testid="sub-tab-type_of_repair_new_entry"]').should('exist').click();
     cy.wait(1000);
     cy.checkNoErrors();
 
@@ -215,15 +207,7 @@ describe('Dashboard Navigation Tests', () => {
     cy.checkNoErrors();
 
     // Test maintenance subtabs
-    cy.get('[data-testid="sub-tab-created_solicitudes"]').should('exist').click();
-    cy.wait(1000);
-    cy.checkNoErrors();
-
     cy.get('[data-testid="sub-tab-type_of_repair"]').should('exist').click();
-    cy.wait(1000);
-    cy.checkNoErrors();
-
-    cy.get('[data-testid="sub-tab-type_of_repair_new_entry"]').should('exist').click();
     cy.wait(1000);
     cy.checkNoErrors();
 

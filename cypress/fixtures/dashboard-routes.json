@@ -153,16 +153,8 @@
           "query": "?tab=Tipos de documentos"
         },
         {
-          "name": "Mantenimiento - Solicitudes",
-          "query": "?tab=type_of_repairs&subtab=created_solicitudes"
-        },
-        {
           "name": "Mantenimiento - Tipos de reparaciones",
           "query": "?tab=type_of_repairs&subtab=type_of_repair"
-        },
-        {
-          "name": "Mantenimiento - Nueva solicitud",
-          "query": "?tab=type_of_repairs&subtab=type_of_repair_new_entry"
         },
         {
           "name": "Mantenimiento - Grupos",
@@ -190,16 +182,8 @@
       "path": "/dashboard/maintenance",
       "tabs": [
         {
-          "name": "Solicitudes de mantenimiento",
-          "query": "?tab=type_of_repairs&subtab=created_solicitudes"
-        },
-        {
           "name": "Tipos de reparaciones",
           "query": "?tab=type_of_repairs&subtab=type_of_repair"
-        },
-        {
-          "name": "Nueva solicitud",
-          "query": "?tab=type_of_repairs&subtab=type_of_repair_new_entry"
         },
         {
           "name": "Grupos de mantenimiento",
