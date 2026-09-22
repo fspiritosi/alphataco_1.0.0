@@ -14,8 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription } from '@/components/ui/card';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { getDocumentDownloadUrls } from '@/features/Documentacion/shared/actions/document-files.server';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,
@@ -103,7 +102,6 @@ function buildFkFacetResult(
 // ============================================================================
 
 function PermanentDocumentsDownloadButton({ tableRows }: { tableRows: EmployeePermanentDocumentListItem[] }) {
-  const supabase = supabaseBrowser();
 
   const downloadableRows = tableRows.filter(
     (row) => row.state !== 'pendiente' && row.document_path && row.archived_at == null
@@ -122,14 +120,18 @@ function PermanentDocumentsDownloadButton({ tableRows }: { tableRows: EmployeePe
       async () => {
         const zip = new JSZip();
 
+        // URLs firmadas por el servidor (solo documentos de la empresa activa) — P3: storage
+        const paths = downloadableRows.map((doc) => doc.document_path).filter((p): p is string => !!p);
+        const signedUrls = new Map((await getDocumentDownloadUrls(paths)).map((item) => [item.path, item.url]));
+
         const files = await Promise.all(
           downloadableRows.map(async (doc) => {
             if (!doc.document_path) return null;
-            const { data, error } = await supabase.storage.from('document-files').download(doc.document_path);
-
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
+            const url = signedUrls.get(doc.document_path);
+            if (!url) throw new Error('No se pudo generar el enlace de descarga');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('No se pudo descargar el documento');
+            const data = await response.blob();
 
             const extension = doc.document_path.split('.').pop();
             const docTypeName = doc.document_types?.name ?? 'documento';
