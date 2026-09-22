@@ -228,6 +228,10 @@ export async function createHierarchyPrisma(data: { name: string; is_active: boo
 
 export async function updateHierarchyPrisma(data: { id: string; name: string; is_active: boolean }) {
   try {
+    // Perímetro sin RLS: sólo filas de la empresa activa.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.hierarchy.findFirst({ where: { id: data.id, company_id: companyId }, select: { id: true } });
+    if (!owned) throw new Error('No encontrado en la empresa activa');
     const result = await prisma.hierarchy.update({
       where: { id: data.id },
       data: {

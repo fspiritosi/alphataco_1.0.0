@@ -1,102 +1,36 @@
 'use client';
+
+import { getStoreCompanies } from '@/shared/actions/session.server';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-// import { supabase } from '../../supabase/supabase';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
-import { company } from '@/shared/types/legacy';
-//import { industry } from './../types/types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
+export const COMPANIES_QUERY_KEY = ['user-companies'] as const;
+
+/**
+ * Empresas propias y compartidas del usuario de sesión (React Query sobre `getStoreCompanies`).
+ * `fetchCompanies()` refresca la lista y la sincroniza con `useLoggedUserStore.allCompanies`
+ * (lo que antes hacía el hook consultando PostgREST desde el navegador).
+ */
 export const useCompanyData = () => {
-  const { errorTranslate } = useEdgeFunctions();
-  //const [industry, setIndustry] = useState<any[]>([])
-  const supabase = supabaseBrowser();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: COMPANIES_QUERY_KEY,
+    queryFn: getStoreCompanies,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const fetchCompanies = useCallback(async () => {
+    const result = await queryClient.fetchQuery({ queryKey: COMPANIES_QUERY_KEY, queryFn: getStoreCompanies, staleTime: 0 });
+    useLoggedUserStore.setState({ allCompanies: result.allCompanies, sharedCompanies: result.sharedCompanies });
+    return result;
+  }, [queryClient]);
+
   return {
-    fetchAllCompany: async () => {
-      let { data: company, error } = await supabase.from('company').select('*');
-
-      if (error) {
-        const message = await errorTranslate(error?.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-      return company;
-    },
-
-    findByOwner: async (owner: any) => {
-      let { data: company, error } = await supabase.from('company').select('*').eq('owner_id', 'owner');
-
-      if (error) {
-        const message = await errorTranslate(error?.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-      return company;
-    },
-    insertCompany: async (company: company) => {
-      const { data, error } = await supabase
-        .from('company')
-        .insert(company as any)
-        .select();
-
-      if (error) {
-        const message = await errorTranslate(error?.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-      return data;
-    },
-
-    updateCompany: async (companyId: string, company: company) => {
-      const { data, error } = await supabase
-        .from('company')
-        .update(company as any)
-        .eq('id', companyId)
-        .select();
-
-      if (error) {
-        const message = await errorTranslate(error.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-      return data;
-    },
-    LogicDeleteCompany: async (companyId: string) => {
-      const { data, error } = await supabase
-        .from('company')
-        .update({ is_active: false }) // Establece is_Active en false para el borrado lógico
-        .eq('id', companyId)
-        .select();
-      if (error) {
-        const message = await errorTranslate(error.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-      return data;
-    },
-
-    deleteCompany: async (companyId: string) => {
-      const { error } = await supabase.from('company').delete().eq('id', 'companyId');
-
-      if (error) {
-        const message = await errorTranslate(error.message);
-        throw new Error(String(message).replaceAll('"', ''));
-      }
-    },
-
-    fetchIndustryType: async () => {
-      const { data, error } = await supabase.from('industry_type').select('*');
-
-      if (error) {
-        console.error('Error al obtener las industrias:', error);
-      }
-
-      return data;
-    },
-
-    fetchCompanies: async () => {
-      // Obtener las compañías actualizadas de Supabase
-      const { data, error } = await supabase.from('company').select('*, province_id(id, name), city(id, name)');
-      if (error) {
-        console.error('Error al obtener las compañías:', error);
-      } else {
-        // Actualizar el estado global con las nuevas compañías
-        useLoggedUserStore.setState({ allCompanies: (data as any) || [] });
-      }
-    },
+    allCompanies: query.data?.allCompanies ?? [],
+    sharedCompanies: query.data?.sharedCompanies ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    fetchCompanies,
   };
 };

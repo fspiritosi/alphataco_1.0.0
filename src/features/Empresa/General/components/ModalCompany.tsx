@@ -1,10 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { formatCompanyName } from '@/lib/utils';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { company } from '@/shared/types/legacy';
 import React, { useState } from 'react';
 import Modal from 'react-modal';
-import { CompanyRegister } from './CompanyRegister'; // Importa tu formulario de registro de compañía
 type ModalCompanyProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -20,7 +18,6 @@ const ModalCompany: React.FC<ModalCompanyProps> = ({ isOpen, onClose, selectedCa
   const handleCloseModal = () => {
     onClose();
   };
-  const actualCompany = useLoggedUserStore((state) => state.actualCompany);
   return (
     <Modal isOpen={isOpen} onRequestClose={onClose}>
       <div className="text-black">
@@ -48,7 +45,6 @@ const ModalCompany: React.FC<ModalCompanyProps> = ({ isOpen, onClose, selectedCa
               {formEnabled ? 'Deshabilitar Edición' : 'Habilitar Edición'}
             </Button>
             <br />
-            <CompanyRegister company={selectedCard} formEnabled={formEnabled} />
           </div>
         )}
       </div>

@@ -2,67 +2,58 @@
 import { CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useEffect, useState } from 'react';
+import { getCitiesByProvince } from '@/shared/actions/countries.server';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-interface Props {
-  provinces: any[] | null;
-  defaultProvince?: any;
-  defaultCity?: any;
+interface CatalogOption {
+  id: number;
+  name: string;
 }
 
+interface Props {
+  provinces: CatalogOption[] | null;
+  defaultProvince?: CatalogOption | null;
+  defaultCity?: CatalogOption | null;
+}
+
+/**
+ * Selectores provincia → ciudad del formulario de empresa (campos `province_id` y `city`).
+ * Las ciudades se piden por server action al cambiar la provincia (React Query).
+ */
 export default function CityInput({ provinces, defaultProvince, defaultCity }: Props) {
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-  const [cities, setCities] = useState<any[] | null>([]);
-  const [cityFiltered, setCityFiltered] = useState<any[] | null>(cities || []);
-  const [selectedCity, setSelectedCity] = useState<string | null>(defaultCity?.id?.toString() || null);
+  const [selectedProvince, setSelectedProvince] = useState<string | undefined>(
+    defaultProvince?.id != null ? String(defaultProvince.id) : undefined
+  );
+  const [selectedCity, setSelectedCity] = useState<string | undefined>(
+    defaultCity?.id != null ? String(defaultCity.id) : undefined
+  );
 
-  const handleFetchCities = async (id: string) => {
-    const supabase = supabaseBrowser();
+  const provinceId = selectedProvince ? Number(selectedProvince) : null;
+  const { data: cities = [], isLoading } = useQuery({
+    queryKey: ['cities-by-province', provinceId],
+    queryFn: () => getCitiesByProvince(provinceId as number),
+    enabled: provinceId !== null && !Number.isNaN(provinceId),
+    staleTime: 60 * 60 * 1000,
+  });
 
-    let { data: cities, error: citiesError } = await supabase
-      .from('cities')
-      .select('*')
-      .eq('province_id', parseInt(id));
-
-    const filteredCities = cities?.filter((city) => city?.province_id == parseInt(id));
-
-    setCities(cities);
-    return filteredCities;
-  };
-
-  useEffect(() => {
-    if (defaultProvince?.id) {
-      handleProvinceChange(defaultProvince.id);
-    }
-  }, [defaultProvince]);
-  const handleProvinceChange = async (value: string) => {
+  const handleProvinceChange = (value: string) => {
     setSelectedProvince(value);
-    const filteredCities = await handleFetchCities(value);
-    setCityFiltered(filteredCities || []);
-  };
-
-  const handleCityChange = (value: string) => {
-    setSelectedCity(value);
+    setSelectedCity(undefined);
   };
 
   return (
     <>
       <div>
         <Label htmlFor="province_id">Seleccione una provincia</Label>
-        <Select
-          defaultValue={defaultProvince?.id.toString()}
-          value={selectedProvince || undefined}
-          onValueChange={(e) => handleProvinceChange(e)}
-          name="province_id"
-        >
+        <Select value={selectedProvince} onValueChange={handleProvinceChange} name="province_id">
           <SelectTrigger id="province_id" name="province_id" className="max-w-[350px]  w-[300px]">
             <SelectValue placeholder="Seleccionar Provincia" />
           </SelectTrigger>
           <SelectContent>
             {provinces?.map((prov) => (
-              <SelectItem key={prov?.id} value={prov?.id.toString()}>
-                {prov?.name.trim()}
+              <SelectItem key={prov.id} value={String(prov.id)}>
+                {prov.name.trim()}
               </SelectItem>
             ))}
           </SelectContent>
@@ -72,19 +63,14 @@ export default function CityInput({ provinces, defaultProvince, defaultCity }: P
       </div>
       <div>
         <Label htmlFor="city">Seleccione una ciudad</Label>
-        <Select
-          value={selectedCity || undefined}
-          onValueChange={handleCityChange}
-          defaultValue={defaultCity?.id?.toString()}
-          name="city"
-        >
+        <Select value={selectedCity} onValueChange={setSelectedCity} name="city" disabled={!selectedProvince}>
           <SelectTrigger id="city" name="city" className="max-w-[350px] w-[300px]">
-            <SelectValue placeholder="Seleccionar Ciudad" />
+            <SelectValue placeholder={isLoading ? 'Cargando ciudades...' : 'Seleccionar Ciudad'} />
           </SelectTrigger>
           <SelectContent>
-            {cityFiltered?.map((city) => (
-              <SelectItem key={city?.id} value={city?.id.toString()}>
-                {city?.name.trim()}
+            {cities.map((city) => (
+              <SelectItem key={city.id} value={String(city.id)}>
+                {city.name.trim()}
               </SelectItem>
             ))}
           </SelectContent>

@@ -1,7 +1,7 @@
 import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
 import { getMyTicketsWithUnread, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
 import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
-import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
 import { checkPermissionServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { fetchAllWorkshops, fetchAllWorkshopSectors, fetchInternalWorkshops } from '../../actions/workshops.actions';
+import { fetchAllWorkshops, fetchAllWorkshopSectors, fetchInternalWorkshops } from '../../actions/workshops.server';
 import { MantenimientoTabClient } from './MantenimientoTabClient';
 
 async function MantenimientoTab() {

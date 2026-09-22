@@ -228,6 +228,10 @@ export async function createCostCenterPrisma(data: { name: string; is_active: bo
 
 export async function updateCostCenterPrisma(data: { id: string; name: string; is_active: boolean }) {
   try {
+    // Perímetro sin RLS: sólo filas de la empresa activa.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.cost_center.findFirst({ where: { id: data.id, company_id: companyId }, select: { id: true } });
+    if (!owned) throw new Error('No encontrado en la empresa activa');
     const result = await prisma.cost_center.update({
       where: { id: data.id },
       data: {

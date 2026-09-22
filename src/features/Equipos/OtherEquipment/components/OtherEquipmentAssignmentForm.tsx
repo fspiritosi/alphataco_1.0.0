@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { getCostCenterOptions } from '@/features/Empresa/General/actions/cost-centers.server';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { use } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
@@ -14,7 +14,7 @@ import type { OtherEquipmentFormData } from './OtherEquipmentForm';
 interface OtherEquipmentAssignmentFormProps {
   form: UseFormReturn<OtherEquipmentFormData>;
   readOnly?: boolean;
-  costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  costCentersPromise: ReturnType<typeof getCostCenterOptions>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
 }

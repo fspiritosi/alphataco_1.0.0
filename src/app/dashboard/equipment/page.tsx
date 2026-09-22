@@ -1,4 +1,4 @@
-import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
 import EquiposComponent from '@/features/Equipos/EquiposComponent';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';

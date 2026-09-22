@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { getCostCenterOptions } from '@/features/Empresa/General/actions/cost-centers.server';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import {
   getModelsByBrand,
@@ -125,7 +125,7 @@ interface OtherEquipmentFormProps {
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: ReturnType<typeof getVehicleOwners>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
-  costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  costCentersPromise: ReturnType<typeof getCostCenterOptions>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   vehiclesPromise: Promise<Array<{ id: string; domain: string | null }>>;
   certificationsComponent?: React.ReactNode;

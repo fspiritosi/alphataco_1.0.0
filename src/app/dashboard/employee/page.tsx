@@ -13,7 +13,7 @@ import { PreEmployeeTableSkeleton } from '@/features/Employees/PreLegajos/compon
 import PreLegajosTabContent from '@/features/Employees/PreLegajos/PreLegajosTabContent';
 import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
 import { CovenantTreeSkeleton } from '@/features/Empresa/CCT/fallback/CovenantTreeSkeleton';
-import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import {

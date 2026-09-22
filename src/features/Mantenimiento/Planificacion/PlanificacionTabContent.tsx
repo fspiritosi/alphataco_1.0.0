@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchActiveWorkshops, fetchAllWorkshopSectors } from '@/features/Empresa/General/actions/workshops.actions';
+import { fetchActiveWorkshops, fetchAllWorkshopSectors } from '@/features/Empresa/General/actions/workshops.server';
 import { getMaintenanceOrdersInWorkshop } from '../actions/actionsServer';
 import { PlanificacionTableClient } from './components/PlanificacionTableClient';
 

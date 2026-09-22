@@ -12,20 +12,18 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { useCountriesStore } from '@/shared/store/countries';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Cookies from 'js-cookie';
-import moment from 'moment';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { uploadCompanyDocument } from '../mutations.server';
 function AddCompanyDocumentForm({
   documentId,
   documentIsUploaded,
@@ -47,9 +45,6 @@ function AddCompanyDocumentForm({
   const companyDocumentTypes = (useCountriesStore((state) => state.companyDocumentTypes) ?? []).filter(
     (e) => e.applies === 'Empresa'
   );
-  const user = useLoggedUserStore((state) => state.credentialUser?.id);
-  const actualCompany = useLoggedUserStore((state) => state.actualCompany);
-  const companyId = actualCompany?.id ?? Cookies.get('actualComp');
   // Si se pasaron props directas, usarlas; si no, buscar en el store
   const documentForId = documentTypeName
     ? {
@@ -61,6 +56,7 @@ function AddCompanyDocumentForm({
     : companyDocumentTypes.find((e) => e.id === documentId);
   const fetchDocuments = useLoggedUserStore((state) => state.documetsFetch);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const FormSchema = z.object({
     id_document_types: z.string({
       required_error: 'Este campo es requerido',
@@ -85,85 +81,21 @@ function AddCompanyDocumentForm({
     await toast
       .promise(
         async () => {
-          if (!companyId) throw new Error('No se pudo identificar la empresa actual');
-
-          const supabase = supabaseBrowser();
-
-          // Fallback: obtener userId de supabase auth si el store no lo tiene
-          let userId = user;
-          if (!userId) {
-            const {
-              data: { user: authUser },
-            } = await supabase.auth.getUser();
-            userId = authUser?.id;
-          }
-          if (!userId) throw new Error('No se pudo identificar el usuario actual');
-
-          // Obtener datos de la empresa del store o de la BD si el store no está hidratado
-          let companyName = actualCompany?.company_name;
-          let companyCuit = actualCompany?.company_cuit;
-          if (!companyName || !companyCuit) {
-            const { data: companyData } = await supabase
-              .from('company')
-              .select('company_name, company_cuit')
-              .eq('id', companyId)
-              .single();
-            companyName = companyData?.company_name ?? companyName ?? 'empresa';
-            companyCuit = companyData?.company_cuit ?? companyCuit ?? 'sin-cuit';
-          }
-          // El nombre se normaliza: Storage rechaza tildes y ñ en la key con `InvalidKey`.
-          const companyFolder = `${formatPathSegment(companyName)}-(${companyCuit})`;
-
-          const formatedDocumentTypeName = formatDocumentTypeName(documentForId?.name || '');
-          const hasExpiredDate = data.validity?.replace(/\//g, '-') ?? 'v0';
-          const { data: DuplicatedDocument } = await supabase.storage
-            .from('document-files')
-            .list(`${companyFolder}/empresa`, {
-              search: `${formatedDocumentTypeName}-(${hasExpiredDate})`,
-            });
-          if (DuplicatedDocument?.length && DuplicatedDocument?.length > 0) {
-            throw new Error('Este documento ya se encuentra subido');
-          }
-          const fileExtension = data.file.split('.').pop();
           if (!file) throw new Error('No se ha subido el archivo');
-          await supabase.storage
-            .from('document-files')
-            .upload(
-              `/${companyFolder}/empresa/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`,
-              file,
-              {
-                cacheControl: '3600',
-                upsert: false,
-              }
-            )
-            .then(async (response) => {
-              const { file, ...rest } = data;
-              const allData = {
-                ...rest,
-                // Acepta DD/MM/YYYY, YYYY-MM-DD o DD-MM-YYYY; siempre persiste como DD/MM/YYYY
-                // para mantener consistencia con la convencion del proyecto (validity es String en BD).
-                validity: data.validity
-                  ? moment(data.validity, ['DD/MM/YYYY', 'YYYY-MM-DD', 'DD-MM-YYYY'], true).format('DD/MM/YYYY')
-                  : null,
-                user_id: userId,
-                created_at: new Date().toISOString(),
-                state: 'presentado',
-                document_path: response.data?.path,
-              };
+          // El archivo, el tipo, la validez y el período viajan al servidor: la empresa y el usuario
+          // salen de la sesión (nunca del cliente) y el storage se toca en el servidor (P3: storage).
+          const formData = new FormData();
+          formData.set('file', file);
+          formData.set('documentTypeId', data.id_document_types);
+          if (data.validity) formData.set('validity', data.validity);
+          if (data.period) formData.set('period', data.period);
 
-              const { error } = await supabase
-                .from('documents_company')
-                .update(allData as any)
-                .eq('applies', companyId)
-                .eq('id_document_types', documentId);
+          const result = await uploadCompanyDocument(formData);
+          if (!result.ok) throw new Error(result.error);
 
-              if (error) {
-                await supabase.storage.from('document-files').remove([response.data?.path || '']);
-                throw error;
-              }
-              fetchDocuments();
-              router.refresh();
-            });
+          fetchDocuments();
+          queryClient.invalidateQueries();
+          router.refresh();
         },
         {
           loading: 'Subiendo documento',

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,12 +31,12 @@ export default async function companyRegister({ params }: { params: Promise<{ id
     .select(`*`)
     .eq('owner_id', data?.[0]?.id || '');
 
-  const { data: companyData, error: companyError } = await supabase
-    .from('company')
-    .select('*,city(*),province_id(*)')
-    .eq('owner_id', data?.[0]?.id || '')
-    .eq('id', resolvedParams.id)
-    .single();
+  // Task 6 (P2): la empresa a editar sale de Prisma (los tipos PostgREST de `city(*)` estaban rotos).
+  // El resto de la página se migra en Task 11.
+  const companyData = await prisma.company.findFirst({
+    where: { id: resolvedParams.id, owner_id: data?.[0]?.id || '' },
+    include: { cities: { select: { id: true, name: true } }, provinces: { select: { id: true, name: true } } },
+  });
 
   let { data: share_company_users, error: sharedError } = await supabase
     .from('share_company_users')
@@ -152,8 +153,10 @@ export default async function companyRegister({ params }: { params: Promise<{ id
               </div>
               <CityInput
                 provinces={provinces}
-                defaultProvince={companyData?.province_id}
-                defaultCity={companyData?.city}
+                defaultProvince={
+                  companyData?.provinces ? { id: Number(companyData.provinces.id), name: companyData.provinces.name } : null
+                }
+                defaultCity={companyData ? { id: Number(companyData.cities.id), name: companyData.cities.name } : null}
               />
               <div>
                 <Label htmlFor="industry">Seleccione una Industria</Label>
@@ -190,7 +193,7 @@ export default async function companyRegister({ params }: { params: Promise<{ id
                 <Checkbox id="by_defect" name="by_defect" />
               </div>
             </div>
-            <EditCompanyButton defaultImage={companyData?.company_logo} />
+            <EditCompanyButton companyId={resolvedParams.id} />
           </form>
         </div>
       </Card>

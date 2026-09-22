@@ -1,5 +1,5 @@
 import EmpresaComponent from '@/features/Empresa/EmpresaComponent';
-import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {

@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createWorkshop, updateWorkshop } from '../../../actions/workshops.actions';
+import { createWorkshop, updateWorkshop } from '../../../actions/workshops.server';
 import { useTalleresStore } from './store/talleres.store';
 
 const logger = new Logger('TalleresForm');

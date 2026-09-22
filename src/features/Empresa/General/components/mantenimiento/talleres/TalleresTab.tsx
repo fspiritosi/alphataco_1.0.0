@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { fetchAllWorkshops } from '../../../actions/workshops.actions';
+import { fetchAllWorkshops } from '../../../actions/workshops.server';
 import { TalleresTabClient } from './TalleresTabClient';
 
 async function TalleresTab() {

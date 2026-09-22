@@ -1,4 +1,4 @@
-import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
 import FormulariosComponent from '@/features/Formularios/FormulariosComponent';
 import { cookies } from 'next/headers';
 

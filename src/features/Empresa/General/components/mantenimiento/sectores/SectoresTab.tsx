@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { fetchAllWorkshopSectors, fetchInternalWorkshops } from '../../../actions/workshops.actions';
+import { fetchAllWorkshopSectors, fetchInternalWorkshops } from '../../../actions/workshops.server';
 import { SectoresTabClient } from './SectoresTabClient';
 
 async function SectoresTab() {

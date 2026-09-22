@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { WorkshopSector } from '../../../../actions/workshops.actions';
+import type { WorkshopSector } from '../../../../actions/workshops.server';
 
 interface SectoresState {
   sector: WorkshopSector | null;

@@ -9,7 +9,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { use, useState } from 'react';
-import type { Workshop } from '../../../actions/workshops.actions';
+import type { Workshop } from '../../../actions/workshops.server';
 import { useTalleresStore } from './store/talleres.store';
 
 export function getTalleresColumns(onEdit: (workshop: Workshop) => void, canEdit: boolean): ColumnDef<Workshop>[] {

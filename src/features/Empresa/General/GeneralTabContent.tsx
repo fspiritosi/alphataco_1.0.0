@@ -6,8 +6,8 @@ import { CompanyDocsTableSkeleton } from '@/features/Empresa/General/Documentaci
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { document_applies } from '@/generated/prisma/enums';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
@@ -27,8 +27,7 @@ export default async function GeneralTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
+  const company_id = await getActiveCompanyId();
 
   return (
     <div>
@@ -57,7 +56,7 @@ export default async function GeneralTabContent({
                   </div>
                   <PermissionGuardServer module="empresa" tab="general" action="update">
                     <Link
-                      href={`/dashboard/company/${company_id?.toString()}`}
+                      href={`/dashboard/company/${company_id}`}
                       className={buttonVariants({ variant: 'gh_orange' })}
                     >
                       Editar Empresa

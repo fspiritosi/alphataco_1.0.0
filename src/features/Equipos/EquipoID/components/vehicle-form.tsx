@@ -3,7 +3,7 @@ import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { getCostCenterOptions } from '@/features/Empresa/General/actions/cost-centers.server';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,7 +36,7 @@ interface VehicleFormProps {
   modelsPromise: ReturnType<typeof getModelsByBrand>;
   typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
-  costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  costCentersPromise: ReturnType<typeof getCostCenterOptions>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   documentsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;

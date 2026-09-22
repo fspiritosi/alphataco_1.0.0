@@ -9,7 +9,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { use, useState } from 'react';
-import type { WorkshopSector } from '../../../actions/workshops.actions';
+import type { WorkshopSector } from '../../../actions/workshops.server';
 import { useSectoresStore } from './store/sectores.store';
 
 export function getSectoresColumns(

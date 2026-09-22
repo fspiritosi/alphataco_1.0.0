@@ -12,7 +12,7 @@ import { use, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createWorkshopSector, updateWorkshopSector } from '../../../actions/workshops.actions';
+import { createWorkshopSector, updateWorkshopSector } from '../../../actions/workshops.server';
 import { useSectoresStore } from './store/sectores.store';
 
 const SectoresSchema = z.object({

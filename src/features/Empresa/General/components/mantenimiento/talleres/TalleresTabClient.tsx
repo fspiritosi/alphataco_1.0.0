@@ -4,7 +4,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Suspense } from 'react';
-import type { Workshop } from '../../../actions/workshops.actions';
+import type { Workshop } from '../../../actions/workshops.server';
 import TalleresForm from './TalleresForm';
 import TalleresTable from './TalleresTable';
 

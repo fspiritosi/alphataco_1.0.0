@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Workshop } from '../../../../actions/workshops.actions';
+import type { Workshop } from '../../../../actions/workshops.server';
 
 interface TalleresState {
   workshop: Workshop | null;

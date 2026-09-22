@@ -1,5 +1,5 @@
 import { Building2, Globe, Hash, Mail, MapPin, Phone, Tag } from 'lucide-react';
-import { getCompanyBySession } from '../../actions/actions.server';
+import { getActiveCompany } from '../../actions/company.server';
 
 interface InfoItemProps {
   icon: React.ReactNode;
@@ -20,7 +20,7 @@ function InfoItem({ icon, label, value }: InfoItemProps) {
 }
 
 export default async function CompanyComponent() {
-  const company = await getCompanyBySession();
+  const company = await getActiveCompany();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

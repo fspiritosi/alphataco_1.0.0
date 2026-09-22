@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { Card } from '@/components/ui/card';
-import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { getCostCenterOptions } from '@/features/Empresa/General/actions/cost-centers.server';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
 import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
@@ -81,7 +81,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
     const modelsPromise = getModelsByBrand(equipment?.brand_vehicles?.id ?? 0);
     const subTypesPromise = getSubTypesByType(equipment?.type?.id ?? '');
     const contractorsPromise = fetchAllContractorForVehicles();
-    const costCentersPromise = fetchAllCostCenters();
+    const costCentersPromise = getCostCenterOptions();
     const hierarchicalPositionsPromise = getHierarchicalPositions();
     const vehiclesPromise = getVehiclesForSelect();
 
@@ -179,7 +179,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           mode={mode}
           vehicle={vehicle}
           contractorsPromise={fetchAllContractorForVehicles()}
-          costCentersPromise={fetchAllCostCenters()}
+          costCentersPromise={getCostCenterOptions()}
           brandsPromise={getVehicleBrands()}
           typesPromise={getVehicleTypes('vehicle')}
           ownersPromise={getVehicleOwners()}

@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerClient } from '@/features/TabsManager/TabsManagerClient';
 import { Building2, Layers } from 'lucide-react';
 import { Suspense } from 'react';
-import type { Workshop, WorkshopSector } from '../../actions/workshops.actions';
+import type { Workshop, WorkshopSector } from '../../actions/workshops.server';
 import { SectoresTabClient } from './sectores/SectoresTabClient';
 import { TalleresTabClient } from './talleres/TalleresTabClient';
 

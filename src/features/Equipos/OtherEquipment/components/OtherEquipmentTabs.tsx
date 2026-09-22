@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { getCostCenterOptions } from '@/features/Empresa/General/actions/cost-centers.server';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import {
   getModelsByBrand,
@@ -32,7 +32,7 @@ interface OtherEquipmentTabsProps {
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: ReturnType<typeof getVehicleOwners>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
-  costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  costCentersPromise: ReturnType<typeof getCostCenterOptions>;
   hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   vehiclesPromise: Promise<Array<{ id: string; domain: string | null }>>;
   certificationsComponent?: React.ReactNode;
