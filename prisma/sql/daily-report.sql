@@ -1,8 +1,9 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
--- Dominio: daily-report — 15 objeto(s)
+-- Dominio: daily-report — 16 objeto(s)
+-- Revisado a mano en la Task 4 (P1): sin tabla de usuarios de Supabase, actor por app.user_id, + marcar_prepartes_vencidos (job P5).
 
 -- ============================================================================
--- FUNCTIONS (6)
+-- FUNCTIONS (7)
 -- ============================================================================
 
 -- function actualizar_estado_daily_reports (origen: supabase/migrations/20260304035040_sinc-2.sql)
@@ -646,11 +647,13 @@ BEGIN
         h.action_type,
         h.changed_fields,
         h.changed_data,
-        jsonb_build_object(
-            'id', u.id,
+        -- Task 4: el usuario sale de profile (credential_id = uid de Supabase), no de la tabla de usuarios de Supabase.
+        -- Se conserva la forma del JSON que lee src/ (id, email, raw_user_meta_data.full_name).
+        CASE WHEN u.credential_id IS NULL THEN NULL ELSE jsonb_build_object(
+            'id', u.credential_id,
             'email', u.email,
-            'raw_user_meta_data', u.raw_user_meta_data
-        ) as changed_by,
+            'raw_user_meta_data', jsonb_build_object('full_name', u.fullname)
+        ) END as changed_by,
         h.created_at,
         h.related_table,
         h.related_id,
@@ -659,7 +662,7 @@ BEGIN
     FROM 
         dailyreportrows_history h
     LEFT JOIN 
-        auth.users u ON h.changed_by = u.id
+        profile u ON h.changed_by = u.credential_id
     WHERE 
         h.daily_report_row_id = p_row_id
     ORDER BY 
@@ -688,14 +691,8 @@ BEGIN
         RAISE NOTICE 'Error al obtener reassignment_reason, establecido a NULL';
     END;
 
-    -- Get the current user ID from the request context
-    BEGIN
-        user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
-        RAISE NOTICE 'ID de usuario obtenido: %', user_id;
-    EXCEPTION WHEN OTHERS THEN
-        user_id := NULL;
-        RAISE NOTICE 'Error al obtener ID de usuario, establecido a NULL';
-    END;
+    -- Actor de la transaccion (app.user_id via withActor); NULL si no hay usuario
+    user_id := public.app_current_user_id();
     
     IF TG_OP = 'UPDATE' THEN
         -- Verify the row exists before proceeding
@@ -916,6 +913,25 @@ END IF;
     END IF;
     
     RETURN COALESCE(NEW, OLD);
+END;$function$;
+
+-- function marcar_prepartes_vencidos (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
+-- Task 4: portada desde objects.json (era huerfana: la llamaba el cron de Supabase). Llamador: job P5.
+CREATE OR REPLACE FUNCTION public.marcar_prepartes_vencidos()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$BEGIN
+    UPDATE public.preparte
+    SET 
+        status = 'vencido',
+        updated_at = NOW()
+    WHERE status = 'pendiente'
+    AND "executionDate" < CURRENT_DATE
+    AND (
+        "executionDate"::date < CURRENT_DATE
+        OR 
+        ("executionDate"::date = CURRENT_DATE AND "executionDate" < NOW())
+    );
 END;$function$;
 
 -- ============================================================================

@@ -248,7 +248,8 @@
     "callers": [],
     "commentMentions": [],
     "supabaseRefs": [],
-    "orphan": true
+    "orphan": true,
+    "discarded": "Task 4: no portable — inserta en kpi_daily_indicators (tabla inexistente) y usa un parametro que get_vehicle_usage_indicator ya no tiene; la reemplaza run_daily_indicators_for_all_companies"
   },
   {
     "kind": "function",
@@ -1457,10 +1458,14 @@
     "statement": "CREATE OR REPLACE FUNCTION public.marcar_prepartes_vencidos()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$BEGIN\n    UPDATE public.preparte\n    SET \n        status = 'vencido',\n        updated_at = NOW()\n    WHERE status = 'pendiente'\n    AND \"executionDate\" < CURRENT_DATE\n    AND (\n        \"executionDate\"::date < CURRENT_DATE\n        OR \n        (\"executionDate\"::date = CURRENT_DATE AND \"executionDate\" < NOW())\n    );\nEND;$function$",
     "source": "supabase/migrations/20260202113926_fixing-maintenance-flow.sql",
     "domain": "daily-report",
-    "callers": [],
+    "callers": [
+      {
+        "kind": "cron",
+        "ref": "job P5 (portada a mano en Task 4; antes cron de Supabase)"
+      }
+    ],
     "commentMentions": [],
-    "supabaseRefs": [],
-    "orphan": true
+    "supabaseRefs": []
   },
   {
     "kind": "function",
@@ -1633,10 +1638,14 @@
     "statement": "CREATE OR REPLACE FUNCTION public.run_daily_indicators_for_all_companies()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  company_record RECORD;\n  v_today date := (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;\nBEGIN\n  FOR company_record IN SELECT id FROM company LOOP\n    BEGIN\n      PERFORM public.get_employee_usage_indicator(\n        position_uuids => NULL::uuid[],\n        save_to_table => true,\n        p_company_id => company_record.id\n      );\n\n      PERFORM public.get_employee_diagram_count_by_day(\n        p_day => EXTRACT(DAY FROM v_today)::integer,\n        p_month => EXTRACT(MONTH FROM v_today)::integer,\n        p_year => EXTRACT(YEAR FROM v_today)::integer,\n        p_company_position_ids => NULL,\n        save_to_table => true,\n        p_company_id => company_record.id\n      );\n\n      PERFORM public.get_vehicle_usage_indicator(\n        p_vehicle_type_ids => ARRAY[]::uuid[],\n        p_company_id => company_record.id,\n        save_to_table => true\n      );\n\n      PERFORM public.get_company_counts_indicator(\n        p_company_id => company_record.id,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_absenteeism_summary(\n        p_company_id => company_record.id,\n        p_from => v_today,\n        p_to => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_absenteeism_trend(\n        p_company_id => company_record.id,\n        p_from => v_today,\n        p_to => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_current_absent_employees(\n        p_company_id => company_record.id,\n        p_date => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_daily_absence_timeseries(\n        p_company_id => company_record.id,\n        p_from => v_today,\n        p_to => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_department_absence_reasons(\n        p_company_id => company_record.id,\n        p_date => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.hr_get_department_absence_summary(\n        p_company_id => company_record.id,\n        p_date => v_today,\n        save_to_table => true\n      );\n\n      PERFORM public.get_daily_report_deviations_indicator(\n        p_company_id => company_record.id,\n        p_date => v_today,\n        save_to_table => true\n      );\n    EXCEPTION WHEN OTHERS THEN\n      RAISE WARNING 'Error al ejecutar indicadores para company_id %: %', company_record.id, SQLERRM;\n    END;\n  END LOOP;\nEND;\n$function$",
     "source": "prisma/migrations/20260819120100_add_daily_report_deviations_snapshot/migration.sql",
     "domain": "daily-report",
-    "callers": [],
+    "callers": [
+      {
+        "kind": "cron",
+        "ref": "job P5 (portada a mano en Task 4; antes cron de Supabase)"
+      }
+    ],
     "commentMentions": [],
-    "supabaseRefs": [],
-    "orphan": true
+    "supabaseRefs": []
   },
   {
     "kind": "function",

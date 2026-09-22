@@ -1,5 +1,6 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
 -- Dominio: documents — 28 objeto(s)
+-- Revisado a mano en la Task 4 (P1): actor por app.user_id, tipos de documento filtrados por empresa.
 
 -- ============================================================================
 -- FUNCTIONS (14)
@@ -14,7 +15,6 @@ RETURNS void
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  user_jwt jsonb;
   user_id uuid;
   doc RECORD;
   where_sql text;
@@ -27,18 +27,17 @@ DECLARE
   v_desarchivar    uuid[] := '{}';  -- volvio a cumplir la condicion special
   v_crear_alerta   uuid[] := '{}';  -- aplica: alerta pendiente si no hay fila
 BEGIN
-  BEGIN
-    user_jwt := auth.jwt();
-    user_id := user_jwt->>'sub';
-  EXCEPTION WHEN OTHERS THEN
-    user_id := NULL;
-  END;
+  -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar
+  -- del sub del JWT de Supabase. Desde triggers/jobs queda NULL, como antes.
+  user_id := public.app_current_user_id();
 
   SELECT is_active INTO emp_active FROM employees WHERE id = employee_id_param;
 
   FOR doc IN
     SELECT * FROM document_types
     WHERE mandatory = true AND applies = 'Persona' AND is_active = true
+      -- Task 4: tipos globales (company_id NULL) o de la empresa del empleado
+      AND (company_id IS NULL OR company_id = company_id_param)
   LOOP
     -- Empleado dado de baja + tipo NO de baja: no debe tener alerta; limpiar la vacia.
     IF NOT (COALESCE(doc.down_document, false) OR COALESCE(emp_active, true)) THEN
@@ -122,7 +121,6 @@ RETURNS void
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  user_jwt jsonb;
   user_id uuid;
   doc RECORD;
   where_sql text;
@@ -134,18 +132,17 @@ DECLARE
   v_desarchivar    uuid[] := '{}';
   v_crear_alerta   uuid[] := '{}';
 BEGIN
-  BEGIN
-    user_jwt := auth.jwt();
-    user_id := user_jwt->>'sub';
-  EXCEPTION WHEN OTHERS THEN
-    user_id := NULL;
-  END;
+  -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar
+  -- del sub del JWT de Supabase. Desde triggers/jobs queda NULL, como antes.
+  user_id := public.app_current_user_id();
 
   SELECT is_active INTO veh_active FROM vehicles WHERE id = vehicle_id_param;
 
   FOR doc IN
     SELECT * FROM document_types
     WHERE mandatory = true AND applies = 'Equipos' AND is_active = true
+      -- Task 4: tipos globales (company_id NULL) o de la empresa del vehiculo
+      AND (company_id IS NULL OR company_id = company_id_param)
   LOOP
     IF NOT (COALESCE(doc.down_document, false) OR COALESCE(veh_active, true)) THEN
       v_limpiar_vacias := array_append(v_limpiar_vacias, doc.id);
@@ -241,13 +238,15 @@ BEGIN
     -- Guard: si where_sql es invalido, no hacer nada
     IF where_sql IS NULL OR where_sql = '' OR where_sql = 'TRUE' THEN RETURN; END IF;
 
-    -- Se reconcilian TODOS los empleados: solo GRUPO HORIZONTE opera recursos y los tipos son
-    -- globales o de GH. El match final lo decide la condicion (where_sql), no el company_id del
-    -- tipo (que puede ser NULL/global) — ese era el filtro roto ("company_id = doc.company_id")
-    -- que con doc.company_id NULL no iteraba a nadie.
+    -- Task 4 (multi-empresa): un tipo global (company_id NULL) aplica a los empleados de
+    -- todas las empresas; un tipo de una empresa, solo a los de esa empresa. El match final
+    -- lo decide la condicion (where_sql). Antes se recorrian TODOS los empleados sin filtro
+    -- ("solo GH opera recursos"), y mas atras el filtro roto "company_id = doc.company_id"
+    -- (con NULL no iteraba a nadie).
     FOR employee_record IN
       SELECT id FROM employees
       WHERE (COALESCE(doc.down_document, false) OR is_active = true)
+        AND (doc.company_id IS NULL OR company_id = doc.company_id)
     LOOP
       EXECUTE format(
         'SELECT EXISTS(SELECT 1 FROM employees e WHERE e.id = %L AND %s)',
@@ -276,10 +275,11 @@ BEGIN
       END IF;
     END LOOP;
   ELSE
-    -- Tipo no especial: crear para todos los empleados
+    -- Tipo no especial: crear para todos los empleados de la(s) empresa(s) del tipo
     FOR employee_record IN
       SELECT id FROM employees
       WHERE (COALESCE(doc.down_document, false) OR is_active = true)
+        AND (doc.company_id IS NULL OR company_id = doc.company_id)
     LOOP
       INSERT INTO documents_employees (id_document_types, applies, validity, state, is_active, user_id, deny_reason, document_path)
       SELECT doc.id, employee_record.id, NULL, 'pendiente', TRUE, NULL, NULL, NULL
@@ -319,11 +319,12 @@ BEGIN
 
     IF where_sql IS NULL OR where_sql = '' OR where_sql = 'TRUE' THEN RETURN; END IF;
 
-    -- Se reconcilian TODOS los vehiculos: solo GRUPO HORIZONTE opera recursos y los tipos son
-    -- globales o de GH. El match final lo decide la condicion, no el company_id del tipo.
+    -- Task 4 (multi-empresa): tipo global -> vehiculos de todas las empresas; tipo de una
+    -- empresa -> solo los de esa. El match final lo decide la condicion (where_sql).
     FOR vehicle_record IN
       SELECT id FROM vehicles
       WHERE (COALESCE(doc.down_document, false) OR is_active = true)
+        AND (doc.company_id IS NULL OR company_id = doc.company_id)
     LOOP
       EXECUTE format(
         'SELECT EXISTS(SELECT 1 FROM vehicles v WHERE v.id = %L AND %s)',
@@ -351,10 +352,11 @@ BEGIN
       END IF;
     END LOOP;
   ELSE
-    -- Tipo no especial: crear para todos los vehiculos
+    -- Tipo no especial: crear para todos los vehiculos de la(s) empresa(s) del tipo
     FOR vehicle_record IN
       SELECT id FROM vehicles
       WHERE (COALESCE(doc.down_document, false) OR is_active = true)
+        AND (doc.company_id IS NULL OR company_id = doc.company_id)
     LOOP
       INSERT INTO documents_equipment (id_document_types, applies, validity, state, is_active, user_id, deny_reason, document_path)
       SELECT doc.id, vehicle_record.id, NULL, 'pendiente', TRUE, NULL, NULL, NULL
@@ -370,7 +372,9 @@ $function$;
 -- function get_documents_expiry_summary (origen: prisma/migrations/20260512190920_add_expired_doctype_ids_to_expiry_rpc/migration.sql)
 CREATE OR REPLACE FUNCTION public.get_documents_expiry_summary(
   p_days_ahead int DEFAULT 7,
-  p_detail_limit int DEFAULT 20
+  p_detail_limit int DEFAULT 20,
+  -- Task 4: empresa a resumir (el job de P5 corre una vez por empresa). NULL = todas.
+  p_company_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -403,6 +407,7 @@ BEGIN
       WHERE
         de.is_active = true
         AND e.is_active = true
+        AND (p_company_id IS NULL OR e.company_id = p_company_id)
         AND dt.is_active = true
         AND de.state <> 'pendiente'
         AND de.validity IS NOT NULL
@@ -424,6 +429,7 @@ BEGIN
       WHERE
         deq.is_active = true
         AND v.is_active = true
+        AND (p_company_id IS NULL OR v.company_id = p_company_id)
         AND dt.is_active = true
         AND deq.state <> 'pendiente'
         AND deq.validity IS NOT NULL
@@ -446,6 +452,7 @@ BEGIN
       WHERE
         dc.is_active = true
         AND dt.is_active = true
+        AND (p_company_id IS NULL OR dc.applies = p_company_id)
     ),
     company_expiring_all AS (
       SELECT
@@ -469,6 +476,7 @@ BEGIN
       INNER JOIN document_types dt ON dt.id = de.id_document_types
       WHERE de.is_active = true
         AND e.is_active = true
+        AND (p_company_id IS NULL OR e.company_id = p_company_id)
         AND dt.is_active = true
         AND de.state <> 'pendiente'
         AND de.validity IS NOT NULL
@@ -481,6 +489,7 @@ BEGIN
       INNER JOIN document_types dt ON dt.id = deq.id_document_types
       WHERE deq.is_active = true
         AND v.is_active = true
+        AND (p_company_id IS NULL OR v.company_id = p_company_id)
         AND dt.is_active = true
         AND deq.state <> 'pendiente'
         AND deq.validity IS NOT NULL
@@ -564,6 +573,7 @@ BEGIN
         INNER JOIN document_types dt ON dt.id = de.id_document_types
         WHERE de.is_active = true
           AND e.is_active = true
+          AND (p_company_id IS NULL OR e.company_id = p_company_id)
           AND dt.is_active = true
           AND de.state <> 'pendiente'
           AND de.validity IS NOT NULL
@@ -576,6 +586,7 @@ BEGIN
         INNER JOIN document_types dt ON dt.id = deq.id_document_types
         WHERE deq.is_active = true
           AND v.is_active = true
+          AND (p_company_id IS NULL OR v.company_id = p_company_id)
           AND dt.is_active = true
           AND deq.state <> 'pendiente'
           AND deq.validity IS NOT NULL
@@ -614,6 +625,7 @@ BEGIN
         INNER JOIN document_types dt ON dt.id = de.id_document_types
         WHERE de.is_active = true
           AND e.is_active = true
+          AND (p_company_id IS NULL OR e.company_id = p_company_id)
           AND dt.is_active = true
           AND de.state = 'pendiente'
       ),
@@ -624,6 +636,7 @@ BEGIN
         INNER JOIN document_types dt ON dt.id = deq.id_document_types
         WHERE deq.is_active = true
           AND v.is_active = true
+          AND (p_company_id IS NULL OR v.company_id = p_company_id)
           AND dt.is_active = true
           AND deq.state = 'pendiente'
       ),

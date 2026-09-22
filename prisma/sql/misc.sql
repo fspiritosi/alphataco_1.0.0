@@ -1,9 +1,26 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
--- Dominio: misc — 23 objeto(s)
+-- Dominio: misc — 24 objeto(s)
+-- Revisado a mano en la Task 4 (P1): sin auth/storage, actor por app.user_id, filtro por empresa.
 
 -- ============================================================================
--- FUNCTIONS (16)
+-- FUNCTIONS (17)
 -- ============================================================================
+
+-- function app_current_user_id (nuevo en Task 4: reemplaza el uid del JWT de Supabase)
+-- Actor de la transaccion. La app lo fija con `SET LOCAL app.user_id = '<uuid>'`
+-- (helper `withActor`, P2) antes de las escrituras que disparan triggers de auditoria.
+-- Sin setting (jobs, psql, seeds) devuelve NULL, igual que el uid de Supabase sin JWT.
+CREATE OR REPLACE FUNCTION public.app_current_user_id()
+ RETURNS uuid
+ LANGUAGE plpgsql
+ STABLE
+AS $function$
+BEGIN
+  RETURN nullif(current_setting('app.user_id', true), '')::uuid;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END;
+$function$;
 
 -- function add_to_companies_employees (origen: supabase/migrations/20251103211302_initial_structure.sql)
 CREATE OR REPLACE FUNCTION public.add_to_companies_employees()
@@ -290,14 +307,16 @@ END;
 $function$;
 
 -- function get_max_order_number (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
-CREATE OR REPLACE FUNCTION public.get_max_order_number()
+CREATE OR REPLACE FUNCTION public.get_max_order_number(p_company_id uuid DEFAULT NULL)
  RETURNS text
  LANGUAGE plpgsql
 AS $function$
 DECLARE
     max_num INTEGER;
 BEGIN
-    -- Extraer el número máximo de todos los números de pedido
+    -- Extraer el número máximo de los números de pedido de la empresa.
+    -- Task 4: antes era global (mono-empresa). Con p_company_id NULL conserva el
+    -- comportamiento viejo; el llamador en src/ (P2) debe pasar la empresa.
     SELECT COALESCE(
         MAX(CAST(
             SUBSTRING(numero_pedido FROM 'PED-0*([0-9]+)') AS INTEGER
@@ -305,7 +324,8 @@ BEGIN
         0
     ) INTO max_num
     FROM preparte
-    WHERE numero_pedido IS NOT NULL;
+    WHERE numero_pedido IS NOT NULL
+      AND (p_company_id IS NULL OR company_id = p_company_id);
 
     -- Formatear y retornar
     RETURN 'PED-' || LPAD(max_num::TEXT, 4, '0');
@@ -324,8 +344,8 @@ DECLARE
     equipment_data RECORD;
     parent_exists BOOLEAN;
 BEGIN
-    -- Get the current user ID from the request context
-    user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
+    -- Actor de la transaccion (app.user_id via withActor); NULL si no hay usuario
+    user_id := public.app_current_user_id();
     
     IF TG_OP = 'INSERT' THEN
         -- For INSERT, get the vehicle details
@@ -424,8 +444,8 @@ DECLARE
     employee_data RECORD;
     parent_exists BOOLEAN;
 BEGIN
-    -- Get the current user ID from the request context
-    user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
+    -- Actor de la transaccion (app.user_id via withActor); NULL si no hay usuario
+    user_id := public.app_current_user_id();
     
     IF TG_OP = 'INSERT' THEN
         -- For INSERT, get the employee details
@@ -521,7 +541,7 @@ DECLARE
     ref_row_id UUID;
     ref_rel_id UUID;
 BEGIN
-    user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
+    user_id := public.app_current_user_id();
 
     IF TG_OP = 'DELETE' THEN
         ref_equipment_id := OLD.equipment_id;

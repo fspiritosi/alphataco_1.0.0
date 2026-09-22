@@ -1,8 +1,9 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
--- Dominio: kpis — 6 objeto(s)
+-- Dominio: kpis — 7 objeto(s)
+-- Revisado a mano en la Task 4 (P1): + run_daily_indicators_for_all_companies (job P5).
 
 -- ============================================================================
--- FUNCTIONS (6)
+-- FUNCTIONS (7)
 -- ============================================================================
 
 -- function generate_kpi_code (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
@@ -687,5 +688,97 @@ BEGIN
     DROP TABLE IF EXISTS available_counts;
     DROP TABLE IF EXISTS not_available_counts;
     DROP TABLE IF EXISTS used_counts;
+END;
+$function$;
+
+-- function run_daily_indicators_for_all_companies (origen: prisma/migrations/20260819120100_add_daily_report_deviations_snapshot/migration.sql)
+-- Task 4: portada desde objects.json (era huerfana: la llamaba el cron de Supabase). Llamador: job P5.
+-- Va en kpis.sql (y no en daily-report.sql) porque llama a funciones de diagrams, daily-report y kpis:
+-- en el orden de concatenacion del baseline todas existen antes. No depende de pg_cron ni pg_net: recorre `company`
+-- y persiste cada indicador con save_to_table => true.
+CREATE OR REPLACE FUNCTION public.run_daily_indicators_for_all_companies()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  company_record RECORD;
+  v_today date := (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
+BEGIN
+  FOR company_record IN SELECT id FROM company LOOP
+    BEGIN
+      PERFORM public.get_employee_usage_indicator(
+        position_uuids => NULL::uuid[],
+        save_to_table => true,
+        p_company_id => company_record.id
+      );
+
+      PERFORM public.get_employee_diagram_count_by_day(
+        p_day => EXTRACT(DAY FROM v_today)::integer,
+        p_month => EXTRACT(MONTH FROM v_today)::integer,
+        p_year => EXTRACT(YEAR FROM v_today)::integer,
+        p_company_position_ids => NULL,
+        save_to_table => true,
+        p_company_id => company_record.id
+      );
+
+      PERFORM public.get_vehicle_usage_indicator(
+        p_vehicle_type_ids => ARRAY[]::uuid[],
+        p_company_id => company_record.id,
+        save_to_table => true
+      );
+
+      PERFORM public.get_company_counts_indicator(
+        p_company_id => company_record.id,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_absenteeism_summary(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_absenteeism_trend(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_current_absent_employees(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_daily_absence_timeseries(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_department_absence_reasons(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_department_absence_summary(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.get_daily_report_deviations_indicator(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Error al ejecutar indicadores para company_id %: %', company_record.id, SQLERRM;
+    END;
+  END LOOP;
 END;
 $function$;

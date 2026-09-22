@@ -1,5 +1,6 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
 -- Dominio: maintenance — 11 objeto(s)
+-- Revisado a mano en la Task 4 (P1): actor por app.user_id y company_id en el log de actividad.
 
 -- ============================================================================
 -- FUNCTIONS (4)
@@ -11,9 +12,13 @@ CREATE OR REPLACE FUNCTION public.log_maintenance_order_activity()
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
+DECLARE
+  -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT
+  v_actor uuid := public.app_current_user_id();
 BEGIN
   IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
     INSERT INTO maintenance_activity_log (
+      company_id,              -- Task 4: NOT NULL, heredado del pedido
       maintenance_order_id,
       maintenance_request_id,  -- NUEVO: También guardar la solicitud vinculada
       action_type,
@@ -24,6 +29,7 @@ BEGIN
       rejection_reason,
       metadata
     ) VALUES (
+      NEW.company_id,
       NEW.id,
       NEW.maintenance_request_id,  -- NUEVO: Incluir el ID de la solicitud
       -- action_type
@@ -44,18 +50,18 @@ BEGIN
       COALESCE(
         CASE NEW.status
           WHEN 'pending_scheduling' THEN
-            CASE WHEN TG_OP = 'INSERT' THEN auth.uid()
+            CASE WHEN TG_OP = 'INSERT' THEN v_actor
                  WHEN OLD.status = 'scheduled' THEN NEW.date_rejected_by
-                 ELSE auth.uid()
+                 ELSE v_actor
             END
           WHEN 'scheduled' THEN NEW.scheduled_by
           WHEN 'date_confirmed' THEN NEW.date_approved_by
           WHEN 'in_workshop' THEN NEW.workshop_approved_by
-          WHEN 'completed' THEN auth.uid()
+          WHEN 'completed' THEN v_actor
           WHEN 'rejected' THEN NEW.rejected_by
-          ELSE auth.uid()
+          ELSE v_actor
         END,
-        auth.uid()
+        v_actor
       ),
       -- previous_status
       CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.status END,
@@ -147,9 +153,13 @@ CREATE OR REPLACE FUNCTION public.log_work_order_activity()
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
+DECLARE
+  -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT
+  v_actor uuid := public.app_current_user_id();
 BEGIN
   IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
     INSERT INTO maintenance_activity_log (
+      company_id,  -- Task 4: NOT NULL, heredado de la orden de trabajo
       work_order_id,
       action_type,
       performed_by,
@@ -159,6 +169,7 @@ BEGIN
       rejection_reason,
       metadata
     ) VALUES (
+      NEW.company_id,
       NEW.id,
       -- action_type
       CASE NEW.status
@@ -180,15 +191,15 @@ BEGIN
         CASE NEW.status
           WHEN 'pending' THEN NEW.created_by
           WHEN 'in_progress' THEN 
-            CASE WHEN OLD.status = 'paused' THEN auth.uid()  -- resumed
+            CASE WHEN OLD.status = 'paused' THEN v_actor  -- resumed
                  ELSE NEW.started_by
             END
           WHEN 'paused' THEN NEW.paused_by
           WHEN 'completed' THEN NEW.completed_by
           WHEN 'cancelled' THEN NEW.cancelled_by
-          ELSE auth.uid()
+          ELSE v_actor
         END,
-        auth.uid()
+        v_actor
       ),
       -- previous_status
       CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.status::text END,
