@@ -8,7 +8,7 @@ import { EmployeeHeaderContent } from '@/features/Employees/EmpleadoID/component
 import { EmployeeDocumentDetail } from '@/features/Employees/EmpleadoID/components/employee-document-detail';
 import { EmployeeDiagramsSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-diagrams-skeleton';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 

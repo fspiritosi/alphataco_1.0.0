@@ -9,7 +9,7 @@ import type {
   nationality_enum,
 } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';

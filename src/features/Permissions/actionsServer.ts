@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { cache } from 'react';
 import { PERMISSIONS, type ModuleSlug } from './permissions-map';
 

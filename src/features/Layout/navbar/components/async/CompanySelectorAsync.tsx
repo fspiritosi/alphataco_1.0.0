@@ -1,5 +1,5 @@
 import { fetchCurrentCompany, fetchUserCompanies } from '@/shared/actions/company.actions';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { _CompanySelector } from '../modals/_CompanySelector';
 
 /**

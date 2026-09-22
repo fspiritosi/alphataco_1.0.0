@@ -1,4 +1,4 @@
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { PasswordChangeAlert } from './PasswordChangeAlert';
 
 export async function PasswordChangeAlertWrapper() {

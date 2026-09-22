@@ -1,5 +1,5 @@
 import { getGuildsWithCovenants } from '@/shared/actions/covenant-actions';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { formatGuildsData } from '@/shared/utils/utils';
 import CovenantTreeFile from './CovenantTreeFile';
 

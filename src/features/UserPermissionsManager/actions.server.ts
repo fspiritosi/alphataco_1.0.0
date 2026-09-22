@@ -2,7 +2,7 @@
 
 import { PERMISSIONS, type ModuleSlug } from '@/features/Permissions/permissions-map';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
 
 const logger = new Logger('features/UserPermissionsManager');

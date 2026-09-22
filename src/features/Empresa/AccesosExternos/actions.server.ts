@@ -3,7 +3,7 @@
 import { generateClientCredentials, hashSecret } from '@/features/ExternalApi/lib/hash';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
-import { getCachedSession } from '@/shared/lib/cached-session';
+import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
 import { createExternalApiClientSchema, type CreateExternalApiClientValues } from './schemas';
 
