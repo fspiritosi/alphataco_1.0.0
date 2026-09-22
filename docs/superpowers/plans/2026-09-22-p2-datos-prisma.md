@@ -22,6 +22,7 @@
   6. Archivos tocados > 1.000 líneas: divididos por responsabilidad (`queries.server.ts` / `mutations.server.ts` / `export.server.ts` / `lib/*.ts` puro con test). (Desvío del spec: 1.000 en lugar de 600; los de 600–1.000 se dividen sólo si la migración lo pide.)
   7. Lógica pura nueva o extraída (validaciones, cálculos, máquinas de estado) con test Vitest.
   8. `npm run check-types` y `npm test` verdes; commit por subcarpeta.
+- **Perímetro sin RLS:** cada `'use server'` exportado es un endpoint público. Toda action que reciba `companyId` del cliente llama `assertCompanyAccess(companyId)` (en `src/shared/lib/tenant.ts`) al inicio, o usa `getActiveCompanyId()` e ignora el parámetro. `credentialId`/`profileId`/`userId` salen de `getSessionUserId()`, nunca del cliente. Lecturas por id de recurso (`employeeId`, `vehicleId`, `documentId`) filtran además por la empresa activa (`where: { id, company_id }` o vía relación). Escrituras sobre recursos verifican que pertenezcan a la empresa activa antes de escribir.
 - Flujos anónimos (`src/app/maintenance/**`, `NuevoPedido`, `Checklist`, `OperatorPanel`) derivan `company_id` del recurso; funciones `'use cache'` reciben `companyId` por parámetro.
 - Cypress no corre en este entorno (sin `cypress.env.json` ni app levantada): cada task lista los specs afectados en el reporte para correrlos en CI.
 - No tocar `src/lib/supabase/{server,browser}.ts` (los borra P4).
