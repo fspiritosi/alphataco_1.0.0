@@ -27,6 +27,7 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "bash scripts/test-db.sh",
     "db:generate": "prisma generate",
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio",

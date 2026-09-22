@@ -95,6 +95,10 @@ bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los bucket
 
 `docker compose build app` pasa `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` como build args (Next.js las embebe en el bundle del cliente durante `next build`). Si quedan vacías, completar con los valores reales del Supabase local/dev, o con un placeholder (`http://localhost:54321` + una key ficticia) si el objetivo es solo validar que el build compila.
 
+### Tests de base de datos (pgTAP)
+
+`npm run test:db` levanta `postgres` (imagen propia con pgTAP), resetea la base `alphataco_test`, aplica migraciones + seed, y corre los tests `prisma/tests/*.sql` con `pg_prove` — nunca toca la base de trabajo `alphataco`.
+
 ### Puertos: resolver conflictos sin tocar el compose
 
 El compose mapea los puertos de host vía variables de entorno con default (`POSTGRES_PORT`, `MINIO_PORT`, `MINIO_CONSOLE_PORT`, `APP_PORT`, `CADDY_HTTP_PORT`, `CADDY_HTTPS_PORT`). Si alguno está ocupado en tu máquina por otro proyecto, cambiar el valor en `.env.docker` — nunca hardcodear un puerto distinto en `docker-compose.yml`.

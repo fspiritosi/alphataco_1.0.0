@@ -18,3 +18,27 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
       - run: npm run check-types
       - run: npm test
+
+  db-tests:
+    runs-on: ubuntu-latest
+    needs: types-and-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # scripts/seed-company.ts se ejecuta con `node` en modo nativo TS
+          # (sin ts-node/tsx); Node 20 no soporta parsear .ts, requiere >=22.
+          node-version: 22
+          cache: npm
+      - name: Preparar .env.docker
+        run: |
+          cp .env.docker.example .env.docker
+          sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=devpass/' .env.docker
+          sed -i 's/^S3_SECRET_KEY=.*/S3_SECRET_KEY=devpassdevpass/' .env.docker
+          sed -i 's/^JOBS_TOKEN=.*/JOBS_TOKEN=devtoken/' .env.docker
+      - run: docker compose --env-file .env.docker build postgres
+      - run: npm ci
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      - run: npx prisma generate
+      - run: bash scripts/test-db.sh
