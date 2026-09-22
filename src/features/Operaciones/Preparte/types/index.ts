@@ -48,6 +48,7 @@ export type PreparteChangeLog = {
   old_value: string | null;
   new_value: string | null;
   reason: string;
+  /** @deprecated Ignorado por `logPreparteChange` — el autor sale siempre de la sesión del servidor. */
   changed_by?: string;
   metadata?: Record<string, string | number | boolean | null>;
 };

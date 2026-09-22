@@ -393,8 +393,10 @@ export async function deletePreparte(id: string) {
 // ============================================================================
 
 /**
- * Registra un cambio en el historial del pedido. El autor sale de la sesión
- * (`changed_by` del cliente se ignora si no hay sesión).
+ * Registra un cambio en el historial del pedido. El autor sale SIEMPRE de la sesión
+ * (`getSessionUserId()`); `changeLog.changed_by` se ignora — es una Server Action invocable
+ * directamente desde el cliente y confiar en un `changed_by` que llega del payload permitiría
+ * falsear el autor del historial.
  */
 export async function logPreparteChange(changeLog: PreparteChangeLog) {
   try {
@@ -410,7 +412,7 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
         old_value: changeLog.old_value,
         new_value: changeLog.new_value,
         reason: changeLog.reason,
-        changed_by: changeLog.changed_by || sessionUserId || null,
+        changed_by: sessionUserId ?? null,
         metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
       },
     });
