@@ -3,12 +3,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { filterByActiveFlag } from '@/shared/components/common/active-filter';
 import { VerActivosButton } from '@/shared/components/common/VerActivosButton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { use, useState } from 'react';
+import { use, useMemo, useState } from 'react';
 import type { WorkshopSector } from '../../../actions/workshops.server';
 import { useSectoresStore } from './store/sectores.store';
 
@@ -86,7 +87,10 @@ export function SectoresTable({
 }) {
   const sectorsData = use(workshopSectors);
   const onEdit = useSectoresStore((state) => state.setSector);
-  const [filteredData, setFilteredData] = useState<WorkshopSector[]>(() => sectorsData.filter((row) => row.is_active));
+  // Sólo se guarda el toggle: la lista se DERIVA de `sectorsData` en cada render, así un alta
+  // seguida de `router.refresh()` aparece en la tabla.
+  const [showActive, setShowActive] = useState(true);
+  const filteredData = useMemo(() => filterByActiveFlag(sectorsData, 'is_active', showActive), [sectorsData, showActive]);
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('empresa', 'sectores_taller', 'update');
 
@@ -100,7 +104,7 @@ export function SectoresTable({
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Sectores de Taller</h2>
-        <VerActivosButton data={sectorsData} filterKey="is_active" onFilteredChange={setFilteredData} />
+        <VerActivosButton showActive={showActive} onToggle={setShowActive} />
       </div>
       <div className="overflow-x-auto max-h-[600px] overflow-y-auto w-full">
         <BaseDataTable

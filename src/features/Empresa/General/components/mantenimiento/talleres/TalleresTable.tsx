@@ -3,12 +3,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { filterByActiveFlag } from '@/shared/components/common/active-filter';
 import { VerActivosButton } from '@/shared/components/common/VerActivosButton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { use, useState } from 'react';
+import { use, useMemo, useState } from 'react';
 import type { Workshop } from '../../../actions/workshops.server';
 import { useTalleresStore } from './store/talleres.store';
 
@@ -102,7 +103,10 @@ export function TalleresTable({
 }) {
   const workshopsData = use(workshops);
   const onEdit = useTalleresStore((state) => state.setWorkshop);
-  const [filteredData, setFilteredData] = useState<Workshop[]>(() => workshopsData.filter((row) => row.is_active));
+  // Sólo se guarda el toggle: la lista se DERIVA de `workshopsData` en cada render, así un alta
+  // seguida de `router.refresh()` aparece en la tabla.
+  const [showActive, setShowActive] = useState(true);
+  const filteredData = useMemo(() => filterByActiveFlag(workshopsData, 'is_active', showActive), [workshopsData, showActive]);
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('empresa', 'talleres', 'update');
 
@@ -118,7 +122,7 @@ export function TalleresTable({
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Talleres</h2>
-        <VerActivosButton data={workshopsData} filterKey="is_active" onFilteredChange={setFilteredData} />
+        <VerActivosButton showActive={showActive} onToggle={setShowActive} />
       </div>
       <div className="overflow-x-auto max-h-[600px] overflow-y-auto w-full">
         <BaseDataTable
