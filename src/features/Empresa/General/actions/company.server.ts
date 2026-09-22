@@ -188,8 +188,13 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
       if (previousMemberships === 0 && existingRoles === 0) {
         const adminRole = await tx.roles.findFirst({ where: { slug: 'admin', is_system: true }, select: { id: true } });
         if (adminRole) {
-          await tx.user_roles.create({
-            data: { user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId },
+          // `createMany` + `skipDuplicates`: con dos altas simultáneas del mismo usuario (doble
+          // submit, dos pestañas) ambas leen 0 roles y la segunda chocaría con la unique
+          // (user_id, role_id); un P2002 acá abortaría la transacción entera y la empresa no se
+          // crearía. El rol no se duplica y el alta sigue adelante.
+          await tx.user_roles.createMany({
+            data: [{ user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId }],
+            skipDuplicates: true,
           });
           logger.info('Rol admin otorgado en el alta de la primera empresa del usuario', {
             data: { companyId: company.id, credentialId },
