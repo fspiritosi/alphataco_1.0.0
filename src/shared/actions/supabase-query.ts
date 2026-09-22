@@ -1,7 +1,9 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
+import { buildDistinctFilters } from '@/shared/lib/distinct-values';
 import { callFunction } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { z } from 'zod';
 
 const logger = new Logger('shared/select-distinct');
@@ -26,8 +28,10 @@ const distinctValuesSchema = z.array(
 /**
  * Valores distintos (con conteo) de una columna, para las facetas del DataTable legacy
  * (`src/shared/components/data-table`). Llama a la función SQL `select_distinct_values`
- * (`prisma/sql/misc.sql`) vía `callFunction`; `tableName` y `select` son texto que la
- * función valida por su cuenta (arma el SQL con `quote_ident`).
+ * (`prisma/sql/misc.sql`) vía `callFunction`. `tableName` sólo puede ser una de
+ * `DISTINCT_VALUE_TABLES` (lanza si no) y, si la tabla tiene `company_id`, se fuerza al de la
+ * empresa activa por encima de lo que mande el cliente. `select` lo valida la función
+ * (`quote_ident`).
  *
  * @param relation   JSON string `{"tabla_destino": "columna_fk"}` (mismo formato que usaban los llamadores).
  * @param multiJoinPaths joins encadenados hasta `final_column`.
@@ -40,6 +44,9 @@ export async function querySelectDistinct<TableName extends string, Query extend
   multiJoinPaths?: MultiJoinPaths,
   p_filters?: Record<string, string | number | boolean | null> | null
 ) {
+  const companyId = await getActiveCompanyId();
+  const filters = buildDistinctFilters(tableName, p_filters, companyId);
+
   try {
     const rows = await callFunction(
       'select_distinct_values',
@@ -48,7 +55,7 @@ export async function querySelectDistinct<TableName extends string, Query extend
         select,
         { json: relation ? (JSON.parse(relation) as unknown) : null },
         { json: multiJoinPaths ?? null },
-        { json: p_filters ?? null },
+        { json: filters },
       ],
       distinctValuesSchema
     );
