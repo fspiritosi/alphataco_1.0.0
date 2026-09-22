@@ -11,6 +11,7 @@ import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy
 import moment from 'moment';
 import { documentTypeCompanyScope } from '@/features/Documentacion/TiposDocumentos/lib/document-type-scope';
 import { isPathWithinCompanyFolder } from '../lib/document-file-names';
+import { normalizePeriod, planDocumentWrites, type ExistingDocumentRow } from '../lib/plan-writes';
 
 const logger = new Logger('Documentacion/uploadMultiResourceDocument');
 
@@ -26,8 +27,10 @@ function formString(formData: FormData, key: string): string | undefined {
 /**
  * Única vía de subida de documentos de empleados/equipos (`SimpleDocument` con N=1 y los
  * formularios multirecurso con N recursos). Sube el archivo al storage (P3: storage) y persiste
- * las filas en una transacción con actor: actualiza las `pendiente`, crea las ausentes e IGNORA
- * las ya `presentado` con archivo. Si la transacción falla, borra el archivo (compensación).
+ * las filas en una transacción con actor por (recurso, tipo, período): actualiza las `pendiente`/
+ * rechazadas/vencidas/archivadas de ese período, crea las ausentes e IGNORA las ya presentadas o
+ * aprobadas con archivo para ese período (ver `lib/plan-writes.ts`). Si la transacción falla, borra
+ * el archivo (compensación).
  *
  * FormData: `file`, `resource` ('empleado'|'equipo'), `documentTypeId`, `appliesIds` (JSON string[]),
  * `validity?` (ISO), `period?` (YYYY-MM), `policyNumber?` (sólo equipos), `sharedPath?`.
@@ -108,10 +111,22 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
     sharedPath = buildServerPath({ company, docType, resource, resources, validity, period, extension });
   }
 
-  // ─── Qué filas escribir (antes de subir: si no hay nada que hacer, no se sube) ──
-  const plan = await planWrites(resource, appliesIds, documentTypeId);
-  if (appliesIds.length === 1 && plan.toUpdate.length + plan.toCreate.length === 0) {
-    return { ok: false, error: 'El documento ya ha sido subido anteriormente' };
+  // ─── Qué filas escribir, por (recurso, tipo, período) — antes de subir ─────
+  // Semántica legacy: un tipo mensual admite una fila por período; sólo choca la misma
+  // (recurso, tipo, período) ya presentada/aprobada con archivo. N=1 lo informa; multi la ignora.
+  const targetPeriod = normalizePeriod(period);
+  const plan = planDocumentWrites(await loadExistingRows(resource, appliesIds, documentTypeId), appliesIds, period);
+  if (appliesIds.length === 1 && plan.alreadyUploaded.length === 1) {
+    return {
+      ok: false,
+      error: targetPeriod
+        ? `El documento ya ha sido subido para el período ${targetPeriod}`
+        : 'El documento ya ha sido subido anteriormente',
+    };
+  }
+  if (plan.toUpdate.length + plan.toCreate.length === 0) {
+    // Multi: todos ya lo tienen para ese período → nada que escribir, no se sube un archivo huérfano.
+    return { ok: true, updated: 0, created: 0 };
   }
 
   // 1. Subir el archivo al storage (upsert: documento compartido por varios recursos)
@@ -126,16 +141,20 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
       state: 'presentado' as const,
       document_path: sharedPath,
       validity,
-      period: period ?? null,
       user_id: userId,
     };
+    // La fila que se actualiza ya tiene este período (se buscó por él): sólo se escribe si vino
+    // en el form, nunca se borra un período existente.
+    const updateWhere = { id_document_types: documentTypeId, period: targetPeriod };
+    const periodData = targetPeriod ? { period: targetPeriod } : {};
     await withActor(userId, async (tx) => {
       if (resource === 'empleado') {
         if (plan.toUpdate.length) {
           await tx.documents_employees.updateMany({
-            where: { applies: { in: plan.toUpdate }, id_document_types: documentTypeId },
+            where: { applies: { in: plan.toUpdate }, ...updateWhere },
             data: {
               ...common,
+              ...periodData,
               // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
               archived_at: null,
               // Reflejar el momento real de la subida (estas filas existían como `pendiente`).
@@ -145,7 +164,12 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
         }
         if (plan.toCreate.length) {
           await tx.documents_employees.createMany({
-            data: plan.toCreate.map((applies) => ({ ...common, applies, id_document_types: documentTypeId })),
+            data: plan.toCreate.map((applies) => ({
+              ...common,
+              period: targetPeriod,
+              applies,
+              id_document_types: documentTypeId,
+            })),
           });
         }
         return;
@@ -153,13 +177,18 @@ export async function uploadMultiResourceDocument(formData: FormData): Promise<R
       const equipmentData = { ...common, policy_number: policyNumber ?? null };
       if (plan.toUpdate.length) {
         await tx.documents_equipment.updateMany({
-          where: { applies: { in: plan.toUpdate }, id_document_types: documentTypeId },
-          data: { ...equipmentData, archived_at: null, created_at: new Date() },
+          where: { applies: { in: plan.toUpdate }, ...updateWhere },
+          data: { ...equipmentData, ...periodData, archived_at: null, created_at: new Date() },
         });
       }
       if (plan.toCreate.length) {
         await tx.documents_equipment.createMany({
-          data: plan.toCreate.map((applies) => ({ ...equipmentData, applies, id_document_types: documentTypeId })),
+          data: plan.toCreate.map((applies) => ({
+            ...equipmentData,
+            period: targetPeriod,
+            applies,
+            id_document_types: documentTypeId,
+          })),
         });
       }
     });
@@ -232,24 +261,17 @@ function buildServerPath(input: {
   );
 }
 
-/** Clasifica los recursos: filas `pendiente`/sin archivo → actualizar; sin fila → crear; ya presentado → ignorar. */
-async function planWrites(resource: ResourceKind, appliesIds: string[], documentTypeId: string) {
+/** Filas existentes del tipo para los recursos pedidos (todos los períodos; `planDocumentWrites` filtra). */
+async function loadExistingRows(
+  resource: ResourceKind,
+  appliesIds: string[],
+  documentTypeId: string
+): Promise<ExistingDocumentRow[]> {
   const where = { applies: { in: appliesIds }, id_document_types: documentTypeId };
-  const select = { applies: true, state: true, document_path: true } as const;
-  const existing: { applies: string | null; state: string | null; document_path: string | null }[] =
-    resource === 'empleado'
-      ? await prisma.documents_employees.findMany({ where, select })
-      : await prisma.documents_equipment.findMany({ where, select });
-
-  const alreadyDone = new Set(
-    existing.filter((r) => r.state === 'presentado' && r.document_path).map((r) => r.applies)
-  );
-  const toUpdate = existing
-    .filter((r) => r.applies != null && !alreadyDone.has(r.applies))
-    .map((r) => r.applies as string);
-  const withRow = new Set(existing.map((r) => r.applies));
-  const toCreate = appliesIds.filter((id) => !withRow.has(id));
-  return { toUpdate, toCreate };
+  const select = { applies: true, state: true, document_path: true, period: true, archived_at: true } as const;
+  return resource === 'empleado'
+    ? prisma.documents_employees.findMany({ where, select })
+    : prisma.documents_equipment.findMany({ where, select });
 }
 
 export type UploadMultiResourceDocumentResult = Awaited<ReturnType<typeof uploadMultiResourceDocument>>;
