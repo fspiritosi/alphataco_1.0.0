@@ -15,7 +15,7 @@
 - Reglas del repo: commits sólo asunto sin Co-Authored-By; sin prettier/eslint; sin `any`; `logger`, no `console.*`; React Query para datos en cliente; sin `useEffect`+`useState` para fetch; `getActiveCompanyId()` (nunca cookie) en actions; `withCompany` en lecturas de tablas con `company_id`; `company_id` explícito en todo `create`; `PermissionGuard` intacto.
 - **Definición de "carpeta migrada"** (criterio de terminado de cada task):
   1. `grep -rlE "\.from\('|\.rpc\('|supabaseBrowser\(" <carpeta>` → 0. `supabaseServer()`/`adminSupabaseServer()` sólo para `auth.*` y `storage.*` (con comentario `// P3: storage` / `// P4: auth`).
-  2. `grep -rE ":\s*any\b|as any" <carpeta>` → 0.
+  2. `grep -rE ":\s*any\b|as any|<any>|<any," <carpeta>` → 0 (el patrón incluye genéricos: `UseFormReturn<any>`, `React.ComponentType<any>`).
   3. `grep -rn "actualComp" <carpeta>` → 0.
   4. `grep -rn "console\." <carpeta>` → 0 (logger).
   5. `grep -rn "database.types" <carpeta>` → 0 (tipos desde `@/generated/prisma/client` o propios).
