@@ -25,6 +25,9 @@ Todo cambio posterior al baseline es una carpeta manual `prisma/migrations/YYYYM
 # 0. Postgres del compose arriba y al dia
 docker compose --env-file .env.docker up -d --wait postgres
 export DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco
+# DATABASE_URL manda (prisma.config.ts: `DATABASE_URL ?? DIRECT_URL`). DIRECT_URL ya
+# NO tiene precedencia: solo se usa como fallback si DATABASE_URL no esta seteada
+# (ej. un .env viejo con un DIRECT_URL de Supabase ya no puede pisar el compose).
 npx prisma migrate deploy                 # aplica lo pendiente (0_init en una BD vacia)
 
 # 1. Modificar prisma/schema.prisma si el cambio es de estructura (tablas, columnas, indices, relaciones)

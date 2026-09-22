@@ -38,7 +38,7 @@ npm run check-types
 ### 5. Prisma Schema Check
 
 - Verify `prisma generate` succeeds
-- Check for pending migrations: `npm run migration-status`
+- Check for pending migrations: `npm run db:status`
 
 ## Reporting
 

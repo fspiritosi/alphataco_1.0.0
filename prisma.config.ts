@@ -9,7 +9,8 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: process.env['DIRECT_URL'] ?? process.env['DATABASE_URL'],
+    // DATABASE_URL manda; DIRECT_URL solo se usa si falta la primera (ver .claude/rules/migrations.md).
+    url: process.env['DATABASE_URL'] ?? process.env['DIRECT_URL'],
     // Solo para `prisma migrate diff --from-migrations` (ver .claude/rules/migrations.md).
     // Debe ser una BD distinta de `url` (Prisma la borra y recrea).
     shadowDatabaseUrl: process.env['SHADOW_DATABASE_URL'],

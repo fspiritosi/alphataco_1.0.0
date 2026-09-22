@@ -1,4 +1,6 @@
 #!/bin/sh
 set -e
-./node_modules/.bin/prisma migrate deploy
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+  ./node_modules/.bin/prisma migrate deploy
+fi
 exec node server.js

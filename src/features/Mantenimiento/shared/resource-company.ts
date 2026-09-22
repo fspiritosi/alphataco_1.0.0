@@ -2,7 +2,7 @@ import type { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/shared/lib/prisma';
 import type { MaintenanceResourceKind } from './maintenance-resource';
 
-type PrismaLike = Prisma.TransactionClient | typeof prisma;
+export type PrismaLike = Prisma.TransactionClient | typeof prisma;
 
 /**
  * Empresa dueña del recurso de mantenimiento (vehículo o equipamiento).

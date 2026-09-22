@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
         env:
@@ -27,8 +27,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           # scripts/seed-company.ts se ejecuta con `node` en modo nativo TS
-          # (sin ts-node/tsx); Node 20 no soporta parsear .ts, requiere >=22.
-          node-version: 22
+          # (sin ts-node/tsx); requiere Node >=22.18/23.6. El Dockerfile usa node:24.
+          node-version: 24
           cache: npm
       - name: Preparar .env.docker
         run: |
@@ -40,5 +40,4 @@ jobs:
       - run: npm ci
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
-      - run: npx prisma generate
       - run: bash scripts/test-db.sh

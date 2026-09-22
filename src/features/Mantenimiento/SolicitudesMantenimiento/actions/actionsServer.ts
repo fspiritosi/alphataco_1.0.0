@@ -4,8 +4,7 @@ import { MIN_APPROVAL_DESCRIPTION_LENGTH } from '@/features/Mantenimiento/consta
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
-import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
-import type { Prisma } from '@/generated/prisma/client';
+import { getResourceCompanyId, type PrismaLike } from '@/features/Mantenimiento/shared/resource-company';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -744,7 +743,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
     // Cada solicitud hereda la empresa de SU unidad: la del contexto o la del enganche
     // (ticket 677). Se cachea por unidad para no repetir la consulta por cada grupo.
     const companyIdByEquipment = new Map<string, string>();
-    const resolveCompanyId = async (client: Prisma.TransactionClient | typeof prisma, equipmentId: string) => {
+    const resolveCompanyId = async (client: PrismaLike, equipmentId: string) => {
       const cached = companyIdByEquipment.get(equipmentId);
       if (cached) return cached;
       const resolved = await getResourceCompanyId(client, 'vehicle', equipmentId);
