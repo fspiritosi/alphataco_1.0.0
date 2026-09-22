@@ -36,26 +36,27 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { toggleVehicleStatus } from '@/features/Equipos/EquipoID/lib/actions/vehicle-actions';
+import { conditionIcons, conditionVariants } from '@/features/Equipos/Equipos/VehicleList/columns';
 import { termination_reason_enum } from '@/features/Equipos/types/enums';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useEdgeFunctions } from '@/shared/hooks/useEdgeFunctions';
-import { useCountriesStore } from '@/shared/store/countries';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DotsVerticalIcon } from '@radix-ui/react-icons';
-import { ColumnDef, FilterFn, Row } from '@tanstack/react-table';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { AlertTriangle, CalendarIcon, CheckCircle, XCircle } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
+import moment from 'moment';
+import 'moment/locale/es';
+import { CalendarIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import React, { Fragment, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { RiToolsFill } from 'react-icons/ri';
 import { toast } from 'sonner';
 import { z } from 'zod';
-// import { supabase } from '../../../../supabase/supabase';
+
+const logger = new Logger('EquipmentColumns');
 
 const formSchema = z.object({
   reason_for_termination: z.string({
@@ -68,144 +69,59 @@ const formSchema = z.object({
 
 type Colum = VehicleWithBrand;
 
-const allocatedToRangeFilter: FilterFn<Colum> = (
-  row: Row<Colum>,
-  columnId: string,
-  filterValue: any,
-  addMeta: (meta: any) => void
-) => {
-  const contractorCompanies = useCountriesStore
-    ?.getState?.()
-    ?.customers.filter(
-      (company: any) => company.company_id.toString() === useLoggedUserStore?.getState?.()?.actualCompany?.id
-    )
-    .find((e) => String(e.id) === String(row.original.allocated_to))?.name;
-
-  if (contractorCompanies?.toLocaleLowerCase()?.includes(filterValue.toLocaleLowerCase())) {
-    return true;
-  }
-  const sinAfectar = 'sin afectar';
-  if (sinAfectar.includes(filterValue.toLocaleLowerCase()) && !row.original.allocated_to) return true;
-  return false;
-};
-const conditionFilter: FilterFn<Colum> = (
-  row: Row<Colum>,
-  columnId: string,
-  filterValue: any,
-  addMeta: (meta: any) => void
-) => {
-  if (filterValue === 'Todos') {
-    return true;
-  }
-  return row.original.condition === filterValue;
-};
-
 export const EquipmentColums: ColumnDef<Colum>[] = [
   {
     id: 'actions',
-    cell: ({ row }: { row: any }) => {
-      const share = useLoggedUserStore((state) => state.sharedCompanies);
-      const profile = useLoggedUserStore((state) => state.credentialUser?.id);
-      const owner = useLoggedUserStore((state) => state.actualCompany?.owner_id?.id);
-      const users = useLoggedUserStore((state) => state);
-      const company = useLoggedUserStore((state) => state.actualCompany?.id);
-
-      let role = '';
-      if (owner === profile) {
-        role = users?.actualCompany?.owner_id?.role as string;
-      } else {
-        const roleRaw = share
-          ?.filter(
-            (item: any) =>
-              item.company_id.id === company &&
-              Object.values(item).some((value) => typeof value === 'string' && value.includes(profile as string))
-          )
-          .map((item: any) => item.role);
-        role = roleRaw?.join('');
-      }
+    cell: ({ row }) => {
+      const role = useLoggedUserStore((state) => state.roleActualCompany);
+      const router = useRouter();
       const [showModal, setShowModal] = useState(false);
       const [integerModal, setIntegerModal] = useState(false);
-      const [domain, setDomain] = useState('');
-      //     //const user = row.original
-      const [showInactive, setShowInactive] = useState<boolean>(false);
-      const [showDeletedEquipment, setShowDeletedEquipment] = useState(false);
       const equipment = row.original;
 
-      const handleOpenModal = (id: string) => {
-        setDomain(id);
-        setShowModal(!showModal);
-      };
-      const actualCompany = useLoggedUserStore((state) => state.actualCompany);
+      const handleOpenModal = () => setShowModal(!showModal);
+      const handleOpenIntegerModal = () => setIntegerModal(!integerModal);
 
-      const handleOpenIntegerModal = (id: string) => {
-        setDomain(id);
-        setIntegerModal(!integerModal);
-      };
-
-      const { errorTranslate } = useEdgeFunctions();
       const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
           reason_for_termination: undefined,
         },
       });
-      const supabase = supabaseBrowser();
 
       async function reintegerEquipment() {
         try {
-          const { data, error } = await supabase
-            .from('vehicles')
-            .update({
-              is_active: true,
-              termination_date: null,
-              reason_for_termination: null,
-            })
-            .eq('id', equipment.id)
-            .eq('company_id', actualCompany?.id!)
-            .select();
-
+          await toggleVehicleStatus(equipment.id, true, equipment.condition ?? 'operativo');
           setIntegerModal(!integerModal);
-
-          setShowDeletedEquipment(false);
           toast.success('Equipo reintegrado', {
             description: `El equipo ${equipment?.engine} ha sido reintegrado`,
           });
-        } catch (error: any) {
-          const message = await errorTranslate(error?.message);
+          router.refresh();
+        } catch (error) {
+          logger.error('Error al reintegrar el equipo', { data: { error, id: equipment.id } });
+          const message = error instanceof Error ? error.message : undefined;
           toast.error('Error al reintegrar el equipo', { description: message });
         }
       }
 
       async function onSubmit(values: z.infer<typeof formSchema>) {
-        const data = {
-          ...values,
-          termination_date: format(values.termination_date, 'yyyy-MM-dd'),
-        };
-
         try {
-          await supabase
-            .from('vehicles')
-            .update({
-              is_active: false,
-              termination_date: data.termination_date,
-              reason_for_termination: data.reason_for_termination as 'otro',
-            })
-            .eq('id', equipment.id)
-            .eq('company_id', actualCompany?.id!)
-            .select();
-
+          await toggleVehicleStatus(
+            equipment.id,
+            false,
+            equipment.condition ?? 'no operativo',
+            values.reason_for_termination,
+            values.termination_date
+          );
           setShowModal(!showModal);
-
           toast.success('Equipo eliminado', { description: `El equipo ${equipment.domain} ha sido dado de baja` });
-        } catch (error: any) {
-          const message = await errorTranslate(error?.message);
+          router.refresh();
+        } catch (error) {
+          logger.error('Error al dar de baja el equipo', { data: { error, id: equipment.id } });
+          const message = error instanceof Error ? error.message : undefined;
           toast.error('Error al dar de baja el equipo', { description: message });
         }
       }
-
-      const handleToggleInactive = () => {
-        setShowInactive(!showInactive);
-      };
 
       return (
         <DropdownMenu>
@@ -281,9 +197,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
                                       )}
                                     >
                                       {field.value ? (
-                                        format(field.value, 'P', {
-                                          locale: es,
-                                        })
+                                        moment(field.value).locale('es').format('L')
                                       ) : (
                                         <span>Elegir fecha</span>
                                       )}
@@ -298,7 +212,6 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
                                     onSelect={field.onChange}
                                     disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
                                     initialFocus
-                                    locale={es}
                                   />
                                 </PopoverContent>
                               </Popover>
@@ -334,7 +247,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Opciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(equipment.domain)}>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(equipment.domain ?? '')}>
               Copiar Dominio
             </DropdownMenuItem>
             <DropdownMenuItem>
@@ -353,11 +266,11 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
               {role !== 'Invitado' && (
                 <Fragment>
                   {equipment.is_active ? (
-                    <Button variant="destructive" onClick={() => handleOpenModal(equipment?.id)} className="text-sm">
+                    <Button variant="destructive" onClick={handleOpenModal} className="text-sm">
                       Dar de baja equipo
                     </Button>
                   ) : (
-                    <Button variant="primary" onClick={() => handleOpenIntegerModal(equipment.id)} className="text-sm">
+                    <Button variant="primary" onClick={handleOpenIntegerModal} className="text-sm">
                       Reintegrar Equipo
                     </Button>
                   )}
@@ -373,7 +286,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     accessorKey: 'intern_number',
     id: 'Numero interno',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Numero interno" />,
-    cell: ({ row }: { row: any }) => {
+    cell: ({ row }) => {
       return (
         <Link href={`/dashboard/equipment/action?action=view&id=${row.original.id}`} className="hover:underline">
           {row.original.intern_number}
@@ -534,27 +447,13 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     id: 'Condicion',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Condición" />,
     cell: ({ row }) => {
-      const variants = {
-        operativo: 'success',
-        'no operativo': 'destructive',
-        'en reparacion': 'yellow',
-        'operativo condicionado': 'info',
-        'en preparacion': 'secondary',
-        default: 'default',
-      };
-
-      const conditionConfig = {
-        'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
-        operativo: { color: 'bg-green-500', icon: CheckCircle },
-        'no operativo': { color: 'bg-red-500', icon: XCircle },
-        'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
-        'en preparacion': { color: 'bg-gray-500', icon: AlertTriangle },
-      };
-
+      // Esta tabla (Clientes → Equipos) recibe la condición con espacios (shape legacy);
+      // los mapas compartidos están indexados por el enum de Prisma (con guión bajo).
+      const conditionKey = row.original.condition?.replace(/\s+/g, '_') ?? '';
+      const Icon = conditionIcons[conditionKey];
       return (
-        <Badge variant={variants[row.original?.condition ?? 'default'] as 'default'}>
-          {row.original?.condition &&
-            React.createElement(conditionConfig[row.original?.condition]?.icon, { className: 'mr-2 size-4' })}
+        <Badge variant={conditionVariants[conditionKey] ?? 'default'}>
+          {Icon && <Icon className="mr-2 size-4" />}
           {row.original.condition}
         </Badge>
       );

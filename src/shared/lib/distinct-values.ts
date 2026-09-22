@@ -5,12 +5,12 @@
  *
  * - `companyColumn`: columna de la tabla base que se fuerza a `company_id` de la sesión
  *   (el cliente no puede sobreescribirla).
- * - `null`: la tabla no tiene `company_id` (p. ej. `documents_equipment`, que se acota por el
- *   equipo); se documenta como pendiente hasta que su DataTable pase a facets Prisma.
+ * - `null`: la tabla no tiene `company_id` y se acotaría por relación. Hoy no queda ninguna:
+ *   `documents_equipment` salió de la lista en P2 Task 4 (sus DataTables legacy se
+ *   eliminaron; las vivas usan facets Prisma acotadas por `vehicles.company_id`).
  */
 export const DISTINCT_VALUE_TABLES = {
   vehicles: { companyColumn: 'company_id' },
-  documents_equipment: { companyColumn: null },
 } as const satisfies Record<string, { companyColumn: string | null }>;
 
 export type DistinctValueTable = keyof typeof DISTINCT_VALUE_TABLES;

@@ -23,11 +23,8 @@ describe('buildDistinctFilters', () => {
     });
   });
 
-  it('tablas sin company_id: devuelve los filtros del cliente tal cual', () => {
-    expect(DISTINCT_VALUE_TABLES.documents_equipment.companyColumn).toBeNull();
-    expect(buildDistinctFilters('documents_equipment', { 'document_types.is_it_montlhy': true }, COMPANY)).toEqual({
-      'document_types.is_it_montlhy': true,
-    });
-    expect(buildDistinctFilters('documents_equipment', undefined, COMPANY)).toBeNull();
+  it('documents_equipment ya no está admitida (sus facets pasaron a Prisma en P2 Task 4)', () => {
+    expect(Object.keys(DISTINCT_VALUE_TABLES)).toEqual(['vehicles']);
+    expect(() => buildDistinctFilters('documents_equipment', null, COMPANY)).toThrow('Tabla no admitida');
   });
 });

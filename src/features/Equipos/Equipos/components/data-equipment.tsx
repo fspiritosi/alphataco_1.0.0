@@ -8,7 +8,7 @@ import { createNestedFilterOptions } from '@/shared/utils/table-helpers';
 import { Building } from 'lucide-react';
 
 interface DataEquipmentProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[] | any;
+  columns: ColumnDef<VehicleWithBrand, TValue>[];
   data: VehicleWithBrand[];
   role?: string | null;
   savedFilters: string[];
