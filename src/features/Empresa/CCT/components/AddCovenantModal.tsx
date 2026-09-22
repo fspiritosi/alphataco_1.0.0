@@ -1,3 +1,5 @@
+'use client';
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -11,107 +13,68 @@ import {
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { createCovenant } from '../actions/covenants.server';
+
+const formSchema = z.object({
+  name: z.string().min(2, { message: 'El nombre del convenio debe tener al menos 2 caracteres' }),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface AddCovenantModalProps {
   guildInfo: { name: string; id: string };
   fromEmployee?: boolean;
-  company_id?: string;
 }
 
-export default function AddCovenantModal({
-  guildInfo,
-  fromEmployee = false,
-  company_id: propCompanyId,
-}: AddCovenantModalProps) {
+/**
+ * Alta de convenio dentro de un sindicato. Sin lógica de datos: `createCovenant` valida el
+ * sindicato contra la empresa activa y rechaza el duplicado dentro de ese sindicato.
+ */
+export default function AddCovenantModal({ guildInfo, fromEmployee = false }: AddCovenantModalProps) {
   const router = useRouter();
-  const storeCompanyId = useLoggedUserStore((state) => state.actualCompany?.id);
-  const company_id = propCompanyId ?? storeCompanyId;
-  const supabase = supabaseBrowser();
-  const formSchema = z.object({
-    name: z.string({ required_error: 'El nombre es requerido' }).min(2, {
-      message: 'El nombre del convenio debe tener al menos 2 caracteres',
-    }),
-    company_id: z
-      .string()
-      .default(company_id || '')
-      .optional(),
-    guild_id: z.string().default(guildInfo?.id).optional(),
-  });
-  const form = useForm<z.infer<typeof formSchema>>({
+  const [open, setOpen] = useState(false);
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      company_id: company_id || '',
-      guild_id: guildInfo?.id,
-    },
+    defaultValues: { name: '' },
   });
-  async function onSubmit({ name, company_id, guild_id }: z.infer<typeof formSchema>) {
-    await toast
-      .promise(
-        async () => {
-          // Guarda contra duplicados dentro del mismo sindicato: el mismo numero de
-          // convenio en otro sindicato es valido, repetirlo en este no (ticket 616).
-          const { data: existing } = await supabase
-            .from('covenant')
-            .select('id, name')
-            .eq('guild_id', guild_id ?? '')
-            .ilike('name', name.trim())
-            .limit(1);
-          if (existing && existing.length > 0) {
-            throw new Error(`Ya existe el convenio "${existing[0].name}" en este sindicato.`);
-          }
 
-          const { data, error } = await supabase
-            .from('covenant')
-            .insert([{ name: name, company_id, guild_id }] as any)
-            .select();
-          if (error) throw new Error(error.message);
-          document.getElementById('close-covenant-modal')?.click();
-          router.refresh();
-          // return { data, error };
-        },
-        {
-          loading: 'Creando convenio...',
-          success: 'Convenio creado exitosamente',
-          error: (error) => (error instanceof Error ? error.message : 'Ocurrio un error al crear el convenio'),
-        }
-      )
-      .unwrap()
-      .catch(() => {
-        // el error ya se informa en el toast
-      });
-  }
+  const mutation = useMutation({
+    mutationFn: (values: FormValues) => createCovenant({ name: values.name, guild_id: guildInfo.id }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Convenio creado exitosamente');
+      form.reset();
+      setOpen(false);
+      router.refresh();
+    },
+    onError: () => toast.error('Ocurrió un error al crear el convenio'),
+  });
+
+  // El modal se abre desde un árbol que a veces vive dentro de otro form: el submit no puede burbujear.
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    form.handleSubmit(onSubmit)(event);
+    form.handleSubmit((values) => mutation.mutateAsync(values))(event);
   };
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        {fromEmployee ? (
-          <Button className="w-full">
-            {' '}
-            <Plus className="h-4 w-4" />
-            Nuevo convenio{' '}
-          </Button>
-        ) : (
-          <Button variant={'outline'}>
-            {' '}
-            <Plus className="h-4 w-4" />
-            Nuevo convenio{' '}
-          </Button>
-        )}
+        <Button variant={fromEmployee ? 'default' : 'outline'} className={fromEmployee ? 'w-full' : undefined}>
+          <Plus className="h-4 w-4" />
+          Nuevo convenio
+        </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -141,9 +104,9 @@ export default function AddCovenantModal({
                   )}
                 />
                 <div className="flex justify-end gap-4">
-                  <AlertDialogCancel id="close-covenant-modal">Cancelar</AlertDialogCancel>
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    Crear convenio
+                  <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                  <Button type="submit" disabled={mutation.isPending}>
+                    {mutation.isPending ? 'Creando...' : 'Crear convenio'}
                   </Button>
                 </div>
               </form>

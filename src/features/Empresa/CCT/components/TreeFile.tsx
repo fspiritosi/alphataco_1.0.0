@@ -5,21 +5,16 @@ import AddGuildModal from '@/features/Empresa/CCT/components/AddGuildModal';
 import { PermissionGuard } from '@/features/Permissions';
 import { ChevronDown, ChevronRight, FileText, FolderClosed, FolderOpen } from 'lucide-react';
 import React, { useState } from 'react';
+import type { TreeNodeData } from '../lib/covenant-tree';
 
-export interface TreeNodeData {
-  name: string;
-  id: string;
-  children?: TreeNodeData[];
-  type: 'sindicato' | 'convenio' | 'sindicatoPadre' | 'categoria';
-}
+export type { TreeNodeData };
 
 interface TreeNodeProps {
   node: TreeNodeData;
   level: number;
-  companyId?: string;
 }
 
-export const TreeNode: React.FC<TreeNodeProps> = ({ node, level, companyId }) => {
+export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleOpen = () => setIsOpen(!isOpen);
@@ -51,17 +46,17 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level, companyId }) =>
           <div>
             {node.type === 'sindicatoPadre' && (
               <PermissionGuard module="empresa" tab="convenios" action="create">
-                <AddGuildModal company_id={companyId} />
+                <AddGuildModal />
               </PermissionGuard>
             )}
             {node.type === 'sindicato' && (
               <PermissionGuard module="empresa" tab="convenios" action="create">
-                <AddCovenantModal company_id={companyId} guildInfo={{ name: node.name, id: node.id }} />
+                <AddCovenantModal guildInfo={{ name: node.name, id: node.id }} />
               </PermissionGuard>
             )}
             {node.type === 'convenio' && (
               <PermissionGuard module="empresa" tab="convenios" action="create">
-                <AddCategoryModal company_id={companyId} covenantInfo={{ name: node.name, id: node.id }} />
+                <AddCategoryModal covenantInfo={{ name: node.name, id: node.id }} />
               </PermissionGuard>
             )}
           </div>
@@ -70,7 +65,7 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level, companyId }) =>
       {isOpen && node.children && (
         <div>
           {node.children.map((child) => (
-            <TreeNode key={crypto.randomUUID()} node={child} level={level + 1} companyId={companyId} />
+            <TreeNode key={child.id} node={child} level={level + 1} />
           ))}
         </div>
       )}

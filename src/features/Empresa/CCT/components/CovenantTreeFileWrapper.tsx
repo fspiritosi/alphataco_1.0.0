@@ -1,13 +1,11 @@
-import { getGuildsWithCovenants } from '@/shared/actions/covenant-actions';
-import { getCachedSession } from '@/shared/lib/session';
-import { formatGuildsData } from '@/shared/utils/utils';
+import { getGuildsWithCovenants } from '../actions/guilds.server';
+import { buildCovenantTree } from '../lib/covenant-tree';
 import CovenantTreeFile from './CovenantTreeFile';
 
+/** Árbol CCT de la empresa activa (sindicato → convenio → categoría). */
 async function CovenantTreeFileWrapper() {
-  const [guilds, session] = await Promise.all([getGuildsWithCovenants(), getCachedSession()]);
-  const companyId = session?.user?.app_metadata?.company as string | undefined;
-  const formattedData = formatGuildsData(guilds);
-  return <CovenantTreeFile formattedData={formattedData} companyId={companyId} />;
+  const guilds = await getGuildsWithCovenants();
+  return <CovenantTreeFile tree={buildCovenantTree(guilds)} />;
 }
 
 export default CovenantTreeFileWrapper;

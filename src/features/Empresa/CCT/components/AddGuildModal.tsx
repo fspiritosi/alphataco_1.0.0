@@ -1,3 +1,5 @@
+'use client';
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -11,89 +13,63 @@ import {
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { createGuild } from '../actions/guilds.server';
+
+const formSchema = z.object({
+  name: z.string().min(2, { message: 'El nombre del sindicato debe tener al menos 2 caracteres' }),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface AddGuildModalProps {
   fromEmployee?: boolean;
-  company_id?: string;
 }
 
-export default function AddGuildModal({ fromEmployee = false, company_id: propCompanyId }: AddGuildModalProps) {
-  const storeCompanyId = useLoggedUserStore((state) => state.actualCompany?.id);
-  const company_id = propCompanyId ?? storeCompanyId;
-  const supabase = supabaseBrowser();
+/**
+ * Alta de sindicato. El modal no consulta ni escribe datos: delega en `createGuild`, que
+ * resuelve la empresa activa en el servidor (nunca viaja un `company_id` desde el cliente).
+ */
+export default function AddGuildModal({ fromEmployee = false }: AddGuildModalProps) {
   const router = useRouter();
-  const formSchema = z.object({
-    name: z.string({ required_error: 'El nombre es requerido' }).min(2, {
-      message: 'El nombre de la Asosiacion Gremial debe tener al menos 2 caracteres',
-    }),
-    company_id: z
-      .string()
-      .default(company_id || '')
-      .optional(),
-  });
-  const form = useForm<z.infer<typeof formSchema>>({
+  const [open, setOpen] = useState(false);
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      company_id: company_id || '',
-    },
+    defaultValues: { name: '' },
   });
-  async function onSubmit({ name, company_id }: z.infer<typeof formSchema>) {
-    await toast
-      .promise(
-        async () => {
-          const normalizedName = name.slice(0, 1).toUpperCase() + name.slice(1);
 
-          // Guarda contra duplicados dentro de la misma empresa (ticket 616)
-          const { data: existing } = await supabase
-            .from('guild')
-            .select('id, name')
-            .eq('company_id', company_id ?? '')
-            .ilike('name', normalizedName.trim())
-            .limit(1);
-          if (existing && existing.length > 0) {
-            throw new Error(`Ya existe el sindicato "${existing[0].name}".`);
-          }
+  const mutation = useMutation({
+    mutationFn: createGuild,
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Sindicato creado exitosamente');
+      form.reset();
+      setOpen(false);
+      router.refresh();
+    },
+    onError: () => toast.error('Ocurrió un error al crear el sindicato'),
+  });
 
-          const { data, error } = await supabase
-            .from('guild')
-            .insert([{ name: normalizedName, company_id }])
-            .select();
-          if (error) throw new Error(error.message);
-          document.getElementById('close-guild-modal')?.click();
-          router.refresh();
-
-          // return { data, error };
-        },
-        {
-          loading: 'Creando sindicato...',
-          success: 'Sindicato creado exitosamente',
-          error: (error) => (error instanceof Error ? error.message : 'Ocurrio un error al crear el sindicato'),
-        }
-      )
-      .unwrap()
-      .catch(() => {
-        // el error ya se informa en el toast
-      });
-  }
+  // El modal se abre desde un árbol que a veces vive dentro de otro form: el submit no puede burbujear.
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    form.handleSubmit(onSubmit)(event);
+    form.handleSubmit((values) => mutation.mutateAsync(values))(event);
   };
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button className={cn(fromEmployee && 'w-full')}>
           <Plus className="h-4 w-4" />
@@ -102,9 +78,9 @@ export default function AddGuildModal({ fromEmployee = false, company_id: propCo
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Agregar Asosiacion Gremial</AlertDialogTitle>
+          <AlertDialogTitle>Agregar Asociación Gremial</AlertDialogTitle>
           <AlertDialogDescription>
-            Por favor complete los siguientes campos para agregar una nueva Agregar Asosiacion Gremial.
+            Por favor complete los siguientes campos para agregar una nueva Asociación Gremial.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -126,9 +102,9 @@ export default function AddGuildModal({ fromEmployee = false, company_id: propCo
                   )}
                 />
                 <div className="flex justify-end gap-4">
-                  <AlertDialogCancel id="close-guild-modal">Cancelar</AlertDialogCancel>
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    Crear sindicato
+                  <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                  <Button type="submit" disabled={mutation.isPending}>
+                    {mutation.isPending ? 'Creando...' : 'Crear sindicato'}
                   </Button>
                 </div>
               </form>

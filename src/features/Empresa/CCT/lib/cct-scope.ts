@@ -1,0 +1,36 @@
+/**
+ * Perímetro por empresa del árbol CCT sin RLS (módulo puro, testeado).
+ *
+ * - `guild.company_id` es **nullable**: los sindicatos globales (`company_id IS NULL`) los ven
+ *   todas las empresas, pero ninguna los edita ni les cuelga convenios propios sin decidirlo
+ *   explícitamente. Lectura = propios + globales; escritura = sólo propios.
+ * - `covenant.company_id` es **NOT NULL**: un convenio siempre pertenece a una empresa.
+ * - `category` **no tiene** `company_id`: su pertenencia se deriva del convenio padre, así que
+ *   toda lectura/escritura de categorías pasa primero por validar el convenio.
+ *
+ * Mismo criterio que `Documentacion/TiposDocumentos/lib/document-type-policy.ts`.
+ */
+export const GLOBAL_GUILD_READ_ONLY = 'Los sindicatos globales no se editan desde una empresa';
+
+/** `where` de lectura de sindicatos: globales + propios. */
+export function guildReadScope(companyId: string): { OR: [{ company_id: null }, { company_id: string }] } {
+  return { OR: [{ company_id: null }, { company_id: companyId }] };
+}
+
+/** `where`/`data` de escritura de sindicatos: sólo propios. */
+export function guildWriteScope(companyId: string): { company_id: string } {
+  return { company_id: companyId };
+}
+
+/** `where` de convenios: `covenant.company_id` es NOT NULL, no hay convenios globales. */
+export function covenantScope(companyId: string): { company_id: string } {
+  return { company_id: companyId };
+}
+
+/**
+ * `where` de categorías: no tienen `company_id`, se filtran por el convenio padre.
+ * Se usa tanto para listar como para verificar que una categoría es de la empresa activa.
+ */
+export function categoryScope(companyId: string): { covenant: { company_id: string } } {
+  return { covenant: { company_id: companyId } };
+}
