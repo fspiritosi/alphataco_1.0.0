@@ -12,9 +12,31 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { normalizeResult } from './utils';
 
 const logger = new Logger('ChecklistAnswers/actions.server');
+
+/**
+ * Empresa activa, tras comprobar que la plantilla pedida le pertenece.
+ *
+ * `templateId` llega del cliente en las tres actions de esta tabla (son endpoints públicos
+ * sin RLS): sin esta verificación, cualquier UUID de plantilla dejaba consultar las
+ * respuestas de otra empresa. Devuelve `null` si la plantilla no es de la empresa activa.
+ */
+async function resolveTemplateCompanyId(templateId: string): Promise<string | null> {
+  const company_id = await getActiveCompanyId();
+  const template = await prisma.checklist_templates.findFirst({
+    where: withCompany({ id: templateId }, company_id),
+    select: { id: true },
+  });
+  if (!template) {
+    logger.warn('Plantilla de checklist fuera de la empresa activa', { data: { templateId, company_id } });
+    return null;
+  }
+  return company_id;
+}
 
 // ============================================================================
 // CONSTANTS
@@ -91,9 +113,9 @@ const CHECKLIST_ANSWER_SELECT = {
 
 /**
  * Construye el WHERE clause compartido entre paginated, export y facets.
- * Filtra por template_id únicamente (sin company_id).
+ * Filtra SIEMPRE por `template_id` + `company_id` (sin RLS, el perímetro va explícito).
  */
-function buildWhereClause(templateId: string, state: ReturnType<typeof parseSearchParams>) {
+function buildWhereClause(templateId: string, companyId: string, state: ReturnType<typeof parseSearchParams>) {
   const searchWhere = buildSearchWhere(state.search, []);
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
@@ -195,9 +217,7 @@ function buildWhereClause(templateId: string, state: ReturnType<typeof parseSear
     }
   }
 
-  const baseFilters = {
-    template_id: templateId,
-  };
+  const baseFilters = withCompany({ template_id: templateId }, companyId);
 
   return {
     ...baseFilters,
@@ -219,13 +239,16 @@ function buildWhereClause(templateId: string, state: ReturnType<typeof parseSear
 
 export async function getChecklistAnswersPaginated(searchParams: DataTableSearchParams, templateId: string) {
   try {
+    const companyId = await resolveTemplateCompanyId(templateId);
+    if (!companyId) return { data: [], total: 0 };
+
     const state = parseSearchParams(searchParams);
     for (const key of IGNORED_PARAMS) {
       delete state.filters[key];
     }
 
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildWhereClause(templateId, state);
+    const where = buildWhereClause(templateId, companyId, state);
 
     // Multi-sort — solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -264,12 +287,15 @@ export type ChecklistAnswerListItem = Awaited<ReturnType<typeof getChecklistAnsw
 
 export async function getAllChecklistAnswersForExport(searchParams: DataTableSearchParams, templateId: string) {
   try {
+    const companyId = await resolveTemplateCompanyId(templateId);
+    if (!companyId) return [];
+
     const state = parseSearchParams(searchParams);
     for (const key of IGNORED_PARAMS) {
       delete state.filters[key];
     }
 
-    const where = buildWhereClause(templateId, state);
+    const where = buildWhereClause(templateId, companyId, state);
 
     return await prisma.checklist_answers.findMany({
       where,
@@ -293,9 +319,12 @@ export async function getAllChecklistAnswersForExport(searchParams: DataTableSea
 export async function getChecklistAnswersFacets(searchParams?: DataTableSearchParams, templateId?: string) {
   if (!templateId) return null;
 
-  const baseWhere = {
-    template_id: templateId,
-  };
+  const resolvedCompanyId = await resolveTemplateCompanyId(templateId);
+  if (!resolvedCompanyId) return null;
+  // Copia con tipo estrecho: `crossWhere` es una function declaration y no ve el narrowing.
+  const companyId: string = resolvedCompanyId;
+
+  const baseWhere = withCompany({ template_id: templateId }, companyId);
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -314,7 +343,7 @@ export async function getChecklistAnswersFacets(searchParams?: DataTableSearchPa
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(templateId!, modified);
+    return buildWhereClause(templateId!, companyId, modified);
   }
 
   // Helper: construye Map<string, number> con soporte para null → NULL_FILTER_VALUE
