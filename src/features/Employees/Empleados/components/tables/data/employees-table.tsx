@@ -22,9 +22,9 @@ interface EmployeesTableProps {
 }
 
 // Función especial para propiedades anidadas complejas como las afectaciones
-export const createNestedFilterOptions = <T extends any>(
+export const createNestedFilterOptions = <T,>(
   data: T[] | undefined,
-  accessor: (item: T) => any[],
+  accessor: (item: T) => (string | null | undefined)[],
   icon: React.ComponentType<{ className?: string }>
 ) => {
   const uniqueValues = Array.from(
@@ -56,7 +56,7 @@ export function EmployeesTableReusable({
 }: EmployeesTableProps) {
   const router = useRouter();
   const employees2 = employeesPromise ? use(employeesPromise) : transformedEmployees;
-  const employees = formatEmployeesForTable(employees2 as any);
+  const employees = formatEmployeesForTable(employees2 ?? []);
 
   // Generar todas las opciones de filtro utilizando las funciones utilitarias
   const positions = createFilterOptions(
@@ -136,8 +136,8 @@ export function EmployeesTableReusable({
 
   return (
     <BaseDataTable
-      columns={employeeColumns as any}
-      data={(employees as any) || []}
+      columns={employeeColumns}
+      data={employees}
       onRowClick={handleRowClick}
       className={className}
       tableId={tableId}

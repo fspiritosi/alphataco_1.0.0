@@ -14,57 +14,76 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription } from '@/components/ui/card';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { getDocumentDownloadUrls } from '@/features/Documentacion/shared/actions/document-files.server';
+import type { Table } from '@tanstack/react-table';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { DownloadIcon } from 'lucide-react';
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 
-export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
-  // Aquí puedes personalizar la lógica de descarga si lo necesitas
-  const supabase = supabaseBrowser();
+/**
+ * Lo mínimo que necesita una fila de documentos (empleados o equipos) para descargarse.
+ * El botón vive en la toolbar genérica, así que las filas se validan en runtime.
+ */
+interface DownloadableDocumentRow {
+  state?: string | null;
+  document_path?: string | null;
+  document_types?: { name?: string | null } | null;
+  employees?: { firstname?: string | null; lastname?: string | null } | null;
+  vehicles?: { domain?: string | null; serie?: string | null } | null;
+}
 
-  // Helper para obtener el nombre del recurso (empleado o vehículo)
-  const getResourceName = (doc: any) => {
-    if (doc.employees) {
-      return `${doc.employees.firstname} ${doc.employees.lastname}`;
-    } else if (doc.vehicles) {
-      return doc.vehicles.domain || doc.vehicles.serie || 'Equipo';
-    }
-    return 'Recurso';
-  };
+function isDocumentRow(value: unknown): value is DownloadableDocumentRow {
+  return typeof value === 'object' && value !== null && 'state' in value;
+}
+
+// Nombre del recurso (empleado o equipo) para el archivo dentro del ZIP.
+function getResourceName(doc: DownloadableDocumentRow): string {
+  if (doc.employees) return `${doc.employees.firstname ?? ''} ${doc.employees.lastname ?? ''}`.trim() || 'Empleado';
+  if (doc.vehicles) return doc.vehicles.domain || doc.vehicles.serie || 'Equipo';
+  return 'Recurso';
+}
+
+export function PermanentDocumentsDownloadButton<TData>({ table }: { table: Table<TData> }) {
+  const rows = table.getFilteredRowModel().rows;
+
+  const { pending, presented } = useMemo(() => {
+    const documents = rows.map((row): unknown => row.original).filter(isDocumentRow);
+    return {
+      pending: documents.filter((doc) => doc.state === 'pendiente'),
+      presented: documents.filter((doc) => doc.state !== 'pendiente' && !!doc.document_path),
+    };
+  }, [rows]);
 
   const handleDownloadAll = async () => {
     toast.promise(
       async () => {
         const zip = new JSZip();
-        const documentToDownload = table
-          .getFilteredRowModel()
-          .rows.map((row: any) => row.original)
-          .filter((row: any) => row.state !== 'pendiente') as any;
+
+        // URLs firmadas por el servidor: sólo se firman documentos de la empresa activa (P3: storage).
+        const paths = presented.map((doc) => doc.document_path).filter((path): path is string => !!path);
+        const signedUrls = new Map((await getDocumentDownloadUrls(paths)).map((item) => [item.path, item.url]));
 
         const files = await Promise.all(
-          documentToDownload?.map(async (doc: any) => {
-            const { data, error } = await supabase.storage.from('document-files').download(doc.document_path);
-
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-
-            // Extrae la extensión del archivo del document_path
-            const extension = doc.document_path.split('.').pop();
-
+          presented.map(async (doc) => {
+            const path = doc.document_path;
+            if (!path) return null;
+            const url = signedUrls.get(path);
+            if (!url) throw new Error('No se pudo generar el enlace de descarga');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('No se pudo descargar el documento');
+            const extension = path.split('.').pop();
             return {
-              data,
-              name: `${getResourceName(doc)}-(${doc?.document_types?.name}).${extension}`,
+              data: await response.blob(),
+              name: `${getResourceName(doc)}-(${doc.document_types?.name ?? 'documento'}).${extension}`,
             };
-          }) || []
+          })
         );
 
-        files.forEach((file) => {
-          zip.file(file.name, file.data);
-        });
+        for (const file of files) {
+          if (file) zip.file(file.name, file.data);
+        }
 
         const content = await zip.generateAsync({ type: 'blob' });
         saveAs(content, 'documents.zip');
@@ -72,9 +91,7 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
       {
         loading: 'Descargando documentos...',
         success: 'Documentos descargados',
-        error: (error) => {
-          return error;
-        },
+        error: (error) => (error instanceof Error ? error.message : 'Error al descargar documentos'),
       }
     );
   };
@@ -82,52 +99,32 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          disabled={
-            table.getFilteredRowModel().rows.filter((row: any) => row.original.state !== 'pendiente')?.length === 0
-          }
-          className="ml-6"
-          size="sm"
-          variant={'outline'}
-        >
+        <Button disabled={presented.length === 0} className="ml-6" size="sm" variant={'outline'}>
           <DownloadIcon className="size-4 mr-2" />
           Descargar Documentos
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            Estas a punto de descargar{' '}
-            {table.getFilteredRowModel().rows.filter((row: any) => row.original.state !== 'pendiente')?.length}{' '}
-            documentos
-          </AlertDialogTitle>
+          <AlertDialogTitle>Estas a punto de descargar {presented.length} documentos</AlertDialogTitle>
           <AlertDialogDescription className="max-h-[65vh] overflow-y-auto">
-            {table.getFilteredRowModel().rows.filter((row: any) => row.original.state === 'pendiente')?.length > 0 && (
+            {pending.length > 0 && (
               <div>
                 <CardDescription className="underline">
                   Alerta: Hay documentos que estan pendientes y no se descargarán
                 </CardDescription>
                 <Accordion type="single" collapsible>
                   <AccordionItem value="item-1">
-                    <AccordionTrigger className="text-red-600">
-                      {
-                        table.getFilteredRowModel().rows.filter((row: any) => row.original.state === 'pendiente')
-                          ?.length
-                      }{' '}
-                      Documentos pendientes
-                    </AccordionTrigger>
+                    <AccordionTrigger className="text-red-600">{pending.length} Documentos pendientes</AccordionTrigger>
                     <AccordionContent>
                       <div className="flex flex-col gap-2">
-                        {table
-                          .getFilteredRowModel()
-                          .rows.filter((row: any) => row.original.state === 'pendiente')
-                          .map((row: any) => (
-                            <Card className="p-2 border-red-300" key={row.id}>
-                              <CardDescription>
-                                {getResourceName(row.original)} ({(row.original as any).document_types.name})
-                              </CardDescription>
-                            </Card>
-                          ))}
+                        {pending.map((doc, index) => (
+                          <Card className="p-2 border-red-300" key={`pending-${index}`}>
+                            <CardDescription>
+                              {getResourceName(doc)} ({doc.document_types?.name ?? 'documento'})
+                            </CardDescription>
+                          </Card>
+                        ))}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -136,27 +133,16 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
             )}
             <Accordion type="single" collapsible>
               <AccordionItem value="item-1">
-                <AccordionTrigger className="text-green-600">
-                  {' '}
-                  {
-                    table.getFilteredRowModel().rows.filter((row: any) => row.original.state !== 'pendiente')?.length
-                  }{' '}
-                  Documentos presentados
-                </AccordionTrigger>
+                <AccordionTrigger className="text-green-600">{presented.length} Documentos presentados</AccordionTrigger>
                 <AccordionContent>
                   <div className=" flex flex-col gap-2 mt-2">
-                    {table
-                      .getFilteredRowModel()
-                      .rows.filter((row: any) => row.original.state !== 'pendiente')
-                      .map((row: any) => {
-                        return (
-                          <Card className="p-2 border-green-600" key={row.id}>
-                            <CardDescription>
-                              {getResourceName(row.original)} ({(row.original as any).document_types.name})
-                            </CardDescription>
-                          </Card>
-                        );
-                      })}
+                    {presented.map((doc, index) => (
+                      <Card className="p-2 border-green-600" key={`presented-${index}`}>
+                        <CardDescription>
+                          {getResourceName(doc)} ({doc.document_types?.name ?? 'documento'})
+                        </CardDescription>
+                      </Card>
+                    ))}
                   </div>
                 </AccordionContent>
               </AccordionItem>
