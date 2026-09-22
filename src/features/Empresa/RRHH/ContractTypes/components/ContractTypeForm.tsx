@@ -202,6 +202,7 @@ export default function ContractTypeForm() {
         await reassignDependencies({
           targetTable: 'employees',
           targetColumn: dependencyConfigs[0].targetColumn,
+          sourceTable: 'types_of_contract',
           fromValue: editingContractType.id,
           toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
         });

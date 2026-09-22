@@ -20,10 +20,11 @@ import {
   catalogWriteScope,
   resolveCatalogAccess,
 } from '../lib/catalog-scope';
+import { assertChecklistTemplatesOwned, assertCompatibleItemsReadable } from '../lib/catalog-guards';
 import {
   canHaveCompatibleItems,
+  parseCompatibleItemKeys,
   typeIdsWithoutSubTypes,
-  type CompatibleItem,
 } from '../lib/hitch-compatibility';
 
 // ============================================================================
@@ -423,8 +424,12 @@ export type EquipmentSubTypeInput = {
   name: string;
   is_active: boolean;
   type_id: string;
-  /** Items compatibles (`sub_type` o `type`) que van a `sub_type_compatible_items`. */
-  compatible_item_ids: CompatibleItem[];
+  /**
+   * Items compatibles tal como los emite el multi-select: claves `"<item_type>:<id>"`.
+   * El saneo (`parseCompatibleItemKeys`) corre **en el servidor**: el cliente no decide qué
+   * `item_type` termina en `sub_type_compatible_items`.
+   */
+  compatible_item_keys: string[];
   /** Plantillas de checklist asociadas (`checklist_template_sub_types`). */
   checklist_ids: string[];
 };
@@ -438,19 +443,24 @@ async function assertParentTypeReadable(companyId: string, typeId: string): Prom
   if (!parent) throw new Error('Tipo de unidad no encontrado');
 }
 
-/** Las plantillas de checklist asociadas tienen que ser de la empresa activa. */
-async function assertChecklistsOwned(companyId: string, templateIds: string[]): Promise<void> {
-  const unique = Array.from(new Set(templateIds.filter(Boolean)));
-  if (unique.length === 0) return;
-  const found = await prisma.checklist_templates.count({ where: { id: { in: unique }, company_id: companyId } });
-  if (found !== unique.length) throw new Error('Checklist no encontrado');
+/**
+ * Sanea las claves del multi-select y verifica que cada item referenciado sea legible por la
+ * empresa activa, junto con el tipo padre y los checklists.
+ */
+async function validateSubTypeInput(companyId: string, input: EquipmentSubTypeInput) {
+  const compatibleItems = parseCompatibleItemKeys(input.compatible_item_keys);
+  await Promise.all([
+    assertParentTypeReadable(companyId, input.type_id),
+    assertChecklistTemplatesOwned(companyId, input.checklist_ids),
+    assertCompatibleItemsReadable(companyId, compatibleItems),
+  ]);
+  return compatibleItems;
 }
 
 export async function createEquipmentSubType(input: EquipmentSubTypeInput) {
   try {
     const companyId = await getActiveCompanyId();
-    await assertParentTypeReadable(companyId, input.type_id);
-    await assertChecklistsOwned(companyId, input.checklist_ids);
+    const compatibleItems = await validateSubTypeInput(companyId, input);
 
     const created = await prisma.$transaction(async (tx) => {
       const subType = await tx.sub_type.create({
@@ -463,9 +473,9 @@ export async function createEquipmentSubType(input: EquipmentSubTypeInput) {
         select: { id: true, name: true, is_active: true, type: true },
       });
 
-      if (input.compatible_item_ids.length > 0) {
+      if (compatibleItems.length > 0) {
         await tx.sub_type_compatible_items.createMany({
-          data: input.compatible_item_ids.map((item) => ({
+          data: compatibleItems.map((item) => ({
             sub_type_id: subType.id,
             compatible_item_id: item.id,
             item_type: item.type,
@@ -477,7 +487,7 @@ export async function createEquipmentSubType(input: EquipmentSubTypeInput) {
       if (input.checklist_ids.length > 0) {
         await tx.checklist_template_sub_types.createMany({
           // `checklist_template_sub_types` no tiene company_id: el perímetro lo da
-          // `assertChecklistsOwned` sobre las plantillas.
+          // `assertChecklistTemplatesOwned` sobre las plantillas.
           data: input.checklist_ids.map((template_id) => ({ sub_type_id: subType.id, template_id })),
           skipDuplicates: true,
         });
@@ -507,8 +517,7 @@ export async function updateEquipmentSubType(input: EquipmentSubTypeInput & { id
     const accessError = catalogAccessError(access, 'El subtipo de unidad no existe');
     if (accessError) throw new Error(accessError);
 
-    await assertParentTypeReadable(companyId, input.type_id);
-    await assertChecklistsOwned(companyId, input.checklist_ids);
+    const compatibleItems = await validateSubTypeInput(companyId, input);
 
     const updated = await prisma.$transaction(async (tx) => {
       const subType = await tx.sub_type.update({
@@ -519,9 +528,9 @@ export async function updateEquipmentSubType(input: EquipmentSubTypeInput & { id
 
       // Items compatibles y checklists se reemplazan enteros: el form manda siempre el conjunto.
       await tx.sub_type_compatible_items.deleteMany({ where: { sub_type_id: input.id } });
-      if (input.compatible_item_ids.length > 0) {
+      if (compatibleItems.length > 0) {
         await tx.sub_type_compatible_items.createMany({
-          data: input.compatible_item_ids.map((item) => ({
+          data: compatibleItems.map((item) => ({
             sub_type_id: input.id,
             compatible_item_id: item.id,
             item_type: item.type,

@@ -11,6 +11,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
+import { assertPositionsOwned } from '../lib/catalog-guards';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
@@ -224,11 +225,15 @@ export async function getActiveCompanyPositions() {
 
 export async function createAptitudTecnicaPrisma(data: { nombre: string; puestos: string[]; is_active: boolean }) {
   try {
+    const companyId = await getActiveCompanyId();
+    // Los puestos llegan del cliente: se validan contra la empresa antes de escribir la pivote.
+    await assertPositionsOwned(companyId, data.puestos);
+
     const result = await prisma.aptitudes_tecnicas.create({
       data: {
         nombre: data.nombre,
         is_active: data.is_active,
-        company_id: await getActiveCompanyId(),
+        company_id: companyId,
         aptitudes_tecnicas_puestos: {
           create: data.puestos.map((puestoId) => ({ puesto_id: puestoId })),
         },
@@ -238,7 +243,7 @@ export async function createAptitudTecnicaPrisma(data: { nombre: string; puestos
     return result;
   } catch (error) {
     logger.error('Error al crear aptitud técnica', { data: { error } });
-    throw new Error('No se pudo crear la aptitud técnica. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo crear la aptitud técnica. Intente nuevamente.');
   }
 }
 
@@ -256,6 +261,9 @@ export async function updateAptitudTecnicaPrisma(data: {
       select: { id: true },
     });
     if (!owned) throw new Error('Aptitud técnica no encontrada');
+
+    // Los puestos llegan del cliente: se validan contra la empresa antes de escribir la pivote.
+    await assertPositionsOwned(companyId, data.puestos);
 
     // deleteMany + createMany en transacción para reemplazar las relaciones M:M
     const result = await prisma.$transaction(async (tx) => {
@@ -281,7 +289,9 @@ export async function updateAptitudTecnicaPrisma(data: {
     return result;
   } catch (error) {
     logger.error('Error al actualizar aptitud técnica', { data: { error } });
-    throw new Error('No se pudo actualizar la aptitud técnica. Intente nuevamente.');
+    throw error instanceof Error
+      ? error
+      : new Error('No se pudo actualizar la aptitud técnica. Intente nuevamente.');
   }
 }
 

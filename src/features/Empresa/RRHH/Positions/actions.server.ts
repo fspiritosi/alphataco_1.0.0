@@ -12,6 +12,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
+import { assertAptitudesOwned, assertHierarchiesOwned } from '../lib/catalog-guards';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
@@ -368,12 +369,19 @@ export async function createPositionPrisma(data: {
   aptitudes_tecnicas_id: string[];
 }) {
   try {
+    const companyId = await getActiveCompanyId();
+    // Jerarquías y aptitudes llegan del cliente: se validan contra la empresa antes de escribir.
+    await Promise.all([
+      assertHierarchiesOwned(companyId, data.hierarchical_position_id),
+      assertAptitudesOwned(companyId, data.aptitudes_tecnicas_id),
+    ]);
+
     const position = await prisma.company_positions.create({
       data: {
         name: data.name,
         is_active: data.is_active,
         hierarchical_position_id: data.hierarchical_position_id,
-        company_id: await getActiveCompanyId(),
+        company_id: companyId,
         ...(data.aptitudes_tecnicas_id.length > 0
           ? {
               aptitudes_tecnicas_puestos: {
@@ -389,7 +397,7 @@ export async function createPositionPrisma(data: {
     return position;
   } catch (error) {
     logger.error('Error al crear puesto', { data: { error } });
-    throw new Error('No se pudo crear el puesto. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo crear el puesto. Intente nuevamente.');
   }
 }
 
@@ -408,6 +416,12 @@ export async function updatePositionPrisma(data: {
       select: { id: true },
     });
     if (!owned) throw new Error('Puesto no encontrado');
+
+    // Jerarquías y aptitudes llegan del cliente: se validan contra la empresa antes de escribir.
+    await Promise.all([
+      assertHierarchiesOwned(companyId, data.hierarchical_position_id),
+      assertAptitudesOwned(companyId, data.aptitudes_tecnicas_id),
+    ]);
 
     // Actualizar en transacción: primero eliminar relaciones M:M, luego recrear
     await prisma.$transaction([
@@ -437,7 +451,7 @@ export async function updatePositionPrisma(data: {
     return { id: data.id };
   } catch (error) {
     logger.error('Error al actualizar puesto', { data: { error } });
-    throw new Error('No se pudo actualizar el puesto. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo actualizar el puesto. Intente nuevamente.');
   }
 }
 

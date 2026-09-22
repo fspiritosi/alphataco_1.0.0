@@ -134,6 +134,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         await reassignDependencies({
           targetTable: 'employees',
           targetColumn: dependencyConfigs[0].targetColumn,
+          sourceTable: 'work_diagram',
           fromValue: diagram.id,
           toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
         });

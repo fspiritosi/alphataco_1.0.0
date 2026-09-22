@@ -13,12 +13,14 @@ import {
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { assertChecklistTemplatesOwned, assertTypesReadable } from '../lib/catalog-guards';
 import {
   catalogAccessError,
   catalogReadScope,
   catalogWriteScope,
   resolveCatalogAccess,
 } from '../lib/catalog-scope';
+import { effectiveHitchTypeIds } from '../lib/hitch-compatibility';
 import { revalidatePath } from 'next/cache';
 
 // ============================================================================
@@ -392,6 +394,14 @@ export interface EquipmentTypeFormData {
 export async function createEquipmentType(formData: EquipmentTypeFormData) {
   try {
     const companyId = await getActiveCompanyId();
+
+    // Los ids llegan del cliente: se validan contra la empresa antes de escribir las pivotes.
+    const hitchTypeIds = effectiveHitchTypeIds(formData, formData.hitch_type_ids);
+    await Promise.all([
+      assertTypesReadable(companyId, hitchTypeIds),
+      assertChecklistTemplatesOwned(companyId, formData.checklist_ids),
+    ]);
+
     const created = await prisma.type.create({
       data: {
         ...catalogWriteScope(companyId),
@@ -406,9 +416,9 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
     });
 
     // Crear relaciones de enganche
-    if (formData.is_tractor_unit && formData.has_hitch && formData.hitch_type_ids.length > 0) {
+    if (hitchTypeIds.length > 0) {
       await prisma.type_hitch_types.createMany({
-        data: formData.hitch_type_ids.map((compatible_type_id) => ({
+        data: hitchTypeIds.map((compatible_type_id) => ({
           type_id: created.id,
           compatible_type_id,
           company_id: companyId,
@@ -433,7 +443,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
     return { success: true, id: created.id };
   } catch (error) {
     logger.error('Error al crear tipo de equipo', { data: { error } });
-    throw new Error('No se pudo crear el tipo de equipo. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo crear el tipo de equipo. Intente nuevamente.');
   }
 }
 
@@ -449,6 +459,13 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
     );
     if (accessError) throw new Error(accessError);
 
+    // Los ids llegan del cliente: se validan contra la empresa antes de escribir las pivotes.
+    const hitchTypeIds = effectiveHitchTypeIds(formData, formData.hitch_type_ids);
+    await Promise.all([
+      assertTypesReadable(companyId, hitchTypeIds),
+      assertChecklistTemplatesOwned(companyId, formData.checklist_ids),
+    ]);
+
     await prisma.type.update({
       where: { id: formData.id },
       data: {
@@ -463,9 +480,9 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
 
     // Actualizar relaciones de enganche: delete + insert
     await prisma.type_hitch_types.deleteMany({ where: { type_id: formData.id } });
-    if (formData.is_tractor_unit && formData.has_hitch && formData.hitch_type_ids.length > 0) {
+    if (hitchTypeIds.length > 0) {
       await prisma.type_hitch_types.createMany({
-        data: formData.hitch_type_ids.map((compatible_type_id) => ({
+        data: hitchTypeIds.map((compatible_type_id) => ({
           type_id: formData.id,
           compatible_type_id,
           company_id: companyId,

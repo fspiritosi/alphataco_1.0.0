@@ -15,6 +15,7 @@ import {
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { assertEquipmentOwnerReadable } from '../lib/catalog-guards';
 import {
   catalogAccessError,
   catalogReadScope,
@@ -746,6 +747,9 @@ export async function updateEquipmentOwnerPrisma(data: {
 export async function reassignVehiclesToOwner(fromOwnerId: string, toOwnerId: string | null) {
   try {
     const companyId = await getActiveCompanyId();
+    // `toOwnerId` llega del cliente: tiene que ser un titular legible por la empresa activa.
+    if (toOwnerId) await assertEquipmentOwnerReadable(companyId, toOwnerId);
+
     const result = await prisma.vehicles.updateMany({
       where: { owner_id: fromOwnerId, company_id: companyId },
       data: { owner_id: toOwnerId },
@@ -754,7 +758,7 @@ export async function reassignVehiclesToOwner(fromOwnerId: string, toOwnerId: st
     return result;
   } catch (error) {
     logger.error('Error al reasignar vehículos de titular', { data: { error, fromOwnerId, toOwnerId } });
-    throw new Error('No se pudo reasignar los vehículos. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo reasignar los vehículos. Intente nuevamente.');
   }
 }
 

@@ -23,12 +23,7 @@ import {
   updateEquipmentSubType,
   type EquipmentSubTypeListItem,
 } from './actions.server';
-import {
-  canHaveCompatibleItems,
-  formatCompatibleItemKey,
-  parseCompatibleItemKeys,
-  type CompatibleItem,
-} from '../lib/hitch-compatibility';
+import { canHaveCompatibleItems, formatCompatibleItemKey, type CompatibleItem } from '../lib/hitch-compatibility';
 import { useActiveChecklists } from '../hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentSubTypesForm');
@@ -205,8 +200,6 @@ function EquipmentSubTypesForm({
 
   const onSubmit = async (data: FormData) => {
     try {
-      const compatibleItems: CompatibleItem[] = parseCompatibleItemKeys(data.compatible_item_ids);
-
       if (isEditing && data.id) {
         const prevActive = !!initialData?.is_active;
         const nextActive = data.is_active;
@@ -225,7 +218,7 @@ function EquipmentSubTypesForm({
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
-          compatible_item_ids: compatibleItems,
+          compatible_item_keys: data.compatible_item_ids,
           checklist_ids: data.checklist_ids,
         });
 
@@ -236,7 +229,7 @@ function EquipmentSubTypesForm({
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
-          compatible_item_ids: compatibleItems,
+          compatible_item_keys: data.compatible_item_ids,
           checklist_ids: data.checklist_ids,
         });
 
@@ -329,19 +322,19 @@ function EquipmentSubTypesForm({
         await reassignDependencies({
           targetTable: 'vehicles',
           targetColumn: dependencyConfigs[0].targetColumn,
+          sourceTable: 'sub_type',
           fromValue: initialData.id,
           toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
         });
 
         // Ahora sí, desactivar el registro actual
         const values = form.getValues();
-        const compatibleItems: CompatibleItem[] = parseCompatibleItemKeys(values.compatible_item_ids);
         await updateEquipmentSubType({
           id: values.id!,
           name: values.name,
           is_active: values.is_active,
           type_id: values.type_id,
-          compatible_item_ids: compatibleItems,
+          compatible_item_keys: values.compatible_item_ids,
           checklist_ids: values.checklist_ids,
         });
 

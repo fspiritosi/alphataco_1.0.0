@@ -13,6 +13,7 @@ import {
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { withCompany } from '@/shared/lib/prisma-tenant';
+import { assertBrandReadable } from '../lib/catalog-guards';
 import { catalogReadScope } from '../lib/catalog-scope';
 
 // ============================================================================
@@ -322,6 +323,9 @@ async function findDuplicateEquipmentModel(name: string, brand: number, excludeI
 
 export async function createEquipmentModelPrisma(data: { name: string; brand: number; is_active: boolean }) {
   try {
+    // `brand` llega del cliente: tiene que ser una marca legible por la empresa (propia o global).
+    await assertBrandReadable(await getActiveCompanyId(), data.brand);
+
     // Guarda contra duplicados: el alta se rechaza con un mensaje claro en vez de
     // crear una segunda fila identica (ticket 616).
     const duplicate = await findDuplicateEquipmentModel(data.name, data.brand);
@@ -353,7 +357,10 @@ export async function createEquipmentModelPrisma(data: { name: string; brand: nu
     return { ok: true as const, data: result };
   } catch (error) {
     logger.error('Error al crear modelo de equipo', { data: { error } });
-    return { ok: false as const, error: 'No se pudo crear el modelo. Intente nuevamente.' };
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : 'No se pudo crear el modelo. Intente nuevamente.',
+    };
   }
 }
 
@@ -364,6 +371,8 @@ export async function updateEquipmentModelPrisma(data: {
   is_active: boolean;
 }) {
   try {
+    await assertBrandReadable(await getActiveCompanyId(), data.brand);
+
     const duplicate = await findDuplicateEquipmentModel(data.name, data.brand, data.id);
     if (duplicate) {
       return { ok: false as const, error: `Ya existe el modelo "${duplicate.name}" para esta marca.` };
@@ -395,7 +404,10 @@ export async function updateEquipmentModelPrisma(data: {
     return { ok: true as const, data: result };
   } catch (error) {
     logger.error('Error al actualizar modelo de equipo', { data: { error } });
-    return { ok: false as const, error: 'No se pudo actualizar el modelo. Intente nuevamente.' };
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : 'No se pudo actualizar el modelo. Intente nuevamente.',
+    };
   }
 }
 

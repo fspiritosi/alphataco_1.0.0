@@ -120,23 +120,41 @@ export async function fetchDependenciesForValue<
   }
 }
 
+/** Ids activos del catálogo fuente que la empresa puede elegir como reemplazo. */
+async function replacementIdsFor(table: ReplacementSourceTable, companyId: string): Promise<Set<string>> {
+  const rows = await findReplacementRows(table, companyId, undefined);
+  return new Set(rows.map((row) => String(row.id)));
+}
+
 /**
  * Reapunta las filas que dependen de `fromValue` hacia `toValue` (o a NULL) antes de desactivar
- * un catálogo. Tabla y columna salen de la lista cerrada `DEPENDENCY_TARGETS` y la escritura va
- * acotada a la empresa activa: sin RLS, es la única defensa del endpoint.
+ * un catálogo. Tabla y columna salen de la lista cerrada `DEPENDENCY_TARGETS`, la escritura va
+ * acotada a la empresa activa y `toValue` se verifica contra las opciones reales de reemplazo:
+ * sin RLS, son las únicas defensas del endpoint.
  *
  * Devuelve la cantidad de filas reapuntadas.
  */
 export async function reassignDependencies<T extends DependencyTargetTable>(params: {
   targetTable: T;
   targetColumn: string;
+  /** Catálogo del que sale el registro que se desactiva (valida `toValue`). */
+  sourceTable: ReplacementSourceTable;
   fromValue: string;
   /** `null` deja la FK vacía (el modal lo envía como `__NULL__`). */
   toValue: string | null;
 }): Promise<number> {
-  const { targetTable, targetColumn, fromValue, toValue } = params;
+  const { targetTable, targetColumn, sourceTable, fromValue, toValue } = params;
   assertTargetColumn(targetTable, targetColumn);
+  if (!(sourceTable in REPLACEMENT_SOURCES)) {
+    throw new Error(`Catálogo de reemplazo no admitido: ${sourceTable}`);
+  }
   const companyId = await getActiveCompanyId();
+
+  // `toValue` llega del cliente: sólo se acepta un id que la empresa podría haber elegido.
+  if (toValue !== null) {
+    const allowed = await replacementIdsFor(sourceTable, companyId);
+    if (!allowed.has(toValue)) throw new Error('El registro de reemplazo no existe');
+  }
 
   try {
     if (targetTable === 'employees') {
@@ -158,16 +176,12 @@ export async function reassignDependencies<T extends DependencyTargetTable>(para
   }
 }
 
-/** Opciones activas del catálogo fuente (empresa activa) para reemplazar al registro que se desactiva. */
-export const fetchReplacementOptions = async (
-  config: DependencyConfig,
-  excludeId?: string
-): Promise<{ id: string; name: string }[]> => {
-  const table = config.sourceTable;
-  if (!(table in REPLACEMENT_SOURCES)) {
-    throw new Error(`Catálogo de reemplazo no admitido: ${table}`);
-  }
-  const companyId = await getActiveCompanyId();
+/** Filas activas del catálogo fuente que la empresa puede elegir como reemplazo. */
+async function findReplacementRows(
+  table: ReplacementSourceTable,
+  companyId: string,
+  excludeId: string | undefined
+): Promise<Array<{ id: string | number; name: string | null }>> {
   const base = { is_active: true, ...(excludeId ? { id: { not: excludeId } } : {}) };
   // Catálogos con company_id NOT NULL: sólo los propios.
   const ownArgs = {
@@ -182,8 +196,8 @@ export const fetchReplacementOptions = async (
     orderBy: { name: 'asc' as const },
   };
 
-  const rows: Array<{ id: string | number; name: string | null }> = await (() => {
-    switch (table as ReplacementSourceTable) {
+  return (() => {
+    switch (table) {
       case 'company_positions':
         return prisma.company_positions.findMany(ownArgs);
       case 'work_diagram':
@@ -198,6 +212,18 @@ export const fetchReplacementOptions = async (
         return prisma.type.findMany(scopedArgs);
     }
   })();
+}
 
+/** Opciones activas del catálogo fuente (empresa activa) para reemplazar al registro que se desactiva. */
+export const fetchReplacementOptions = async (
+  config: DependencyConfig,
+  excludeId?: string
+): Promise<{ id: string; name: string }[]> => {
+  const table = config.sourceTable;
+  if (!(table in REPLACEMENT_SOURCES)) {
+    throw new Error(`Catálogo de reemplazo no admitido: ${table}`);
+  }
+  const companyId = await getActiveCompanyId();
+  const rows = await findReplacementRows(table as ReplacementSourceTable, companyId, excludeId);
   return rows.map((row) => ({ id: String(row.id), name: String(row.name ?? '') }));
 };
