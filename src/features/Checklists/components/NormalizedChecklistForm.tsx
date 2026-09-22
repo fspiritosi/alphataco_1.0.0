@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklists';
-import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
+import { fetchSupervisorsForEquipment } from '@/features/Checklists/actions/actionsServer';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Checklists/actions/checklist-queries';
 import { ChecklistGeneralInfoSection } from '@/features/Checklists/components/sections/ChecklistGeneralInfoSection';
 import { ChecklistItemField } from '@/features/Checklists/components/sections/ChecklistItemField';
@@ -88,7 +88,7 @@ export function NormalizedChecklistForm({
    * mostrar en el modal a qué unidad se le va a imputar cada desvío.
    */
   const [hitchDeviationIds, setHitchDeviationIds] = useState<Set<string>>(new Set());
-  const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>>([]);
+  const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForEquipment>>>([]);
   const [showAllGoodPrompt, setShowAllGoodPrompt] = useState(false);
   const [showAdditionalDeviationModal, setShowAdditionalDeviationModal] = useState(false);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
@@ -626,7 +626,8 @@ export function NormalizedChecklistForm({
                   onlyWithoutRequest: true,
                 })
               : Promise.resolve([]),
-            fetchSupervisorsForChecklist(),
+            // La empresa sale del equipo: este formulario corre también sin sesión (QR).
+            fetchSupervisorsForEquipment(data.equipment_id),
           ]);
 
           const deviations = [...utDeviations, ...hitchDeviations];

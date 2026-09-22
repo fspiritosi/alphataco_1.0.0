@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
+import { fetchSupervisorsForEquipment } from '@/features/Checklists/actions/actionsServer';
 import { createOrUpdateMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
@@ -93,9 +93,11 @@ export function CriticalDeviationsRepairModal({
     isLoading: isLoadingSupervisors,
     error: supervisorsError,
   } = useQuery({
-    queryKey: ['supervisors-for-checklist'],
-    queryFn: fetchSupervisorsForChecklist,
-    enabled: isOpen, // Solo cargar cuando el modal está abierto
+    // Por EQUIPO, no por sesión: el modal también se abre desde el flujo QR anónimo, donde
+    // no hay empresa activa y la lista salía vacía (y elegir supervisor es obligatorio).
+    queryKey: ['supervisors-for-equipment', equipmentId],
+    queryFn: () => fetchSupervisorsForEquipment(equipmentId),
+    enabled: isOpen && Boolean(equipmentId), // Solo cargar cuando el modal está abierto
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 

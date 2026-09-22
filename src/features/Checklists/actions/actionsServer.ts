@@ -333,18 +333,17 @@ export async function fetchActiveEmployeesForChecklist() {
 export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployeesForChecklist>>[number];
 
 /**
- * Obtiene la lista de supervisores de turno (usuarios con rol "Administrador Operaciones")
- * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos.
- * Filtra por la compañía actual usando share_company_users.
+ * Supervisores de turno de una empresa (usuarios con rol "Administrador Operaciones").
+ * Son los usuarios que el chofer puede seleccionar al registrar desvíos.
+ * Filtra por la compañía indicada usando share_company_users.
  *
  * FILTRO DE DIAGRAMA LABORALMENTE ACTIVO:
  * - Si el profile tiene employee_id → solo se incluye si tiene un registro en employees_diagram
  *   para el día actual con is_active = true Y cuyo diagram_type tenga work_active = true.
  * - Si el profile NO tiene employee_id → se incluye como no disponible (sin empleado vinculado).
  */
-export async function fetchSupervisorsForChecklist() {
+async function getSupervisorsForCompany(company_id: string) {
   try {
-    const company_id = await getActiveCompanyId();
     const ADMIN_OPERACIONES_ROLE_ID = 20;
 
     // Paso 1: Obtener los user_ids con rol Administrador Operaciones
@@ -435,6 +434,33 @@ export async function fetchSupervisorsForChecklist() {
     });
   } catch (error) {
     serverLogger.error('Error al obtener supervisores para checklist', { data: { error } });
+    return [];
+  }
+}
+
+/** Supervisores de la empresa activa (dashboard, con sesión). */
+export async function fetchSupervisorsForChecklist() {
+  try {
+    return await getSupervisorsForCompany(await getActiveCompanyId());
+  } catch (error) {
+    serverLogger.error('Error al obtener supervisores de la empresa activa', { data: { error } });
+    return [];
+  }
+}
+
+/**
+ * Supervisores de la empresa DEL EQUIPO.
+ *
+ * Es la variante que usa el flujo QR anónimo: ahí no hay empresa de sesión y el modal de
+ * desvíos EXIGE elegir supervisor, así que resolverla por sesión dejaba la lista vacía y al
+ * operario sin poder registrar el desvío. Misma regla que
+ * `Mantenimiento/shared/resource-company.ts::getResourceCompanyId`.
+ */
+export async function fetchSupervisorsForEquipment(equipmentId: string) {
+  try {
+    return await getSupervisorsForCompany(await getVehicleCompanyId(equipmentId));
+  } catch (error) {
+    serverLogger.error('Error al obtener supervisores de la empresa del equipo', { data: { error, equipmentId } });
     return [];
   }
 }

@@ -4,6 +4,7 @@ export {
   fetchActiveCustomersForEquipment,
   fetchActiveEmployeesForChecklist,
   fetchSupervisorsForChecklist,
+  fetchSupervisorsForEquipment,
 } from './actions/actionsServer';
 export type {
   ChecklistAnswerData,

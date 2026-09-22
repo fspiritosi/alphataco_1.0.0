@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
-import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
+import { fetchSupervisorsForEquipment } from '@/features/Checklists/actions/actionsServer';
 import { createManualDeviationsFromChecklist } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
@@ -55,9 +55,11 @@ export function AdditionalDeviationModal({
   const queryClient = useQueryClient();
 
   const { data: supervisors = [], isLoading: isLoadingSupervisors } = useQuery({
-    queryKey: ['supervisors-for-checklist'],
-    queryFn: fetchSupervisorsForChecklist,
-    enabled: isOpen,
+    // Por EQUIPO, no por sesión: este modal cuelga del checklist y también corre en el
+    // flujo QR anónimo, donde no hay empresa activa.
+    queryKey: ['supervisors-for-equipment', equipmentId],
+    queryFn: () => fetchSupervisorsForEquipment(equipmentId),
+    enabled: isOpen && Boolean(equipmentId),
     staleTime: 5 * 60 * 1000,
   });
 
