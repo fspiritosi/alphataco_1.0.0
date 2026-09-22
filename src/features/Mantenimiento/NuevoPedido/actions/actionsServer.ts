@@ -175,11 +175,14 @@ export async function checkExistingMaintenanceOrder(equipmentId: string, repairT
 }
 
 /**
- * Obtiene los templates de checklist disponibles para un equipo específico
- * basándose en su type y/o subType.
+ * Templates de checklist disponibles para un equipo, según su type y/o subType.
+ *
+ * `companyId` llega por parámetro y no de la sesión: una función `'use cache'` no tiene
+ * request al que preguntarle, y el flujo QR anónimo no tiene empresa activa. El wrapper
+ * exportado lo deriva del propio equipo.
  * Cache de 10 minutos — datos casi estáticos.
  */
-export async function getChecklistTemplatesForEquipment(equipmentId: string) {
+async function getCachedChecklistTemplatesForEquipment(equipmentId: string, companyId: string) {
   'use cache';
   cacheTag(CACHE_TAGS.ALL);
   cacheLife({ expire: 600, revalidate: 600, stale: 60 });
@@ -197,9 +200,10 @@ export async function getChecklistTemplatesForEquipment(equipmentId: string) {
     throw new Error('No se pudo obtener información del equipo');
   }
 
-  // 2. Obtener templates activos con sus secciones, items y restricciones de tipo
+  // 2. Obtener templates activos DE LA EMPRESA DEL EQUIPO con sus secciones, items y
+  //    restricciones de tipo (sin RLS, el filtro por empresa va explícito)
   const templates = await prisma.checklist_templates.findMany({
-    where: { is_active: true },
+    where: { is_active: true, company_id: companyId },
     orderBy: { name: 'asc' },
     select: {
       id: true,
@@ -262,6 +266,15 @@ export async function getChecklistTemplatesForEquipment(equipmentId: string) {
   });
 
   return filteredTemplates;
+}
+
+/**
+ * Wrapper de `getCachedChecklistTemplatesForEquipment`: resuelve la empresa desde el equipo
+ * (nunca desde la sesión) y delega en la versión cacheada.
+ */
+export async function getChecklistTemplatesForEquipment(equipmentId: string) {
+  const companyId = await getResourceCompanyId(prisma, 'vehicle', equipmentId);
+  return getCachedChecklistTemplatesForEquipment(equipmentId, companyId);
 }
 
 export type ChecklistTemplatesForEquipment = Awaited<ReturnType<typeof getChecklistTemplatesForEquipment>>;
