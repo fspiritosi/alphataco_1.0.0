@@ -76,3 +76,50 @@ $$);
 El body **no lleva `to`**: los destinatarios salen del secret `DOCUMENTS_EXPIRY_RECIPIENTS` de la edge function (ver sección anterior). Reemplazar `<SUPABASE_URL>` y `<ANON_KEY>` por los del proyecto Supabase de ese entorno.
 
 Para cancelar el job: `SELECT cron.unschedule('weekly-documents-expiry-email');`
+
+## Levantar con Docker
+
+El compose de la raíz (`docker-compose.yml`) levanta la infraestructura local: `postgres` (16 + pgTAP), `minio` (S3 compatible), `app` (Next.js standalone), `cron` (jobs periódicos) y `caddy` (reverse proxy). Servicios, puertos, volúmenes y red están documentados en el propio `docker-compose.yml`.
+
+### Setup inicial
+
+```bash
+cp .env.docker.example .env.docker
+# completar POSTGRES_PASSWORD, S3_SECRET_KEY, JOBS_TOKEN y demás variables marcadas "cambiar"
+bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los buckets)
+```
+
+`.env.docker` es local y está en `.gitignore` — nunca se versiona.
+
+### Variables obligatorias para el build de `app`
+
+`docker compose build app` pasa `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` como build args (Next.js las embebe en el bundle del cliente durante `next build`). Si quedan vacías, completar con los valores reales del Supabase local/dev, o con un placeholder (`http://localhost:54321` + una key ficticia) si el objetivo es solo validar que el build compila.
+
+### Puertos: resolver conflictos sin tocar el compose
+
+El compose mapea los puertos de host vía variables de entorno con default (`POSTGRES_PORT`, `MINIO_PORT`, `MINIO_CONSOLE_PORT`, `APP_PORT`, `CADDY_HTTP_PORT`, `CADDY_HTTPS_PORT`). Si alguno está ocupado en tu máquina por otro proyecto, cambiar el valor en `.env.docker` — nunca hardcodear un puerto distinto en `docker-compose.yml`.
+
+En el entorno de desarrollo donde se armó esta infra, tres puertos por default ya estaban tomados por otros proyectos locales y se remapearon en `.env.docker.example`:
+
+| Servicio        | Puerto por default | Ocupado por             | Remapeado a |
+| ---------------- | ------------------- | ------------------------ | ----------- |
+| postgres          | 5432                 | `ecommerce-postgres-1`   | 55432       |
+| minio (API)       | 9000                 | `credere-minio`          | 29000       |
+| minio (consola)   | 9001                 | `credere-minio`          | 29001       |
+| caddy (HTTP)      | 80                   | otro servicio del host   | 8080        |
+| caddy (HTTPS)     | 443                  | libre                    | 443 (sin cambios) |
+
+`APP_PORT` (3000) no tuvo conflicto y quedó en su default.
+
+### Servicios que corren solo con `postgres` + `minio`
+
+`app` requiere la base de datos migrada (ver Task 4 del plan de infra) — no se levanta hasta entonces. `cron` y `caddy` dependen de `app`. Para verificar que las imágenes de `cron` y `caddy` compilan sin levantar nada: `docker compose --env-file .env.docker build cron caddy`.
+
+### Verificar los buckets de MinIO
+
+```bash
+docker compose --env-file .env.docker run --rm --entrypoint sh minio-init -c \
+  "mc alias set local http://minio:9000 \$MINIO_ROOT_USER \$MINIO_ROOT_PASSWORD >/dev/null; mc ls local/"
+```
+
+Debe listar los 6 buckets: `document-files`, `daily-reports`, `contract-documents`, `employee-documents`, `clothing-signatures`, `logo`.

@@ -1,0 +1,4 @@
+# min hora dia mes dow  comando (TZ del contenedor: America/Argentina/Buenos_Aires)
+0 8 * * 1   curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/documents-expiry
+0 7 * * *   curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-report-deviations
+30 0 * * *  curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-indicators
