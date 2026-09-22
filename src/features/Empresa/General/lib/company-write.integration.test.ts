@@ -1,78 +1,126 @@
 import { randomUUID } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 /**
- * Integración real contra el Postgres del compose (rollback al final). Corre sólo con DATABASE_URL:
+ * Integración real contra el Postgres del compose. Corre sólo con DATABASE_URL:
  *   DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco npx vitest run src/features/Empresa/General/lib/company-write.integration.test.ts
  *
- * Cubre lo que `check-types` no ve de las escrituras de Task 6: los `BigInt` de `company.city` /
- * `province_id` y de `workshops.city/province`, el `Decimal` nullable de lat/long, la pertenencia y
- * el rol que `createCompany` crea a mano (el trigger `assign_owner_role_trigger` no los crea porque
- * no existe el rol `owner`), y la guarda case-insensitive de sectores duplicados.
+ * El primer caso ejecuta la server action REAL `createCompany` (se mockea únicamente la sesión:
+ * `getSessionUserId` y el `revalidatePath` de Next). Verifica el `owner_id`, la pertenencia y —
+ * sobre todo — que NO se cree ninguna fila en `user_roles`: `user_roles` no tiene `company_id`,
+ * así que un rol asignado acá valdría en TODAS las empresas del usuario.
+ *
+ * Los otros casos cubren lo que `check-types` no ve de las demás escrituras de Task 6: los
+ * `BigInt` de `workshops.city/province`, el `Decimal` nullable de lat/long, la guarda
+ * case-insensitive de sectores duplicados y el `contact_phone` bigint.
+ *
+ * Todo se limpia al final (la server action commitea, así que el borrado es explícito).
  */
+const RUN = Boolean(process.env.DATABASE_URL);
+
+const sessionCredentialId = randomUUID();
+const sessionProfileId = randomUUID();
+
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('@/shared/lib/session', () => ({
+  getSessionUserId: vi.fn(async () => sessionCredentialId),
+  getSessionUser: vi.fn(async () => ({ id: sessionCredentialId, email: 'test@test.com' })),
+  getSessionCompanyClaim: vi.fn(async () => null),
+  getCachedSession: vi.fn(async () => null),
+}));
+
 class Rollback extends Error {}
 
-describe.skipIf(!process.env.DATABASE_URL)('escrituras de empresa y talleres (integración)', () => {
-  it('crea empresa + pertenencia + rol admin, taller con bigint/Decimal y detecta el sector duplicado', async () => {
+/** Empresas creadas por el test (la server action commitea): se borran en el afterAll. */
+const createdCompanyIds: string[] = [];
+
+describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
+  beforeAll(async () => {
     const { prisma } = await import('@/shared/lib/prisma');
+    // El compose puede no tener perfiles: se crea el del "usuario de sesión" mockeado.
+    await prisma.profile.create({
+      data: {
+        id: sessionProfileId,
+        credential_id: sessionCredentialId,
+        email: `test-${sessionProfileId}@test.com`,
+        fullname: 'Test Task 6',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    const { prisma } = await import('@/shared/lib/prisma');
+    if (createdCompanyIds.length > 0) {
+      await prisma.company.deleteMany({ where: { id: { in: createdCompanyIds } } });
+    }
+    await prisma.user_roles.deleteMany({ where: { user_id: sessionCredentialId } });
+    await prisma.profile.deleteMany({ where: { id: sessionProfileId } });
+  });
+
+  it('createCompany: crea la empresa con owner de sesión y su pertenencia, y NO asigna ningún rol', async () => {
+    const { prisma } = await import('@/shared/lib/prisma');
+    const { createCompany } = await import('../actions/company.server');
 
     const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
     if (!city) throw new Error('La base del compose necesita al menos una ciudad');
-    // El compose puede no tener perfiles: se crea uno dentro de la tx (se descarta en el rollback).
-    const profileId = randomUUID();
-    const credentialId = randomUUID();
 
-    let observed: {
-      membershipCreated: boolean;
-      adminRoleAssigned: boolean;
-      workshopCity: number | null;
-      workshopLatitudeNull: boolean;
-      duplicateSectorFound: string | null;
-    } | null = null;
+    const rolesBefore = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+
+    const formData = new FormData();
+    formData.set('company_name', 'Empresa test Task 6');
+    formData.set('company_cuit', '30712345671');
+    formData.set('description', 'prueba de integración');
+    formData.set('website', '');
+    formData.set('contact_email', 'test@test.com');
+    formData.set('contact_phone', '+54 (299) 123-4567');
+    formData.set('address', 'Calle 123');
+    formData.set('country', 'argentina');
+    formData.set('industry', 'Petroleo');
+    formData.set('province_id', String(city.province_id));
+    formData.set('city', String(city.id));
+
+    const result = await createCompany(formData);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    createdCompanyIds.push(result.data.id);
+
+    const company = await prisma.company.findUnique({
+      where: { id: result.data.id },
+      select: { owner_id: true, company_cuit: true, contact_phone: true, city: true, province_id: true, by_defect: true },
+    });
+    const membership = await prisma.share_company_users.findFirst({
+      where: { company_id: result.data.id, profile_id: sessionProfileId },
+      select: { id: true },
+    });
+    const rolesAfter = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+
+    expect(company).toMatchObject({
+      owner_id: sessionProfileId,
+      company_cuit: '30712345671',
+      // El teléfono se normaliza en `parseCompanyForm` antes de llegar a la base.
+      contact_phone: '+542991234567',
+      by_defect: false,
+    });
+    expect(Number(company?.city)).toBe(Number(city.id));
+    expect(Number(company?.province_id)).toBe(Number(city.province_id));
+    expect(membership).not.toBeNull();
+    // Critical: `user_roles` no tiene `company_id` — un rol asignado acá sería global.
+    expect(rolesAfter).toBe(rolesBefore);
+    expect(rolesAfter).toBe(0);
+  });
+
+  it('talleres y sectores: bigint de city/province, Decimal nullable y duplicado case-insensitive', async () => {
+    const { prisma } = await import('@/shared/lib/prisma');
+
+    const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
+    const company = await prisma.company.findFirst({ select: { id: true } });
+    if (!city || !company) throw new Error('La base del compose necesita al menos una ciudad y una empresa');
+
+    let observed: { workshopCity: number | null; workshopLatitudeNull: boolean; duplicateSectorFound: string | null } | null =
+      null;
 
     await prisma
       .$transaction(async (tx) => {
-        await tx.$executeRaw`SELECT set_config('app.user_id', ${credentialId}, true)`;
-        const profile = await tx.profile.create({
-          data: { id: profileId, credential_id: credentialId, email: `test-${profileId}@test.com`, fullname: 'Test Task 6' },
-          select: { id: true },
-        });
-
-        const company = await tx.company.create({
-          data: {
-            company_name: 'Empresa test Task 6',
-            company_cuit: String(30_000_000_000 + (Date.now() % 700_000_000)),
-            description: 'prueba de integración',
-            website: '',
-            contact_email: 'test@test.com',
-            contact_phone: '+542991234567',
-            address: 'Calle 123',
-            country: 'argentina',
-            industry: 'Petroleo',
-            city: city.id,
-            province_id: city.province_id,
-            by_defect: false,
-            owner_id: profile.id,
-            company_logo: '',
-          },
-          select: { id: true },
-        });
-
-        const membership = await tx.share_company_users.findFirst({
-          where: { company_id: company.id, profile_id: profile.id },
-          select: { id: true },
-        });
-        if (!membership) {
-          await tx.share_company_users.create({ data: { company_id: company.id, profile_id: profile.id } });
-        }
-
-        const adminRole = await tx.roles.findFirst({ where: { slug: 'admin' }, select: { id: true } });
-        if (!adminRole) throw new Error('La base del compose necesita el rol admin (npm run db:seed)');
-        await tx.user_roles.createMany({
-          data: [{ user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId }],
-          skipDuplicates: true,
-        });
-
         const workshop = await tx.workshops.create({
           data: {
             name: 'Taller test',
@@ -96,17 +144,10 @@ describe.skipIf(!process.env.DATABASE_URL)('escrituras de empresa y talleres (in
         });
 
         observed = {
-          membershipCreated: Boolean(
-            await tx.share_company_users.findFirst({ where: { company_id: company.id, profile_id: profile.id } })
-          ),
-          adminRoleAssigned: Boolean(
-            await tx.user_roles.findFirst({ where: { user_id: credentialId, role_id: adminRole.id } })
-          ),
           workshopCity: workshop.city === null ? null : Number(workshop.city),
           workshopLatitudeNull: workshop.latitude === null,
           duplicateSectorFound: duplicate?.name ?? null,
         };
-
         throw new Rollback();
       })
       .catch((error: unknown) => {
@@ -114,8 +155,6 @@ describe.skipIf(!process.env.DATABASE_URL)('escrituras de empresa y talleres (in
       });
 
     expect(observed).toEqual({
-      membershipCreated: true,
-      adminRoleAssigned: true,
       workshopCity: Number(city.id),
       workshopLatitudeNull: true,
       duplicateSectorFound: 'Sector Test',

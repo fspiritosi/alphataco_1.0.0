@@ -140,10 +140,14 @@ function toCompanyData(values: CompanyFormValues) {
 
 /**
  * Alta de empresa. `FormData` con los campos del formulario (+ `logo` opcional).
- * - `owner_id` = profile de sesión.
- * - El trigger `assign_owner_role_trigger` (prisma/sql/permissions.sql) crea la fila de
- *   `share_company_users` del owner y asigna el rol `owner` sólo si ese rol existe. Como el seed no
- *   lo crea, acá se asigna `admin` en `user_roles` (idempotente) y se verifica la pertenencia sin duplicarla.
+ * - `owner_id` = profile de sesión; se crea también la pertenencia en `share_company_users`.
+ * - El trigger `assign_owner_role_trigger` (prisma/sql/permissions.sql) sólo actúa si existe el rol
+ *   `slug='owner'`; el seed no lo crea, así que la pertenencia se inserta acá (sin duplicarla).
+ *
+ * No se asigna rol acá: `user_roles` no tiene `company_id`, así que cualquier rol sería global.
+ * Task 13 agrega `user_roles.company_id` (+ unique y ajuste de `get_user_permissions`) y recién
+ * entonces se puede otorgar `admin` de la empresa creada. Hoy el alta de roles la hace un admin
+ * existente desde el editor de permisos.
  */
 export async function createCompany(formData: FormData): Promise<CompanyMutationResult> {
   const parsed = parseCompanyForm(formData);
@@ -169,15 +173,6 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
         await tx.share_company_users.create({ data: { company_id: company.id, profile_id: profileId } });
       }
 
-      const adminRole = await tx.roles.findFirst({ where: { slug: 'admin' }, select: { id: true } });
-      if (adminRole) {
-        await tx.user_roles.createMany({
-          data: [{ user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId }],
-          skipDuplicates: true,
-        });
-      } else {
-        logger.warn('Rol admin no encontrado: la empresa se creó sin rol para el owner', { data: { companyId: company.id } });
-      }
       return company.id;
     });
 
