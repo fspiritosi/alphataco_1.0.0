@@ -3,7 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionEmployeeIdClaim } from '@/shared/lib/session';
-import { cookies } from 'next/headers';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('Mantenimiento/shared/employee-session');
 
@@ -12,36 +12,40 @@ export interface MaintenanceEmployeeSessionData {
   employeeCuil: string | null;
 }
 
+const EMPTY: MaintenanceEmployeeSessionData = { employeeName: null, employeeCuil: null };
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Nombre y CUIL del operario logueado en el flujo de mantenimiento.
  *
- * El `employee_id` sale SIEMPRE del servidor (cookie del login del QR o claim de la
- * sesión): nunca lo manda el cliente. Si no hay legajo, cae al nombre que quedó guardado
- * en la cookie del login, que es lo único que se puede mostrar en ese caso.
+ * El `employee_id` sale EXCLUSIVAMENTE del claim de la sesión (`app_metadata.employee_id`,
+ * que escribe `completeMaintenanceEmployeeAnonymousSession` al validar el CUIL contra el
+ * legajo). La cookie `empleado_id` que se leía antes es escribible por el cliente y tenía
+ * prioridad sobre el claim: cualquier sesión podía leer el nombre y el CUIL de cualquier
+ * empleado con sólo cambiarla. Además nadie la escribe ya, así que se sacó del todo.
+ *
+ * El legajo se busca además acotado a la empresa activa (en el camino QR es la del propio
+ * empleado, que fija el login anónimo).
  */
 export async function getMaintenanceEmployeeSessionData(): Promise<MaintenanceEmployeeSessionData> {
-  const cookieStore = await cookies();
-  const employeeId = cookieStore.get('empleado_id')?.value ?? (await getSessionEmployeeIdClaim());
-  const fallbackName = cookieStore.get('empleado_name')?.value ?? null;
-
-  if (!employeeId || !UUID_RE.test(employeeId)) {
-    return { employeeName: fallbackName, employeeCuil: null };
-  }
+  const employeeId = await getSessionEmployeeIdClaim();
+  if (!employeeId || !UUID_RE.test(employeeId)) return EMPTY;
 
   try {
-    const employee = await prisma.employees.findUnique({
-      where: { id: employeeId },
+    const companyId = await getActiveCompanyId();
+
+    const employee = await prisma.employees.findFirst({
+      where: { id: employeeId, company_id: companyId },
       select: { firstname: true, lastname: true, cuil: true },
     });
 
-    if (!employee) return { employeeName: fallbackName, employeeCuil: null };
+    if (!employee) return EMPTY;
 
     const fullName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
-    return { employeeName: fullName || fallbackName, employeeCuil: employee.cuil ?? null };
+    return { employeeName: fullName || null, employeeCuil: employee.cuil ?? null };
   } catch (error) {
     logger.error('Error al obtener los datos del empleado de la sesión', { data: { error } });
-    return { employeeName: fallbackName, employeeCuil: null };
+    return EMPTY;
   }
 }
