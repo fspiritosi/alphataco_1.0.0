@@ -5,162 +5,69 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
-
-// Esquema para el formulario (acepta strings para los campos numéricos)
-const customerFormSchema = z.object({
-  name: z.string().min(2, {
-    message: 'El nombre debe tener al menos 2 caracteres.',
-  }),
-  cuit: z
-    .string()
-    .min(8, 'El CUIT debe tener al menos 8 caracteres.')
-    .regex(/^\d+$/, 'El CUIT solo puede contener dígitos'),
-  client_email: z.string().email('Por favor ingresa un email válido.').optional().or(z.literal('')),
-  client_phone: z
-    .string()
-    .min(8, 'El teléfono debe tener al menos 8 caracteres.')
-    .regex(/^\d+$/, 'El teléfono solo puede contener dígitos')
-    .optional()
-    .or(z.literal('')),
-  address: z.string().optional().or(z.literal('')),
-  is_active: z.boolean().default(true),
-  reason_for_termination: z.string().optional().or(z.literal('')),
-  termination_date: z.date().optional().nullable(),
-});
-
-// Tipo para los valores que se enviarán a la base de datos
-type CustomerDB = {
-  name: string;
-  cuit: number;
-  client_email: string | null;
-  client_phone: number | null;
-  address: string | null;
-  is_active: boolean | null;
-  company_id: string;
-  reason_for_termination: string | null;
-  termination_date: string | null;
-};
-
-type CustomerFormValues = z.infer<typeof customerFormSchema>;
+import { saveCustomer } from '../actions/customers.server';
+import type { CustomerRow } from '../lib/serializers';
+import { customerFormSchema, type CustomerFormValues } from '../schemas/customer';
 
 interface CustomerFormProps {
-  customer?: any;
-  company_id: string;
-  onSuccess: () => void;
+  customer?: CustomerRow | null;
+  onSuccess: (customerId: string) => void;
   readOnly?: boolean;
 }
 
-export function CustomerForm({ customer, company_id, onSuccess, readOnly = false }: CustomerFormProps) {
-  const supabase = supabaseBrowser();
+function toFormValues(customer: CustomerRow | null | undefined): CustomerFormValues {
+  if (!customer) {
+    return {
+      name: '',
+      cuit: '',
+      client_email: '',
+      client_phone: '',
+      address: '',
+      is_active: true,
+      reason_for_termination: '',
+      termination_date: null,
+    };
+  }
+  return {
+    name: customer.name,
+    cuit: customer.cuit,
+    client_email: customer.client_email ?? '',
+    client_phone: customer.client_phone ?? '',
+    address: customer.address ?? '',
+    is_active: customer.is_active ?? true,
+    reason_for_termination: customer.reason_for_termination ?? '',
+    termination_date: customer.termination_date ? new Date(customer.termination_date) : null,
+  };
+}
+
+export function CustomerForm({ customer, onSuccess, readOnly = false }: CustomerFormProps) {
   const isEditing = !!customer;
   const router = useRouter();
-  const form = useForm<z.infer<typeof customerFormSchema>>({
+  const queryClient = useQueryClient();
+  const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
-    defaultValues: customer
-      ? {
-          ...customer,
-          // Convertir a los tipos correctos para el formulario
-          cuit: customer.cuit ? String(customer.cuit) : '',
-          client_phone: customer.client_phone ? String(customer.client_phone) : '',
-          client_email: customer.client_email || '',
-          address: customer.address || '',
-          reason_for_termination: customer.reason_for_termination || '',
-          is_active: customer.is_active ?? true,
-          // Convertir string de fecha a objeto Date si existe
-          termination_date: customer.termination_date ? new Date(customer.termination_date) : null,
-        }
-      : {
-          name: '',
-          cuit: '',
-          client_email: '',
-          client_phone: '',
-          address: '',
-          is_active: true,
-          reason_for_termination: '',
-          termination_date: null,
-        },
+    defaultValues: toFormValues(customer),
   });
 
-  const onSubmit = async (values: z.infer<typeof customerFormSchema>) => {
-    await toast
-      .promise(
-        async () => {
-          // Si el cliente está activo, limpiamos los campos de baja
-          if (values.is_active) {
-            values.termination_date = null;
-            values.reason_for_termination = '';
-          }
-
-          if (isEditing) {
-            //Verificar si existe el cuit
-            const { data: customerVerify, error: customerVerifyError } = await supabase
-              .from('customers')
-              .select('name')
-              .eq('cuit', values.cuit)
-              .single();
-
-            if (customerVerify?.name) {
-              throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
-            }
-            if (customerVerifyError) {
-              console.error(customerVerifyError);
-              throw new Error('Error al verificar el cuit');
-            }
-          }
-
-          // Preparar los datos para la base de datos
-          const customerData: CustomerDB = {
-            name: values.name,
-            cuit: Number(values.cuit),
-            client_email: values.client_email || null,
-            client_phone: values.client_phone ? Number(values.client_phone) : null,
-            address: values.address || null,
-            is_active: values.is_active,
-            company_id,
-            reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
-            termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
-          };
-
-          if (isEditing && customer) {
-            // Actualizar cliente existente
-            const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
-
-            if (error) throw error;
-            // toast.success('Cliente actualizado correctamente');
-          } else {
-            // Crear nuevo cliente
-            const { error } = await supabase.from('customers').insert([customerData]);
-
-            if (error) throw error;
-            // toast.success('Cliente creado correctamente');
-          }
-
-          // Limpiar el formulario y cerrar el diálogo
-          onSuccess();
-          router.refresh();
-        },
-        {
-          loading: 'Guardando cliente...',
-          success: 'Cliente guardado correctamente',
-          error: (error) => {
-            console.error(error);
-            return error || 'Error al guardar el cliente';
-          },
-        }
-      )
-      .unwrap()
-      .catch(() => {
-        // el error ya se informa en el toast
-      });
+  const onSubmit = async (values: CustomerFormValues) => {
+    const result = await saveCustomer(values, customer?.id);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Cliente guardado correctamente');
+    queryClient.invalidateQueries({ queryKey: ['customers'] });
+    onSuccess(result.data.id);
+    router.refresh();
   };
 
-  // Siempre mostramos el formulario, pero lo deshabilitamos en modo de solo lectura
+  const readOnlyClass = readOnly ? 'bg-muted' : '';
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -172,12 +79,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
               <FormItem>
                 <FormLabel>Nombre</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Nombre del cliente"
-                    {...field}
-                    readOnly={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
-                  />
+                  <Input placeholder="Nombre del cliente" {...field} readOnly={readOnly} className={readOnlyClass} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -190,12 +92,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
               <FormItem>
                 <FormLabel>CUIT</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="CUIT del cliente"
-                    {...field}
-                    readOnly={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
-                  />
+                  <Input placeholder="CUIT del cliente" {...field} readOnly={readOnly} className={readOnlyClass} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -213,7 +110,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                     placeholder="Email del cliente"
                     {...field}
                     readOnly={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
+                    className={readOnlyClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -227,12 +124,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
               <FormItem>
                 <FormLabel>Teléfono</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Teléfono del cliente"
-                    {...field}
-                    readOnly={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
-                  />
+                  <Input placeholder="Teléfono del cliente" {...field} readOnly={readOnly} className={readOnlyClass} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -245,12 +137,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
               <FormItem className="md:col-span-2">
                 <FormLabel>Dirección</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Dirección del cliente"
-                    {...field}
-                    readOnly={readOnly}
-                    className={readOnly ? 'bg-muted' : ''}
-                  />
+                  <Input placeholder="Dirección del cliente" {...field} readOnly={readOnly} className={readOnlyClass} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -268,7 +155,6 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                     value={field.value ? 'true' : 'false'}
                     className="flex space-x-4"
                     disabled={readOnly}
-                    defaultValue={field.value ? 'true' : 'false'}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="true" id="active-true" />
@@ -284,7 +170,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
               </FormItem>
             )}
           />
-          {!form.getValues('is_active') && (
+          {!form.watch('is_active') && (
             <>
               <FormField
                 control={form.control}
@@ -297,7 +183,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                         placeholder="Motivo de la baja del cliente"
                         {...field}
                         readOnly={readOnly}
-                        className={readOnly ? 'bg-muted' : ''}
+                        className={readOnlyClass}
                       />
                     </FormControl>
                     <FormMessage />
@@ -313,14 +199,13 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                     <FormControl>
                       <Input
                         type="date"
-                        {...field}
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
                         value={field.value ? field.value.toISOString().split('T')[0] : ''}
-                        onChange={(e) => {
-                          const date = e.target.value ? new Date(e.target.value) : null;
-                          field.onChange(date);
-                        }}
+                        onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
                         readOnly={readOnly}
-                        className={readOnly ? 'bg-muted' : ''}
+                        className={readOnlyClass}
                       />
                     </FormControl>
                     <FormMessage />
@@ -332,7 +217,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
         </div>
         {!readOnly && (
           <div className="flex justify-end space-x-4">
-            <Button type="submit" className="bg-gh_orange hover:bg-gh_orange/90" disabled={form.formState.isSubmitting}>
+            <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
               {isEditing ? 'Actualizar Cliente' : 'Crear Cliente'}
             </Button>
           </div>
