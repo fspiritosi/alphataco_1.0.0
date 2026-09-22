@@ -5,6 +5,7 @@ import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constant
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
+import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -740,8 +741,17 @@ export async function createOrUpdateMaintenanceRequest(input: {
 
   try {
     const profile = await requireServerAuthProfile();
-    // Las solicitudes (incluidas las del enganche) heredan la empresa de la unidad del contexto
-    const companyId = await getResourceCompanyId(prisma, 'vehicle', input.equipmentId);
+    // Cada solicitud hereda la empresa de SU unidad: la del contexto o la del enganche
+    // (ticket 677). Se cachea por unidad para no repetir la consulta por cada grupo.
+    const companyIdByEquipment = new Map<string, string>();
+    const resolveCompanyId = async (client: Prisma.TransactionClient | typeof prisma, equipmentId: string) => {
+      const cached = companyIdByEquipment.get(equipmentId);
+      if (cached) return cached;
+      const resolved = await getResourceCompanyId(client, 'vehicle', equipmentId);
+      companyIdByEquipment.set(equipmentId, resolved);
+      return resolved;
+    };
+    const companyId = await resolveCompanyId(prisma, input.equipmentId);
     const deviationIds = input.deviations.map((d) => d.deviationId);
 
     // Comentarios del chofer indexados por desvío
@@ -887,13 +897,14 @@ export async function createOrUpdateMaintenanceRequest(input: {
           // entrada a taller ese valor se escribe en `vehicles.kilometer` del recurso, y
           // le estaríamos cargando al acoplado los km del camión (ticket 677).
           const isContextEquipment = groupEquipmentId === input.equipmentId;
+          const groupCompanyId = await resolveCompanyId(tx, groupEquipmentId);
 
           const created = await tx.maintenance_requests.create({
             data: {
               checklist_answer_id: checklistAnswerId,
               // Ticket 677: la unidad del desvío, no la del contexto del modal
               equipment_id: groupEquipmentId,
-              company_id: companyId,
+              company_id: groupCompanyId,
               employee_id: input.employeeId ?? sourceAnswer?.employee_id ?? null,
               user_id: input.userId ?? sourceAnswer?.user_id ?? profile.id,
               kilometer: isContextEquipment ? input.kilometer ?? sourceAnswer?.kilometraje?.toString() ?? null : null,
@@ -918,10 +929,14 @@ export async function createOrUpdateMaintenanceRequest(input: {
           contextRequestId = targetRequestId;
         }
 
+        // Los ítems heredan la empresa de la solicitud (la de su unidad), aunque la solicitud
+        // se reutilice: una abierta sobre el enganche pertenece a la empresa del enganche.
+        const targetCompanyId = await resolveCompanyId(tx, groupEquipmentId);
+
         const { count } = await tx.maintenance_request_items.createMany({
           data: groupDeviationIds.map((deviationId) => ({
             maintenance_request_id: targetRequestId,
-            company_id: companyId,
+            company_id: targetCompanyId,
             checklist_deviation_id: deviationId,
             repair_type_id: null,
             driver_comment: commentByDeviationId.get(deviationId) ?? null,
