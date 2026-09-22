@@ -114,8 +114,8 @@ export async function updateDocumentType(id: string, data: UpdateDocumentTypeInp
   logger.debug('Actualizando tipo de documento', { data: { id } });
 
   try {
-    // Perímetro: sólo tipos globales o de la empresa activa.
-    await findScopedDocumentType(prisma, id, companyId, { id: true });
+    // Perímetro de escritura: sólo tipos propios (un global lanza GLOBAL_DOCUMENT_TYPE_READ_ONLY).
+    await findScopedDocumentType(prisma, id, companyId, { id: true }, {}, 'write');
 
     // Build update payload explicitly so Prisma can type-check it
     const updatePayload: Prisma.document_typesUpdateInput = {};
@@ -193,47 +193,53 @@ export async function deactivateDocumentType(docTypeId: string, options: { delet
 
   try {
     return await withActor(actor, async (tx) => {
+      // Perímetro de escritura: sólo tipos propios (un global lanza GLOBAL_DOCUMENT_TYPE_READ_ONLY).
       const docType = await findScopedDocumentType(
         tx,
         docTypeId,
         companyId,
-        { id: true, applies: true, mandatory: true },
-        { is_active: true }
-      ).catch(() => {
-        throw new Error('Tipo de documento no encontrado o ya esta inactivo');
-      });
+        { id: true, applies: true, mandatory: true, is_active: true },
+        {},
+        'write'
+      );
+      if (!docType.is_active) throw new Error('Tipo de documento no encontrado o ya esta inactivo');
 
       await tx.document_types.update({
         where: { id: docTypeId },
         data: { is_active: false },
       });
 
+      // Defensa en profundidad: aunque el tipo sea propio, sólo se tocan documentos de recursos
+      // de la empresa activa (relación employees/vehicles).
+      const employeeDocs = { id_document_types: docTypeId, employees: { company_id: companyId } };
+      const equipmentDocs = { id_document_types: docTypeId, vehicles: { company_id: companyId } };
+
       let affectedResourceIds: string[] = [];
 
       if (options.deleteEmptyAlerts && docType.mandatory) {
         if (docType.applies === document_applies.Persona) {
           const affected = await tx.documents_employees.findMany({
-            where: { id_document_types: docTypeId, document_path: null },
+            where: { ...employeeDocs, document_path: null },
             select: { applies: true },
           });
-          affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+          affectedResourceIds = affected.map((a) => a.applies).filter((id): id is string => id !== null);
 
           await tx.documents_employees.deleteMany({
-            where: { id_document_types: docTypeId, document_path: null },
+            where: { ...employeeDocs, document_path: null },
           });
         } else if (docType.applies === document_applies.Equipos) {
           const affected = await tx.documents_equipment.findMany({
-            where: { id_document_types: docTypeId, document_path: null },
+            where: { ...equipmentDocs, document_path: null },
             select: { applies: true },
           });
-          affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
+          affectedResourceIds = affected.map((a) => a.applies).filter((id): id is string => id !== null);
 
           await tx.documents_equipment.deleteMany({
-            where: { id_document_types: docTypeId, document_path: null },
+            where: { ...equipmentDocs, document_path: null },
           });
         } else {
           await tx.documents_company.deleteMany({
-            where: { id_document_types: docTypeId, document_path: null },
+            where: { id_document_types: docTypeId, applies: companyId, document_path: null },
           });
         }
       }
@@ -243,12 +249,12 @@ export async function deactivateDocumentType(docTypeId: string, options: { delet
           const resources =
             docType.applies === document_applies.Persona
               ? await tx.documents_employees.findMany({
-                  where: { id_document_types: docTypeId },
+                  where: employeeDocs,
                   select: { applies: true },
                   distinct: ['applies'],
                 })
               : await tx.documents_equipment.findMany({
-                  where: { id_document_types: docTypeId },
+                  where: equipmentDocs,
                   select: { applies: true },
                   distinct: ['applies'],
                 });
@@ -279,12 +285,17 @@ export async function hardDeleteDocumentType(docTypeId: string) {
 
   try {
     return await withActor(actor, async (tx) => {
-      const docType = await findScopedDocumentType(tx, docTypeId, companyId, {
-        id: true,
-        applies: true,
-        mandatory: true,
-      });
+      // Perímetro de escritura: sólo tipos propios (un global lanza GLOBAL_DOCUMENT_TYPE_READ_ONLY).
+      const docType = await findScopedDocumentType(
+        tx,
+        docTypeId,
+        companyId,
+        { id: true, applies: true, mandatory: true },
+        {},
+        'write'
+      );
 
+      // El conteo de subidos es GLOBAL a propósito: `delete` del tipo cascadea todas sus filas.
       let uploadedCount = 0;
       if (docType.applies === document_applies.Persona) {
         uploadedCount = await tx.documents_employees.count({
@@ -306,24 +317,21 @@ export async function hardDeleteDocumentType(docTypeId: string) {
         );
       }
 
+      // Defensa en profundidad: las alertas se borran sólo para recursos de la empresa activa.
       let affectedResourceIds: string[] = [];
 
       if (docType.applies === document_applies.Persona) {
-        const affected = await tx.documents_employees.findMany({
-          where: { id_document_types: docTypeId },
-          select: { applies: true },
-        });
-        affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
-        await tx.documents_employees.deleteMany({ where: { id_document_types: docTypeId } });
+        const where = { id_document_types: docTypeId, employees: { company_id: companyId } };
+        const affected = await tx.documents_employees.findMany({ where, select: { applies: true } });
+        affectedResourceIds = affected.map((a) => a.applies).filter((id): id is string => id !== null);
+        await tx.documents_employees.deleteMany({ where });
       } else if (docType.applies === document_applies.Equipos) {
-        const affected = await tx.documents_equipment.findMany({
-          where: { id_document_types: docTypeId },
-          select: { applies: true },
-        });
-        affectedResourceIds = affected.map((a) => a.applies).filter(Boolean) as string[];
-        await tx.documents_equipment.deleteMany({ where: { id_document_types: docTypeId } });
+        const where = { id_document_types: docTypeId, vehicles: { company_id: companyId } };
+        const affected = await tx.documents_equipment.findMany({ where, select: { applies: true } });
+        affectedResourceIds = affected.map((a) => a.applies).filter((id): id is string => id !== null);
+        await tx.documents_equipment.deleteMany({ where });
       } else {
-        await tx.documents_company.deleteMany({ where: { id_document_types: docTypeId } });
+        await tx.documents_company.deleteMany({ where: { id_document_types: docTypeId, applies: companyId } });
       }
 
       await tx.document_types.delete({ where: { id: docTypeId } });
@@ -352,15 +360,16 @@ export async function reactivateDocumentType(docTypeId: string, options: { recre
 
   try {
     return await withActor(actor, async (tx) => {
+      // Perímetro de escritura: sólo tipos propios (un global lanza GLOBAL_DOCUMENT_TYPE_READ_ONLY).
       const docType = await findScopedDocumentType(
         tx,
         docTypeId,
         companyId,
-        { id: true, applies: true, mandatory: true, special: true, conditions: true, down_document: true },
-        { is_active: false }
-      ).catch(() => {
-        throw new Error('Tipo de documento no encontrado o ya esta activo');
-      });
+        { id: true, applies: true, mandatory: true, special: true, conditions: true, down_document: true, is_active: true },
+        {},
+        'write'
+      );
+      if (docType.is_active) throw new Error('Tipo de documento no encontrado o ya esta activo');
 
       // Los tipos "Documento de baja" generan alertas tambien para recursos dados de
       // baja; el resto solo para recursos activos.

@@ -420,15 +420,19 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
   logger.debug('Analizando impacto de tipo de documento', { data: { docTypeId } });
 
   try {
-    const docType = await findScopedDocumentType(prisma, docTypeId, companyId, {
-      id: true,
-      name: true,
-      applies: true,
-      is_active: true,
-      mandatory: true,
-      special: true,
-      company_id: true,
-    });
+    // Perímetro de escritura: el impacto se analiza para mutar; un global lanza GLOBAL_DOCUMENT_TYPE_READ_ONLY.
+    const docType = await findScopedDocumentType(
+      prisma,
+      docTypeId,
+      companyId,
+      { id: true, name: true, applies: true, is_active: true, mandatory: true, special: true },
+      {},
+      'write'
+    );
+
+    // Conteos acotados a recursos de la empresa activa (relación employees/vehicles).
+    const employeeDocs = { id_document_types: docTypeId, employees: { company_id: companyId } };
+    const equipmentDocs = { id_document_types: docTypeId, vehicles: { company_id: companyId } };
 
     let uploadedCount = 0;
     // 358: documentos con archivo INCLUYENDO archivados — solo para canHardDelete (borrar el tipo
@@ -441,14 +445,14 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
       const [uploadedVigente, uploadedWithFile, empty, totalActive] = await Promise.all([
         // Vigentes con archivo (display): excluye archivados (358)
         prisma.documents_employees.count({
-          where: { id_document_types: docTypeId, document_path: { not: null }, archived_at: null },
+          where: { ...employeeDocs, document_path: { not: null }, archived_at: null },
         }),
         // Todos los que tienen archivo, incl. archivados (para canHardDelete)
         prisma.documents_employees.count({
-          where: { id_document_types: docTypeId, document_path: { not: null } },
+          where: { ...employeeDocs, document_path: { not: null } },
         }),
         prisma.documents_employees.count({
-          where: { id_document_types: docTypeId, document_path: null, archived_at: null },
+          where: { ...employeeDocs, document_path: null, archived_at: null },
         }),
         prisma.employees.count({
           where: { company_id: companyId },
@@ -458,19 +462,19 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
       uploadedWithFileTotal = uploadedWithFile;
       emptyAlertCount = empty;
       const withAlert = await prisma.documents_employees.count({
-        where: { id_document_types: docTypeId, archived_at: null },
+        where: { ...employeeDocs, archived_at: null },
       });
       missingAlertCount = Math.max(0, totalActive - withAlert);
     } else if (docType.applies === document_applies.Equipos) {
       const [uploadedVigente, uploadedWithFile, empty, totalActive] = await Promise.all([
         prisma.documents_equipment.count({
-          where: { id_document_types: docTypeId, document_path: { not: null }, archived_at: null },
+          where: { ...equipmentDocs, document_path: { not: null }, archived_at: null },
         }),
         prisma.documents_equipment.count({
-          where: { id_document_types: docTypeId, document_path: { not: null } },
+          where: { ...equipmentDocs, document_path: { not: null } },
         }),
         prisma.documents_equipment.count({
-          where: { id_document_types: docTypeId, document_path: null, archived_at: null },
+          where: { ...equipmentDocs, document_path: null, archived_at: null },
         }),
         prisma.vehicles.count({
           where: { company_id: companyId },
@@ -480,7 +484,7 @@ export async function analyzeDocumentTypeImpact(docTypeId: string) {
       uploadedWithFileTotal = uploadedWithFile;
       emptyAlertCount = empty;
       const withAlert = await prisma.documents_equipment.count({
-        where: { id_document_types: docTypeId, archived_at: null },
+        where: { ...equipmentDocs, archived_at: null },
       });
       missingAlertCount = Math.max(0, totalActive - withAlert);
     } else {
