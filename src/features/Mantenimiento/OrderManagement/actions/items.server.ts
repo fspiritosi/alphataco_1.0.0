@@ -9,7 +9,13 @@ import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
-import { assertOrderInActiveCompany, assertOrderItemInActiveCompany } from './perimeter';
+import {
+  assertOrderInActiveCompany,
+  assertOrderItemInActiveCompany,
+  assertSectorInCompany,
+  assertWorkshopInCompany,
+  filterRepairTypeIdsForCompany,
+} from './perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('OrderManagement/items');
@@ -38,9 +44,13 @@ export async function assignItemsToSectors(maintenanceOrderId: string, assignmen
     await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
       for (const assignment of assignments) {
-        // Actualizar items existentes con sector y secuencia
+        // El sector llega del cliente: tiene que ser de la empresa del pedido.
+        await assertSectorInCompany(assignment.sectorId, companyId);
+
+        // Los ids de item también llegan del cliente: la escritura se ata al pedido ya
+        // validado, así un item de OTRO pedido (u otra empresa) no entra por el endpoint.
         await tx.maintenance_order_items.updateMany({
-          where: { id: { in: assignment.maintenanceOrderItemIds } },
+          where: { id: { in: assignment.maintenanceOrderItemIds }, maintenance_order_id: maintenanceOrderId },
           data: {
             assigned_sector_id: assignment.sectorId,
             sector_sequence_order: assignment.sequenceOrder,
@@ -120,19 +130,22 @@ export async function addItemToOrder(
   try {
     const newItem = await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
+      // Los tipos llegan del cliente: se descartan los que no son de la empresa del pedido.
+      const repairTypeIds = await filterRepairTypeIdsForCompany(data.repairTypeIds ?? [], companyId);
+
       const item = await tx.maintenance_order_items.create({
         data: {
           maintenance_order_id: maintenanceOrderId,
           company_id: companyId,
           description: data.description,
-          repair_type_id: data.repairTypeIds?.[0] ?? null,
+          repair_type_id: repairTypeIds[0] ?? null,
         },
       });
 
       // Insertar en tabla pivot si hay tipos de reparacion
-      if (data.repairTypeIds && data.repairTypeIds.length > 0) {
+      if (repairTypeIds.length > 0) {
         await tx.maintenance_order_item_repair_types.createMany({
-          data: data.repairTypeIds.map((repairTypeId) => ({
+          data: repairTypeIds.map((repairTypeId) => ({
             maintenance_order_item_id: item.id,
             repair_type_id: repairTypeId,
           })),
@@ -147,7 +160,7 @@ export async function addItemToOrder(
         metadata: {
           itemId: item.id,
           description: data.description,
-          repairTypeIds: data.repairTypeIds ?? [],
+          repairTypeIds,
         },
       });
 
@@ -176,17 +189,20 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
   try {
     const item = await prisma.maintenance_order_items.findUnique({
       where: { id: maintenanceOrderItemId },
-      select: { maintenance_order_id: true },
+      select: { maintenance_order_id: true, company_id: true },
     });
     if (!item?.maintenance_order_id) {
       throw new Error('Item no encontrado o sin orden asociada');
     }
 
+    // Los tipos llegan del cliente: se descartan los que no son de la empresa del ítem.
+    const validRepairTypeIds = await filterRepairTypeIdsForCompany(repairTypeIds, item.company_id);
+
     await withMaintenanceActor(profile.id, async (tx) => {
       // Actualizar campo legacy con el primer tipo
       await tx.maintenance_order_items.update({
         where: { id: maintenanceOrderItemId },
-        data: { repair_type_id: repairTypeIds[0] ?? null },
+        data: { repair_type_id: validRepairTypeIds[0] ?? null },
       });
 
       // Eliminar registros anteriores de la tabla pivot
@@ -195,9 +211,9 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
       });
 
       // Insertar nuevos registros en la tabla pivot
-      if (repairTypeIds.length > 0) {
+      if (validRepairTypeIds.length > 0) {
         await tx.maintenance_order_item_repair_types.createMany({
-          data: repairTypeIds.map((repairTypeId) => ({
+          data: validRepairTypeIds.map((repairTypeId) => ({
             maintenance_order_item_id: maintenanceOrderItemId,
             repair_type_id: repairTypeId,
           })),
@@ -209,12 +225,12 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
         maintenanceOrderId: item.maintenance_order_id,
         actionType: ACTIVITY_LOG.ORDER_ITEM_REPAIR_TYPES_UPDATED,
         performedBy: profile.id,
-        metadata: { itemId: maintenanceOrderItemId, repairTypeIds },
+        metadata: { itemId: maintenanceOrderItemId, repairTypeIds: validRepairTypeIds },
       });
     });
 
     logger.info('Tipos de reparacion actualizados', {
-      data: { maintenanceOrderItemId, repairTypeCount: repairTypeIds.length },
+      data: { maintenanceOrderItemId, repairTypeCount: validRepairTypeIds.length },
     });
 
     await invalidateCacheTags(INVALIDATION_MAP.saveOrderChanges);
@@ -407,33 +423,37 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
-      // 1. DELETES - Eliminar items manuales
+      // 1. DELETES - Eliminar items manuales.
+      //    Todo id que llega del cliente se lee y se escribe ATADO al pedido ya validado:
+      //    sin el `maintenance_order_id` un id de otro pedido (u otra empresa) pasaba.
       for (const itemId of changes.deletes) {
-        const item = await tx.maintenance_order_items.findUnique({
-          where: { id: itemId },
+        const item = await tx.maintenance_order_items.findFirst({
+          where: { id: itemId, maintenance_order_id: orderId },
           select: { id: true, maintenance_request_item_id: true, is_diagnostico: true },
         });
 
         if (item && (!item.maintenance_request_item_id || item.is_diagnostico)) {
           // ON DELETE CASCADE elimina el pivot automáticamente
-          await tx.maintenance_order_items.delete({ where: { id: itemId } });
+          await tx.maintenance_order_items.delete({ where: { id: item.id } });
         }
       }
 
       // 2. ADDS - Agregar nuevos items
       for (const add of changes.adds) {
+        const addRepairTypeIds = await filterRepairTypeIdsForCompany(add.repairTypeIds, companyId);
+
         const newItem = await tx.maintenance_order_items.create({
           data: {
             maintenance_order_id: orderId,
             company_id: companyId,
             description: add.description,
-            repair_type_id: add.repairTypeIds[0] ?? null,
+            repair_type_id: addRepairTypeIds[0] ?? null,
           },
         });
 
-        if (add.repairTypeIds.length > 0) {
+        if (addRepairTypeIds.length > 0) {
           await tx.maintenance_order_item_repair_types.createMany({
-            data: add.repairTypeIds.map((repairTypeId) => ({
+            data: addRepairTypeIds.map((repairTypeId) => ({
               maintenance_order_item_id: newItem.id,
               repair_type_id: repairTypeId,
             })),
@@ -467,8 +487,10 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
       }));
 
       for (const assignment of normalizedAssignments) {
+        await assertSectorInCompany(assignment.sectorId, companyId);
+
         await tx.maintenance_order_items.updateMany({
-          where: { id: { in: assignment.itemIds } },
+          where: { id: { in: assignment.itemIds }, maintenance_order_id: orderId },
           data: {
             assigned_sector_id: assignment.sectorId,
             sector_sequence_order: assignment.sequenceOrder,
@@ -505,20 +527,23 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
       // 4. REPAIR TYPE UPDATES
       for (const update of changes.repairTypeUpdates) {
-        // Actualizar campo legacy
-        await tx.maintenance_order_items.update({
-          where: { id: update.itemId },
-          data: { repair_type_id: update.repairTypeIds[0] ?? null },
+        const updateRepairTypeIds = await filterRepairTypeIdsForCompany(update.repairTypeIds, companyId);
+
+        // Actualizar campo legacy (`updateMany` para poder atar el ítem al pedido validado)
+        const { count } = await tx.maintenance_order_items.updateMany({
+          where: { id: update.itemId, maintenance_order_id: orderId },
+          data: { repair_type_id: updateRepairTypeIds[0] ?? null },
         });
+        if (count === 0) continue;
 
         // Reemplazar pivot records
         await tx.maintenance_order_item_repair_types.deleteMany({
           where: { maintenance_order_item_id: update.itemId },
         });
 
-        if (update.repairTypeIds.length > 0) {
+        if (updateRepairTypeIds.length > 0) {
           await tx.maintenance_order_item_repair_types.createMany({
-            data: update.repairTypeIds.map((repairTypeId) => ({
+            data: updateRepairTypeIds.map((repairTypeId) => ({
               maintenance_order_item_id: update.itemId,
               repair_type_id: repairTypeId,
             })),
@@ -529,24 +554,24 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
       // 5. SEQUENCE ORDER UPDATES
       for (const seqUpdate of changes.sequenceUpdates) {
-        await tx.maintenance_order_items.update({
-          where: { id: seqUpdate.itemId },
+        await tx.maintenance_order_items.updateMany({
+          where: { id: seqUpdate.itemId, maintenance_order_id: orderId },
           data: { sector_sequence_order: seqUpdate.sequenceOrder },
         });
       }
 
       // 6. DESCRIPTION UPDATES
       for (const descUpdate of changes.descriptionUpdates) {
-        await tx.maintenance_order_items.update({
-          where: { id: descUpdate.itemId },
+        await tx.maintenance_order_items.updateMany({
+          where: { id: descUpdate.itemId, maintenance_order_id: orderId },
           data: { description: descUpdate.description },
         });
       }
 
       // 7. CHIEF COMMENT UPDATES
       for (const commentUpdate of changes.chiefCommentUpdates) {
-        await tx.maintenance_order_items.update({
-          where: { id: commentUpdate.itemId },
+        await tx.maintenance_order_items.updateMany({
+          where: { id: commentUpdate.itemId, maintenance_order_id: orderId },
           data: {
             workshop_chief_comment: commentUpdate.comment,
             workshop_chief_comment_by: profile.id,
@@ -556,8 +581,10 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
       // 8. EXTERNAL WORKSHOP ASSIGNMENTS (no sector, no diagnostico)
       for (const wsAssignment of changes.workshopAssignments) {
+        await assertWorkshopInCompany(wsAssignment.workshopId, companyId);
+
         await tx.maintenance_order_items.updateMany({
-          where: { id: { in: wsAssignment.itemIds } },
+          where: { id: { in: wsAssignment.itemIds }, maintenance_order_id: orderId },
           data: {
             assigned_workshop_id: wsAssignment.workshopId,
             assigned_sector_id: null,
@@ -571,8 +598,8 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
       // 9. REJECTIONS - Marcar items como rechazados
       if (changes.rejections && changes.rejections.length > 0) {
         for (const rejection of changes.rejections) {
-          await tx.maintenance_order_items.update({
-            where: { id: rejection.itemId },
+          await tx.maintenance_order_items.updateMany({
+            where: { id: rejection.itemId, maintenance_order_id: orderId },
             data: {
               is_rejected: true,
               rejection_reason: rejection.reason,
@@ -586,7 +613,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
       // 10. RESTORATIONS - Restaurar items rechazados
       if (changes.restorations && changes.restorations.length > 0) {
         await tx.maintenance_order_items.updateMany({
-          where: { id: { in: changes.restorations } },
+          where: { id: { in: changes.restorations }, maintenance_order_id: orderId },
           data: {
             is_rejected: false,
             rejection_reason: null,

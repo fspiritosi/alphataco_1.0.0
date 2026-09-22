@@ -108,11 +108,14 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
 
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
-      // 1. Actualizar items aprobados (sin tipos de reparación)
+      // 1. Actualizar items aprobados (sin tipos de reparación).
+      //    Los ids llegan del cliente: la escritura se ata a la solicitud ya validada
+      //    (`updateMany`, que sí admite el where compuesto) para que un ítem de otra
+      //    solicitud no entre por el endpoint.
       await Promise.all(
         input.approvedItems.map((item) =>
-          tx.maintenance_request_items.update({
-            where: { id: item.itemId },
+          tx.maintenance_request_items.updateMany({
+            where: { id: item.itemId, maintenance_request_id: input.requestId },
             data: {
               status: 'approved',
               validator_comment: item.validatorComment ?? null,
@@ -125,8 +128,8 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       // 2. Actualizar items rechazados
       await Promise.all(
         input.rejectedItems.map((item) =>
-          tx.maintenance_request_items.update({
-            where: { id: item.itemId },
+          tx.maintenance_request_items.updateMany({
+            where: { id: item.itemId, maintenance_request_id: input.requestId },
             data: {
               status: 'rejected',
               rejection_reason: item.reason,
@@ -147,7 +150,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       //    Estos items SI quedan aprobados como maintenance_request_items (paso 1),
       //    pero NO generan maintenance_order_items, por lo que no llegan al taller.
       const approvedItemContexts = await tx.maintenance_request_items.findMany({
-        where: { id: { in: input.approvedItems.map((i) => i.itemId) } },
+        where: { id: { in: input.approvedItems.map((i) => i.itemId) }, maintenance_request_id: input.requestId },
         select: {
           id: true,
           checklist_deviations: {
@@ -389,7 +392,7 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
   try {
     // Actualizar solo los items seleccionados como rechazados
     await prisma.maintenance_request_items.updateMany({
-      where: { id: { in: input.itemIds } },
+      where: { id: { in: input.itemIds }, maintenance_request_id: input.requestId },
       data: {
         status: 'rejected',
         rejection_reason: input.reason,

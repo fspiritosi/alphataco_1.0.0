@@ -312,9 +312,14 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
   try {
     const repairIds = rejections.map((r) => r.repairId);
 
-    // 1. Obtener detalles de repairs para metadata (nombre, sector)
+    // 1. Obtener detalles de repairs para metadata (nombre, sector).
+    //    La lectura va ATADA a la orden ya validada: los `repairId` llegan del cliente y
+    //    sin este filtro se podía rechazar una reparación de otra orden (u otra empresa).
     const repairDetails = await prisma.work_order_item_repairs.findMany({
-      where: { id: { in: repairIds } },
+      where: {
+        id: { in: repairIds },
+        work_order_items: { maintenance_order_items: { maintenance_order_id: orderId } },
+      },
       select: {
         id: true,
         types_of_repairs: { select: { id: true, name: true } },
@@ -334,9 +339,14 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
       },
     });
 
+    const validRepairIds = new Set(repairDetails.map((repair) => repair.id));
+    const validRejections = rejections.filter((rejection) => validRepairIds.has(rejection.repairId));
+
+    if (validRejections.length === 0) throw new Error('Ningún ítem seleccionado pertenece a esta orden');
+
     await withMaintenanceActor(profile.id, async (tx) => {
       // 2. Marcar cada repair como rechazado con comentario individual
-      for (const rejection of rejections) {
+      for (const rejection of validRejections) {
         await tx.work_order_item_repairs.update({
           where: { id: rejection.repairId },
           data: {
@@ -367,7 +377,7 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
       });
 
       // 5. Construir metadata e insertar audit log
-      const rejectedItems = rejections.map((rejection) => {
+      const rejectedItems = validRejections.map((rejection) => {
         const detail = repairDetails.find((r) => r.id === rejection.repairId);
         return {
           repair_id: rejection.repairId,
@@ -383,7 +393,7 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
         performedBy: profile.id,
         previousStatus: 'pending_workshop_validation',
         newStatus: 'in_workshop',
-        notes: `${rejections.length} item(s) rechazado(s) por jefe de taller`,
+        notes: `${validRejections.length} item(s) rechazado(s) por jefe de taller`,
         metadata: { rejected_items: rejectedItems },
       });
     });
@@ -415,9 +425,12 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
   try {
     const repairIds = rejections.map((r) => r.repairId);
 
-    // 1. Obtener detalles de repairs para metadata
+    // 1. Obtener detalles de repairs para metadata, atados a la orden ya validada.
     const repairDetails = await prisma.work_order_item_repairs.findMany({
-      where: { id: { in: repairIds } },
+      where: {
+        id: { in: repairIds },
+        work_order_items: { maintenance_order_items: { maintenance_order_id: orderId } },
+      },
       select: {
         id: true,
         types_of_repairs: { select: { id: true, name: true } },
@@ -436,6 +449,11 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
       },
     });
 
+    const validRepairIds = new Set(repairDetails.map((repair) => repair.id));
+    const validRejections = rejections.filter((rejection) => validRepairIds.has(rejection.repairId));
+
+    if (validRejections.length === 0) throw new Error('Ningún ítem seleccionado pertenece a esta orden');
+
     await withMaintenanceActor(profile.id, async (tx) => {
       // 2. Cambiar estado de la orden a operations_rejected
       await tx.maintenance_orders.update({
@@ -444,7 +462,7 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
       });
 
       // 3. Construir metadata e insertar audit log
-      const rejectedItems = rejections.map((rejection) => {
+      const rejectedItems = validRejections.map((rejection) => {
         const detail = repairDetails.find((r) => r.id === rejection.repairId);
         return {
           repair_id: rejection.repairId,
@@ -460,7 +478,7 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
         performedBy: profile.id,
         previousStatus: 'pending_operations_validation',
         newStatus: 'operations_rejected',
-        notes: `${rejections.length} item(s) rechazado(s) por operaciones`,
+        notes: `${validRejections.length} item(s) rechazado(s) por operaciones`,
         metadata: { rejected_items: rejectedItems },
       });
     });
