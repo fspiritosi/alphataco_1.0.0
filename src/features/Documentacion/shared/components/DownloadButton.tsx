@@ -1,36 +1,30 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { getDocumentDownloadUrls } from '@/features/Documentacion/shared/actions/document-files.server';
 import { DownloadIcon } from '@radix-ui/react-icons';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-// import { supabase } from '../../../../../supabase/supabase';
-function DownloadButton({ path, fileName }: { path: string; fileName: string }) {
-  const supabase = supabaseBrowser();
 
+/** Descarga el archivo de un documento vía URL firmada por el servidor (P3: storage). */
+function DownloadButton({ path, fileName }: { path: string; fileName: string }) {
   const handleDownload = async (path: string, fileName: string) => {
     toast.promise(
       async () => {
-        const { data, error } = await supabase.storage.from('document-files').download(path);
+        const [signed] = await getDocumentDownloadUrls([path]);
+        if (!signed) throw new Error('No se pudo generar el enlace de descarga');
 
-        if (error) {
-          throw new Error(handleSupabaseError(error.message));
-        }
+        const response = await fetch(signed.url);
+        if (!response.ok) throw new Error('No se pudo descargar el documento');
+        const blob = await response.blob();
 
         // Extrae la extensión del archivo del path
         const extension = path.split('.').pop();
-
-        const blob = new Blob([data], { type: 'application/octet-stream' });
-        // Usa la extensión del archivo al guardar el archivo
-        saveAs(blob, `${fileName}CodeControl.${extension}`);
+        saveAs(new Blob([blob], { type: 'application/octet-stream' }), `${fileName}CodeControl.${extension}`);
       },
       {
         loading: 'Descargando documento...',
         success: 'Documento descargado',
-        error: (error) => {
-          return error;
-        },
+        error: (error: Error) => error.message,
       }
     );
   };

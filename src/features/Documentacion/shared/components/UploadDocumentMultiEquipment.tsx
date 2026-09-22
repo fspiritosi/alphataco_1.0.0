@@ -11,9 +11,9 @@ import { YearMonthPicker } from '@/components/ui/year-month-picker';
 import { calculateNameOFDocument, cn, getAllDocumentsByIdDocumentTypeCientSide } from '@/lib/utils';
 import { uploadMultiResourceDocument } from '@/features/Documentacion/shared/actions/upload-multiresource-document';
 import { Logger } from '@/lib/logger';
+import { fetchAllDocumentTypes } from '@/features/Documentacion/shared/actions/document-actions';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
@@ -29,12 +29,10 @@ function UploadDocumentMultiEquipment({
   equipments,
   allDocumentTypes,
   currentCompany,
-  user_id,
 }: {
   equipments: { label: string; value: string }[];
-  allDocumentTypes: DocumentTypes[];
+  allDocumentTypes: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
   currentCompany: Awaited<ReturnType<typeof fetchCurrentCompany>>;
-  user_id: string | undefined;
 }) {
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
   const [selectedDocumentType, setSelectedDocumentType] = useState<(typeof allDocumentTypes)[0] | undefined>(undefined);
@@ -101,7 +99,6 @@ function UploadDocumentMultiEquipment({
       fd.append('documentTypeId', data.id_document_types);
       fd.append('appliesIds', JSON.stringify(data.applies));
       fd.append('sharedPath', data.document_path);
-      if (user_id) fd.append('userId', user_id);
       if (data.validity) fd.append('validity', data.validity);
       if (data.period) fd.append('period', data.period);
       if (data.policy_number) fd.append('policyNumber', data.policy_number);
@@ -173,7 +170,7 @@ function UploadDocumentMultiEquipment({
                               onSelect={async (selectedValue) => {
                                 const data = await getAllDocumentsByIdDocumentTypeCientSide(
                                   selectedValue,
-                                  documentType.company_id ?? '',
+                                  currentCompany?.[0]?.id ?? '',
                                   'documents_equipment'
                                 );
                                 setSelectedResourceDocuments(data);
@@ -237,7 +234,7 @@ function UploadDocumentMultiEquipment({
                   <FormLabel>Fecha de validez</FormLabel>
                   <FormControl>
                     <EnhancedDatePicker
-                      date={field.value as any}
+                      date={field.value}
                       setDate={(date) => field.onChange(date?.toISOString())}
                     />
                   </FormControl>
@@ -259,7 +256,7 @@ function UploadDocumentMultiEquipment({
                       date={field.value ? new Date(field.value) : undefined}
                       setDate={(date) => {
                         if (date) {
-                          field.onChange(format(date, 'yyyy-MM'));
+                          field.onChange(moment(date).format('YYYY-MM'));
                         } else {
                           field.onChange(undefined);
                         }

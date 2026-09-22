@@ -10,9 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { replaceDocumentFile } from '@/features/Documentacion/shared/actions/document-files.server';
 import { cn } from '@/lib/utils';
 import { CalendarIcon, InfoCircledIcon } from '@radix-ui/react-icons';
 import { es } from 'date-fns/locale';
@@ -20,8 +18,6 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
-const logger = new Logger('ReplaceDocument');
 
 export default function ReplaceDocument({
   documentName,
@@ -63,9 +59,8 @@ export default function ReplaceDocument({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [dateInputValue, setDateInputValue] = useState('');
   const [dateInputError, setDateInputError] = useState('');
-  const supabase = supabaseBrowser();
 
-  async function onSubmit(filename: z.infer<typeof FormSchema>) {
+  async function onSubmit(values: z.infer<typeof FormSchema>) {
     if (!file) {
       form.setError('reeplace_document', {
         type: 'manual',
@@ -73,76 +68,21 @@ export default function ReplaceDocument({
       });
       return;
     }
-    if (!documentName) return;
-    const tableName =
-      resource === 'employee'
-        ? 'documents_employees'
-        : resource === 'company'
-          ? 'documents_company'
-          : 'documents_equipment';
+    if (!documentName || !appliesId) return;
 
     await toast
       .promise(
         async () => {
-          if (!documentName) return;
-          const newExtension = file.name.split('.').pop();
-          let newDocumentName = documentName.split('.')[0];
+          // Reemplazo en el servidor: borra el anterior, sube el nuevo y actualiza la fila.
+          const fd = new FormData();
+          fd.append('id', appliesId);
+          fd.append('resource', resource ?? '');
+          fd.append('file', file);
+          if (values.validity instanceof Date) fd.append('validity', values.validity.toISOString());
+          if (values.period) fd.append('period', values.period);
 
-          const dateRegex = /\((\d{2}-\d{2}-\d{4})\)\./;
-
-          if (dateRegex.test(documentName)) {
-            const newDate = moment(filename.validity as Date)
-              .format('DD/MM/YYYY')
-              .replaceAll('/', '-');
-            newDocumentName = newDocumentName.replace(dateRegex, `(${newDate})`) + `.${newExtension}`;
-          } else {
-            newDocumentName = newDocumentName + `.${newExtension}`;
-          }
-
-          const { error, data: response } = await supabase.storage.from('document-files').remove([documentName]);
-
-          const { data: respons2e } = await supabase.storage
-            .from('document-files')
-            .list(documentName?.split('/')?.slice(0, 2).join('/'), {
-              search: `/${documentName?.split('/')?.slice(3).join('/').split('.')[0]}`,
-            });
-
-          if (error) {
-            logger.error('Error al eliminar documento anterior', { data: { error } });
-            throw new Error(handleSupabaseError(error.message));
-          }
-
-          const { error: finalerror, data: finalDocument } = await supabase.storage
-            .from('document-files')
-            .upload(newDocumentName, file, {
-              cacheControl: '3600',
-              upsert: true,
-            });
-
-          const { error: updateError } = await supabase
-            .from(tableName)
-            .update({
-              document_path: finalDocument?.path,
-              validity: filename.validity ? new Date(filename.validity).toISOString() : null,
-              created_at: new Date().toISOString(),
-              // Al reemplazar un documento, resetear el estado a 'presentado' (pendiente de
-              // aprobacion). Sin esto, un documento previamente 'vencido' quedaba pegado en
-              // ese estado aunque la nueva validez fuera futura.
-              state: 'presentado',
-              // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
-              archived_at: null,
-            })
-            .eq('id', appliesId || '');
-
-          if (updateError) {
-            logger.error('Error al actualizar registro del documento', { data: { updateError } });
-            throw new Error(handleSupabaseError(updateError?.message));
-          }
-
-          if (finalerror) {
-            logger.error('Error al subir el nuevo documento', { data: { finalerror } });
-            throw new Error(handleSupabaseError(finalerror?.message));
-          }
+          const result = await replaceDocumentFile(fd);
+          if (!result.ok) throw new Error(result.error);
 
           router.refresh();
           setIsOpen(false);
@@ -150,9 +90,7 @@ export default function ReplaceDocument({
         {
           loading: 'Reemplazando...',
           success: 'Documento reemplazado correctamente (puede tardar unos minutos para que se actualice)',
-          error: (error) => {
-            return error;
-          },
+          error: (error: Error) => error.message,
         }
       )
       .unwrap()

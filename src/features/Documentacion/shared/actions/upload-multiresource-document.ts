@@ -1,173 +1,255 @@
 'use server';
 
-import { prisma } from '@/shared/lib/prisma';
-import { supabaseServer } from '@/lib/supabase/server';
 import { Logger } from '@/lib/logger';
+import { calculateNameOFDocument } from '@/lib/utils';
+import { withActor } from '@/shared/lib/actor';
+import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
+import { DOCUMENT_FILES_BUCKET, storageRemove, storageUpload } from '@/shared/lib/storage';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
+import moment from 'moment';
+import { documentTypeCompanyScope } from '@/features/Documentacion/TiposDocumentos/lib/document-type-scope';
+import { isPathWithinCompanyFolder } from '../lib/document-file-names';
 
 const logger = new Logger('Documentacion/uploadMultiResourceDocument');
 
-type Result =
-  | { ok: true; updated: number; created: number }
-  | { ok: false; error: string };
+type Result = { ok: true; updated: number; created: number } | { ok: false; error: string };
+
+type ResourceKind = 'empleado' | 'equipo';
+
+function formString(formData: FormData, key: string): string | undefined {
+  const value = formData.get(key);
+  return typeof value === 'string' && value ? value : undefined;
+}
 
 /**
- * Sube un documento multirecurso a TODOS los recursos faltantes de forma atómica.
- * - Sube el archivo al storage (server-side).
- * - Persiste filas en una transacción Prisma: actualiza los `pendiente`, crea los ausentes,
- *   e IGNORA los que ya están `presentado` con archivo (no se pisan).
- * - Si la transacción falla, borra el archivo subido (compensación) → atomicidad efectiva.
+ * Única vía de subida de documentos de empleados/equipos (`SimpleDocument` con N=1 y los
+ * formularios multirecurso con N recursos). Sube el archivo al storage (P3: storage) y persiste
+ * las filas en una transacción con actor: actualiza las `pendiente`, crea las ausentes e IGNORA
+ * las ya `presentado` con archivo. Si la transacción falla, borra el archivo (compensación).
+ *
+ * FormData: `file`, `resource` ('empleado'|'equipo'), `documentTypeId`, `appliesIds` (JSON string[]),
+ * `validity?` (ISO), `period?` (YYYY-MM), `policyNumber?` (sólo equipos), `sharedPath?`.
+ * Sin `sharedPath` el servidor arma el nombre del archivo; si viene, tiene que estar dentro de la
+ * carpeta de la empresa activa. El usuario que sube sale de la sesión, nunca del cliente.
+ *
+ * Perímetro: todos los `appliesIds` deben pertenecer a la empresa activa y el tipo de documento
+ * ser global o de la empresa; si no, no se escribe nada.
  */
 export async function uploadMultiResourceDocument(formData: FormData): Promise<Result> {
-  const file = formData.get('file') as File | null;
-  const resource = formData.get('resource') as 'empleado' | 'equipo' | null;
-  const documentTypeId = formData.get('documentTypeId') as string | null;
-  const sharedPath = formData.get('sharedPath') as string | null;
-  const appliesRaw = formData.get('appliesIds') as string | null;
-  const userId = (formData.get('userId') as string | null) || undefined;
-  const validityRaw = (formData.get('validity') as string | null) || undefined;
-  const period = (formData.get('period') as string | null) || undefined;
+  const file = formData.get('file');
+  const resource = formString(formData, 'resource');
+  const documentTypeId = formString(formData, 'documentTypeId');
+  const appliesRaw = formString(formData, 'appliesIds');
+  const clientPath = formString(formData, 'sharedPath');
+  const validityRaw = formString(formData, 'validity');
+  const period = formString(formData, 'period');
   // Solo aplica a equipos (documents_equipment.policy_number)
-  const policyNumber = (formData.get('policyNumber') as string | null) || undefined;
+  const policyNumber = formString(formData, 'policyNumber');
 
-  if (!file || !resource || !documentTypeId || !sharedPath || !appliesRaw) {
+  if (!(file instanceof File) || file.size === 0 || !resource || !documentTypeId || !appliesRaw) {
     return { ok: false, error: 'Faltan datos para subir el documento' };
+  }
+  if (resource !== 'empleado' && resource !== 'equipo') {
+    return { ok: false, error: 'Tipo de recurso inválido' };
   }
 
   let appliesIds: string[];
   try {
-    appliesIds = JSON.parse(appliesRaw);
+    const parsed: unknown = JSON.parse(appliesRaw);
+    if (!Array.isArray(parsed) || !parsed.every((id): id is string => typeof id === 'string')) {
+      return { ok: false, error: 'Lista de recursos inválida' };
+    }
+    appliesIds = [...new Set(parsed)];
   } catch {
     return { ok: false, error: 'Lista de recursos inválida' };
   }
   if (!appliesIds.length) return { ok: false, error: 'No hay recursos para vincular' };
 
-  const supabase = await supabaseServer();
+  const validity = validityRaw ? new Date(validityRaw) : null;
+  if (validity && Number.isNaN(validity.getTime())) return { ok: false, error: 'Fecha de vencimiento inválida' };
+
+  const companyId = await getActiveCompanyId();
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false, error: 'Sesión requerida' };
+
+  // ─── Perímetro: empresa, tipo de documento y recursos ──────────────────────
+  const [company, docType, resources] = await Promise.all([
+    prisma.company.findUnique({ where: { id: companyId }, select: { company_name: true, company_cuit: true } }),
+    prisma.document_types.findFirst({
+      where: { id: documentTypeId, is_active: true, AND: [documentTypeCompanyScope(companyId)] },
+      select: { name: true, applies: true },
+    }),
+    loadOwnedResources(resource, appliesIds, companyId),
+  ]);
+  if (!company) return { ok: false, error: 'Empresa activa no encontrada' };
+  if (!docType || docType.applies !== (resource === 'empleado' ? 'Persona' : 'Equipos')) {
+    return { ok: false, error: 'Tipo de documento no válido para este recurso' };
+  }
+  if (resources.length !== appliesIds.length) {
+    logger.warn('Intento de subir documento a recursos de otra empresa', {
+      data: { resource, companyId, requested: appliesIds.length, owned: resources.length },
+    });
+    return { ok: false, error: 'Alguno de los recursos no pertenece a la empresa activa' };
+  }
+
+  // ─── Nombre del archivo ────────────────────────────────────────────────────
+  const extension = file.name.split('.').pop();
+  if (!extension || extension === file.name) return { ok: false, error: 'El archivo no tiene extensión' };
+  const companyFolder = `${formatPathSegment(company.company_name)}-(${company.company_cuit})/`;
+  let sharedPath: string;
+  if (clientPath) {
+    if (!isPathWithinCompanyFolder(clientPath, companyFolder)) {
+      return { ok: false, error: 'Ruta de archivo inválida' };
+    }
+    sharedPath = clientPath;
+  } else {
+    sharedPath = buildServerPath({ company, docType, resource, resources, validity, period, extension });
+  }
+
+  // ─── Qué filas escribir (antes de subir: si no hay nada que hacer, no se sube) ──
+  const plan = await planWrites(resource, appliesIds, documentTypeId);
+  if (appliesIds.length === 1 && plan.toUpdate.length + plan.toCreate.length === 0) {
+    return { ok: false, error: 'El documento ya ha sido subido anteriormente' };
+  }
 
   // 1. Subir el archivo al storage (upsert: documento compartido por varios recursos)
-  const { error: uploadError } = await supabase.storage
-    .from('document-files')
-    .upload(sharedPath, file, { cacheControl: '0', upsert: true });
-  if (uploadError) {
-    logger.error('Error al subir archivo multirecurso al storage', { data: { uploadError } });
+  const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, sharedPath, file, { cacheControl: '0', upsert: true });
+  if (!uploaded.ok) {
     return { ok: false, error: 'No se pudo subir el archivo al storage' };
   }
 
-  const validity = validityRaw ? new Date(validityRaw) : null;
-
+  // 2. Persistir en una transacción con actor (triggers de status/logs)
   try {
-    if (resource === 'empleado') {
-      const existing = await prisma.documents_employees.findMany({
-        where: { applies: { in: appliesIds }, id_document_types: documentTypeId },
-        select: { applies: true, state: true, document_path: true },
-      });
-      // Ya tienen el documento (presentado con archivo) → ignorar
-      const alreadyDone = new Set(
-        existing.filter((r) => r.state === 'presentado' && r.document_path).map((r) => r.applies)
-      );
-      // Tienen fila pero falta el archivo (pendiente / sin path) → actualizar
-      const toUpdate = existing
-        .filter((r) => !alreadyDone.has(r.applies) && r.applies != null)
-        .map((r) => r.applies as string);
-      // No tienen ninguna fila → crear
-      const withRow = new Set(existing.map((r) => r.applies));
-      const toCreate = appliesIds.filter((id) => !withRow.has(id));
-
-      const ops = [];
-      if (toUpdate.length) {
-        ops.push(
-          prisma.documents_employees.updateMany({
-            where: { applies: { in: toUpdate }, id_document_types: documentTypeId },
+    const common = {
+      state: 'presentado' as const,
+      document_path: sharedPath,
+      validity,
+      period: period ?? null,
+      user_id: userId,
+    };
+    await withActor(userId, async (tx) => {
+      if (resource === 'empleado') {
+        if (plan.toUpdate.length) {
+          await tx.documents_employees.updateMany({
+            where: { applies: { in: plan.toUpdate }, id_document_types: documentTypeId },
             data: {
-              state: 'presentado',
-              document_path: sharedPath,
-              validity,
-              period,
-              user_id: userId ?? null,
+              ...common,
               // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
               archived_at: null,
-              // Reflejar el momento real de la subida (estas filas existían como `pendiente`,
-              // su created_at original era el de la alerta, no el de la carga del documento).
+              // Reflejar el momento real de la subida (estas filas existían como `pendiente`).
               created_at: new Date(),
             },
-          })
-        );
+          });
+        }
+        if (plan.toCreate.length) {
+          await tx.documents_employees.createMany({
+            data: plan.toCreate.map((applies) => ({ ...common, applies, id_document_types: documentTypeId })),
+          });
+        }
+        return;
       }
-      if (toCreate.length) {
-        ops.push(
-          prisma.documents_employees.createMany({
-            data: toCreate.map((applies) => ({
-              applies,
-              id_document_types: documentTypeId,
-              state: 'presentado' as const,
-              document_path: sharedPath,
-              validity,
-              period,
-              user_id: userId ?? null,
-            })),
-          })
-        );
+      const equipmentData = { ...common, policy_number: policyNumber ?? null };
+      if (plan.toUpdate.length) {
+        await tx.documents_equipment.updateMany({
+          where: { applies: { in: plan.toUpdate }, id_document_types: documentTypeId },
+          data: { ...equipmentData, archived_at: null, created_at: new Date() },
+        });
       }
-      await prisma.$transaction(ops);
-      return { ok: true, updated: toUpdate.length, created: toCreate.length };
-    }
-
-    // resource === 'equipo'
-    const existing = await prisma.documents_equipment.findMany({
-      where: { applies: { in: appliesIds }, id_document_types: documentTypeId },
-      select: { applies: true, state: true, document_path: true },
+      if (plan.toCreate.length) {
+        await tx.documents_equipment.createMany({
+          data: plan.toCreate.map((applies) => ({ ...equipmentData, applies, id_document_types: documentTypeId })),
+        });
+      }
     });
-    const alreadyDone = new Set(
-      existing.filter((r) => r.state === 'presentado' && r.document_path).map((r) => r.applies)
-    );
-    const toUpdate = existing
-      .filter((r) => !alreadyDone.has(r.applies) && r.applies != null)
-      .map((r) => r.applies as string);
-    const withRow = new Set(existing.map((r) => r.applies));
-    const toCreate = appliesIds.filter((id) => !withRow.has(id));
-
-    const ops = [];
-    if (toUpdate.length) {
-      ops.push(
-        prisma.documents_equipment.updateMany({
-          where: { applies: { in: toUpdate }, id_document_types: documentTypeId },
-          data: {
-            state: 'presentado',
-            document_path: sharedPath,
-            validity,
-            period,
-            user_id: userId ?? null,
-            policy_number: policyNumber ?? null,
-            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
-            archived_at: null,
-            // Reflejar el momento real de la subida (estas filas existían como `pendiente`,
-            // su created_at original era el de la alerta, no el de la carga del documento).
-            created_at: new Date(),
-          },
-        })
-      );
-    }
-    if (toCreate.length) {
-      ops.push(
-        prisma.documents_equipment.createMany({
-          data: toCreate.map((applies) => ({
-            applies,
-            id_document_types: documentTypeId,
-            state: 'presentado' as const,
-            document_path: sharedPath,
-            validity,
-            period,
-            user_id: userId ?? null,
-            policy_number: policyNumber ?? null,
-          })),
-        })
-      );
-    }
-    await prisma.$transaction(ops);
-    return { ok: true, updated: toUpdate.length, created: toCreate.length };
+    return { ok: true, updated: plan.toUpdate.length, created: plan.toCreate.length };
   } catch (error) {
     // Compensación: la BD falló → borrar el archivo subido para no dejar huérfanos
     logger.error('Error al persistir documentos multirecurso; revirtiendo storage', { data: { error } });
-    await supabase.storage.from('document-files').remove([sharedPath]);
+    await storageRemove(DOCUMENT_FILES_BUCKET, [sharedPath]);
     return { ok: false, error: 'No se pudieron guardar los documentos. Se revirtió la subida.' };
   }
 }
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+type OwnedResource = { id: string; name: string; document: string };
+
+/** Recursos de la empresa activa entre los pedidos (perímetro), con nombre y documento para el path. */
+async function loadOwnedResources(resource: ResourceKind, ids: string[], companyId: string): Promise<OwnedResource[]> {
+  if (resource === 'empleado') {
+    const rows = await prisma.employees.findMany({
+      where: { id: { in: ids }, company_id: companyId },
+      select: { id: true, firstname: true, lastname: true, document_number: true },
+    });
+    return rows.map((r) => ({ id: r.id, name: `${r.firstname} ${r.lastname}`, document: r.document_number }));
+  }
+  const rows = await prisma.vehicles.findMany({
+    where: { id: { in: ids }, company_id: companyId },
+    select: { id: true, domain: true, serie: true },
+  });
+  return rows.map((r) => ({ id: r.id, name: r.domain || r.serie || '', document: r.serie || r.domain || '' }));
+}
+
+/**
+ * Path del archivo cuando el cliente no lo manda:
+ * - N=1 → `<empresa>/<persona|equipos>/<nombre>-(<documento>)/<tipo>-(<marca>).<ext>`
+ * - N>1 → `<empresa>/multirecursos/<persona|equipos>/<tipo>-(<marca>).<ext>`
+ * `<marca>` = fecha de vencimiento `DD-MM-YYYY`, período o `v0`.
+ */
+function buildServerPath(input: {
+  company: { company_name: string; company_cuit: string };
+  docType: { name: string };
+  resource: ResourceKind;
+  resources: OwnedResource[];
+  validity: Date | null;
+  period: string | undefined;
+  extension: string;
+}): string {
+  const { company, docType, resource, resources, validity, period, extension } = input;
+  const resourceFolder = resource === 'empleado' ? 'persona' : 'equipos';
+  const version = validity ? moment(validity).format('DD-MM-YYYY') : period || 'v0';
+  if (resources.length === 1) {
+    // Carpeta por recurso `<nombre>-(<documento>)`: se arma a mano porque `calculateNameOFDocument`
+    // normaliza el segmento y perdería los paréntesis que usan las carpetas existentes.
+    const target = resources[0];
+    const companyFolder = `${formatPathSegment(company.company_name)}-(${company.company_cuit})`;
+    const resourceSegment = `${formatPathSegment(target.name)}-(${target.document})`;
+    const fileName = `${formatDocumentTypeName(docType.name)}-(${version}).${extension.replace(/\./g, '-')}`;
+    return `${companyFolder}/${resourceFolder}/${resourceSegment}/${fileName}`;
+  }
+  return calculateNameOFDocument(
+    company.company_name,
+    company.company_cuit,
+    resourceFolder,
+    docType.name,
+    version,
+    extension,
+    'multirecursos'
+  );
+}
+
+/** Clasifica los recursos: filas `pendiente`/sin archivo → actualizar; sin fila → crear; ya presentado → ignorar. */
+async function planWrites(resource: ResourceKind, appliesIds: string[], documentTypeId: string) {
+  const where = { applies: { in: appliesIds }, id_document_types: documentTypeId };
+  const select = { applies: true, state: true, document_path: true } as const;
+  const existing: { applies: string | null; state: string | null; document_path: string | null }[] =
+    resource === 'empleado'
+      ? await prisma.documents_employees.findMany({ where, select })
+      : await prisma.documents_equipment.findMany({ where, select });
+
+  const alreadyDone = new Set(
+    existing.filter((r) => r.state === 'presentado' && r.document_path).map((r) => r.applies)
+  );
+  const toUpdate = existing
+    .filter((r) => r.applies != null && !alreadyDone.has(r.applies))
+    .map((r) => r.applies as string);
+  const withRow = new Set(existing.map((r) => r.applies));
+  const toCreate = appliesIds.filter((id) => !withRow.has(id));
+  return { toUpdate, toCreate };
+}
+
+export type UploadMultiResourceDocumentResult = Awaited<ReturnType<typeof uploadMultiResourceDocument>>;

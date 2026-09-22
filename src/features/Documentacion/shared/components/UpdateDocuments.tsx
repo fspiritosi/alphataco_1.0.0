@@ -6,17 +6,14 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { handleSupabaseError } from '@/lib/errorHandler';
+import { Input } from '@/components/ui/input';
+import { renewDocumentFile } from '@/features/Documentacion/shared/actions/document-files.server';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
-import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-// import { supabase } from '../../supabase/supabase';
-import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
-import { Input } from '@/components/ui/input';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 
 export default function UpdateDocuments({
   documentName,
@@ -31,7 +28,6 @@ export default function UpdateDocuments({
   expires: boolean;
   montly: boolean;
 }) {
-  const supabase = supabaseBrowser();
   const [isOpen, setIsOpen] = useState(false);
   const FormSchema = z.object({
     new_document: z.string({ required_error: 'El documento es requerido' }),
@@ -50,7 +46,7 @@ export default function UpdateDocuments({
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const today = new Date();
-  async function onSubmit(filename: z.infer<typeof FormSchema>) {
+  async function onSubmit(values: z.infer<typeof FormSchema>) {
     if (!file) {
       form.setError('new_document', {
         type: 'manual',
@@ -60,125 +56,19 @@ export default function UpdateDocuments({
     }
     if (!documentName) return;
 
-    const tableName =
-      resource === 'employee'
-        ? 'documents_employees'
-        : resource === 'company'
-          ? 'documents_company'
-          : 'documents_equipment';
-
     await toast
       .promise(
         async () => {
-          const versionRegex = /\(v(\d+)\)/;
-          const dateRegex = /\(((\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})[\s\S]*?)\)/;
-          const periodRegex = /\((\d{4}-\d{2})\)/;
+          // Renovación en el servidor: archiva el vigente, sube el nuevo y actualiza la fila.
+          const fd = new FormData();
+          fd.append('id', id);
+          fd.append('resource', resource ?? '');
+          fd.append('file', file);
+          if (values.validity instanceof Date) fd.append('validity', values.validity.toISOString());
+          if (values.period) fd.append('period', values.period);
 
-          let newDocumentName = documentName;
-          const newExtension = file.name.split('.').pop();
-
-          if (versionRegex.test(documentName)) {
-            const match = documentName.match(versionRegex);
-            if (match) {
-              const currentVersion = parseInt(match[1], 10);
-              const newVersion = currentVersion + 1;
-              const name = documentName.split('.')[0];
-
-              newDocumentName = name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`;
-            }
-          } else if (dateRegex.test(documentName)) {
-            const newDate = moment(filename.validity).format('DD-MM-YYYY');
-
-            // Extraer la parte antes de la extensión y la extensión por separado
-            const parts = documentName.split('.');
-            const baseNameWithoutExt = parts.slice(0, -1).join('.');
-
-            // Reemplazar solo la fecha en el nombre base
-            const newBaseName = baseNameWithoutExt.replace(dateRegex, `(${newDate})`);
-
-            // Construir el nuevo nombre con la nueva extensión
-            newDocumentName = `${newBaseName}.${newExtension}`;
-          } else if (periodRegex.test(documentName)) {
-            const newPeriod = filename.period;
-            newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
-          }
-
-          if (montly) {
-            const { error: newDocumentError, data } = await supabase.storage
-              .from('document-files')
-              .upload(newDocumentName, file, { upsert: true });
-
-            const { error: updateError } = await supabase
-              .from(tableName)
-              .update({
-                document_path: data?.path,
-                period: filename.period,
-                created_at: new Date() as any,
-                state: 'presentado',
-              })
-              .eq('document_path', documentName);
-
-            if (updateError) {
-              console.error(updateError);
-              throw new Error(handleSupabaseError(updateError.message));
-            }
-
-            if (newDocumentError) {
-              console.error(newDocumentError);
-              throw new Error(handleSupabaseError(newDocumentError.message));
-            }
-            return;
-          }
-
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from('document-files')
-            .download(documentName);
-
-          if (downloadError) {
-            console.error(downloadError);
-            throw new Error(handleSupabaseError(downloadError.message));
-          }
-
-          const { error: uploadError, data: finalDocument2 } = await supabase.storage
-            .from('document-files-expired')
-            .upload(documentName, fileData, { upsert: true });
-
-          if (uploadError) {
-            console.error(uploadError);
-            throw new Error(handleSupabaseError(uploadError.message));
-          }
-
-          const { error: deleteError, data: deletedDocument } = await supabase.storage
-            .from('document-files')
-            .remove([documentName]);
-
-          if (deleteError) {
-            console.error(deleteError);
-            throw new Error(handleSupabaseError(deleteError.message));
-          }
-
-          const { error: newDocumentError, data: finalDocument } = await supabase.storage
-            .from('document-files')
-            .upload(newDocumentName, file, { upsert: true });
-
-          const { error: updateError } = await supabase
-            .from(tableName)
-            .update({
-              document_path: finalDocument?.path,
-              validity: filename.validity ? new Date(filename.validity).toISOString() : null,
-              created_at: new Date() as any,
-              state: 'presentado',
-            })
-            .eq('id', id);
-
-          if (updateError) {
-            console.error(updateError);
-            throw new Error(handleSupabaseError(updateError.message));
-          }
-          if (newDocumentError) {
-            console.error(newDocumentError);
-            throw new Error(handleSupabaseError(newDocumentError.message));
-          }
+          const result = await renewDocumentFile(fd);
+          if (!result.ok) throw new Error(result.error);
 
           router.refresh();
           setIsOpen(false);
@@ -186,10 +76,7 @@ export default function UpdateDocuments({
         {
           loading: 'Renovando...',
           success: 'Documento renovado correctamente',
-          error: (error) => {
-            console.error(error);
-            return error;
-          },
+          error: (error: Error) => error.message,
         }
       )
       .unwrap()

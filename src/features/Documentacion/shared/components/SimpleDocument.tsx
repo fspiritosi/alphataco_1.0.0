@@ -1,38 +1,50 @@
 'use client';
 
-import { calculateNameOFDocument, cn } from '@/lib/utils';
-import { uploadMultiResourceDocument } from '@/features/Documentacion/shared/actions/upload-multiresource-document';
-import { Logger } from '@/lib/logger';
-import { useQueryClient } from '@tanstack/react-query';
-import { CaretSortIcon } from '@radix-ui/react-icons';
-import { CheckIcon } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-// import type React from 'react';
+import { AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { CardDescription } from '@/components/ui/card';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { fetchCurrentCompany } from '@/shared/actions/company.actions';
+import {
+  getActiveDocumentTypesByResource,
+  getActiveResourcesForDocuments,
+  type DocumentResource,
+  type DocumentResourceOption,
+} from '@/features/Documentacion/shared/actions/document-resources.server';
+import { uploadMultiResourceDocument } from '@/features/Documentacion/shared/actions/upload-multiresource-document';
+import { cn } from '@/lib/utils';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
+import { CaretSortIcon } from '@radix-ui/react-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckIcon } from 'lucide-react';
 import moment from 'moment';
+import { useSearchParams } from 'next/navigation';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-// import { supabase } from '../../supabase/supabase';
-import { AlertDialogCancel } from '@/components/ui/alert-dialog';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import React from 'react';
 
-const logger = new Logger('Documentacion/SimpleDocument');
+type TypeFilter = 'Ambos' | 'Permanentes' | 'Mensuales';
 
+interface SimpleDocumentForm {
+  applies: string;
+  id_document_types: string;
+  validity: string;
+  period: string;
+}
+
+/**
+ * Modal "Subir documento" de las tablas de documentos (empleados/equipos).
+ *
+ * Única vía de subida: `uploadMultiResourceDocument` (N=1 para un recurso; todos los recursos
+ * activos si el tipo es multirecurso). El servidor arma el nombre del archivo, verifica que el
+ * recurso pertenezca a la empresa activa y toca el storage (P3: storage).
+ */
 export default function SimpleDocument({
   resource,
   handleOpen,
@@ -53,59 +65,44 @@ export default function SimpleDocument({
    */
   onUploaded?: () => void;
 }) {
-  const supabase = supabaseBrowser();
+  const resourceKind: DocumentResource = resource === 'equipo' ? 'equipo' : 'empleado';
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const documentDrawerEmployees = useLoggedUserStore((state) => state.documentDrawerEmployees);
   const documentDrawerVehicles = useLoggedUserStore((state) => state.documentDrawerVehicles);
-  const [actualCompany, setActualCompany] = useState<Awaited<ReturnType<typeof fetchCurrentCompany>>>(null);
-  const [employees, setEmployees] = useState<any[] | null>([]);
-  const [vehicles, setVehicles] = useState<any[] | null>([]);
-  const [documenTypes, setDocumentTypes] = useState<any[] | null>([]);
   const searchParams = useSearchParams();
   const documentResource = searchParams.get('document');
   const id = searchParams.get('id');
-  const user = useLoggedUserStore((state) => state.credentialUser?.id);
 
-  useEffect(() => {
-    if (!actualCompany) {
-      fetchCurrentCompany().then((data) => {
-        if (data) {
-          setActualCompany(data);
-        }
-      });
-    }
-  }, [actualCompany]);
-
-  const [idAppliesUser, setIdAppliesUser] = useState<any>(null);
-
-  useEffect(() => {
-    const appliesUser =
-      (employees?.find(
-        (employee: any) => employee.document === documentResource || employee.document === numberDocument
-      ) as string) ||
-      // Algunas tablas pasan el id del vehiculo, otras el serie/domain (vehicle.document),
-      // y el detalle de equipo lo trae en el searchParam `id` de la URL.
-      (vehicles?.find(
-        (vehicle: any) =>
-          vehicle.id === numberDocument || vehicle.document === numberDocument || vehicle.id === id
-      ) as string);
-
-    setIdAppliesUser(appliesUser);
-  }, [numberDocument, employees, documentResource, vehicles, id]);
-
-  const form = useForm({
-    defaultValues: {
-      applies: idAppliesUser?.id?.toString() || idAppliesUser?.document?.toString() || '',
-      id_document_types: defaultDocumentId ?? '',
-      validity: '',
-      user_id: user,
-      period: '',
-      file: null as File | null,
-    },
+  const { data: documentTypes = [], isLoading: loadingTypes } = useQuery({
+    queryKey: ['document-types-by-resource', resourceKind],
+    queryFn: () => getActiveDocumentTypesByResource(resourceKind),
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: resources = [], isLoading: loadingResources } = useQuery({
+    queryKey: ['document-resources', resourceKind],
+    queryFn: () => getActiveResourcesForDocuments(resourceKind),
+    staleTime: 5 * 60 * 1000,
   });
 
+  // Preseleccion del recurso: numberDocument (id o serie/domain/DNI), el searchParam `document`
+  // (DNI del empleado) o el searchParam `id` (detalle de equipo trae el id del vehiculo ahi).
+  const lockedResource = useMemo<DocumentResourceOption | undefined>(() => {
+    const keys = [numberDocument, documentResource, id].filter((k): k is string => !!k);
+    if (keys.length === 0) return undefined;
+    return resources.find((r) => keys.includes(r.id) || keys.includes(r.document));
+  }, [resources, numberDocument, documentResource, id]);
+  const isLocked = Boolean(numberDocument || documentResource || id);
+
+  const form = useForm<SimpleDocumentForm>({
+    defaultValues: {
+      applies: '',
+      id_document_types: defaultDocumentId ?? '',
+      validity: '',
+      period: '',
+    },
+  });
   const {
     control,
     handleSubmit,
@@ -113,359 +110,107 @@ export default function SimpleDocument({
     setError,
     clearErrors,
     setValue,
+    watch,
   } = form;
 
-  useEffect(() => {
-    // Preseleccion del recurso: numberDocument (id o serie/domain), documentResource,
-    // o el `id` del searchParam (detalle de equipo trae el id del vehiculo ahi).
-    if (numberDocument || documentResource || id) {
-      const empleado = employees?.find(
-        (employee: any) => employee.document === numberDocument || employee.document === documentResource
-      );
-      const vehiculo = vehicles?.find(
-        (vehicle: any) =>
-          vehicle.id === numberDocument || vehicle.document === numberDocument || vehicle.id === id
-      );
-      if (empleado) {
-        setValue('applies', empleado.id.toString());
-      } else if (vehiculo) {
-        setValue('applies', vehiculo.id.toString());
-      }
-    }
-  }, [employees, vehicles, numberDocument, documentResource, id, setValue]);
-
   const [loading, setLoading] = useState(false);
-  const [allTypesDocuments, setAllTypesDocuments] = useState<any[] | null>([]);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('Ambos');
+  const [resourceSearch, setResourceSearch] = useState('');
+  const [openResourceSelector, setOpenResourceSelector] = useState(false);
+  const [openDocumentTypePopover, setOpenDocumentTypePopover] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const visibleDocumentTypes = useMemo(() => {
+    if (typeFilter === 'Permanentes') return documentTypes.filter((t) => !t.is_it_montlhy);
+    if (typeFilter === 'Mensuales') return documentTypes.filter((t) => t.is_it_montlhy);
+    return documentTypes;
+  }, [documentTypes, typeFilter]);
+
+  const selectedTypeId = watch('id_document_types');
+  const selectedType = documentTypes.find((t) => t.id === selectedTypeId);
+  const hasExpired = Boolean(selectedType?.explired);
+  const isMonthly = Boolean(selectedType?.is_it_montlhy);
+
+  const filteredResources = useMemo(() => {
+    const query = resourceSearch.toLowerCase();
+    if (!query) return resources;
+    const isNumberInput = /^\d+$/.test(query);
+    return resources.filter((r) =>
+      isNumberInput ? r.document?.includes(query) : r.name.toLowerCase().includes(query) || r.document?.includes(query)
+    );
+  }, [resources, resourceSearch]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setSelectedFile(file);
-    setValue('file', file);
-
-    // Limpiar error de archivo si existe
-    if (file && errors.file) {
-      clearErrors('file');
-    }
+    if (file) setFileError(null);
   };
 
-  const onSubmit = async (formData: any) => {
-    // Validar que el archivo sea obligatorio
+  const onSubmit = async (formData: SimpleDocumentForm) => {
     if (!selectedFile) {
-      setError('file', {
-        type: 'required',
-        message: 'El archivo es obligatorio',
-      });
+      setFileError('El archivo es obligatorio');
       return;
     }
+    const docType = documentTypes.find((t) => t.id === formData.id_document_types);
+    if (!docType) {
+      setError('id_document_types', { type: 'required', message: 'Este campo es requerido' });
+      return;
+    }
+
+    // Multirecurso: aplica a TODOS los recursos ACTIVOS (la lista ya viene filtrada por is_active;
+    // los dados de baja quedan excluidos y sus documentos existentes no se tocan).
+    const targetIds = docType.multiresource
+      ? resources.map((r) => r.id)
+      : [lockedResource?.id ?? formData.applies].filter(Boolean);
+    if (targetIds.length === 0) {
+      if (docType.multiresource) {
+        toast.error('No se encontraron recursos activos para vincular el documento');
+      } else {
+        setError('applies', { type: 'required', message: 'Este campo es requerido' });
+      }
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('resource', resourceKind);
+    fd.append('documentTypeId', docType.id);
+    fd.append('appliesIds', JSON.stringify(targetIds));
+    if (formData.validity) fd.append('validity', moment(formData.validity).utc().format());
+    if (formData.period) fd.append('period', formData.period);
 
     toast.promise(
       async () => {
         setLoading(true);
-
-        // ─── Documento multirecurso: aplicar a TODOS los recursos ACTIVOS ─────────
-        // La lista de recursos (employees/vehicles) ya viene filtrada por is_active,
-        // por lo que los dados de baja quedan excluidos. Sus documentos existentes NO
-        // se tocan: uploadDocument solo opera sobre los ids recibidos en `applies`.
-        const selectedDocType = documenTypes?.find((doc) => doc.id === formData.id_document_types);
-        if (selectedDocType?.multiresource === true && (resource === 'empleado' || resource === 'equipo')) {
-          const companyName = actualCompany?.[0]?.company_name || '';
-          const companyCuit = actualCompany?.[0]?.company_cuit || '';
-          const documentName = selectedDocType?.name;
-          const fileExtension = selectedFile.name.split('.').pop();
-          if (!documentName || !fileExtension) {
-            setLoading(false);
-            throw new Error('Faltan datos para subir el documento');
-          }
-
-          const resourceList = resource === 'empleado' ? employees : vehicles;
-          const allActiveIds = (resourceList ?? []).map((res: any) => res.id).filter(Boolean);
-          if (!allActiveIds.length) {
-            setLoading(false);
-            throw new Error('No se encontraron recursos activos para vincular el documento');
-          }
-
-          const appliesPathName = resource === 'equipo' ? 'equipos' : 'persona';
-          const expiredDate = formData.validity ? moment(formData.validity).format('DD-MM-YYYY') : null;
-          const hasExpiredVersion = expiredDate || formData.period || 'v0';
-          const sharedPath = calculateNameOFDocument(
-            companyName,
-            companyCuit,
-            appliesPathName,
-            documentName,
-            hasExpiredVersion,
-            fileExtension,
-            'multirecursos'
-          );
-
-          // Persistencia server-side (Prisma + transaccion): mismo flujo eficiente que el masivo.
-          // Evita el .in([cientos]) client-side que moria por timeout y completa solo los faltantes.
-          const fd = new FormData();
-          fd.append('file', selectedFile);
-          fd.append('resource', resource);
-          fd.append('documentTypeId', formData.id_document_types);
-          fd.append('appliesIds', JSON.stringify(allActiveIds));
-          fd.append('sharedPath', sharedPath);
-          if (user) fd.append('userId', user);
-          if (formData.validity) fd.append('validity', moment(formData.validity).utc().format());
-          if (formData.period) fd.append('period', formData.period);
-
-          const multiRes = await uploadMultiResourceDocument(fd);
-          if (!multiRes.ok) {
-            setLoading(false);
-            throw new Error(multiRes.error);
-          }
-
-          setLoading(false);
-          return;
-        }
-
-        const idApplies =
-          id ||
-          employees?.find((employee: any) => employee.document === documentResource)?.id ||
-          (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
-
-        const updateEntry = {
-          applies: formData.applies || idApplies,
-          id_document_types: formData.id_document_types,
-          validity: formData.validity ? moment(formData.validity).utc().format('YYYY-MM-DD HH:mm:ss+00') : null,
-          user_id: user,
-          created_at: new Date(),
-          period: formData.period,
-        };
-
-        const appliesName: any =
-          (employees?.find(
-            (employee: any) => employee.id === formData.applies || employee.id === formData.applies
-          ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === formData.applies) as string);
-
-        if (!appliesName) throw new Error('No se encontro el recurso');
-
-        // Get file extension from the File object name property
-        const fileName = selectedFile.name;
-        const fileExtension = fileName.split('.').pop();
-
-        const tableName =
-          resource === 'empleado'
-            ? 'documents_employees'
-            : resource === 'equipo'
-              ? 'documents_equipment'
-              : 'documents_company';
-
-        const period = formData.period;
-        const hasExpiredDate = updateEntry?.validity?.replace(/\//g, '-') || period || 'v0';
-        const documetType = documenTypes?.find((e) => e.id === formData.id_document_types);
-        // Todo segmento del path se normaliza: Storage rechaza tildes y ñ con `InvalidKey`.
-        const formatedCompanyName = formatPathSegment(actualCompany?.[0]?.company_name ?? '');
-        const resourceForPath = appliesName ?? idAppliesUser;
-        const formatedAppliesName = `${formatPathSegment(resourceForPath?.name ?? '')}-(${resourceForPath?.document})`;
-        const formatedDocumentTypeName = formatDocumentTypeName(documetType?.name);
-        const formatedAppliesPath = formatPathSegment(documetType.applies);
-
-        // Verificar si el documento ya existe
-        const { data, error: errorList } = await supabase.storage
-          .from('document-files')
-          .list(`${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/`, {
-            search: `${formatedAppliesName}/${formatedDocumentTypeName}`,
-          });
-
-        if (errorList) {
-          logger.error('Error al listar archivos del documento en storage', { data: { errorList } });
-        }
-
-        if (data?.length && data?.length > 0) {
-          //revisar si esta siendo usado en la tabla de documentos
-          const { data: document, error: errorDocument } = await supabase
-            .from(tableName)
-            .select('*')
-            .eq(
-              'document_path',
-              `${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`
-            );
-
-          if (document?.length) {
-            setError('id_document_types', {
-              message: 'El documento ya ha sido subido anteriormente',
-              type: 'validate',
-            });
-            setLoading(false);
-            throw new Error('El documento ya ha sido subido anteriormente');
-          }
-        }
-
-        // Subir el archivo
-        const { data: response, error } = await supabase.storage
-          .from('document-files')
-          .upload(
-            `${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`,
-            selectedFile,
-            {
-              cacheControl: '0',
-              upsert: true,
+        try {
+          const result = await uploadMultiResourceDocument(fd);
+          if (!result.ok) {
+            if (result.error === 'El documento ya ha sido subido anteriormente') {
+              setError('id_document_types', { type: 'validate', message: result.error });
             }
-          );
-
-        if (error) {
+            throw new Error(result.error);
+          }
+          if (document) await documentDrawerEmployees(document);
+          if (id) await documentDrawerVehicles(id);
+        } finally {
           setLoading(false);
-          logger.error('Error al subir el archivo del documento al storage', { data: { error } });
-          throw new Error(handleSupabaseError(error.message));
         }
-
-        const isMandatory = documenTypes?.find((doc) => doc.id === updateEntry.id_document_types)?.mandatory;
-
-        if (isMandatory) {
-          const data = {
-            validity: updateEntry.validity,
-            document_path: response?.path,
-            state: 'presentado',
-            period: updateEntry.period || null,
-            // 411: si la fila estaba archivada ("ya no aplica"), subir un archivo la reactiva.
-            archived_at: null,
-          };
-
-          const { error, data: userupdated } = await supabase
-            .from(tableName)
-            .update(data as any)
-            .eq('applies', typeof idApplies === 'object' ? idApplies?.id : idApplies || updateEntry.applies)
-            .eq('id_document_types', updateEntry.id_document_types);
-
-          if (error) {
-            setLoading(false);
-            logger.error('Error al actualizar el documento en la base de datos', { data: { error } });
-            //Eliminar el documento
-            await supabase.storage.from('document-files').remove([response?.path]);
-            throw new Error('Hubo un error al subir los documentos a la base de datos');
-          }
-        } else {
-          const { error } = await supabase.from(tableName).insert({
-            validity: updateEntry.validity,
-            document_path: response?.path,
-            created_at: new Date(),
-            state: 'presentado',
-            applies: idApplies || updateEntry.applies,
-            id_document_types: updateEntry.id_document_types,
-            user_id: user,
-            period: updateEntry.period || null,
-          } as any);
-
-          if (error) {
-            setLoading(false);
-            logger.error('Error al guardar el documento en la base de datos', { data: { error } });
-            //Eliminar el documento
-            await supabase.storage.from('document-files').remove([response?.path]);
-            throw new Error('Hubo un error al guardar el documento');
-          }
-        }
-
-        setLoading(false);
-        if (document) {
-          documentDrawerEmployees(document);
-        }
-        if (id) {
-          documentDrawerVehicles(id);
-        }
-        handleOpen();
       },
       {
         loading: 'Subiendo...',
         success: () => {
           handleOpen();
-          setLoading(false);
           // Refrescar solo la data de las tablas montadas (React Query), sin recargar la ruta
           queryClient.invalidateQueries();
           // Refresco extra para consumidores del sistema viejo (SSR) que no usan React Query
           onUploaded?.();
-          // Reset file input correctly
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
+          if (fileInputRef.current) fileInputRef.current.value = '';
           setSelectedFile(null);
           return 'Documento subido correctamente';
         },
-        error: (error) => {
-          setLoading(false);
-          return error.message || error;
-        },
+        error: (error: Error) => error.message,
       }
     );
-    //cerrar el modal
-  };
-
-  const fetchDocumentTypes = async () => {
-    const applies = resource === 'empleado' ? 'Persona' : 'Equipos';
-    const { data: document_types, error } = await supabase
-      .from('document_types')
-      .select('*')
-      .eq('applies', applies)
-      .eq('is_active', true);
-
-    setDocumentTypes(document_types);
-    setAllTypesDocuments(document_types);
-  };
-
-  const fetchEmployees = async () => {
-    const { data: employees, error } = await supabase
-      .from('employees')
-      .select('id,document_number,lastname,firstname')
-      .eq('is_active', true);
-    if (error) {
-      setEmployees([]);
-      return;
-    }
-    // Transformar al formato esperado
-    const formatted = (employees || []).map((act) => ({
-      name: act.firstname + ' ' + act.lastname,
-      document: act.document_number,
-      id: act.id,
-    }));
-    setEmployees(formatted);
-    setFilteredResources(formatted);
-  };
-
-  const fetchVehicles = async () => {
-    const { data: vehicles, error } = await supabase.from('vehicles').select('domain,serie,id').eq('is_active', true);
-    if (error) {
-      setVehicles([]);
-      return;
-    }
-    // Transformar al formato esperado
-    const formatted = (vehicles || []).map((act: any) => ({
-      name: act.domain || act.serie,
-      document: act.serie || act.domain,
-      id: act.id,
-    }));
-    setVehicles(formatted);
-  };
-
-  useEffect(() => {
-    fetchDocumentTypes();
-    if (resource === 'empleado') {
-      fetchEmployees();
-    } else {
-      fetchVehicles();
-    }
-  }, [resource]);
-
-  const today = new Date();
-
-  const data = resource === 'empleado' ? employees : vehicles;
-  const [filteredResources, setFilteredResources] = useState(data);
-  const [inputValue, setInputValue] = useState<string>('');
-  const [hasExpired, setHasExpired] = useState(false);
-  const [isMontlhy, setIsMontlhy] = useState(false);
-  const [openResourceSelector, setOpenResourceSelector] = useState(false);
-
-  useEffect(() => {
-    const documentInfo = documenTypes?.find((documentType) => documentType.id === defaultDocumentId);
-    setHasExpired(documentInfo?.explired);
-    setIsMontlhy(documentInfo?.is_it_montlhy);
-  }, [defaultDocumentId, documenTypes]);
-
-  const [openDocumentTypePopover, setOpenDocumentTypePopover] = useState(false);
-
-  const handleTypeFilter = (value: string) => {
-    if (value === 'Ambos') setDocumentTypes(allTypesDocuments);
-    if (value === 'Permanentes') setDocumentTypes(allTypesDocuments?.filter((e) => !e.is_it_montlhy) || []);
-    if (value === 'Mensuales') setDocumentTypes(allTypesDocuments?.filter((e) => e.is_it_montlhy) || []);
   };
 
   const handleNestedFormSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -474,115 +219,79 @@ export default function SimpleDocument({
     handleSubmit(onSubmit)();
   };
 
+  const resourceLabel = resourceKind === 'equipo' ? 'equipo' : 'empleado';
+
   return (
     <Form {...form}>
       <form onSubmit={handleNestedFormSubmit}>
         <div className="space-y-4">
           {!documentResource && (
             <div className="space-y-2 py-3">
-              <Label className="block">{resource === 'equipo' ? 'Equipos' : 'Empleados'}</Label>
-              <Controller
-                render={({ field }) => {
-                  const selectedResourceName = data?.find((resource: any) => resource.id === field.value)?.name;
-
-                  return (
-                    <Popover
-                      open={openResourceSelector}
-                      onOpenChange={() => {
-                        setOpenResourceSelector(!openResourceSelector);
-                      }}
-                    >
-                      <PopoverTrigger disabled={numberDocument || id ? true : false} asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(' justify-between w-full', !field.value && 'text-muted-foreground')}
-                        >
-                          {field.value && selectedResourceName
-                            ? data?.find(
-                                (employee: any) => employee.id === field.value || employee.name === field.value
-                              )?.name
-                            : `Seleccionar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
-                          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className=" p-0">
-                        <Command>
-                          <CommandInput
-                            placeholder={`Buscar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
-                            className="h-9"
-                            onFocus={() => {
-                              setFilteredResources(data);
-                            }}
-                            onInput={(e) => {
-                              const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
-                              setInputValue(inputValue);
-                              const isNumberInput = /^\d+$/.test(inputValue);
-                              const filteredresources = data?.filter((person: any) => {
-                                if (isNumberInput) {
-                                  return person.document?.includes(inputValue);
-                                } else {
-                                  return (
-                                    person.name?.toLowerCase().includes(inputValue) ||
-                                    person.document?.includes(inputValue)
-                                  );
-                                }
-                              });
-                              setFilteredResources(filteredresources || []);
-                            }}
-                          />
-                          <CommandList>
-                            <CommandEmpty>
-                              {filteredResources?.length === 0 &&
-                                inputValue?.length > 0 &&
-                                'No se encontraron resultados'}
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {filteredResources?.map((employee: any) => {
-                                const key = /^\d+$/.test(inputValue) ? employee.document : employee.name;
-                                const value = /^\d+$/.test(inputValue) ? employee.document : employee.name;
-
-                                return (
+              <Label className="block">{resourceKind === 'equipo' ? 'Equipos' : 'Empleados'}</Label>
+              {loadingResources ? (
+                <Skeleton className="h-9 w-full" />
+              ) : (
+                <Controller
+                  render={({ field }) => {
+                    const selectedId = lockedResource?.id ?? field.value;
+                    const selectedName = resources.find((r) => r.id === selectedId)?.name;
+                    return (
+                      <Popover open={openResourceSelector} onOpenChange={setOpenResourceSelector}>
+                        <PopoverTrigger disabled={isLocked} asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(' justify-between w-full', !selectedName && 'text-muted-foreground')}
+                          >
+                            {selectedName ?? `Seleccionar ${resourceLabel}`}
+                            <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className=" p-0">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder={`Buscar ${resourceLabel}`}
+                              className="h-9"
+                              value={resourceSearch}
+                              onValueChange={setResourceSearch}
+                            />
+                            <CommandList>
+                              <CommandEmpty>No se encontraron resultados</CommandEmpty>
+                              <CommandGroup>
+                                {filteredResources.map((option) => (
                                   <CommandItem
-                                    value={value}
-                                    key={crypto.randomUUID()}
+                                    value={option.id}
+                                    key={option.id}
                                     onSelect={() => {
-                                      const id = data?.find(
-                                        (resource: any) => resource.name === value || resource.document === value
-                                      ).id;
-
-                                      field.onChange(id);
-                                      setOpenResourceSelector(!openResourceSelector);
+                                      field.onChange(option.id);
+                                      clearErrors('applies');
+                                      setOpenResourceSelector(false);
                                     }}
                                   >
-                                    {employee.name}
+                                    {option.name}
                                     <CheckIcon
                                       className={cn(
                                         'ml-auto h-4 w-4',
-                                        employee.name === field.value || employee.document === field.value
-                                          ? 'opacity-100'
-                                          : 'opacity-0'
+                                        option.id === selectedId ? 'opacity-100' : 'opacity-0'
                                       )}
                                     />
                                   </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  );
-                }}
-                name="applies"
-                control={control}
-                rules={!id || !documentResource ? { required: 'Este campo es requerido' } : {}}
-              />
-              <CardDescription>
-                Selecciona el {resource === 'equipo' ? 'equipo' : 'empleado'} al que deseas vincular el documento
-              </CardDescription>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  }}
+                  name="applies"
+                  control={control}
+                  rules={isLocked ? {} : { required: 'Este campo es requerido' }}
+                />
+              )}
+              <CardDescription>Selecciona el {resourceLabel} al que deseas vincular el documento</CardDescription>
               {errors.applies?.message && (
-                <CardDescription className="text-red-700 mt-0 m-0">{(errors as any).applies.message}</CardDescription>
+                <CardDescription className="text-red-700 mt-0 m-0">{errors.applies.message}</CardDescription>
               )}
             </div>
           )}
@@ -590,12 +299,12 @@ export default function SimpleDocument({
           <div className="space-y-2">
             {!defaultDocumentId && (
               <ToggleGroup
-                defaultValue={'ambos'}
+                value={typeFilter}
                 type="single"
                 variant="outline"
                 className="w-full flex-col items-start mb-4 gap-y-3"
                 onValueChange={(value) => {
-                  handleTypeFilter(value);
+                  if (value === 'Ambos' || value === 'Permanentes' || value === 'Mensuales') setTypeFilter(value);
                 }}
               >
                 <Label>Filtrar tipos de documentos</Label>
@@ -607,42 +316,39 @@ export default function SimpleDocument({
               </ToggleGroup>
             )}
             <Label>Seleccione el tipo de documento a vincular al recurso</Label>
-            <Controller
-              render={({ field }) => (
-                <Popover open={openDocumentTypePopover} onOpenChange={setOpenDocumentTypePopover}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn('justify-between w-full', !field.value && 'text-muted-foreground')}
-                    >
-                      {field.value
-                        ? documenTypes?.find((documenType) => documenType.id === field.value)?.name
-                        : 'Seleccionar documento'}
-                      <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0 overflow-y-auto max-h-[50vh]">
-                    <div>
+            {loadingTypes ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <Controller
+                render={({ field }) => (
+                  <Popover open={openDocumentTypePopover} onOpenChange={setOpenDocumentTypePopover}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn('justify-between w-full', !field.value && 'text-muted-foreground')}
+                      >
+                        {field.value
+                          ? (documentTypes.find((t) => t.id === field.value)?.name ?? 'Seleccionar documento')
+                          : 'Seleccionar documento'}
+                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0 overflow-y-auto max-h-[50vh]">
                       <Command className="p-2">
                         <CommandInput placeholder="Buscar documento" className="h-9" />
                         <CommandList>
                           <CommandEmpty>Documento no encontrado</CommandEmpty>
                           <CommandGroup>
-                            {documenTypes?.map((documentType) => (
+                            {visibleDocumentTypes.map((documentType) => (
                               <CommandItem
                                 value={documentType.name}
                                 key={documentType.id}
-                                onSelect={(e: string) => {
-                                  const selected = documenTypes?.find(
-                                    (doc) => doc.name.toLowerCase() === e.toLocaleLowerCase()
-                                  );
-
-                                  setHasExpired(selected.explired);
-                                  setIsMontlhy(selected.is_it_montlhy);
-
+                                onSelect={() => {
                                   clearErrors('id_document_types');
-                                  setValue('id_document_types', selected?.id);
+                                  setValue('id_document_types', documentType.id);
+                                  setValue('validity', '');
+                                  setValue('period', '');
                                   setOpenDocumentTypePopover(false);
                                 }}
                               >
@@ -658,16 +364,14 @@ export default function SimpleDocument({
                           </CommandGroup>
                         </CommandList>
                       </Command>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              name="id_document_types"
-              control={control}
-              rules={{
-                required: 'Este campo es requerido',
-              }}
-            />
+                    </PopoverContent>
+                  </Popover>
+                )}
+                name="id_document_types"
+                control={control}
+                rules={{ required: 'Este campo es requerido' }}
+              />
+            )}
             {errors.id_document_types && (
               <CardDescription className="text-red-700 m-0">{errors.id_document_types.message}</CardDescription>
             )}
@@ -684,13 +388,14 @@ export default function SimpleDocument({
             />
             {selectedFile && <p className="text-sm text-muted-foreground">Archivo seleccionado: {selectedFile.name}</p>}
             <CardDescription>Sube el documento que deseas vincular a los recursos</CardDescription>
-            {errors.file && <CardDescription className="text-red-700 mt-0">{errors.file.message}</CardDescription>}
+            {fileError && <CardDescription className="text-red-700 mt-0">{fileError}</CardDescription>}
           </div>
 
           {hasExpired && (
             <FormField
               control={control}
               name="validity"
+              rules={{ required: 'La fecha de vencimiento es requerida' }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fecha de vencimiento *</FormLabel>
@@ -704,7 +409,7 @@ export default function SimpleDocument({
             />
           )}
 
-          {isMontlhy && (
+          {isMonthly && (
             <div className="space-y-2">
               <div className="flex flex-col gap-3">
                 <Label>Periodo</Label>
@@ -714,12 +419,13 @@ export default function SimpleDocument({
                       placeholder="Seleccionar periodo"
                       type="month"
                       min={new Date().toISOString().split('T')[0]}
+                      value={field.value}
                       onChange={field.onChange}
                     />
                   )}
                   name="period"
                   control={control}
-                  rules={isMontlhy ? { required: 'Falta seleccionar el periodo' } : undefined}
+                  rules={{ required: 'Falta seleccionar el periodo' }}
                 />
               </div>
               {errors.period && (
@@ -739,7 +445,7 @@ export default function SimpleDocument({
             </Button>
           </AlertDialogCancel>
 
-          <Button disabled={loading} type="submit">
+          <Button disabled={loading || loadingTypes || loadingResources} type="submit">
             {loading ? 'Enviando' : 'Enviar documento'}
           </Button>
         </div>

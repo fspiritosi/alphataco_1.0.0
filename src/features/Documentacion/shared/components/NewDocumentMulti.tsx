@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllDocumentTypes } from '@/features/Documentacion/shared/actions/document-actions';
 import { cn } from '@/lib/utils';
-import { fetchCurrentUser } from '@/shared/actions/company-user.actions';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { fetchSimpleDataEmployee } from '@/shared/actions/employees.actions';
 import { fetchSimpleDataEquipment } from '@/shared/actions/equipment.actions';
@@ -39,7 +38,6 @@ async function NewDocumentMulti({
 
   const allDocumentTypes = await fetchAllDocumentTypes();
   const currentCompany = await fetchCurrentCompany();
-  const user = await fetchCurrentUser();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -67,7 +65,6 @@ async function NewDocumentMulti({
                 (document) => document.applies === 'Persona' && document.multiresource
               )}
               currentCompany={currentCompany}
-              user_id={user?.id}
             />
           </TabsContent>
           <TabsContent value="equipment">
@@ -76,7 +73,6 @@ async function NewDocumentMulti({
               allDocumentTypes={allDocumentTypes?.filter(
                 (document) => document.applies === 'Equipos' && document.multiresource
               )}
-              user_id={user?.id}
               equipments={equipments}
             />
           </TabsContent>

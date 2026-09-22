@@ -1,11 +1,13 @@
 import NewDocumentMulti from './NewDocumentMulti';
 
+/**
+ * Botonera de carga de documentos. El flujo "no multirecurso" (`NewDocumentNoMulti`) se retiró:
+ * la subida individual se hace desde el botón "Subir documento" de las tablas (`SimpleDocument`).
+ */
 export default function DocumentNav({
   onlyEmployees,
   onlyNoMultiresource,
-  onlyMultiresource,
   onlyEquipment,
-  id_user,
 }: {
   onlyEmployees?: boolean;
   onlyEquipment?: boolean;
@@ -16,9 +18,6 @@ export default function DocumentNav({
   return (
     <div className="flex gap-2">
       {!onlyNoMultiresource && <NewDocumentMulti onlyEmployees={onlyEmployees} onlyEquipment={onlyEquipment} />}
-      {/* {!onlyMultiresource && (
-        <NewDocumentNoMulti id_user={id_user} onlyEmployees={onlyEmployees} onlyEquipment={onlyEquipment} />
-      )} */}
     </div>
   );
 }

@@ -326,7 +326,7 @@ export default async function page({
                       <CardDescription>
                         <span className="font-bold">Fecha de alta:</span>{' '}
                         {moment(
-                          String((doc?.applies as Record<string, unknown> | undefined)?.date_of_admission ?? '')
+                          (doc?.applies as Record<string, unknown> | undefined)?.date_of_admission as string | Date
                         ).format('DD/MM/YYYY')}
                       </CardDescription>
                     </TableCell>
