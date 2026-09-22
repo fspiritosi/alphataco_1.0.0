@@ -336,7 +336,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_customer_equipment_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;
@@ -436,7 +435,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_employee_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;
@@ -528,7 +526,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_equipment_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;

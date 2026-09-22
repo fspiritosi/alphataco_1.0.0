@@ -4235,7 +4235,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_customer_equipment_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;
@@ -4335,7 +4334,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_employee_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;
@@ -4427,7 +4425,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_equipment_relations_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     user_id UUID;
@@ -4964,7 +4961,6 @@ CREATE TRIGGER add_contractor_equipment_after_insert AFTER INSERT ON public.vehi
 CREATE OR REPLACE FUNCTION public.assign_owner_role_on_company_creation()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   v_owner_role_id BIGINT;
@@ -5013,7 +5009,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.check_multiple_permissions(p_user_id uuid, p_permissions jsonb)
  RETURNS TABLE(module_slug text, tab_slug text, action_slug text, has_permission boolean)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
   RETURN QUERY
@@ -5037,7 +5033,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_user_accessible_modules(p_user_id uuid)
  RETURNS TABLE(module_id uuid, module_slug text, module_name text, module_icon text)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
     RETURN QUERY
@@ -5062,7 +5058,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_user_permissions(p_user_id uuid)
  RETURNS TABLE(module_id uuid, module_slug text, module_name text, tab_id uuid, tab_slug text, tab_name text, action_id uuid, action_slug text, action_name text, source text, is_granted boolean, role_id bigint, role_name text, role_color text)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
     RETURN QUERY
@@ -5155,7 +5151,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.user_has_permission(p_user_id uuid, p_module_slug text, p_tab_slug text, p_action_slug text)
  RETURNS boolean
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 DECLARE
     v_has_permission boolean;
@@ -5399,7 +5395,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.controlar_alertas_single_document_all_employees(document_type_id_param uuid)
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   doc RECORD;
@@ -5481,7 +5476,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.controlar_alertas_single_document_all_vehicles(document_type_id_param uuid)
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   doc RECORD;
@@ -5564,8 +5558,6 @@ CREATE OR REPLACE FUNCTION public.get_documents_expiry_summary(
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
-SECURITY DEFINER
-SET search_path = public
 AS $$
 DECLARE
   v_today date;
@@ -5997,7 +5989,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION public.update_employee_diagram_status(p_employee_id uuid, p_is_active boolean)
  RETURNS json
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     affected_rows INTEGER;
@@ -7997,7 +7988,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_daily_report_deviations(p_daily_report_id uuid, p_report_date date)
  RETURNS jsonb
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 DECLARE
   v_day INT;
@@ -8500,7 +8491,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_dailyreportrow_history(p_row_id uuid)
  RETURNS TABLE(id uuid, action_type text, changed_fields jsonb, changed_data jsonb, changed_by jsonb, created_at timestamp with time zone, related_table text, related_id uuid, metadata jsonb, reassignment_reason text)
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 BEGIN
     RETURN QUERY
@@ -9655,7 +9645,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_maintenance_order_activity()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT
@@ -9796,7 +9785,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_work_order_activity()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT

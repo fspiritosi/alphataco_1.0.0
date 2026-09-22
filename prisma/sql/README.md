@@ -67,3 +67,5 @@ Los triggers se clasifican por el nombre de la función que ejecutan; si ese nom
 Los `.sql` son la fuente de verdad y se editan a mano. Un cambio en una función/trigger/vista se hace **dos veces**: en `prisma/sql/<dominio>.sql` (para que un baseline futuro lo incluya) **y** como `CREATE OR REPLACE` en la migración del cambio (`prisma/migrations/<timestamp>_<nombre>/migration.sql`), porque `0_init` no se regenera después del primer `prisma migrate deploy` real. Ver `.claude/rules/migrations.md`.
 
 Al agregar código nuevo: nada de `auth.`, `storage.`, `extensions.`, `net.`, `cron.`, `pgsodium`, `uuid_generate_v4()` (usar `gen_random_uuid()`). `npm run db:baseline` falla si detecta alguna de esas referencias.
+
+**Las funciones nuevas no usan `SECURITY DEFINER`.** En Supabase servía para saltar RLS; acá no hay RLS y la app se conecta con el owner del esquema, así que no aporta nada y amplía la superficie de ataque. Si alguna vez hiciera falta (por ejemplo un rol de solo lectura que necesite ejecutar una función que escribe), va acompañado obligatoriamente de `SET search_path = pg_catalog, public` para evitar el secuestro del search_path.

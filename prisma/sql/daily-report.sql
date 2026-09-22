@@ -135,7 +135,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_daily_report_deviations(p_daily_report_id uuid, p_report_date date)
  RETURNS jsonb
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 DECLARE
   v_day INT;
@@ -638,7 +638,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_dailyreportrow_history(p_row_id uuid)
  RETURNS TABLE(id uuid, action_type text, changed_fields jsonb, changed_data jsonb, changed_by jsonb, created_at timestamp with time zone, related_table text, related_id uuid, metadata jsonb, reassignment_reason text)
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 BEGIN
     RETURN QUERY

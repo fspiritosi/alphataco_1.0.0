@@ -10,7 +10,6 @@
 CREATE OR REPLACE FUNCTION public.log_maintenance_order_activity()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT
@@ -151,7 +150,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.log_work_order_activity()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   -- Task 4: actor de la transaccion (SET LOCAL app.user_id, helper withActor) en lugar del uid del JWT

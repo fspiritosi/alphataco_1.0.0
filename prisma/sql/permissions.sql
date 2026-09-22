@@ -9,7 +9,6 @@
 CREATE OR REPLACE FUNCTION public.assign_owner_role_on_company_creation()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   v_owner_role_id BIGINT;
@@ -58,7 +57,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.check_multiple_permissions(p_user_id uuid, p_permissions jsonb)
  RETURNS TABLE(module_slug text, tab_slug text, action_slug text, has_permission boolean)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
   RETURN QUERY
@@ -82,7 +81,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_user_accessible_modules(p_user_id uuid)
  RETURNS TABLE(module_id uuid, module_slug text, module_name text, module_icon text)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
     RETURN QUERY
@@ -107,7 +106,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_user_permissions(p_user_id uuid)
  RETURNS TABLE(module_id uuid, module_slug text, module_name text, tab_id uuid, tab_slug text, tab_name text, action_id uuid, action_slug text, action_name text, source text, is_granted boolean, role_id bigint, role_name text, role_color text)
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 BEGIN
     RETURN QUERY
@@ -200,7 +199,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.user_has_permission(p_user_id uuid, p_module_slug text, p_tab_slug text, p_action_slug text)
  RETURNS boolean
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ STABLE
 AS $function$
 DECLARE
     v_has_permission boolean;

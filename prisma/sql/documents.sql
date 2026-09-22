@@ -214,7 +214,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.controlar_alertas_single_document_all_employees(document_type_id_param uuid)
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   doc RECORD;
@@ -296,7 +295,6 @@ $function$;
 CREATE OR REPLACE FUNCTION public.controlar_alertas_single_document_all_vehicles(document_type_id_param uuid)
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   doc RECORD;
@@ -379,8 +377,6 @@ CREATE OR REPLACE FUNCTION public.get_documents_expiry_summary(
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
-SECURITY DEFINER
-SET search_path = public
 AS $$
 DECLARE
   v_today date;
@@ -812,7 +808,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION public.update_employee_diagram_status(p_employee_id uuid, p_is_active boolean)
  RETURNS json
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
     affected_rows INTEGER;
