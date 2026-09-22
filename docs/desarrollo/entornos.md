@@ -37,7 +37,7 @@ node -e "console.log(JSON.parse(Buffer.from(process.argv[1].split('.')[1],'base6
 
 Esperado: `anon`. Si devuelve `service_role`, esa key es en realidad la service role key: **rotarla en Supabase inmediatamente** (Project Settings → API → Reset) y actualizar el `.env` con la nueva anon key en `NEXT_PUBLIC_SUPABASE_ANON_KEY` y la service key en `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Secrets de Edge Functions
+## Secrets de Edge Functions (mecanismo Supabase, vigente sólo hasta P5)
 
 Las edge functions `send-documents-expiry-email` y `send-deviations-email` (`supabase/functions/`) NO leen el `.env` de Next.js — usan `Deno.env.get(...)` con secrets configurados aparte en cada proyecto Supabase (`npx supabase secrets set NOMBRE=valor` o desde el dashboard).
 
@@ -56,7 +56,7 @@ SMTP y otros secrets que ya usan ambas funciones (obtenidos con `grep -n "Deno.e
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE` — envío del email vía `nodemailer`.
 - `APP_URL` (solo `send-documents-expiry-email`) — URL usada en los links del email, default `https://gh-gestion.com`.
 
-## Cron jobs por entorno
+## Cron jobs por entorno (mecanismo Supabase, vigente sólo hasta P5)
 
 El job semanal de vencimientos de documentos (`weekly-documents-expiry-email`) NO se versiona con URL/anon key/destinatarios embebidos (la migración `20260512162500_schedule_documents_expiry_cron` que hacía eso pertenece a la BD de Grupo Horizonte y no se puede editar ni borrar; alphataco la neutraliza en runtime con `20260919140000_unschedule_documents_expiry_cron`).
 
@@ -79,7 +79,11 @@ Para cancelar el job: `SELECT cron.unschedule('weekly-documents-expiry-email');`
 
 ## Levantar con Docker
 
-El compose de la raíz (`docker-compose.yml`) levanta la infraestructura local: `postgres` (16 + pgTAP), `minio` (S3 compatible), `app` (Next.js standalone), `cron` (jobs periódicos) y `caddy` (reverse proxy). Servicios, puertos, volúmenes y red están documentados en el propio `docker-compose.yml`.
+El compose de la raíz (`docker-compose.yml`) levanta la infraestructura local: `postgres` (16 + pgTAP), `minio` (S3 compatible) + `minio-init` (crea los buckets), `migrate` (aplica las migraciones de Prisma y termina), `app` (Next.js standalone), `cron` (jobs periódicos) y `caddy` (reverse proxy). Servicios, puertos, volúmenes y red están documentados en el propio `docker-compose.yml`.
+
+Orden de arranque (por `depends_on`): `postgres` y `minio` healthy → `migrate` corre `npx prisma migrate deploy` y sale con `Exited (0)` → `app` arranca y pasa a `healthy` cuando `GET /login` responde `< 500` → `cron` y `caddy`. Si `migrate` falla, `app` no se levanta (`service_completed_successfully`). `postgres`, `minio`, `app`, `cron` y `caddy` tienen `restart: unless-stopped`.
+
+`migrate` se construye con la stage `build` del `Dockerfile` (node_modules completo + `prisma.config.ts`): el CLI de Prisma 7 no puede correr desde el output standalone de Next, que sólo trae el runtime (`@prisma/client`, `@prisma/adapter-pg`, `pg`). La imagen de `app` no lleva el CLI de Prisma ni corre migraciones al arrancar.
 
 ### Setup inicial
 
@@ -95,7 +99,19 @@ bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los bucket
 
 Este compose reemplaza la **base de datos** (Postgres vía Prisma), pero **Auth y Storage siguen en Supabase** hasta que se completen las tasks P4 (Auth) y P3 (Storage → MinIO) del plan de infra. Mientras tanto `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` siguen apuntando al proyecto Supabase correspondiente (ver tabla de variables arriba).
 
-### Migrar, resetear y sembrar datos
+### Levantar la app completa
+
+```bash
+docker compose --env-file .env.docker build migrate app   # ~4 min la primera vez
+docker compose --env-file .env.docker up -d app            # levanta postgres, minio, migrate y app
+docker compose --env-file .env.docker ps                   # migrate Exited (0), app healthy
+docker compose --env-file .env.docker logs migrate         # "No pending migrations" o las aplicadas
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:${APP_PORT:-3000}/login   # 200
+```
+
+`up -d cron caddy` los suma cuando `app` ya está healthy. Para volver a aplicar migraciones sin reiniciar la app: `docker compose --env-file .env.docker run --rm migrate` (mismo comando que corre al arrancar).
+
+### Migrar, resetear y sembrar datos (desde el host)
 
 ```bash
 set -a; source .env.docker; set +a   # POSTGRES_PASSWORD y POSTGRES_PORT (default 5432)
@@ -132,13 +148,15 @@ Todo lo que se conecta desde el host (`npm run db:deploy`, `npm run test:db`, `p
 
 ### Servicios que corren solo con `postgres` + `minio`
 
-`app` requiere la base de datos migrada (ver Task 4 del plan de infra) — no se levanta hasta entonces. `cron` y `caddy` dependen de `app`. Para verificar que las imágenes de `cron` y `caddy` compilan sin levantar nada: `docker compose --env-file .env.docker build cron caddy`.
+Para desarrollar con `npm run dev` alcanza con `bash scripts/dev-up.sh` (postgres + minio + minio-init); `migrate`, `app`, `cron` y `caddy` sólo hacen falta para probar la imagen de producción. Para verificar que las imágenes de `cron` y `caddy` compilan sin levantar nada: `docker compose --env-file .env.docker build cron caddy`.
 
 ### Verificar los buckets de MinIO
 
+`minio-init` recibe `S3_ACCESS_KEY`/`S3_SECRET_KEY` de `.env.docker` como variables de entorno, así que se pueden reutilizar dentro del contenedor:
+
 ```bash
 docker compose --env-file .env.docker run --rm --entrypoint sh minio-init -c \
-  "mc alias set local http://minio:9000 \$MINIO_ROOT_USER \$MINIO_ROOT_PASSWORD >/dev/null; mc ls local/"
+  'mc alias set local http://minio:9000 "$S3_ACCESS_KEY" "$S3_SECRET_KEY" >/dev/null && mc ls local/'
 ```
 
 Debe listar los 6 buckets: `document-files`, `daily-reports`, `contract-documents`, `employee-documents`, `clothing-signatures`, `logo`.

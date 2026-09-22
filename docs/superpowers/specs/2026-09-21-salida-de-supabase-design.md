@@ -94,6 +94,8 @@ Secrets sólo en el `.env` del compose. Nunca en migraciones.
 | P5 | Jobs y email | P4 | 3 jobs por `curl` con `jobs_runs`; tests de cada job |
 | P6 | Limpieza final: `supabase/`, `database.types.ts`, deps, hosts, docs; guardia multi-tenant en modo estricto | P5 | `supabase_files = 0`, `any = 0` |
 
+Nota: desde P1 la BD objetivo es el Postgres del compose; los accesos PostgREST restantes (`.from()`/`.rpc()` de `src/`) quedan inoperantes hasta que P2 los migre, por lo que **P1+P2 forman el primer estado deployable**.
+
 Las Fases 5 y 7 del plan maestro se absorben dentro de P2.
 
 ## 9. Testing y CI

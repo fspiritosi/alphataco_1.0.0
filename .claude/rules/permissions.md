@@ -103,16 +103,20 @@ nueva_tab: {
 
 ### 3. Insertar Datos en Base de Datos (migracion Prisma con SQL custom)
 
-Los inserts de datos (tabs, permisos) se hacen con una **migracion Prisma vacia** que contiene el SQL:
+Los inserts de datos (tabs, permisos) van en una **carpeta de migracion manual** con el SQL (flujo completo en `.claude/rules/migrations.md`; NUNCA `prisma migrate dev`):
 
 ```bash
-# 1. Crear migracion vacia
-npx prisma migrate dev --create-only --name add_nueva_tab_permissions
-# 2. Escribir el SQL en el archivo generado en prisma/migrations/
-# 3. Aplicar la migracion
-npx prisma migrate dev
-# 4. Verificar con MCP supabase-LOCAL (readonly) que los datos se insertaron
+# 1. Crear la carpeta de migracion a mano
+mkdir -p prisma/migrations/YYYYMMDDHHMMSS_add_nueva_tab_permissions
+# 2. Escribir el SQL en prisma/migrations/YYYYMMDDHHMMSS_add_nueva_tab_permissions/migration.sql
+# 3. Aplicar contra el Postgres del compose (DATABASE_URL segun .env.docker)
+npm run db:deploy
+# 4. Verificar con psql dentro del contenedor que los datos se insertaron
+docker compose --env-file .env.docker exec -T postgres psql -U alphataco -d alphataco \
+  -c "SELECT id, slug, name FROM tabs WHERE slug = 'nueva_tab';"
 ```
+
+Ojo: el seed (`npm run db:seed`) ya upsertea `modules`/`tabs`/`actions`/`role_permissions` desde `permissions-map.ts`; en el compose local alcanza con actualizar el mapa y correr el seed. La migracion es lo que lleva el cambio a los entornos desplegados.
 
 **SQL de ejemplo para el archivo de migracion:**
 
