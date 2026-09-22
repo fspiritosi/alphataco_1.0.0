@@ -10,7 +10,9 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 
+import { getIndustryTypes } from '@/features/Empresa/General/actions/company.server';
 import CityInput from '@/features/Empresa/General/components/CityInput';
+import { getProvinces } from '@/shared/actions/countries.server';
 import CreateCompanyButton from '@/features/Empresa/General/components/CreateCompanyButton';
 export default async function companyRegister() {
   const supabase = await supabaseServer();
@@ -35,9 +37,8 @@ export default async function companyRegister() {
 
   const showAlert = !Companies?.[0] && !share_company_users?.[0];
 
-  let { data: provinces, error: provincesError } = await supabase.from('provinces').select('*');
-
-  let { data: industry_type, error: industryError } = await supabase.from('industry_type').select('*');
+  // Task 6 (P2): catálogos por server action Prisma. El resto de la página se migra en Task 11.
+  const [provinces, industry_type] = await Promise.all([getProvinces(), getIndustryTypes()]);
 
   return (
     <section className={cn('md:mx-7')}>
