@@ -45,15 +45,25 @@ const BIGINT_COLUMNS_EMPLOYEES: ReadonlySet<string> = new Set(['province']);
 /** Columnas FK `bigint` en `vehicles`. */
 const BIGINT_COLUMNS_VEHICLES: ReadonlySet<string> = new Set(['brand', 'model', 'type_of_vehicle']);
 
+/** Ids como texto, sin `null` ni `''` (misma limpieza que `id IS NOT NULL AND id <> ''` en SQL). */
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((v): v is string | number | bigint => ['string', 'number', 'bigint'].includes(typeof v)).map(String);
+  return value
+    .filter((v): v is string | number | bigint => ['string', 'number', 'bigint'].includes(typeof v))
+    .map(String)
+    .filter((v) => v !== '');
 }
 
 /**
  * Convierte el `Json[]` de `document_types.conditions` (o su string) a condiciones discriminadas.
- * Tolerante: entradas que no son objeto, sin `ids` o con `ids` vacío se descartan (no restringen),
- * igual que en la función SQL y en `buildConditionsWhereClause`.
+ * Tolerante: entradas que no son objeto, sin `ids` o cuyos `ids` quedan vacíos tras descartar
+ * `null`/`''` se ignoran (no restringen), igual que `build_employee_where_alias` en SQL.
+ *
+ * Divergencias conocidas respecto de la función SQL (NO soportadas acá, a propósito):
+ * - `contractor_employee` con `values` (nombres) pero sin `ids`: la SQL resuelve por nombre;
+ *   acá la condición se descarta. El editor actual siempre graba `ids`.
+ * - "todas las condiciones inválidas": la SQL trata el tipo como sin condiciones (aplica a todos);
+ *   acá también devuelve `[]`, pero no se distingue de un tipo especial mal configurado.
  */
 export function parseDocumentConditions(raw: unknown): DocumentCondition[] {
   let entries: unknown;
@@ -105,6 +115,11 @@ function matchesOne(resource: ConditionResource, condition: DocumentCondition): 
 /**
  * `true` si el recurso cumple TODAS las condiciones (sin condiciones → aplica a todos).
  * Los valores se comparan como texto para cubrir uuid, enum y bigint por igual.
+ *
+ * Es el ORÁCULO testeado de la semántica de `build_employee_where_alias` /
+ * `controlar_alertas_documentos_single_*` (AND de todas las condiciones, simples y M:M). Hoy no
+ * tiene consumidor en runtime: la evaluación real corre en la base vía `buildConditionsWhereClause`
+ * (misma semántica, mismos tests); sirve para razonar y verificar casos sin tocar la base.
  */
 export function resourceMatchesConditions(resource: ConditionResource, conditions: readonly DocumentCondition[]): boolean {
   return conditions.every((condition) => matchesOne(resource, condition));

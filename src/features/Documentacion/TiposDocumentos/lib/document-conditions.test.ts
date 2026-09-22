@@ -113,6 +113,16 @@ describe('parseDocumentConditions', () => {
     ]);
   });
 
+  it('descarta ids vacíos (como `id IS NOT NULL AND id <> \'\'` en build_employee_where_alias) y la condición si no queda ninguno', () => {
+    const withEmpty = [
+      { property_key: 'company_position', ids: [POSITION_A, '', null], relation_type: 'direct', filter_column: 'company_position' },
+      { property_key: 'guild', ids: ['', ''], relation_type: 'direct', filter_column: 'guild_id' },
+    ];
+    expect(parseDocumentConditions(withEmpty)).toEqual([
+      { kind: 'direct', propertyKey: 'company_position', filterColumn: 'company_position', ids: [POSITION_A] },
+    ]);
+  });
+
   it('acepta el JSON como string y devuelve [] ante null o JSON inválido', () => {
     expect(parseDocumentConditions(JSON.stringify(rawJson))).toHaveLength(2);
     expect(parseDocumentConditions(null)).toEqual([]);
