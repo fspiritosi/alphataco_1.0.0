@@ -14,7 +14,7 @@ import { AlertCircle, Archive, CheckCircle2, Clock, FileText, XCircle } from 'lu
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
-import type { EquipmentPermanentDocumentListItem } from './actions.server';
+import type { EquipmentPermanentDocumentListItem } from './queries.server';
 
 // ============================================================================
 // CONSTANTS
