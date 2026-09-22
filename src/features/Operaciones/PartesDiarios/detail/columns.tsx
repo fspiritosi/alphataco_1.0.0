@@ -14,7 +14,7 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle2, Info, UserCog } from 'lucide-react';
 import moment from 'moment';
-import type { EmployeeDeviation, EquipmentDeviation } from '../actions/actions';
+import type { EmployeeDeviation, EquipmentDeviation } from '../actions/validation.server';
 import { ResourceCell } from './components/ResourceCell';
 import type { DailyReportDetailRow } from './types';
 

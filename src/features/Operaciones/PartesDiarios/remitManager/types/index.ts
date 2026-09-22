@@ -1,11 +1,13 @@
 // Re-exportar tipos de las acciones
+import type { RemitDocument as RemitDocumentType, RemitoWithDocuments as RemitoWithDocumentsType } from '../actions/remitos.server';
+
 export type {
   AvailableDocument,
   AvailableRemito,
   RemitDocument,
   Remito,
   RemitoWithDocuments,
-} from '../actions/actionsClient';
+} from '../actions/remitos.server';
 
 // Tipos adicionales para el frontend
 export interface RemitosManagerProps {
@@ -16,7 +18,7 @@ export interface RemitosManagerProps {
 }
 
 export interface RemitTabProps {
-  remito: any; // RemitoWithDocuments
+  remito: RemitoWithDocumentsType;
   isActive: boolean;
   onActivate: () => void;
   customerName?: string;
@@ -38,7 +40,7 @@ export interface DocumentUploadAreaProps {
 }
 
 export interface DocumentViewerProps {
-  document: any; // RemitDocument
+  document: RemitDocumentType;
   dailyReportRowId: string;
   customerName?: string;
 }

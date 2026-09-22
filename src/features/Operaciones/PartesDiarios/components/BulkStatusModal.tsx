@@ -10,9 +10,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import moment from 'moment';
 import { useEffect, useState } from 'react';
-import { getDailyReportsForCurrentMonth, updateMultipleDailyReportStatus } from '../actions/actions';
+import { updateMultipleDailyReportStatus } from '../actions/mutations.server';
+import { getDailyReportsForCurrentMonth } from '../actions/queries.server';
 
 interface BulkStatusModalProps {
   isOpen: boolean;
@@ -20,6 +22,8 @@ interface BulkStatusModalProps {
   selectedRows: Awaited<ReturnType<typeof getDailyReportsForCurrentMonth>>;
   onSuccess?: () => void;
 }
+
+const logger = new Logger('PartesDiarios/BulkStatusModal');
 
 export function BulkStatusModal({ isOpen, onClose, selectedRows, onSuccess }: BulkStatusModalProps) {
   const [status, setStatus] = useState<string>('');
@@ -75,7 +79,7 @@ export function BulkStatusModal({ isOpen, onClose, selectedRows, onSuccess }: Bu
 
       onClose();
     } catch (error) {
-      console.error('Error al actualizar estados:', error);
+      logger.error('Error al actualizar los estados seleccionados', { data: { error } });
       toast({
         title: 'Error',
         description: 'Ocurrió un error al actualizar los estados.',

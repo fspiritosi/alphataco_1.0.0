@@ -2,7 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { getDailyReportDeviations, type EmployeeDeviation, type EquipmentDeviation } from '../../actions/actions';
+import {
+  getDailyReportDeviations,
+  type EmployeeDeviation,
+  type EquipmentDeviation,
+} from '../../actions/validation.server';
 
 export const VALIDATION_QUERY_KEY = ['daily-report-deviations'] as const;
 

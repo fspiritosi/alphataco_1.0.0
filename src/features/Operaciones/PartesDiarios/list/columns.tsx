@@ -21,7 +21,7 @@ import { Eye, Trash2 } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { deleteDailyReport } from '../actions/actions';
+import { deleteDailyReport } from '../actions/mutations.server';
 import { DAILY_REPORTS_QUERY_KEY } from '../hooks/useDailyReports';
 import type { DailyReportListItem } from './actions.server';
 

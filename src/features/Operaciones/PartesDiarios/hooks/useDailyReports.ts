@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchDailyReportsWithFilters } from '../actions/actions';
+import { fetchDailyReportsWithFilters } from '../actions/queries.server';
 
 export const DAILY_REPORTS_QUERY_KEY = ['daily-reports'] as const;
 

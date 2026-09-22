@@ -17,12 +17,75 @@ import {
   Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DailyReportServerData = Record<string, any>;
+/** Empleado mostrado en el detalle (viene de la relación o de `employees_references`). */
+interface ServiceDetailEmployee {
+  id?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+  document_number?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  company_positions?: { name?: string | null } | null;
+}
+
+/** Equipo mostrado en el detalle: vehículo u "otro equipo" (`_source` lo distingue). */
+interface ServiceDetailEquipment {
+  id?: string | null;
+  _source?: 'other_equipment' | 'vehicle';
+  domain?: string | null;
+  intern_number?: string | null;
+  serial_number?: string | null;
+  horometer?: number | string | null;
+  year?: string | number | null;
+  type?: { name?: string | null } | null;
+  sub_type?: { name?: string | null } | null;
+  /** Fila cruda: objeto del catálogo. Fila normalizada: sólo el nombre. */
+  brand_vehicles?: { name?: string | null } | string | null;
+  model_vehicles?: { name?: string | null } | null;
+}
+
+/**
+ * Datos de la línea que muestra el modal. Casi todos los campos son opcionales porque el
+ * modal se usa desde dos tableros: uno le pasa la fila cruda (con las relaciones anidadas)
+ * y el otro la fila ya normalizada por `transformDailyReports` (con los campos planos).
+ */
+interface DailyReportServerData {
+  status?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  working_day?: string | null;
+  description?: string | null;
+  remit_number?: string | null;
+  type_service?: string | null;
+  customer?: string | null;
+  customers?: { name?: string | null } | null;
+  services?: string | null;
+  customer_services?: { service_name?: string | null } | null;
+  item?: string | null;
+  item_description?: string | null;
+  service_items?: { item_name?: string | null; item_description?: string | null } | null;
+  sector?: string | null;
+  service_sectors?: { sectors?: { name?: string | null } | null } | null;
+  area?: string | null;
+  service_areas?: { areas_cliente?: { nombre?: string | null; descripcion_corta?: string | null } | null } | null;
+  preparte?: { numero_pedido?: string | null; confirmed_by?: string | null } | null;
+  employees_references?: ServiceDetailEmployee[] | null;
+  equipment_references?: ServiceDetailEquipment[] | null;
+  dailyreportemployeerelations?: { employees?: ServiceDetailEmployee | null }[] | null;
+  dailyreportequipmentrelations?:
+    | { vehicles?: ServiceDetailEquipment | null; other_equipment?: ServiceDetailEquipment | null }[]
+    | null;
+}
 
 interface ServiceDetailModalProps {
   serviceData: DailyReportServerData;
   reportDate: string;
+}
+
+/** Nombre de la marca, venga como objeto del catálogo o como texto ya resuelto. */
+function brandName(brand: ServiceDetailEquipment['brand_vehicles']): string | null {
+  if (!brand) return null;
+  return typeof brand === 'string' ? brand : brand.name ?? null;
 }
 
 export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailModalProps) {
@@ -82,8 +145,8 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                 <span>{formatDate(reportDate)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getStatusColor(serviceData.status) + ' capitalize'}>
-                  {serviceData.status.replaceAll('_', ' ')}
+                <Badge variant="outline" className={getStatusColor(serviceData.status ?? '') + ' capitalize'}>
+                  {serviceData.status?.replaceAll('_', ' ')}
                 </Badge>
                 <Badge variant="secondary" className="capitalize">
                   {serviceData.type_service?.replaceAll('_', ' ')}
@@ -102,7 +165,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Building2 className="h-4 w-4" />
                 <span className="font-medium">
-                  {serviceData.customers?.name || (serviceData as any).customer || 'No especificado'}
+                  {serviceData.customers?.name || serviceData.customer || 'No especificado'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -128,7 +191,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => {
-                        const numeroPedido = (serviceData.preparte as any).numero_pedido || 'Sin número';
+                        const numeroPedido = serviceData.preparte?.numero_pedido || 'Sin número';
 
                         // Setear localStorage
                         const tableFilters = {
@@ -157,7 +220,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                         variant="outline"
                         className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 cursor-pointer transition-colors"
                       >
-                        {(serviceData.preparte as any).numero_pedido || 'Sin número'}
+                        {serviceData.preparte?.numero_pedido || 'Sin número'}
                         <ExternalLinkIcon className="h-3 w-3 ml-1 inline" />
                       </Badge>
                     </Link>
@@ -176,16 +239,16 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
               <User className="h-5 w-5 text-blue-600" />
               Empleados Asignados (
               {serviceData.dailyreportemployeerelations?.length ||
-                (serviceData as any).employees_references?.length ||
+                serviceData.employees_references?.length ||
                 0}
               )
             </h3>
             <div className="grid gap-4">
               {(
-                serviceData.dailyreportemployeerelations?.map((relation: any) => relation.employees) ||
-                (serviceData as any).employees_references ||
+                serviceData.dailyreportemployeerelations?.map((relation) => relation.employees) ||
+                serviceData.employees_references ||
                 []
-              ).map((employee: any) => {
+              ).map((employee) => {
                 if (!employee) return null;
                 return (
                   <div
@@ -259,13 +322,13 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
               <Wrench className="h-5 w-5 text-green-600" />
               Equipos Asignados (
               {serviceData.dailyreportequipmentrelations?.length ||
-                (serviceData as any).equipment_references?.length ||
+                serviceData.equipment_references?.length ||
                 0}
               )
             </h3>
             <div className="grid gap-4">
               {(
-                serviceData.dailyreportequipmentrelations?.map((relation: any) => {
+                serviceData.dailyreportequipmentrelations?.map((relation) => {
                   // Unificar vehículos y otros equipos en un solo objeto
                   const vehicle = relation.vehicles;
                   const otherEquip = relation.other_equipment;
@@ -273,9 +336,9 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                   if (otherEquip) return { ...otherEquip, _source: 'other_equipment' as const };
                   return null;
                 }) ||
-                (serviceData as any).equipment_references ||
+                serviceData.equipment_references ||
                 []
-              ).map((equipment: any) => {
+              ).map((equipment) => {
                 if (!equipment) return null;
                 const isOtherEquipment = equipment._source === 'other_equipment';
                 return (
@@ -340,14 +403,14 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                           </div>
                         </div>
                         <div className="space-y-2">
-                          {equipment.brand_vehicles?.name && (
+                          {brandName(equipment.brand_vehicles) && (
                             <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
                               <span className="font-medium">Marca:</span>
                               <Badge
                                 variant={'outline'}
                                 className="text-xs bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700"
                               >
-                                {equipment.brand_vehicles.name}
+                                {brandName(equipment.brand_vehicles)}
                               </Badge>
                             </div>
                           )}
@@ -381,20 +444,20 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
               <div className="bg-muted rounded-lg p-3">
                 <div className="font-medium mb-1">Servicio</div>
                 <div className="text-muted-foreground">
-                  {serviceData.customer_services?.service_name || (serviceData as any).services || 'No especificado'}
+                  {serviceData.customer_services?.service_name || serviceData.services || 'No especificado'}
                 </div>
               </div>
               <div className="bg-muted rounded-lg p-3">
                 <div className="font-medium mb-1">Item</div>
                 <div className="text-muted-foreground">
-                  {serviceData.service_items?.item_name || (serviceData as any).item || 'No especificado'}
+                  {serviceData.service_items?.item_name || serviceData.item || 'No especificado'}
                 </div>
               </div>
-              {((serviceData.service_items as any)?.item_description || (serviceData as any).item_description) && (
+              {(serviceData.service_items?.item_description || serviceData.item_description) && (
                 <div className="bg-muted rounded-lg p-3">
                   <div className="font-medium mb-1">Descripción del Item</div>
                   <div className="text-muted-foreground whitespace-pre-wrap">
-                    {(serviceData.service_items as any)?.item_description || (serviceData as any).item_description}
+                    {serviceData.service_items?.item_description || serviceData.item_description}
                   </div>
                 </div>
               )}
@@ -415,14 +478,14 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
               <div className="bg-muted rounded-lg p-3">
                 <div className="font-medium mb-1">Sector</div>
                 <div className="text-muted-foreground">
-                  {serviceData.service_sectors?.sectors?.name || (serviceData as any).sector || 'No especificado'}
+                  {serviceData.service_sectors?.sectors?.name || serviceData.sector || 'No especificado'}
                 </div>
               </div>
               <div className="bg-muted rounded-lg p-3">
                 <div className="font-medium mb-1">Área</div>
                 <div className="text-muted-foreground">
                   {serviceData.service_areas?.areas_cliente?.descripcion_corta ||
-                    (serviceData as any).area ||
+                    serviceData.area ||
                     'No especificado'}
                 </div>
               </div>

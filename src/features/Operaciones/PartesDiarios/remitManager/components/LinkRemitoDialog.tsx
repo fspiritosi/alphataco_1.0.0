@@ -103,10 +103,10 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
                 {!searchInput && (
                   <p className="text-xs text-muted-foreground mb-3 px-1">Mostrando los últimos 10 remitos creados</p>
                 )}
-                {availableRemitos.map((remito: any) => {
+                {availableRemitos.map((remito) => {
                   const customer = remito.dailyreportrows?.customers;
                   const reportDate = remito.dailyreportrows?.dailyreport?.date;
-                  const docCount = remito.remito_documents?.[0]?.count || 0;
+                  const docCount = remito._count.remito_documents;
                   const isSameCustomer = remito.isSameCustomer;
 
                   return (

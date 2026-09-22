@@ -26,7 +26,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { getDailyReportRowHistory } from '../actions/actions';
+import type { HistoryValue } from '../types/daily-report-history';
+import { getDailyReportRowHistory } from '../actions/queries.server';
 import { HistorySkeleton } from './HistorySkeleton';
 
 interface HistoryModalProps {
@@ -153,7 +154,7 @@ export default function HistoryModal({
   };
 
   // Función para formatear valores de display
-  const getValueDisplay = (value: any, field: string) => {
+  const getValueDisplay = (value: HistoryValue, field: string) => {
     if (value === null || value === undefined) {
       return 'Sin valor';
     }
@@ -164,7 +165,7 @@ export default function HistoryModal({
       case 'completed_day':
         return value === true ? 'Completado' : value === false ? 'No completado' : value;
       default:
-        return value.replaceAll('_', ' ');
+        return String(value).replaceAll('_', ' ');
     }
   };
 
@@ -330,7 +331,7 @@ export default function HistoryModal({
                                       </Badge>
                                     </div>
                                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                                      <strong>Número de pedido:</strong> {(item.preparte as any).numero_pedido}
+                                      <strong>Número de pedido:</strong> {item.preparte?.numero_pedido}
                                     </p>
                                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                       Creado por el sistema desde preparte
@@ -490,7 +491,7 @@ export default function HistoryModal({
                                     className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                                   >
                                     <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                                      {getFieldDisplayName(change.fieldName, change.field)}
+                                      {getFieldDisplayName(change.fieldName ?? '', change.field ?? '')}
                                     </h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       <div className="bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700 relative overflow-hidden">
@@ -500,7 +501,7 @@ export default function HistoryModal({
                                           Valor anterior
                                         </span>
                                         <span className="font-medium text-slate-900 dark:text-slate-200 capitalize">
-                                          {getValueDisplay(change.oldValue, change.field) || (
+                                          {getValueDisplay(change.oldValue ?? null, change.field ?? '') || (
                                             <span className="text-slate-400 dark:text-slate-500 italic">Sin valor</span>
                                           )}
                                         </span>
@@ -512,7 +513,7 @@ export default function HistoryModal({
                                           Valor nuevo
                                         </span>
                                         <span className="font-medium text-slate-900 dark:text-slate-200">
-                                          {getValueDisplay(change.newValue, change.field) || (
+                                          {getValueDisplay(change.newValue ?? null, change.field ?? '') || (
                                             <span className="text-slate-400 dark:text-slate-500 italic">Sin valor</span>
                                           )}
                                         </span>

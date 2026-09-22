@@ -3,14 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  createRemitoClient,
-  deleteRemitoClient,
-  getAvailableRemitosForLinkingClient,
-  getRemitosWithDocumentsClient,
-  linkExistingRemitoClient,
-  unlinkRemitoClient,
-  updateRemitoNumberClient,
-} from '../actions/actionsClient';
+  createRemito,
+  deleteRemito,
+  getAvailableRemitosForLinking,
+  getRemitosWithDocuments,
+  linkExistingRemito,
+  unlinkRemito,
+  updateRemitoNumber,
+} from '../actions/remitos.server';
 
 export const remitoQueryKeys = {
   all: ['remitos'] as const,
@@ -20,7 +20,7 @@ export const remitoQueryKeys = {
 export function useRemitos(dailyReportRowId: string) {
   return useQuery({
     queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
-    queryFn: () => getRemitosWithDocumentsClient(dailyReportRowId),
+    queryFn: () => getRemitosWithDocuments(dailyReportRowId),
     staleTime: 5 * 60 * 1000,
     enabled: !!dailyReportRowId,
   });
@@ -30,7 +30,7 @@ export function useCreateRemito(dailyReportRowId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (remitNumber: string) => createRemitoClient(dailyReportRowId, remitNumber),
+    mutationFn: (remitNumber: string) => createRemito(dailyReportRowId, remitNumber),
     onSuccess: (newRemito) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -48,7 +48,7 @@ export function useUpdateRemitoNumber(dailyReportRowId: string) {
 
   return useMutation({
     mutationFn: ({ remitId, newNumber }: { remitId: string; newNumber: string }) =>
-      updateRemitoNumberClient(remitId, newNumber),
+      updateRemitoNumber(remitId, newNumber),
     onSuccess: (updatedRemito) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -65,7 +65,7 @@ export function useDeleteRemito(dailyReportRowId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (remitId: string) => deleteRemitoClient(remitId),
+    mutationFn: (remitId: string) => deleteRemito(remitId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -82,7 +82,7 @@ export function useUnlinkRemito(dailyReportRowId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (remitId: string) => unlinkRemitoClient(remitId),
+    mutationFn: (remitId: string) => unlinkRemito(remitId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -109,7 +109,7 @@ export function useRemitosStats(dailyReportRowId: string) {
 export function useAvailableRemitosForLinking(currentDailyReportRowId: string, searchQuery?: string) {
   return useQuery({
     queryKey: ['available-remitos', currentDailyReportRowId, searchQuery],
-    queryFn: () => getAvailableRemitosForLinkingClient(currentDailyReportRowId, searchQuery),
+    queryFn: () => getAvailableRemitosForLinking(currentDailyReportRowId, searchQuery),
     staleTime: 5 * 60 * 1000,
     enabled: !!currentDailyReportRowId,
   });
@@ -119,7 +119,7 @@ export function useLinkExistingRemito(targetDailyReportRowId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (sourceRemitId: string) => linkExistingRemitoClient(sourceRemitId, targetDailyReportRowId),
+    mutationFn: (sourceRemitId: string) => linkExistingRemito(sourceRemitId, targetDailyReportRowId),
     onSuccess: (newRemito) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(targetDailyReportRowId),

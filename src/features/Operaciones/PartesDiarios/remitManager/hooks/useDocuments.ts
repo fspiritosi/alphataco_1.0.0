@@ -3,14 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  deleteDocumentClient,
-  downloadDocumentClient,
-  getAvailableDocumentsForLinkingClient,
-  getDocumentUrlClient,
-  linkExistingDocumentClient,
-  replaceDocumentClient,
-  uploadDocumentToRemitoClient,
-} from '../actions/actionsClient';
+  deleteRemitDocument,
+  getAvailableDocumentsForLinking,
+  getRemitDocumentDownloadUrl,
+  getRemitDocumentUrl,
+  linkExistingDocument,
+  replaceDocument,
+  uploadDocumentToRemito,
+} from '../actions/remitos.server';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '../types';
 import { remitoQueryKeys } from './useRemitos';
 
@@ -23,7 +23,7 @@ export const documentQueryKeys = {
 export function useAvailableDocuments(dailyReportRowId: string, currentRemitId?: string) {
   return useQuery({
     queryKey: documentQueryKeys.available(dailyReportRowId, currentRemitId),
-    queryFn: () => getAvailableDocumentsForLinkingClient(dailyReportRowId, currentRemitId),
+    queryFn: () => getAvailableDocumentsForLinking(dailyReportRowId, currentRemitId),
     staleTime: 2 * 60 * 1000,
     enabled: !!dailyReportRowId,
   });
@@ -32,7 +32,7 @@ export function useAvailableDocuments(dailyReportRowId: string, currentRemitId?:
 export function useDocumentUrl(documentPath: string) {
   return useQuery({
     queryKey: documentQueryKeys.url(documentPath),
-    queryFn: () => getDocumentUrlClient(documentPath),
+    queryFn: () => getRemitDocumentUrl(documentPath),
     staleTime: 10 * 60 * 1000,
     enabled: !!documentPath,
   });
@@ -42,8 +42,12 @@ export function useUploadDocument(dailyReportRowId: string, customerName?: strin
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ remitId, file }: { remitId: string; file: File }) =>
-      uploadDocumentToRemitoClient(remitId, file, customerName),
+    mutationFn: ({ remitId, file }: { remitId: string; file: File }) => {
+      // El archivo viaja en un FormData: una Server Action no recibe `File` suelto.
+      const formData = new FormData();
+      formData.append('file', file);
+      return uploadDocumentToRemito(remitId, formData, customerName);
+    },
     onSuccess: (newDocument) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -63,8 +67,11 @@ export function useReplaceDocument(dailyReportRowId: string, customerName?: stri
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ documentId, newFile }: { documentId: string; newFile: File }) =>
-      replaceDocumentClient(documentId, newFile, customerName),
+    mutationFn: ({ documentId, newFile }: { documentId: string; newFile: File }) => {
+      const formData = new FormData();
+      formData.append('file', newFile);
+      return replaceDocument(documentId, formData, customerName);
+    },
     onSuccess: (updatedDocument) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -81,7 +88,7 @@ export function useDeleteDocument(dailyReportRowId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (documentId: string) => deleteDocumentClient(documentId),
+    mutationFn: (documentId: string) => deleteRemitDocument(documentId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -109,7 +116,7 @@ export function useLinkDocument(dailyReportRowId: string) {
       remitId: string;
       documentPath: string;
       documentName: string;
-    }) => linkExistingDocumentClient(remitId, documentPath, documentName),
+    }) => linkExistingDocument(remitId, documentPath, documentName),
     onSuccess: (linkedDocument) => {
       queryClient.invalidateQueries({
         queryKey: remitoQueryKeys.byRowId(dailyReportRowId),
@@ -124,8 +131,18 @@ export function useLinkDocument(dailyReportRowId: string) {
 
 export function useDownloadDocument() {
   return useMutation({
-    mutationFn: ({ documentPath, documentName }: { documentPath: string; documentName: string }) =>
-      downloadDocumentClient(documentPath, documentName),
+    mutationFn: async ({ documentPath, documentName }: { documentPath: string; documentName: string }) => {
+      // El servidor sólo firma la URL; la descarga la dispara el navegador.
+      const url = await getRemitDocumentDownloadUrl(documentPath);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = documentName;
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      return true;
+    },
     onSuccess: () => {
       toast.success('Documento descargado');
     },
@@ -143,7 +160,7 @@ export function useFileValidation() {
       errors.push('El archivo no puede ser mayor a 10MB');
     }
 
-    if (!ALLOWED_FILE_TYPES.includes(file.type as any)) {
+    if (!(ALLOWED_FILE_TYPES as readonly string[]).includes(file.type)) {
       errors.push('Solo se permiten archivos PDF, JPG, PNG o WebP');
     }
 

@@ -65,11 +65,13 @@ export function DocumentViewer({ document, dailyReportRowId }: DocumentViewerPro
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Subido el{' '}
-              {new Date(document.created_at).toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-              })}
+              {document.created_at
+                ? new Date(document.created_at).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : '-'}
             </p>
           </div>
 

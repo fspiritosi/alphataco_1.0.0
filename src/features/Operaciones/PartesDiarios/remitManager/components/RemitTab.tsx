@@ -123,7 +123,7 @@ export function RemitTab({ remito, dailyReportRowId, customerName }: RemitTabPro
             <h3 className="text-sm font-semibold">Documentos asociados ({remito.remito_documents.length})</h3>
           </div>
           <div className="grid gap-3">
-            {remito.remito_documents.map((doc: any) => (
+            {remito.remito_documents.map((doc) => (
               <DocumentViewer
                 key={doc.id}
                 document={doc}

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { checkDailyReportExists, createDailyReport } from '../actions/actions';
+import { createDailyReport } from '../actions/mutations.server';
+import { checkDailyReportExists } from '../actions/queries.server';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
