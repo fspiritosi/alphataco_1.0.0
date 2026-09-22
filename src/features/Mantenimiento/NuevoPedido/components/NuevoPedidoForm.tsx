@@ -23,7 +23,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { checkExistingMaintenanceOrder, createMaintenanceOrderDirect } from '../actions/actionsServer';
+import { createMaintenanceOrderDirect } from '../actions/orders.server';
+import { checkExistingMaintenanceOrder } from '../actions/queries.server';
 
 const logger = new Logger('NuevoPedidoForm');
 

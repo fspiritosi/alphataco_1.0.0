@@ -12,7 +12,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getResourceLabel } from '../../shared/maintenance-resource';
-import type { MaintenanceOrderData, MaintenanceOrdersData } from '../actions/actionsServer';
+import type { MaintenanceOrderData, MaintenanceOrdersData } from '../actions/queries.server';
 import { useMaintenanceOrders } from '../hooks/useMaintenanceOrders';
 import { OrderDetailDialog } from './OrderDetailDialog';
 import { getMaintenanceOrdersColumns } from './columns';

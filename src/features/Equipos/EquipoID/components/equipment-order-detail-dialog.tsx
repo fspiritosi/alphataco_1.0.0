@@ -8,10 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import type { EquipmentMaintenanceOrder } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
-import {
-  getValidationHistory,
-  type ValidationHistoryData,
-} from '@/features/Mantenimiento/MaintenanceOrders/actions/actionsServer';
+import { getValidationHistory, type ValidationHistoryData } from '@/features/Mantenimiento/MaintenanceOrders/actions/queries.server';
 import {
   SectorTimeline,
   type SectorStatus,

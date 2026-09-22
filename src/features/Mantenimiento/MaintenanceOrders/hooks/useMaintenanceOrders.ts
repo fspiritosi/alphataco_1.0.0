@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getMaintenanceOrderDetail, getMaintenanceOrders, type MaintenanceOrdersData } from '../actions/actionsServer';
+import { getMaintenanceOrderDetail, getMaintenanceOrders, type MaintenanceOrdersData } from '../actions/queries.server';
 
 export const MAINTENANCE_ORDERS_QUERY_KEY = ['maintenance', 'ordenes-mantenimiento'] as const;
 

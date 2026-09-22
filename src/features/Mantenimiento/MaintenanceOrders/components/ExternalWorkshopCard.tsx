@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Building2, CheckCircle2, ChevronDown, Loader2, Wrench } from 'lucide-react';
 import React, { useState } from 'react';
-import type { MaintenanceOrderData } from '../actions/actionsServer';
+import type { MaintenanceOrderData } from '../actions/queries.server';
 import { getRepairDisplayName } from '../utils/repairDisplayName';
 
 type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;

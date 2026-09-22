@@ -7,7 +7,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, Settings2 } from 'lucide-react';
 import moment from 'moment';
-import type { MaintenanceOrderData } from '../actions/actionsServer';
+import type { MaintenanceOrderData } from '../actions/queries.server';
 
 interface ColumnsProps {
   onViewDetail: (order: MaintenanceOrderData) => void;

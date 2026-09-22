@@ -1,4 +1,4 @@
-import type { MaintenanceOrderData } from '../actions/actionsServer';
+import type { MaintenanceOrderData } from '../actions/queries.server';
 
 type OrderItem = MaintenanceOrderData['maintenance_order_items'][number];
 
