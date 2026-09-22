@@ -22,14 +22,14 @@ import {
   getAvailableCompatibleItems,
   updateEquipmentSubType,
   type EquipmentSubTypeListItem,
-} from '../EquipmentSubTypes/actions.server';
+} from './actions.server';
 import {
   canHaveCompatibleItems,
   formatCompatibleItemKey,
   parseCompatibleItemKeys,
   type CompatibleItem,
 } from '../lib/hitch-compatibility';
-import { useActiveChecklists } from './hooks/useActiveChecklists';
+import { useActiveChecklists } from '../hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentSubTypesForm');
 

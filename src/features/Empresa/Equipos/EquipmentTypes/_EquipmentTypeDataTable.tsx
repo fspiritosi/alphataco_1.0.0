@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, CircleOff, Truck, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import EquipmentTypesForm from '../types/equipmentTypesForm';
+import EquipmentTypesForm from './EquipmentTypeForm';
 import {
   getAllEquipmentTypesForExport,
   getChecklistIdsForType,

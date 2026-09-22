@@ -30,7 +30,7 @@ import {
   updateWorkDiagramPrisma,
   type DiagramTypeItem,
   type WorkDiagramListItem,
-} from '../WorkDiagrams/actions.server';
+} from './actions.server';
 
 const logger = new Logger('features/Empresa/RRHH');
 // Actualizar el esquema para eliminar el campo days

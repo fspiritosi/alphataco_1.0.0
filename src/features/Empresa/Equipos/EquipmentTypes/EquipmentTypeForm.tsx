@@ -14,8 +14,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { createEquipmentType, updateEquipmentType } from '../EquipmentTypes/actions.server';
-import { useActiveChecklists } from '../sub_types/hooks/useActiveChecklists';
+import { createEquipmentType, updateEquipmentType } from './actions.server';
+import { useActiveChecklists } from '../hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentTypesForm');
 

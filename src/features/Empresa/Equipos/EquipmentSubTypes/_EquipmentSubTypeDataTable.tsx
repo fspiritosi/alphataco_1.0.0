@@ -13,8 +13,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import EquipmentSubTypesForm from '../sub_types/equipmentSubTypesForm';
-import { useSubTypeChecklists } from '../sub_types/hooks/useSubTypeChecklists';
+import EquipmentSubTypesForm from './EquipmentSubTypeForm';
+import { useSubTypeChecklists } from './hooks/useSubTypeChecklists';
 import {
   getActiveEquipmentTypes,
   getAllEquipmentSubTypesForExport,

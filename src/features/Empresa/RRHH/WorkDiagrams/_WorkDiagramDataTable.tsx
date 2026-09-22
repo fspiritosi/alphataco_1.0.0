@@ -11,7 +11,7 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { Check, CircleOff, X } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import WorkDiagramForm from '../components/work-diagram-form';
+import WorkDiagramForm from './WorkDiagramForm';
 import {
   getAllWorkDiagramsForExport,
   getWorkDiagramSingleFacet,
