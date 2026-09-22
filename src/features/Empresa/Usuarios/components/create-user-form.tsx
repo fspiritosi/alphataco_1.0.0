@@ -11,7 +11,6 @@ import { Logger } from '@/lib/logger';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
-import cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -82,7 +81,6 @@ export function CreateUserForm({ onSuccess, onCancel }: CreateUserFormProps) {
   const [activeTab, setActiveTab] = useState<'createUser' | 'inviteUser'>('createUser');
 
   const router = useRouter();
-  const company = cookies.get('actualComp');
   const ownerUser = useLoggedUserStore((state) => state.profile);
   const FetchSharedUsers = useLoggedUserStore((state) => state.FetchSharedUsers);
 

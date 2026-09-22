@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams, type DataTableSearchParams } from '@/shared/components/common/DataTable';
 import { getCompanyUsersPaginated } from '../actions.server';
@@ -14,7 +14,7 @@ interface UsersTableListProps {
 
 export async function UsersTableList({ searchParams, permissionsMap }: UsersTableListProps) {
   const tableSearchParams = stripPrefixFromSearchParams(searchParams, TABLE_ID);
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   const [{ data, total }, preferences] = await Promise.all([
     getCompanyUsersPaginated(companyId, tableSearchParams),

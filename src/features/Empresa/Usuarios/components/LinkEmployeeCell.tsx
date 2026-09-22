@@ -19,7 +19,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Loader2, Search, Unlink, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { linkEmployeeToProfile, searchEmployeesForLink } from '../actions.server';
+import { searchEmployeesForLink } from '../actions.server';
+import { linkEmployeeToProfile } from '../mutations.server';
 import { COMPANY_USERS_QUERY_KEY } from '../table/UserStatusCell';
 
 const logger = new Logger('LinkEmployeeCell');

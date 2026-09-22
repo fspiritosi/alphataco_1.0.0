@@ -1,82 +1,26 @@
-import { supabaseBrowser } from '@/lib/supabase/browser';
+'use client';
+
+import { getAllRolesWithCounts, getUserRolesServer } from '@/features/Permissions/actions/roles.server';
 import { useQuery } from '@tanstack/react-query';
 
-export async function fetchUserRolesAndPermissions(userId: string) {
-  const supabase = supabaseBrowser();
-
-  const [rolesResult, permissionsResult] = await Promise.all([
-    supabase.from('user_roles').select('*, roles(id, name, color, description)').eq('user_id', userId),
-    supabase
-      .from('user_permissions')
-      .select('id, tab_id, action_id, is_granted')
-      .eq('user_id', userId)
-      .eq('is_granted', true),
-  ]);
-
-  if (rolesResult.error) {
-    throw new Error(rolesResult.error.message);
-  }
-
-  if (permissionsResult.error) {
-    throw new Error(permissionsResult.error.message);
-  }
-
-  // Obtener permisos para cada rol
-  const rolesWithPermissions = await Promise.all(
-    (rolesResult.data || []).map(async (userRole) => {
-      const roleId = userRole.role_id;
-      const rolePermissionsResult = await supabase
-        .from('role_permissions')
-        .select('id', { count: 'exact', head: true })
-        .eq('role_id', roleId);
-
-      return {
-        ...userRole,
-        permissionsCount: rolePermissionsResult.count || 0,
-      };
-    })
-  );
-
-  // Calcular total de permisos de roles (solo para compatibilidad)
-  const rolePermissionsCount = rolesWithPermissions.reduce((total, role) => total + (role.permissionsCount || 0), 0);
-
-  return {
-    roles: rolesWithPermissions,
-    customPermissions: permissionsResult.data || [],
-    customPermissionsCount: permissionsResult.data?.length || 0,
-    rolePermissionsCount,
-  };
-}
-
+/**
+ * Roles de un usuario (`user_roles` con su `roles`). Server action con perímetro de Task 1:
+ * el propio usuario o quien tenga `empresa.detalle-usuario.view`.
+ */
 export const useUserRoles = (userId: string) => {
   return useQuery({
-    queryKey: ['user-roles-permissions', userId],
-    queryFn: () => fetchUserRolesAndPermissions(userId),
+    queryKey: ['user-roles', userId],
+    queryFn: () => getUserRolesServer(userId),
     enabled: !!userId,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 };
 
-export async function fetchAllRoles() {
-  const supabase = supabaseBrowser();
-
-  const { data, error } = await supabase
-    .from('roles')
-    .select('id, name, slug, description, color, is_system')
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data || [];
-}
-
+/** Catálogo de roles activos (selector del alta de usuario). */
 export const useAllRoles = () => {
   return useQuery({
     queryKey: ['all-roles'],
-    queryFn: fetchAllRoles,
+    queryFn: getAllRolesWithCounts,
     staleTime: 5 * 60 * 1000,
   });
 };

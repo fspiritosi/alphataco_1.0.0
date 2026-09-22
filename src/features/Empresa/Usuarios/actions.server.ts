@@ -1,7 +1,6 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
   buildDateRangeFiltersWhere,
   parseSearchParams,
@@ -10,11 +9,17 @@ import {
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
-import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
-import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { assertCompanyAccess, getActiveCompanyId } from '@/shared/lib/tenant';
 import { cacheLife, cacheTag } from 'next/cache';
 
+/**
+ * Lecturas de la tab Usuarios (`share_company_users` + owner de la empresa).
+ * Las mutaciones (ban/unban, vincular legajo, nombre) viven en `mutations.server.ts`.
+ *
+ * Perímetro sin RLS: las funciones `'use cache'` no pueden leer la sesión, así que reciben
+ * `companyId` ya validado; el export público llama `assertCompanyAccess(companyId)` antes.
+ */
 const logger = new Logger('Empresa/Usuarios');
 
 // ── Campos válidos para ordenamiento ──────────────────────────────────────────
@@ -354,7 +359,7 @@ async function normalizeRows(
 }
 
 // ── Query paginada ────────────────────────────────────────────────────────────
-export async function getCompanyUsersPaginated(companyId: string, searchParams: DataTableSearchParams) {
+async function getCompanyUsersPaginatedCached(companyId: string, searchParams: DataTableSearchParams) {
   'use cache';
   cacheTag(CACHE_TAGS.COMPANY_USERS);
   cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
@@ -423,8 +428,13 @@ export async function getCompanyUsersPaginated(companyId: string, searchParams: 
   }
 }
 
+export async function getCompanyUsersPaginated(companyId: string, searchParams: DataTableSearchParams) {
+  await assertCompanyAccess(companyId);
+  return getCompanyUsersPaginatedCached(companyId, searchParams);
+}
+
 // ── Export (sin paginación) ───────────────────────────────────────────────────
-export async function getAllCompanyUsersForExport(companyId: string, searchParams: DataTableSearchParams) {
+async function getAllCompanyUsersForExportCached(companyId: string, searchParams: DataTableSearchParams) {
   'use cache';
   cacheTag(CACHE_TAGS.COMPANY_USERS);
   cacheLife({ expire: CACHE_TTL.EXPORT, revalidate: CACHE_TTL.EXPORT, stale: 30 });
@@ -465,6 +475,11 @@ export async function getAllCompanyUsersForExport(companyId: string, searchParam
   }
 }
 
+export async function getAllCompanyUsersForExport(companyId: string, searchParams: DataTableSearchParams) {
+  await assertCompanyAccess(companyId);
+  return getAllCompanyUsersForExportCached(companyId, searchParams);
+}
+
 // ── Obtener roles disponibles ─────────────────────────────────────────────────
 export async function getAvailableRoles() {
   logger.debug('Obteniendo roles disponibles');
@@ -490,193 +505,10 @@ export async function getAvailableRoles() {
   }
 }
 
-// ── Accion: ban de usuario de empresa (soft delete) ──────────────────────────
-export async function banCompanyUser(shareCompanyUserId: string, employeeTermination?: { reason: string; date: Date }) {
-  logger.debug('Baneando usuario de empresa', { data: { shareCompanyUserId } });
-
-  try {
-    // 1. Buscar usuario con profile (credential_id) y empleado vinculado
-    const shareUser = await prisma.share_company_users.findUnique({
-      where: { id: shareCompanyUserId },
-      select: {
-        ...SHARE_USER_SELECT,
-        company_id: true,
-      },
-    });
-
-    if (!shareUser) throw new Error('Usuario no encontrado');
-    if (!shareUser.profile?.credential_id) {
-      throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
-    }
-
-    const credentialId = shareUser.profile.credential_id;
-
-    // 2. Banear en Supabase Auth PRIMERO
-    const { adminSupabaseServer } = await import('@/lib/supabase/server');
-    const adminSupabase = await adminSupabaseServer();
-    const { error: banError } = await adminSupabase.auth.admin.updateUserById(credentialId, {
-      ban_duration: '876600h',
-    });
-
-    if (banError) {
-      logger.error('Error baneando usuario en Auth', { data: { banError, credentialId } });
-      throw new Error(`Error al banear usuario: ${banError.message}`);
-    }
-
-    // 3. Actualizar is_active en Prisma
-    try {
-      await prisma.share_company_users.update({
-        where: { id: shareCompanyUserId },
-        data: { is_active: false },
-      });
-    } catch (prismaError) {
-      // Rollback: desbanear en Auth si Prisma falla
-      logger.error('Error actualizando Prisma, rollback de ban en Auth', { data: { prismaError } });
-      try {
-        await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: 'none' });
-      } catch (rollbackError) {
-        logger.error('CRITICO: Rollback de ban fallo', {
-          data: { rollbackError, credentialId, shareCompanyUserId },
-        });
-      }
-      throw prismaError;
-    }
-
-    // 4. Si hay terminacion de empleado vinculado
-    if (employeeTermination && shareUser.profile.employees?.is_active) {
-      const employeeId = shareUser.profile.employees.id;
-      const { supabaseServer } = await import('@/lib/supabase/server');
-      const supabaseClient = await supabaseServer();
-
-      await prisma.employees.update({
-        where: { id: employeeId },
-        data: {
-          is_active: false,
-          reason_for_termination: employeeTermination.reason as never,
-          termination_date: employeeTermination.date,
-        },
-      });
-
-      await supabaseClient.rpc('update_employee_diagram_status', {
-        p_employee_id: employeeId,
-        p_is_active: false,
-      });
-
-      logger.info('Empleado vinculado dado de baja', { data: { employeeId } });
-    }
-
-    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-    logger.info('Usuario baneado exitosamente', { data: { shareCompanyUserId, credentialId } });
-  } catch (error) {
-    logger.error('Error baneando usuario de empresa', { data: { error, shareCompanyUserId } });
-    throw error;
-  }
-}
-
-// ── Accion: unban de usuario de empresa (reactivar) ─────────────────────────
-export async function unbanCompanyUser(shareCompanyUserId: string, reactivateEmployee?: boolean) {
-  logger.debug('Desbaneando usuario de empresa', { data: { shareCompanyUserId } });
-
-  try {
-    const shareUser = await prisma.share_company_users.findUnique({
-      where: { id: shareCompanyUserId },
-      select: {
-        ...SHARE_USER_SELECT,
-        company_id: true,
-      },
-    });
-
-    if (!shareUser) throw new Error('Usuario no encontrado');
-    if (!shareUser.profile?.credential_id) {
-      throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
-    }
-
-    const credentialId = shareUser.profile.credential_id;
-
-    // 1. Desbanear en Auth PRIMERO
-    const { adminSupabaseServer } = await import('@/lib/supabase/server');
-    const adminSupabase = await adminSupabaseServer();
-    const { error: unbanError } = await adminSupabase.auth.admin.updateUserById(credentialId, {
-      ban_duration: 'none',
-    });
-
-    if (unbanError) {
-      logger.error('Error desbaneando usuario en Auth', { data: { unbanError, credentialId } });
-      throw new Error(`Error al reactivar usuario: ${unbanError.message}`);
-    }
-
-    // 2. Actualizar is_active en Prisma
-    try {
-      await prisma.share_company_users.update({
-        where: { id: shareCompanyUserId },
-        data: { is_active: true },
-      });
-    } catch (prismaError) {
-      // Rollback: re-banear en Auth si Prisma falla
-      logger.error('Error actualizando Prisma, rollback de unban en Auth', { data: { prismaError } });
-      try {
-        await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: '876600h' });
-      } catch (rollbackError) {
-        logger.error('CRITICO: Rollback de unban fallo', {
-          data: { rollbackError, credentialId, shareCompanyUserId },
-        });
-      }
-      throw prismaError;
-    }
-
-    // 3. Reactivar empleado vinculado si se pidio
-    if (reactivateEmployee && shareUser.profile.employees && !shareUser.profile.employees.is_active) {
-      const employeeId = shareUser.profile.employees.id;
-      const { supabaseServer } = await import('@/lib/supabase/server');
-      const supabaseClient = await supabaseServer();
-
-      await prisma.employees.update({
-        where: { id: employeeId },
-        data: {
-          is_active: true,
-          reason_for_termination: null,
-          termination_date: null,
-        },
-      });
-
-      await supabaseClient.rpc('update_employee_diagram_status', {
-        p_employee_id: employeeId,
-        p_is_active: true,
-      });
-
-      logger.info('Empleado vinculado reactivado', { data: { employeeId } });
-    }
-
-    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-    logger.info('Usuario desbaneado exitosamente', { data: { shareCompanyUserId, credentialId } });
-  } catch (error) {
-    logger.error('Error desbaneando usuario de empresa', { data: { error, shareCompanyUserId } });
-    throw error;
-  }
-}
-
-// ── Accion: eliminar usuario de empresa (legacy) ────────────────────────────
-export async function deleteCompanyUser(shareCompanyUserId: string) {
-  logger.debug('Eliminando usuario de empresa', { data: { shareCompanyUserId } });
-
-  try {
-    await prisma.share_company_users.delete({
-      where: { id: shareCompanyUserId },
-    });
-
-    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-    logger.info('Usuario eliminado exitosamente', { data: { shareCompanyUserId } });
-  } catch (error) {
-    logger.error('Error eliminando usuario de empresa', { data: { error, shareCompanyUserId } });
-    throw error;
-  }
-}
-
 // ── Buscar empleados para vincular ────────────────────────────────────────────
 export async function searchEmployeesForLink(query: string) {
-  const companyId = await getServerCompanyId();
-
-  if (!companyId || !query || query.length < 2) return [];
+  if (!query || query.length < 2) return [];
+  const companyId = await getActiveCompanyId();
 
   try {
     // Obtener employee_ids ya vinculados a algún profile
@@ -717,57 +549,13 @@ export async function searchEmployeesForLink(query: string) {
   }
 }
 
-// ── Vincular/desvincular empleado a perfil ────────────────────────────────────
-export async function linkEmployeeToProfile(profileId: string, employeeId: string | null) {
-  logger.debug('Vinculando empleado a perfil', { data: { profileId, employeeId } });
-
-  try {
-    await prisma.profile.update({
-      where: { id: profileId },
-      data: { employee_id: employeeId },
-    });
-
-    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-    logger.info('Empleado vinculado exitosamente', { data: { profileId, employeeId } });
-  } catch (error) {
-    logger.error('Error vinculando empleado a perfil', { data: { error, profileId } });
-    throw error;
-  }
-}
-
-// ── Actualizar fullname del perfil ────────────────────────────────────────────
-export async function updateProfileFullname(profileId: string, fullname: string) {
-  logger.debug('Actualizando fullname del perfil', { data: { profileId } });
-
-  const trimmed = fullname.trim();
-  if (!trimmed) {
-    throw new Error('El nombre no puede estar vacío.');
-  }
-  if (trimmed.length > 150) {
-    throw new Error('El nombre no puede superar los 150 caracteres.');
-  }
-
-  try {
-    await prisma.profile.update({
-      where: { id: profileId },
-      data: { fullname: trimmed },
-    });
-
-    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-    logger.info('Fullname actualizado exitosamente', { data: { profileId } });
-  } catch (error) {
-    logger.error('Error actualizando fullname del perfil', { data: { error, profileId } });
-    throw error;
-  }
-}
-
 // ── Facet individual (lazy-load) ─────────────────────────────────────────────
 export type CompanyUserFacetResult = {
   counts: Map<string, number>;
   resolvedOptions?: Array<{ value: string; label: string }>;
 };
 
-export async function getCompanyUserSingleFacet(
+async function getCompanyUserSingleFacetCached(
   columnId: string,
   companyId: string,
   searchParams: DataTableSearchParams
@@ -910,4 +698,13 @@ export async function getCompanyUserSingleFacet(
     logger.error('Error obteniendo faceta individual', { data: { error, columnId } });
     return null;
   }
+}
+
+export async function getCompanyUserSingleFacet(
+  columnId: string,
+  companyId: string,
+  searchParams: DataTableSearchParams
+): Promise<CompanyUserFacetResult | null> {
+  await assertCompanyAccess(companyId);
+  return getCompanyUserSingleFacetCached(columnId, companyId, searchParams);
 }

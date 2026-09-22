@@ -25,7 +25,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { CompanyUserListItem } from '../actions.server';
-import { banCompanyUser, unbanCompanyUser } from '../actions.server';
+import { banCompanyUser, unbanCompanyUser } from '../mutations.server';
 
 const logger = new Logger('UserStatusCell');
 
