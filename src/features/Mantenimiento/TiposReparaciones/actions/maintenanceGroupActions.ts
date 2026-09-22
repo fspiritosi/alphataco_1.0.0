@@ -35,6 +35,39 @@ async function assertRepairTypesInActiveCompany(typeIds: string[], companyId: st
   return types.map((type) => type.id);
 }
 
+/**
+ * Perímetro del grupo: como la tabla no tiene `company_id`, la pertenencia se deduce de sus
+ * relaciones — el grupo es "de la empresa activa" si tiene al menos un tipo suyo, o si
+ * todavía no tiene ninguno (recién creado). Es el mismo criterio con el que se lista.
+ *
+ * Sin esta guarda, cualquier `groupId` entraba al `update`/`delete` y el `deleteMany` por
+ * `group_id` se llevaba puestas las asociaciones de las demás empresas.
+ */
+async function assertGroupInActiveCompany(groupId: string, companyId: string): Promise<void> {
+  const group = await prisma.maintenance_request_groups.findFirst({
+    where: {
+      id: groupId,
+      OR: [
+        { maintenance_group_type_of_repairs: { some: { types_of_repairs: { company_id: companyId } } } },
+        { maintenance_group_type_of_repairs: { none: {} } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (!group) throw new Error('El grupo de reparaciones no pertenece a la empresa activa');
+}
+
+/** Ids de los tipos del grupo que son de la empresa activa (los ajenos no se tocan). */
+async function getGroupTypeIdsForCompany(groupId: string, companyId: string): Promise<string[]> {
+  const relations = await prisma.maintenance_group_type_of_repairs.findMany({
+    where: { group_id: groupId, types_of_repairs: { company_id: companyId } },
+    select: { type_id: true },
+  });
+
+  return relations.map((relation) => relation.type_id);
+}
+
 /** Crea un grupo de reparaciones y sus relaciones con los tipos elegidos. */
 export const createMaintenanceGroupAction = async (groupData: MaintenanceGroupInput, typeIds: string[]) => {
   try {
@@ -82,7 +115,11 @@ export const updateMaintenanceGroupAction = async (
 ) => {
   try {
     const companyId = await getActiveCompanyId();
+    await assertGroupInActiveCompany(groupId, companyId);
     const validTypeIds = await assertRepairTypesInActiveCompany(newTypeIds, companyId);
+    // Sólo los tipos de ESTA empresa entran en el cálculo de bajas: los de otras empresas
+    // no aparecen en el formulario y su ausencia no puede significar "borrar".
+    const currentTypeIds = await getGroupTypeIdsForCompany(groupId, companyId);
 
     const updatedGroup = await prisma.$transaction(async (tx) => {
       const updated = await tx.maintenance_request_groups.update({
@@ -93,12 +130,6 @@ export const updateMaintenanceGroupAction = async (
           is_active: groupData.is_active ?? true,
         },
       });
-
-      const currentRelations = await tx.maintenance_group_type_of_repairs.findMany({
-        where: { group_id: groupId },
-        select: { type_id: true },
-      });
-      const currentTypeIds = currentRelations.map((relation) => relation.type_id);
 
       const toAdd = validTypeIds.filter((id) => !currentTypeIds.includes(id));
       const toRemove = currentTypeIds.filter((id) => !validTypeIds.includes(id));
@@ -130,15 +161,30 @@ export type updateMaintenanceGroupActionType = Awaited<ReturnType<typeof updateM
 /** Baja lógica del grupo (queda inactivo) y limpieza de sus relaciones. */
 export const deleteMaintenanceGroupAction = async (groupId: string) => {
   try {
+    const companyId = await getActiveCompanyId();
+    await assertGroupInActiveCompany(groupId, companyId);
+    const ownTypeIds = await getGroupTypeIdsForCompany(groupId, companyId);
+
     const deletedGroup = await prisma.$transaction(async (tx) => {
-      const updated = await tx.maintenance_request_groups.update({
+      // Sólo se borran las asociaciones de ESTA empresa.
+      await tx.maintenance_group_type_of_repairs.deleteMany({
+        where: { group_id: groupId, type_id: { in: ownTypeIds } },
+      });
+
+      // El catálogo de grupos es global (la tabla no tiene `company_id`): si al grupo le
+      // quedan tipos de OTRAS empresas, darlo de baja se lo escondería también a ellas, así
+      // que sólo se desactiva cuando queda vacío. (El `company_id` propio del grupo es
+      // deuda de modelo, anotada para la Task 13.)
+      const remaining = await tx.maintenance_group_type_of_repairs.count({ where: { group_id: groupId } });
+
+      if (remaining > 0) {
+        return await tx.maintenance_request_groups.findUniqueOrThrow({ where: { id: groupId } });
+      }
+
+      return await tx.maintenance_request_groups.update({
         where: { id: groupId },
         data: { is_active: false },
       });
-
-      await tx.maintenance_group_type_of_repairs.deleteMany({ where: { group_id: groupId } });
-
-      return updated;
     });
 
     return { deletedGroup, error: null };
@@ -213,6 +259,7 @@ export type fetchTypesOfRepairActionType = Awaited<ReturnType<typeof fetchTypesO
 export const fetchMaintenanceGroupByIdAction = async (groupId: string) => {
   try {
     const companyId = await getActiveCompanyId();
+    await assertGroupInActiveCompany(groupId, companyId);
 
     const group = await prisma.maintenance_request_groups.findUnique({
       where: { id: groupId },
