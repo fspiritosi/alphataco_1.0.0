@@ -10,8 +10,13 @@ import type {
 } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
-import { getCachedSession } from '@/shared/lib/session';
+import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { callScalar } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { assertTransition, type PreEmployeeStatus, type PreEmployeeTransitionAction } from '../lib/state-machine';
@@ -21,16 +26,6 @@ const logger = new Logger('features/PreLegajos');
 
 const PRE_LEGAJOS_ROUTE = '/dashboard/employee';
 const PRE_LEGAJO_DETAIL_ROUTE = '/dashboard/employee/pre-legajo';
-
-/** Devuelve la empresa activa del usuario. Nunca se toma del formulario. */
-async function getActiveCompanyId(): Promise<string> {
-  const session = await getCachedSession();
-  const companyId = session?.user?.app_metadata?.company;
-
-  if (!companyId) throw new Error('No se encontró la empresa activa del usuario');
-
-  return companyId as string;
-}
 
 /** Convierte el payload del formulario al shape que espera Prisma. */
 function toPrismaData(data: PreEmployeeFormData) {
@@ -61,9 +56,12 @@ function toPrismaData(data: PreEmployeeFormData) {
 export const getPreEmployeeByIdCached = cache(async (preEmployeeId: string) => {
   logger.debug('Obteniendo pre legajo por ID', { data: { preEmployeeId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
-    return await prisma.pre_employees.findUnique({
-      where: { id: preEmployeeId },
+    // Perímetro sin RLS: sólo pre legajos de la empresa activa
+    return await prisma.pre_employees.findFirst({
+      where: withCompany({ id: preEmployeeId }, companyId),
       select: {
         id: true,
         pre_file_number: true,
@@ -162,10 +160,10 @@ export async function createPreEmployee(data: PreEmployeeFormData) {
   try {
     // El numero se toma y se usa dentro de la misma transaccion: el advisory lock de
     // next_pre_file_number solo cubre a los concurrentes mientras esta abierta.
-    const created = await prisma.$transaction(async (tx) => {
-      const [{ next_pre_file_number: preFileNumber }] = await tx.$queryRaw<{ next_pre_file_number: string }[]>`
-        SELECT next_pre_file_number(${companyId}::uuid)
-      `;
+    const actor = await getSessionUserId();
+    if (!actor) throw new Error('Sesión requerida');
+    const created = await withActor(actor, async (tx) => {
+      const preFileNumber = await callScalar('next_pre_file_number', [{ uuid: companyId }], z.string(), tx);
 
       return tx.pre_employees.create({
         data: {
@@ -192,9 +190,10 @@ export async function createPreEmployee(data: PreEmployeeFormData) {
 /** Actualiza los datos de un pre legajo. Solo mientras es editable (en proceso / pre ingreso). */
 export async function updatePreEmployee(preEmployeeId: string, data: PreEmployeeFormData) {
   logger.debug('Actualizando pre legajo', { data: { preEmployeeId } });
+  const companyId = await getActiveCompanyId();
 
-  const current = await prisma.pre_employees.findUniqueOrThrow({
-    where: { id: preEmployeeId },
+  const current = await prisma.pre_employees.findFirstOrThrow({
+    where: withCompany({ id: preEmployeeId }, companyId),
     select: { status: true },
   });
 
@@ -215,7 +214,7 @@ export async function updatePreEmployee(preEmployeeId: string, data: PreEmployee
 
   try {
     const updated = await prisma.pre_employees.update({
-      where: { id: preEmployeeId },
+      where: { id: preEmployeeId, company_id: companyId },
       data: toPrismaData(data),
       select: { id: true },
     });
@@ -240,8 +239,9 @@ async function applyTransition(
   action: Exclude<PreEmployeeTransitionAction, 'approve'>,
   reason?: string
 ) {
-  const current = await prisma.pre_employees.findUniqueOrThrow({
-    where: { id: preEmployeeId },
+  const companyId = await getActiveCompanyId();
+  const current = await prisma.pre_employees.findFirstOrThrow({
+    where: withCompany({ id: preEmployeeId }, companyId),
     select: { status: true },
   });
 
@@ -260,7 +260,7 @@ async function applyTransition(
   }
 
   const updated = await prisma.pre_employees.update({
-    where: { id: preEmployeeId },
+    where: { id: preEmployeeId, company_id: companyId },
     data: {
       status: transition.to,
       // El motivo se limpia al reabrir: solo se conserva el del rechazo vigente

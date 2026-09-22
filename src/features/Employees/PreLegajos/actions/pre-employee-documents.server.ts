@@ -2,16 +2,14 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
+import { DOCUMENT_FILES_BUCKET, storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
 const logger = new Logger('features/PreLegajos/documents');
-
-const STORAGE_BUCKET = 'document-files';
 
 type UploadResult = { ok: true; documentPath: string } | { ok: false; error: string };
 
@@ -24,16 +22,23 @@ type UploadResult = { ok: true; documentPath: string } | { ok: false; error: str
  */
 export async function getPreEmployeeDocumentChecklist(preEmployeeId: string) {
   logger.debug('Obteniendo checklist de documentos', { data: { preEmployeeId } });
+  const companyId = await getActiveCompanyId();
 
   try {
     const [documentTypes, uploaded] = await Promise.all([
       prisma.document_types.findMany({
-        where: { available_for_pre_file: true, is_active: true, applies: 'Persona' },
+        // Tipos globales (company_id NULL) o de la empresa activa
+        where: {
+          available_for_pre_file: true,
+          is_active: true,
+          applies: 'Persona',
+          OR: [{ company_id: null }, { company_id: companyId }],
+        },
         select: { id: true, name: true, mandatory: true, explired: true, description: true },
         orderBy: [{ mandatory: 'desc' }, { name: 'asc' }],
       }),
       prisma.documents_pre_employees.findMany({
-        where: { pre_employee_id: preEmployeeId },
+        where: withCompany({ pre_employee_id: preEmployeeId }, companyId),
         select: { id: true, document_type_id: true, document_path: true, validity: true, uploaded_at: true },
       }),
     ]);
@@ -99,8 +104,8 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
         company: { select: { company_name: true, company_cuit: true } },
       },
     }),
-    prisma.document_types.findUnique({
-      where: { id: documentTypeId },
+    prisma.document_types.findFirst({
+      where: { id: documentTypeId, OR: [{ company_id: null }, { company_id: companyId }] },
       select: { id: true, name: true, available_for_pre_file: true },
     }),
   ]);
@@ -126,14 +131,10 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
     fileExtension,
   });
 
-  const supabase = await supabaseServer();
-
-  const { error: uploadError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(documentPath, file, { cacheControl: '0', upsert: true });
-
-  if (uploadError) {
-    logger.error('Error al subir el documento del pre legajo al storage', { data: { uploadError, documentPath } });
+  // P3: storage
+  const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, documentPath, file, { cacheControl: '0', upsert: true });
+  if (!uploaded.ok) {
+    logger.error('Error al subir el documento del pre legajo al storage', { data: { error: uploaded.error, documentPath } });
     return { ok: false, error: 'No se pudo subir el archivo' };
   }
 
@@ -164,7 +165,7 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
   } catch (error) {
     // Compensacion: la BD fallo, no dejamos el archivo huerfano
     logger.error('Error al persistir el documento; revirtiendo storage', { data: { error, documentPath } });
-    await supabase.storage.from(STORAGE_BUCKET).remove([documentPath]);
+    await storageRemove(DOCUMENT_FILES_BUCKET, [documentPath]);
     return { ok: false, error: 'No se pudo guardar el documento. Se revirtió la subida.' };
   }
 }
@@ -176,8 +177,9 @@ export async function deletePreEmployeeDocument(documentId: string) {
   const hasPermission = await checkPermissionServer('empleados', 'pre-legajos', 'update');
   if (!hasPermission) throw new Error('No tenés permiso para eliminar documentos del pre legajo');
 
-  const document = await prisma.documents_pre_employees.findUniqueOrThrow({
-    where: { id: documentId },
+  const companyId = await getActiveCompanyId();
+  const document = await prisma.documents_pre_employees.findFirstOrThrow({
+    where: withCompany({ id: documentId }, companyId),
     select: { id: true, document_path: true, pre_employees: { select: { status: true } } },
   });
 
@@ -186,10 +188,9 @@ export async function deletePreEmployeeDocument(documentId: string) {
   }
 
   try {
-    await prisma.documents_pre_employees.delete({ where: { id: documentId } });
+    await prisma.documents_pre_employees.delete({ where: { id: documentId, company_id: companyId } });
 
-    const supabase = await supabaseServer();
-    await supabase.storage.from(STORAGE_BUCKET).remove([document.document_path]);
+    await storageRemove(DOCUMENT_FILES_BUCKET, [document.document_path]); // P3: storage
 
     revalidatePath('/dashboard/employee/pre-legajo');
   } catch (error) {
@@ -198,15 +199,26 @@ export async function deletePreEmployeeDocument(documentId: string) {
   }
 }
 
-/** URL firmada para ver o descargar un documento del pre legajo. */
+/**
+ * URL firmada (5 minutos) para ver o descargar un documento del pre legajo.
+ * Sólo se firman paths de documentos de pre legajos de la empresa activa.
+ */
 export async function getPreEmployeeDocumentUrl(documentPath: string) {
-  const supabase = await supabaseServer();
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(documentPath, 60 * 5);
+  const companyId = await getActiveCompanyId();
+  const owned = await prisma.documents_pre_employees.findFirst({
+    where: withCompany({ document_path: documentPath }, companyId),
+    select: { id: true },
+  });
+  if (!owned) {
+    logger.warn('Se pidió la URL de un documento ajeno a la empresa activa', { data: { documentPath } });
+    throw new Error('Documento no encontrado');
+  }
 
-  if (error) {
-    logger.error('Error al generar la URL del documento', { data: { error, documentPath } });
+  const signed = await storageSignedUrls(DOCUMENT_FILES_BUCKET, [documentPath]); // P3: storage
+  if (!signed.ok || !signed.data[0]) {
+    logger.error('Error al generar la URL del documento', { data: { documentPath } });
     throw new Error('No se pudo generar el enlace del documento');
   }
 
-  return data.signedUrl;
+  return signed.data[0].url;
 }

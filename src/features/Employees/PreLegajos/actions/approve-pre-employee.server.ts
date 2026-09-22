@@ -3,7 +3,10 @@
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
-import { getCachedSession } from '@/shared/lib/session';
+import { withActor } from '@/shared/lib/actor';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { prisma } from '@/shared/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { createEmployeeCore } from '../../EmpleadoID/lib/create-employee-core';
@@ -41,12 +44,16 @@ export async function approvePreEmployee(
   const hasPermission = await checkPermissionServer('empleados', 'pre-legajos', 'approve');
   if (!hasPermission) throw new Error('No tenés permiso para aprobar pre legajos');
 
-  const [profile, session] = await Promise.all([requireServerAuthProfile(), getCachedSession()]);
-  const companyId = session?.user?.app_metadata?.company as string | undefined;
-  if (!companyId) throw new Error('No se encontró la empresa activa del usuario');
+  const [profile, companyId, actor] = await Promise.all([
+    requireServerAuthProfile(),
+    getActiveCompanyId(),
+    getSessionUserId(),
+  ]);
+  if (!actor) throw new Error('Sesión requerida');
 
-  const preEmployee = await prisma.pre_employees.findUniqueOrThrow({
-    where: { id: preEmployeeId },
+  // Perímetro sin RLS: sólo se aprueban pre legajos de la empresa activa
+  const preEmployee = await prisma.pre_employees.findFirstOrThrow({
+    where: withCompany({ id: preEmployeeId }, companyId),
     include: {
       documents_pre_employees: {
         select: { id: true, document_type_id: true, document_path: true, validity: true, user_id: true },
@@ -96,10 +103,11 @@ export async function approvePreEmployee(
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    // withActor: createEmployeeCore dispara controlar_alertas_* (lee app.user_id)
+    const result = await withActor(actor, async (tx) => {
       // Lock optimista: si otro usuario lo aprobo o lo rechazo mientras tanto, no afecta filas
       const claimed = await tx.pre_employees.updateMany({
-        where: { id: preEmployeeId, status: 'pre_ingreso', employee_id: null },
+        where: { id: preEmployeeId, company_id: companyId, status: 'pre_ingreso', employee_id: null },
         data: { status: 'legajo' },
       });
 
@@ -137,7 +145,7 @@ export async function approvePreEmployee(
       }
 
       await tx.pre_employees.update({
-        where: { id: preEmployeeId },
+        where: { id: preEmployeeId, company_id: companyId },
         data: {
           employee_id: employee.id,
           reviewed_by: profile.id,

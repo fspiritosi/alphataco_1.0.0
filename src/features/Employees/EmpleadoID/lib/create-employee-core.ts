@@ -7,6 +7,7 @@ import type {
   nationality_enum,
   Prisma,
 } from '@/generated/prisma/client';
+import { callVoid } from '@/shared/lib/sql';
 import type { EmployeeFormData } from '../schemas/employee-schema';
 
 /**
@@ -86,9 +87,8 @@ export async function createEmployeeCore(
 
   // 358 / M:M: generar los documentos requeridos con el estado FINAL. Los contratistas/aptitudes
   // se insertan DESPUES del INSERT escalar, por lo que el trigger AFTER INSERT los ve vacios.
-  // Este recalculo explicito usa el estado ya completo.
-  // $executeRaw (no $queryRaw): la función retorna void y Prisma no puede deserializarlo.
-  await tx.$executeRaw`SELECT controlar_alertas_documentos_single_employee(${created.id}::uuid, ${companyId}::uuid)`;
+  // Este recalculo explicito usa el estado ya completo (función void → callVoid / $executeRaw).
+  await callVoid('controlar_alertas_documentos_single_employee', [{ uuid: created.id }, { uuid: companyId }], tx);
 
   return created;
 }

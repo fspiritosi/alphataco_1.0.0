@@ -1,76 +1,70 @@
 'use server';
 
-import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { adminSupabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
+import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
+import { callScalar } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
 import { revalidatePath } from 'next/cache';
-import type { Database } from '../../../../../../database.types';
+import { z } from 'zod';
+import { toTerminationReason } from '../termination-reason';
 
-const logger = new Logger('document-actions');
+const logger = new Logger('features/Employees/EmpleadoID/document-actions');
 
-type ReasonForTermination = Database['public']['Enums']['reason_for_termination_enum'];
-type DocumentState = Database['public']['Enums']['state'];
+const diagramStatusResultSchema = z.object({ success: z.boolean(), affected_rows: z.coerce.number().optional() });
 
-export async function fetchDocumentTypes() {
-  const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-empleados', 'view_private');
-  const supabase = await supabaseServer();
-
-  let query = supabase.from('document_types').select('*').order('name', { ascending: true });
-
-  if (!canViewPrivate) {
-    query = query.eq('private', false);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    logger.error('Error fetching document types', { data: { error } });
-    return [];
-  }
-
-  return data;
-}
+/**
+ * Da de baja o reactiva a un empleado de la empresa activa: actualiza el legajo, replica el
+ * estado a sus diagramas (`update_employee_diagram_status`) y banea/desbanea al usuario vinculado.
+ * `reasonForTermination` llega como etiqueta de la UI ("Despido sin causa").
+ */
 export async function toggleEmployeeStatus(
   employeeId: string,
   activate: boolean,
-  reason_for_termination?: ReasonForTermination,
-  termination_date?: Date
+  reasonForTermination?: string,
+  terminationDate?: Date
 ) {
-  const supabase = await supabaseServer();
+  const [companyId, actor] = await Promise.all([getActiveCompanyId(), getSessionUserId()]);
+  if (!actor) throw new Error('Sesión requerida');
 
-  const { error } = await supabase
-    .from('employees')
-    .update({
-      is_active: activate,
-      reason_for_termination: reason_for_termination || null,
-      termination_date: termination_date ? moment(termination_date).format('YYYY-MM-DD') : null,
-    })
-    .eq('id', employeeId);
+  await withActor(actor, async (tx) => {
+    const updated = await tx.employees.updateMany({
+      where: { id: employeeId, company_id: companyId },
+      data: {
+        is_active: activate,
+        reason_for_termination: activate ? null : toTerminationReason(reasonForTermination),
+        termination_date: terminationDate ? new Date(moment(terminationDate).format('YYYY-MM-DD')) : null,
+      },
+    });
+    if (updated.count === 0) throw new Error('Empleado no encontrado en la empresa activa');
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Actualizar diagrama del empleado
-  await supabase.rpc('update_employee_diagram_status', {
-    p_employee_id: employeeId,
-    p_is_active: activate,
+    const diagramResult = await callScalar(
+      'update_employee_diagram_status',
+      [{ uuid: employeeId }, activate],
+      diagramStatusResultSchema,
+      tx
+    );
+    if (!diagramResult.success) {
+      logger.warn('No se pudo actualizar el estado de los diagramas del empleado', {
+        data: { employeeId, activate, diagramResult },
+      });
+    }
   });
 
   // Ban/unban del usuario vinculado al empleado + sync share_company_users.is_active
   try {
-    const { data: profile } = await supabase
-      .from('profile')
-      .select('credential_id, id')
-      .eq('employee_id', employeeId)
-      .maybeSingle();
+    const profile = await prisma.profile.findFirst({
+      where: { employee_id: employeeId },
+      select: { id: true, credential_id: true },
+    });
 
     if (profile?.credential_id) {
-      const adminSupabase = await adminSupabaseServer();
+      const adminSupabase = await adminSupabaseServer(); // P4: auth
       const { error: banError } = await adminSupabase.auth.admin.updateUserById(profile.credential_id, {
         ban_duration: activate ? 'none' : '876600h',
       });
@@ -91,7 +85,6 @@ export async function toggleEmployeeStatus(
             data: { is_active: activate },
           });
 
-          // Invalidar cache de la tabla de usuarios de empresa
           await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
         } catch (syncErr) {
           logger.warn('No se pudo sincronizar is_active en share_company_users', {
@@ -106,51 +99,4 @@ export async function toggleEmployeeStatus(
 
   revalidatePath('/dashboard/employee/action');
   revalidatePath('/dashboard/employee');
-}
-export async function uploadEmployeeDocument(
-  employeeId: string,
-  documentData: {
-    document_name: string;
-    document_url: string;
-    document_type_id: string;
-    expiration_date?: string;
-    is_required: boolean;
-  }
-) {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('documents_employees')
-    .insert({
-      ...documentData,
-      applies: employeeId,
-      status: 'active',
-    })
-    .select()
-    .single();
-
-  if (error) {
-    logger.error('Error uploading document', { data: { error } });
-    throw new Error(error.message);
-  }
-
-  return data;
-}
-
-export async function updateDocumentStatus(documentId: string, status: DocumentState) {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('documents_employees')
-    .update({ state: status })
-    .eq('id', documentId)
-    .select()
-    .single();
-
-  if (error) {
-    logger.error('Error updating document status', { data: { error } });
-    throw new Error(error.message);
-  }
-
-  return data;
 }

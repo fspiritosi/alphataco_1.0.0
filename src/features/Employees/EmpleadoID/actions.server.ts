@@ -9,8 +9,12 @@ import type {
   nationality_enum,
 } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/session';
+import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { callVoid } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { createEmployeeCore } from './lib/create-employee-core';
@@ -24,10 +28,12 @@ const logger = new Logger('features/EmpleadoID');
  */
 export const getEmployeeByIdCached = cache(async (employeeId: string) => {
   logger.debug('Obteniendo empleado por ID', { data: { employeeId } });
+  const companyId = await getActiveCompanyId();
 
   try {
-    const employee = await prisma.employees.findUnique({
-      where: { id: employeeId },
+    // Perímetro sin RLS: el legajo sólo se lee si pertenece a la empresa activa.
+    const employee = await prisma.employees.findFirst({
+      where: withCompany({ id: employeeId }, companyId),
       select: {
         // Campos escalares de identidad
         id: true,
@@ -164,6 +170,7 @@ export async function getAllCostCenterOptions() {
   logger.debug('Obteniendo opciones de centros de costo');
   try {
     return await prisma.cost_center.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -178,6 +185,7 @@ export async function getAllHierarchyOptions() {
   logger.debug('Obteniendo opciones de jerarquías');
   try {
     return await prisma.hierarchy.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -192,6 +200,7 @@ export async function getAllCompanyPositionOptions() {
   logger.debug('Obteniendo opciones de puestos');
   try {
     return await prisma.company_positions.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: {
         id: true,
         name: true,
@@ -210,6 +219,7 @@ export async function getAllWorkDiagramOptions() {
   logger.debug('Obteniendo opciones de diagramas de trabajo');
   try {
     return await prisma.work_diagram.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -224,7 +234,7 @@ export async function getAllGuildOptions() {
   logger.debug('Obteniendo opciones de sindicatos');
   try {
     return await prisma.guild.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -239,7 +249,7 @@ export async function getAllCovenantOptions() {
   logger.debug('Obteniendo opciones de convenios');
   try {
     return await prisma.covenant.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, await getActiveCompanyId()),
       select: { id: true, name: true, guild_id: true },
       orderBy: { name: 'asc' },
     });
@@ -254,7 +264,8 @@ export async function getAllCategoryOptions() {
   logger.debug('Obteniendo opciones de categorías');
   try {
     return await prisma.category.findMany({
-      where: { is_active: true },
+      // category no tiene company_id: se acota por el convenio al que pertenece
+      where: { is_active: true, covenant: { company_id: await getActiveCompanyId() } },
       select: { id: true, name: true, covenant_id: true },
       orderBy: { name: 'asc' },
     });
@@ -269,7 +280,7 @@ export async function getAllContractorOptions() {
   logger.debug('Obteniendo opciones de contratistas');
   try {
     return await prisma.customers.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -314,6 +325,7 @@ export async function getAllContractTypeOptions() {
   logger.debug('Obteniendo opciones de tipos de contrato');
   try {
     return await prisma.types_of_contract.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -328,6 +340,7 @@ export async function getAllAptitudeOptions() {
   logger.debug('Obteniendo opciones de aptitudes técnicas');
   try {
     return await prisma.aptitudes_tecnicas.findMany({
+      where: withCompany({}, await getActiveCompanyId()),
       select: {
         id: true,
         nombre: true,
@@ -349,7 +362,7 @@ export async function getAllWorkshopSectorOptions() {
   logger.debug('Obteniendo opciones de sectores de taller');
   try {
     return await prisma.workshop_sectors.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, await getActiveCompanyId()),
       select: {
         id: true,
         name: true,
@@ -377,7 +390,7 @@ export async function getEmployeeDiagramHistory(employeeId: string) {
   logger.debug('Obteniendo historial de diagramas del empleado', { data: { employeeId } });
   try {
     return await prisma.diagrams_logs.findMany({
-      where: { employee_id: employeeId },
+      where: { employee_id: employeeId, employees: { company_id: await getActiveCompanyId() } },
       select: {
         id: true,
         created_at: true,
@@ -406,7 +419,7 @@ export async function getEmployeeDiagrams(employeeId: string) {
   logger.debug('Obteniendo diagramas del empleado', { data: { employeeId } });
   try {
     return await prisma.employees_diagram.findMany({
-      where: { employee_id: employeeId },
+      where: { employee_id: employeeId, employees: { company_id: await getActiveCompanyId() } },
       select: {
         id: true,
         created_at: true,
@@ -439,11 +452,13 @@ export type EmployeeDiagramEntry = EmployeeDiagramsData[number];
 /**
  * Obtiene todos los tipos de diagrama de la compañía del usuario actual.
  */
-export async function getDiagramTypes(companyId: string) {
+export async function getDiagramTypes(_companyId?: string) {
+  // El parámetro se conserva por compatibilidad: la empresa SIEMPRE sale de la sesión.
+  const companyId = await getActiveCompanyId();
   logger.debug('Obteniendo tipos de diagrama', { data: { companyId } });
   try {
     return await prisma.diagram_type.findMany({
-      where: { company_id: companyId, is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -464,15 +479,14 @@ export type DiagramTypeOption = Awaited<ReturnType<typeof getDiagramTypes>>[numb
 export async function createEmployee(data: EmployeeFormData) {
   logger.debug('Creando empleado', { data: { firstname: data.firstname, lastname: data.lastname } });
 
-  const session = await getCachedSession();
-  const company_id = session?.user?.app_metadata?.company;
-
-  if (!company_id) throw new Error('No se encontró la empresa activa del usuario');
+  const [company_id, actor] = await Promise.all([getActiveCompanyId(), getSessionUserId()]);
+  if (!actor) throw new Error('Sesión requerida');
 
   try {
     // La creacion vive en createEmployeeCore para que la comparta la conversion de un
     // pre legajo en legajo (ticket 505) y ambos flujos creen al empleado igual.
-    const employee = await prisma.$transaction((tx) => createEmployeeCore(tx, data, company_id));
+    // withActor: los triggers de documentos/alertas leen app.user_id.
+    const employee = await withActor(actor, (tx) => createEmployeeCore(tx, data, company_id));
 
     logger.info('Empleado creado exitosamente', { data: { employeeId: employee.id } });
     revalidatePath('/dashboard/employee/action');
@@ -494,18 +508,16 @@ export type CreateEmployeeResult = Awaited<ReturnType<typeof createEmployee>>;
 export async function updateEmployee(employeeId: string, data: EmployeeFormData) {
   logger.debug('Actualizando empleado', { data: { employeeId } });
 
-  const session = await getCachedSession();
-  const company_id = session?.user?.app_metadata?.company;
-
-  if (!company_id) throw new Error('No se encontró la empresa activa del usuario');
+  const [company_id, actor] = await Promise.all([getActiveCompanyId(), getSessionUserId()]);
+  if (!actor) throw new Error('Sesión requerida');
 
   const { allocated_to, aptitudes, workshop_sector_ids, province, city, date_of_admission, ...scalarData } = data;
 
   try {
-    const employee = await prisma.$transaction(async (tx) => {
-      // Actualizar campos escalares del empleado
+    const employee = await withActor(actor, async (tx) => {
+      // Actualizar campos escalares del empleado (sólo si es de la empresa activa)
       const updated = await tx.employees.update({
-        where: { id: employeeId },
+        where: { id: employeeId, company_id },
         data: {
           ...scalarData,
           province: BigInt(province),
@@ -579,7 +591,7 @@ export async function updateEmployee(employeeId: string, data: EmployeeFormData)
       // escalar, por lo que el trigger automatico (que corre en el update escalar) las ve viejas.
       // Este recalculo explicito usa el estado ya actualizado. Es 1 solo recurso (barato) y su
       // UPDATE de status no dispara cascada (status no esta en la guarda de controlar_alertas).
-      await tx.$executeRaw`SELECT controlar_alertas_documentos_single_employee(${employeeId}::uuid, ${company_id}::uuid)`;
+      await callVoid('controlar_alertas_documentos_single_employee', [{ uuid: employeeId }, { uuid: company_id }], tx);
 
       return updated;
     });
