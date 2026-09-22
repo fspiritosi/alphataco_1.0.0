@@ -447,9 +447,13 @@ function findCodeCallers(
 
 // ─── Salida ───────────────────────────────────────────────────────────────────
 
+/** `EXECUTE FUNCTION nombre(` sin schema → `EXECUTE FUNCTION public.nombre(` (homogéneo con el resto). */
+const UNQUALIFIED_TRIGGER_FN_RE = /\b(execute\s+(?:function|procedure))\s+(?!"?public"?\.)("?[A-Za-z_][A-Za-z0-9_]*"?)\s*\(/i;
+
 function renderStatement(object: SqlObject): string {
   if (object.kind === 'trigger') {
-    return `DROP TRIGGER IF EXISTS ${object.name} ON public.${object.table};\n${object.statement};`;
+    const statement = object.statement.replace(UNQUALIFIED_TRIGGER_FN_RE, '$1 public.$2(');
+    return `DROP TRIGGER IF EXISTS ${object.name} ON public.${object.table};\n${statement};`;
   }
   return `${object.statement};`;
 }

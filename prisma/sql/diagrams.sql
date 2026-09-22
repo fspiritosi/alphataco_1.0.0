@@ -1680,4 +1680,4 @@ $$;
 
 -- trigger trg_employees_diagram_changes ON employees_diagram (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS trg_employees_diagram_changes ON public.employees_diagram;
-CREATE TRIGGER trg_employees_diagram_changes AFTER INSERT OR UPDATE ON public.employees_diagram FOR EACH ROW EXECUTE FUNCTION handle_employees_diagram_changes();
+CREATE TRIGGER trg_employees_diagram_changes AFTER INSERT OR UPDATE ON public.employees_diagram FOR EACH ROW EXECUTE FUNCTION public.handle_employees_diagram_changes();

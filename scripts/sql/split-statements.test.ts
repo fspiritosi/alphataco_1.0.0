@@ -18,4 +18,11 @@ describe('splitSqlStatements', () => {
   it('ignora sentencias vacías', () => {
     expect(splitSqlStatements(';;\n  ;')).toEqual([]);
   });
+  it('anida comentarios de bloque como Postgres', () => {
+    expect(splitSqlStatements('/* outer /* inner */ still outer */ select 1;')).toEqual(['select 1']);
+    expect(splitSqlStatements('/* outer /* inner */ still outer */')).toEqual([]);
+  });
+  it('respeta el escape por backslash en strings E\'...\'', () => {
+    expect(splitSqlStatements("select E'a\\';b'; select 2;")).toEqual(["select E'a\\';b'", 'select 2']);
+  });
 });

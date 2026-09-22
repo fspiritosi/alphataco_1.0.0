@@ -948,32 +948,32 @@ CREATE OR REPLACE VIEW public.equipments_with_pending_deviations AS
 
 -- trigger tr_dailyreport_customer_equipment_relations_history ON dailyreport_customer_equipment_relations (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreport_customer_equipment_relations_history ON public.dailyreport_customer_equipment_relations;
-CREATE TRIGGER tr_dailyreport_customer_equipment_relations_history BEFORE INSERT OR DELETE ON public.dailyreport_customer_equipment_relations FOR EACH ROW EXECUTE FUNCTION log_customer_equipment_relations_changes();
+CREATE TRIGGER tr_dailyreport_customer_equipment_relations_history BEFORE INSERT OR DELETE ON public.dailyreport_customer_equipment_relations FOR EACH ROW EXECUTE FUNCTION public.log_customer_equipment_relations_changes();
 
 -- trigger tr_dailyreport_employee_relations_history ON dailyreportemployeerelations (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreport_employee_relations_history ON public.dailyreportemployeerelations;
-CREATE TRIGGER tr_dailyreport_employee_relations_history BEFORE INSERT OR DELETE ON public.dailyreportemployeerelations FOR EACH ROW EXECUTE FUNCTION log_employee_relations_changes();
+CREATE TRIGGER tr_dailyreport_employee_relations_history BEFORE INSERT OR DELETE ON public.dailyreportemployeerelations FOR EACH ROW EXECUTE FUNCTION public.log_employee_relations_changes();
 
 -- trigger tr_dailyreport_equipment_relations_history ON dailyreportequipmentrelations (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreport_equipment_relations_history ON public.dailyreportequipmentrelations;
-CREATE TRIGGER tr_dailyreport_equipment_relations_history BEFORE INSERT OR DELETE ON public.dailyreportequipmentrelations FOR EACH ROW EXECUTE FUNCTION log_equipment_relations_changes();
+CREATE TRIGGER tr_dailyreport_equipment_relations_history BEFORE INSERT OR DELETE ON public.dailyreportequipmentrelations FOR EACH ROW EXECUTE FUNCTION public.log_equipment_relations_changes();
 
 -- trigger before_update_log_reason ON dailyreportrows (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS before_update_log_reason ON public.dailyreportrows;
-CREATE TRIGGER before_update_log_reason BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_reassignment_reason_before_update();
+CREATE TRIGGER before_update_log_reason BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION public.log_reassignment_reason_before_update();
 
 -- trigger tr_after_dailyreportrows_update_optimized ON dailyreportrows (origen: supabase/migrations/20251104195732_confirmed_by_and_dailyreport_perfomance.sql)
 DROP TRIGGER IF EXISTS tr_after_dailyreportrows_update_optimized ON public.dailyreportrows;
-CREATE TRIGGER tr_after_dailyreportrows_update_optimized AFTER INSERT OR DELETE OR UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION after_dailyreportrows_update_optimized();
+CREATE TRIGGER tr_after_dailyreportrows_update_optimized AFTER INSERT OR DELETE OR UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION public.after_dailyreportrows_update_optimized();
 
 -- trigger tr_dailyreportrows_history_after_insert ON dailyreportrows (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreportrows_history_after_insert ON public.dailyreportrows;
-CREATE TRIGGER tr_dailyreportrows_history_after_insert AFTER INSERT ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_dailyreport_changes();
+CREATE TRIGGER tr_dailyreportrows_history_after_insert AFTER INSERT ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION public.log_dailyreport_changes();
 
 -- trigger tr_dailyreportrows_history_before_delete ON dailyreportrows (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreportrows_history_before_delete ON public.dailyreportrows;
-CREATE TRIGGER tr_dailyreportrows_history_before_delete BEFORE DELETE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_dailyreport_changes();
+CREATE TRIGGER tr_dailyreportrows_history_before_delete BEFORE DELETE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION public.log_dailyreport_changes();
 
 -- trigger tr_dailyreportrows_history_before_update ON dailyreportrows (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS tr_dailyreportrows_history_before_update ON public.dailyreportrows;
-CREATE TRIGGER tr_dailyreportrows_history_before_update BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_dailyreport_changes();
+CREATE TRIGGER tr_dailyreportrows_history_before_update BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION public.log_dailyreport_changes();

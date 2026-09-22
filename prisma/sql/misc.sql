@@ -1007,28 +1007,28 @@ $function$;
 
 -- trigger update_company_by_defect_trigger ON company (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS update_company_by_defect_trigger ON public.company;
-CREATE TRIGGER update_company_by_defect_trigger AFTER INSERT OR UPDATE OF by_defect ON public.company FOR EACH ROW EXECUTE FUNCTION update_company_by_defect();
+CREATE TRIGGER update_company_by_defect_trigger AFTER INSERT OR UPDATE OF by_defect ON public.company FOR EACH ROW EXECUTE FUNCTION public.update_company_by_defect();
 
 -- trigger after_service_update ON customer_services (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS after_service_update ON public.customer_services;
-CREATE TRIGGER after_service_update AFTER UPDATE OF is_active ON public.customer_services FOR EACH ROW WHEN ((old.is_active IS DISTINCT FROM new.is_active)) EXECUTE FUNCTION deactivate_service_items();
+CREATE TRIGGER after_service_update AFTER UPDATE OF is_active ON public.customer_services FOR EACH ROW WHEN ((old.is_active IS DISTINCT FROM new.is_active)) EXECUTE FUNCTION public.deactivate_service_items();
 
 -- trigger update_empleado_aptitudes_updated_at ON empleado_aptitudes (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS update_empleado_aptitudes_updated_at ON public.empleado_aptitudes;
-CREATE TRIGGER update_empleado_aptitudes_updated_at BEFORE UPDATE ON public.empleado_aptitudes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_empleado_aptitudes_updated_at BEFORE UPDATE ON public.empleado_aptitudes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- trigger after_employee_insert ON employees (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS after_employee_insert ON public.employees;
-CREATE TRIGGER after_employee_insert AFTER INSERT ON public.employees FOR EACH ROW EXECUTE FUNCTION add_to_companies_employees();
+CREATE TRIGGER after_employee_insert AFTER INSERT ON public.employees FOR EACH ROW EXECUTE FUNCTION public.add_to_companies_employees();
 
 -- trigger format_employee_names_trigger ON employees (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS format_employee_names_trigger ON public.employees;
-CREATE TRIGGER format_employee_names_trigger BEFORE INSERT OR UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION format_employee_names();
+CREATE TRIGGER format_employee_names_trigger BEFORE INSERT OR UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION public.format_employee_names();
 
 -- trigger after_service_update ON service_items (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS after_service_update ON public.service_items;
-CREATE TRIGGER after_service_update AFTER UPDATE OF is_active ON public.service_items FOR EACH ROW WHEN ((old.is_active IS DISTINCT FROM new.is_active)) EXECUTE FUNCTION deactivate_service_items();
+CREATE TRIGGER after_service_update AFTER UPDATE OF is_active ON public.service_items FOR EACH ROW WHEN ((old.is_active IS DISTINCT FROM new.is_active)) EXECUTE FUNCTION public.deactivate_service_items();
 
 -- trigger add_contractor_equipment_after_insert ON vehicles (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS add_contractor_equipment_after_insert ON public.vehicles;
-CREATE TRIGGER add_contractor_equipment_after_insert AFTER INSERT ON public.vehicles FOR EACH ROW EXECUTE FUNCTION equipment_allocated_to();
+CREATE TRIGGER add_contractor_equipment_after_insert AFTER INSERT ON public.vehicles FOR EACH ROW EXECUTE FUNCTION public.equipment_allocated_to();

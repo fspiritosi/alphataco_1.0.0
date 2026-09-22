@@ -875,11 +875,11 @@ $function$;
 
 -- trigger document_types_after_insert ON document_types (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS document_types_after_insert ON public.document_types;
-CREATE TRIGGER document_types_after_insert AFTER INSERT ON public.document_types FOR EACH ROW EXECUTE FUNCTION trg_document_types_insert();
+CREATE TRIGGER document_types_after_insert AFTER INSERT ON public.document_types FOR EACH ROW EXECUTE FUNCTION public.trg_document_types_insert();
 
 -- trigger document_types_after_update ON document_types (origen: supabase/migrations/20251103211302_initial_structure.sql)
 DROP TRIGGER IF EXISTS document_types_after_update ON public.document_types;
-CREATE TRIGGER document_types_after_update AFTER UPDATE ON public.document_types FOR EACH ROW EXECUTE FUNCTION trg_document_types_update();
+CREATE TRIGGER document_types_after_update AFTER UPDATE ON public.document_types FOR EACH ROW EXECUTE FUNCTION public.trg_document_types_update();
 
 -- trigger document_employee_changes_trigger ON documents_employees (origen: prisma/migrations/20260629120100_optimize_document_triggers/migration.sql)
 DROP TRIGGER IF EXISTS document_employee_changes_trigger ON public.documents_employees;
