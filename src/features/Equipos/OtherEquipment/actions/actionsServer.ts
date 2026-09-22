@@ -121,9 +121,15 @@ async function assertUniqueFields(client: Client, companyId: string, input: Pars
  * la validacion consulta y despues inserta, no es atomica. Si hay mas de un equipo activo
  * con el mismo N° interno o de serie, gana el mas antiguo (`pickDuplicateRaceWinner`) y el
  * recien creado se descarta. Devuelve el campo en conflicto si fue descartado.
+ *
+ * Corre DESPUES de que la transaccion del alta confirmo (con `prisma`, nunca con el `tx`):
+ * en READ COMMITTED una transaccion no ve la fila no confirmada de la request paralela, asi
+ * que dentro de la tx el chequeo nunca encontraria al hermano. Es un guard best-effort:
+ * Task 13 lo reemplaza por un indice unico parcial `(company_id, intern_number) WHERE is_active`
+ * (y otro para serial_number).
  */
 async function discardIfDuplicateRace(
-  client: Client,
+  client: typeof prisma,
   companyId: string,
   created: { id: string; created_at: Date; serial_number: string | null; intern_number: string | null }
 ): Promise<DuplicateField | null> {
@@ -138,7 +144,7 @@ async function discardIfDuplicateRace(
     if (!winner || winner.id === created.id) continue;
 
     try {
-      await client.other_equipment.delete({ where: { id: created.id } });
+      await client.other_equipment.deleteMany({ where: withCompany({ id: created.id }, companyId) });
     } catch (error) {
       logger.error('No se pudo descartar el equipo duplicado por request simultanea', {
         data: { id: created.id, field, error },
@@ -282,30 +288,36 @@ export async function createOtherEquipment(data: OtherEquipmentInput) {
 
   await assertUniqueFields(prisma, companyId, input);
 
-  let created: { id: string };
+  let created: { id: string; created_at: Date; serial_number: string | null; intern_number: string | null };
   try {
-    created = await withActor(actor, async (tx) => {
-      const equipment = await tx.other_equipment.create({
+    // El alta confirma sola (sin contratistas): el chequeo de carrera necesita ver la fila
+    // de la otra request, y eso solo pasa con la transaccion ya confirmada.
+    created = await withActor(actor, (tx) =>
+      tx.other_equipment.create({
         data: { ...toScalarData(input), condition: condition_enum.operativo, company_id: companyId },
         select: { id: true, created_at: true, serial_number: true, intern_number: true },
-      });
-
-      // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
-      // asociar contratistas (asi no queda basura en la tabla pivot).
-      const racedField = await discardIfDuplicateRace(tx, companyId, equipment);
-      if (racedField) {
-        const label = racedField === 'intern_number' ? 'N° Interno' : 'N° de Serie';
-        throw new Error(`El equipo con ese ${label} ya fue creado. No se generó un duplicado.`);
-      }
-
-      if (input.contractors && input.contractors.length > 0) {
-        await syncContractors(tx, equipment.id, input.contractors, companyId);
-      }
-      return equipment;
-    });
+      })
+    );
   } catch (error) {
     logger.error('Error al crear other_equipment', { data: { error } });
     throw error instanceof Error ? error : new Error('Error al crear el equipo');
+  }
+
+  // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
+  // asociar contratistas (asi no queda basura en la tabla pivot).
+  const racedField = await discardIfDuplicateRace(prisma, companyId, created);
+  if (racedField) {
+    const label = racedField === 'intern_number' ? 'N° Interno' : 'N° de Serie';
+    throw new Error(`El equipo con ese ${label} ya fue creado. No se generó un duplicado.`);
+  }
+
+  if (input.contractors && input.contractors.length > 0) {
+    try {
+      await withActor(actor, (tx) => syncContractors(tx, created.id, input.contractors ?? [], companyId));
+    } catch (error) {
+      logger.error('Error al asociar contratistas del equipo creado', { data: { id: created.id, error } });
+      throw error instanceof Error ? error : new Error('Error al asociar contratistas al equipo');
+    }
   }
 
   revalidatePath('/dashboard/equipment');

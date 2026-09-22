@@ -36,14 +36,6 @@ interface OtherEquipmentBasicDataFormProps {
   vehiclesPromise: Promise<Array<{ id: string; domain: string | null }>>;
 }
 
-const CONDITION_OPTIONS = [
-  { value: 'operativo', label: 'Operativo' },
-  { value: 'no operativo', label: 'No Operativo' },
-  { value: 'en reparacion', label: 'En Reparación' },
-  { value: 'operativo condicionado', label: 'Operativo Condicionado' },
-  { value: 'en preparacion', label: 'En Preparación' },
-] as const;
-
 export function OtherEquipmentBasicDataForm({
   form,
   readOnly = false,

@@ -43,6 +43,7 @@ import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { conditionLabels } from '@/shared/utils/mappers';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DotsVerticalIcon } from '@radix-ui/react-icons';
 import { ColumnDef } from '@tanstack/react-table';
@@ -454,7 +455,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
       return (
         <Badge variant={conditionVariants[conditionKey] ?? 'default'}>
           {Icon && <Icon className="mr-2 size-4" />}
-          {row.original.condition}
+          {conditionLabels[conditionKey] ?? row.original.condition}
         </Badge>
       );
     },
