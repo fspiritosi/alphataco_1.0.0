@@ -1,24 +1,15 @@
 import { Card } from '@/components/ui/card';
-import { cookies } from 'next/headers';
-import { fechAllCustomers, fetchEquipmentsCustomers } from '../../../Empresa/Clientes/actions/create';
-import CustomerEquipmentTab from '../../../Empresa/Clientes/components/equipos/customerEquipmentTab';
+import { getCustomerEquipments } from '@/features/Empresa/Clientes/actions/customer-equipment.server';
+import { getCustomers } from '@/features/Empresa/Clientes/actions/customers.server';
+import CustomerEquipmentTab from '@/features/Empresa/Clientes/components/equipos/customerEquipmentTab';
 
 export default async function CustomerEquipmentTabWrapper() {
-  const cookiesStore = await cookies();
-  const actualCompany = cookiesStore.get('actualComp')?.value;
-
-  // Fetch data
-  const customers = await fechAllCustomers();
-  const contractorCompanies = customers?.filter((company) => company.company_id.toString() === actualCompany);
-  const equipmentsCustomers = await fetchEquipmentsCustomers();
+  // Ambas actions ya acotan a la empresa activa.
+  const [customers, equipmentsCustomers] = await Promise.all([getCustomers(), getCustomerEquipments()]);
 
   return (
     <Card className="p-6">
-      <CustomerEquipmentTab
-        equipments={equipmentsCustomers || []}
-        customers={contractorCompanies || []}
-        key={actualCompany}
-      />
+      <CustomerEquipmentTab equipments={equipmentsCustomers} customers={customers} />
     </Card>
   );
 }

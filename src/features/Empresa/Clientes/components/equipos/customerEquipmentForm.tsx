@@ -12,92 +12,77 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createEquipmentCustomer, updateEquipmentCustomer } from '@/features/Empresa/Clientes/actions/create';
-import { Customer, Equipment } from '@/features/Empresa/Clientes/types/types';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
+import {
+  createCustomerEquipment,
+  updateCustomerEquipment,
+  type CustomerEquipmentRow,
+} from '../../actions/customer-equipment.server';
+import type { CustomerRef } from '../../lib/serializers';
+import {
+  CUSTOMER_EQUIPMENT_TYPES,
+  customerEquipmentFormSchema,
+  type CustomerEquipmentFormValues,
+} from '../../schemas/customer-equipment';
 
-const EquipmentCustomerSchema = z.object({
-  name: z.string().min(1, { message: 'El nombre es requerido' }),
-  customer_id: z.string().min(1, { message: 'El cliente es requerido' }),
-  type: z.enum(['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing']),
-});
-
-type EquipmentCustomerSchema = z.infer<typeof EquipmentCustomerSchema>;
-
-function customerEquipmentForm({
-  customers,
-  equipments,
-  mode,
-  setMode,
-  selectedEquipment,
-  setSelectedEquipment,
-}: {
-  customers: Customer[];
-  equipments: Equipment[];
+interface CustomerEquipmentFormProps {
+  customers: CustomerRef[];
   mode: 'create' | 'edit';
   setMode: (mode: 'create' | 'edit') => void;
-  selectedEquipment: Equipment | null;
-  setSelectedEquipment: (equipment: Equipment | null) => void;
-}) {
-  const form = useForm<EquipmentCustomerSchema>({
-    resolver: zodResolver(EquipmentCustomerSchema),
-    defaultValues: {
-      name: selectedEquipment?.name || '',
-      customer_id: selectedEquipment?.customer_id || '',
-      type: selectedEquipment?.type || 'Perforador',
-    },
+  selectedEquipment: CustomerEquipmentRow | null;
+  setSelectedEquipment: (equipment: CustomerEquipmentRow | null) => void;
+}
+
+const EMPTY_VALUES: CustomerEquipmentFormValues = { name: '', customer_id: '', type: 'Perforador' };
+
+function toFormValues(equipment: CustomerEquipmentRow | null): CustomerEquipmentFormValues {
+  if (!equipment) return EMPTY_VALUES;
+  return { name: equipment.name, customer_id: equipment.customer_id, type: equipment.type };
+}
+
+function CustomerEquipmentForm({ customers, mode, setMode, selectedEquipment, setSelectedEquipment }: CustomerEquipmentFormProps) {
+  const form = useForm<CustomerEquipmentFormValues>({
+    resolver: zodResolver(customerEquipmentFormSchema),
+    defaultValues: EMPTY_VALUES,
   });
 
   const { reset } = form;
   const router = useRouter();
-  const handleSubmit = async (values: EquipmentCustomerSchema) => {
-    try {
-      if (mode === 'edit' && selectedEquipment) {
-        const response = await updateEquipmentCustomer({ ...values, id: selectedEquipment.id });
-        if (response?.status === 200) {
-          toast.success(response.body || 'Equipo actualizado correctamente');
-          reset();
-          setSelectedEquipment(null);
-          setMode('create');
-          router.refresh();
-        } else {
-          toast.error(response?.body || 'Error al actualizar el Equipo');
-        }
-      } else {
-        const response = await createEquipmentCustomer(values);
-        if (response?.status === 200) {
-          toast.success(response.body || 'Equipo creado satisfactoriamente');
-          reset();
-          router.refresh();
-        } else {
-          toast.error(response?.body || 'Error al crear el área');
-        }
-      }
-    } catch (error) {
-      toast.error('Error al ' + (mode === 'edit' ? 'actualizar' : 'crear') + ' el área');
-    }
-  };
+
+  // El modo/equipo seleccionado llegan por props desde la tabla: sincronizar el form con ellos.
   useEffect(() => {
-    if (selectedEquipment) {
-      reset({
-        name: selectedEquipment.name || '',
-        customer_id: selectedEquipment.customer_id || '',
-        type: selectedEquipment.type || 'Perforador',
-      });
+    reset(toFormValues(mode === 'edit' ? selectedEquipment : null));
+  }, [mode, selectedEquipment, reset]);
+
+  const handleSubmit = async (values: CustomerEquipmentFormValues) => {
+    const isEdit = mode === 'edit' && selectedEquipment;
+    const response = isEdit
+      ? await updateCustomerEquipment({ ...values, id: selectedEquipment.id })
+      : await createCustomerEquipment(values);
+
+    if (!response.ok) {
+      toast.error(response.error);
+      return;
     }
-  }, [selectedEquipment, reset]);
+
+    toast.success(isEdit ? 'Equipo actualizado correctamente' : 'Equipo creado satisfactoriamente');
+    reset(EMPTY_VALUES);
+    setSelectedEquipment(null);
+    setMode('create');
+    router.refresh();
+  };
 
   const handleCancel = () => {
-    reset();
+    reset(EMPTY_VALUES);
     setSelectedEquipment(null);
     setMode('create');
   };
+
   return (
     <PermissionGuard module="comercial" tab="equipment" action={mode === 'create' ? 'create' : 'update'}>
       <Form {...form}>
@@ -132,7 +117,7 @@ function customerEquipmentForm({
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>Tipos de Equipos</SelectLabel>
-                        {Object.values(EquipmentCustomerSchema.shape.type.options).map((type) => (
+                        {CUSTOMER_EQUIPMENT_TYPES.map((type) => (
                           <SelectItem key={type} value={type}>
                             {type}
                           </SelectItem>
@@ -187,4 +172,4 @@ function customerEquipmentForm({
   );
 }
 
-export default customerEquipmentForm;
+export default CustomerEquipmentForm;

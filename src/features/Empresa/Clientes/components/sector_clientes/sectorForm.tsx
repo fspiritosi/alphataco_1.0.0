@@ -1,4 +1,5 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -11,116 +12,88 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  createSector,
-  fechAllCustomers,
-  fetchAllContractorSectorBySectorIds,
-  fetchAllSectors,
-  updateSector,
-} from '@/features/Empresa/Clientes/actions/create';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
+import { createSector, updateSector, type SectorCustomerRow } from '../../actions/sectors.server';
+import type { CustomerRef } from '../../lib/serializers';
+import { sectorFormSchema, type SectorFormValues } from '../../schemas/sector';
 
-const SectorSchema = z.object({
-  name: z.string().min(1, { message: 'El nombre es requerido' }),
-  descripcion_corta: z.string().min(1, { message: 'La descripción es requerida' }),
-  customer_id: z.string().min(1, { message: 'El cliente es requerido' }),
-});
-
-// interface Sector {
-//   id: string;
-//   name: string;
-//   descripcion_corta: string;
-//   customer_id: string;
-//   sector_customer: Array<{
-//     customer_id: {
-//       id: string;
 interface SectorFormProps {
-  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
-  sectors: Awaited<ReturnType<typeof fetchAllSectors>>;
+  customers: CustomerRef[];
   mode: 'create' | 'edit';
   setMode: (mode: 'create' | 'edit') => void;
-  selectedSector: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>[number] | null;
-  setSelectedSector: (sector: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>[number] | null) => void;
+  selectedSector: SectorCustomerRow | null;
+  setSelectedSector: (sector: SectorCustomerRow | null) => void;
 }
 
-type SectorFormValues = z.infer<typeof SectorSchema>;
+const EMPTY_VALUES: SectorFormValues = { name: '', descripcion_corta: '', customer_id: '' };
 
-function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSelectedSector }: SectorFormProps) {
+function toFormValues(sector: SectorCustomerRow | null): SectorFormValues {
+  if (!sector) return EMPTY_VALUES;
+  return {
+    name: sector.sectors.name,
+    descripcion_corta: sector.sectors.descripcion_corta ?? '',
+    customer_id: sector.customer_id,
+  };
+}
+
+function SectorForm({ customers, mode, setMode, selectedSector, setSelectedSector }: SectorFormProps) {
   const form = useForm<SectorFormValues>({
-    resolver: zodResolver(SectorSchema),
-    defaultValues: {
-      name: '',
-      descripcion_corta: '',
-      customer_id: '',
-    },
+    resolver: zodResolver(sectorFormSchema),
+    defaultValues: EMPTY_VALUES,
   });
 
   const { reset } = form;
   const queryClient = useQueryClient();
+  const router = useRouter();
 
-  // Mutation for creating sector
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['preparte-sectors'] });
+    queryClient.invalidateQueries({ queryKey: ['preparte-contratos'] });
+    router.refresh();
+  };
+
   const createMutation = useMutation({
     mutationFn: createSector,
     onSuccess: (response) => {
-      if (response?.status === 200) {
-        toast.success(response.body || 'Sector creado correctamente');
-        // Invalidate queries to refetch data
-        queryClient.invalidateQueries({ queryKey: ['preparte-sectors'] });
-        queryClient.invalidateQueries({ queryKey: ['preparte-contratos'] });
-        reset();
-      } else {
-        toast.error(response?.body || 'Error al crear el sector');
+      if (!response.ok) {
+        toast.error(response.error);
+        return;
       }
+      toast.success('Sector creado correctamente');
+      invalidate();
+      reset(EMPTY_VALUES);
     },
-    onError: (error) => {
-      toast.error('Error inesperado al crear el sector');
-    },
+    onError: () => toast.error('Error inesperado al crear el sector'),
   });
 
-  // Mutation for updating sector
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: SectorFormValues }) => updateSector({ ...data, id }),
     onSuccess: (response) => {
-      if (response?.status === 200) {
-        toast.success(response.body || 'Sector actualizado correctamente');
-        // Invalidate queries to refetch data
-        queryClient.invalidateQueries({ queryKey: ['preparte-sectors'] });
-        setMode('create');
-        setSelectedSector(null);
-        reset();
-      } else {
-        toast.error(response?.body || 'Error al actualizar el sector');
+      if (!response.ok) {
+        toast.error(response.error);
+        return;
       }
+      toast.success('Sector actualizado correctamente');
+      invalidate();
+      setMode('create');
+      setSelectedSector(null);
+      reset(EMPTY_VALUES);
     },
-    onError: (error) => {
-      toast.error('Error inesperado al actualizar el sector');
-    },
+    onError: () => toast.error('Error inesperado al actualizar el sector'),
   });
 
-  // Cargar datos cuando cambia el modo o el sector seleccionado
+  // El modo/sector seleccionado llegan por props desde la tabla: sincronizar el form con ellos.
   useEffect(() => {
-    if (mode === 'edit' && selectedSector) {
-      reset({
-        name: selectedSector.sectors?.name || '',
-        descripcion_corta: selectedSector.sectors?.descripcion_corta || '',
-        customer_id: selectedSector.customer_id,
-      });
-    } else if (mode === 'create') {
-      reset({
-        name: '',
-        descripcion_corta: '',
-        customer_id: '',
-      });
-    }
+    reset(toFormValues(mode === 'edit' ? selectedSector : null));
   }, [mode, selectedSector, reset]);
 
-  const handleSubmit = async (values: SectorFormValues) => {
+  const handleSubmit = (values: SectorFormValues) => {
     if (mode === 'edit' && selectedSector) {
       updateMutation.mutate({ id: selectedSector.sector_id, data: values });
     } else {
@@ -129,12 +102,14 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
   };
 
   const handleCancel = () => {
-    reset();
+    reset(EMPTY_VALUES);
     if (mode === 'edit') {
       setSelectedSector(null);
       setMode('create');
     }
   };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
     <PermissionGuard module="comercial" tab="sector" action={mode === 'create' ? 'create' : 'update'}>
@@ -198,36 +173,9 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
             )}
           />
 
-          {/* <FormField
-          control={form.control}
-          name="province_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Provincias</FormLabel>
-              <FormControl>
-                <MultiSelectCombobox
-                  options={provinces.map((province) => ({
-                    label: province.name,
-                    value: province.id.toString(),
-                  }))}
-                  emptyMessage="No hay provincias disponibles"
-                  selectedValues={field.value.map(String)}
-                  onChange={(values) => field.onChange(values.map(Number))}
-                  placeholder="Selecciona provincias"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        /> */}
-
           <div className="flex gap-4">
-            <Button type="submit" variant="gh_orange" disabled={createMutation.isPending || updateMutation.isPending}>
-              {createMutation.isPending || updateMutation.isPending
-                ? 'Guardando...'
-                : mode === 'create'
-                  ? 'Crear'
-                  : 'Actualizar'}
+            <Button type="submit" variant="gh_orange" disabled={isPending}>
+              {isPending ? 'Guardando...' : mode === 'create' ? 'Crear' : 'Actualizar'}
             </Button>
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancelar

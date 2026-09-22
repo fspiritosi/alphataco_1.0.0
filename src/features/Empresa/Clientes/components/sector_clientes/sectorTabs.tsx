@@ -1,32 +1,24 @@
 'use client';
+
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { useState } from 'react';
-import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAllSectors } from '../../actions/create';
+import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { CustomerRef } from '../../lib/serializers';
 import SectorForm from './sectorForm';
 import SectorTable from './sectorTable';
 
-// Eliminamos la interfaz local y usamos la importada
-// interface Sector {
-//   id: string;
-//   name: string;
-//   // Agrega otros campos que necesites
-// }
-
 interface SectorTabsProps {
-  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
-  sectors: Awaited<ReturnType<typeof fetchAllSectors>>;
-  contractorSectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
+  customers: CustomerRef[];
+  contractorSectors: SectorCustomerRow[];
 }
 
-function SectorTabs({ customers, sectors, contractorSectors }: SectorTabsProps) {
-  const [SelectedSector, setSelectedSector] = useState<
-    Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>[number] | null
-  >(null);
+/** Pestaña "Sectores" de Comercial: formulario lateral + tabla sector ↔ cliente. */
+function SectorTabs({ customers, contractorSectors }: SectorTabsProps) {
+  const [selectedSector, setSelectedSector] = useState<SectorCustomerRow | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const { hasPermission } = usePermissions();
 
-  // Verificar si tiene permisos de crear o editar
   const canCreateOrUpdate =
     hasPermission('comercial', 'sector', 'create') || hasPermission('comercial', 'sector', 'update');
 
@@ -38,10 +30,9 @@ function SectorTabs({ customers, sectors, contractorSectors }: SectorTabsProps) 
             <ResizablePanel defaultSize={30}>
               <SectorForm
                 customers={customers}
-                sectors={sectors}
                 mode={mode}
                 setMode={setMode}
-                selectedSector={SelectedSector}
+                selectedSector={selectedSector}
                 setSelectedSector={setSelectedSector}
               />
             </ResizablePanel>
@@ -49,15 +40,7 @@ function SectorTabs({ customers, sectors, contractorSectors }: SectorTabsProps) 
           </>
         )}
         <ResizablePanel defaultSize={canCreateOrUpdate ? 70 : 100}>
-          <SectorTable
-            customers={customers}
-            contractorSectors={contractorSectors}
-            sectors={sectors}
-            selectedSector={SelectedSector}
-            setSelectedSector={setSelectedSector}
-            setMode={setMode}
-            mode={mode}
-          />
+          <SectorTable contractorSectors={contractorSectors} setSelectedSector={setSelectedSector} setMode={setMode} />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

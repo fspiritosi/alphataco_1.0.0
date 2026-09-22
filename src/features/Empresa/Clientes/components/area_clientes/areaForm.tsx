@@ -1,4 +1,5 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -14,117 +15,92 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  createArea,
-  fetchActiveContractsByCustomer,
-  fetchAreaLinkedContracts,
-  fetchAreasWithProvinces,
-  linkAreaToContracts,
-  updateArea,
-} from '@/features/Empresa/Clientes/actions/create';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
+import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Info, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
+import { createArea, getAreaLinkedContracts, linkAreaToContracts, updateArea, type AreaRow } from '../../actions/areas.server';
+import { getActiveContractsByCustomer } from '../../actions/services.server';
+import type { CustomerRef } from '../../lib/serializers';
+import { areaFormSchema, type AreaFormValues } from '../../schemas/area';
 
-const AreaSchema = z.object({
-  name: z.string().min(1, { message: 'El nombre es requerido' }),
-  descripcion_corta: z.string().min(1, { message: 'La descripción corta es requerida' }).max(5, 'Máximo 5 caracteres'),
-  customer_id: z.string().min(1, { message: 'El cliente es requerido' }),
-  province_id: z.array(z.number()).min(1, { message: 'La provincia es requerida' }),
-  contract_ids: z.array(z.string()).optional(),
-});
+const logger = new Logger('features/Empresa/Clientes/AreaForm');
 
-interface Cliente {
-  id: string;
-  name: string;
-}
-
-interface Provincia {
+export interface ProvinceOption {
   id: number;
   name: string;
 }
 
-type Area = Awaited<ReturnType<typeof fetchAreasWithProvinces>>[0];
 interface AreaFormProps {
-  customers: Cliente[];
-  provinces: Provincia[];
+  customers: CustomerRef[];
+  provinces: ProvinceOption[];
   mode: 'create' | 'edit';
   setMode: (mode: 'create' | 'edit') => void;
-  selectedArea: Area | null;
-  setSelectedArea: (area: Area | null) => void;
+  selectedArea: AreaRow | null;
+  setSelectedArea: (area: AreaRow | null) => void;
 }
 
-type AreaFormValues = z.infer<typeof AreaSchema>;
+const EMPTY_VALUES: AreaFormValues = {
+  name: '',
+  descripcion_corta: '',
+  customer_id: '',
+  province_id: [],
+  contract_ids: [],
+};
+
+function toFormValues(area: AreaRow | null): AreaFormValues {
+  if (!area) return EMPTY_VALUES;
+  return {
+    name: area.nombre,
+    descripcion_corta: area.descripcion_corta ?? '',
+    customer_id: area.customers.id,
+    province_id: area.area_province.map((prov) => prov.provinces.id),
+    contract_ids: [],
+  };
+}
 
 function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelectedArea }: AreaFormProps) {
   const form = useForm<AreaFormValues>({
-    resolver: zodResolver(AreaSchema),
-    defaultValues: {
-      name: '',
-      descripcion_corta: '',
-      customer_id: '',
-      province_id: [],
-      contract_ids: [],
-    },
+    resolver: zodResolver(areaFormSchema),
+    defaultValues: EMPTY_VALUES,
   });
 
   const { reset, watch, setValue } = form;
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const watchedCustomerId = watch('customer_id');
 
+  // El modo/área seleccionada llegan por props desde la tabla: sincronizar el form con ellos.
+  useEffect(() => {
+    reset(toFormValues(mode === 'edit' ? selectedArea : null));
+  }, [mode, selectedArea, reset]);
+
   const finishFormReset = () => {
-    reset({
-      name: '',
-      descripcion_corta: '',
-      customer_id: '',
-      province_id: [],
-      contract_ids: [],
-    });
+    reset(EMPTY_VALUES);
     setSelectedArea(null);
     setMode('create');
+    queryClient.invalidateQueries({ queryKey: ['area-linked-contracts'] });
     router.refresh();
   };
-
-  // Reset inicial al cambiar modo / area seleccionada
-  useEffect(() => {
-    if (mode === 'edit' && selectedArea) {
-      reset({
-        name: selectedArea.nombre,
-        descripcion_corta: selectedArea.descripcion_corta || '',
-        customer_id: selectedArea.customers?.id || '',
-        province_id: selectedArea.area_province.map((prov) => prov.provinces?.id || 0),
-        contract_ids: [],
-      });
-    } else if (mode === 'create') {
-      reset({
-        name: '',
-        descripcion_corta: '',
-        customer_id: '',
-        province_id: [],
-        contract_ids: [],
-      });
-    }
-  }, [mode, selectedArea, reset]);
 
   // Contratos activos del cliente seleccionado
   const contractsQuery = useQuery({
     queryKey: ['active-contracts-by-customer', watchedCustomerId],
-    queryFn: () => fetchActiveContractsByCustomer(watchedCustomerId!),
+    queryFn: () => getActiveContractsByCustomer(watchedCustomerId),
     enabled: !!watchedCustomerId,
     staleTime: 2 * 60 * 1000,
   });
 
-  // En modo edit: contratos ya vinculados al area (para filtrarlos del select)
+  // En modo edit: contratos ya vinculados al área (para filtrarlos del select)
   const linkedQuery = useQuery({
     queryKey: ['area-linked-contracts', selectedArea?.id ?? ''],
-    queryFn: () => fetchAreaLinkedContracts(selectedArea!.id),
+    queryFn: () => getAreaLinkedContracts(selectedArea?.id ?? ''),
     enabled: mode === 'edit' && !!selectedArea?.id,
     staleTime: 2 * 60 * 1000,
   });
@@ -135,32 +111,20 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
     return all.filter((c) => !linked.has(c.id));
   }, [contractsQuery.data, linkedQuery.data]);
 
-  // Al cambiar de cliente, limpiar contratos seleccionados
-  useEffect(() => {
-    setValue('contract_ids', []);
-  }, [watchedCustomerId, setValue]);
-
   const handleSubmit = async (values: AreaFormValues) => {
     try {
       const response =
-        mode === 'edit' && selectedArea
-          ? await updateArea({ ...values, id: selectedArea.id })
-          : await createArea(values);
+        mode === 'edit' && selectedArea ? await updateArea({ ...values, id: selectedArea.id }) : await createArea(values);
 
-      if (!response) {
-        toast.error('No se recibió respuesta del servidor');
+      if (!response.ok) {
+        toast.error(response.error);
         return;
       }
 
-      if (response.status !== 200) {
-        toast.error(response.body || 'Error al guardar el área');
-        return;
-      }
-
-      const areaId = response.data?.areaId;
+      const areaId = response.data.areaId;
       const contractIds = values.contract_ids ?? [];
 
-      if (areaId && contractIds.length > 0) {
+      if (contractIds.length > 0) {
         const link = await linkAreaToContracts(areaId, contractIds);
         if (!link.ok) {
           toast.error(`Área guardada pero falló el vínculo: ${link.error}`);
@@ -171,26 +135,18 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
           `${mode === 'create' ? 'Área creada' : 'Área actualizada'} y vinculada a ${link.linked} contrato${link.linked === 1 ? '' : 's'}`
         );
       } else {
-        toast.success(
-          response.body || (mode === 'create' ? 'Área creada correctamente' : 'Área actualizada correctamente')
-        );
+        toast.success(mode === 'create' ? 'Área creada correctamente' : 'Área actualizada correctamente');
       }
 
       finishFormReset();
     } catch (error) {
-      console.error(error);
+      logger.error('Error inesperado al guardar el área', { data: { error } });
       toast.error('Error inesperado al procesar la solicitud');
     }
   };
 
   const handleCancel = () => {
-    reset({
-      name: '',
-      descripcion_corta: '',
-      customer_id: '',
-      province_id: [],
-      contract_ids: [],
-    });
+    reset(EMPTY_VALUES);
     if (mode === 'edit') {
       setSelectedArea(null);
       setMode('create');
@@ -242,7 +198,14 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
               <FormItem>
                 <FormLabel>Cliente</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Al cambiar de cliente, los contratos seleccionados ya no aplican.
+                      setValue('contract_ids', []);
+                    }}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecciona un cliente" />
                     </SelectTrigger>
@@ -271,10 +234,7 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
                 <FormLabel>Provincias</FormLabel>
                 <FormControl>
                   <MultiSelectCombobox
-                    options={provinces.map((province) => ({
-                      label: province.name,
-                      value: province.id.toString(),
-                    }))}
+                    options={provinces.map((province) => ({ label: province.name, value: String(province.id) }))}
                     emptyMessage="No hay provincias disponibles"
                     selectedValues={field.value.map(String)}
                     onChange={(values) => field.onChange(values.map(Number))}
@@ -321,7 +281,7 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
                         <FormControl>
                           <MultiSelectCombobox
                             options={availableContracts.map((c) => ({
-                              label: `${c.contract_number ?? 'Sin número'} — ${c.service_name ?? 'Sin nombre'}`,
+                              label: `${c.contract_number || 'Sin número'} — ${c.service_name || 'Sin nombre'}`,
                               value: c.id,
                             }))}
                             selectedValues={field.value ?? []}
