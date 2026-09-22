@@ -5,7 +5,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { categoryScope, covenantScope } from '../lib/cct-scope';
+import { covenantScope } from '../lib/cct-scope';
 import type { CctMutationResult } from './types';
 
 const logger = new Logger('features/Empresa/CCT/categories');
@@ -60,20 +60,5 @@ export async function createCategory(input: { name: string; covenant_id: string 
   } catch (error) {
     logger.error('Error al crear categoría', { data: { error } });
     return { ok: false, error: 'No se pudo crear la categoría. Intente nuevamente.' };
-  }
-}
-
-/** Categorías activas de un convenio de la empresa activa. */
-export async function getCategoriesByCovenant(covenantId: string) {
-  try {
-    const companyId = await getActiveCompanyId();
-    return await prisma.category.findMany({
-      where: { covenant_id: covenantId, is_active: true, ...categoryScope(companyId) },
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
-    });
-  } catch (error) {
-    logger.error('Error al obtener categorías del convenio', { data: { error, covenantId } });
-    return [];
   }
 }

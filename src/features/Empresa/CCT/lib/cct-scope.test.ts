@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoryScope, covenantScope, guildReadScope, guildWriteScope } from './cct-scope';
+import { covenantScope, guildReadScope, guildWriteScope } from './cct-scope';
 
 const COMPANY = '11111111-1111-1111-1111-111111111111';
 
@@ -17,11 +17,5 @@ describe('guildReadScope / guildWriteScope', () => {
 describe('covenantScope', () => {
   it('los convenios siempre son de una empresa (company_id NOT NULL)', () => {
     expect(covenantScope(COMPANY)).toEqual({ company_id: COMPANY });
-  });
-});
-
-describe('categoryScope', () => {
-  it('las categorías se filtran por el convenio padre, no tienen company_id propio', () => {
-    expect(categoryScope(COMPANY)).toEqual({ covenant: { company_id: COMPANY } });
   });
 });

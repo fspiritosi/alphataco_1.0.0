@@ -14,7 +14,8 @@ import { revalidatePath } from 'next/cache';
  *
  * Perímetro sin RLS: `company_id` sale SIEMPRE de la sesión (el `company_id` del FormData se
  * ignora), la fila se busca por `{ id, company_id }` y el cliente tiene que ser de la empresa.
- * El shape `{ status, body }` se conserva porque `CCT/CovenantComponent` (Task 7) también lo consume.
+ * El shape `{ status, body }` lo consume `ContactComponent` (su único llamador desde que la
+ * Task 7 borró `CCT/CovenantComponent`, que lo usaba por error para guardar convenios).
  */
 const logger = new Logger('features/Empresa/Contactos');
 

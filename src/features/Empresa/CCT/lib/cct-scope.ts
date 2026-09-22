@@ -32,11 +32,3 @@ export function guildWriteScope(companyId: string): { company_id: string } {
 export function covenantScope(companyId: string): { company_id: string } {
   return { company_id: companyId };
 }
-
-/**
- * `where` de categorías: no tienen `company_id`, se filtran por el convenio padre.
- * Se usa tanto para listar como para verificar que una categoría es de la empresa activa.
- */
-export function categoryScope(companyId: string): { covenant: { company_id: string } } {
-  return { covenant: { company_id: companyId } };
-}

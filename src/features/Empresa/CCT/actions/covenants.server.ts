@@ -56,18 +56,3 @@ export async function createCovenant(input: { name: string; guild_id: string }):
     return { ok: false, error: 'No se pudo crear el convenio. Intente nuevamente.' };
   }
 }
-
-/** Convenios activos de la empresa activa (selector de categorías / legajo). */
-export async function getActiveCovenants() {
-  try {
-    const companyId = await getActiveCompanyId();
-    return await prisma.covenant.findMany({
-      where: { ...covenantScope(companyId), is_active: true },
-      select: { id: true, name: true, guild_id: true },
-      orderBy: { name: 'asc' },
-    });
-  } catch (error) {
-    logger.error('Error al obtener convenios activos', { data: { error } });
-    return [];
-  }
-}
