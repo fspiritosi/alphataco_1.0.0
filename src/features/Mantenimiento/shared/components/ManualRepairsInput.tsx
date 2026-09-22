@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { RepairGroupBadge } from '@/features/Mantenimiento/shared/components/RepairGroupBadge';
-import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/uploadRepairImages';
+import { MAX_REPAIR_IMAGE_SIZE } from '@/features/Mantenimiento/shared/utils/repair-images';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,

@@ -1,45 +1,46 @@
+'use server';
+
+import { sanitizeFileName } from '@/features/Mantenimiento/shared/utils/repair-images';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { prisma } from '@/shared/lib/prisma';
+import { storagePublicUrl, storageUpload } from '@/shared/lib/storage'; // P3: storage
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/Gomeria/Ordenes/uploadDiscardPhoto');
 
 const BUCKET = 'tire-discards';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-function sanitizeFileName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_')
-    .replace(/[^a-zA-Z0-9._-]/g, '');
-}
-
 /**
- * Uploads a discard photo to Supabase Storage and returns the public URL.
+ * Sube la foto de descarte/reparación de una cubierta y devuelve su URL pública.
+ *
+ * Server Action: el navegador ya no habla con el storage. La carpeta se arma en el
+ * servidor como `<empresa>/<vehículo>/...`; la empresa sale del vehículo y se verifica
+ * contra la empresa activa antes de escribir.
  */
-export async function uploadDiscardPhoto(file: File): Promise<string> {
+export async function uploadDiscardPhoto(file: File, vehicleId: string): Promise<string> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error('El archivo supera el tamaño máximo permitido (10 MB)');
   }
 
-  const supabase = supabaseBrowser();
-  const timestamp = Date.now();
-  const safeName = sanitizeFileName(file.name);
-  const path = `${timestamp}_${safeName}`;
+  const companyId = await getActiveCompanyId();
 
-  logger.debug('Uploading discard photo', { data: { path, size: file.size } });
-
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
+  const vehicle = await prisma.vehicles.findFirst({
+    where: { id: vehicleId, company_id: companyId },
+    select: { id: true },
   });
+  if (!vehicle) throw new Error('El equipo no pertenece a la empresa activa');
 
-  if (error) {
-    logger.error('Error uploading discard photo', { data: { error } });
-    throw new Error(`Error al subir la foto: ${error.message}`);
+  const path = `${companyId}/${vehicleId}/${Date.now()}_${sanitizeFileName(file.name)}`;
+
+  logger.debug('Subiendo foto de descarte', { data: { path, size: file.size } });
+
+  const result = await storageUpload(BUCKET, path, file); // P3: storage
+
+  if (!result.ok) {
+    logger.error('Error al subir la foto de descarte', { data: { error: result.error, path } });
+    throw new Error(`Error al subir la foto: ${result.error}`);
   }
 
-  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-  return publicUrlData.publicUrl;
+  return storagePublicUrl(BUCKET, path); // P3: storage
 }

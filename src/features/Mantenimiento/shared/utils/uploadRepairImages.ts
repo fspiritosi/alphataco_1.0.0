@@ -1,30 +1,23 @@
+'use server';
+
+// P3: storage
+import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { prisma } from '@/shared/lib/prisma';
+import { storagePublicUrl, storageUpload } from '@/shared/lib/storage'; // P3: storage
+import { MAX_REPAIR_IMAGE_SIZE, REPAIR_IMAGES_BUCKET, sanitizeFileName } from './repair-images';
 
 const logger = new Logger('features/Mantenimiento/uploadRepairImages');
-
-/** Bucket ya existente en el proyecto, usado por el flujo anterior de solicitudes de reparación */
-const BUCKET = 'repair-images';
-export const MAX_REPAIR_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-function sanitizeFileName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, '_')
-    .replace(/[^a-zA-Z0-9._-]/g, '');
-}
 
 /**
  * Sube las fotos de una reparación y devuelve sus URLs públicas.
  *
- * Se agrupan por equipo para que el bucket quede navegable y no se pisen nombres
- * entre pedidos distintos del mismo día.
+ * Server Action: el navegador ya no habla con el storage. La carpeta se arma en el
+ * servidor como `<empresa>/<equipo>/...`, y la empresa sale del propio equipo (nunca del
+ * cliente) porque este flujo también corre desde el QR anónimo.
  */
 export async function uploadRepairImages(files: File[], equipmentId: string): Promise<string[]> {
   if (files.length === 0) return [];
-
-  const supabase = supabaseBrowser();
 
   // El tamaño se valida antes de subir nada: si un archivo no entra, no tiene
   // sentido haber subido los anteriores. (El formulario ya lo valida al elegir
@@ -33,6 +26,8 @@ export async function uploadRepairImages(files: File[], equipmentId: string): Pr
   if (tooBig) {
     throw new Error(`La imagen "${tooBig.name}" supera el tamaño máximo permitido (10 MB)`);
   }
+
+  const companyId = await getResourceCompanyId(prisma, 'vehicle', equipmentId);
 
   // En paralelo: son pocas fotos por reparación y el flujo por QR se usa desde
   // el celular en obra, donde encadenar round trips se nota.
@@ -46,19 +41,16 @@ export async function uploadRepairImages(files: File[], equipmentId: string): Pr
 
   return Promise.all(
     files.map(async (file, index) => {
-      const path = `${equipmentId}/${batchStamp}_${index}_${sanitizeFileName(file.name)}`;
+      const path = `${companyId}/${equipmentId}/${batchStamp}_${index}_${sanitizeFileName(file.name)}`;
 
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
+      const result = await storageUpload(REPAIR_IMAGES_BUCKET, path, file); // P3: storage
 
-      if (error) {
-        logger.error('Error al subir imagen de reparación', { data: { error, path } });
-        throw new Error(`Error al subir la imagen "${file.name}": ${error.message}`);
+      if (!result.ok) {
+        logger.error('Error al subir imagen de reparación', { data: { error: result.error, path } });
+        throw new Error(`Error al subir la imagen "${file.name}": ${result.error}`);
       }
 
-      return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      return storagePublicUrl(REPAIR_IMAGES_BUCKET, path); // P3: storage
     })
   );
 }

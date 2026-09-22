@@ -249,7 +249,7 @@ function TireActionsWithTire({
       if ((oldDest === 'DISCARD' || oldDest === 'REPAIR') && discardFile) {
         setIsUploading(true);
         try {
-          discardPhotoUrl = await uploadDiscardPhoto(discardFile);
+          discardPhotoUrl = await uploadDiscardPhoto(discardFile, vehicleId);
         } finally {
           setIsUploading(false);
         }
