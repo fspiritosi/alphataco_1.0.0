@@ -8,6 +8,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { cacheLife, cacheTag } from 'next/cache';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('Planificacion/actions');
 
@@ -90,7 +91,7 @@ export async function assignWorkshopToItem(input: AssignWorkshopInput) {
 
   const profile = await requireServerAuthProfile();
 
-  const updatedItem = await prisma.$transaction(async (tx) => {
+  const updatedItem = await withMaintenanceActor(profile.id, async (tx) => {
     // 1. Actualizar el item con el taller, sector y primer tipo de reparación (legacy)
     const item = await tx.maintenance_order_items.update({
       where: { id: input.maintenanceOrderItemId },
@@ -147,7 +148,7 @@ export async function assignWorkshopToItemsBulk(input: AssignWorkshopBulkInput) 
 
   const profile = await requireServerAuthProfile();
 
-  const updatedItems = await prisma.$transaction(async (tx) => {
+  const updatedItems = await withMaintenanceActor(profile.id, async (tx) => {
     // 1. Actualizar múltiples items con updateMany
     await tx.maintenance_order_items.updateMany({
       where: { id: { in: input.itemIds } },
@@ -209,7 +210,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
   // Obtener siguiente número de secuencia ANTES de la transacción para evitar deadlocks
   const sequenceNumber = await getNextSequenceNumber();
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withMaintenanceActor(profile.id, async (tx) => {
     // 1. Obtener los items y verificar que son del mismo equipo
     const items = await tx.maintenance_order_items.findMany({
       where: { id: { in: input.itemIds } },

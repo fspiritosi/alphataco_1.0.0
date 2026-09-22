@@ -7,10 +7,11 @@ import { resourceIdFields, type MaintenanceResourceKind } from '@/features/Mante
 import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
-import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('Mantenimiento/NuevoPedido/orders');
 
@@ -45,7 +46,10 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
     data: { equipment_id: input.equipment_id, itemsCount: input.items.length },
   });
 
-  const { order, items } = await prisma.$transaction(async (tx) => {
+  // Sin sesión (alta directa desde el QR) el trigger deja `performed_by` NULL, igual que antes.
+  const actorProfile = await getServerAuthProfile();
+
+  const { order, items } = await withMaintenanceActor(actorProfile?.id ?? null, async (tx) => {
     const companyId = await getResourceCompanyId(tx, 'vehicle', input.equipment_id);
     // 1. Crear el maintenance_order
     const order = await tx.maintenance_orders.create({
@@ -205,7 +209,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 
   if (isPreventive) {
-    const { request, order } = await prisma.$transaction(async (tx) => {
+    const { request, order } = await withMaintenanceActor(profile.id, async (tx) => {
       const request = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
@@ -303,7 +307,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
 
   const deviations = input.deviations ?? [];
 
-  const { request, order } = await prisma.$transaction(async (tx) => {
+  const { request, order } = await withMaintenanceActor(profile.id, async (tx) => {
     // 1. Crear checklist_deviations con Promise.all para obtener los IDs
     const createdDeviations = await Promise.all(
       deviations.map((d) =>

@@ -10,6 +10,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { assertOrderInActiveCompany, assertOrderItemInActiveCompany } from './perimeter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('OrderManagement/items');
 
@@ -34,7 +35,7 @@ export async function assignItemsToSectors(maintenanceOrderId: string, assignmen
   });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
       for (const assignment of assignments) {
         // Actualizar items existentes con sector y secuencia
@@ -117,7 +118,7 @@ export async function addItemToOrder(
   const profile = await requireServerAuthProfile();
 
   try {
-    const newItem = await prisma.$transaction(async (tx) => {
+    const newItem = await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
       const item = await tx.maintenance_order_items.create({
         data: {
@@ -181,7 +182,7 @@ export async function updateItemRepairTypes(maintenanceOrderItemId: string, repa
       throw new Error('Item no encontrado o sin orden asociada');
     }
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // Actualizar campo legacy con el primer tipo
       await tx.maintenance_order_items.update({
         where: { id: maintenanceOrderItemId },
@@ -250,7 +251,7 @@ export async function removeManualItem(itemId: string) {
     }
 
     // Las relaciones tienen ON DELETE CASCADE, por lo que el delete borra el pivot automáticamente
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       await tx.maintenance_order_items.delete({ where: { id: itemId } });
       if (item.maintenance_order_id) {
         await logActivity(tx, {
@@ -308,7 +309,7 @@ export async function generateMaintenanceOrderNumber(orderId: string) {
     const orderNumber = `OM-${paddedSeq}`;
 
     // Update the order
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: { order_number: orderNumber },
@@ -404,7 +405,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
   });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
       // 1. DELETES - Eliminar items manuales
       for (const itemId of changes.deletes) {

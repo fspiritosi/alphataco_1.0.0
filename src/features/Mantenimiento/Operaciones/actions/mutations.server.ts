@@ -7,6 +7,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { ApproveWorkshopEntryInput, RejectOperationInput } from '../../types';
 import { assertOperationOrderInActiveCompany } from './perimeter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('Operaciones/mutations');
 
@@ -22,19 +23,21 @@ export async function rejectMaintenanceOperation(input: RejectOperationInput) {
   serverLogger.info('Rechazando operación', { data: { orderId: input.orderId, reason: input.reason } });
 
   try {
-    const data = await prisma.maintenance_orders.update({
-      where: { id: input.orderId },
-      data: {
-        status: 'pending_scheduling',
-        // Resetear campos de programación a NULL
-        scheduled_date: null,
-        scheduled_by: null,
-        scheduled_at: null,
-        rejection_reason: input.reason,
-        rejected_by: profile.id,
-        rejected_at: new Date(),
-      },
-    });
+    const data = await withMaintenanceActor(profile.id, (tx) =>
+      tx.maintenance_orders.update({
+        where: { id: input.orderId },
+        data: {
+          status: 'pending_scheduling',
+          // Resetear campos de programación a NULL
+          scheduled_date: null,
+          scheduled_by: null,
+          scheduled_at: null,
+          rejection_reason: input.reason,
+          rejected_by: profile.id,
+          rejected_at: new Date(),
+        },
+      })
+    );
 
     serverLogger.info('Operación rechazada, vuelve a pedido pendiente', { data: { orderId: input.orderId } });
 
@@ -61,7 +64,7 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
 
   try {
     // Usar transacción para garantizar atomicidad entre update order + update vehicle
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await withMaintenanceActor(profile.id, async (tx) => {
       // Obtener el pedido para saber el equipment_id
       const order = await tx.maintenance_orders.findUnique({
         where: { id: input.orderId },

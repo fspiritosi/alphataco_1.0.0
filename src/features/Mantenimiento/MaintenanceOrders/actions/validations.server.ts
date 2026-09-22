@@ -4,12 +4,13 @@ import { areAllWorkOrdersClosed, resolveResourceConditionAfterClose } from '@/fe
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { Logger } from '@/lib/logger';
-import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany } from './order-perimeter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('MaintenanceOrders/validations');
 
@@ -26,7 +27,7 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
   logger.debug('Validando orden por jefe de taller', { data: { orderId, notes, operationsSupervisorId } });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // El taller cierra el circuito: Operaciones ya no valida.
       // El cliente lo pidio explicitamente ("operaciones ya no tiene que dar mas el
       // ok de esto... ese paso se va, porque ellos mismos no lo hacen"): la orden
@@ -127,7 +128,7 @@ export async function workshopChiefReturnOrder(orderId: string, reason: string) 
   logger.debug('Devolviendo orden al taller', { data: { orderId, reason } });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // 1. Actualizar estado de la orden a in_workshop
       await tx.maintenance_orders.update({
         where: { id: orderId },
@@ -187,7 +188,7 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
   logger.debug('Validando orden por operaciones', { data: { orderId, notes } });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // Obtener equipment_id antes de actualizar
       const order = await tx.maintenance_orders.findUnique({
         where: { id: orderId },
@@ -257,16 +258,21 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
 export async function operationsRejectOrder(orderId: string, reason: string) {
   // Perímetro: el pedido tiene que ser de la empresa activa.
   await assertOrderInActiveCompany(orderId);
+
+  // Sin sesión el trigger de auditoría deja `performed_by` NULL, igual que antes.
+  const profile = await getServerAuthProfile();
   logger.debug('Rechazando orden por operaciones (bulk)', { data: { orderId, reason } });
 
   try {
-    await prisma.maintenance_orders.update({
-      where: { id: orderId },
-      data: {
-        status: 'pending_workshop_validation',
-        rejection_reason: reason,
-        updated_at: new Date(),
-      },
+    await withMaintenanceActor(profile?.id ?? null, async (tx) => {
+      await tx.maintenance_orders.update({
+        where: { id: orderId },
+        data: {
+          status: 'pending_workshop_validation',
+          rejection_reason: reason,
+          updated_at: new Date(),
+        },
+      });
     });
 
     logger.info('Orden rechazada por operaciones', { data: { orderId, reason } });
@@ -328,7 +334,7 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
       },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // 2. Marcar cada repair como rechazado con comentario individual
       for (const rejection of rejections) {
         await tx.work_order_item_repairs.update({
@@ -430,7 +436,7 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
       },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // 2. Cambiar estado de la orden a operations_rejected
       await tx.maintenance_orders.update({
         where: { id: orderId },
@@ -501,7 +507,7 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
 
       const repairIds = rejectedItems.map((item) => item.repair_id);
 
-      await prisma.$transaction(async (tx) => {
+      await withMaintenanceActor(profile.id, async (tx) => {
         // Marcar repairs como rechazados
         for (const item of rejectedItems) {
           await tx.work_order_item_repairs.update({
@@ -555,7 +561,7 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
       // Desacuerdo — enviar de vuelta a operaciones
       if (!comment?.trim()) throw new Error('Debe indicar el motivo de desacuerdo');
 
-      await prisma.$transaction(async (tx) => {
+      await withMaintenanceActor(profile.id, async (tx) => {
         await tx.maintenance_orders.update({
           where: { id: orderId },
           data: { status: 'pending_operations_validation', updated_at: new Date() },

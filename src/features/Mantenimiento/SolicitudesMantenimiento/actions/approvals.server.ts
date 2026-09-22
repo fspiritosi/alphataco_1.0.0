@@ -16,6 +16,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { ApproveRequestItemsInput, RejectRequestInput } from '../../types';
 import { assertRequestInActiveCompany } from './request-perimeter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('SolicitudesMantenimiento/approvals');
 
@@ -68,7 +69,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       await tx.maintenance_requests.update({
         where: { id: input.requestId },
         data: {
@@ -106,7 +107,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
   // --- END PREVENTIVE BRANCH ---
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // 1. Actualizar items aprobados (sin tipos de reparación)
       await Promise.all(
         input.approvedItems.map((item) =>
@@ -310,7 +311,7 @@ export async function rejectMaintenanceRequest(input: RejectRequestInput) {
   await assertRequestInActiveCompany(input.requestId);
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       // Actualizar todos los items como rechazados
       await tx.maintenance_request_items.updateMany({
         where: { maintenance_request_id: input.requestId },
@@ -364,7 +365,7 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
     });
 
     if (request.source === 'preventive') {
-      await prisma.$transaction(async (tx) => {
+      await withMaintenanceActor(profile.id, async (tx) => {
         await tx.maintenance_requests.update({
           where: { id: input.requestId },
           data: { status: 'rejected' },

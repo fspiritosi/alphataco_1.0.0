@@ -11,6 +11,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany, assertWorkOrderInActiveCompany } from './order-perimeter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('MaintenanceOrders/mutations');
 
@@ -45,7 +46,7 @@ export async function updateSectorExecutionOrder(
       throw new Error('Solo se puede cambiar el orden cuando la OM está en taller');
     }
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       for (const { sectorId, sequenceOrder } of sectorOrders) {
         await tx.maintenance_order_items.updateMany({
           where: {
@@ -93,7 +94,7 @@ export async function completeExternalWorkOrder(workOrderId: string) {
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profileId, async (tx) => {
       // Completar la OT
       await tx.work_orders.update({
         where: { id: workOrderId },

@@ -18,6 +18,7 @@ import { assertOrderInActiveCompany } from './perimeter';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../../utils/constants';
 import type { OrderChangeSet } from './items.server';
 import { getOrderGenerationPreview } from './queries.server';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const logger = new Logger('OrderManagement/work-orders');
 
@@ -104,7 +105,7 @@ export async function generateWorkOrdersForOrder(
       const woSectorId = sector.isExternal ? null : sector.sectorId;
 
       // Crear la OT y sus items en una transacción por sector
-      const workOrder = await prisma.$transaction(async (tx) => {
+      const workOrder = await withMaintenanceActor(profile.id, async (tx) => {
         // Crear la OT
         const wo = await tx.work_orders.create({
           data: {
@@ -260,7 +261,7 @@ export async function generateWorkOrdersForOrder(
       });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       await logActivity(tx, {
         maintenanceOrderId: orderId,
         actionType: ACTIVITY_LOG.WORK_ORDERS_GENERATED,
@@ -325,7 +326,7 @@ export async function setupAndGenerateWorkOrders(
   });
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withMaintenanceActor(profile.id, async (tx) => {
       const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
       // ──────────────────────────────────────────────
       // 1. APLICAR CAMBIOS DE ITEMS

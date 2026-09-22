@@ -17,6 +17,7 @@ import type {
   ScheduleOrderInput,
 } from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
 
@@ -560,7 +561,7 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
   try {
     // Transaccion: el update y el registro de actividad van juntos para que el
     // historial nunca quede sin el evento "fecha programada" (lo reclamo el cliente).
-    const data = await prisma.$transaction(async (tx) => {
+    const data = await withMaintenanceActor(profile.id, async (tx) => {
       const previous = await tx.maintenance_orders.findUnique({
         where: { id: input.orderId },
         select: { status: true },
@@ -631,7 +632,7 @@ export async function rejectPendingOrder(input: RejectPendingOrderInput) {
   const profile = await requireServerAuthProfile();
 
   try {
-    const data = await prisma.$transaction(async (tx) => {
+    const data = await withMaintenanceActor(profile.id, async (tx) => {
       const current = await tx.maintenance_orders.findUnique({
         where: { id: input.orderId },
         select: { status: true, maintenance_request_id: true },
@@ -729,39 +730,37 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
     // Transacción atómica: actualizar pedido + recurso simultáneamente.
     // El pedido es de un vehículo o de un equipamiento (ticket 596): los
     // equipamientos no llevan kilometraje, y sus horas van en `horometer`.
-    await prisma.$transaction([
-      prisma.maintenance_orders.update({
+    await withMaintenanceActor(profile.id, async (tx) => {
+      await tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {
           status: 'in_workshop',
           workshop_entry_date: new Date(),
           workshop_approved_by: profile.id,
         },
-      }),
-      ...(order.equipment_id
-        ? [
-            prisma.vehicles.update({
-              where: { id: order.equipment_id },
-              data: {
-                ...(input.kilometer ? { kilometer: input.kilometer } : {}),
-                condition: 'no_operativo',
-                ...(input.engine_hours ? { engine_hours: input.engine_hours } : {}),
-              },
-            }),
-          ]
-        : []),
-      ...(order.other_equipment_id
-        ? [
-            prisma.other_equipment.update({
-              where: { id: order.other_equipment_id },
-              data: {
-                condition: 'no_operativo',
-                ...(input.engine_hours ? { horometer: Number(input.engine_hours) } : {}),
-              },
-            }),
-          ]
-        : []),
-    ]);
+      });
+
+      if (order.equipment_id) {
+        await tx.vehicles.update({
+          where: { id: order.equipment_id },
+          data: {
+            ...(input.kilometer ? { kilometer: input.kilometer } : {}),
+            condition: 'no_operativo',
+            ...(input.engine_hours ? { engine_hours: input.engine_hours } : {}),
+          },
+        });
+      }
+
+      if (order.other_equipment_id) {
+        await tx.other_equipment.update({
+          where: { id: order.other_equipment_id },
+          data: {
+            condition: 'no_operativo',
+            ...(input.engine_hours ? { horometer: Number(input.engine_hours) } : {}),
+          },
+        });
+      }
+    });
 
     // Generar número de orden de mantenimiento (OM-DOMAIN-XXXXXX)
     // NOTA: generateMaintenanceOrderNumber pertenece a OrderManagement, se migra en su propio PR

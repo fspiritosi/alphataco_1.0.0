@@ -12,6 +12,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { CreateDeviationFromNuevoPedido } from './orders.server';
+import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('Mantenimiento/NuevoPedido/requests');
 
@@ -68,7 +69,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 
   if (isPreventive) {
-    const { request } = await prisma.$transaction(async (tx) => {
+    const { request } = await withMaintenanceActor(profile.id, async (tx) => {
       const request = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
@@ -151,7 +152,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
 
   const pendingDeviations = input.deviations ?? [];
 
-  const { request, requestItems } = await prisma.$transaction(async (tx) => {
+  const { request, requestItems } = await withMaintenanceActor(profile.id, async (tx) => {
     // 1a. Crear checklist_answers "stub" para vincular los desvíos al template.
     //     Esto permite que el filtro de items "no propagables" pueda inferir el
     //     template_id al aprobar la solicitud en validate (paso 1 de Operaciones).
@@ -413,7 +414,7 @@ export async function createManualMaintenanceRequest(input: {
   const autoApprove = input.autoApprove === true;
 
   try {
-    const request = await prisma.$transaction(async (tx) => {
+    const request = await withMaintenanceActor(profile.id, async (tx) => {
       const created = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
