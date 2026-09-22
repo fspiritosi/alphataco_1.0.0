@@ -6,6 +6,8 @@ import { CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { updateEquipmentCondition } from '@/features/Equipos/EquipoID/lib/actions/vehicle-actions';
+import { condition_enum } from '@/generated/prisma/enums';
+import { conditionLabels, terminationReasonEquipmentLabels } from '@/shared/utils/mappers';
 import type { OtherEquipmentDetail } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
 import { PermissionGuard } from '@/features/Permissions';
 import BackButton from '@/shared/components/common/BackButton';
@@ -27,8 +29,7 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
   const searchParams = useSearchParams();
   const [isChangingCondition, setIsChangingCondition] = useState(false);
 
-  // El valor de condition viene de Supabase con espacios ("en preparacion")
-  const isEnPreparacion = equipment?.condition === 'en preparacion';
+  const isEnPreparacion = equipment?.condition === condition_enum.en_preparacion;
 
   const handleConditionChange = async (newCondition: string) => {
     if (!equipment?.id || newCondition !== 'operativo') return;
@@ -128,12 +129,12 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
                 <p className="text-sm text-muted-foreground">Condición</p>
                 {isEnPreparacion ? (
                   <PermissionGuard module="equipos" tab="detalle-otro-equipo" action="update">
-                    <Select value="en preparacion" onValueChange={handleConditionChange} disabled={isChangingCondition}>
+                    <Select value={condition_enum.en_preparacion} onValueChange={handleConditionChange} disabled={isChangingCondition}>
                       <SelectTrigger className="h-7 w-auto gap-1 text-xs font-semibold border-dashed mt-0.5">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="en preparacion" disabled>
+                        <SelectItem value={condition_enum.en_preparacion} disabled>
                           <div className="flex items-center gap-1.5">
                             <Clock className="size-3.5" />
                             En preparación
@@ -149,7 +150,9 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
                     </Select>
                   </PermissionGuard>
                 ) : (
-                  <p className="font-medium capitalize">{equipment?.condition || '-'}</p>
+                  <p className="font-medium">
+                    {equipment?.condition ? conditionLabels[equipment.condition] ?? equipment.condition : '-'}
+                  </p>
                 )}
               </div>
               <div>
@@ -175,7 +178,9 @@ export function OtherEquipmentHeader({ equipment, mode }: OtherEquipmentHeaderPr
               {equipment?.reason_for_termination && (
                 <div className="flex gap-2 text-red-400">
                   <p className="font-medium">Razón de Baja:</p>
-                  <p className="font-medium capitalize">{equipment.reason_for_termination}</p>
+                  <p className="font-medium">
+                    {terminationReasonEquipmentLabels[equipment.reason_for_termination] ?? equipment.reason_for_termination}
+                  </p>
                 </div>
               )}
             </div>

@@ -25,7 +25,6 @@ import {
   type OtherEquipmentCertification,
 } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -56,32 +55,6 @@ interface OtherEquipmentCertificationsProps {
   initialData: OtherEquipmentCertification[];
 }
 
-async function uploadCertificationFile(file: File, equipmentId: string): Promise<string> {
-  const supabase = supabaseBrowser();
-  const timestamp = Date.now();
-  const sanitizedName = file.name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_');
-  const filePath = `other-equipment-certifications/${equipmentId}/${timestamp}_${sanitizedName}`;
-
-  const { error } = await supabase.storage.from('document-files').upload(filePath, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType: file.type,
-  });
-
-  if (error) {
-    throw new Error(`Error al subir el archivo: ${error.message}`);
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('document-files').getPublicUrl(filePath);
-
-  return publicUrl;
-}
-
 export function OtherEquipmentCertifications({ equipmentId, initialData }: OtherEquipmentCertificationsProps) {
   const queryClient = useQueryClient();
   const [openCreate, setOpenCreate] = useState(false);
@@ -104,20 +77,16 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
     },
   });
 
+  // El archivo viaja en el FormData y lo sube la server action (P3: storage); la fecha va
+  // como 'YYYY-MM-DD' formateada en el navegador para no correr el día por la zona horaria.
   const createMutation = useMutation({
     mutationFn: async (data: CertificationFormData) => {
-      let fileUrl = '';
-
-      if (selectedFile) {
-        fileUrl = await uploadCertificationFile(selectedFile, equipmentId);
-      }
-
-      return createOtherEquipmentCertification({
-        equipment_id: equipmentId,
-        name: data.name,
-        file_url: fileUrl,
-        expiration_date: data.expiration_date ? moment(data.expiration_date).format('YYYY-MM-DD') : null,
-      });
+      const formData = new FormData();
+      formData.set('equipmentId', equipmentId);
+      formData.set('name', data.name);
+      formData.set('expiration_date', data.expiration_date ? moment(data.expiration_date).format('YYYY-MM-DD') : '');
+      if (selectedFile) formData.set('file', selectedFile);
+      return createOtherEquipmentCertification(formData);
     },
     onSuccess: () => {
       toast.success('Documento creado correctamente');

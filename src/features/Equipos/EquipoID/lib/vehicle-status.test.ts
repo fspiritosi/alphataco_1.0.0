@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HEADER_CONDITION_TRANSITIONS,
+  buildEquipmentStatusUpdate,
   buildVehicleStatusUpdate,
   canChangeConditionFromHeader,
   toEquipmentTerminationReason,
@@ -74,6 +75,24 @@ describe('buildVehicleStatusUpdate', () => {
       'no_operativo'
     );
     expect(() => buildVehicleStatusUpdate({ activate: true, condition: 'volando' })).toThrow('Condición inválida');
+  });
+});
+
+describe('buildEquipmentStatusUpdate (equipamientos: sin condición)', () => {
+  it('reintegro limpia motivo y fecha; baja exige ambos', () => {
+    expect(buildEquipmentStatusUpdate({ activate: true })).toEqual({
+      is_active: true,
+      reason_for_termination: null,
+      termination_date: null,
+    });
+    expect(buildEquipmentStatusUpdate({ activate: false, reason: 'devolución', terminationDate: '2026-03-03' })).toEqual({
+      is_active: false,
+      reason_for_termination: 'devoluci_n',
+      termination_date: new Date('2026-03-03T00:00:00.000Z'),
+    });
+    expect(() => buildEquipmentStatusUpdate({ activate: false, reason: 'venta', terminationDate: '' })).toThrow(
+      'La fecha de baja es requerida'
+    );
   });
 });
 

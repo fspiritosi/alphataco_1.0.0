@@ -13,15 +13,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  updateOtherEquipmentBlueprints,
-  updateOtherEquipmentPictures,
+  removeOtherEquipmentFile,
+  uploadOtherEquipmentFile,
 } from '@/features/Equipos/OtherEquipment/actions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useMutation } from '@tanstack/react-query';
 import { FileText, ImageIcon, Plus, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { getFileNameFromUrl, isImageUrl } from '../lib/equipment-files';
 
 const logger = new Logger('OtherEquipmentFileUpload');
 
@@ -29,81 +29,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const PICTURES_ACCEPT = 'image/*';
 const BLUEPRINTS_ACCEPT = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.dwg,.dxf';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function extractStoragePath(publicUrl: string, bucket: string): string | null {
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return decodeURIComponent(publicUrl.substring(idx + marker.length));
-}
-
-function sanitizeFileName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_');
-}
-
-function isImageUrl(url: string): boolean {
-  const lower = url.toLowerCase().split('?')[0];
-  return /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/.test(lower);
-}
-
-function getFileNameFromUrl(url: string): string {
-  try {
-    const decoded = decodeURIComponent(url);
-    const parts = decoded.split('/');
-    const last = parts[parts.length - 1];
-    // Quitar el timestamp prefijo si existe (ej: 1700000000000_nombre.pdf)
-    return last.replace(/^\d+_/, '');
-  } catch {
-    return url;
-  }
-}
-
-// ─── Upload helper ────────────────────────────────────────────────────────────
-
-async function uploadFile(file: File, equipmentId: string, type: 'pictures' | 'blueprints'): Promise<string> {
-  const supabase = supabaseBrowser();
-  const timestamp = Date.now();
-  const sanitizedName = sanitizeFileName(file.name);
-  const folderName = type === 'pictures' ? 'other-equipment-pictures' : 'other-equipment-blueprints';
-  const filePath = `${folderName}/${equipmentId}/${timestamp}_${sanitizedName}`;
-
-  const { error } = await supabase.storage.from('document-files').upload(filePath, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType: file.type,
-  });
-
-  if (error) {
-    throw new Error(`Error al subir el archivo: ${error.message}`);
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('document-files').getPublicUrl(filePath);
-
-  return publicUrl;
-}
-
-async function deleteFileFromStorage(publicUrl: string): Promise<void> {
-  const supabase = supabaseBrowser();
-  const storagePath = extractStoragePath(publicUrl, 'document-files');
-  if (!storagePath) {
-    logger.warn('No se pudo extraer el path del storage para eliminar', { data: { publicUrl } });
-    return;
-  }
-
-  const { error } = await supabase.storage.from('document-files').remove([storagePath]);
-  if (error) {
-    logger.warn('No se pudo eliminar el archivo del storage', {
-      data: { storagePath, error: error.message },
-    });
-  }
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -145,21 +70,18 @@ export function OtherEquipmentFileUpload({
 
   // ─── Mutation: agregar archivo ────────────────────────────────────────────
 
+  // La subida, el path del storage y la actualización del array viven en la server action
+  // (P3: storage): el cliente sólo manda el archivo y recibe el array final de la base.
   const addMutation = useMutation({
     mutationFn: async (file: File) => {
-      const publicUrl = await uploadFile(file, equipmentId, type);
-      const updatedFiles = [...localFiles, publicUrl];
-
-      if (isPictures) {
-        await updateOtherEquipmentPictures(equipmentId, updatedFiles);
-      } else {
-        await updateOtherEquipmentBlueprints(equipmentId, updatedFiles);
-      }
-
-      return publicUrl;
+      const formData = new FormData();
+      formData.set('equipmentId', equipmentId);
+      formData.set('kind', type);
+      formData.set('file', file);
+      return uploadOtherEquipmentFile(formData);
     },
-    onSuccess: (publicUrl: string) => {
-      setLocalFiles((prev) => [...prev, publicUrl]);
+    onSuccess: ({ files }) => {
+      setLocalFiles(files);
       toast.success(`${label.charAt(0).toUpperCase() + label.slice(1)} agregada correctamente`);
     },
     onError: (error: unknown) => {
@@ -171,23 +93,9 @@ export function OtherEquipmentFileUpload({
   // ─── Mutation: eliminar archivo ───────────────────────────────────────────
 
   const deleteMutation = useMutation({
-    mutationFn: async (urlToRemove: string) => {
-      // 1. Eliminar del storage
-      await deleteFileFromStorage(urlToRemove);
-
-      // 2. Actualizar array en BD
-      const updatedFiles = localFiles.filter((f) => f !== urlToRemove);
-
-      if (isPictures) {
-        await updateOtherEquipmentPictures(equipmentId, updatedFiles);
-      } else {
-        await updateOtherEquipmentBlueprints(equipmentId, updatedFiles);
-      }
-
-      return urlToRemove;
-    },
-    onSuccess: (removedUrl: string) => {
-      setLocalFiles((prev) => prev.filter((f) => f !== removedUrl));
+    mutationFn: (urlToRemove: string) => removeOtherEquipmentFile({ equipmentId, kind: type, url: urlToRemove }),
+    onSuccess: ({ files }) => {
+      setLocalFiles(files);
       toast.success(`${label.charAt(0).toUpperCase() + label.slice(1)} eliminada correctamente`);
       setFileToDelete(null);
     },

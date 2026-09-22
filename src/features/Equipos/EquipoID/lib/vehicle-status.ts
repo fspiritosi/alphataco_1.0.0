@@ -33,30 +33,40 @@ export function toConditionEnum(value: string): condition_enum {
   throw new Error(`Condición inválida: "${value}"`);
 }
 
-export type VehicleStatusChange =
-  | { activate: true; condition: string }
-  | { activate: false; condition: string; reason: string | undefined; terminationDate: Date | string | undefined };
+export type EquipmentStatusChange =
+  | { activate: true }
+  | { activate: false; reason: string | undefined; terminationDate: Date | string | undefined };
 
-export interface VehicleStatusUpdate {
+export interface EquipmentStatusUpdate {
   is_active: boolean;
-  condition: condition_enum;
   reason_for_termination: termination_reason_enum | null;
   termination_date: Date | null;
 }
 
 /**
- * Datos a persistir para un reintegro (limpia motivo y fecha) o una baja (exige motivo y
- * fecha). La condición se normaliza al enum; la fecha se guarda como día (columna DATE).
+ * Alta/baja común a vehículos y equipamientos: el reintegro limpia motivo y fecha; la baja
+ * exige motivo (mapeado al enum) y fecha (guardada como día, columna DATE).
  */
-export function buildVehicleStatusUpdate(change: VehicleStatusChange): VehicleStatusUpdate {
-  const condition = toConditionEnum(change.condition);
+export function buildEquipmentStatusUpdate(change: EquipmentStatusChange): EquipmentStatusUpdate {
   if (change.activate) {
-    return { is_active: true, condition, reason_for_termination: null, termination_date: null };
+    return { is_active: true, reason_for_termination: null, termination_date: null };
   }
   const reason = toEquipmentTerminationReason(change.reason ?? '');
   const terminationDate = fromDateOnly(change.terminationDate);
   if (!terminationDate) throw new Error('La fecha de baja es requerida');
-  return { is_active: false, condition, reason_for_termination: reason, termination_date: terminationDate };
+  return { is_active: false, reason_for_termination: reason, termination_date: terminationDate };
+}
+
+export type VehicleStatusChange = EquipmentStatusChange & { condition: string };
+
+export interface VehicleStatusUpdate extends EquipmentStatusUpdate {
+  condition: condition_enum;
+}
+
+/** Igual que `buildEquipmentStatusUpdate` pero además fija la condición (normalizada al enum). */
+export function buildVehicleStatusUpdate(change: VehicleStatusChange): VehicleStatusUpdate {
+  const condition = toConditionEnum(change.condition);
+  return { ...buildEquipmentStatusUpdate(change), condition };
 }
 
 /** Transiciones de condición que la ficha (header) puede disparar; el resto las maneja Mantenimiento. */

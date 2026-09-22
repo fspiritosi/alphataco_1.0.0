@@ -193,6 +193,6 @@ export const vehicleInputSchema = z.object({
   currency: z.enum(VEHICLE_CURRENCIES).nullable().optional(),
 });
 
-/** Lo que aceptan `createVehicle`/`updateVehicle` (antes `vehicleData: any`). */
+/** Lo que aceptan `createVehicle`/`updateVehicle` (antes un parámetro sin tipar). */
 export type VehicleInput = z.input<typeof vehicleInputSchema>;
 export type ParsedVehicleInput = z.output<typeof vehicleInputSchema>;

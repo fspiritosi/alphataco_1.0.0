@@ -1,471 +1,407 @@
 'use server';
 
+import { Prisma } from '@/generated/prisma/client';
+import { condition_enum } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import moment from 'moment';
+import { withActor } from '@/shared/lib/actor';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { DOCUMENT_FILES_BUCKET, storagePublicUrl, storageRemove, storageUpload } from '@/shared/lib/storage';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
-import { Database } from '../../../../../database.types';
+import { pickDuplicateRaceWinner, raceWindowStart } from '@/features/Equipos/EquipoID/lib/duplicate-domain';
+import { buildEquipmentStatusUpdate } from '@/features/Equipos/EquipoID/lib/vehicle-status';
+import { fromDateOnly, toDateOnly } from '@/features/Equipos/lib/date-only';
+import {
+  buildOtherEquipmentFilePath,
+  extractStoragePath,
+  isOtherEquipmentFileKind,
+  isOtherEquipmentFilePath,
+  type OtherEquipmentFileKind,
+} from '../lib/equipment-files';
+import {
+  otherEquipmentCertificationSchema,
+  otherEquipmentInputSchema,
+  type OtherEquipmentInput,
+  type ParsedOtherEquipmentInput,
+} from '../schemas/other-equipment';
 
 const logger = new Logger('OtherEquipment/actions');
 
-// ─── Tipos derivados ─────────────────────────────────────────────────────────
+/** Tamaño máximo de foto/plano/certificación (mismo límite que valida el navegador). */
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-type OtherEquipmentInsert = Database['public']['Tables']['other_equipment']['Insert'];
-type OtherEquipmentUpdate = Database['public']['Tables']['other_equipment']['Update'];
-type CertificationInsert = Database['public']['Tables']['other_equipment_certifications']['Insert'];
+type Client = Prisma.TransactionClient | typeof prisma;
 
-// Tipo extendido para create/update que incluye el array de contractors
-type OtherEquipmentInsertWithContractors = Omit<OtherEquipmentInsert, 'company_id'> & {
-  contractors?: string[];
-};
+async function requireActor(): Promise<string> {
+  const userId = await getSessionUserId();
+  if (!userId) throw new Error('Sesión requerida');
+  return userId;
+}
 
-type OtherEquipmentUpdateWithContractors = OtherEquipmentUpdate & {
-  contractors?: string[];
-};
-
-// ─── Helper interno: obtener company_id de cookie ────────────────────────────
-
-async function getCompanyId(): Promise<string> {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    throw new Error('No hay empresa seleccionada. Por favor selecciona una empresa.');
-  }
-
-  return company_id;
+/** Equipamiento de la empresa activa por id (con sus arrays de archivos), o lanza (perímetro sin RLS). */
+async function findOwnedEquipment(client: Client, id: string) {
+  const companyId = await getActiveCompanyId();
+  const equipment = await client.other_equipment.findFirst({
+    where: withCompany({ id }, companyId),
+    select: { id: true, pictures: true, blueprints: true },
+  });
+  if (!equipment) throw new Error('El equipo no pertenece a la empresa activa');
+  return equipment;
 }
 
 // ─── Validación de duplicados ────────────────────────────────────────────────
 
-/**
- * Verifica que serial_number e intern_number no estén duplicados
- * dentro de la misma empresa (solo equipos activos).
- * excludeId permite excluir el registro actual al editar.
- */
-async function validateUniqueFields(
-  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+type DuplicateField = 'serial_number' | 'intern_number';
+
+/** Ids de otros equipos ACTIVOS de la empresa con el mismo N° de serie / N° interno. */
+async function findDuplicateFields(
+  client: Client,
   companyId: string,
-  serialNumber: string | null | undefined,
-  internNumber: string | null | undefined,
+  values: { serial_number?: string | null; intern_number?: string | null },
   excludeId?: string
-) {
-  const errors: string[] = [];
-
-  if (serialNumber) {
-    let query = supabase
-      .from('other_equipment')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('serial_number', serialNumber)
-      .eq('is_active', true)
-      .limit(1);
-
-    if (excludeId) {
-      query = query.neq('id', excludeId);
-    }
-
-    const { data } = await query;
-    if (data && data.length > 0) {
-      errors.push(`El N° de Serie "${serialNumber}" ya está en uso por otro equipo`);
-    }
+): Promise<DuplicateField[]> {
+  const duplicated: DuplicateField[] = [];
+  for (const field of ['serial_number', 'intern_number'] as const) {
+    const value = values[field];
+    if (!value) continue;
+    const found = await client.other_equipment.findFirst({
+      where: withCompany({ [field]: value, is_active: true, ...(excludeId ? { id: { not: excludeId } } : {}) }, companyId),
+      select: { id: true },
+    });
+    if (found) duplicated.push(field);
   }
-
-  if (internNumber) {
-    let query = supabase
-      .from('other_equipment')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('intern_number', internNumber)
-      .eq('is_active', true)
-      .limit(1);
-
-    if (excludeId) {
-      query = query.neq('id', excludeId);
-    }
-
-    const { data } = await query;
-    if (data && data.length > 0) {
-      errors.push(`El N° Interno "${internNumber}" ya está en uso por otro equipo`);
-    }
-  }
-
-  if (errors.length > 0) {
-    throw new Error(errors.join('. '));
-  }
+  return duplicated;
 }
 
+const DUPLICATE_MESSAGES: Record<DuplicateField, string> = {
+  serial_number: 'Este N° de Serie ya está en uso por otro equipo',
+  intern_number: 'Este N° Interno ya está en uso por otro equipo',
+};
+
 /**
- * Verifica si serial_number o intern_number ya existen en otros equipos activos.
- * Retorna un objeto con los campos duplicados para que el form muestre errores inline.
+ * Verifica si serial_number o intern_number ya existen en otros equipos activos de la
+ * empresa activa. Retorna los campos duplicados para que el form muestre errores inline.
  */
 export async function checkOtherEquipmentDuplicates(
   serialNumber: string | null | undefined,
   internNumber: string | null | undefined,
   excludeId?: string
 ): Promise<{ serial_number?: string; intern_number?: string }> {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
+  const companyId = await getActiveCompanyId();
+  const duplicated = await findDuplicateFields(
+    prisma,
+    companyId,
+    { serial_number: serialNumber, intern_number: internNumber },
+    excludeId
+  );
   const errors: { serial_number?: string; intern_number?: string } = {};
-
-  if (serialNumber) {
-    let query = supabase
-      .from('other_equipment')
-      .select('id')
-      .eq('company_id', company_id)
-      .eq('serial_number', serialNumber)
-      .eq('is_active', true)
-      .limit(1);
-
-    if (excludeId) {
-      query = query.neq('id', excludeId);
-    }
-
-    const { data } = await query;
-    if (data && data.length > 0) {
-      errors.serial_number = 'Este N° de Serie ya está en uso por otro equipo';
-    }
-  }
-
-  if (internNumber) {
-    let query = supabase
-      .from('other_equipment')
-      .select('id')
-      .eq('company_id', company_id)
-      .eq('intern_number', internNumber)
-      .eq('is_active', true)
-      .limit(1);
-
-    if (excludeId) {
-      query = query.neq('id', excludeId);
-    }
-
-    const { data } = await query;
-    if (data && data.length > 0) {
-      errors.intern_number = 'Este N° Interno ya está en uso por otro equipo';
-    }
-  }
-
+  for (const field of duplicated) errors[field] = DUPLICATE_MESSAGES[field];
   return errors;
 }
 
+async function assertUniqueFields(client: Client, companyId: string, input: ParsedOtherEquipmentInput, excludeId?: string) {
+  const duplicated = await findDuplicateFields(client, companyId, input, excludeId);
+  if (duplicated.length > 0) {
+    throw new Error(
+      duplicated
+        .map((field) =>
+          field === 'serial_number'
+            ? `El N° de Serie "${input.serial_number}" ya está en uso por otro equipo`
+            : `El N° Interno "${input.intern_number}" ya está en uso por otro equipo`
+        )
+        .join('. ')
+    );
+  }
+}
+
 /**
- * Resuelve la carrera entre dos altas simultaneas (doble click, reintento del navegador).
- *
- * validateUniqueFields consulta y despues inserta: no es atomico, asi que dos requests
- * en paralelo pasan la validacion los dos y terminan con un equipo duplicado.
- * Despues de insertar volvemos a mirar la tabla: si hay mas de un equipo activo con el
- * mismo N° interno o de serie, el registro mas nuevo se elimina a si mismo.
- *
- * El criterio (created_at, id) es determinista, por lo que ambos requests eligen el mismo
- * ganador y nunca se borran los dos.
- *
- * Devuelve el campo en conflicto si el registro recien creado fue descartado.
+ * Resuelve la carrera entre dos altas simultaneas (doble click, reintento del navegador):
+ * la validacion consulta y despues inserta, no es atomica. Si hay mas de un equipo activo
+ * con el mismo N° interno o de serie, gana el mas antiguo (`pickDuplicateRaceWinner`) y el
+ * recien creado se descarta. Devuelve el campo en conflicto si fue descartado.
  */
 async function discardIfDuplicateRace(
-  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  client: Client,
   companyId: string,
-  created: { id: string; created_at: string; serial_number: string | null; intern_number: string | null }
-): Promise<'serial_number' | 'intern_number' | null> {
-  const fieldsToCheck = (['intern_number', 'serial_number'] as const).filter((field) => created[field]);
+  created: { id: string; created_at: Date; serial_number: string | null; intern_number: string | null }
+): Promise<DuplicateField | null> {
+  for (const field of ['intern_number', 'serial_number'] as const) {
+    const value = created[field];
+    if (!value) continue;
+    const siblings = await client.other_equipment.findMany({
+      where: withCompany({ [field]: value, is_active: true, created_at: { gte: raceWindowStart(created.created_at) } }, companyId),
+      select: { id: true, created_at: true },
+    });
+    const winner = pickDuplicateRaceWinner(siblings);
+    if (!winner || winner.id === created.id) continue;
 
-  for (const field of fieldsToCheck) {
-    const { data: siblings } = await supabase
-      .from('other_equipment')
-      .select('id, created_at')
-      .eq('company_id', companyId)
-      .eq(field, created[field] as string)
-      .eq('is_active', true);
-
-    if (!siblings || siblings.length < 2) continue;
-
-    const [winner] = [...siblings].sort((a, b) =>
-      a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at < b.created_at ? -1 : 1
-    );
-
-    if (winner.id === created.id) continue;
-
-    const { error: deleteError } = await supabase.from('other_equipment').delete().eq('id', created.id);
-
-    if (deleteError) {
+    try {
+      await client.other_equipment.delete({ where: { id: created.id } });
+    } catch (error) {
       logger.error('No se pudo descartar el equipo duplicado por request simultanea', {
-        data: { id: created.id, field, error: deleteError.message },
+        data: { id: created.id, field, error },
       });
       throw new Error('Se creo un equipo duplicado y no se pudo revertir. Revisa el listado antes de reintentar.');
     }
-
     logger.warn('Equipo duplicado descartado por request simultanea', {
       data: { descartado: created.id, conservado: winner.id, field },
     });
     return field;
   }
-
   return null;
 }
 
 // ─── CRUD Principal ──────────────────────────────────────────────────────────
 
+const otherEquipmentDetailSelect = {
+  id: true,
+  company_id: true,
+  type_id: true,
+  sub_type_id: true,
+  brand_id: true,
+  model_id: true,
+  serial_number: true,
+  year: true,
+  condition: true,
+  status: true,
+  is_active: true,
+  intern_number: true,
+  pictures: true,
+  horometer: true,
+  blueprints: true,
+  manufacturer_plate: true,
+  composition: true,
+  invoice_number: true,
+  initial_value: true,
+  currency: true,
+  purchase_date: true,
+  cost_type: true,
+  cost_center_id: true,
+  sector: true,
+  linked_vehicle_id: true,
+  owner_id: true,
+  type_of_contract: true,
+  contract_start_date: true,
+  contract_expiration_date: true,
+  contract_number: true,
+  has_certification: true,
+  certification_expiration_date: true,
+  certification_number: true,
+  reason_for_termination: true,
+  termination_date: true,
+  user_id: true,
+  created_at: true,
+  type: { select: { id: true, name: true, generates_qr: true } },
+  sub_type: { select: { id: true, name: true } },
+  brand_vehicles: { select: { id: true, name: true } },
+  model_vehicles: { select: { id: true, name: true } },
+  equipment_owners: { select: { id: true, name: true } },
+  hierarchy: { select: { id: true, name: true } },
+  cost_center: { select: { id: true, name: true } },
+  vehicles: { select: { id: true, domain: true } },
+  contractor_other_equipment: { select: { customers: { select: { id: true, name: true } } } },
+} satisfies Prisma.other_equipmentSelect;
+
 /**
- * Obtiene un registro de other_equipment por ID con todos sus JOINs.
- * Incluye tipo, subtipo, marca, modelo, propietario, jerarquía, centro de costo,
- * vehículo vinculado y contratistas asociados.
+ * Ficha del equipamiento con sus relaciones (misma forma que devolvía PostgREST). Acotado
+ * a la empresa activa. `Decimal` → number y `@db.Date` → `YYYY-MM-DD` para serializar.
  */
 export async function getOtherEquipmentById(id: string) {
-  const supabase = await supabaseServer();
+  const companyId = await getActiveCompanyId();
+  const equipment = await prisma.other_equipment.findFirst({
+    where: withCompany({ id }, companyId),
+    select: otherEquipmentDetailSelect,
+  });
 
-  const { data, error } = await supabase
-    .from('other_equipment')
-    .select(
-      `
-      *,
-      type(id, name, generates_qr),
-      sub_type(id, name),
-      brand_vehicles(id, name),
-      model_vehicles(id, name),
-      equipment_owners(id, name),
-      hierarchy(id, name),
-      cost_center(id, name),
-      vehicles(id, domain),
-      contractor_other_equipment(customers(id, name))
-      `
-    )
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    logger.error('Error al obtener other_equipment por ID', {
-      data: { id, error: error.message },
-    });
+  if (!equipment) {
+    logger.error('Equipamiento no encontrado en la empresa activa', { data: { id } });
     throw new Error('Error al obtener el equipo');
   }
 
-  // Transformar para que el formulario reciba un array de IDs de contractors
   return {
-    ...data,
-    contractors:
-      data.contractor_other_equipment
-        ?.map((rel) => (rel.customers as { id: string; name: string } | null)?.id)
-        .filter(Boolean) ?? [],
+    ...equipment,
+    horometer: equipment.horometer === null ? null : Number(equipment.horometer),
+    initial_value: equipment.initial_value === null ? null : Number(equipment.initial_value),
+    purchase_date: toDateOnly(equipment.purchase_date),
+    contract_start_date: toDateOnly(equipment.contract_start_date),
+    contract_expiration_date: toDateOnly(equipment.contract_expiration_date),
+    certification_expiration_date: toDateOnly(equipment.certification_expiration_date),
+    termination_date: toDateOnly(equipment.termination_date),
+    created_at: equipment.created_at.toISOString(),
+    // Ids de contratistas para el MultiSelect del formulario
+    contractors: equipment.contractor_other_equipment.map((rel) => rel.customers.id),
   };
 }
 
 export type OtherEquipmentDetail = Awaited<ReturnType<typeof getOtherEquipmentById>>;
 
+/** Columnas escalares que escribe el formulario (sin `condition`, `company_id` ni `contractors`). */
+function toScalarData(input: ParsedOtherEquipmentInput) {
+  const hasCertification = input.has_certification === true;
+  const certificationNumber = input.certification_number?.trim() ?? '';
+  return {
+    type_id: input.type_id,
+    sub_type_id: input.sub_type_id ?? null,
+    brand_id: input.brand_id ?? null,
+    model_id: input.model_id ?? null,
+    serial_number: input.serial_number ?? null,
+    intern_number: input.intern_number ?? null,
+    year: input.year ?? null,
+    horometer: input.horometer ?? null,
+    manufacturer_plate: input.manufacturer_plate ?? null,
+    composition: input.composition ?? null,
+    invoice_number: input.invoice_number ?? null,
+    initial_value: input.initial_value ?? null,
+    currency: input.currency ?? null,
+    purchase_date: fromDateOnly(input.purchase_date),
+    owner_id: input.owner_id ?? null,
+    type_of_contract: input.type_of_contract ?? null,
+    contract_start_date: fromDateOnly(input.contract_start_date),
+    contract_expiration_date: fromDateOnly(input.contract_expiration_date),
+    contract_number: input.contract_number ?? null,
+    // Sin certificacion no se guardan los datos dependientes (límite contra la BD)
+    has_certification: hasCertification,
+    certification_expiration_date: hasCertification ? fromDateOnly(input.certification_expiration_date) : null,
+    certification_number: hasCertification && certificationNumber ? certificationNumber : null,
+    linked_vehicle_id: input.linked_vehicle_id ?? null,
+    cost_center_id: input.cost_center_id ?? null,
+    cost_type: input.cost_type ?? null,
+    sector: input.sector ?? null,
+  } satisfies Omit<Prisma.other_equipmentUncheckedCreateInput, 'company_id' | 'condition'>;
+}
+
 /**
- * Crea un nuevo registro de other_equipment.
- * Separa los contractors del payload principal y los gestiona en la tabla pivot.
- * Valida que no exista otro equipo activo con el mismo intern_number o serial_number.
+ * Crea un equipamiento en la empresa activa. Valida N° de serie / N° interno únicos entre
+ * los activos, resuelve la carrera de altas simultáneas y asocia contratistas.
  */
-export async function createOtherEquipment(data: OtherEquipmentInsertWithContractors) {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
+export async function createOtherEquipment(data: OtherEquipmentInput) {
+  const input = otherEquipmentInputSchema.parse(data);
+  const [companyId, actor] = await Promise.all([getActiveCompanyId(), requireActor()]);
 
-  const { contractors, ...equipmentData } = data;
+  await assertUniqueFields(prisma, companyId, input);
 
-  // Validar que serial_number e intern_number no estén duplicados
-  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number);
+  let created: { id: string };
+  try {
+    created = await withActor(actor, async (tx) => {
+      const equipment = await tx.other_equipment.create({
+        data: { ...toScalarData(input), condition: condition_enum.operativo, company_id: companyId },
+        select: { id: true, created_at: true, serial_number: true, intern_number: true },
+      });
 
-  const { data: created, error } = await supabase
-    .from('other_equipment')
-    .insert({
-      ...equipmentData,
-      condition: 'operativo', // Asignar automáticamente el estado operativo
-      company_id,
-    })
-    .select()
-    .single();
+      // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
+      // asociar contratistas (asi no queda basura en la tabla pivot).
+      const racedField = await discardIfDuplicateRace(tx, companyId, equipment);
+      if (racedField) {
+        const label = racedField === 'intern_number' ? 'N° Interno' : 'N° de Serie';
+        throw new Error(`El equipo con ese ${label} ya fue creado. No se generó un duplicado.`);
+      }
 
-  if (error) {
-    logger.error('Error al crear other_equipment', {
-      data: { error: error.message },
+      if (input.contractors && input.contractors.length > 0) {
+        await syncContractors(tx, equipment.id, input.contractors, companyId);
+      }
+      return equipment;
     });
-    throw new Error('Error al crear el equipo');
-  }
-
-  // Si otra request simultanea inserto el mismo equipo, descartar el sobrante antes de
-  // asociar contratistas (asi no queda basura en la tabla pivot).
-  const racedField = await discardIfDuplicateRace(supabase, company_id, created);
-
-  if (racedField) {
-    const label = racedField === 'intern_number' ? 'N° Interno' : 'N° de Serie';
-    throw new Error(`El equipo con ese ${label} ya fue creado. No se generó un duplicado.`);
-  }
-
-  // Gestionar relaciones con contratistas
-  if (contractors && contractors.length > 0) {
-    await updateOtherEquipmentContractors(created.id, contractors as string[]);
+  } catch (error) {
+    logger.error('Error al crear other_equipment', { data: { error } });
+    throw error instanceof Error ? error : new Error('Error al crear el equipo');
   }
 
   revalidatePath('/dashboard/equipment');
   logger.info('Other equipment creado exitosamente', { data: { id: created.id } });
-  return created;
+  return { id: created.id };
 }
 
-export type OtherEquipmentRow = Awaited<ReturnType<typeof createOtherEquipment>>;
-
 /**
- * Actualiza un registro de other_equipment existente.
- * Separa los contractors del payload principal y los gestiona en la tabla pivot.
- * Valida que no exista otro equipo activo (excluyendo el propio) con el mismo
- * intern_number o serial_number.
+ * Actualiza un equipamiento de la empresa activa. La condición no se toca desde la edición
+ * (la administran Mantenimiento y el header): el schema del payload no la admite.
  */
-export async function updateOtherEquipment(id: string, data: OtherEquipmentUpdateWithContractors) {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
+export async function updateOtherEquipment(id: string, data: OtherEquipmentInput) {
+  const input = otherEquipmentInputSchema.parse(data);
+  const [companyId, actor] = await Promise.all([getActiveCompanyId(), requireActor()]);
 
-  // La condición no se toca desde la edición (mismo criterio que vehicles): la
-  // administran los flujos de mantenimiento y la acción del header
-  // (updateEquipmentCondition). Se descarta acá aunque llegue, porque una server
-  // action puede invocarse con cualquier payload y pisaría el estado del taller.
-  const { contractors, condition: _ignoredCondition, ...equipmentData } = data;
+  await assertUniqueFields(prisma, companyId, input, id);
 
-  // Validar que serial_number e intern_number no estén duplicados (excluyendo el registro actual)
-  await validateUniqueFields(supabase, company_id, equipmentData.serial_number, equipmentData.intern_number, id);
+  try {
+    await withActor(actor, async (tx) => {
+      const result = await tx.other_equipment.updateMany({
+        where: withCompany({ id }, companyId),
+        data: toScalarData(input),
+      });
+      if (result.count === 0) throw new Error('El equipo no pertenece a la empresa activa');
 
-  const { data: updated, error } = await supabase
-    .from('other_equipment')
-    .update(equipmentData)
-    .eq('id', id)
-    .eq('company_id', company_id)
-    .select()
-    .single();
-
-  if (error) {
-    logger.error('Error al actualizar other_equipment', {
-      data: { id, error: error.message },
+      if (input.contractors !== undefined) {
+        await syncContractors(tx, id, input.contractors, companyId);
+      }
     });
-    throw new Error('Error al actualizar el equipo');
-  }
-
-  // Gestionar relaciones con contratistas si se proporcionaron
-  if (contractors !== undefined) {
-    await updateOtherEquipmentContractors(id, contractors as string[]);
+  } catch (error) {
+    logger.error('Error al actualizar other_equipment', { data: { id, error } });
+    throw error instanceof Error ? error : new Error('Error al actualizar el equipo');
   }
 
   revalidatePath('/dashboard/equipment');
   logger.info('Other equipment actualizado exitosamente', { data: { id } });
-  return updated;
+  return { id };
 }
 
 /**
- * Elimina un registro de other_equipment por ID.
- * Solo permite eliminar registros de la empresa activa.
+ * Activa o desactiva un equipamiento de la empresa activa. Al desactivar registra motivo y
+ * fecha de baja; al activar los limpia (`buildEquipmentStatusUpdate`).
  */
-export async function deleteOtherEquipment(id: string) {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
+export async function toggleOtherEquipmentStatus(id: string, activate: boolean, reason?: string, date?: Date | string) {
+  const [companyId, actor] = await Promise.all([getActiveCompanyId(), requireActor()]);
+  const data = activate
+    ? buildEquipmentStatusUpdate({ activate: true })
+    : buildEquipmentStatusUpdate({ activate: false, reason, terminationDate: date });
 
-  const { error } = await supabase.from('other_equipment').delete().eq('id', id).eq('company_id', company_id);
-
-  if (error) {
-    logger.error('Error al eliminar other_equipment', {
-      data: { id, error: error.message },
+  try {
+    await withActor(actor, async (tx) => {
+      const result = await tx.other_equipment.updateMany({ where: withCompany({ id }, companyId), data });
+      if (result.count === 0) throw new Error('El equipo no pertenece a la empresa activa');
     });
-    throw new Error('Error al eliminar el equipo');
+  } catch (error) {
+    logger.error('Error al cambiar estado de other_equipment', { data: { id, activate, error } });
+    throw error instanceof Error ? error : new Error('Error al cambiar el estado del equipo');
   }
 
   revalidatePath('/dashboard/equipment');
-  logger.info('Other equipment eliminado exitosamente', { data: { id } });
-}
-
-/**
- * Activa o desactiva un equipo.
- * Al desactivar, registra el motivo y la fecha de baja.
- * Al activar, limpia el motivo y la fecha de baja.
- */
-export async function toggleOtherEquipmentStatus(
-  id: string,
-  activate: boolean,
-  reason?: Database['public']['Enums']['termination_reason_enum'],
-  date?: Date
-) {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('other_equipment')
-    .update({
-      is_active: activate,
-      reason_for_termination: activate ? null : reason ?? null,
-      termination_date: activate ? null : date ? moment(date).format('YYYY-MM-DD') : null,
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    logger.error('Error al cambiar estado de other_equipment', {
-      data: { id, activate, error: error.message },
-    });
-    throw new Error('Error al cambiar el estado del equipo');
-  }
-
-  revalidatePath('/dashboard/equipment');
-  logger.info(`Other equipment ${activate ? 'activado' : 'desactivado'} exitosamente`, {
-    data: { id },
-  });
-  return data;
+  logger.info(`Other equipment ${activate ? 'activado' : 'desactivado'} exitosamente`, { data: { id } });
+  return { id, is_active: data.is_active };
 }
 
 // ─── Gestión de Contratistas ─────────────────────────────────────────────────
 
 /**
- * Actualiza las relaciones de contratistas de un equipo con diff inteligente.
- * Consulta las relaciones actuales, inserta las nuevas y elimina las que ya no están.
+ * Afectaciones a contratistas con diff explícito: sólo se insertan/eliminan las que cambian.
+ * Los ids se filtran a clientes de la empresa activa (un id ajeno se ignora).
  */
-export async function updateOtherEquipmentContractors(equipmentId: string, contractorIds: string[]) {
-  const supabase = await supabaseServer();
+async function syncContractors(client: Client, equipmentId: string, contractorIds: string[], companyId: string) {
+  const owned = await client.customers.findMany({
+    where: withCompany({ id: { in: contractorIds } }, companyId),
+    select: { id: true },
+  });
+  const wanted = new Set(owned.map((c) => c.id));
 
-  // Obtener relaciones actuales
-  const { data: currentRelations, error: fetchError } = await supabase
-    .from('contractor_other_equipment')
-    .select('contractor_id')
-    .eq('equipment_id', equipmentId);
+  const current = await client.contractor_other_equipment.findMany({
+    where: { equipment_id: equipmentId },
+    select: { contractor_id: true },
+  });
+  const currentIds = new Set(current.map((r) => r.contractor_id));
 
-  if (fetchError) {
-    logger.error('Error al obtener contratistas actuales', {
-      data: { equipmentId, error: fetchError.message },
-    });
-    throw new Error('Error al gestionar contratistas del equipo');
-  }
+  const toAdd = [...wanted].filter((cid) => !currentIds.has(cid));
+  const toRemove = [...currentIds].filter((cid) => !wanted.has(cid));
 
-  const currentContractorIds = currentRelations?.map((r) => r.contractor_id) ?? [];
-
-  // Calcular diferencias
-  const toAdd = contractorIds.filter((cid) => !currentContractorIds.includes(cid));
-  const toRemove = currentContractorIds.filter((cid) => cid !== null && !contractorIds.includes(cid));
-
-  // Eliminar relaciones que ya no corresponden
   if (toRemove.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('contractor_other_equipment')
-      .delete()
-      .eq('equipment_id', equipmentId)
-      .in('contractor_id', toRemove as string[]);
-
-    if (deleteError) {
-      logger.error('Error al eliminar contratistas del equipo', {
-        data: { equipmentId, toRemove, error: deleteError.message },
-      });
-      throw new Error('Error al desasociar contratistas del equipo');
-    }
+    await client.contractor_other_equipment.deleteMany({
+      where: { equipment_id: equipmentId, contractor_id: { in: toRemove } },
+    });
   }
-
-  // Insertar nuevas relaciones
   if (toAdd.length > 0) {
-    const newRelations = toAdd.map((contractorId) => ({
-      equipment_id: equipmentId,
-      contractor_id: contractorId,
-    }));
-
-    const { error: insertError } = await supabase.from('contractor_other_equipment').insert(newRelations);
-
-    if (insertError) {
-      logger.error('Error al insertar contratistas del equipo', {
-        data: { equipmentId, toAdd, error: insertError.message },
-      });
-      throw new Error('Error al asociar contratistas al equipo');
-    }
+    await client.contractor_other_equipment.createMany({
+      data: toAdd.map((contractorId) => ({ equipment_id: equipmentId, contractor_id: contractorId })),
+      skipDuplicates: true,
+    });
   }
 
   logger.info('Contratistas del equipo actualizados', {
@@ -475,193 +411,188 @@ export async function updateOtherEquipmentContractors(equipmentId: string, contr
 
 // ─── Certificaciones ─────────────────────────────────────────────────────────
 
-/**
- * Obtiene todas las certificaciones de un equipo.
- */
+/** Certificaciones (documentos) de un equipamiento de la empresa activa. */
 export async function getOtherEquipmentCertifications(equipmentId: string) {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('other_equipment_certifications')
-    .select('*')
-    .eq('equipment_id', equipmentId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    logger.error('Error al obtener certificaciones del equipo', {
-      data: { equipmentId, error: error.message },
+  const companyId = await getActiveCompanyId();
+  try {
+    const rows = await prisma.other_equipment_certifications.findMany({
+      where: { equipment_id: equipmentId, other_equipment: { company_id: companyId } },
+      select: { id: true, equipment_id: true, name: true, file_url: true, expiration_date: true, created_at: true },
+      orderBy: { created_at: 'desc' },
     });
+    return rows.map((row) => ({
+      ...row,
+      expiration_date: toDateOnly(row.expiration_date),
+      created_at: row.created_at.toISOString(),
+    }));
+  } catch (error) {
+    logger.error('Error al obtener certificaciones del equipo', { data: { equipmentId, error } });
     throw new Error('Error al obtener las certificaciones del equipo');
   }
-
-  return data ?? [];
 }
 
 export type OtherEquipmentCertification = Awaited<ReturnType<typeof getOtherEquipmentCertifications>>[number];
 
-/**
- * Crea una nueva certificación asociada a un equipo.
- */
-export async function createOtherEquipmentCertification(
-  data: Pick<CertificationInsert, 'equipment_id' | 'name' | 'file_url' | 'expiration_date'>
-) {
-  const supabase = await supabaseServer();
+function getFormFile(formData: FormData, key: string): File | null {
+  const value = formData.get(key);
+  if (!(value instanceof File) || value.size === 0) return null;
+  if (value.size > MAX_FILE_SIZE) throw new Error('El archivo no puede superar los 10MB');
+  return value;
+}
 
-  const { data: created, error } = await supabase
-    .from('other_equipment_certifications')
-    .insert({
-      equipment_id: data.equipment_id,
-      name: data.name,
-      file_url: data.file_url,
-      expiration_date: data.expiration_date ?? null,
-    })
-    .select()
-    .single();
+/** Sube un archivo del equipamiento al bucket y devuelve su URL pública. El path se arma acá. */
+async function uploadEquipmentFile(kind: OtherEquipmentFileKind, equipmentId: string, file: File): Promise<string> {
+  const path = buildOtherEquipmentFilePath(kind, equipmentId, file.name, Date.now());
+  const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, path, file); // P3: storage
+  if (!uploaded.ok) throw new Error(`Error al subir el archivo: ${uploaded.error}`);
+  return storagePublicUrl(DOCUMENT_FILES_BUCKET, uploaded.data.path);
+}
 
-  if (error) {
-    logger.error('Error al crear certificación del equipo', {
-      data: { equipmentId: data.equipment_id, error: error.message },
+/** Borra del storage un archivo del equipamiento SOLO si su path está bajo la carpeta de ese equipo. */
+async function removeEquipmentFile(kind: OtherEquipmentFileKind, equipmentId: string, publicUrl: string): Promise<void> {
+  const path = extractStoragePath(publicUrl, DOCUMENT_FILES_BUCKET);
+  if (!path || !isOtherEquipmentFilePath(path, kind, equipmentId)) {
+    logger.warn('El archivo no pertenece a la carpeta del equipo: no se toca el storage', {
+      data: { kind, equipmentId, publicUrl },
     });
-    throw new Error('Error al crear la certificación');
+    return;
   }
-
-  logger.info('Certificación creada exitosamente', {
-    data: { id: created.id, equipmentId: data.equipment_id },
-  });
-  return created;
+  const removed = await storageRemove(DOCUMENT_FILES_BUCKET, [path]); // P3: storage
+  if (!removed.ok) {
+    logger.warn('No se pudo eliminar el archivo del storage', { data: { path, error: removed.error } });
+  }
 }
 
 /**
- * Elimina una certificación por ID.
- * También elimina el archivo asociado en Supabase Storage si existe.
+ * Crea una certificación del equipamiento. `formData`: `equipmentId`, `name`,
+ * `expiration_date` (`YYYY-MM-DD` o vacío) y `file` opcional (se sube desde el servidor).
  */
-export async function deleteOtherEquipmentCertification(id: string) {
-  const supabase = await supabaseServer();
+export async function createOtherEquipmentCertification(formData: FormData) {
+  const input = otherEquipmentCertificationSchema.parse({
+    equipmentId: formData.get('equipmentId'),
+    name: formData.get('name'),
+    expiration_date: formData.get('expiration_date') ?? '',
+  });
+  const equipment = await findOwnedEquipment(prisma, input.equipmentId);
+  const file = getFormFile(formData, 'file');
 
-  // Obtener el file_url antes de eliminar para borrar del storage
-  const { data: cert } = await supabase.from('other_equipment_certifications').select('file_url').eq('id', id).single();
+  const fileUrl = file ? await uploadEquipmentFile('certifications', equipment.id, file) : '';
 
-  const { error } = await supabase.from('other_equipment_certifications').delete().eq('id', id);
-
-  if (error) {
-    logger.error('Error al eliminar certificación del equipo', {
-      data: { id, error: error.message },
+  try {
+    const created = await prisma.other_equipment_certifications.create({
+      data: {
+        equipment_id: equipment.id,
+        name: input.name,
+        file_url: fileUrl,
+        expiration_date: fromDateOnly(input.expiration_date),
+      },
+      select: { id: true },
     });
+    logger.info('Certificación creada exitosamente', { data: { id: created.id, equipmentId: equipment.id } });
+    return created;
+  } catch (error) {
+    // Compensación: la fila no se creó, el archivo no debe quedar huérfano
+    if (fileUrl) await removeEquipmentFile('certifications', equipment.id, fileUrl);
+    logger.error('Error al crear certificación del equipo', { data: { equipmentId: equipment.id, error } });
+    throw new Error('Error al crear la certificación');
+  }
+}
+
+/** Elimina una certificación de un equipamiento de la empresa activa y su archivo del storage. */
+export async function deleteOtherEquipmentCertification(id: string) {
+  const companyId = await getActiveCompanyId();
+  const cert = await prisma.other_equipment_certifications.findFirst({
+    where: { id, other_equipment: { company_id: companyId } },
+    select: { id: true, equipment_id: true, file_url: true },
+  });
+  if (!cert) throw new Error('La certificación no pertenece a la empresa activa');
+
+  try {
+    await prisma.other_equipment_certifications.delete({ where: { id: cert.id } });
+  } catch (error) {
+    logger.error('Error al eliminar certificación del equipo', { data: { id, error } });
     throw new Error('Error al eliminar la certificación');
   }
 
-  // Eliminar archivo del storage si existe
-  if (cert?.file_url) {
-    const storagePath = extractStoragePath(cert.file_url, 'document-files');
-    if (storagePath) {
-      const { error: storageError } = await supabase.storage.from('document-files').remove([storagePath]);
-      if (storageError) {
-        logger.warn('No se pudo eliminar el archivo del storage', {
-          data: { storagePath, error: storageError.message },
-        });
-      }
-    }
-  }
-
+  if (cert.file_url) await removeEquipmentFile('certifications', cert.equipment_id, cert.file_url);
   logger.info('Certificación eliminada exitosamente', { data: { id } });
-}
-
-/**
- * Extrae el path relativo del storage a partir de una URL pública de Supabase.
- */
-function extractStoragePath(publicUrl: string, bucket: string): string | null {
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return decodeURIComponent(publicUrl.substring(idx + marker.length));
 }
 
 // ─── Fotos y Planos ──────────────────────────────────────────────────────────
 
+const FILES_COLUMN: Record<Exclude<OtherEquipmentFileKind, 'certifications'>, 'pictures' | 'blueprints'> = {
+  pictures: 'pictures',
+  blueprints: 'blueprints',
+};
+
+function parseFilesKind(value: unknown): Exclude<OtherEquipmentFileKind, 'certifications'> {
+  if (!isOtherEquipmentFileKind(value) || value === 'certifications') throw new Error('Tipo de archivo inválido');
+  return value;
+}
+
 /**
- * Actualiza el array de fotos de un equipo.
- * Reemplaza completamente el array existente con el nuevo.
+ * Sube una foto o un plano del equipamiento y lo agrega al array correspondiente.
+ * `formData`: `equipmentId`, `kind` (`pictures` | `blueprints`), `file`. Devuelve la URL y
+ * el array actualizado (leído de la base, no del cliente).
  */
-export async function updateOtherEquipmentPictures(id: string, pictures: string[]) {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
+export async function uploadOtherEquipmentFile(formData: FormData) {
+  const kind = parseFilesKind(formData.get('kind'));
+  const equipmentIdRaw = formData.get('equipmentId');
+  if (typeof equipmentIdRaw !== 'string') throw new Error('Equipo inválido');
+  const column = FILES_COLUMN[kind];
+  const equipment = await findOwnedEquipment(prisma, equipmentIdRaw);
+  const file = getFormFile(formData, 'file');
+  if (!file) throw new Error('Archivo requerido');
 
-  const { data, error } = await supabase
-    .from('other_equipment')
-    .update({ pictures })
-    .eq('id', id)
-    .eq('company_id', company_id)
-    .select('id, pictures')
-    .single();
+  const url = await uploadEquipmentFile(kind, equipment.id, file);
+  const files = [...equipment[column], url];
 
-  if (error) {
-    logger.error('Error al actualizar fotos del equipo', {
-      data: { id, error: error.message },
-    });
-    throw new Error('Error al actualizar las fotos del equipo');
+  try {
+    await prisma.other_equipment.update({ where: { id: equipment.id }, data: { [column]: files } });
+  } catch (error) {
+    await removeEquipmentFile(kind, equipment.id, url);
+    logger.error('Error al registrar el archivo del equipo', { data: { id: equipment.id, kind, error } });
+    throw new Error('Error al actualizar los archivos del equipo');
   }
 
-  logger.info('Fotos del equipo actualizadas', {
-    data: { id, cantidad: pictures.length },
-  });
-  return data;
+  logger.info('Archivo del equipo agregado', { data: { id: equipment.id, kind, cantidad: files.length } });
+  return { url, files };
+}
+
+/** Quita una foto o un plano del equipamiento (array en la base + archivo del storage). */
+export async function removeOtherEquipmentFile(input: { equipmentId: string; kind: string; url: string }) {
+  const kind = parseFilesKind(input.kind);
+  const column = FILES_COLUMN[kind];
+  const equipment = await findOwnedEquipment(prisma, input.equipmentId);
+  const files = equipment[column].filter((f) => f !== input.url);
+
+  try {
+    await prisma.other_equipment.update({ where: { id: equipment.id }, data: { [column]: files } });
+  } catch (error) {
+    logger.error('Error al quitar el archivo del equipo', { data: { id: equipment.id, kind, error } });
+    throw new Error('Error al actualizar los archivos del equipo');
+  }
+
+  await removeEquipmentFile(kind, equipment.id, input.url);
+  logger.info('Archivo del equipo eliminado', { data: { id: equipment.id, kind, cantidad: files.length } });
+  return { files };
 }
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
 
-/**
- * Obtiene la lista de vehículos activos de la empresa para el combobox de vinculación.
- * Solo retorna id y domain para ser eficiente.
- */
+/** Vehículos activos (con dominio) de la empresa activa para el combobox de vinculación. */
 export async function getVehiclesForSelect() {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
-
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select('id, domain')
-    .eq('company_id', company_id)
-    .eq('is_active', true)
-    .not('domain', 'is', null)
-    .order('domain');
-
-  if (error) {
-    logger.error('Error al obtener vehículos para select', {
-      data: { company_id, error: error.message },
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.vehicles.findMany({
+      where: withCompany({ is_active: true, domain: { not: null } }, companyId),
+      select: { id: true, domain: true },
+      orderBy: { domain: 'asc' },
     });
+  } catch (error) {
+    logger.error('Error al obtener vehículos para select', { data: { error } });
     throw new Error('Error al obtener los vehículos');
   }
-
-  return data ?? [];
 }
 
 export type VehicleSelectItem = Awaited<ReturnType<typeof getVehiclesForSelect>>[number];
-
-/**
- * Actualiza el array de planos de un equipo.
- * Reemplaza completamente el array existente con el nuevo.
- */
-export async function updateOtherEquipmentBlueprints(id: string, blueprints: string[]) {
-  const supabase = await supabaseServer();
-  const company_id = await getCompanyId();
-
-  const { data, error } = await supabase
-    .from('other_equipment')
-    .update({ blueprints })
-    .eq('id', id)
-    .eq('company_id', company_id)
-    .select('id, blueprints')
-    .single();
-
-  if (error) {
-    logger.error('Error al actualizar planos del equipo', {
-      data: { id, error: error.message },
-    });
-    throw new Error('Error al actualizar los planos del equipo');
-  }
-
-  logger.info('Planos del equipo actualizados', {
-    data: { id, cantidad: blueprints.length },
-  });
-  return data;
-}

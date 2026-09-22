@@ -79,3 +79,12 @@ export async function storageSignedUrls(
   }
   return { ok: true, data: data.map((item, i) => ({ path: paths[i], url: item.signedUrl })) };
 }
+
+/**
+ * URL pública de un archivo de un bucket público (fotos/planos/certificaciones de
+ * equipamientos, que se guardan como URL en la base). No consulta la red.
+ */
+export async function storagePublicUrl(bucket: string, path: string): Promise<string> {
+  const supabase = await supabaseServer(); // P3: storage
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
