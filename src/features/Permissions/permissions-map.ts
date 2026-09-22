@@ -1213,7 +1213,7 @@ export const PERMISSIONS = {
               },
               // 'contratos-cliente': HEREDA permisos de 'comercial/comerce/service'
               // Esta tab no debe estar aquí porque hereda permisos de la tab Contratos/Servicios.
-              // Ver implementación en: src/features/Empresa/Clientes/components/data-customer.tsx
+              // Ver implementación en: src/features/Empresa/Clientes/components/CustomerDetail/CustomerDetail.tsx
             },
           },
           areas: {

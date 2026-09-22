@@ -1,58 +1,51 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  fetchAllActivesEmployees,
-  fetchServiceItemsLegacy as fetchServiceItems,
-} from '@/features/Empresa/Clientes/actions/employee-queries';
+import { getAreasWithProvinces } from '@/features/Empresa/Clientes/actions/areas.server';
+import { getCustomerById } from '@/features/Empresa/Clientes/actions/customers.server';
+import { getMeasureUnits } from '@/features/Empresa/Clientes/actions/measure-units.server';
+import { getSectorCustomers } from '@/features/Empresa/Clientes/actions/sectors.server';
+import { getCustomerServices } from '@/features/Empresa/Clientes/actions/services.server';
 import CustomerComponent from '@/features/Empresa/Clientes/components/CustomerComponent';
 import { cn } from '@/lib/utils';
-import { fetchAllEmployees } from '@/shared/actions/employees.actions';
-import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import BackButton from '@/shared/components/common/BackButton';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 
-export default async function CustomerFormAction({ searchParams, params }: { searchParams: any; params: any }) {
-  // P2 Task 5: CustomerComponent sigue tipado con los Row legacy de Supabase; las actions ya devuelven filas Prisma.
-  const equipment = (await fetchAllEquipment()) as unknown as VehicleWithBrand[];
-  const items = await fetchServiceItems(searchParams.actual, searchParams.user, searchParams.service);
-  const employees = (await fetchAllEmployees()) as unknown as Employee[];
-  const services = await fetchAllActivesEmployees();
-  const filteredServices = services
-    .filter((service: any) => service.customer_id?.toString() === searchParams.id && service.is_active === true)
-    .map((service: any) => ({
-      id: service.id,
-      service_name: service.firstname + ' ' + service.lastname,
-      is_active: service.is_active,
-      service_start: service.date_of_admission,
-      service_validity: service.termination_date || '',
-    }));
+interface PageProps {
+  searchParams: Promise<{ id?: string; action?: string }>;
+}
+
+export default async function CustomerFormAction({ searchParams }: PageProps) {
+  const { id, action } = await searchParams;
   const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('equipment-table-equipment')?.value;
   const savedFilters = cookiesStore.get('equipment-table-equipment-filters')?.value;
+
+  const [customer, services, areas, sectors, measureUnits] = await Promise.all([
+    id ? getCustomerById(id) : Promise.resolve(null),
+    getCustomerServices(),
+    getAreasWithProvinces(),
+    getSectorCustomers(),
+    getMeasureUnits(),
+  ]);
+
   return (
     <section className="grid grid-cols-2 xl:grid-cols-2 gap-2 py-4 justify-start">
       <div className="flex gap-2 col-start-2 justify-end mr-6">
         <BackButton />
       </div>
 
-      <div
-        className={cn(
-          'col-span-6 flex flex-col justify-between overflow-hidden',
-          searchParams.action === 'new' && 'col-span-8'
-        )}
-      >
+      <div className={cn('col-span-6 flex flex-col justify-between overflow-hidden', action === 'new' && 'col-span-8')}>
         <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <CustomerComponent
-            equipment={equipment}
-            id={searchParams.id}
-            items={items}
-            employees={employees}
-            services={filteredServices}
+            customer={customer}
+            services={services}
+            areas={areas}
+            sectors={sectors}
+            measureUnits={measureUnits}
             savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
             savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
           />
         </Suspense>
-        <div></div>
       </div>
     </section>
   );
