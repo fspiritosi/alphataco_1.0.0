@@ -5,7 +5,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { guildReadScope, guildWriteScope } from '../lib/cct-scope';
+import { covenantScope, guildReadScope, guildWriteScope } from '../lib/cct-scope';
 import type { CctMutationResult } from './types';
 
 const logger = new Logger('features/Empresa/CCT/guilds');
@@ -22,7 +22,12 @@ function normalizeName(name: string): string {
 
 /**
  * Sindicatos visibles para la empresa activa con sus convenios y categorías (árbol CCT).
- * `guild.company_id` es nullable: los sindicatos globales los ven todas las empresas.
+ *
+ * `guild.company_id` es nullable: los sindicatos globales los ven todas las empresas, y cada una
+ * puede colgarles convenios **propios**. Por eso la relación `covenant` se filtra aparte: sin ese
+ * `where`, de un sindicato global colgarían también los convenios (y las categorías) de las otras
+ * empresas. `covenant.company_id` es NOT NULL, así que el filtro es exacto; y `category` cuelga
+ * del convenio ya acotado, no necesita filtro propio.
  */
 export async function getGuildsWithCovenants() {
   try {
@@ -33,6 +38,7 @@ export async function getGuildsWithCovenants() {
         id: true,
         name: true,
         covenant: {
+          where: covenantScope(companyId),
           select: {
             id: true,
             name: true,
