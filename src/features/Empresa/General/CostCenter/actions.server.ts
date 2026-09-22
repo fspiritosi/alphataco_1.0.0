@@ -11,6 +11,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -214,6 +215,7 @@ export async function createCostCenterPrisma(data: { name: string; is_active: bo
       data: {
         name: data.name,
         is_active: data.is_active,
+        company_id: await getActiveCompanyId(),
       },
       select: { id: true, name: true, is_active: true, created_at: true },
     });

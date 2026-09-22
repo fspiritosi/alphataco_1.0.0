@@ -3,6 +3,7 @@
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
+import { getMaintenanceOrderCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -1169,6 +1170,7 @@ export async function addTaskToOwnWorkOrder(
       where: { id: workOrderId },
       select: {
         sector_id: true,
+        company_id: true,
         work_order_items: {
           take: 1,
           select: {
@@ -1193,6 +1195,7 @@ export async function addTaskToOwnWorkOrder(
       const newMoItem = await tx.maintenance_order_items.create({
         data: {
           maintenance_order_id: maintenanceOrderId,
+          company_id: workOrder.company_id,
           repair_type_id: repairTypeId,
           description,
           is_diagnostico: false,
@@ -1216,6 +1219,7 @@ export async function addTaskToOwnWorkOrder(
       await tx.work_order_item_repairs.create({
         data: {
           work_order_item_id: newWoItem.id,
+          company_id: workOrder.company_id,
           repair_type_id: repairTypeId,
           status: repairStatus,
           is_operator_added: true,
@@ -1255,6 +1259,7 @@ export async function requestTaskForOtherSector(maintenanceOrderId: string, repa
     await prisma.maintenance_order_items.create({
       data: {
         maintenance_order_id: maintenanceOrderId,
+        company_id: await getMaintenanceOrderCompanyId(prisma, maintenanceOrderId),
         repair_type_id: repairTypeId,
         description,
         is_diagnostico: false,

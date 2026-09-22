@@ -303,7 +303,12 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
 
     // 6. Crear los work_order_item_repairs (cada tipo de reparación es un trabajo individual)
     if (input.repairTypeIds && input.repairTypeIds.length > 0) {
-      const repairRecords: { work_order_item_id: string; repair_type_id: string; status: 'pending' }[] = [];
+      const repairRecords: {
+        work_order_item_id: string;
+        repair_type_id: string;
+        status: 'pending';
+        company_id: string;
+      }[] = [];
 
       for (const woItem of createdWoItems) {
         for (const repairTypeId of input.repairTypeIds) {
@@ -311,6 +316,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
             work_order_item_id: woItem.id,
             repair_type_id: repairTypeId,
             status: 'pending',
+            company_id: companyId,
           });
         }
       }

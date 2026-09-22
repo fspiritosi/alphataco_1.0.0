@@ -287,11 +287,11 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs">
-                      {entry.users ? (
+                      {entry.profile ? (
                         <>
                           <UserCircle className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                          <span className="text-slate-700 dark:text-slate-300">{entry.users.email ?? 'Usuario'}</span>
-                          {entry.users.id && (
+                          <span className="text-slate-700 dark:text-slate-300">{entry.profile.email ?? 'Usuario'}</span>
+                          {entry.profile.credential_id && (
                             <a
                               href="/dashboard/company/actualCompany?tab=general&subtab=users"
                               target="_blank"
@@ -312,7 +312,7 @@ function HistoryEntryItem({ entry, isLast }: { entry: DailyReportHistoryEntry; i
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {entry.users ? <p>{entry.users.email}</p> : <p>Cambio realizado automáticamente</p>}
+                    {entry.profile ? <p>{entry.profile.email}</p> : <p>Cambio realizado automáticamente</p>}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

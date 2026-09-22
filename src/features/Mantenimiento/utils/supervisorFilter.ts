@@ -55,9 +55,7 @@ const loadSupervisorFilterInfo = cache(async (): Promise<SupervisorFilterInfo | 
           is_active: true,
           user_roles: {
             some: {
-              users_user_roles_user_idTousers: {
-                id: profile.credentialId,
-              },
+              user_id: profile.credentialId,
             },
           },
         },
@@ -69,9 +67,7 @@ const loadSupervisorFilterInfo = cache(async (): Promise<SupervisorFilterInfo | 
     // Verificar permisos específicos por usuario (user_permissions.user_id = users.id = credentialId)
     const userPermsCount = await prisma.user_permissions.count({
       where: {
-        users_user_permissions_user_idTousers: {
-          id: profile.credentialId,
-        },
+        user_id: profile.credentialId,
         tabs: { slug: { in: operationsTabs } },
         actions: { slug: 'view_all_requests' },
         is_granted: true,

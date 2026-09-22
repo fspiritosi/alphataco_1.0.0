@@ -2,6 +2,7 @@
 
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { getMaintenanceOrderCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import {
   getResourceKind,
   getResourceLabel,
@@ -418,6 +419,7 @@ export async function assignItemsToSectors(maintenanceOrderId: string, assignmen
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
       for (const assignment of assignments) {
         // Actualizar items existentes con sector y secuencia
         await tx.maintenance_order_items.updateMany({
@@ -445,6 +447,7 @@ export async function assignItemsToSectors(maintenanceOrderId: string, assignmen
           await tx.maintenance_order_items.create({
             data: {
               maintenance_order_id: maintenanceOrderId,
+              company_id: companyId,
               assigned_sector_id: assignment.sectorId,
               sector_sequence_order: assignment.sequenceOrder,
               is_diagnostico: true,
@@ -496,9 +499,11 @@ export async function addItemToOrder(
 
   try {
     const newItem = await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
       const item = await tx.maintenance_order_items.create({
         data: {
           maintenance_order_id: maintenanceOrderId,
+          company_id: companyId,
           description: data.description,
           repair_type_id: data.repairTypeIds?.[0] ?? null,
         },
@@ -769,6 +774,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
       // 1. DELETES - Eliminar items manuales
       for (const itemId of changes.deletes) {
         const item = await tx.maintenance_order_items.findUnique({
@@ -787,6 +793,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
         const newItem = await tx.maintenance_order_items.create({
           data: {
             maintenance_order_id: orderId,
+            company_id: companyId,
             description: add.description,
             repair_type_id: add.repairTypeIds[0] ?? null,
           },
@@ -852,6 +859,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
           await tx.maintenance_order_items.create({
             data: {
               maintenance_order_id: orderId,
+              company_id: companyId,
               assigned_sector_id: assignment.sectorId,
               sector_sequence_order: assignment.sequenceOrder,
               is_diagnostico: true,
@@ -1297,6 +1305,7 @@ export async function generateWorkOrdersForOrder(
           work_order_item_id: string;
           repair_type_id: string;
           status: 'pending';
+          company_id: string;
         }> = [];
 
         for (const woItem of createdWoItems) {
@@ -1310,6 +1319,7 @@ export async function generateWorkOrdersForOrder(
                 work_order_item_id: woItem.id,
                 repair_type_id: pt.repair_type_id,
                 status: 'pending',
+                company_id: companyId,
               });
             }
           } else if (originalItem.types_of_repairs) {
@@ -1318,6 +1328,7 @@ export async function generateWorkOrdersForOrder(
               work_order_item_id: woItem.id,
               repair_type_id: originalItem.types_of_repairs.id,
               status: 'pending',
+              company_id: companyId,
             });
           }
         }
@@ -1363,6 +1374,7 @@ export async function generateWorkOrdersForOrder(
                 repair_type_id: DIAGNOSTICO_REPAIR_TYPE_ID,
                 status: 'pending',
                 is_diagnostico: true,
+                company_id: companyId,
               },
             });
 
@@ -1504,6 +1516,7 @@ export async function setupAndGenerateWorkOrders(
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
       // ──────────────────────────────────────────────
       // 1. APLICAR CAMBIOS DE ITEMS
       // ──────────────────────────────────────────────
@@ -1527,6 +1540,7 @@ export async function setupAndGenerateWorkOrders(
         const newItem = await tx.maintenance_order_items.create({
           data: {
             maintenance_order_id: orderId,
+            company_id: companyId,
             description: add.description,
             repair_type_id: add.repairTypeIds[0] ?? null,
           },
@@ -1647,6 +1661,7 @@ export async function setupAndGenerateWorkOrders(
           await tx.maintenance_order_items.create({
             data: {
               maintenance_order_id: orderId,
+              company_id: companyId,
               assigned_sector_id: assignment.sectorId,
               sector_sequence_order: seqOrder,
               is_diagnostico: true,

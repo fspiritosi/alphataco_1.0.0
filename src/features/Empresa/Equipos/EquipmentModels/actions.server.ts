@@ -11,6 +11,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -334,6 +335,7 @@ export async function createEquipmentModelPrisma(data: { name: string; brand: nu
         name: data.name,
         brand: data.brand,
         is_active: data.is_active,
+        company_id: await getActiveCompanyId(),
       },
       select: {
         id: true,

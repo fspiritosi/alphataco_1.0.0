@@ -1043,9 +1043,9 @@ export async function getDailyReportRowHistory(rowId: string) {
         created_at: true,
         metadata: true,
         reassignment_reason: true,
-        users: {
+        profile: {
           select: {
-            id: true,
+            credential_id: true,
             email: true,
           },
         },

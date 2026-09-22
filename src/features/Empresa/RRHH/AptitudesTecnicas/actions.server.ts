@@ -10,6 +10,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -225,6 +226,7 @@ export async function createAptitudTecnicaPrisma(data: { nombre: string; puestos
       data: {
         nombre: data.nombre,
         is_active: data.is_active,
+        company_id: await getActiveCompanyId(),
         aptitudes_tecnicas_puestos: {
           create: data.puestos.map((puestoId) => ({ puesto_id: puestoId })),
         },

@@ -148,6 +148,7 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
         document_path: documentPath,
         validity: validityRaw ? new Date(validityRaw) : null,
         user_id: profile.id,
+        company_id: companyId,
       },
       update: {
         document_path: documentPath,

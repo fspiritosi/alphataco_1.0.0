@@ -4,6 +4,7 @@ import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constant
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { resourceIdFields, type MaintenanceResourceKind } from '@/features/Mantenimiento/shared/maintenance-resource';
+import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import type { PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile, requireServerAuthProfile } from '@/shared/actions/auth.actions';
@@ -47,10 +48,12 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
   });
 
   const { order, items } = await prisma.$transaction(async (tx) => {
+    const companyId = await getResourceCompanyId(tx, 'vehicle', input.equipment_id);
     // 1. Crear el maintenance_order
     const order = await tx.maintenance_orders.create({
       data: {
         equipment_id: input.equipment_id,
+        company_id: companyId,
         maintenance_request_id: null,
         status: 'pending_scheduling',
         kilometer_at_entry: input.kilometer ?? null,
@@ -63,6 +66,7 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
     await tx.maintenance_order_items.createMany({
       data: input.items.map((item) => ({
         maintenance_order_id: order.id,
+        company_id: companyId,
         maintenance_request_item_id: null,
         repair_type_id: item.repair_type_id,
         description: item.description ?? null,
@@ -323,6 +327,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
   }
 
   const profile = await requireServerAuthProfile();
+  const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
 
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 
@@ -331,6 +336,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
       const request = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
+          company_id: companyId,
           supervisor_id: input.supervisorId,
           status: 'approved',
           approved_by: profile.id,
@@ -346,6 +352,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
       const order = await tx.maintenance_orders.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
+          company_id: companyId,
           maintenance_request_id: request.id,
           status: 'pending_scheduling',
           kilometer_at_entry: input.kilometer ?? null,
@@ -430,6 +437,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
+            company_id: companyId,
             item_code: d.itemCode,
             item_label: d.itemLabel,
             section_code: d.sectionCode,
@@ -446,6 +454,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
     const request = await tx.maintenance_requests.create({
       data: {
         equipment_id: input.equipmentId,
+        company_id: companyId,
         supervisor_id: input.supervisorId,
         status: 'approved',
         approved_by: profile.id,
@@ -467,6 +476,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
         return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
+            company_id: companyId,
             checklist_deviation_id: dev.id,
             status: 'approved',
             description: comment,
@@ -488,6 +498,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
     const order = await tx.maintenance_orders.create({
       data: {
         equipment_id: input.equipmentId,
+        company_id: companyId,
         maintenance_request_id: request.id,
         status: 'pending_scheduling',
         kilometer_at_entry: input.kilometer ?? null,
@@ -506,6 +517,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
           ? null
           : {
               maintenance_order_id: order.id,
+              company_id: companyId,
               maintenance_request_item_id: ri.id,
               description: deviations[idx]?.comment ?? null,
               is_critical: deviations[idx]?.isCritical ?? false,
@@ -551,6 +563,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
               data: {
                 checklist_answer_id: null,
                 equipment_id: input.equipmentId,
+                company_id: companyId,
                 item_code: 'manual',
                 item_label: m.label.trim(),
                 section_code: null,
@@ -568,6 +581,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
             tx.maintenance_request_items.create({
               data: {
                 maintenance_request_id: request.id,
+                company_id: companyId,
                 checklist_deviation_id: d.id,
                 repair_type_id: null,
                 driver_comment: null,
@@ -581,6 +595,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
         await tx.maintenance_order_items.createMany({
           data: manualRequestItems.map((ri) => ({
             maintenance_order_id: order.id,
+            company_id: companyId,
             maintenance_request_item_id: ri.id,
             description: null,
             is_critical: false,
@@ -704,6 +719,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   }
 
   const profile = await requireServerAuthProfile();
+  const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
 
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 
@@ -712,6 +728,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
       const request = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
+          company_id: companyId,
           supervisor_id: input.supervisorId,
           status: 'pending_approval',
           user_id: profile.id,
@@ -803,6 +820,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         data: {
           template_id: input.templateId,
           equipment_id: input.equipmentId,
+          company_id: companyId,
           user_id: profile.id,
           answer_data: {},
           result: 'M',
@@ -819,6 +837,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         tx.checklist_deviations.create({
           data: {
             equipment_id: input.equipmentId,
+            company_id: companyId,
             item_code: d.itemCode,
             item_label: d.itemLabel,
             section_code: d.sectionCode,
@@ -835,6 +854,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
     const request = await tx.maintenance_requests.create({
       data: {
         equipment_id: input.equipmentId,
+        company_id: companyId,
         supervisor_id: input.supervisorId,
         status: 'pending_approval',
         user_id: profile.id,
@@ -855,6 +875,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         return tx.maintenance_request_items.create({
           data: {
             maintenance_request_id: request.id,
+            company_id: companyId,
             checklist_deviation_id: dev.id,
             status: 'pending',
             description: comment,
@@ -896,6 +917,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
               data: {
                 checklist_answer_id: null,
                 equipment_id: input.equipmentId,
+                company_id: companyId,
                 item_code: 'manual',
                 item_label: m.label.trim(),
                 section_code: null,
@@ -911,6 +933,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
         await tx.maintenance_request_items.createMany({
           data: manualDevs.map((d) => ({
             maintenance_request_id: request.id,
+            company_id: companyId,
             checklist_deviation_id: d.id,
             repair_type_id: null,
             driver_comment: null,
@@ -1061,6 +1084,7 @@ export async function createManualMaintenanceRequest(input: {
   }
 
   const profile = await requireServerAuthProfile();
+  const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
 
   const autoApprove = input.autoApprove === true;
 
@@ -1069,6 +1093,7 @@ export async function createManualMaintenanceRequest(input: {
       const created = await tx.maintenance_requests.create({
         data: {
           ...resourceIdFields(input.resourceKind, input.equipmentId),
+          company_id: companyId,
           supervisor_id: input.supervisorId,
           status: autoApprove ? 'approved' : 'pending_approval',
           ...(autoApprove ? { approved_by: profile.id, approved_at: new Date() } : {}),
@@ -1083,6 +1108,7 @@ export async function createManualMaintenanceRequest(input: {
       await tx.maintenance_request_items.createMany({
         data: input.repairs.map((repair) => ({
           maintenance_request_id: created.id,
+          company_id: companyId,
           checklist_deviation_id: null,
           repair_type_id: repair.repairTypeId,
           free_text: repair.freeText,
@@ -1099,6 +1125,7 @@ export async function createManualMaintenanceRequest(input: {
         const order = await tx.maintenance_orders.create({
           data: {
             ...resourceIdFields(input.resourceKind, input.equipmentId),
+            company_id: companyId,
             maintenance_request_id: created.id,
             status: 'pending_scheduling',
             kilometer_at_entry: input.kilometer ?? null,
@@ -1124,6 +1151,7 @@ export async function createManualMaintenanceRequest(input: {
         await tx.maintenance_order_items.createMany({
           data: requestItems.map((item) => ({
             maintenance_order_id: order.id,
+            company_id: companyId,
             maintenance_request_item_id: item.id,
             repair_type_id: item.repair_type_id,
             // Sin tipo de reparación, el texto libre es lo único que describe la tarea

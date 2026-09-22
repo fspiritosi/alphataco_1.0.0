@@ -4,6 +4,7 @@ import { MIN_APPROVAL_DESCRIPTION_LENGTH } from '@/features/Mantenimiento/consta
 import { isNonPropagatingChecklistItem } from '@/features/Mantenimiento/constants/non-propagating-checklist-items';
 import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
@@ -280,11 +281,14 @@ export async function createMaintenanceRequest(input: {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      const companyId = await getResourceCompanyId(tx, 'vehicle', input.equipmentId);
+
       // Crear la solicitud
       const request = await tx.maintenance_requests.create({
         data: {
           checklist_answer_id: input.checklistAnswerId,
           equipment_id: input.equipmentId,
+          company_id: companyId,
           employee_id: input.employeeId ?? null,
           user_id: input.userId ?? null,
           kilometer: input.kilometer ?? null,
@@ -298,6 +302,7 @@ export async function createMaintenanceRequest(input: {
       // Determinar los items a insertar
       type ItemData = {
         maintenance_request_id: string;
+        company_id: string;
         checklist_deviation_id: string;
         repair_type_id: string | null;
         driver_comment: string | null;
@@ -311,6 +316,7 @@ export async function createMaintenanceRequest(input: {
         serverLogger.debug('Usando formato NUEVO (deviationItems)');
         items = input.deviationItems.map((item) => ({
           maintenance_request_id: request.id,
+          company_id: companyId,
           checklist_deviation_id: item.deviationId,
           repair_type_id: item.repairTypeId ?? null,
           driver_comment: item.driverComment ?? null,
@@ -321,6 +327,7 @@ export async function createMaintenanceRequest(input: {
         serverLogger.debug('Usando formato ANTIGUO (deviationIds)');
         items = input.deviationIds.map((deviationId) => ({
           maintenance_request_id: request.id,
+          company_id: companyId,
           checklist_deviation_id: deviationId,
           repair_type_id: null,
           driver_comment: null,
@@ -386,7 +393,14 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
 
     const request = await prisma.maintenance_requests.findUniqueOrThrow({
       where: { id: input.requestId },
-      select: { equipment_id: true, kilometer: true, engine_hours: true, source: true, preventive_type: true },
+      select: {
+        equipment_id: true,
+        company_id: true,
+        kilometer: true,
+        engine_hours: true,
+        source: true,
+        preventive_type: true,
+      },
     });
 
     await prisma.$transaction(async (tx) => {
@@ -403,6 +417,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         data: {
           maintenance_request_id: input.requestId,
           equipment_id: request.equipment_id,
+          company_id: request.company_id,
           status: 'pending_scheduling',
           kilometer_at_entry: request.kilometer ?? null,
           source: request.source,
@@ -459,7 +474,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       // 3. Obtener la solicitud para crear el pedido
       const request = await tx.maintenance_requests.findUniqueOrThrow({
         where: { id: input.requestId },
-        select: { id: true, equipment_id: true, kilometer: true },
+        select: { id: true, equipment_id: true, company_id: true, kilometer: true },
       });
 
       // 4. Filtrar items "no propagables" según matriz checklist × item.
@@ -543,6 +558,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
           data: {
             maintenance_request_id: input.requestId,
             equipment_id: request.equipment_id,
+            company_id: request.company_id,
             status: 'pending_scheduling',
             kilometer_at_entry: request.kilometer ?? null,
             description,
@@ -570,6 +586,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         await tx.maintenance_order_items.createMany({
           data: propagatingApprovedItems.map((item) => ({
             maintenance_order_id: order.id,
+            company_id: request.company_id,
             maintenance_request_item_id: item.itemId,
             repair_type_id: null,
             is_critical: false,
@@ -723,6 +740,8 @@ export async function createOrUpdateMaintenanceRequest(input: {
 
   try {
     const profile = await requireServerAuthProfile();
+    // Las solicitudes (incluidas las del enganche) heredan la empresa de la unidad del contexto
+    const companyId = await getResourceCompanyId(prisma, 'vehicle', input.equipmentId);
     const deviationIds = input.deviations.map((d) => d.deviationId);
 
     // Comentarios del chofer indexados por desvío
@@ -874,6 +893,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
               checklist_answer_id: checklistAnswerId,
               // Ticket 677: la unidad del desvío, no la del contexto del modal
               equipment_id: groupEquipmentId,
+              company_id: companyId,
               employee_id: input.employeeId ?? sourceAnswer?.employee_id ?? null,
               user_id: input.userId ?? sourceAnswer?.user_id ?? profile.id,
               kilometer: isContextEquipment ? input.kilometer ?? sourceAnswer?.kilometraje?.toString() ?? null : null,
@@ -901,6 +921,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
         const { count } = await tx.maintenance_request_items.createMany({
           data: groupDeviationIds.map((deviationId) => ({
             maintenance_request_id: targetRequestId,
+            company_id: companyId,
             checklist_deviation_id: deviationId,
             repair_type_id: null,
             driver_comment: commentByDeviationId.get(deviationId) ?? null,
@@ -925,6 +946,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
             data: {
               checklist_answer_id: manualChecklistAnswerId,
               equipment_id: input.equipmentId,
+              company_id: companyId,
               employee_id: input.employeeId ?? null,
               user_id: input.userId ?? profile.id,
               kilometer: input.kilometer ?? null,
@@ -954,6 +976,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
             data: {
               checklist_answer_id: manualChecklistAnswerId,
               equipment_id: input.equipmentId,
+              company_id: companyId,
               item_code: 'manual',
               item_label: label,
               section_code: null,
@@ -966,6 +989,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
           await tx.maintenance_request_items.create({
             data: {
               maintenance_request_id: manualRequestId,
+              company_id: companyId,
               checklist_deviation_id: manualDeviation.id,
               repair_type_id: null,
               driver_comment: null,
@@ -1343,6 +1367,7 @@ export async function createManualDeviationsFromChecklist(input: {
     }
 
     const userId = input.userId ?? profile.id;
+    const companyId = await getResourceCompanyId(prisma, 'vehicle', input.equipmentId);
 
     const result = await prisma.$transaction(async (tx) => {
       const createdDeviations = await Promise.all(
@@ -1351,6 +1376,7 @@ export async function createManualDeviationsFromChecklist(input: {
             data: {
               checklist_answer_id: input.checklistAnswerId,
               equipment_id: input.equipmentId,
+              company_id: companyId,
               item_code: item.itemCode,
               item_label: item.itemLabel,
               section_code: item.sectionCode,
@@ -1369,6 +1395,7 @@ export async function createManualDeviationsFromChecklist(input: {
         data: {
           checklist_answer_id: input.checklistAnswerId,
           equipment_id: input.equipmentId,
+          company_id: companyId,
           employee_id: input.employeeId ?? null,
           user_id: userId,
           kilometer: input.kilometer ?? null,
@@ -1382,6 +1409,7 @@ export async function createManualDeviationsFromChecklist(input: {
       await tx.maintenance_request_items.createMany({
         data: input.items.map((item, idx) => ({
           maintenance_request_id: request.id,
+          company_id: companyId,
           checklist_deviation_id: deviationIds[idx],
           repair_type_id: null,
           driver_comment: item.comment?.trim() || null,
@@ -1400,6 +1428,7 @@ export async function createManualDeviationsFromChecklist(input: {
                 data: {
                   checklist_answer_id: input.checklistAnswerId,
                   equipment_id: input.equipmentId,
+                  company_id: companyId,
                   item_code: 'manual',
                   item_label: m.label.trim(),
                   section_code: null,
@@ -1415,6 +1444,7 @@ export async function createManualDeviationsFromChecklist(input: {
           await tx.maintenance_request_items.createMany({
             data: manualDevs.map((d) => ({
               maintenance_request_id: request.id,
+              company_id: companyId,
               checklist_deviation_id: d.id,
               repair_type_id: null,
               driver_comment: null,

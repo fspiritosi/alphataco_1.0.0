@@ -6,423 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["auth", "public", "storage"]
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model audit_log_entries {
-  instance_id String?   @db.Uuid
-  id          String    @id @db.Uuid
-  payload     Json?     @db.Json
-  created_at  DateTime? @db.Timestamptz(6)
-  ip_address  String    @default("") @db.VarChar(64)
-
-  @@index([instance_id], map: "audit_logs_instance_id_idx")
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model flow_state {
-  id                     String                @id @db.Uuid
-  user_id                String?               @db.Uuid
-  auth_code              String
-  code_challenge_method  code_challenge_method
-  code_challenge         String
-  provider_type          String
-  provider_access_token  String?
-  provider_refresh_token String?
-  created_at             DateTime?             @db.Timestamptz(6)
-  updated_at             DateTime?             @db.Timestamptz(6)
-  authentication_method  String
-  auth_code_issued_at    DateTime?             @db.Timestamptz(6)
-  saml_relay_states      saml_relay_states[]
-
-  @@index([created_at(sort: Desc)])
-  @@index([auth_code], map: "idx_auth_code")
-  @@index([user_id, authentication_method], map: "idx_user_id_auth_method")
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model identities {
-  provider_id     String
-  user_id         String    @db.Uuid
-  identity_data   Json
-  provider        String
-  last_sign_in_at DateTime? @db.Timestamptz(6)
-  created_at      DateTime? @db.Timestamptz(6)
-  updated_at      DateTime? @db.Timestamptz(6)
-  email           String?   @default(dbgenerated("lower((identity_data ->> 'email'::text))"))
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([provider_id, provider], map: "identities_provider_id_provider_unique")
-  @@index([email])
-  @@index([user_id])
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model instances {
-  id              String    @id @db.Uuid
-  uuid            String?   @db.Uuid
-  raw_base_config String?
-  created_at      DateTime? @db.Timestamptz(6)
-  updated_at      DateTime? @db.Timestamptz(6)
-
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model mfa_amr_claims {
-  session_id            String   @db.Uuid
-  created_at            DateTime @db.Timestamptz(6)
-  updated_at            DateTime @db.Timestamptz(6)
-  authentication_method String
-  id                    String   @id(map: "amr_id_pk") @db.Uuid
-  sessions              sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([session_id, authentication_method], map: "mfa_amr_claims_session_id_authentication_method_pkey")
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model mfa_challenges {
-  id                     String      @id @db.Uuid
-  factor_id              String      @db.Uuid
-  created_at             DateTime    @db.Timestamptz(6)
-  verified_at            DateTime?   @db.Timestamptz(6)
-  ip_address             String      @db.Inet
-  otp_code               String?
-  web_authn_session_data Json?
-  mfa_factors            mfa_factors @relation(fields: [factor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "mfa_challenges_auth_factor_id_fkey")
-
-  @@index([created_at(sort: Desc)], map: "mfa_challenge_created_at_idx")
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model mfa_factors {
-  id                           String           @id @db.Uuid
-  user_id                      String           @db.Uuid
-  friendly_name                String?
-  factor_type                  factor_type
-  status                       factor_status
-  created_at                   DateTime         @db.Timestamptz(6)
-  updated_at                   DateTime         @db.Timestamptz(6)
-  secret                       String?
-  phone                        String?
-  last_challenged_at           DateTime?        @unique @db.Timestamptz(6)
-  web_authn_credential         Json?
-  web_authn_aaguid             String?          @db.Uuid
-  last_webauthn_challenge_data Json?
-  mfa_challenges               mfa_challenges[]
-  users                        users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([friendly_name, user_id], map: "mfa_factors_user_friendly_name_unique", where: raw("(TRIM(BOTH FROM friendly_name) <> ''::text)"))
-  @@unique([user_id, phone], map: "unique_phone_factor_per_user")
-  @@index([user_id, created_at], map: "factor_id_created_at_idx")
-  @@index([user_id])
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model oauth_authorizations {
-  id                    String                     @id @db.Uuid
-  authorization_id      String                     @unique
-  client_id             String                     @db.Uuid
-  user_id               String?                    @db.Uuid
-  redirect_uri          String
-  scope                 String
-  state                 String?
-  resource              String?
-  code_challenge        String?
-  code_challenge_method code_challenge_method?
-  response_type         oauth_response_type        @default(code)
-  status                oauth_authorization_status @default(pending)
-  authorization_code    String?                    @unique
-  created_at            DateTime                   @default(now()) @db.Timestamptz(6)
-  expires_at            DateTime                   @default(dbgenerated("(now() + '00:03:00'::interval)")) @db.Timestamptz(6)
-  approved_at           DateTime?                  @db.Timestamptz(6)
-  nonce                 String?
-  oauth_clients         oauth_clients              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users                 users?                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([expires_at], map: "oauth_auth_pending_exp_idx", where: raw("(status = 'pending'::auth.oauth_authorization_status)"))
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model oauth_client_states {
-  id            String   @id @db.Uuid
-  provider_type String
-  code_verifier String?
-  created_at    DateTime @db.Timestamptz(6)
-
-  @@index([created_at], map: "idx_oauth_client_states_created_at")
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model oauth_clients {
-  id                   String                  @id @db.Uuid
-  client_secret_hash   String?
-  registration_type    oauth_registration_type
-  redirect_uris        String
-  grant_types          String
-  client_name          String?
-  client_uri           String?
-  logo_uri             String?
-  created_at           DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime                @default(now()) @db.Timestamptz(6)
-  deleted_at           DateTime?               @db.Timestamptz(6)
-  client_type          oauth_client_type       @default(confidential)
-  oauth_authorizations oauth_authorizations[]
-  oauth_consents       oauth_consents[]
-  sessions             sessions[]
-
-  @@index([deleted_at])
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model oauth_consents {
-  id            String        @id @db.Uuid
-  user_id       String        @db.Uuid
-  client_id     String        @db.Uuid
-  scopes        String
-  granted_at    DateTime      @default(now()) @db.Timestamptz(6)
-  revoked_at    DateTime?     @db.Timestamptz(6)
-  oauth_clients oauth_clients @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users         users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([user_id, client_id], map: "oauth_consents_user_client_unique")
-  @@index([client_id], map: "oauth_consents_active_client_idx", where: raw("(revoked_at IS NULL)"))
-  @@index([user_id, client_id], map: "oauth_consents_active_user_client_idx", where: raw("(revoked_at IS NULL)"))
-  @@index([user_id, granted_at(sort: Desc)], map: "oauth_consents_user_order_idx")
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model one_time_tokens {
-  id         String              @id @db.Uuid
-  user_id    String              @db.Uuid
-  token_type one_time_token_type
-  token_hash String
-  relates_to String
-  created_at DateTime            @default(now()) @db.Timestamp(6)
-  updated_at DateTime            @default(now()) @db.Timestamp(6)
-  users      users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([user_id, token_type])
-  @@index([relates_to], map: "one_time_tokens_relates_to_hash_idx", type: Hash)
-  @@index([token_hash], map: "one_time_tokens_token_hash_hash_idx", type: Hash)
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model refresh_tokens {
-  instance_id String?   @db.Uuid
-  id          BigInt    @id @default(autoincrement())
-  token       String?   @unique(map: "refresh_tokens_token_unique") @db.VarChar(255)
-  user_id     String?   @db.VarChar(255)
-  revoked     Boolean?
-  created_at  DateTime? @db.Timestamptz(6)
-  updated_at  DateTime? @db.Timestamptz(6)
-  parent      String?   @db.VarChar(255)
-  session_id  String?   @db.Uuid
-  sessions    sessions? @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([instance_id])
-  @@index([instance_id, user_id])
-  @@index([parent])
-  @@index([session_id, revoked])
-  @@index([updated_at(sort: Desc)])
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model saml_providers {
-  id                String        @id @db.Uuid
-  sso_provider_id   String        @db.Uuid
-  entity_id         String        @unique
-  metadata_xml      String
-  metadata_url      String?
-  attribute_mapping Json?
-  created_at        DateTime?     @db.Timestamptz(6)
-  updated_at        DateTime?     @db.Timestamptz(6)
-  name_id_format    String?
-  sso_providers     sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([sso_provider_id])
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model saml_relay_states {
-  id              String        @id @db.Uuid
-  sso_provider_id String        @db.Uuid
-  request_id      String
-  for_email       String?
-  redirect_to     String?
-  created_at      DateTime?     @db.Timestamptz(6)
-  updated_at      DateTime?     @db.Timestamptz(6)
-  flow_state_id   String?       @db.Uuid
-  flow_state      flow_state?   @relation(fields: [flow_state_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([created_at(sort: Desc)])
-  @@index([for_email])
-  @@index([sso_provider_id])
-  @@schema("auth")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model schema_migrations {
-  version String @id @db.VarChar(255)
-
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model sessions {
-  id                     String           @id @db.Uuid
-  user_id                String           @db.Uuid
-  created_at             DateTime?        @db.Timestamptz(6)
-  updated_at             DateTime?        @db.Timestamptz(6)
-  factor_id              String?          @db.Uuid
-  aal                    aal_level?
-  not_after              DateTime?        @db.Timestamptz(6)
-  refreshed_at           DateTime?        @db.Timestamp(6)
-  user_agent             String?
-  ip                     String?          @db.Inet
-  tag                    String?
-  oauth_client_id        String?          @db.Uuid
-  refresh_token_hmac_key String?
-  refresh_token_counter  BigInt?
-  scopes                 String?
-  mfa_amr_claims         mfa_amr_claims[]
-  refresh_tokens         refresh_tokens[]
-  oauth_clients          oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users                  users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([not_after(sort: Desc)])
-  @@index([oauth_client_id])
-  @@index([user_id])
-  @@index([user_id, created_at], map: "user_id_created_at_idx")
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model sso_domains {
-  id              String        @id @db.Uuid
-  sso_provider_id String        @db.Uuid
-  domain          String
-  created_at      DateTime?     @db.Timestamptz(6)
-  updated_at      DateTime?     @db.Timestamptz(6)
-  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([sso_provider_id])
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model sso_providers {
-  id                String              @id @db.Uuid
-  resource_id       String?
-  created_at        DateTime?           @db.Timestamptz(6)
-  updated_at        DateTime?           @db.Timestamptz(6)
-  disabled          Boolean?
-  saml_providers    saml_providers[]
-  saml_relay_states saml_relay_states[]
-  sso_domains       sso_domains[]
-
-  @@index([resource_id], map: "sso_providers_resource_id_pattern_idx")
-  @@schema("auth")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model users {
-  instance_id                                          String?                   @db.Uuid
-  id                                                   String                    @id @db.Uuid
-  aud                                                  String?                   @db.VarChar(255)
-  role                                                 String?                   @db.VarChar(255)
-  email                                                String?                   @unique(map: "users_email_partial_key", where: raw("(is_sso_user = false)")) @db.VarChar(255)
-  encrypted_password                                   String?                   @db.VarChar(255)
-  email_confirmed_at                                   DateTime?                 @db.Timestamptz(6)
-  invited_at                                           DateTime?                 @db.Timestamptz(6)
-  confirmation_token                                   String?                   @unique(map: "confirmation_token_idx", where: raw("((confirmation_token)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
-  confirmation_sent_at                                 DateTime?                 @db.Timestamptz(6)
-  recovery_token                                       String?                   @unique(map: "recovery_token_idx", where: raw("((recovery_token)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
-  recovery_sent_at                                     DateTime?                 @db.Timestamptz(6)
-  email_change_token_new                               String?                   @unique(map: "email_change_token_new_idx", where: raw("((email_change_token_new)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
-  email_change                                         String?                   @db.VarChar(255)
-  email_change_sent_at                                 DateTime?                 @db.Timestamptz(6)
-  last_sign_in_at                                      DateTime?                 @db.Timestamptz(6)
-  raw_app_meta_data                                    Json?
-  raw_user_meta_data                                   Json?
-  is_super_admin                                       Boolean?
-  created_at                                           DateTime?                 @db.Timestamptz(6)
-  updated_at                                           DateTime?                 @db.Timestamptz(6)
-  phone                                                String?                   @unique
-  phone_confirmed_at                                   DateTime?                 @db.Timestamptz(6)
-  phone_change                                         String?                   @default("")
-  phone_change_token                                   String?                   @default("") @db.VarChar(255)
-  phone_change_sent_at                                 DateTime?                 @db.Timestamptz(6)
-  confirmed_at                                         DateTime?                 @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
-  email_change_token_current                           String?                   @unique(map: "email_change_token_current_idx", where: raw("((email_change_token_current)::text !~ '^[0-9 ]*$'::text)")) @default("") @db.VarChar(255)
-  email_change_confirm_status                          Int?                      @default(0) @db.SmallInt
-  banned_until                                         DateTime?                 @db.Timestamptz(6)
-  reauthentication_token                               String?                   @unique(map: "reauthentication_token_idx", where: raw("((reauthentication_token)::text !~ '^[0-9 ]*$'::text)")) @default("") @db.VarChar(255)
-  reauthentication_sent_at                             DateTime?                 @db.Timestamptz(6)
-  is_sso_user                                          Boolean                   @default(false)
-  deleted_at                                           DateTime?                 @db.Timestamptz(6)
-  is_anonymous                                         Boolean                   @default(false)
-  identities                                           identities[]
-  mfa_factors                                          mfa_factors[]
-  oauth_authorizations                                 oauth_authorizations[]
-  oauth_consents                                       oauth_consents[]
-  one_time_tokens                                      one_time_tokens[]
-  sessions                                             sessions[]
-  dailyreportrows_history                              dailyreportrows_history[]
-  kpi_revisions                                        kpi_revisions[]
-  maintenance_orders                                   maintenance_orders[]
-  profile_profile_credential_idTousers                 profile?                  @relation("profile_credential_idTousers")
-  profile_profile_idTousers                            profile?                  @relation("profile_idTousers")
-  user_permissions_user_permissions_assigned_byTousers user_permissions[]        @relation("user_permissions_assigned_byTousers")
-  user_permissions_user_permissions_user_idTousers     user_permissions[]        @relation("user_permissions_user_idTousers")
-  user_roles_user_roles_assigned_byTousers             user_roles[]              @relation("user_roles_assigned_byTousers")
-  user_roles_user_roles_user_idTousers                 user_roles[]              @relation("user_roles_user_idTousers")
-  user_equipment_type_visibility                       user_equipment_type_visibility[]
-
-  @@index([instance_id])
-  @@index([is_anonymous])
-  @@schema("auth")
+  schemas  = ["public"]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -445,7 +29,10 @@ model aptitudes_tecnicas {
   is_active                  Boolean?                     @default(true)
   aptitudes_tecnicas_puestos aptitudes_tecnicas_puestos[]
   empleado_aptitudes         empleado_aptitudes[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_aptitudes_tecnicas_company_id")
   @@schema("public")
 }
 
@@ -570,10 +157,13 @@ model checklist_answers {
   other_checklist_answers                                   checklist_answers[]        @relation("checklist_answersTochecklist_answers")
   checklist_deviations                                      checklist_deviations[]
   maintenance_requests                                      maintenance_requests[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([created_at(sort: Desc)], map: "idx_checklist_answers_created")
   @@index([equipment_id], map: "idx_checklist_answers_equipment")
   @@index([template_id], map: "idx_checklist_answers_template")
+  @@index([company_id], map: "idx_checklist_answers_company_id")
   @@schema("public")
 }
 
@@ -595,10 +185,13 @@ model checklist_deviations {
   profile                   profile?                    @relation(fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vehicles                  vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   maintenance_request_items maintenance_request_items[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([checklist_answer_id], map: "idx_checklist_deviations_checklist_answer_id")
   @@index([equipment_id], map: "idx_checklist_deviations_equipment_id")
   @@index([equipment_id], map: "idx_checklist_deviations_pending", where: raw("(equipment_id IS NOT NULL)"))
+  @@index([company_id], map: "idx_checklist_deviations_company_id")
   @@schema("public")
 }
 
@@ -718,10 +311,13 @@ model checklist_template_types {
   created_at          DateTime?           @default(now()) @db.Timestamptz(6)
   checklist_templates checklist_templates @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   type                type?               @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([template_id, type_id])
   @@index([template_id], map: "idx_checklist_template_types_template")
   @@index([type_id], map: "idx_checklist_template_types_type")
+  @@index([company_id], map: "idx_checklist_template_types_company_id")
   @@schema("public")
 }
 
@@ -942,6 +538,26 @@ model company {
   tire_service_orders tire_service_orders[]
   pre_employees       pre_employees[]
   external_api_clients external_api_clients[]
+  aptitudes_tecnicas aptitudes_tecnicas[]
+  checklist_answers checklist_answers[]
+  checklist_deviations checklist_deviations[]
+  checklist_template_types checklist_template_types[]
+  company_positions company_positions[]
+  cost_center cost_center[]
+  documents_pre_employees documents_pre_employees[]
+  hierarchy hierarchy[]
+  maintenance_activity_log maintenance_activity_log[]
+  maintenance_order_items maintenance_order_items[]
+  maintenance_orders maintenance_orders[]
+  maintenance_request_items maintenance_request_items[]
+  maintenance_requests maintenance_requests[]
+  model_vehicles model_vehicles[]
+  type_hitch_types type_hitch_types[]
+  types_of_contract types_of_contract[]
+  work_diagram work_diagram[]
+  work_diagram_active_novelties work_diagram_active_novelties[]
+  work_order_item_repairs work_order_item_repairs[]
+  workshop_sectors workshop_sectors[]
 
   @@schema("public")
 }
@@ -956,7 +572,10 @@ model company_positions {
   aptitudes_tecnicas_puestos aptitudes_tecnicas_puestos[]
   employees                  employees[]
   pre_employees              pre_employees[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_company_positions_company_id")
   @@schema("public")
 }
 
@@ -1037,7 +656,10 @@ model cost_center {
   employees       employees[]
   other_equipment other_equipment[]
   vehicles        vehicles[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_cost_center_company_id")
   @@schema("public")
 }
 
@@ -1265,7 +887,7 @@ model dailyreportrows_history {
   created_at          DateTime        @default(now()) @db.Timestamptz(6)
   metadata            Json?
   reassignment_reason String?
-  users               users?          @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  profile             profile?        @relation("dailyreportrows_history_changed_byToprofile", fields: [changed_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction)
   dailyreportrows     dailyreportrows @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([related_table, related_id], map: "idx_dailyreportrows_history_related", where: raw("(related_table IS NOT NULL)"))
@@ -1359,6 +981,7 @@ model documents_company {
   document_types    document_types? @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
   profile           profile?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  @@index([applies], map: "idx_documents_company_applies")
   @@schema("public")
 }
 
@@ -1647,7 +1270,10 @@ model hierarchy {
   other_equipment other_equipment[]
   vehicles        vehicles[]
   pre_employees   pre_employees[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_hierarchy_company_id")
   @@schema("public")
 }
 
@@ -1673,7 +1299,7 @@ model kpi_revisions {
   changed_by             String    @db.Uuid
   is_active              Boolean?  @default(true)
   created_at             DateTime? @default(now()) @db.Timestamptz(6)
-  users                  users     @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile                profile   @relation("kpi_revisions_changed_byToprofile", fields: [changed_by], references: [credential_id], onDelete: NoAction, onUpdate: NoAction)
   kpis                   kpis      @relation(fields: [kpi_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([changed_by], map: "idx_kpi_revisions_changed_by")
@@ -1725,11 +1351,14 @@ model maintenance_activity_log {
   maintenance_requests   maintenance_requests? @relation(fields: [maintenance_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile                profile?              @relation(fields: [performed_by], references: [id], onUpdate: NoAction)
   work_orders            work_orders?          @relation(fields: [work_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([maintenance_order_id], map: "idx_activity_log_order", where: raw("(maintenance_order_id IS NOT NULL)"))
   @@index([performed_at(sort: Desc)], map: "idx_activity_log_performed_at")
   @@index([maintenance_request_id], map: "idx_activity_log_request", where: raw("(maintenance_request_id IS NOT NULL)"))
   @@index([work_order_id], map: "idx_activity_log_work_order", where: raw("(work_order_id IS NOT NULL)"))
+  @@index([company_id], map: "idx_maintenance_activity_log_company_id")
   @@schema("public")
 }
 
@@ -1797,6 +1426,8 @@ model maintenance_order_items {
   /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
   maintenance_group_id                                               String?                               @db.Uuid
   maintenance_request_groups                                         maintenance_request_groups?           @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_order_items_group_fkey")
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([maintenance_order_id], map: "idx_maintenance_order_items_order")
   @@index([maintenance_request_item_id], map: "idx_maintenance_order_items_request_item")
@@ -1804,6 +1435,7 @@ model maintenance_order_items {
   @@index([assigned_workshop_id], map: "idx_moi_assigned_workshop")
   @@index([planned_start_date, planned_end_date], map: "idx_moi_planned_dates")
   @@index([work_order_id], map: "idx_moi_work_order")
+  @@index([company_id], map: "idx_maintenance_order_items_company_id")
   @@schema("public")
   @@index([maintenance_group_id], map: "idx_maintenance_order_items_group")
 }
@@ -1851,16 +1483,19 @@ model maintenance_orders {
   vehicles                                                 vehicles?                  @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   other_equipment                                          other_equipment?           @relation(fields: [other_equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   maintenance_requests                                     maintenance_requests?      @relation(fields: [maintenance_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                                                    users?                     @relation(fields: [operations_validated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_orders_operations_validated_byToprofile profile?                 @relation("maintenance_orders_operations_validated_byToprofile", fields: [operations_validated_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction)
   profile_maintenance_orders_rejected_byToprofile          profile?                   @relation("maintenance_orders_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_orders_scheduled_byToprofile         profile?                   @relation("maintenance_orders_scheduled_byToprofile", fields: [scheduled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_orders_workshop_approved_byToprofile profile?                   @relation("maintenance_orders_workshop_approved_byToprofile", fields: [workshop_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([equipment_id], map: "idx_maintenance_orders_equipment")
   @@index([order_number], map: "idx_maintenance_orders_order_number")
   @@index([maintenance_request_id], map: "idx_maintenance_orders_request")
   @@index([scheduled_date], map: "idx_maintenance_orders_scheduled_date")
   @@index([status], map: "idx_maintenance_orders_status")
+  @@index([company_id], map: "idx_maintenance_orders_company_id")
   @@schema("public")
 }
 
@@ -1910,11 +1545,14 @@ model maintenance_request_items {
   /// Grupo de reparaciones del que salio el item (null = se cargo suelto)
   maintenance_group_id                                             String?                     @db.Uuid
   maintenance_request_groups                                       maintenance_request_groups? @relation(fields: [maintenance_group_id], references: [id], map: "maintenance_request_items_group_fkey")
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([maintenance_request_id, checklist_deviation_id])
   @@index([checklist_deviation_id], map: "idx_maintenance_request_items_deviation")
   @@index([maintenance_request_id], map: "idx_maintenance_request_items_request")
   @@index([status], map: "idx_maintenance_request_items_status")
+  @@index([company_id], map: "idx_maintenance_request_items_company_id")
   @@schema("public")
   @@index([maintenance_group_id], map: "idx_maintenance_request_items_group")
 }
@@ -1957,10 +1595,13 @@ model maintenance_requests {
   profile_maintenance_requests_rejected_byToprofile   profile?                    @relation("maintenance_requests_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_supervisor_idToprofile profile?                    @relation("maintenance_requests_supervisor_idToprofile", fields: [supervisor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_maintenance_requests_user_idToprofile       profile?                    @relation("maintenance_requests_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([checklist_answer_id], map: "idx_maintenance_requests_checklist")
   @@index([equipment_id], map: "idx_maintenance_requests_equipment")
   @@index([status], map: "idx_maintenance_requests_status")
+  @@index([company_id], map: "idx_maintenance_requests_company_id")
   @@schema("public")
 }
 
@@ -1985,7 +1626,10 @@ model model_vehicles {
   brand_vehicles  brand_vehicles?   @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_model_vehicles_brand_fkey")
   other_equipment other_equipment[]
   vehicles        vehicles[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_model_vehicles_company_id")
   @@schema("public")
 }
 
@@ -2267,8 +1911,11 @@ model documents_pre_employees {
   pre_employees    pre_employees  @relation(fields: [pre_employee_id], references: [id], onDelete: Cascade)
   document_types   document_types @relation(fields: [document_type_id], references: [id], onDelete: Cascade)
   profile          profile?       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([pre_employee_id, document_type_id])
+  @@index([company_id], map: "idx_documents_pre_employees_company_id")
   @@schema("public")
 }
 
@@ -2312,9 +1959,7 @@ model profile {
   preparte_rejected_byToprofile                                                      preparte[]                  @relation("preparte_rejected_byToprofile")
   preparte_cancelled_byToprofile                                                     preparte[]                  @relation("preparte_cancelled_byToprofile")
   preparte_reprogrammed_byToprofile                                                  preparte[]                  @relation("preparte_reprogrammed_byToprofile")
-  users_profile_credential_idTousers                                                 users?                      @relation("profile_credential_idTousers", fields: [credential_id], references: [id], onDelete: Cascade)
   employees                                                                          employees?                  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
-  users_profile_idTousers                                                            users                       @relation("profile_idTousers", fields: [id], references: [id], onDelete: Cascade)
   roles                                                                              roles?                      @relation(fields: [role], references: [name], onDelete: NoAction, onUpdate: NoAction)
   share_company_users                                                                share_company_users[]
   vehicles                                                                           vehicles[]
@@ -2334,6 +1979,14 @@ model profile {
   documents_pre_employees                                                            documents_pre_employees[]
   external_api_clients_created                                                       external_api_clients[]      @relation("external_api_clients_created_byToprofile")
   external_api_clients_revoked                                                       external_api_clients[]      @relation("external_api_clients_revoked_byToprofile")
+  dailyreportrows_history_changed_by                                                 dailyreportrows_history[]   @relation("dailyreportrows_history_changed_byToprofile")
+  kpi_revisions_changed_by                                                           kpi_revisions[]             @relation("kpi_revisions_changed_byToprofile")
+  maintenance_orders_maintenance_orders_operations_validated_byToprofile             maintenance_orders[]        @relation("maintenance_orders_operations_validated_byToprofile")
+  user_equipment_type_visibility                                                     user_equipment_type_visibility[] @relation("user_equipment_type_visibility_user_idToprofile")
+  user_permissions_user_permissions_assigned_byToprofile                             user_permissions[]          @relation("user_permissions_assigned_byToprofile")
+  user_permissions_user_permissions_user_idToprofile                                 user_permissions[]          @relation("user_permissions_user_idToprofile")
+  user_roles_user_roles_assigned_byToprofile                                         user_roles[]                @relation("user_roles_assigned_byToprofile")
+  user_roles_user_roles_user_idToprofile                                             user_roles[]                @relation("user_roles_user_idToprofile")
 
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
@@ -2448,7 +2101,7 @@ model user_equipment_type_visibility {
   is_visible Boolean
   created_at DateTime? @default(now()) @db.Timestamptz(6)
   updated_at DateTime? @default(now()) @db.Timestamptz(6)
-  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile    profile   @relation("user_equipment_type_visibility_user_idToprofile", fields: [user_id], references: [credential_id], onDelete: Cascade, onUpdate: NoAction)
   type       type      @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, type_id])
@@ -2672,10 +2325,13 @@ model type_hitch_types {
   created_at                                     DateTime? @default(now()) @db.Timestamptz(6)
   type_type_hitch_types_compatible_type_idTotype type      @relation("type_hitch_types_compatible_type_idTotype", fields: [compatible_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   type_type_hitch_types_type_idTotype            type      @relation("type_hitch_types_type_idTotype", fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([type_id, compatible_type_id])
   @@index([compatible_type_id], map: "idx_type_hitch_types_compatible_type_id")
   @@index([type_id], map: "idx_type_hitch_types_type_id")
+  @@index([company_id], map: "idx_type_hitch_types_company_id")
   @@schema("public")
 }
 
@@ -2697,7 +2353,10 @@ model types_of_contract {
   description String?
   is_active   Boolean?    @default(true)
   employees   employees[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_types_of_contract_company_id")
   @@schema("public")
 }
 
@@ -2748,9 +2407,9 @@ model user_permissions {
   created_at                                DateTime? @default(now()) @db.Timestamptz(6)
   updated_at                                DateTime? @default(now()) @db.Timestamptz(6)
   actions                                   actions   @relation(fields: [action_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users_user_permissions_assigned_byTousers users?    @relation("user_permissions_assigned_byTousers", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_user_permissions_assigned_byToprofile profile?  @relation("user_permissions_assigned_byToprofile", fields: [assigned_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction)
   tabs                                      tabs      @relation(fields: [tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users_user_permissions_user_idTousers     users     @relation("user_permissions_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_user_permissions_user_idToprofile     profile   @relation("user_permissions_user_idToprofile", fields: [user_id], references: [credential_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, tab_id, action_id])
   @@index([tab_id], map: "idx_user_permissions_tab_id")
@@ -2765,9 +2424,9 @@ model user_roles {
   role_id                             BigInt
   assigned_by                         String?   @db.Uuid
   assigned_at                         DateTime? @default(now()) @db.Timestamptz(6)
-  users_user_roles_assigned_byTousers users?    @relation("user_roles_assigned_byTousers", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_user_roles_assigned_byToprofile profile?  @relation("user_roles_assigned_byToprofile", fields: [assigned_by], references: [credential_id], onDelete: SetNull, onUpdate: NoAction)
   roles                               roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users_user_roles_user_idTousers     users     @relation("user_roles_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_user_roles_user_idToprofile     profile   @relation("user_roles_user_idToprofile", fields: [user_id], references: [credential_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, role_id])
   @@index([role_id], map: "idx_user_roles_role_id")
@@ -3035,7 +2694,10 @@ model work_diagram {
   employees                     employees[]
   diagram_type                  diagram_type?                   @relation(fields: [inactive_novelty], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "work-diagram_inactive_novelty_fkey")
   work_diagram_active_novelties work_diagram_active_novelties[]
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id], map: "idx_work_diagram_company_id")
   @@schema("public")
 }
 
@@ -3047,8 +2709,11 @@ model work_diagram_active_novelties {
   created_at      DateTime     @default(now()) @db.Timestamptz(6)
   diagram_type    diagram_type @relation(fields: [diagram_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   work_diagram    work_diagram @relation(fields: [work_diagram_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([work_diagram_id, diagram_type_id], map: "work_diagram_active_novelties_unique")
+  @@index([company_id], map: "idx_work_diagram_active_novelties_company_id")
   @@schema("public")
 }
 
@@ -3079,10 +2744,13 @@ model work_order_item_repairs {
   types_of_repairs                                             types_of_repairs       @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_work_order_item_repairs_technician_notes_byToprofile profile?               @relation("work_order_item_repairs_technician_notes_byToprofile", fields: [technician_notes_by], references: [id], onUpdate: NoAction)
   work_order_items                                             work_order_items       @relation(fields: [work_order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([work_order_item_id, repair_type_id], map: "unique_work_order_item_repair")
   @@index([status], map: "idx_work_order_item_repairs_status")
   @@index([work_order_item_id], map: "idx_work_order_item_repairs_work_order_item_id")
+  @@index([company_id], map: "idx_work_order_item_repairs_company_id")
   @@schema("public")
 }
 
@@ -3194,9 +2862,12 @@ model workshop_sectors {
   work_order_item_repairs work_order_item_repairs[]
   work_orders             work_orders[]
   workshops               workshops                 @relation(fields: [workshop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_id String  @db.Uuid
+  company    company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([is_active], map: "idx_workshop_sectors_is_active")
   @@index([workshop_id], map: "idx_workshop_sectors_workshop_id")
+  @@index([company_id], map: "idx_workshop_sectors_company_id")
   @@schema("public")
 }
 
@@ -3232,140 +2903,6 @@ model workshops {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model buckets {
-  id                         String                       @id
-  name                       String                       @unique(map: "bname")
-  owner                      String?                      @db.Uuid
-  created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
-  updated_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
-  public                     Boolean?                     @default(false)
-  avif_autodetection         Boolean?                     @default(false)
-  file_size_limit            BigInt?
-  allowed_mime_types         String[]
-  owner_id                   String?
-  type                       buckettype                   @default(STANDARD)
-  objects                    objects[]
-  s3_multipart_uploads       s3_multipart_uploads[]
-  s3_multipart_uploads_parts s3_multipart_uploads_parts[]
-
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model buckets_analytics {
-  name               String               @unique(map: "buckets_analytics_unique_name_idx", where: raw("(deleted_at IS NULL)"))
-  type               buckettype           @default(ANALYTICS)
-  format             String               @default("ICEBERG")
-  created_at         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  deleted_at         DateTime?            @db.Timestamptz(6)
-  iceberg_namespaces iceberg_namespaces[]
-  iceberg_tables     iceberg_tables[]
-
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model buckets_vectors {
-  id             String           @id
-  type           buckettype       @default(VECTOR)
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
-  vector_indexes vector_indexes[]
-
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model migrations {
-  id          Int       @id
-  name        String    @unique @db.VarChar(100)
-  hash        String    @db.VarChar(40)
-  executed_at DateTime? @default(now()) @db.Timestamp(6)
-
-  @@schema("storage")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model objects {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bucket_id        String?
-  name             String?
-  owner            String?   @db.Uuid
-  created_at       DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
-  last_accessed_at DateTime? @default(now()) @db.Timestamptz(6)
-  metadata         Json?
-  path_tokens      String[]  @default(dbgenerated("string_to_array(name, '/'::text)"))
-  version          String?
-  owner_id         String?
-  user_metadata    Json?
-  buckets          buckets?  @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
-
-  @@unique([bucket_id, name], map: "bucketid_objname")
-  @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
-  @@index([name], map: "name_prefix_search")
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model s3_multipart_uploads {
-  id                         String                       @id
-  in_progress_size           BigInt                       @default(0)
-  upload_signature           String
-  bucket_id                  String
-  key                        String
-  version                    String
-  owner_id                   String?
-  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
-  user_metadata              Json?
-  buckets                    buckets                      @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  s3_multipart_uploads_parts s3_multipart_uploads_parts[]
-
-  @@index([bucket_id, key, created_at], map: "idx_multipart_uploads_list")
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model s3_multipart_uploads_parts {
-  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  upload_id            String
-  size                 BigInt               @default(0)
-  part_number          Int
-  bucket_id            String
-  key                  String
-  etag                 String
-  owner_id             String?
-  version              String
-  created_at           DateTime             @default(now()) @db.Timestamptz(6)
-  buckets              buckets              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  s3_multipart_uploads s3_multipart_uploads @relation(fields: [upload_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model vector_indexes {
-  id                     String          @id @default(dbgenerated("gen_random_uuid()"))
-  name                   String
-  bucket_id              String
-  data_type              String
-  dimension              Int
-  distance_metric        String
-  metadata_configuration Json?
-  created_at             DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime        @default(now()) @db.Timestamptz(6)
-  buckets_vectors        buckets_vectors @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([name, bucket_id], map: "vector_indexes_name_bucket_id_idx")
-  @@schema("storage")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model user_table_preferences {
   user_id     String   @id
   preferences Json     @default("{}")
@@ -3373,112 +2910,6 @@ model user_table_preferences {
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@schema("public")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model iceberg_namespaces {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bucket_name       String
-  name              String
-  created_at        DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
-  metadata          Json              @default("{}")
-  catalog_id        String            @db.Uuid
-  buckets_analytics buckets_analytics @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  iceberg_tables    iceberg_tables[]
-
-  @@unique([catalog_id, name], map: "idx_iceberg_namespaces_bucket_id")
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model iceberg_tables {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  namespace_id       String             @db.Uuid
-  bucket_name        String
-  name               String
-  location           String             @unique(map: "idx_iceberg_tables_location")
-  created_at         DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
-  remote_table_id    String?
-  shard_key          String?
-  shard_id           String?
-  catalog_id         String             @db.Uuid
-  buckets_analytics  buckets_analytics  @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  iceberg_namespaces iceberg_namespaces @relation(fields: [namespace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([catalog_id, namespace_id, name], map: "idx_iceberg_tables_namespace_id")
-  @@schema("storage")
-}
-
-enum aal_level {
-  aal1
-  aal2
-  aal3
-
-  @@schema("auth")
-}
-
-enum code_challenge_method {
-  s256
-  plain
-
-  @@schema("auth")
-}
-
-enum factor_status {
-  unverified
-  verified
-
-  @@schema("auth")
-}
-
-enum factor_type {
-  totp
-  webauthn
-  phone
-
-  @@schema("auth")
-}
-
-enum oauth_authorization_status {
-  pending
-  approved
-  denied
-  expired
-
-  @@schema("auth")
-}
-
-enum oauth_client_type {
-  public
-  confidential
-
-  @@schema("auth")
-}
-
-enum oauth_registration_type {
-  dynamic
-  manual
-
-  @@schema("auth")
-}
-
-enum oauth_response_type {
-  code
-
-  @@schema("auth")
-}
-
-enum one_time_token_type {
-  confirmation_token
-  reauthentication_token
-  recovery_token
-  email_change_token_new
-  email_change_token_current
-  phone_change_token
-
-  @@schema("auth")
 }
 
 enum affiliate_status_enum {
@@ -3875,14 +3306,6 @@ enum TireServiceOrderStatus {
   CLOSED
 
   @@schema("public")
-}
-
-enum buckettype {
-  STANDARD
-  ANALYTICS
-  VECTOR
-
-  @@schema("storage")
 }
 
 enum clothing_delivery_type {

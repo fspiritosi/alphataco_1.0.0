@@ -11,6 +11,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
 // LOGGER
@@ -369,6 +370,7 @@ export async function createPositionPrisma(data: {
         name: data.name,
         is_active: data.is_active,
         hierarchical_position_id: data.hierarchical_position_id,
+        company_id: await getActiveCompanyId(),
         ...(data.aptitudes_tecnicas_id.length > 0
           ? {
               aptitudes_tecnicas_puestos: {

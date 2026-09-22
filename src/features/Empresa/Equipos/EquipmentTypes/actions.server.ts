@@ -382,6 +382,7 @@ export interface EquipmentTypeFormData {
 
 export async function createEquipmentType(formData: EquipmentTypeFormData) {
   try {
+    const companyId = await getActiveCompanyId();
     const created = await prisma.type.create({
       data: {
         name: formData.name,
@@ -390,7 +391,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
         is_operative: formData.applies_to === 'other_equipment' ? formData.is_operative : false,
         is_tractor_unit: formData.is_tractor_unit,
         has_hitch: formData.is_tractor_unit ? formData.has_hitch : false,
-        company_id: await getActiveCompanyId(),
+        company_id: companyId,
       },
       select: { id: true },
     });
@@ -401,6 +402,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
         data: formData.hitch_type_ids.map((compatible_type_id) => ({
           type_id: created.id,
           compatible_type_id,
+          company_id: companyId,
         })),
         skipDuplicates: true,
       });
@@ -412,6 +414,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
         data: formData.checklist_ids.map((template_id) => ({
           type_id: created.id,
           template_id,
+          company_id: companyId,
         })),
         skipDuplicates: true,
       });
@@ -427,6 +430,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
 
 export async function updateEquipmentType(formData: EquipmentTypeFormData & { id: string }) {
   try {
+    const companyId = await getActiveCompanyId();
     await prisma.type.update({
       where: { id: formData.id },
       data: {
@@ -446,6 +450,7 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
         data: formData.hitch_type_ids.map((compatible_type_id) => ({
           type_id: formData.id,
           compatible_type_id,
+          company_id: companyId,
         })),
         skipDuplicates: true,
       });
@@ -458,6 +463,7 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
         data: formData.checklist_ids.map((template_id) => ({
           type_id: formData.id,
           template_id,
+          company_id: companyId,
         })),
         skipDuplicates: true,
       });
