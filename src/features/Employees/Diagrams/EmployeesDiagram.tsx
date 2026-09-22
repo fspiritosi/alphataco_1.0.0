@@ -5,9 +5,9 @@ import { Suspense } from 'react';
 import DiagramFormUpdatedWrapper from './DiagramFormUpdatedWrapper';
 import DiagramMassive from './DiagramMassive';
 import { DiagramReportsWrapper } from './DiagramReportsWrapper';
-import EmployesDiagramWrapper from './EmployesDiagramWrapper';
+import EmployeesDiagramWrapper from './EmployeesDiagramWrapper';
 
-export default async function EmployesDiagram({
+export default async function EmployeesDiagram({
   searchParams,
   permissions,
 }: {
@@ -33,7 +33,7 @@ export default async function EmployesDiagram({
           tabSlug: 'old',
           content: (
             <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
-              <EmployesDiagramWrapper searchParams={searchParams} />
+              <EmployeesDiagramWrapper searchParams={searchParams} />
             </Suspense>
           ),
         },

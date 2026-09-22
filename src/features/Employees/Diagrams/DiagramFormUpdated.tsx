@@ -9,14 +9,14 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { CreateDiagrams, UpdateDiagramsById } from '@/features/Employees/Diagrams/actions/diagram-mutations';
-import { DayCommentCell } from '@/features/Employees/Diagrams/components/DayCommentCell';
-import { DiagramLoadSummary } from '@/features/Employees/Diagrams/components/DiagramLoadSummary';
-import { diagramFormSchema, type DiagramFormValues } from '@/features/Employees/Diagrams/schemas/diagram-form-schema';
+import { CreateDiagrams, UpdateDiagramsById } from '@/features/Employees/Diagrams/actions/mutations.server';
 import {
   getEmployeeDiagramByIdandDate,
   getEmployeesName,
-} from '@/features/Employees/Empleados/lib/actions/employeesActions';
+} from '@/features/Employees/Diagrams/actions/queries.server';
+import { DayCommentCell } from '@/features/Employees/Diagrams/components/DayCommentCell';
+import { DiagramLoadSummary } from '@/features/Employees/Diagrams/components/DiagramLoadSummary';
+import { diagramFormSchema, type DiagramFormValues } from '@/features/Employees/Diagrams/schemas/diagram-form-schema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import moment from 'moment';
@@ -60,7 +60,16 @@ const dayKey = (diagram: { day: number; month: number; year: number }) =>
 const formatDayLabel = (diagram: { day: number; month: number; year: number }) =>
   moment(`${diagram.year}-${diagram.month}-${diagram.day}`, 'YYYY-M-D').format('DD/MM/YYYY');
 
-function DiagramFormUpdated({ diagrams_types, defaultId }: { diagrams_types: DiagramType[]; defaultId?: string }) {
+/** Lo mínimo que necesita el selector de novedad: sirve tanto la fila completa como `{ id, name }`. */
+type DiagramTypeOption = { id: string; name: string | null };
+
+function DiagramFormUpdated({
+  diagrams_types,
+  defaultId,
+}: {
+  diagrams_types: DiagramTypeOption[];
+  defaultId?: string;
+}) {
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);

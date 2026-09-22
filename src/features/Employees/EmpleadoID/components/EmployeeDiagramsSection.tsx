@@ -1,5 +1,6 @@
 // Server Component async — se envuelve en <Suspense> desde el padre
 import { DiagramDetailEmployeeView } from '@/features/Employees/Diagrams/DiagramDetailEmployeeView';
+import type { DiagramHistoryRow } from '@/features/Employees/Diagrams/table/DiagramDetailTable';
 import moment from 'moment';
 import type { EmployeeDetailData } from '../actions.server';
 import { getDiagramTypes, getEmployeeDiagramHistory, getEmployeeDiagrams } from '../actions.server';
@@ -19,7 +20,7 @@ export async function EmployeeDiagramsSection({ employeeId, companyId, employee,
   ]);
 
   // Formatear historyData (movido de page.tsx lineas 88-98)
-  const historyData = rawHistory.map((item) => ({
+  const historyData: DiagramHistoryRow[] = rawHistory.map((item) => ({
     date: moment.utc(item.prev_date).format('DD/MM/YYYY'),
     description: item.description,
     status: item.state,
@@ -29,7 +30,7 @@ export async function EmployeeDiagramsSection({ employeeId, companyId, employee,
       .map((name: string) => name.charAt(0).toUpperCase() + name.slice(1))
       .join(' '),
     modifiedAt: moment(item.created_at).local().format('DD/MM/YYYY HH:mm'),
-    type: item.prev_state ? 'modified' : 'created',
+    type: item.prev_state ? ('modified' as const) : ('created' as const),
   }));
 
   // Prisma retorna la relacion con nombre largo generado automaticamente.

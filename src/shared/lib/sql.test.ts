@@ -66,6 +66,26 @@ describe('callFunction', () => {
     expect(calls[0].values).toEqual([JSON.stringify(filters), '2f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e', null]);
   });
 
+  it('{ date } se bindea como texto YYYY-MM-DD con cast ::date (funciones con parámetros date)', async () => {
+    const { client, calls } = fakeClient([{ value: {} }]);
+    await callScalar(
+      'process_massive_diagram_creation_v2',
+      [{ date: '2026-03-01' }, { date: new Date(2026, 2, 31, 23, 30) }, { date: undefined }],
+      z.unknown(),
+      client
+    );
+    expect(calls[0].text).toBe('SELECT public.process_massive_diagram_creation_v2($1::date, $2::date, $3::date) AS value');
+    expect(calls[0].values).toEqual(['2026-03-01', '2026-03-31', null]);
+  });
+
+  it('{ date } con texto que no es YYYY-MM-DD lanza sin ejecutar', async () => {
+    const { client } = fakeClient([]);
+    await expect(callFunction('fn', [{ date: '01/03/2026' }], z.array(z.unknown()), client)).rejects.toThrow(
+      'Fecha inválida'
+    );
+    expect(client.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it('undefined y { json: undefined } se bindean explícitamente como NULL', async () => {
     const { client, calls } = fakeClient([]);
     await callFunction('fn', [undefined, { json: undefined }, { uuid: undefined }], z.array(z.unknown()), client);

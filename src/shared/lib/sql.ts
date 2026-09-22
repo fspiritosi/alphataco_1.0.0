@@ -19,6 +19,9 @@ import { z } from 'zod';
  * - `bigint` de Postgres (`count(*)`, `RETURNS TABLE(... bigint)`) llega como `bigint` de JS:
  *   el schema Zod lo convierte (`z.coerce.number()` si entra en Number, o `z.bigint()`).
  * - `uuid[]` (ej. `recalcular_status_documentacion(uuid[], text)`): `{ uuidArray: [...] }` → `::uuid[]`.
+ * - `date` (ej. `process_massive_diagram_creation_v2(..., p_date_from date, ...)`): `{ date: 'YYYY-MM-DD' | Date }`
+ *   → texto `YYYY-MM-DD` con `::date` (un `Date` se toma por su fecha LOCAL, sin correr el día por la zona
+ *   horaria). Sin el cast, Postgres no encuentra la sobrecarga porque el parámetro llega como `text`.
  * - Funciones que devuelven `void` van por `callVoid` (`$executeRaw`: `$queryRaw` no puede
  *   deserializar `void` y falla en runtime con P2010).
  */
@@ -31,7 +34,8 @@ export type SqlArg =
   | Date
   | { json: unknown }
   | { uuid: string | null | undefined }
-  | { uuidArray: readonly string[] };
+  | { uuidArray: readonly string[] }
+  | { date: string | Date | null | undefined };
 
 /** Mínimo que necesitan los helpers: sirve `prisma`, un `Prisma.TransactionClient` o un doble de test. */
 export type SqlClient = Pick<Prisma.TransactionClient, '$queryRaw'>;
@@ -46,6 +50,20 @@ function assertFunctionName(name: string): void {
   }
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function toIsoDate(value: string | Date | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) throw new Error('Fecha inválida');
+    const mm = String(value.getMonth() + 1).padStart(2, '0');
+    const dd = String(value.getDate()).padStart(2, '0');
+    return `${value.getFullYear()}-${mm}-${dd}`;
+  }
+  if (!ISO_DATE_RE.test(value)) throw new Error(`Fecha inválida: ${value}`);
+  return value;
+}
+
 function toSqlValue(arg: SqlArg): Prisma.Sql {
   if (arg === undefined) return Prisma.sql`${null}`;
   if (arg !== null && typeof arg === 'object' && !(arg instanceof Date)) {
@@ -58,6 +76,9 @@ function toSqlValue(arg: SqlArg): Prisma.Sql {
     }
     if ('uuidArray' in arg) {
       return Prisma.sql`${arg.uuidArray}::uuid[]`;
+    }
+    if ('date' in arg) {
+      return Prisma.sql`${toIsoDate(arg.date)}::date`;
     }
   }
   return Prisma.sql`${arg}`;

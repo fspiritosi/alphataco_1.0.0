@@ -24,16 +24,41 @@ import {
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, FileDown, History } from 'lucide-react';
 import moment from 'moment';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { DataTableToolbarDiagramDetail } from './DataTableToolbarDiagramDetail';
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
-  historyData: any;
+/** Fila del historial (`diagrams_logs` ya formateado por `EmployeeDiagramsSection`). */
+export interface DiagramHistoryRow {
+  /** DD/MM/YYYY */
+  date: string;
+  description: string;
+  status: string;
+  previousStatus: string;
+  modifiedBy?: string;
+  modifiedAt: string;
+  type: 'modified' | 'created';
 }
 
-export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }: DataTableProps<TData, TValue>) {
+/** Lo que la tabla necesita de cada novedad además de las columnas: fecha (clave) y color. */
+interface DiagramRowBase {
+  created_at: string;
+  color?: string;
+  short_description?: string;
+  name?: string;
+  comments?: string | null;
+}
+
+interface DataTableProps<TData extends DiagramRowBase, TValue> {
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  historyData: DiagramHistoryRow[];
+}
+
+export function DiagramDetailTable<TData extends DiagramRowBase, TValue>({
+  columns,
+  data,
+  historyData,
+}: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = useState({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -43,22 +68,23 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [filteredHistoryData, setFilteredHistoryData] = useState(historyData);
-  useEffect(() => {
+  // Historial filtrado por la fecha elegida y por las novedades seleccionadas en la grilla:
+  // estado derivado (useMemo), no un useEffect que lo copie a otro estado.
+  const filteredHistoryData = useMemo(() => {
     let filtered = historyData;
 
     if (selectedDate) {
       const formattedSelectedDate = moment(selectedDate).format('DD/MM/YYYY');
-      filtered = filtered.filter((item: any) => item.date === formattedSelectedDate);
+      filtered = filtered.filter((item) => item.date === formattedSelectedDate);
     }
 
-    if (selectedRows?.length > 0) {
+    if (selectedRows.length > 0) {
       const selectedDates = selectedRows.map((date) => moment(date).format('DD/MM/YYYY'));
-      filtered = filtered.filter((item: any) => selectedDates.includes(item.date));
+      filtered = filtered.filter((item) => selectedDates.includes(item.date));
     }
 
-    setFilteredHistoryData(filtered);
-  }, [selectedDate, selectedRows, historyData]);
+    return filtered;
+  }, [historyData, selectedDate, selectedRows]);
 
   const table = useReactTable({
     data,
@@ -85,7 +111,7 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const totalPages = Math.ceil(filteredHistoryData?.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredHistoryData.length / itemsPerPage);
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(Number(value));
     setCurrentPage(1); // Resetear a la primera página cuando se cambia la cantidad de elementos por página
@@ -101,16 +127,6 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
 
   const paginatedData = filteredHistoryData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  useEffect(() => {
-    if (selectedRows?.length > 0) {
-      const selectedDates = selectedRows.map((date) => moment(date).format('DD/MM/YYYY'));
-      const filteredData = historyData.filter((item: any) => selectedDates.includes(item.date));
-      setFilteredHistoryData(filteredData);
-    } else {
-      setFilteredHistoryData(historyData);
-    }
-  }, [selectedRows, historyData]);
-
   const handleRowClick = (created_at: string) => {
     setSelectedRows((prevSelectedRows) => {
       if (prevSelectedRows.includes(created_at)) {
@@ -121,22 +137,19 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
     });
   };
 
-  const createAndDownloadFile = (data: any) => {
-    const dataToDownload = data.map((dato: any) => ({
-      Fecha: dato.created_at,
-      Turno: dato.diagram_type.short_description,
-      Nombre: dato.employee_id ? `${dato.employee_id.firstname} ${dato.employee_id.lastname}` : '',
+  const createAndDownloadFile = (rows: TData[]) => {
+    const dataToDownload = rows.map((row) => ({
+      Fecha: moment(row.created_at).format('DD/MM/YYYY'),
+      Turno: row.short_description ?? '',
+      Novedad: row.name ?? '',
+      Comentario: row.comments ?? '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToDownload);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dates');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Novedades');
 
-    XLSX.writeFile(
-      workbook,
-      `Novedades-${data[0].employee_id?.cuil}-${data[0].employee_id?.firstname}_${data[0].employee_id?.lastname}.xlsx`,
-      { compression: true }
-    );
+    XLSX.writeFile(workbook, `Novedades-${moment().format('YYYYMMDD')}.xlsx`, { compression: true });
   };
 
   return (
@@ -161,17 +174,17 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => {
-                  const isSelected = selectedRows.includes((row.original as any).created_at);
+                  const isSelected = selectedRows.includes(row.original.created_at);
                   return (
                     <TableRow
                       key={row.id}
                       className="hover:cursor-pointer"
                       style={{
-                        color: (row.original as any).color,
+                        color: row.original.color,
                         opacity: selectedRows?.length > 0 && !isSelected ? 0.5 : 1,
                       }}
                       data-state={isSelected && 'selected'}
-                      onClick={() => handleRowClick((row.original as any).created_at)}
+                      onClick={() => handleRowClick(row.original.created_at)}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
@@ -267,7 +280,7 @@ export function DiagramDetailTable<TData, TValue>({ columns, data, historyData }
                     const dateB = moment(b.date, 'DD/MM/YYYY');
                     return dateB.diff(dateA); // Orden descendente (más nuevo primero)
                   })
-                  .map((row: any, index: any) => (
+                  .map((row, index) => (
                     <TableRow
                       key={`${row.date}-${index}`}
                       className={

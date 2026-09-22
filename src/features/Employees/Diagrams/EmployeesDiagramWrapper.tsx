@@ -7,27 +7,24 @@ import { Label } from '@/components/ui/label';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Logger } from '@/lib/logger';
 import InfoComponent from '@/shared/components/common/InfoComponent';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import DiagramEmployeeViewCOPI from './DiagramEmployeeViewCOPI';
-import {
-  getDiagramFilterOptions,
-  searchEmployeeDiagrams,
-  type CategoryFilterOption,
-  type DiagramEmployee,
-} from './actions/diagram-search-actions';
+import { FormEvent, useMemo, useState } from 'react';
+import DiagramEmployeeView from './DiagramEmployeeView';
+import { getDiagramFilterOptions, searchEmployeeDiagrams, type CategoryFilterOption } from './actions/diagram-search-actions';
 import {
   DEFAULT_FILTERS,
   useDiagramUrlFilters,
   type DiagramFilterState,
 } from './hooks/useDiagramUrlFilters';
 
-const logger = new Logger('Diagrams/EmployesDiagramWrapper');
+const logger = new Logger('Diagrams/EmployeesDiagramWrapper');
 
 const PAGE_SIZE = 100;
+/** La vista mensual se mantiene al día por polling (antes: suscripción realtime de Supabase). */
+const REFETCH_INTERVAL_MS = 60_000;
 
-export default function EmployesDiagramWrapper({
+export default function EmployeesDiagramWrapper({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -35,38 +32,29 @@ export default function EmployesDiagramWrapper({
   const { initialFilters, hasUrlFilters, syncToUrl, clearUrl } = useDiagramUrlFilters(searchParams);
 
   const [filters, setFilters] = useState<DiagramFilterState>(initialFilters);
-  const [hasSearched, setHasSearched] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-
-  // Accumulated employees across pages for "load more" behaviour
-  const [accumulatedEmployees, setAccumulatedEmployees] = useState<DiagramEmployee[]>([]);
-  // Tracks the last page we synced into accumulatedEmployees (avoids double-append)
-  const [lastSyncedPage, setLastSyncedPage] = useState<number>(0);
+  // Con filtros en la URL la búsqueda arranca sola al montar.
+  const [hasSearched, setHasSearched] = useState<boolean>(hasUrlFilters);
 
   // The committed filters sent to the server (only updated on submit)
   const [committedFilters, setCommittedFilters] = useState<DiagramFilterState | null>(
     hasUrlFilters ? initialFilters : null
   );
 
-  // Auto-submit if URL filters are present at mount time
-  const autoSubmitDone = useRef(false);
-  useEffect(() => {
-    if (hasUrlFilters && !autoSubmitDone.current) {
-      autoSubmitDone.current = true;
-      setHasSearched(true);
-    }
-  }, [hasUrlFilters]);
-
   // ── Search query ──────────────────────────────────────────────────────────
+  // Paginación acumulativa ("cargar más") con useInfiniteQuery: cada página es un pageParam y el
+  // refetch periódico vuelve a traer TODAS las páginas cargadas, así la grilla refleja los cambios
+  // de otros usuarios sin realtime.
   const {
     data: searchResult,
     isLoading: isSearching,
-    isFetching,
-  } = useQuery({
-    queryKey: ['diagram-search', committedFilters, currentPage],
-    queryFn: async () => {
-      if (!committedFilters) return null;
-      logger.debug('Fetching diagram search results', { data: { page: currentPage } });
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['diagram-search', committedFilters],
+    queryFn: async ({ pageParam }) => {
+      if (!committedFilters) return { data: [], hasMore: false };
+      logger.debug('Fetching diagram search results', { data: { page: pageParam } });
       return searchEmployeeDiagrams({
         firstname: committedFilters.firstname,
         lastname: committedFilters.lastname,
@@ -78,27 +66,25 @@ export default function EmployesDiagramWrapper({
         categories: committedFilters.category,
         contractors: committedFilters.contractor,
         diagramTypes: committedFilters.diagramType,
-        page: currentPage,
+        page: pageParam,
         pageSize: PAGE_SIZE,
       });
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => (lastPage.hasMore ? pages.length + 1 : undefined),
     enabled: !!committedFilters,
     staleTime: 0,
+    refetchInterval: REFETCH_INTERVAL_MS,
   });
 
-  // Sync accumulated employees when a new page result arrives
-  if (searchResult && currentPage !== lastSyncedPage && !isFetching) {
-    setLastSyncedPage(currentPage);
-    if (currentPage === 1) {
-      setAccumulatedEmployees(searchResult.data);
-    } else {
-      setAccumulatedEmployees((prev) => [...prev, ...searchResult.data]);
-    }
-  }
+  const accumulatedEmployees = useMemo(
+    () => searchResult?.pages.flatMap((page) => page.data) ?? [],
+    [searchResult]
+  );
 
-  const isLoadingFirstPage = isSearching && currentPage === 1;
-  const isLoadingMore = isFetching && currentPage > 1;
-  const hasMoreData = searchResult?.hasMore ?? false;
+  const isLoadingFirstPage = isSearching;
+  const isLoadingMore = isFetchingNextPage;
+  const hasMoreData = hasNextPage ?? false;
 
   // ── Filter option queries (each catalog loads independently) ──────────────
   // Using staleTime: 5min so repeated popover opens don't refetch
@@ -175,9 +161,6 @@ export default function EmployesDiagramWrapper({
     e.preventDefault();
     logger.debug('Submitting diagram search', { data: { filters } });
     setHasSearched(true);
-    setCurrentPage(1);
-    setLastSyncedPage(0);
-    setAccumulatedEmployees([]);
     setCommittedFilters({ ...filters });
     syncToUrl(filters);
   };
@@ -186,9 +169,6 @@ export default function EmployesDiagramWrapper({
   const handleClearAll = () => {
     setFilters({ ...DEFAULT_FILTERS });
     setHasSearched(false);
-    setCurrentPage(1);
-    setLastSyncedPage(0);
-    setAccumulatedEmployees([]);
     setCommittedFilters(null);
     clearUrl();
   };
@@ -196,7 +176,7 @@ export default function EmployesDiagramWrapper({
   // ── Load more ─────────────────────────────────────────────────────────────
   const handleLoadMore = () => {
     if (isLoadingMore || !hasMoreData) return;
-    setCurrentPage((prev) => prev + 1);
+    void fetchNextPage();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -505,7 +485,7 @@ export default function EmployesDiagramWrapper({
             </div>
           )}
 
-          <DiagramEmployeeViewCOPI employeesData={accumulatedEmployees} />
+          <DiagramEmployeeView employeesData={accumulatedEmployees} />
 
           {hasMoreData && (
             <div className="flex justify-center mt-4 mb-8">

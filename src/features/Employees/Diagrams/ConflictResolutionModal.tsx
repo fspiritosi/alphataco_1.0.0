@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Logger } from '@/lib/logger';
 import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { processMassiveDiagramCreation, processMassiveNoveltyCreation } from './actions/diagram-massive-actions';
@@ -36,8 +37,9 @@ export function ConflictResolutionModal({ conflicts, formData, onCancel, onProce
         return;
       }
 
-      const dateFrom = formData.dateRange.from.toISOString().split('T')[0];
-      const dateTo = formData.dateRange.to.toISOString().split('T')[0];
+      // Fecha LOCAL elegida en el calendario: toISOString() la corría un día de noche (UTC-3)
+      const dateFrom = moment(formData.dateRange.from).format('YYYY-MM-DD');
+      const dateTo = moment(formData.dateRange.to).format('YYYY-MM-DD');
 
       const result =
         formData.mode === 'diagram'

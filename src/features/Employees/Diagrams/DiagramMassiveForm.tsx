@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarRange, Sparkles } from 'lucide-react';
+import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -285,8 +286,9 @@ export function DiagramMassiveForm({ onConflictsFound, loading, setLoading }: Pr
     async (data: FormData) => {
       setLoading(true);
       try {
-        const dateFrom = data.dateRange.from.toISOString().split('T')[0];
-        const dateTo = data.dateRange.to.toISOString().split('T')[0];
+        // Fecha LOCAL elegida en el calendario: toISOString() la corría un día de noche (UTC-3)
+        const dateFrom = moment(data.dateRange.from).format('YYYY-MM-DD');
+        const dateTo = moment(data.dateRange.to).format('YYYY-MM-DD');
 
         if (data.mode === 'diagram') {
           const result = await checkDiagramConflicts({

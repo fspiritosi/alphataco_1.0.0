@@ -1,55 +1,89 @@
 'use client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Logger } from '@/lib/logger';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
-const logger = new Logger('Diagrams/DiagramEmployeeView');
-
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Form, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import InfoComponent from '@/shared/components/common/InfoComponent';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FileDown, RefreshCcwIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowDownIcon, ArrowUpIcon, FileDown } from 'lucide-react';
+import moment from 'moment';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { z } from 'zod';
 
-function DiagramEmployeeView({
-  diagrams,
-  activeEmployees,
-  className,
-}: {
-  diagrams: any;
-  activeEmployees: any;
-  className?: React.HTMLAttributes<HTMLDivElement>;
-}) {
+// Tipo para un diagrama
+type DiagramType = {
+  created_at: string;
+  day: number;
+  diagram_type: {
+    color: string;
+    company_id: string;
+    created_at: string;
+    id: string;
+    is_active: boolean;
+    name: string | null;
+    short_description: string;
+    work_active: boolean | null;
+  };
+  employee_id: string;
+  id: string;
+  month: number;
+  year: number;
+  /** Comentario opcional cargado junto con la novedad */
+  comments?: string | null;
+};
+
+// Tipo para un empleado con sus diagramas
+type EmployeeWithDiagrams = {
+  value: string;
+  label: string;
+  diagrams: DiagramType[];
+  // Datos del empleado para el export a Excel (opcionales para retrocompatibilidad)
+  position?: string;
+  sector?: string;
+  dateOfAdmission?: string | null;
+  workDiagram?: string;
+  costCenter?: string;
+  category?: string;
+  covenant?: string;
+  guild?: string;
+};
+
+/**
+ * Grilla mensual de novedades por empleado (resultado del buscador de diagramas).
+ * Los datos llegan del wrapper, que los mantiene al día con React Query (`refetchInterval`):
+ * ya no hay suscripción realtime a `employees_diagram`.
+ */
+function DiagramEmployeeView({ employeesData }: { employeesData: EmployeeWithDiagrams[] }) {
   const [date, setDate] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 30),
   });
-  const [selectedResources, setSelectedResources] = useState<string[]>([]);
-  const [initialResources, setInitialResources] = useState(activeEmployees);
-  const [reloadMenssage, setReloadMenssage] = useState<string>('');
+  // `null` = "todos los empleados de la búsqueda": así una recarga de datos (refetch o
+  // "cargar más") no pisa la selección del usuario ni hace falta un useEffect para resetearla.
+  const [pickedResources, setPickedResources] = useState<string[] | null>(null);
+  const selectedResources = useMemo(
+    () => pickedResources ?? employeesData.map((employee) => employee.value),
+    [pickedResources, employeesData]
+  );
 
-  /*---------------------INICIO ESQUEMA EMPLEADOS---------------------------*/
+  /*--------------------- ESQUEMA EMPLEADOS ---------------------------*/
   const formSchema = z.object({
     resources: z
       .array(z.string(), { required_error: 'Los recursos son requeridos' })
-      .min(1, 'Selecciona al menos 1 recursos'),
-    //! Cambiar a 1 si se necesita que sea solo uno
+      .min(1, 'Selecciona al menos 1 recurso'),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -60,24 +94,20 @@ function DiagramEmployeeView({
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const resourceIds = selectedResources?.map((resource) => {
-      const employee = activeEmployees.find((element: any) => element.document === resource);
-      return employee?.id;
-    });
-    setSelectedResources(resourceIds);
+    // No es necesario hacer nada más ya que los recursos se actualizan vía onChange
   }
 
-  /*---------------------FIN ESQUEMA EMPLEADOS------------------------------*/
-
-  /*---------------------FILTROS DE FECHA --------------------------------- */
-
+  /*--------------------- FILTROS DE FECHA ---------------------------*/
   const fechaInicio = date?.from;
   const fechaFin = date?.to;
 
+  // Generar el rango de fechas a mostrar (máximo 30 días)
   function generarDiasEntreFechas({ fechaInicio, fechaFin }: { fechaInicio?: Date; fechaFin?: Date }) {
-    const dias = [];
-    let fechaActual = new Date(fechaInicio!);
-    const fechaFinalMaxima = new Date(fechaInicio!);
+    const dias: Date[] = [];
+    if (!fechaInicio) return dias;
+
+    let fechaActual = new Date(fechaInicio);
+    const fechaFinalMaxima = new Date(fechaInicio);
     fechaFinalMaxima.setDate(fechaFinalMaxima.getDate() + 30);
 
     // Usar la fecha final proporcionada o la fecha final máxima, la que sea menor
@@ -92,145 +122,100 @@ function DiagramEmployeeView({
     return dias;
   }
 
-  const mes = generarDiasEntreFechas({ fechaInicio, fechaFin });
+  const diasMostrados = generarDiasEntreFechas({ fechaInicio, fechaFin });
 
-  /*---------------------FIN FILTROS DE FECHA --------------------------------- */
+  // Agrupar diagramas por empleado para facilitar el acceso
+  const diagramasPorEmpleado = useMemo(() => {
+    const resultado: Record<string, DiagramType[]> = {};
 
-  const groupedDiagrams = useMemo(() => {
-    if (!diagrams || !activeEmployees) return {};
+    if (!employeesData || employeesData.length === 0) return resultado;
 
-    // Primero ordenamos los diagramas por fecha de creación (más reciente primero)
-    const sortedDiagrams = [...diagrams].sort(
-      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-
-    // Creamos un mapa para acceder rápidamente al nombre del empleado
-    const employeeNameMap = activeEmployees.reduce((acc: any, emp: any) => {
-      acc[emp.id] = emp.name || '';
-      return acc;
-    }, {});
-
-    // Luego agrupamos por empleado y por fecha, manteniendo solo el más reciente
-    const groupedByEmployee = sortedDiagrams.reduce((acc: any, diagram: any) => {
-      if (!acc[diagram.employee_id]) {
-        acc[diagram.employee_id] = {
-          employeeName: employeeNameMap[diagram.employee_id] || 'Sin nombre',
-          diagrams: [],
-        };
+    employeesData.forEach((employee) => {
+      if (employee.diagrams && employee.diagrams.length > 0) {
+        resultado[employee.value] = employee.diagrams;
       }
-
-      // Verificar si ya existe un diagrama para este día
-      const existingIndex = acc[diagram.employee_id].diagrams.findIndex(
-        (d: any) => d.day === diagram.day && d.month === diagram.month && d.year === diagram.year
-      );
-
-      // Si no existe un diagrama para este día, lo agregamos
-      if (existingIndex === -1) {
-        acc[diagram.employee_id].diagrams.push({
-          ...diagram,
-          dateString: `${diagram.day}/${diagram.month}/${diagram.year}`,
-        });
-      }
-
-      return acc;
-    }, {});
-
-    // Convertir a array, ordenar alfabéticamente por nombre de empleado y volver a objeto
-    const sortedEmployees = Object.entries(groupedByEmployee)
-      .sort(([idA, dataA]: [string, any], [idB, dataB]: [string, any]) =>
-        dataA.employeeName.localeCompare(dataB.employeeName)
-      )
-      .reduce((acc: any, [id, data]: [string, any]) => {
-        acc[id] = data.diagrams;
-        return acc;
-      }, {});
-
-    // Log detallado por empleado
-    Object.entries(groupedByEmployee).forEach(([empId, empData]: [string, any]) => {
-      // Ordenar los diagramas por fecha para el registro
-      const sortedByDate = [...empData.diagrams].sort(
-        (a: any, b: any) =>
-          new Date(b.year, b.month - 1, b.day).getTime() - new Date(a.year, a.month - 1, a.day).getTime()
-      );
     });
 
-    return sortedEmployees;
-  }, [diagrams, activeEmployees]);
+    return resultado;
+  }, [employeesData]);
 
-  const supabase = supabaseBrowser();
-  const channels = supabase
-    .channel('custom-all-channel')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'employees_diagram' }, (payload) => {
-      setReloadMenssage('Recargar (Cambios pendientes)');
-    })
-    .subscribe();
-  /*---------------------INICIO DESCARGA DE ARCHIVO ---------------------------*/
+  // Función para exportar los diagramas a Excel
+  function exportarAExcel() {
+    if (!employeesData || employeesData.length === 0 || diasMostrados.length === 0) {
+      toast.error('No hay datos para exportar');
+      return;
+    }
 
-  useEffect(() => {
-    form.reset();
-    // setSelectedResources([]);
-  }, [activeEmployees, form]);
+    // Columnas fijas de informacion del empleado (antes de los dias)
+    const columnasEmpleado = [
+      'Empleado',
+      'Puesto',
+      'Sector',
+      'Fecha de ingreso',
+      'Diagrama',
+      'Centro de Costo',
+      'Categoría',
+      'Convenio',
+      'Sindicato',
+    ];
+    // Cantidad de columnas fijas: define el offset donde empiezan los dias
+    const COLUMNAS_FIJAS = columnasEmpleado.length;
 
-  useEffect(() => {
-    const employeesWithDiagrams = Object.keys(groupedDiagrams || {})?.map((employeeId) => {
-      const employeeDiagrams = groupedDiagrams[employeeId];
-      const employee = employeeDiagrams[0].employees;
-      return employee?.id;
-    });
+    // Datos para el Excel
+    const datosExcel = [];
 
-    setSelectedResources(employeesWithDiagrams);
-  }, []);
+    // Encabezados (primera fila)
+    const encabezados = [...columnasEmpleado, ...diasMostrados.map((day) => format(day, 'dd/MM', { locale: es }))];
+    datosExcel.push(encabezados);
 
-  function exportDiagramasToExcel(
-    groupedDiagrams: Record<string, any[]>,
-    activeEmployees: any[],
-    selectedResources: string[],
-    mes: Date[]
-  ) {
-    // 1. Preparar los datos en formato Excel
-    const dataToDownload = [];
+    // Filtrar empleados según selección
+    const empleadosFiltrados =
+      selectedResources.length > 0
+        ? employeesData.filter((emp) => selectedResources.includes(emp.value))
+        : employeesData;
 
-    // 2. Encabezados (primera fila)
-    const headers = ['Empleado', ...mes.map((day) => format(day, 'dd/MM', { locale: es }))];
-    dataToDownload.push(headers);
+    // Datos de cada empleado
+    empleadosFiltrados.forEach((employee) => {
+      const filaDatos = [
+        employee.label,
+        employee.position || '',
+        employee.sector || '',
+        employee.dateOfAdmission ? moment(employee.dateOfAdmission).format('DD/MM/YYYY') : '',
+        employee.workDiagram || '',
+        employee.costCenter || '',
+        employee.category || '',
+        employee.covenant || '',
+        employee.guild || '',
+      ];
 
-    // 3. Datos de cada empleado
-    const employeesToExport =
-      selectedResources?.length > 0
-        ? Object.keys(groupedDiagrams || {})?.filter((employeeId) => selectedResources.includes(employeeId))
-        : Object.keys(groupedDiagrams || {});
+      diasMostrados.forEach((day) => {
+        const diaNro = day.getDate();
+        const mesNro = day.getMonth() + 1;
+        const anioNro = day.getFullYear();
 
-    employeesToExport.forEach((employeeId) => {
-      const employeeDiagrams = groupedDiagrams[employeeId];
-      const employee = employeeDiagrams[0].employees;
-      const rowData = [`${employee.lastname}, ${employee.firstname}`];
+        const diagrama = employee.diagrams?.find((d) => d.day === diaNro && d.month === mesNro && d.year === anioNro);
 
-      mes.forEach((day) => {
-        const diagram = employeeDiagrams.find(
-          (d: any) => d.day === day.getDate() && d.month === day.getMonth() + 1 && d.year === day.getFullYear()
-        );
-        rowData.push(diagram?.diagram_type.short_description || '');
+        filaDatos.push(diagrama?.diagram_type.short_description || '');
       });
 
-      dataToDownload.push(rowData);
+      datosExcel.push(filaDatos);
     });
 
-    // 4. Crear hoja de cálculo
-    const worksheet = XLSX.utils.aoa_to_sheet(dataToDownload);
+    // Crear hoja de cálculo
+    const worksheet = XLSX.utils.aoa_to_sheet(datosExcel);
 
-    // 5. Añadir estilos (colores de fondo)
-    employeesToExport.forEach((_, rowIndex) => {
-      mes.forEach((_, colIndex) => {
-        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex + 1 });
-        const employeeId = employeesToExport[rowIndex];
-        const day = mes[colIndex];
+    // Añadir estilos de color según los diagramas
+    empleadosFiltrados.forEach((employee, rowIndex) => {
+      diasMostrados.forEach((day, colIndex) => {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex + COLUMNAS_FIJAS });
+        const diaNro = day.getDate();
+        const mesNro = day.getMonth() + 1;
+        const anioNro = day.getFullYear();
 
-        const diagram = groupedDiagrams[employeeId]?.find(
-          (d: any) => d.day === day.getDate() && d.month === day.getMonth() + 1 && d.year === day.getFullYear()
-        );
+        const diagrama = employee.diagrams?.find((d) => d.day === diaNro && d.month === mesNro && d.year === anioNro);
 
-        if (diagram?.diagram_type?.color) {
-          const rgbColor = hexToRgb(diagram.diagram_type.color);
+        if (diagrama?.diagram_type?.color) {
+          const rgbColor = hexToRgb(diagrama.diagram_type.color);
           if (!worksheet[cellAddress]) worksheet[cellAddress] = {};
           worksheet[cellAddress].s = {
             fill: {
@@ -243,73 +228,76 @@ function DiagramEmployeeView({
       });
     });
 
-    // 6. Crear y descargar archivo
+    // Crear y descargar archivo
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Diagramas');
 
     const dateStamp = format(new Date(), 'MMdd');
     XLSX.writeFile(workbook, `Diagramas_${dateStamp}.xlsx`, { compression: true });
+
+    toast.success('Archivo Excel generado correctamente');
   }
 
-  // Función auxiliar para convertir colores HEX a RGB (necesario para Excel)
+  // Función auxiliar para convertir colores HEX a RGB (para Excel)
   function hexToRgb(hex: string) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? `FF${result[1]}${result[2]}${result[3]}` : 'FFFFFFFF'; // Blanco por defecto en caso de error
+    return result ? `FF${result[1]}${result[2]}${result[3]}` : 'FFFFFFFF';
   }
-  const router = useRouter();
+
+  const [isDescending, setIsDescending] = useState(false);
 
   return (
-    <div>
+    <Card className="p-4">
+      {/* Controles superiores (filtros y acciones) */}
       <div className="py-2 w-full flex justify-between gap-4 items-center">
         <div className="flex gap-4">
-          <>
-            <div>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                  <FormField
-                    control={form.control}
-                    name="resources"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <MultiSelectCombobox
-                          options={activeEmployees}
-                          placeholder="Selecciona al menos 1 recurso"
-                          emptyMessage="No hay recursos disponibles"
-                          selectedValues={selectedResources}
-                          onChange={(values) => {
-                            setSelectedResources(values);
-                            form.setValue('resources', values);
-                          }}
-                          showSelectAll
-                        />
-                        <FormDescription>
-                          <InfoComponent size="sm" message={'Selecciona al menos 1 recurso para ver su diagrama.'} />
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </form>
-              </Form>
-            </div>
-          </>
-          <div className={cn('grid gap-2', className)}>
+          {/* Selector de empleados */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <FormField
+                control={form.control}
+                name="resources"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <MultiSelectCombobox
+                      options={employeesData}
+                      placeholder="Selecciona al menos 1 recurso"
+                      emptyMessage="No hay recursos disponibles"
+                      selectedValues={selectedResources}
+                      onChange={(values) => {
+                        setPickedResources(values);
+                        form.setValue('resources', values);
+                      }}
+                      showSelectAll
+                    />
+                    <FormDescription>
+                      <InfoComponent size="sm" message="Selecciona al menos 1 recurso para ver su diagrama." />
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+
+          {/* Selector de rango de fechas */}
+          <div className="grid gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   id="date"
-                  variant={'outline'}
+                  variant="outline"
                   className={cn('w-[300px] justify-start text-left font-normal', !date && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {date?.from ? (
                     date.to ? (
                       <>
-                        {format(date.from, 'dd/MM/yyyyy', { locale: es })} -{' '}
-                        {format(date.to, 'dd/MM/yyyyy', { locale: es })}
+                        {format(date.from, 'dd/MM/yyyy', { locale: es })} -{' '}
+                        {format(date.to, 'dd/MM/yyyy', { locale: es })}
                       </>
                     ) : (
-                      format(date.from, 'dd/MM/yyyyy', { locale: es })
+                      format(date.from, 'dd/MM/yyyy', { locale: es })
                     )
                   ) : (
                     <span>Seleccionar fecha</span>
@@ -327,155 +315,122 @@ function DiagramEmployeeView({
                 />
               </PopoverContent>
             </Popover>
-            <InfoComponent size="sm" message={'La selección maxima es de 30 días'} />
+            <InfoComponent size="sm" message="La selección máxima es de 30 días" />
           </div>
         </div>
-        <div className="flex flex-col items-center gap-2">
-          {reloadMenssage && (
-            <CardDescription>
-              Cambios pendientes <span className="text-red-500">*</span>
-            </CardDescription>
-          )}
 
-          <Button
-            onClick={() => {
-              toast.info('Recargando diagramas...');
-              router.refresh();
-              setTimeout(() => {
-                toast.info('Diagramas recargados correctamente');
-              }, 1000);
-            }}
-            className="flex items-center"
-          >
-            <RefreshCcwIcon className="mr-2 h-4 w-4" />
-            Recargar diagramas
-          </Button>
-        </div>
       </div>
-      <Table>
-        <TableHeader>
-          <TableHead>Empleado</TableHead>
-          {mes?.map((d, index) => (
-            <TableHead key={crypto.randomUUID()} className="text-center">
-              {d.getDate() + '/' + (d.getMonth() + 1)}
-            </TableHead>
-          ))}
-        </TableHeader>
 
-        <TableBody>
-          {selectedResources?.length > 0
-            ? Object.keys(groupedDiagrams || {})
-                ?.filter((employeeId) => selectedResources.includes(employeeId))
-                ?.sort((a, b) => {
-                  const employeeA = groupedDiagrams[a][0].employees;
-                  const employeeB = groupedDiagrams[b][0].employees;
-                  return employeeA.lastname.localeCompare(employeeB.lastname);
-                })
-                ?.map((employeeId, index) => {
-                  const employeeDiagrams = groupedDiagrams[employeeId];
-                  const employee = employeeDiagrams[0].employees; // Asumimos que todos los diagramas tienen el mismo empleado
-                  return (
-                    <TableRow key={crypto.randomUUID()}>
-                      <TableCell>
-                        {employee.lastname}, {employee.firstname}
+      {/* Tabla de diagramas */}
+      {employeesData.length === 0 ? (
+        <div className="p-4 text-center border rounded-md my-4">
+          <p>No hay empleados para mostrar</p>
+        </div>
+      ) : (
+        <div className="grid p-2">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="flex items-center gap-2">
+                  Empleado
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsDescending(!isDescending);
+                    }}
+                  >
+                    {isDescending ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
+                  </Button>
+                </TableHead>
+                {diasMostrados.map((dia, idx) => (
+                  <TableHead key={`dia-${idx}`} className="text-nowrap p-0">
+                    {format(dia, 'dd/MM', { locale: es })}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {selectedResources.length > 0 ? (
+                // Mostrar empleados filtrados
+                employeesData
+                  .filter((emp) => selectedResources.includes(emp.value))
+                  .sort((a, b) => {
+                    // Aplicar orden ascendente o descendente según el estado
+                    return isDescending
+                      ? b.label.localeCompare(a.label) // Orden Z-A
+                      : a.label.localeCompare(b.label); // Orden A-Z
+                  })
+                  .map((empleado, idxEmp) => (
+                    <TableRow key={`empleado-${idxEmp}`}>
+                      <TableCell
+                        className="max-w-[120px] overflow-hidden "
+                        style={{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                        }}
+                        title={empleado.label}
+                      >
+                        {empleado.label}
                       </TableCell>
-                      {mes?.map((day, dayIndex) => {
-                        const dayNum = day.getDate();
-                        const monthNum = day.getMonth() + 1;
-                        const yearNum = day.getFullYear();
+                      {diasMostrados.map((dia, idxDia) => {
+                        const diaNro = dia.getDate();
+                        const mesNro = dia.getMonth() + 1;
+                        const anioNro = dia.getFullYear();
 
-                        // Convertir a números para asegurar la comparación
-                        const diagram = employeeDiagrams.find((d: any) => {
-                          const dia = Number(d.day);
-                          const mes = Number(d.month);
-                          const anio = Number(d.year);
-                          return dia === dayNum && mes === monthNum && anio === yearNum;
-                        });
+                        // Buscar diagrama para esta fecha específica
+                        const diagrama = empleado.diagrams?.find(
+                          (d) => d.day === diaNro && d.month === mesNro && d.year === anioNro
+                        );
 
-                        // Debug: Mostrar información cuando no se encuentra un diagrama
-                        if (!diagram) {
-                          logger.error('No se encontro diagrama para empleado', {
-                            data: {
-                              employee: `${employee.firstname} ${employee.lastname}`,
-                              date: `${dayNum}/${monthNum}/${yearNum}`,
-                            },
-                          });
-                        }
+                        // En la grilla no entra una columna de comentario: se muestra
+                        // junto a la novedad en el tooltip de la celda.
+                        const nombreNovedad = diagrama?.diagram_type?.name || 'Sin diagrama';
+                        const tooltipCelda = diagrama?.comments
+                          ? `${nombreNovedad} — ${diagrama.comments}`
+                          : nombreNovedad;
 
                         return (
                           <TableCell
-                            key={dayIndex}
-                            className="text-center border"
+                            key={`celda-${idxEmp}-${idxDia}`}
+                            className="text-center border max-w-[10px]"
                             style={{
-                              backgroundColor: diagram?.diagram_type?.color || 'transparent',
-                              color: diagram?.diagram_type?.color ? '#fff' : 'inherit',
+                              backgroundColor: diagrama?.diagram_type?.color || 'transparent',
+                              color: diagrama?.diagram_type?.color ? '#fff' : 'inherit',
                             }}
-                            title={diagram?.diagram_type?.name || 'Sin diagrama'}
+                            title={tooltipCelda}
                           >
-                            {diagram?.diagram_type?.short_description || ''}
+                            {diagrama?.diagram_type?.short_description || ''}
                           </TableCell>
                         );
                       })}
                     </TableRow>
-                  );
-                })
-            : Object.keys(groupedDiagrams || {})
-                ?.filter((employeeId) => initialResources.includes(employeeId))
-                ?.map((employeeId, index) => {
-                  const employeeDiagrams = groupedDiagrams[employeeId];
-                  const employee = employeeDiagrams[0].employees; // Asumimos que todos los diagramas tienen el mismo empleado
-                  return (
-                    <TableRow key={crypto.randomUUID()}>
-                      <TableCell>
-                        {employee.lastname}, {employee.firstname}
-                      </TableCell>
-                      {mes?.map((day, dayIndex) => {
-                        const dayNum = day.getDate();
-                        const monthNum = day.getMonth() + 1;
-                        const yearNum = day.getFullYear();
+                  ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={diasMostrados.length + 1} className="text-center">
+                    Selecciona al menos un empleado para ver sus diagramas
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-                        // Convertir a números para asegurar la comparación
-                        const diagram = employeeDiagrams.find((d: any) => {
-                          const dia = Number(d.day);
-                          const mes = Number(d.month);
-                          const anio = Number(d.year);
-                          return dia === dayNum && mes === monthNum && anio === yearNum;
-                        });
-
-                        // Debug: Mostrar información cuando no se encuentra un diagrama
-                        if (!diagram) {
-                        }
-
-                        return (
-                          <TableCell
-                            key={dayIndex}
-                            className="text-center border"
-                            style={{
-                              backgroundColor: diagram?.diagram_type?.color || 'transparent',
-                              color: diagram?.diagram_type?.color ? '#fff' : 'inherit',
-                            }}
-                            title={diagram?.diagram_type?.name || 'Sin diagrama'}
-                          >
-                            {diagram?.diagram_type?.short_description || ''}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  );
-                })}
-        </TableBody>
-      </Table>
+      {/* Botón para exportar a Excel */}
       <div className="py-2 w-full flex justify-start gap-4">
-        {/* Tus controles existentes... */}
-
         <Button
           variant="outline"
-          onClick={() => exportDiagramasToExcel(groupedDiagrams, activeEmployees, selectedResources, mes)}
+          onClick={exportarAExcel}
+          disabled={!employeesData?.length || selectedResources.length === 0}
         >
           <FileDown className="mr-2 h-4 w-4" />
+          Exportar a Excel
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 

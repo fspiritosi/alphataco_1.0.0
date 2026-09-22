@@ -1,9 +1,23 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { callScalar } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { z } from 'zod';
 
+import { buildDiagramDayRangeWhere, isActiveDayInCycle, toDiagramDay } from '../lib/diagram-dates';
+import {
+  computeMassiveConflicts,
+  normalizeProcessingResult,
+  operationDayKey,
+  type ConflictEmployee,
+  type ExistingDiagramEntry,
+  type NoveltyInfo,
+} from '../lib/massive-diagrams';
 import type { ConflictCheckResult, ProcessingResult } from '../types/massive-diagram';
 
 const logger = new Logger('features/Employees/Diagrams/massive');
@@ -11,11 +25,12 @@ const logger = new Logger('features/Employees/Diagrams/massive');
 // ─── Work Diagrams ──────────────────────────────────────────────────────────
 
 export async function getActiveWorkDiagrams() {
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching active work diagrams');
 
   try {
     const data = await prisma.work_diagram.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: {
         id: true,
         name: true,
@@ -44,12 +59,13 @@ export type WorkDiagramItem = Awaited<ReturnType<typeof getActiveWorkDiagrams>>[
 // ─── Novelties ──────────────────────────────────────────────────────────────
 
 export async function getWorkDiagramNovelties(workDiagramId: string) {
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching novelties for work diagram', { data: { workDiagramId } });
 
   try {
     const [workDiagram, activeNovelties] = await Promise.all([
-      prisma.work_diagram.findUnique({
-        where: { id: workDiagramId },
+      prisma.work_diagram.findFirst({
+        where: withCompany({ id: workDiagramId }, companyId),
         select: {
           inactive_novelty: true,
           diagram_type: {
@@ -58,7 +74,7 @@ export async function getWorkDiagramNovelties(workDiagramId: string) {
         },
       }),
       prisma.work_diagram_active_novelties.findMany({
-        where: { work_diagram_id: workDiagramId },
+        where: withCompany({ work_diagram_id: workDiagramId }, companyId),
         select: {
           diagram_type_id: true,
           diagram_type: {
@@ -92,11 +108,12 @@ export type ActiveNoveltyItem = NoveltyData['activeNovelties'][number];
  * No depende de un work_diagram — devuelve el catálogo completo.
  */
 export async function getActiveDiagramTypes() {
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching active diagram types');
 
   try {
-    const data = await prisma.diagram_type.findMany({
-      where: { is_active: true },
+    return await prisma.diagram_type.findMany({
+      where: withCompany({ is_active: true }, companyId),
       select: {
         id: true,
         name: true,
@@ -105,8 +122,6 @@ export async function getActiveDiagramTypes() {
       },
       orderBy: { name: 'asc' },
     });
-
-    return data;
   } catch (error) {
     logger.error('Error fetching active diagram types', { data: { error } });
     throw error;
@@ -115,39 +130,221 @@ export async function getActiveDiagramTypes() {
 
 export type DiagramTypeItem = Awaited<ReturnType<typeof getActiveDiagramTypes>>[number];
 
-// ─── RPC Wrappers ───────────────────────────────────────────────────────────
+// ─── Perímetro ──────────────────────────────────────────────────────────────
 
+async function requireActor(): Promise<string> {
+  const userId = await getSessionUserId();
+  if (!userId) throw new Error('Sesión requerida');
+  return userId;
+}
+
+/**
+ * Empleados de la lista que pertenecen a la empresa activa, en el orden recibido.
+ * Si alguno no existe o es de otra empresa se corta: una carga masiva no debe tocar
+ * empleados ajenos ni procesar "los que se pueda" en silencio.
+ */
+async function resolveOwnedEmployees(employeeIds: string[], companyId: string): Promise<ConflictEmployee[]> {
+  const unique = [...new Set(employeeIds)];
+  if (unique.length === 0) throw new Error('Debe seleccionar al menos un empleado');
+
+  const rows = await prisma.employees.findMany({
+    where: withCompany({ id: { in: unique } }, companyId),
+    select: { id: true, firstname: true, lastname: true },
+  });
+  if (rows.length !== unique.length) {
+    logger.warn('Carga masiva con empleados ajenos a la empresa activa', {
+      data: { requested: unique.length, owned: rows.length },
+    });
+    throw new Error('Alguno de los empleados seleccionados no pertenece a la empresa activa');
+  }
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return unique.map((id) => byId.get(id)!);
+}
+
+async function findOwnedWorkDiagram(workDiagramId: string, companyId: string) {
+  const workDiagram = await prisma.work_diagram.findFirst({
+    where: withCompany({ id: workDiagramId }, companyId),
+    select: {
+      id: true,
+      active_working_days: true,
+      inactive_working_days: true,
+      inactive_novelty: true,
+      diagram_type: { select: { id: true, name: true, color: true } },
+      work_diagram_active_novelties: {
+        select: { diagram_type_id: true, diagram_type: { select: { id: true, name: true, color: true } } },
+        orderBy: { created_at: 'asc' },
+      },
+    },
+  });
+  if (!workDiagram) throw new Error('Diagrama de trabajo no encontrado');
+  return workDiagram;
+}
+
+type OwnedWorkDiagram = Awaited<ReturnType<typeof findOwnedWorkDiagram>>;
+
+/**
+ * Novedad activa a usar: la elegida (si es de la empresa) o, como hacía la función SQL
+ * legacy, la única/primera configurada en el diagrama de trabajo.
+ */
+async function resolveActiveNovelty(workDiagram: OwnedWorkDiagram, activeNoveltyId: string | undefined, companyId: string) {
+  if (activeNoveltyId) {
+    const novelty = await prisma.diagram_type.findFirst({
+      where: withCompany({ id: activeNoveltyId }, companyId),
+      select: { id: true, name: true, color: true },
+    });
+    if (!novelty) throw new Error('Novedad activa no encontrada');
+    return novelty;
+  }
+  const first = workDiagram.work_diagram_active_novelties[0]?.diagram_type;
+  if (!first) throw new Error('El diagrama de trabajo no tiene una novedad activa configurada');
+  return first;
+}
+
+/** Filas ya cargadas en el rango + días con parte diario, para los empleados dados. */
+async function loadRangeState(employeeIds: string[], dateFrom: string, dateTo: string) {
+  const from = toDiagramDay(dateFrom);
+  const to = toDiagramDay(dateTo);
+
+  const [existingRows, operations] = await Promise.all([
+    prisma.employees_diagram.findMany({
+      where: { employee_id: { in: employeeIds }, ...buildDiagramDayRangeWhere(from, to) },
+      select: {
+        employee_id: true,
+        day: true,
+        month: true,
+        year: true,
+        diagram_type: true,
+        diagram_type_employees_diagram_diagram_typeTodiagram_type: { select: { name: true, color: true } },
+      },
+    }),
+    prisma.dailyreportemployeerelations.findMany({
+      where: {
+        employee_id: { in: employeeIds },
+        dailyreportrows: { dailyreport: { date: { gte: new Date(dateFrom), lte: new Date(dateTo) } } },
+      },
+      select: { employee_id: true, dailyreportrows: { select: { dailyreport: { select: { date: true } } } } },
+    }),
+  ]);
+
+  const existing: ExistingDiagramEntry[] = existingRows.map((row) => ({
+    employee_id: row.employee_id,
+    day: Number(row.day),
+    month: Number(row.month),
+    year: Number(row.year),
+    diagram_type: row.diagram_type,
+    diagram_name: row.diagram_type_employees_diagram_diagram_typeTodiagram_type.name,
+    diagram_color: row.diagram_type_employees_diagram_diagram_typeTodiagram_type.color,
+  }));
+
+  const operationDays = new Set<string>();
+  for (const relation of operations) {
+    const date = relation.dailyreportrows?.dailyreport?.date;
+    if (relation.employee_id && date) operationDays.add(operationDayKey(relation.employee_id, date));
+  }
+
+  return { from, to, existing, operationDays };
+}
+
+// ─── Conflictos ─────────────────────────────────────────────────────────────
+
+/**
+ * Conflictos de una carga masiva por diagrama de trabajo. Reemplaza a la sobrecarga de 5
+ * argumentos de `check_diagram_conflicts_with_operations_v2` (no portada al Postgres plano):
+ * mismo resultado, con el ciclo activo/inactivo contado desde `dateFrom` como lo hace
+ * `process_massive_diagram_creation_v2`.
+ */
 export async function checkDiagramConflicts(params: {
   employeeIds: string[];
   workDiagramId: string;
   dateFrom: string;
   dateTo: string;
   activeNoveltyId?: string;
-}) {
+}): Promise<ConflictCheckResult> {
   logger.debug('Checking diagram conflicts', { data: { params } });
 
   try {
-    const supabase = await supabaseServer();
+    const companyId = await getActiveCompanyId();
+    const [employees, workDiagram] = await Promise.all([
+      resolveOwnedEmployees(params.employeeIds, companyId),
+      findOwnedWorkDiagram(params.workDiagramId, companyId),
+    ]);
+    const activeNovelty = await resolveActiveNovelty(workDiagram, params.activeNoveltyId, companyId);
+    const inactiveNovelty: NoveltyInfo = workDiagram.diagram_type ?? { name: null, color: null };
+    const activeDays = Number(workDiagram.active_working_days ?? 0);
+    const inactiveDays = Number(workDiagram.inactive_working_days ?? 0);
 
-    const { data, error } = await supabase.rpc('check_diagram_conflicts_with_operations_v2', {
-      p_employee_ids: params.employeeIds,
-      p_work_diagram_id: params.workDiagramId,
-      p_date_from: params.dateFrom,
-      p_date_to: params.dateTo,
-      p_active_novelty_id: params.activeNoveltyId || '',
+    const state = await loadRangeState(
+      employees.map((e) => e.id),
+      params.dateFrom,
+      params.dateTo
+    );
+
+    const conflicts = computeMassiveConflicts({
+      employees,
+      from: state.from,
+      to: state.to,
+      existing: state.existing,
+      operationDays: state.operationDays,
+      newNoveltyForDay: (dayIndex) =>
+        isActiveDayInCycle(dayIndex, activeDays, inactiveDays) ? activeNovelty : inactiveNovelty,
     });
 
-    if (error) {
-      logger.error('Error checking diagram conflicts', { data: { error } });
-      throw error;
-    }
-
-    return data as unknown as ConflictCheckResult;
+    return {
+      conflicts,
+      work_diagram_id: workDiagram.id,
+      active_novelty_id: activeNovelty.id,
+      inactive_novelty_id: workDiagram.inactive_novelty ?? undefined,
+    };
   } catch (error) {
     logger.error('Error in checkDiagramConflicts', { data: { error } });
     throw error;
   }
 }
+
+/** Conflictos de una carga masiva de una única novedad (antes `check_novelty_conflicts`). */
+export async function checkNoveltyConflicts(params: {
+  employeeIds: string[];
+  diagramTypeId: string;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<ConflictCheckResult> {
+  logger.debug('Checking novelty conflicts', { data: { params } });
+
+  try {
+    const companyId = await getActiveCompanyId();
+    const [employees, novelty] = await Promise.all([
+      resolveOwnedEmployees(params.employeeIds, companyId),
+      prisma.diagram_type.findFirst({
+        where: withCompany({ id: params.diagramTypeId }, companyId),
+        select: { id: true, name: true, color: true },
+      }),
+    ]);
+    if (!novelty) throw new Error('Novedad no encontrada');
+
+    const state = await loadRangeState(
+      employees.map((e) => e.id),
+      params.dateFrom,
+      params.dateTo
+    );
+
+    const conflicts = computeMassiveConflicts({
+      employees,
+      from: state.from,
+      to: state.to,
+      existing: state.existing,
+      operationDays: state.operationDays,
+      newNoveltyForDay: () => novelty,
+    });
+
+    return { conflicts, diagram_type_id: novelty.id };
+  } catch (error) {
+    logger.error('Error in checkNoveltyConflicts', { data: { error } });
+    throw error;
+  }
+}
+
+// ─── Procesamiento (funciones SQL) ──────────────────────────────────────────
 
 export async function processMassiveDiagramCreation(params: {
   employeeIds: string[];
@@ -156,61 +353,37 @@ export async function processMassiveDiagramCreation(params: {
   dateFrom: string;
   dateTo: string;
   conflictResolution: 'skip' | 'update';
-}) {
+}): Promise<ProcessingResult> {
   logger.debug('Processing massive diagram creation', { data: { params } });
 
   try {
-    const supabase = await supabaseServer();
+    const [companyId, actor] = await Promise.all([getActiveCompanyId(), requireActor()]);
+    const [employees, workDiagram] = await Promise.all([
+      resolveOwnedEmployees(params.employeeIds, companyId),
+      findOwnedWorkDiagram(params.workDiagramId, companyId),
+    ]);
+    const activeNovelty = await resolveActiveNovelty(workDiagram, params.activeNoveltyId || undefined, companyId);
 
-    const { data, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
-      p_employee_ids: params.employeeIds,
-      p_work_diagram_id: params.workDiagramId,
-      p_active_novelty_id: params.activeNoveltyId,
-      p_date_from: params.dateFrom,
-      p_date_to: params.dateTo,
-      p_conflict_resolution: params.conflictResolution,
-    });
+    // Dentro de withActor: el trigger de employees_diagram escribe diagrams_logs con app.user_id.
+    const raw = await withActor(actor, (tx) =>
+      callScalar(
+        'process_massive_diagram_creation_v2',
+        [
+          { uuidArray: employees.map((e) => e.id) },
+          { uuid: workDiagram.id },
+          { uuid: activeNovelty.id },
+          { date: params.dateFrom },
+          { date: params.dateTo },
+          params.conflictResolution,
+        ],
+        z.unknown(),
+        tx
+      )
+    );
 
-    if (error) {
-      logger.error('Error processing massive diagram creation', { data: { error } });
-      throw error;
-    }
-
-    return data as unknown as ProcessingResult;
+    return normalizeProcessingResult(raw);
   } catch (error) {
     logger.error('Error in processMassiveDiagramCreation', { data: { error } });
-    throw error;
-  }
-}
-
-// ─── RPC Wrappers — Novelty mode ────────────────────────────────────────────
-
-export async function checkNoveltyConflicts(params: {
-  employeeIds: string[];
-  diagramTypeId: string;
-  dateFrom: string;
-  dateTo: string;
-}) {
-  logger.debug('Checking novelty conflicts', { data: { params } });
-
-  try {
-    const supabase = await supabaseServer();
-
-    const { data, error } = await supabase.rpc('check_novelty_conflicts', {
-      p_employee_ids: params.employeeIds,
-      p_diagram_type_id: params.diagramTypeId,
-      p_date_from: params.dateFrom,
-      p_date_to: params.dateTo,
-    });
-
-    if (error) {
-      logger.error('Error checking novelty conflicts', { data: { error } });
-      throw error;
-    }
-
-    return data as unknown as ConflictCheckResult;
-  } catch (error) {
-    logger.error('Error in checkNoveltyConflicts', { data: { error } });
     throw error;
   }
 }
@@ -221,26 +394,36 @@ export async function processMassiveNoveltyCreation(params: {
   dateFrom: string;
   dateTo: string;
   conflictResolution: 'skip' | 'update';
-}) {
+}): Promise<ProcessingResult> {
   logger.debug('Processing massive novelty creation', { data: { params } });
 
   try {
-    const supabase = await supabaseServer();
+    const [companyId, actor] = await Promise.all([getActiveCompanyId(), requireActor()]);
+    const [employees, novelty] = await Promise.all([
+      resolveOwnedEmployees(params.employeeIds, companyId),
+      prisma.diagram_type.findFirst({
+        where: withCompany({ id: params.diagramTypeId }, companyId),
+        select: { id: true },
+      }),
+    ]);
+    if (!novelty) throw new Error('Novedad no encontrada');
 
-    const { data, error } = await supabase.rpc('process_massive_novelty_creation', {
-      p_employee_ids: params.employeeIds,
-      p_diagram_type_id: params.diagramTypeId,
-      p_date_from: params.dateFrom,
-      p_date_to: params.dateTo,
-      p_conflict_resolution: params.conflictResolution,
-    });
+    const raw = await withActor(actor, (tx) =>
+      callScalar(
+        'process_massive_novelty_creation',
+        [
+          { uuidArray: employees.map((e) => e.id) },
+          { uuid: novelty.id },
+          { date: params.dateFrom },
+          { date: params.dateTo },
+          params.conflictResolution,
+        ],
+        z.unknown(),
+        tx
+      )
+    );
 
-    if (error) {
-      logger.error('Error processing massive novelty creation', { data: { error } });
-      throw error;
-    }
-
-    return data as unknown as ProcessingResult;
+    return normalizeProcessingResult(raw);
   } catch (error) {
     logger.error('Error in processMassiveNoveltyCreation', { data: { error } });
     throw error;

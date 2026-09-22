@@ -1,5 +1,4 @@
 import DashboardComponent from '@/features/Dashboard/DashboardComponent';
-import { query } from '@/features/Employees/Diagrams/actions/supabase-query';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 
@@ -11,9 +10,6 @@ export default async function Home({
   const resolvedSearchParams = await searchParams;
   return <DashboardComponent searchParams={resolvedSearchParams} />;
 }
-
-// Exportar el tipo basado en una consulta de ejemplo
-export type dataType = Awaited<ReturnType<typeof query<'employees', '*'>>>;
 
 // Generate metadata for the page
 export async function generateMetadata() {

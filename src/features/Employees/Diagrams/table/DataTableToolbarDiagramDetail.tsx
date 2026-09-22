@@ -4,6 +4,7 @@ import { DataTableViewOptions } from '@/features/Formularios/Checklists/tables/d
 import { Cross2Icon } from '@radix-ui/react-icons';
 import { Table } from '@tanstack/react-table';
 import { LampDesk } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { DataTableFacetedFilterDiagramDetail } from './data-table-faceted-diagramDetail';
 
 interface DataTableToolbarProps<TData> {
@@ -12,20 +13,16 @@ interface DataTableToolbarProps<TData> {
 
 export function DataTableToolbarDiagramDetail<TData>({ table }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters?.length > 0;
-  const getUniqueValues = (columnId: string) => {
-    return table.getColumn(columnId)?.getFacetedUniqueValues()
-      ? Array.from(
-          new Set(
-            Array.from((table.getColumn(columnId)?.getFacetedUniqueValues() as any)?.keys()).map((item: any) => item)
-          )
-        )
-      : [];
+  const getUniqueValues = (columnId: string): string[] => {
+    const facets = table.getColumn(columnId)?.getFacetedUniqueValues();
+    if (!facets) return [];
+    return Array.from(new Set(Array.from(facets.keys()).map((value) => String(value))));
   };
 
   const uniqueshort_description = getUniqueValues('Descripción');
   const uniqueEstado = getUniqueValues('Estado');
 
-  const createOptions = (uniqueValues: string[], icon: any) => {
+  const createOptions = (uniqueValues: string[], icon: ComponentType<{ className?: string }>) => {
     return uniqueValues.map((value) => ({
       label: value,
       value: value,

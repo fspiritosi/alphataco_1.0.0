@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 interface DiagramNewTypeFormProps {
-  selectedDiagram?: any;
+  /** Novedad a editar (mismos campos del formulario); vacío para crear una nueva. */
+  selectedDiagram?: Partial<NewDiagramType> | null;
   diagramToEdit: boolean;
   setDiagramToEdit: (value: boolean) => void;
 }

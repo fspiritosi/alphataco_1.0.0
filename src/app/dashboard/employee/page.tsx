@@ -5,7 +5,7 @@ import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/Doc
 import DocumentNav from '@/features/Documentacion/shared/components/DocumentNav';
 import { TiposDocumentosSkeleton } from '@/features/Documentacion/TiposDocumentos/fallback/TiposDocumentosSkeleton';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
-import EmployesDiagram from '@/features/Employees/Diagrams/EmployesDiagram';
+import EmployeesDiagram from '@/features/Employees/Diagrams/EmployeesDiagram';
 import { DiagramsSkeleton } from '@/features/Employees/Diagrams/fallback/DiagramsSkeleton';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
@@ -206,7 +206,7 @@ export default async function EmployeePage({
           tabSlug: 'diagrams' as const,
           content: (
             <Suspense fallback={<DiagramsSkeleton />}>
-              <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />
+              <EmployeesDiagram searchParams={resolvedSearchParams} permissions={permissions} />
             </Suspense>
           ),
         },

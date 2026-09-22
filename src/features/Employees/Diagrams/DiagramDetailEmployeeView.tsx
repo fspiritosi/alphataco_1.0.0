@@ -13,7 +13,7 @@ import { FolderOpen, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import DiagramFormUpdated from './DiagramFormUpdated';
-import { DiagramDetailTable } from './table/DiagramDetailTable';
+import { DiagramDetailTable, type DiagramHistoryRow } from './table/DiagramDetailTable';
 import { DetailDiagramColums } from './table/diagram-detail-colums';
 type diagram = {
   id: string;
@@ -42,10 +42,10 @@ export function DiagramDetailEmployeeView({
   role,
   searchParams = {},
 }: {
-  historyData: any;
+  historyData: DiagramHistoryRow[];
   diagrams: diagram[] | [];
-  diagrams_types: any;
-  activeEmploees: any;
+  diagrams_types: { id: string; name: string | null }[];
+  activeEmploees: { id: string }[];
   role?: string | null;
   searchParams?: { [key: string]: string | string[] | undefined };
 }) {
@@ -144,113 +144,6 @@ export function DiagramDetailEmployeeView({
                 />
               </div>
             </div>
-            {/* <div className="col-span-5 mt-3">
-              <Card className="w-full">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <div className="flex items-center space-x-2">
-                    <CardTitle className="text-xl font-bold">Historial</CardTitle>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger type="button">
-                          <History className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Historial de cambios en horarios</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Select defaultValue="10" onValueChange={handleItemsPerPageChange}>
-                    <SelectTrigger className="w-[70px]">
-                      <SelectValue placeholder="20" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="30">30</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Descripción</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Estado Anterior</TableHead>
-                        <TableHead>Modificado Por</TableHead>
-                        <TableHead>Fecha Modificación</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedData.map((row: any, index: any) => (
-                        <TableRow
-                          key={`${row.date}-${index}`}
-                          className={
-                            row.description === 'MD'
-                              ? 'bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/20 dark:hover:bg-pink-950/30'
-                              : ''
-                          }
-                        >
-                          <TableCell className="font-medium">{row.date}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={
-                                row.description === 'MD'
-                                  ? 'border-pink-500 text-pink-700 dark:text-pink-400'
-                                  : 'border-blue-500 text-blue-700 dark:text-blue-400'
-                              }
-                            >
-                              {row.description}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{row.status}</TableCell>
-                          <TableCell>
-                            {row.previousStatus !== 'Nuevo' ? (
-                              <span className="text-muted-foreground">{row.previousStatus}</span>
-                            ) : (
-                              <Badge variant="secondary">Nuevo</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{row.modifiedBy}</TableCell>
-                          <TableCell>
-                            <span className="text-sm text-muted-foreground">{row.modifiedAt}</span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <div className="flex items-center justify-between space-x-2 py-4">
-                    <div className="text-sm text-muted-foreground">
-                      Página {currentPage} de {totalPages}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        onClick={handlePreviousPage}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        onClick={handleNextPage}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div> */}
           </div>
         </div>
       ),

@@ -1,9 +1,7 @@
-import { fetchSingEmployee } from '@/features/Employees/Diagrams/actions/diagram-queries';
 import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
 import {
   fetchAnswerById,
   fetchChecklistAnswerById,
-  findEmployeeByFullName,
   getCurrentProfile,
 } from '@/features/Formularios/actions/checklist-actions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
@@ -114,17 +112,6 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
     brand: equipment.brand?.name,
     intern_number: equipment.intern_number || '',
   }));
-  const choferName = (answer[0].answer as any)?.chofer;
-  let singurl: any = '';
-
-  if (choferName) {
-    const data = await findEmployeeByFullName(choferName);
-    if (data?.id) {
-      const singEmployee = await fetchSingEmployee(data?.id);
-      singurl = singEmployee || '';
-    }
-  }
-
   // TODO: Implementar visualización para estructura antigua
   return (
     <div className="px-7">
