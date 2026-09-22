@@ -1,3 +1,4 @@
+import { Logger } from '@/lib/logger';
 // src/lib/cookies.ts
 export type FilterValue = string | string[] | { from?: Date | null; to?: Date | null } | undefined;
 
@@ -16,6 +17,7 @@ export type TableFilterState = {
   columnVisibility: Record<string, boolean>;
 };
 
+const logger = new Logger('lib/cookies');
 const STORAGE_KEY_PREFIX = 'table-filters-';
 
 export function getTableFilters(tableId: string): TableFilterState | null {
@@ -25,7 +27,7 @@ export function getTableFilters(tableId: string): TableFilterState | null {
     const storedData = localStorage.getItem(`${STORAGE_KEY_PREFIX}${tableId}`);
     return storedData ? JSON.parse(storedData) : null;
   } catch (e) {
-    console.error('Error reading from localStorage', e);
+    logger.error('Error leyendo filtros de localStorage', { data: { error: e } });
     return null;
   }
 }
@@ -36,7 +38,7 @@ export function setTableFilters(tableId: string, filters: TableFilterState) {
   try {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}${tableId}`, JSON.stringify(filters));
   } catch (e) {
-    console.error('Error saving to localStorage', e);
+    logger.error('Error guardando filtros en localStorage', { data: { error: e } });
   }
 }
 
