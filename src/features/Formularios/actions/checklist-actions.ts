@@ -51,10 +51,17 @@ export const fetchFormsAnswersByFormId = async (formId: string) => {
   const role = await getActualRole(company_id as string, user?.id as string);
 
   if (role === 'Invitado') {
+    // P2 Task 9: `share_company_users.profile_id` es `profile.id`, no el `user.id` de Auth
+    // (`profile.credential_id`); se resuelve el profile antes de filtrar. Supabase legacy hasta Task 9.
+    const { data: guestProfile } = await supabase
+      .from('profile')
+      .select('id')
+      .eq('credential_id', user?.id || '')
+      .maybeSingle();
     const { data: share_company_users, error: share_company_users_error } = await supabase
       .from('share_company_users')
       .select(`*,customer_id(*,contractor_equipment(*,equipment_id(*,brand(*),model(*),type(*),types_of_vehicles(*))))`)
-      .eq('profile_id', user?.id || '')
+      .eq('profile_id', guestProfile?.id || '')
       .eq('company_id', company_id || '')
       .returns<ShareCompanyUsersWithEquipment[]>();
 
