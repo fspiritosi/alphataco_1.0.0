@@ -1,5 +1,5 @@
 'use client';
-// import Loading from '@/app/loading';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,142 +9,83 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { PermissionGuard } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef } from '@tanstack/react-table';
-import Cookies from 'js-cookie';
-import { useEffect, useMemo, useState } from 'react';
-import { z } from 'zod';
-import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAreasWithProvinces } from '../../actions/create';
-import { fetchServiceItems } from '../../actions/items';
-import { fetchMeasureUnits } from '../../actions/meassure';
-import { fetchServices } from '../../actions/service';
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import moment from 'moment';
+import { useMemo, useState } from 'react';
+import type { AreaRow } from '../../actions/areas.server';
+import type { MeasureUnitRow } from '../../actions/measure-units.server';
+import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { CustomerServiceRow } from '../../actions/services.server';
+import type { CustomerRef } from '../../lib/serializers';
+import { dbDateToLocal } from '../../lib/service-dates';
 import ServiceItemsTable from './ServiceItemsTable';
 import ServicesForm from './ServicesForm';
 import ContractDocuments from './contractDocuments';
-interface Service {
-  id: string;
-  service_name: string;
-  service_id: string;
-  contract_number: string;
-  service_areas?: {
-    area_id: string;
-    areas_cliente: {
-      id: string;
-      nombre: string;
-      descripcion_corta: string;
-    };
-  }[];
-  service_sectors?: {
-    sector_id: string;
-    sectors: {
-      id: string;
-      name: string;
-    };
-  }[];
-  sector_id: string | string[];
-  customer_id: string;
-  description: string;
-  service_price: number;
-  service_start: string | Date;
-  service_validity: string | Date;
-  is_active: boolean;
-  area?: string[];
-  customer: string;
-  sector?: string;
-  created_at?: string;
-  company_id?: string;
-}
-
-type Customer = {
-  id: string;
-  name: string;
-};
 
 interface ServiceTableProps {
-  services: Awaited<ReturnType<typeof fetchServices>>;
-  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
-  areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
-  sectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
-  company_id: string;
-  itemsList: Awaited<ReturnType<typeof fetchServiceItems>>;
-  measureUnitsList: Awaited<ReturnType<typeof fetchMeasureUnits>>;
-  id?: string;
-  hideCreateButton?: boolean;
-  savedFilter: string[];
-  // savedFilters: string[];
-  // savedVisibility: VisibilityState;
+  services: CustomerServiceRow[];
+  customers: CustomerRef[];
+  areas: AreaRow[];
+  sectors: SectorCustomerRow[];
+  measureUnits: MeasureUnitRow[];
+  /** Muestra el botón "Crear Contrato" (la pestaña Contratos de Comercial). */
+  showCreateButton?: boolean;
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
+  savedItemsFilters: string[];
+  savedItemsVisibility: VisibilityState;
 }
 
-interface ServiceTableItem {
-  id: string;
-  service_name: string;
-  customer_id: string;
-  contract_number: string | null;
-  service_start: string | Date | null;
-  service_validity: string | Date | null;
-  is_active: boolean | null;
-  service_sectors?: Array<{ sectors: { name: string } }>;
-  service_areas?: Array<{ areas_cliente: { nombre: string } }>;
+function includesValue(value: unknown, filter: unknown): boolean {
+  return Array.isArray(filter) && filter.includes(value);
 }
 
-export function getServiceColumns(
-  handleEdit: (service: ServiceTableItem) => void,
-  customers: Customer[]
-): ColumnDef<ServiceTableItem>[] {
+function formatDate(value: Date | null): string {
+  return value ? moment(dbDateToLocal(value)).format('DD/MM/YYYY') : '-';
+}
+
+function getServiceColumns(): ColumnDef<CustomerServiceRow>[] {
   return [
     {
       accessorKey: 'service_name',
       id: 'Nombre',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre del Servicio" />,
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
+      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
-      accessorKey: 'customer_id',
       id: 'Cliente',
+      accessorFn: (row) => row.customers?.name ?? '-',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
-      cell: ({ row }) => {
-        return customers.find((c) => c.id === row.original.customer_id)?.name || '-';
-      },
-      filterFn: (row, id, value) => {
-        const customerName = customers.find((c) => c.id === row.original.customer_id)?.name || '';
-        return value.some((val: string) => customerName.toLowerCase().includes(val.toLowerCase()));
-      },
+      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
       accessorKey: 'contract_number',
       id: 'Contrato',
       header: ({ column }) => <DataTableColumnHeader column={column} title="N° Contrato" />,
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
+      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
-      accessorKey: 'service_areas',
       id: 'Areas',
+      accessorFn: (row) => row.service_areas.map((a) => a.areas_cliente.nombre),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Areas" />,
       cell: ({ row }) => {
-        const service_areas = row.original.service_areas || [];
-        if (service_areas.length === 0) return '-';
-
-        const firstArea = service_areas[0]?.areas_cliente?.nombre || '-';
-        const additionalCount = service_areas.length > 1 ? service_areas.length - 1 : 0;
-
+        const names = row.original.service_areas.map((a) => a.areas_cliente.nombre);
+        if (names.length === 0) return '-';
         return (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="truncate cursor-pointer">
                   <Badge>
-                    {firstArea}
-                    {additionalCount > 0 && ` +${additionalCount}`}
+                    {names[0]}
+                    {names.length > 1 && ` +${names.length - 1}`}
                   </Badge>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex flex-col">
-                  {service_areas.map((area) => (
-                    <span key={area.areas_cliente?.nombre}>{area.areas_cliente?.nombre || '-'}</span>
+                  {names.map((name) => (
+                    <span key={name}>{name}</span>
                   ))}
                 </div>
               </TooltipContent>
@@ -152,24 +93,27 @@ export function getServiceColumns(
           </TooltipProvider>
         );
       },
+      filterFn: (row, id, value) => {
+        const names = row.getValue<string[]>(id);
+        return Array.isArray(value) && value.some((v) => names.includes(v));
+      },
     },
     {
-      accessorKey: 'sectors',
       id: 'Sectores',
+      accessorFn: (row) => row.service_sectors.map((s) => s.sectors.name),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sectores" />,
       cell: ({ row }) => {
-        const service_sectors = row.original.service_sectors || [];
-
+        const names = row.original.service_sectors.map((s) => s.sectors.name);
         return (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="truncate cursor-pointer">
                   <Badge>
-                    {service_sectors.length > 0 ? (
+                    {names.length > 0 ? (
                       <>
-                        {service_sectors[0]?.sectors?.name || '-'}
-                        {service_sectors.length > 1 && ` +${service_sectors.length - 1}`}
+                        {names[0]}
+                        {names.length > 1 && ` +${names.length - 1}`}
                       </>
                     ) : (
                       '-'
@@ -179,8 +123,8 @@ export function getServiceColumns(
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex flex-col">
-                  {service_sectors.map((sector: any) => (
-                    <span key={sector.sector_id}>{sector.sectors?.name || '-'}</span>
+                  {names.map((name) => (
+                    <span key={name}>{name}</span>
                   ))}
                 </div>
               </TooltipContent>
@@ -188,396 +132,168 @@ export function getServiceColumns(
           </TooltipProvider>
         );
       },
+      filterFn: (row, id, value) => {
+        const names = row.getValue<string[]>(id);
+        return Array.isArray(value) && value.some((v) => names.includes(v));
+      },
     },
     {
-      accessorKey: 'status',
       id: 'Estado',
+      accessorFn: (row) => (row.is_active ? 'true' : 'false'),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
       cell: ({ row }) => {
         const isActive = row.original.is_active;
         return <Badge variant={isActive ? 'success' : 'destructive'}>{isActive ? 'Activo' : 'Inactivo'}</Badge>;
       },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
+      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
       accessorKey: 'service_start',
       id: 'Inicio',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Inicio" />,
-      cell: ({ row }) => {
-        const date = row.getValue('Inicio');
-        return date ? new Date(date as string).toLocaleDateString() : '-';
-      },
+      cell: ({ row }) => formatDate(row.original.service_start),
     },
     {
       accessorKey: 'service_validity',
       id: 'Vencimiento',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Vencimiento" />,
-      cell: ({ row }) => {
-        const date = row.getValue('Vencimiento');
-        return date ? new Date(date as string).toLocaleDateString() : '-';
-      },
+      cell: ({ row }) => formatDate(row.original.service_validity),
     },
-    // {
-    //   accessorKey: 'actions',
-    //   id: 'Acciones',
-    //   header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
-    //   cell: ({ row }) => {
-    //     return (
-    //       <div className="flex gap-2">
-    //         <Button
-    //           size="sm"
-    //           variant="outline"
-    //           onClick={() => handleEdit(row.original)}
-    //         >
-    //           Editar
-    //         </Button>
-    //       </div>
-    //     );
-    //   }
-    // }
   ];
 }
 
-const dateSchema = z
-  .object({
-    service_start: z.string().refine((date) => !isNaN(Date.parse(date)), {
-      message: 'Fecha de inicio no válida',
-    }),
-    service_validity: z.string().refine((date) => !isNaN(Date.parse(date)), {
-      message: 'Fecha de validez no válida',
-    }),
-  })
-  .refine((data) => new Date(data.service_start) < new Date(data.service_validity), {
-    message: 'La fecha de inicio debe ser menor que la fecha de validez del servicio',
-    path: ['service_validity'],
-  });
+const STATUS_FILTER = [
+  { value: 'true', label: 'Activo' },
+  { value: 'false', label: 'Inactivo' },
+];
 
-const ServiceTable = ({
+/** Listado de contratos con alta en diálogo y detalle en pestañas (detalle / documentos / items). */
+export default function ServiceTable({
   services,
   customers,
-  company_id,
   areas,
   sectors,
-  id,
-  itemsList,
-  measureUnitsList,
-  hideCreateButton = false,
-  savedFilter,
-  // savedFilters,
-  // savedVisibility,
-}: ServiceTableProps) => {
-  const savedVisibility = Cookies.get('services-table')
-    ? JSON.parse(Cookies.get('services-table-filters') || '{}')
-    : {};
-  const savedFilters =
-    savedFilter || Cookies.get('services-table') ? JSON.parse(Cookies.get('services-table-filters') || '[]') : [];
-  const [servicesData, setServicesData] = useState<ServiceTableProps['services']>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);
-  const [openDetail, setOpenDetail] = useState(false);
-  const [initialFormData, setInitialFormData] = useState<Record<string, unknown> | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
-  const [filteredServices, setFilteredServices] = useState<ServiceTableProps['services']>([]);
-  const [editing, setEditing] = useState(false);
-  const [internalItemsList, setInternalItemsList] = useState<any[]>([]);
-  // const [measureUnitsList, setMeasureUnitsList] = useState<any[]>([]);
-  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  measureUnits,
+  showCreateButton = false,
+  savedFilters,
+  savedVisibility,
+  savedItemsFilters,
+  savedItemsVisibility,
+}: ServiceTableProps) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CustomerServiceRow | null>(null);
 
-  // Filtros para las columnas
-  const serviceNameFilter = createFilterOptions(servicesData || [], (service) => service.service_name || '');
+  const columns = useMemo(() => getServiceColumns(), []);
 
-  const customerFilter = createFilterOptions(servicesData || [], (service) => service.customers?.name || '');
-
-  const contractNumberFilter = createFilterOptions(servicesData || [], (service) => service.contract_number || '');
-
-  // Filtro para el estado (Activo/Inactivo)
-  const statusFilter = [
-    { value: 'true', label: 'Activo' },
-    { value: 'false', label: 'Inactivo' },
-  ];
-
-  // Filtro para sectores (si es necesario)
-  const sectorsFilter = createFilterOptions(
-    servicesData?.flatMap((service) => service.service_sectors?.map((s) => s.sectors?.name) || []).filter(Boolean) ||
-      [],
-    (sector) => sector
+  const filterOptions = useMemo(
+    () => ({
+      names: createFilterOptions(services, (service) => service.service_name),
+      customers: createFilterOptions(services, (service) => service.customers?.name),
+      contractNumbers: createFilterOptions(services, (service) => service.contract_number),
+      sectors: createFilterOptions(
+        services.flatMap((service) => service.service_sectors.map((s) => s.sectors.name)),
+        (name) => name
+      ),
+      areas: createFilterOptions(
+        services.flatMap((service) => service.service_areas.map((a) => a.areas_cliente.nombre)),
+        (name) => name
+      ),
+    }),
+    [services]
   );
-
-  // Filtro para áreas (si es necesario)
-  const areasFilter = createFilterOptions(
-    servicesData
-      ?.flatMap((service) => service.service_areas?.map((a) => a.areas_cliente?.nombre) || [])
-      .filter(Boolean) || [],
-    (area) => area
-  );
-  useEffect(() => {
-    if (id) {
-      const service = servicesData?.find((service) => service.id === id);
-      setEditingService(service || null);
-      setEditing(true);
-    } else {
-      setEditing(false);
-      setEditingService(null);
-    }
-  }, [id, servicesData]);
-  useEffect(() => {
-    filterServices();
-  }, [selectedCustomer, servicesData, services]);
-  const filterItems = () => {
-    let filtered = internalItemsList;
-    if (selectedCustomer !== 'all') {
-      filtered = filtered.filter((item) => item.customer_id.toString() === selectedCustomer);
-    }
-    if (id) {
-      filtered = filtered.filter((item) => item.service_id.toString() === id);
-    }
-    setFilteredItems(filtered);
-  };
-  useEffect(() => {
-    filterItems();
-  }, [selectedCustomer, id, itemsList]);
-  const filterServices = (servicesToFilter = services) => {
-    let filtered = servicesToFilter;
-
-    if (selectedCustomer !== 'all') {
-      filtered = filtered.filter((service) => service.customer_id?.toString() === selectedCustomer);
-    }
-
-    setFilteredServices(filtered);
-  };
-
-  useEffect(() => {
-    setServicesData(services);
-    setLoading(false);
-  }, [services]);
-
-  const formatedServices = useMemo(() => {
-    return filteredServices?.map((service) => ({
-      ...service,
-      customer: areas.find((area) => area.customers?.id === service.customer_id)?.customers?.name,
-      area: areas.find((area) => area.id === service.service_areas?.[0]?.area_id)?.nombre,
-      sector: sectors.find((sector) => sector.id === service.service_sectors?.[0]?.sector_id)?.sectors?.name,
-    }));
-  }, [filteredServices, areas, sectors]);
-
-  const [open, setOpen] = useState(false);
-
-  const handleOpen = () => {
-    setEditingService(null); // Limpiar el servicio en edición
-    setOpen(true);
-  };
-
-  const handleOpenDetail = (service: ServiceTableProps['services'][number]) => {
-    const areaIds = service.service_areas?.map((a) => a.area_id) || [];
-    const sectorIds = service.service_sectors?.map((s) => s.sector_id) || [];
-
-    const serviceStartDate = new Date(service.service_start || new Date());
-    const serviceValidityDate = new Date(service.service_validity || new Date());
-    serviceStartDate.setDate(serviceStartDate.getDate() + 1);
-    serviceValidityDate.setDate(serviceValidityDate.getDate() + 1);
-
-    const formData = {
-      id: service.id,
-      customer_id: service.customer_id,
-      area_id: areaIds,
-      sector_id: sectorIds,
-      service_name: service.service_name,
-      contract_number: service.contract_number || '',
-      service_start: serviceStartDate,
-      service_validity: serviceValidityDate,
-      is_active: service.is_active ?? true,
-    };
-
-    setEditingService(service);
-    setInitialFormData(formData);
-    setOpenDetail(true);
-  };
-  // Get customer_service_id from editingService
-  const customerServiceId = editingService?.id || '';
-  // const savedVisibility = cookies ? JSON.parse(cookies) : {};
 
   return (
     <div>
-      {loading ? (
-        // <Loading />
-        <p>Cargando...</p>
-      ) : (
-        <>
-          {id !== undefined && (
-            <div>
+      <PermissionGuard module="comercial" tab="service" action="create">
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          {showCreateButton && (
+            <DialogTrigger asChild>
+              <Button size="sm" variant="gh_orange" className="mb-4">
+                Crear Contrato
+              </Button>
+            </DialogTrigger>
+          )}
+          <DialogContent className="max-w-4xl">
+            <DialogTitle>Crear Contrato</DialogTitle>
+            <ServicesForm customers={customers} areas={areas} sectors={sectors} setOpen={setCreateOpen} />
+          </DialogContent>
+        </Dialog>
+      </PermissionGuard>
+
+      {selectedService ? (
+        <Tabs defaultValue="detail" key={selectedService.id}>
+          <div className="flex justify-between items-center mr-3">
+            <TabsList className="flex gap-1 bg-gh_contrast/50">
+              {/* Hereda permisos de comercial/service/detalle-contrato */}
+              <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
+                <TabsTrigger value="detail" className="text-gh_orange font-semibold">
+                  Detalle
+                </TabsTrigger>
+              </PermissionGuard>
+              {/* Hereda permisos de comercial/service/documentos-contrato */}
+              <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
+                <TabsTrigger value="documents" className="text-gh_orange font-semibold">
+                  Documentos
+                </TabsTrigger>
+              </PermissionGuard>
+              {/* Hereda permisos de comercial/service/items-contrato */}
+              <PermissionGuard module="comercial" tab="items-contrato" action="view">
+                <TabsTrigger value="items" className="text-gh_orange font-semibold">
+                  Items del Servicio
+                </TabsTrigger>
+              </PermissionGuard>
+            </TabsList>
+            <Button onClick={() => setSelectedService(null)}>Cerrar</Button>
+          </div>
+          <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
+            <TabsContent value="detail">
               <ServicesForm
-                customers={customers as any}
-                editingService={editingService as any}
-                company_id={company_id}
+                editingService={selectedService}
+                startReadOnly
+                customers={customers}
                 areas={areas}
                 sectors={sectors}
-                id={id}
               />
-            </div>
-          )}
-
-          <div>
-            <PermissionGuard module="comercial" tab="service" action="create">
-              <Dialog
-                open={open}
-                onOpenChange={(isOpen) => {
-                  if (!isOpen) {
-                    setEditingService(null);
-                  }
-                  setOpen(isOpen);
-                }}
-              >
-                {hideCreateButton && (
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
-                      Crear Contrato
-                    </Button>
-                  </DialogTrigger>
-                )}
-                <DialogContent className="max-w-4xl">
-                  <DialogTitle>Crear Contrato</DialogTitle>
-
-                  <ServicesForm
-                    customers={customers as any}
-                    editingService={editingService as any}
-                    company_id={company_id}
-                    areas={areas}
-                    sectors={sectors}
-                    setOpen={setOpen}
-                  />
-                </DialogContent>
-              </Dialog>
-            </PermissionGuard>
-
-            {openDetail ? (
-              <div>
-                {/* <div className="flex justify-end space-x-4">
-                    <Button onClick={() => setOpenDetail(false)}>Cerrar</Button>
-                  </div> */}
-
-                <Tabs defaultValue="detail" key={editingService?.id}>
-                  <div className="flex justify-between items-center mr-3">
-                    <TabsList className="flex gap-1 bg-gh_contrast/50">
-                      {/* Hereda permisos de comercial/service/detalle-contrato */}
-                      <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
-                        <TabsTrigger value="detail" className="text-gh_orange font-semibold">
-                          Detalle
-                        </TabsTrigger>
-                      </PermissionGuard>
-                      {/* Hereda permisos de comercial/service/documentos-contrato */}
-                      <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
-                        <TabsTrigger value="documents" className="text-gh_orange font-semibold">
-                          Documentos
-                        </TabsTrigger>
-                      </PermissionGuard>
-                      {/* Hereda permisos de comercial/service/items-contrato */}
-                      <PermissionGuard module="comercial" tab="items-contrato" action="view">
-                        <TabsTrigger value="items" className="text-gh_orange font-semibold">
-                          Items del Servicio
-                        </TabsTrigger>
-                      </PermissionGuard>
-                    </TabsList>
-                    <Button
-                      onClick={() => {
-                        setEditingService(null);
-                        setInitialFormData(null);
-                        setOpenDetail(false);
-                      }}
-                    >
-                      Cerrar
-                    </Button>
-                  </div>
-                  {/* Hereda permisos de comercial/service/detalle-contrato */}
-                  <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
-                    <TabsContent value="detail">
-                      <ServicesForm
-                        editingService={editingService as any}
-                        initialFormData={initialFormData}
-                        company_id={company_id}
-                        areas={areas}
-                        sectors={sectors}
-                        customers={customers as any}
-                        id={editingService?.id}
-                      />
-                    </TabsContent>
-                  </PermissionGuard>
-                  {/* Hereda permisos de comercial/service/documentos-contrato */}
-                  <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
-                    <TabsContent value="documents">
-                      <ContractDocuments id={editingService?.id as string} />
-                    </TabsContent>
-                  </PermissionGuard>
-                  {/* Hereda permisos de comercial/service/items-contrato */}
-                  <PermissionGuard module="comercial" tab="items-contrato" action="view">
-                    <TabsContent value="items">
-                      <ServiceItemsTable
-                        editService={editingService || null}
-                        measure_units={measureUnitsList || []}
-                        customers={customers || []}
-                        services={(services as any) || []}
-                        company_id={company_id}
-                        customer_service_id={customerServiceId}
-                        items={itemsList || []}
-                        savedFilters={savedFilters}
-                        savedVisibility={savedVisibility}
-                      />
-                    </TabsContent>
-                  </PermissionGuard>
-                </Tabs>
-              </div>
-            ) : (
-              <div className="w-full overflow-x-auto mt-4">
-                <BaseDataTable
-                  columns={getServiceColumns((service) => handleOpenDetail(service as any), customers)}
-                  data={servicesData as any}
-                  tableId="services-table"
-                  savedVisibility={savedVisibility}
-                  onRowClick={(row) => handleOpenDetail(row as any)}
-                  toolbarOptions={{
-                    initialVisibleFilters: savedFilters || [],
-                    filterableColumns: [
-                      {
-                        columnId: 'Nombre',
-                        title: 'Nombre del Servicio',
-                        options: serviceNameFilter,
-                      },
-                      {
-                        columnId: 'Cliente',
-                        title: 'Cliente',
-                        options: customerFilter,
-                      },
-                      {
-                        columnId: 'Contrato',
-                        title: 'Número de Contrato',
-                        options: contractNumberFilter,
-                      },
-                      {
-                        columnId: 'Estado',
-                        title: 'Estado',
-                        options: statusFilter,
-                      },
-                      {
-                        columnId: 'Sectores',
-                        title: 'Sectores',
-                        options: sectorsFilter,
-                      },
-                      {
-                        columnId: 'Areas',
-                        title: 'Areas',
-                        options: areasFilter,
-                      },
-                    ],
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </>
+            </TabsContent>
+          </PermissionGuard>
+          <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
+            <TabsContent value="documents">
+              <ContractDocuments id={selectedService.id} />
+            </TabsContent>
+          </PermissionGuard>
+          <PermissionGuard module="comercial" tab="items-contrato" action="view">
+            <TabsContent value="items">
+              <ServiceItemsTable
+                customerServiceId={selectedService.id}
+                measureUnits={measureUnits}
+                savedFilters={savedItemsFilters}
+                savedVisibility={savedItemsVisibility}
+              />
+            </TabsContent>
+          </PermissionGuard>
+        </Tabs>
+      ) : (
+        <div className="w-full overflow-x-auto mt-4">
+          <BaseDataTable
+            columns={columns}
+            data={services}
+            tableId="services-table"
+            savedVisibility={savedVisibility}
+            onRowClick={setSelectedService}
+            toolbarOptions={{
+              initialVisibleFilters: savedFilters,
+              filterableColumns: [
+                { columnId: 'Nombre', title: 'Nombre del Servicio', options: filterOptions.names },
+                { columnId: 'Cliente', title: 'Cliente', options: filterOptions.customers },
+                { columnId: 'Contrato', title: 'Número de Contrato', options: filterOptions.contractNumbers },
+                { columnId: 'Estado', title: 'Estado', options: STATUS_FILTER },
+                { columnId: 'Sectores', title: 'Sectores', options: filterOptions.sectors },
+                { columnId: 'Areas', title: 'Areas', options: filterOptions.areas },
+              ],
+            }}
+          />
+        </div>
       )}
     </div>
   );
-};
-
-export default ServiceTable;
+}

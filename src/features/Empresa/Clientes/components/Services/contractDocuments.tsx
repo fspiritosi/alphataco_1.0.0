@@ -12,78 +12,100 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Download, Eye, FileSpreadsheet, FileText, ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import type React from 'react';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-import type { Document } from '@/features/Empresa/Clientes/actions/documentsContracts';
+import { useToast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Download, Eye, FileSpreadsheet, FileText, ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
+import moment from 'moment';
+import type React from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import {
-  deleteDocument as deleteDocumentApi,
-  downloadDocument,
-  fetchContract,
-  fetchDocuments,
-  uploadDocument,
-} from '@/features/Empresa/Clientes/actions/documentsContracts';
+  deleteContractDocument,
+  getContractDocumentDownloadUrl,
+  getContractDocuments,
+  uploadContractDocument,
+  type ContractDocument,
+} from '../../actions/services.server';
 
-interface DocumentManagementProps {
+const logger = new Logger('features/Empresa/Clientes/ContractDocuments');
+
+interface ContractDocumentsProps {
   id: string;
 }
 
-export default function ContractDocuments({ id }: DocumentManagementProps) {
-  const [contract, setContract] = useState<any>(null);
+/**
+ * Documentos de un contrato. El archivo viaja en un FormData a la server action, que lo sube
+ * al storage y registra los metadatos (P3: storage); el cliente nunca toca el bucket.
+ */
+export default function ContractDocuments({ id }: ContractDocumentsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const supabase = createClientComponentClient();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedFile, setSelectedFile] = useState<Document | null>(null);
-  // Bloquea el boton de eliminar mientras la peticion esta en curso
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [docType, setDocType] = useState<string>('Contrato');
-  const [docDescription, setDocDescription] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
-  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<ContractDocument | null>(null);
+  const [docType, setDocType] = useState('Contrato');
+  const [docDescription, setDocDescription] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<ContractDocument | null>(null);
   const { toast } = useToast();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const queryKey = ['contract-documents', id] as const;
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error('No hay sesión activa');
-        }
+  const { data: documents = [], isLoading } = useQuery({
+    queryKey,
+    queryFn: () => getContractDocuments(id),
+    enabled: !!id,
+  });
 
-        const [contractData, docs] = await Promise.all([fetchContract(id, session), fetchDocuments(id, session)]);
-
-        setContract(contractData);
-        setDocuments(docs);
-      } catch (error) {
-        console.error('Error al cargar datos:', error);
-        toast({
-          title: 'Error',
-          description: 'No se pudieron cargar los datos. Intenta de nuevo.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
+  const uploadMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('contractId', id);
+        formData.append('docType', docType);
+        formData.append('docDescription', docDescription || docType);
+        const result = await uploadContractDocument(formData);
+        if (!result.ok) throw new Error(result.error);
       }
-    };
+    },
+    onSuccess: () => {
+      setSelectedFiles([]);
+      setDocDescription('');
+      setDocType('Contrato');
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: '¡Éxito!', description: 'Los documentos se han subido correctamente.' });
+    },
+    onError: (error: Error) => {
+      logger.error('Error al subir documentos', { data: { error } });
+      queryClient.invalidateQueries({ queryKey });
+      toast({
+        title: 'Error',
+        description: error.message || 'Ocurrió un error al subir los documentos. Intenta de nuevo.',
+        variant: 'destructive',
+      });
+    },
+  });
 
-    if (id) {
-      loadData();
-    }
-  }, [id, toast]);
+  const deleteMutation = useMutation({
+    mutationFn: async (doc: ContractDocument) => {
+      const result = await deleteContractDocument(doc.id);
+      if (!result.ok) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: 'Documento eliminado', description: 'El documento se ha eliminado correctamente.' });
+    },
+    onError: (error: Error) => {
+      logger.error('Error al eliminar documento', { data: { error } });
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo eliminar el documento. Intenta de nuevo.',
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => setDocumentToDelete(null),
+  });
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -106,189 +128,56 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
     const newFiles = Array.from(files);
     setSelectedFiles((prev) => [...prev, ...newFiles]);
     if (fileInputRef.current) fileInputRef.current.value = '';
-
     toast({
       title: 'Archivos seleccionados',
       description: `Se han seleccionado ${newFiles.length} archivo(s). Presiona "Subir documento" para completar la carga.`,
     });
   };
 
-  const createSafeFolderName = (name: string) => {
-    if (!name) return 'default';
-    return name
-      .trim()
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '_')
-      .replace(/-+/g, '_');
-  };
-
-  const uploadSelectedFiles = async () => {
-    if (selectedFiles.length === 0) {
-      toast({
-        title: 'No hay archivos',
-        description: 'Selecciona al menos un archivo para subir.',
-      });
-      return;
-    }
-
-    if (!contract) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo obtener la información del contrato.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No hay sesión activa');
-      }
-
-      for (const file of selectedFiles) {
-        await uploadDocument({
-          file,
-          contractId: id,
-          contract,
-          docType,
-          docDescription: docDescription || docType,
-          session,
-        });
-      }
-
-      setSelectedFiles([]);
-      setDocDescription('');
-      setDocType('Contrato');
-      const updatedDocuments = await fetchDocuments(id, session);
-      setDocuments(updatedDocuments);
-
-      toast({
-        title: '¡Éxito!',
-        description: 'Los documentos se han subido correctamente.',
-      });
-    } catch (error: any) {
-      console.error('Error al subir documentos:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Ocurrió un error al subir los documentos. Intenta de nuevo.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
-    }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
   };
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFiles(e.target.files);
+    if (e.target.files && e.target.files.length > 0) processFiles(e.target.files);
+  };
+
+  const openFileSelector = () => fileInputRef.current?.click();
+
+  const uploadSelectedFiles = () => {
+    if (selectedFiles.length === 0) {
+      toast({ title: 'No hay archivos', description: 'Selecciona al menos un archivo para subir.' });
+      return;
     }
+    uploadMutation.mutate(selectedFiles);
   };
 
-  const openFileSelector = () => {
-    if (fileInputRef.current) fileInputRef.current.click();
-  };
-  const handleDeleteDocument = (doc: Document) => {
-    setDocumentToDelete(doc);
-    setDeleteConfirmOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!documentToDelete || isDeleting) return;
-
-    setIsDeleting(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No hay sesión activa');
-      }
-
-      await deleteDocumentApi(documentToDelete, session);
-
-      setDocuments((prev) => prev.filter((doc) => doc.id !== documentToDelete.id));
-
-      toast({
-        title: 'Documento eliminado',
-        description: 'El documento se ha eliminado correctamente.',
-      });
-    } catch (error: any) {
-      console.error('Error al eliminar documento:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo eliminar el documento. Intenta de nuevo.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirmOpen(false);
-      setDocumentToDelete(null);
+  const handleDownload = async (doc: ContractDocument) => {
+    const result = await getContractDocumentDownloadUrl(doc.id);
+    if (!result.ok) {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      return;
     }
+    window.open(result.data.url, '_blank');
   };
 
-  const handleDownload = async (doc: Document) => {
-    try {
-      const url = await downloadDocument(doc);
-      if (url) {
-        window.open(url, '_blank');
-      }
-    } catch (error: any) {
-      console.error('Error al descargar el documento:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo descargar el documento. Intenta de nuevo.',
-        variant: 'destructive',
-      });
-    }
-  };
-
+  const isUploading = uploadMutation.isPending;
+  const isDeleting = deleteMutation.isPending;
+  const term = searchTerm.toLowerCase();
   const filteredDocuments = documents.filter(
-    (doc) =>
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchTerm.toLowerCase())
+    (doc) => doc.name.toLowerCase().includes(term) || doc.type.toLowerCase().includes(term)
   );
+
   return (
     <div className="max-w-full">
-      <div className="flex justify-end md:mb-4 mb-2">
-        {/* <Link href="/dashboard/company/actualCompany?tab=comerce&subtab=service">
-          <Button>Volver</Button>
-        </Link> */}
-      </div>
       <Card className="w-full">
         <CardContent className="w-full p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1 border rounded-lg p-4">
               <h3 className="text-lg font-medium mb-4">Subir Documento</h3>
-              {/* {contract && contract.customer_id && (
-                <div className="mb-4 text-sm border-l-4 border-blue-500 pl-3 py-2 bg-blue-50 rounded">
-                  <p>
-                    <span className="font-medium">Cliente:</span> {contract.customer_id.name}
-                  </p>
-                  <p>
-                    <span className="font-medium">Contrato:</span> {contract.service_name}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Los archivos se guardarán en la carpeta: {createSafeFolderName(contract.customer_id.name)}/
-                    {createSafeFolderName(contract.service_name)}
-                  </p>
-                </div>
-              )} */}
               <div className="space-y-4">
                 <div
                   className={`border-2 ${isDragging ? 'border-green-500 bg-green-50' : 'border-dashed'} rounded-lg p-6 text-center cursor-pointer hover:bg-slate-50 transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
@@ -311,6 +200,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                         : 'Arrastra y suelta archivos aquí o'}
                   </p>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     className="mt-2"
@@ -337,7 +227,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                     <h4 className="text-sm font-medium mb-2">Archivos seleccionados ({selectedFiles.length})</h4>
                     <div className="max-h-32 overflow-y-auto">
                       {selectedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm py-1">
+                        <div key={`${file.name}-${index}`} className="flex items-center justify-between text-sm py-1">
                           <div className="flex items-center">
                             {file.type.includes('pdf') && <FileText className="h-4 w-4 mr-2 text-red-500" />}
                             {file.type.includes('image') && <ImageIcon className="h-4 w-4 mr-2 text-blue-500" />}
@@ -350,12 +240,11 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                             <span className="truncate max-w-[180px]">{file.name}</span>
                           </div>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0 text-red-500"
-                            onClick={() => {
-                              setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-                            }}
+                            onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== index))}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -367,17 +256,6 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
 
                 <div className="space-y-2">
                   <Label htmlFor="docType">Tipo de documento</Label>
-                  {/* <select
-                    className="w-full p-2 border rounded-md"
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value)}
-                    disabled={isUploading}
-                  >
-                    <option>Contrato</option>
-                    <option>Anexo</option>
-                    <option>Factura</option>
-                    <option>Otro</option>
-                  </select> */}
                   <Input
                     id="docType"
                     type="text"
@@ -400,6 +278,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                 </div>
 
                 <Button
+                  type="button"
                   className="w-full"
                   onClick={uploadSelectedFiles}
                   disabled={isUploading || selectedFiles.length === 0}
@@ -457,16 +336,19 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                             <div className="flex items-center">
                               {doc.type === 'pdf' && <FileText className="h-4 w-4 mr-2 text-red-500" />}
                               {doc.type === 'image' && <ImageIcon className="h-4 w-4 mr-2 text-blue-500" />}
-                              {doc.type === 'excel' && <FileSpreadsheet className="h-4 w-4 mr-2 text-green-500" />}
+                              {doc.type === 'spreadsheet' && (
+                                <FileSpreadsheet className="h-4 w-4 mr-2 text-green-500" />
+                              )}
                               <span className="text-sm">{doc.name}</span>
                             </div>
                           </TableCell>
                           <TableCell>{doc.type.toUpperCase()}</TableCell>
-                          <TableCell>{new Date(doc.date).toLocaleDateString()}</TableCell>
+                          <TableCell>{doc.date ? moment(doc.date).format('DD/MM/YYYY') : '-'}</TableCell>
                           <TableCell>{doc.size}</TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setSelectedFile(doc)}
@@ -476,6 +358,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0"
@@ -485,10 +368,11 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                                 <Download className="h-4 w-4" />
                               </Button>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                                onClick={() => handleDeleteDocument(doc)}
+                                onClick={() => setDocumentToDelete(doc)}
                                 title="Eliminar"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -526,96 +410,35 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
                   <h4 className="font-medium">Descripción: {selectedFile.description}</h4>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-medium">Vista previa: {selectedFile.name}</h4>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>
                       Cerrar
                     </Button>
                   </div>
-                  {/* <div className="bg-slate-100 rounded-lg h-64 flex items-center justify-center overflow-hidden"> */}
                   <div className="bg-slate-100 rounded-lg h-[700px] flex items-center justify-center overflow-hidden">
-                    {selectedFile.type === 'pdf' ? (
+                    {selectedFile.type === 'pdf' && selectedFile.url ? (
                       <embed src={selectedFile.url} type="application/pdf" width="100%" height="600px" />
-                    ) : selectedFile.type === 'image' ? (
+                    ) : selectedFile.type === 'image' && selectedFile.url ? (
                       <img
-                        src={selectedFile.url || '/placeholder.svg'}
+                        src={selectedFile.url}
                         alt="Vista previa"
                         className="max-h-full max-w-full w-full object-contain mx-auto"
                       />
-                    ) : selectedFile.type === 'excel' ? (
-                      <div className="w-full h-40 overflow-auto">
-                        <div className="text-center mb-2">
-                          <FileSpreadsheet className="h-8 w-8 mx-auto text-green-500" />
-                          <p className="text-sm font-medium">Vista previa de Excel</p>
-                        </div>
-                        <div className="w-full overflow-x-auto">
-                          {/* <table className="min-w-full border-collapse">
-                            <thead>
-                              <tr className="bg-green-50">
-                                <th className="border border-green-200 px-3 py-2 text-xs"></th>
-                                <th className="border border-green-200 px-3 py-2 text-xs">A</th>
-                                <th className="border border-green-200 px-3 py-2 text-xs">B</th>
-                                <th className="border border-green-200 px-3 py-2 text-xs">C</th>
-                                <th className="border border-green-200 px-3 py-2 text-xs">D</th>
-                                <th className="border border-green-200 px-3 py-2 text-xs">E</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {[1, 2, 3, 4, 5].map((row) => (
-                                <tr key={row}>
-                                  <td className="border border-green-100 bg-green-50 px-3 py-2 text-xs font-medium">
-                                    {row}
-                                  </td>
-                                  {["A", "B", "C", "D", "E"].map((col) => (
-                                    <td key={col} className="border border-green-100 px-3 py-2 text-xs">
-                                      {selectedFile.name.includes("Presupuesto") && row === 2 && col === "B"
-                                        ? "€ 25,000.00"
-                                        : selectedFile.name.includes("Presupuesto") && row === 3 && col === "B"
-                                          ? "€ 15,000.00"
-                                          : selectedFile.name.includes("Presupuesto") && row === 4 && col === "B"
-                                            ? "€ 10,000.00"
-                                            : selectedFile.name.includes("Presupuesto") && row === 2 && col === "A"
-                                              ? "Fase 1"
-                                              : selectedFile.name.includes("Presupuesto") && row === 3 && col === "A"
-                                                ? "Fase 2"
-                                                : selectedFile.name.includes("Presupuesto") && row === 4 && col === "A"
-                                                  ? "Fase 3"
-                                                  : ""}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table> */}
-                        </div>
-                        <div className="flex justify-center mt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleDownload(selectedFile)}
-                          >
-                            <Download className="h-3 w-3 mr-1" /> Descargar Excel
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs ml-2"
-                            onClick={() => window.open(selectedFile.url, '_blank')}
-                          >
-                            <Eye className="h-3 w-3 mr-1" /> Abrir en visor completo
-                          </Button>
-                        </div>
-                      </div>
                     ) : (
                       <div className="text-center">
-                        <FileText className="h-12 w-12 mx-auto text-slate-400" />
+                        {selectedFile.type === 'spreadsheet' ? (
+                          <FileSpreadsheet className="h-12 w-12 mx-auto text-green-500" />
+                        ) : (
+                          <FileText className="h-12 w-12 mx-auto text-slate-400" />
+                        )}
                         <p className="mt-2">Vista previa no disponible</p>
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           className="mt-2"
                           onClick={() => handleDownload(selectedFile)}
                         >
-                          Descargar archivo
+                          <Download className="h-3 w-3 mr-1" /> Descargar archivo
                         </Button>
                       </div>
                     )}
@@ -627,8 +450,7 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
         </CardContent>
       </Card>
 
-      {/* Diálogo de confirmación para eliminar */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <Dialog open={!!documentToDelete} onOpenChange={(open) => !open && !isDeleting && setDocumentToDelete(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar eliminación</DialogTitle>
@@ -638,10 +460,15 @@ export default function ContractDocuments({ id }: DocumentManagementProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
+            <Button type="button" variant="outline" onClick={() => setDocumentToDelete(null)} disabled={isDeleting}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => documentToDelete && deleteMutation.mutate(documentToDelete)}
+              disabled={isDeleting}
+            >
               {isDeleting ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogFooter>

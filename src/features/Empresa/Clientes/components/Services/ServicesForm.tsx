@@ -1,276 +1,105 @@
 'use client';
-import { useState } from 'react';
-// import { format, parseISO } from 'date-fns';
+
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Card } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { handleServiceSubmit, handleServiceUpdate } from '@/features/Empresa/Clientes/actions/services';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PermissionGuard } from '@/features/Permissions';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import moment from 'moment';
 import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { Card } from '../../../../../components/ui/card';
-import { MultiSelectCombobox } from '../../../../../components/ui/multi-select-combobox';
-import { RadioGroup, RadioGroupItem } from '../../../../../components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../../components/ui/select';
-const ServiceSchema = z
-  .object({
-    id: z.string().optional(),
-    customer_id: z.string().min(1, { message: 'Debe seleccionar un cliente' }),
-    area_id: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un area' }),
-    sector_id: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un sector' }),
-    service_name: z.string().min(1, { message: 'Debe ingresar el nombre del servicio' }),
-    contract_number: z.string().optional(),
-    service_start: z.date(),
-    service_validity: z.date(),
-    is_active: z.boolean(),
-    service_areas: z
-      .array(
-        z.object({
-          area_id: z.string(),
-          areas_cliente: z.object({
-            id: z.string(),
-            nombre: z.string(),
-            descripcion_corta: z.string(),
-          }),
-        })
-      )
-      .optional(),
-  })
-  .refine((data) => data.service_validity > data.service_start, {
-    message: 'La validez del servicio debe ser mayor que el inicio del servicio',
-    path: ['service_validity'],
-  });
-interface Customer {
-  id: string;
-  name: string;
+import { toast } from 'sonner';
+import type { AreaRow } from '../../actions/areas.server';
+import type { SectorCustomerRow } from '../../actions/sectors.server';
+import { createCustomerService, updateCustomerService, type CustomerServiceRow } from '../../actions/services.server';
+import { dbDateToLocal, localDateToDb } from '../../lib/service-dates';
+import type { CustomerRef } from '../../lib/serializers';
+import { serviceFormSchema, type ServiceFormValues } from '../../schemas/service';
+
+interface ServicesFormProps {
+  customers: CustomerRef[];
+  areas: AreaRow[];
+  sectors: SectorCustomerRow[];
+  editingService?: CustomerServiceRow | null;
+  /** En el detalle de un contrato el form arranca en solo lectura. */
+  startReadOnly?: boolean;
+  setOpen?: (open: boolean) => void;
 }
-type Services = {
-  id: string;
-  service_name: string;
-  customer_id: string;
-  area_id: string[];
-  sector_id: string[];
-  description: string;
-  contract_number: string;
-  service_price: number;
-  service_start: string;
-  service_validity: string;
-  is_active: boolean;
-  service_areas?: Array<{
-    area_id: string;
-    areas_cliente: {
-      id: string;
-      nombre: string;
-      descripcion_corta: string;
+
+function toFormValues(service: CustomerServiceRow | null | undefined): ServiceFormValues {
+  if (!service) {
+    return {
+      customer_id: '',
+      area_id: [],
+      sector_id: [],
+      service_name: '',
+      contract_number: '',
+      service_start: new Date(),
+      service_validity: new Date(),
+      is_active: true,
     };
-  }>;
-  service_sectors?: Array<{
-    sector_id: string;
-    sectors: {
-      id: string;
-      name: string;
-    };
-  }>;
-  customer?: string;
-  area?: string;
-  sector?: string;
-  created_at?: string;
-  company_id?: string;
-};
-type Service = z.infer<typeof ServiceSchema> & {
-  service_sectors?: Array<{
-    sector_id: string;
-    sectors: {
-      id: string;
-      name: string;
-    };
-  }>;
-  service_areas?: Array<{
-    area_id: string;
-    areas_cliente: {
-      id: string;
-      nombre: string;
-      descripcion_corta: string;
-    };
-  }>;
-  customer?: string;
-  area?: string;
-  sector?: string;
-  created_at?: string;
-  company_id?: string;
-};
+  }
+  return {
+    customer_id: service.customer_id ?? '',
+    area_id: service.service_areas.map((a) => a.area_id),
+    sector_id: service.service_sectors.map((s) => s.sector_id),
+    service_name: service.service_name ?? '',
+    contract_number: service.contract_number ?? '',
+    service_start: service.service_start ? dbDateToLocal(service.service_start) : new Date(),
+    service_validity: service.service_validity ? dbDateToLocal(service.service_validity) : new Date(),
+    is_active: service.is_active ?? true,
+  };
+}
 
 export default function ServicesForm({
   customers,
-  company_id,
-  editingService,
-  initialFormData,
   areas,
   sectors,
-  id,
+  editingService,
+  startReadOnly = false,
   setOpen,
-}: {
-  customers: Service[];
-  company_id: string;
-  editingService?: Service;
-  initialFormData?: Record<string, unknown> | null;
-  areas: any[];
-  sectors: any[];
-  id?: string;
-  setOpen?: ((open: boolean) => void) | undefined;
-}) {
-  const form = useForm<z.infer<typeof ServiceSchema>>({
-    resolver: zodResolver(ServiceSchema),
-    defaultValues: initialFormData
-      ? (initialFormData as z.infer<typeof ServiceSchema>)
-      : {
-          customer_id: '',
-          area_id: [],
-          sector_id: [],
-          service_name: '',
-          contract_number: '',
-          service_start: new Date(),
-          service_validity: new Date(),
-          is_active: true,
-        },
+}: ServicesFormProps) {
+  const isEditing = !!editingService;
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [readOnly, setReadOnly] = useState(startReadOnly);
+
+  const form = useForm<ServiceFormValues>({
+    resolver: zodResolver(serviceFormSchema),
+    defaultValues: toFormValues(editingService),
     mode: 'onChange',
   });
 
-  const { reset } = form;
-  const router = useRouter();
-  const [isEditing, setIsEditing] = useState(!!editingService);
+  const customerId = form.watch('customer_id');
 
-  const [filteredAreas, setFilteredAreas] = useState<any[]>(() => {
-    if (editingService?.customer_id) {
-      return areas.filter((area) => area.customers?.id === editingService.customer_id);
-    }
-    return [];
-  });
-  const [filteredSectors, setFilteredSectors] = useState<any[]>(() => {
-    if (editingService?.customer_id) {
-      return (
-        sectors
-          ?.filter((sector: any) => sector.customer_id === editingService.customer_id)
-          .map((sector: any) => sector.sectors) || []
-      );
-    }
-    return [];
-  });
-  const [view, setView] = useState(!!id);
-  const onSubmit = async (values: z.infer<typeof ServiceSchema>) => {
-    // Incluir solo los campos necesarios con valores por defecto
-    const submissionData = {
-      customer_id: values.customer_id,
-      area_id: Array.isArray(values.area_id) ? values.area_id : [],
-      sector_id: Array.isArray(values.sector_id) ? values.sector_id : [],
-      service_name: values.service_name,
-      contract_number: values.contract_number || '',
-      service_start: values.service_start ? new Date(values.service_start) : new Date(),
-      service_validity: values.service_validity ? new Date(values.service_validity) : new Date(),
-      is_active: values.is_active !== undefined ? values.is_active : true,
-    };
+  const areaOptions = useMemo(
+    () =>
+      areas
+        .filter((area) => area.customers.id === customerId)
+        .map((area) => ({ label: area.nombre, value: area.id })),
+    [areas, customerId]
+  );
 
-    // Validar que los campos requeridos estén presentes
-    if (
-      !submissionData.customer_id ||
-      !submissionData.service_name ||
-      !submissionData.area_id.length ||
-      !submissionData.sector_id.length
-    ) {
-      throw new Error('Faltan campos requeridos en el formulario');
-    }
-
-    try {
-      const result = await handleServiceSubmit(submissionData, company_id, resetForm, router);
-
-      // Resetear el formulario después de enviar
-      if (result) {
-        reset();
-      }
-      return result;
-    } catch (error) {
-      throw error; // Propagar el error para que pueda ser manejado por handleFormSubmit
-    }
-  };
-
-  const onUpdate = async (values: z.infer<typeof ServiceSchema>) => {
-    try {
-      const result = await handleServiceUpdate(
-        {
-          ...values,
-          // Asegurarse de que los campos opcionales estén presentes
-
-          contract_number: values.contract_number || '',
-        },
-        editingService?.id || '',
-        resetForm,
-        router
-      );
-
-      return result;
-    } catch (error) {
-      throw error; // Propagar el error
-    }
-  };
-
-  const handleFormSubmit = async (formData: z.infer<typeof ServiceSchema>) => {
-    // Crear un nuevo objeto con los campos del formulario y valores por defecto
-    const submissionData = {
-      customer_id: formData.customer_id,
-      area_id: Array.isArray(formData.area_id) ? formData.area_id : [],
-      sector_id: Array.isArray(formData.sector_id) ? formData.sector_id : [],
-      service_name: formData.service_name,
-      contract_number: formData.contract_number || '',
-      service_start: formData.service_start ? new Date(formData.service_start) : new Date(),
-      service_validity: formData.service_validity ? new Date(formData.service_validity) : new Date(),
-      is_active: formData.is_active !== undefined ? formData.is_active : true,
-    };
-
-    // Validar que los campos requeridos estén presentes
-    if (
-      !submissionData.customer_id ||
-      !submissionData.service_name ||
-      !submissionData.area_id.length ||
-      !submissionData.sector_id.length
-    ) {
-      throw new Error('Faltan campos requeridos en el formulario');
-    }
-
-    try {
-      let result;
-
-      if (isEditing) {
-        result = await onUpdate(submissionData);
-      } else {
-        result = await onSubmit(submissionData);
-      }
-
-      // Cerrar el diálogo después de enviar el formulario exitosamente
-      if (setOpen) {
-        setOpen(false);
-      }
-
-      return result;
-    } catch (error) {
-      throw error;
-    }
-  };
+  const sectorOptions = useMemo(
+    () =>
+      sectors
+        .filter((sector) => sector.customer_id === customerId)
+        .map((sector) => ({ label: sector.sectors.name, value: sector.sectors.id })),
+    [sectors, customerId]
+  );
 
   const resetForm = () => {
-    reset({
-      id: '',
-      customer_id: '',
-      service_name: '',
-      service_start: new Date(),
-      service_validity: new Date(),
-    });
-    setIsEditing(false);
+    form.reset(toFormValues(null));
   };
 
   const handleCancel = () => {
@@ -278,31 +107,45 @@ export default function ServicesForm({
     setOpen?.(false);
   };
 
-  const formatedAreas = areas?.map((area) => ({
-    ...area,
-    cliente: area.customer_id?.name,
-    provincias: area.area_province.map((province: any) => province.provinces.name),
-  }));
+  const onSubmit = async (values: ServiceFormValues) => {
+    const payload: ServiceFormValues = {
+      ...values,
+      contract_number: values.contract_number || '',
+      service_start: localDateToDb(values.service_start),
+      service_validity: localDateToDb(values.service_validity),
+    };
+
+    const result = isEditing
+      ? await updateCustomerService(editingService.id, payload)
+      : await createCustomerService(payload);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success(isEditing ? 'Contrato actualizado correctamente' : 'Contrato creado correctamente');
+    queryClient.invalidateQueries({ queryKey: ['customer-services'] });
+    if (!isEditing) resetForm();
+    setOpen?.(false);
+    router.refresh();
+  };
 
   return (
     <div>
-      {/* {view && ( */}
-      {editingService && (
+      {isEditing && (
         <div className="flex justify-end space-x-4 mr-2">
           <PermissionGuard module="comercial" tab="detalle-contrato" action="update">
-            <Button onClick={() => setView(!view)}>{view ? 'Habilitar Edicion' : 'Ver'}</Button>
+            <Button type="button" onClick={() => setReadOnly((prev) => !prev)}>
+              {readOnly ? 'Habilitar Edicion' : 'Ver'}
+            </Button>
           </PermissionGuard>
-
-          {/* <Link href="/dashboard/company/actualCompany?tab=comerce&subtab=service">
-              <Button>Volver</Button>
-            </Link> */}
         </div>
       )}
-      {/* )} */}
       <Card className="w-full mt-2 overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 w-full min-w-0">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="contents w-full">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="contents w-full">
               <FormField
                 control={form.control}
                 name="customer_id"
@@ -310,22 +153,13 @@ export default function ServicesForm({
                   <FormItem>
                     <FormLabel>Cliente</FormLabel>
                     <Select
-                      disabled={view}
+                      disabled={readOnly}
                       onValueChange={(value) => {
                         field.onChange(value);
                         form.setValue('area_id', []);
                         form.setValue('sector_id', []);
-
-                        const filteredAreasByCustomer = areas?.filter((area) => area.customers?.id === value) || [];
-                        setFilteredAreas(filteredAreasByCustomer);
-
-                        const filteredSectorsByCustomer =
-                          sectors
-                            ?.filter((sector: any) => sector.customer_id === value)
-                            .map((sector: any) => sector.sectors) || [];
-                        setFilteredSectors(filteredSectorsByCustomer);
                       }}
-                      value={field.value || editingService?.customer_id}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -333,7 +167,7 @@ export default function ServicesForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {customers?.map((customer: any) => (
+                        {customers.map((customer) => (
                           <SelectItem value={customer.id} key={customer.id}>
                             {customer.name}
                           </SelectItem>
@@ -347,78 +181,38 @@ export default function ServicesForm({
               <FormField
                 control={form.control}
                 name="area_id"
-                render={({ field }) => {
-                  // Asegurarse de que field.value sea un array de strings
-                  const fieldValue = field.value || [];
-                  const selectedValues = (Array.isArray(fieldValue) ? fieldValue : [fieldValue])
-                    .map(String)
-                    .filter(Boolean);
-
-                  // Opciones para el combobox
-                  const areaOptions =
-                    filteredAreas?.map((area) => ({
-                      label: area.nombre,
-                      value: String(area.id),
-                    })) || [];
-
-                  // Función para manejar cambios en la selección
-                  const handleChange = (values: string[]) => {
-                    field.onChange(values);
-                  };
-
-                  return (
-                    <FormItem>
-                      <FormLabel>Area</FormLabel>
-                      <MultiSelectCombobox
-                        options={areaOptions}
-                        placeholder="Elegir areas"
-                        emptyMessage="No se encontraron areas"
-                        selectedValues={selectedValues}
-                        onChange={handleChange}
-                        disabled={view}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area</FormLabel>
+                    <MultiSelectCombobox
+                      options={areaOptions}
+                      placeholder="Elegir areas"
+                      emptyMessage="No se encontraron areas"
+                      selectedValues={field.value}
+                      onChange={field.onChange}
+                      disabled={readOnly}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
               <FormField
                 control={form.control}
                 name="sector_id"
-                render={({ field }) => {
-                  // Asegurarse de que field.value sea un array de strings
-                  const fieldValue = field.value || [];
-                  const selectedValues = (Array.isArray(fieldValue) ? fieldValue : [fieldValue])
-                    .map(String)
-                    .filter(Boolean);
-
-                  // Opciones para el combobox
-                  const sectorOptions =
-                    filteredSectors?.map((sector) => ({
-                      label: sector.name,
-                      value: String(sector.id),
-                    })) || [];
-
-                  // Función para manejar cambios en la selección
-                  const handleChange = (values: string[]) => {
-                    field.onChange(values);
-                  };
-
-                  return (
-                    <FormItem>
-                      <FormLabel>Sectores</FormLabel>
-                      <MultiSelectCombobox
-                        options={sectorOptions}
-                        placeholder="Seleccionar sectores"
-                        emptyMessage="No se encontraron sectores"
-                        selectedValues={selectedValues}
-                        onChange={handleChange}
-                        disabled={view}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sectores</FormLabel>
+                    <MultiSelectCombobox
+                      options={sectorOptions}
+                      placeholder="Seleccionar sectores"
+                      emptyMessage="No se encontraron sectores"
+                      selectedValues={field.value}
+                      onChange={field.onChange}
+                      disabled={readOnly}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
               <FormField
                 control={form.control}
@@ -427,100 +221,53 @@ export default function ServicesForm({
                   <FormItem>
                     <FormLabel>Título del Contrato</FormLabel>
                     <FormControl>
-                      <Input
-                        disabled={view}
-                        type="text"
-                        {...field}
-                        className="input w-full"
-                        placeholder="Título del contrato"
-                      />
+                      <Input disabled={readOnly} type="text" {...field} placeholder="Título del contrato" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="service_start"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex gap-4 items-center w-full justify-between">
-                      <FormLabel>Inicio del Contrato</FormLabel>
-                      <FormControl>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              disabled={view}
-                              variant={'outline'}
-                              className={cn(
-                                'w-[240px] pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? field.value.toLocaleDateString() : 'Elegir fecha'}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              {...field}
-                              selected={field.value}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                              }}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </FormControl>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="service_validity"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex gap-4 items-center w-full justify-between">
-                      <FormLabel>Validez del Contrato</FormLabel>
-                      <FormControl>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <div className="relative w-full">
+              {(['service_start', 'service_validity'] as const).map((name) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex gap-4 items-center w-full justify-between">
+                        <FormLabel>{name === 'service_start' ? 'Inicio del Contrato' : 'Validez del Contrato'}</FormLabel>
+                        <FormControl>
+                          <Popover>
+                            <PopoverTrigger asChild>
                               <Button
                                 type="button"
-                                variant={'outline'}
+                                disabled={readOnly}
+                                variant="outline"
                                 className={cn(
-                                  'w-full justify-start text-left font-normal',
+                                  'w-[240px] pl-3 text-left font-normal',
                                   !field.value && 'text-muted-foreground'
                                 )}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? field.value.toLocaleDateString() : 'Elegir fecha'}
+                                {field.value ? moment(field.value).format('DD/MM/YYYY') : 'Elegir fecha'}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
-                            </div>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                              }}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </FormControl>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={(date) => date && field.onChange(date)}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
               <FormField
                 control={form.control}
                 name="contract_number"
@@ -528,13 +275,7 @@ export default function ServicesForm({
                   <FormItem>
                     <FormLabel>Número de Contrato</FormLabel>
                     <FormControl>
-                      <Input
-                        disabled={view}
-                        type="text"
-                        {...field}
-                        className="input w-full"
-                        placeholder="Número de contrato"
-                      />
+                      <Input disabled={readOnly} type="text" {...field} placeholder="Número de contrato" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -548,10 +289,10 @@ export default function ServicesForm({
                     <FormLabel>Activo</FormLabel>
                     <FormControl>
                       <RadioGroup
-                        disabled={view}
+                        disabled={readOnly}
                         onValueChange={(value) => field.onChange(value === 'true')}
                         value={field.value ? 'true' : 'false'}
-                        className="flex  space-x-1"
+                        className="flex space-x-1"
                       >
                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
@@ -572,11 +313,16 @@ export default function ServicesForm({
                 )}
               />
               <PermissionGuard module="comercial" tab="detalle-contrato" action="update">
-                <Button disabled={view} className="mt-4" type="submit" variant={'gh_orange'}>
+                <Button
+                  disabled={readOnly || form.formState.isSubmitting}
+                  className="mt-4"
+                  type="submit"
+                  variant="gh_orange"
+                >
                   {isEditing ? 'Editar' : 'Crear'}
                 </Button>
               </PermissionGuard>
-              <Button disabled={view} className="mt-4 ml-2" type="button" onClick={handleCancel} variant={'outline'}>
+              <Button disabled={readOnly} className="mt-4 ml-2" type="button" onClick={handleCancel} variant="outline">
                 Cancelar
               </Button>
             </form>

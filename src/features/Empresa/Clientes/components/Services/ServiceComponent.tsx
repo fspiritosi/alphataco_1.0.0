@@ -1,51 +1,58 @@
-import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAreasWithProvinces } from '../../actions/create';
-import { fetchServiceItems } from '../../actions/items';
-import { fetchMeasureUnits } from '../../actions/meassure';
-import { fetchServices } from '../../actions/service';
+'use client';
+
+import Cookies from 'js-cookie';
+import type { VisibilityState } from '@tanstack/react-table';
+import type { AreaRow } from '../../actions/areas.server';
+import type { MeasureUnitRow } from '../../actions/measure-units.server';
+import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { CustomerServiceRow } from '../../actions/services.server';
+import type { CustomerRef } from '../../lib/serializers';
 import ServiceTable from './ServiceTable';
+
 interface ServiceComponentProps {
-  id?: string;
-  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
-  areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
-  sectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
-  measure_units: Awaited<ReturnType<typeof fetchMeasureUnits>>;
-  services: Awaited<ReturnType<typeof fetchServices>>;
-  items: Awaited<ReturnType<typeof fetchServiceItems>>;
-  itemsList: Awaited<ReturnType<typeof fetchServiceItems>>;
-  measureUnitsList: Awaited<ReturnType<typeof fetchMeasureUnits>>;
-  company_id: string;
+  customers: CustomerRef[];
+  areas: AreaRow[];
+  sectors: SectorCustomerRow[];
+  measureUnits: MeasureUnitRow[];
+  services: CustomerServiceRow[];
   savedFilter: string[];
 }
 
+function readCookieJson<T>(name: string, fallback: T): T {
+  const raw = Cookies.get(name);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Pestaña "Contratos" de Comercial: todos los contratos de la empresa con alta. */
 export default function ServiceComponent({
-  id,
-  customers: filterCustomers,
+  customers,
   areas,
   sectors,
-  measure_units,
+  measureUnits,
   services,
-  items,
-  company_id,
   savedFilter,
 }: ServiceComponentProps) {
+  const savedVisibility = readCookieJson<VisibilityState>('services-table', {});
+  const savedItemsVisibility = readCookieJson<VisibilityState>('service-items-table', {});
+  const savedItemsFilters = readCookieJson<string[]>('service-items-table-filters', []);
+
   return (
-    <div>
-      {services ? (
-        <ServiceTable
-          savedFilter={savedFilter}
-          services={services}
-          customers={filterCustomers}
-          company_id={company_id}
-          areas={areas}
-          sectors={sectors}
-          id={id}
-          measureUnitsList={measure_units}
-          itemsList={items}
-          hideCreateButton={true}
-        />
-      ) : (
-        <div>No hay servicios</div>
-      )}
-    </div>
+    <ServiceTable
+      services={services}
+      customers={customers}
+      areas={areas}
+      sectors={sectors}
+      measureUnits={measureUnits}
+      showCreateButton
+      savedFilters={savedFilter}
+      savedVisibility={savedVisibility}
+      savedItemsFilters={savedItemsFilters}
+      savedItemsVisibility={savedItemsVisibility}
+    />
   );
 }

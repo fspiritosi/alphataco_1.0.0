@@ -1,6 +1,6 @@
 'use client';
 
-import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
+import { getActiveServiceItems } from '@/features/Empresa/Clientes/actions/service-items.server';
 import { fetchContractsByClientId } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import {
   fetchAreasByContract,
@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Tipos de retorno inferidos de las acciones
 export type Contrato = Awaited<ReturnType<typeof fetchContractsByClientId>>[number];
-export type ServiceItem = Awaited<ReturnType<typeof fetchServiceItems>>[number];
+export type ServiceItem = Awaited<ReturnType<typeof getActiveServiceItems>>[number];
 export type Sector = Awaited<ReturnType<typeof fetchSectorsByContract>>[number];
 export type Area = Awaited<ReturnType<typeof fetchAreasByContract>>[number];
 export type Equipment = Awaited<ReturnType<typeof fetchEquipmentsByCustomer>>[number];
@@ -42,7 +42,7 @@ export function useServiceItems(contratoId: string | undefined) {
     queryKey: ['preparte-service-items', contratoId],
     queryFn: async () => {
       if (!contratoId) return [];
-      return fetchServiceItems(contratoId);
+      return getActiveServiceItems(contratoId);
     },
     enabled: !!contratoId,
     staleTime: 5 * 60 * 1000,

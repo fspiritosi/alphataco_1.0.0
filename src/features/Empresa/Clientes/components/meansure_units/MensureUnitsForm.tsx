@@ -4,100 +4,67 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
+import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
-import { createMeasureUnit, fetchMeasureUnits, updateMeasureUnit } from './actions/actions';
+import { createMeasureUnit, updateMeasureUnit, type MeasureUnitRow } from '../../actions/measure-units.server';
+import { measureUnitFormSchema, type MeasureUnitFormValues } from '../../schemas/measure-unit';
 
-// Definir el esquema de validación con Zod
-const formSchema = z.object({
-  simbol: z.string().min(1, { message: 'El símbolo es requerido' }),
-  tipo: z.string().min(1, { message: 'El tipo es requerido' }),
-  unit: z.string().min(1, { message: 'La unidad es requerida' }),
-});
+const logger = new Logger('features/Empresa/Clientes/MensureUnitsForm');
 
 interface MensureUnitsFormProps {
-  selectedUnit: Awaited<ReturnType<typeof fetchMeasureUnits>>[number] | null;
-  setSelectedUnit: (unit: Awaited<ReturnType<typeof fetchMeasureUnits>>[number] | null) => void;
+  selectedUnit: MeasureUnitRow | null;
+  setSelectedUnit: (unit: MeasureUnitRow | null) => void;
   mode: 'create' | 'edit';
   setMode: (mode: 'create' | 'edit') => void;
 }
 
-function MensureUnitsForm({ selectedUnit, setSelectedUnit, mode, setMode }: MensureUnitsFormProps) {
-  // Configurar el formulario con React Hook Form y validación Zod
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      simbol: '',
-      tipo: '',
-      unit: '',
-    },
-  });
-  const handleCreateNew = () => {
-    setSelectedUnit(null);
-    setMode('create');
-  };
+const EMPTY_VALUES: MeasureUnitFormValues = { simbol: '', tipo: '', unit: '' };
 
-  // Actualizar el formulario cuando cambia el modo o la unidad seleccionada
-  useEffect(() => {
-    if (mode === 'edit' && selectedUnit) {
-      form.reset({
-        simbol: selectedUnit.simbol,
-        tipo: selectedUnit.tipo,
-        unit: selectedUnit.unit,
-      });
-    } else if (mode === 'create') {
-      form.reset({
-        simbol: '',
-        tipo: '',
-        unit: '',
-      });
-    }
-  }, [mode, selectedUnit, form]);
+function MensureUnitsForm({ selectedUnit, setSelectedUnit, mode, setMode }: MensureUnitsFormProps) {
+  const form = useForm<MeasureUnitFormValues>({
+    resolver: zodResolver(measureUnitFormSchema),
+    defaultValues: EMPTY_VALUES,
+  });
+  const { reset } = form;
   const router = useRouter();
 
-  // Función para manejar el envío del formulario
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // El modo/unidad seleccionada llegan por props desde la tabla: sincronizar el form con ellos.
+  useEffect(() => {
+    if (mode === 'edit' && selectedUnit) {
+      reset({ simbol: selectedUnit.simbol, tipo: selectedUnit.tipo, unit: selectedUnit.unit });
+    } else {
+      reset(EMPTY_VALUES);
+    }
+  }, [mode, selectedUnit, reset]);
+
+  async function onSubmit(values: MeasureUnitFormValues) {
     try {
-      if (mode === 'create') {
-        // Crear nueva unidad de medida
-        const result = await createMeasureUnit(values);
+      const result =
+        mode === 'edit' && selectedUnit ? await updateMeasureUnit(selectedUnit.id, values) : await createMeasureUnit(values);
 
-        if (result.status === 200) {
-          toast.success(result.body);
-          form.reset();
-          router.refresh();
-        } else {
-          toast.error(result.body);
-        }
-      } else if (mode === 'edit' && selectedUnit) {
-        // Actualizar unidad existente
-        const result = await updateMeasureUnit({ ...values, id: selectedUnit.id });
-
-        if (result.status === 200) {
-          toast.success(result.body);
-          setMode('create');
-          setSelectedUnit(null);
-          form.reset();
-          router.refresh();
-        } else {
-          toast.error(result.body);
-        }
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
+      toast.success(mode === 'edit' ? 'Unidad de medida actualizada correctamente' : 'Unidad de medida creada correctamente');
+      setMode('create');
+      setSelectedUnit(null);
+      reset(EMPTY_VALUES);
+      router.refresh();
     } catch (error) {
-      console.error('Error al guardar la unidad de medida:', error);
+      logger.error('Error al guardar la unidad de medida', { data: { error } });
       toast.error('Error al guardar la unidad de medida');
     }
   }
 
-  // Función para cancelar la edición
   function handleCancel() {
     setMode('create');
     setSelectedUnit(null);
-    form.reset();
+    reset(EMPTY_VALUES);
   }
 
   return (
