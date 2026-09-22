@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
+import { employeeDeviations, equipmentDeviations } from '../../lib/resource-deviations';
 import { ResourceCell } from '../components/ResourceCell';
 import type { DailyReportDetailRow } from '../types';
 import { buildEmployeeLabel, buildRowDescription } from './helpers';
@@ -52,25 +53,22 @@ export function renderEmployeeBadge(
     );
   }
 
-  // Construir mensajes de tooltip (pueden ser múltiples)
-  const messages: string[] = [];
-  if (dev.is_duplicated) messages.push('Empleado asignado en múltiples filas');
-  if (dev.is_unassigned_to_client) messages.push('No asignado al cliente de esta fila');
-  if (dev.has_no_diagram) messages.push('Sin diagrama cargado para este día');
-  if (dev.is_non_work_day) {
-    messages.push(`Día no laboral: ${dev.diagram_type_name ?? 'No laboral'}`);
-  }
+  // Desvíos (aditivos: un empleado puede tener varios a la vez) — fuente única de la regla
+  // en `lib/resource-deviations.ts` (misma semántica que el SQL `get_daily_report_deviations`).
+  const devEntries = employeeDeviations(dev);
+  const messages = devEntries.map((entry) => entry.label);
+  const kinds = new Set(devEntries.map((entry) => entry.kind));
 
   // Determinar color según prioridad
-  const badgeClass = dev.is_duplicated
+  const badgeClass = kinds.has('duplicated')
     ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
-    : dev.is_unassigned_to_client && dev.has_no_diagram
+    : kinds.has('unassigned_to_client') && kinds.has('no_diagram')
       ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 dark:border-purple-400'
-      : dev.is_unassigned_to_client
+      : kinds.has('unassigned_to_client')
         ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
-        : dev.has_no_diagram
+        : kinds.has('no_diagram')
           ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
-          : dev.is_non_work_day
+          : kinds.has('non_work_day')
             ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
             : 'dark:text-black';
 
@@ -165,30 +163,26 @@ export function renderEquipmentBadge(
     );
   }
 
+  // Desvíos (aditivos: un equipo puede tener varios a la vez) — fuente única de la regla en
+  // `lib/resource-deviations.ts` (misma semántica que el SQL `get_daily_report_deviations`).
+  const devEntries = equipmentDeviations(dev);
+  const tooltipMessages = devEntries.map((entry) => entry.label);
+  const kinds = new Set(devEntries.map((entry) => entry.kind));
+
   // Determinar color según prioridad y condición
-  const condition = dev.condition?.toLowerCase() ?? '';
-  const badgeClass = dev.is_duplicated
+  const badgeClass = kinds.has('duplicated')
     ? 'border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-400'
-    : condition === 'no operativo'
+    : kinds.has('not_operative')
       ? 'border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400'
-      : condition === 'en reparacion' || condition === 'en_reparacion'
+      : kinds.has('under_repair')
         ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-400'
-        : dev.is_unassigned_to_client
+        : kinds.has('unassigned_to_client')
           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400'
-          : condition === 'operativo condicionado'
+          : kinds.has('conditioned')
             ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 dark:border-sky-400'
-            : condition === 'en preparacion' || condition === 'en_preparacion'
+            : kinds.has('in_preparation')
               ? 'border-gray-400 bg-transparent'
               : 'dark:text-black';
-
-  const tooltipMessages: string[] = [];
-  if (dev.is_duplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
-  if (condition === 'no operativo') tooltipMessages.push('Condición: No operativo');
-  if (condition === 'en reparacion' || condition === 'en_reparacion') tooltipMessages.push('Condición: En reparación');
-  if (dev.is_unassigned_to_client) tooltipMessages.push('No asignado al cliente de esta fila');
-  if (condition === 'operativo condicionado') tooltipMessages.push('Condición: Condicionado');
-  if (condition === 'en preparacion' || condition === 'en_preparacion')
-    tooltipMessages.push('Condición: En preparación');
 
   if (tooltipMessages.length === 0) {
     return (
