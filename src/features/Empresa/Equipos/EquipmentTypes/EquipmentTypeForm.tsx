@@ -8,7 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { Logger } from '@/lib/logger';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
-import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
+import {
+  fetchDependenciesForValue,
+  fetchReplacementOptions,
+  reassignDependencies,
+} from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -282,7 +286,18 @@ function EquipmentTypesForm({
     // Reemplazo masivo y luego desactivar
     if (action === 'replace') {
       try {
-        // Ahora sí, desactivar el registro actual (el modal ya manejó el reemplazo)
+        // El modal sólo elige el reemplazo: la reasignación la hace el servidor. Sin esto el
+        // tipo se desactivaba igual y los equipos quedaban apuntando a un tipo inactivo, con
+        // toast de éxito.
+        await reassignDependencies({
+          targetTable: 'vehicles',
+          targetColumn: dependencyConfigs[0].targetColumn,
+          sourceTable: 'type',
+          fromValue: initialData.id,
+          toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
+        });
+
+        // Ahora sí, desactivar el registro actual
         const values = form.getValues();
         await updateEquipmentType({
           id: values.id!,
