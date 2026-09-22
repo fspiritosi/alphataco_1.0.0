@@ -66,6 +66,13 @@ describe('callFunction', () => {
     expect(calls[0].values).toEqual([JSON.stringify(filters), '2f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e', null]);
   });
 
+  it('undefined y { json: undefined } se bindean explícitamente como NULL', async () => {
+    const { client, calls } = fakeClient([]);
+    await callFunction('fn', [undefined, { json: undefined }, { uuid: undefined }], z.array(z.unknown()), client);
+    expect(calls[0].text).toBe('SELECT * FROM public.fn($1, $2::jsonb, $3::uuid)');
+    expect(calls[0].values).toEqual([null, null, null]);
+  });
+
   it('valida el resultado con el schema Zod (bigint → number con coerce)', async () => {
     const { client } = fakeClient([{ col_value: 'Demo', col_count: BigInt(3) }]);
     const rows = await callFunction(

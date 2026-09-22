@@ -13,12 +13,23 @@ import { z } from 'zod';
  *   (`{ json: null }` produce `NULL::jsonb`). `uuid`: `{ uuid: '...' }` → `::uuid`. Los casts
  *   evitan que Postgres no pueda resolver el tipo de un parámetro cuando la función tiene
  *   sobrecargas o defaults.
+ * - `undefined` (suelto, `{ json: undefined }` o `{ uuid: undefined }`) se bindea como `NULL`
+ *   de forma explícita: es el equivalente de omitir un parámetro con DEFAULT en la función.
+ *   Si un argumento no puede ser nulo, validarlo antes de llamar.
  * - `bigint` de Postgres (`count(*)`, `RETURNS TABLE(... bigint)`) llega como `bigint` de JS:
  *   el schema Zod lo convierte (`z.coerce.number()` si entra en Number, o `z.bigint()`).
  * - Funciones que devuelven `void` NO van por acá (`$queryRaw` no puede deserializar `void`):
  *   usar `client.$executeRaw` directamente.
  */
-export type SqlArg = string | number | boolean | null | Date | { json: unknown } | { uuid: string };
+export type SqlArg =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | { json: unknown }
+  | { uuid: string | null | undefined };
 
 /** Mínimo que necesitan los helpers: sirve `prisma`, un `Prisma.TransactionClient` o un doble de test. */
 export type SqlClient = Pick<Prisma.TransactionClient, '$queryRaw'>;
@@ -32,13 +43,14 @@ function assertFunctionName(name: string): void {
 }
 
 function toSqlValue(arg: SqlArg): Prisma.Sql {
+  if (arg === undefined) return Prisma.sql`${null}`;
   if (arg !== null && typeof arg === 'object' && !(arg instanceof Date)) {
     if ('json' in arg) {
-      const serialized = arg.json === null ? null : JSON.stringify(arg.json);
+      const serialized = arg.json === null || arg.json === undefined ? null : JSON.stringify(arg.json);
       return Prisma.sql`${serialized}::jsonb`;
     }
     if ('uuid' in arg) {
-      return Prisma.sql`${arg.uuid}::uuid`;
+      return Prisma.sql`${arg.uuid ?? null}::uuid`;
     }
   }
   return Prisma.sql`${arg}`;
