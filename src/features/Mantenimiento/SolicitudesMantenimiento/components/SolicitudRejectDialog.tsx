@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { AlertCircle, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { MaintenanceRequestData } from '../actions/actionsServer';
+import type { MaintenanceRequestData } from '../actions/queries.server';
 import { useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
 
 interface SolicitudRejectDialogProps {

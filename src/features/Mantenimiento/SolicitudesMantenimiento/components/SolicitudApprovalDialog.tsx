@@ -29,7 +29,7 @@ import {
   getRepairItemImages,
   getRepairItemLabel,
 } from '../../shared/repair-item-label';
-import type { MaintenanceRequestData } from '../actions/actionsServer';
+import type { MaintenanceRequestData } from '../actions/queries.server';
 import { useApproveMaintenanceRequestItems, useRejectMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
 
 interface SolicitudApprovalDialogProps {

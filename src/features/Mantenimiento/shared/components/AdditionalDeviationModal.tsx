@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchSupervisorsForEquipment } from '@/features/Checklists/actions/actionsServer';
-import { createManualDeviationsFromChecklist } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { createManualDeviationsFromChecklist } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/mutations.server';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';

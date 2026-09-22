@@ -13,7 +13,7 @@ import { resolveDriverInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { RepairItemPhotos } from '../../shared/components/RepairItemPhotos';
 import { getRepairItemGroupName, getRepairItemImages, getRepairItemLabel } from '../../shared/repair-item-label';
-import type { MaintenanceRequestData } from '../actions/actionsServer';
+import type { MaintenanceRequestData } from '../actions/queries.server';
 
 interface SolicitudDetailDialogProps {
   request: MaintenanceRequestData;

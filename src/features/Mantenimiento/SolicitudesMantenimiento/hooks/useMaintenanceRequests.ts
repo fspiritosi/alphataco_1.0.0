@@ -2,11 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { approveWorkshopEntry } from '../../Operaciones/actions/actionsServer';
 import type { ApproveRequestItemsInput, ApproveWorkshopEntryInput, RejectRequestInput } from '../../types';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
-import {
-  approveMaintenanceRequestItems,
-  rejectMaintenanceRequest,
-  rejectMaintenanceRequestItems,
-} from '../actions/actionsServer';
+import { approveMaintenanceRequestItems, rejectMaintenanceRequest, rejectMaintenanceRequestItems } from '../actions/approvals.server';
 
 export const MAINTENANCE_REQUESTS_QUERY_KEY = ['maintenance-requests'];
 

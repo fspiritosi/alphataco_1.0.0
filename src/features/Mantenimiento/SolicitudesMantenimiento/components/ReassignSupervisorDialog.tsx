@@ -19,8 +19,8 @@ import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
-import type { MaintenanceRequestData } from '../actions/actionsServer';
-import { reassignRequestSupervisor } from '../actions/actionsServer';
+import type { MaintenanceRequestData } from '../actions/queries.server';
+import { reassignRequestSupervisor } from '../actions/approvals.server';
 
 const logger = new Logger('ReassignSupervisorDialog');
 

@@ -13,7 +13,7 @@ import type { LucideIcon } from 'lucide-react';
 import { CircleOff } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import { getMaintenanceRequestById } from './actions/actionsServer';
+import { getMaintenanceRequestById } from './actions/queries.server';
 import {
   getAllMaintenanceRequestsForExport,
   getMaintenanceRequestSingleFacet,
@@ -325,24 +325,20 @@ export function MaintenanceRequestDataTable({
       />
 
       {selectedRequestId && dialogType === 'view' && fullRequest && (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudDetailDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
+        <SolicitudDetailDialog request={fullRequest} open={true} onClose={handleCloseDialog} />
       )}
 
       {selectedRequestId && dialogType === 'approve' && fullRequest && (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudApprovalDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
+        <SolicitudApprovalDialog request={fullRequest} open={true} onClose={handleCloseDialog} />
       )}
 
       {selectedRequestId && dialogType === 'reject' && fullRequest && (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <SolicitudRejectDialog request={fullRequest as any} open={true} onClose={handleCloseDialog} />
+        <SolicitudRejectDialog request={fullRequest} open={true} onClose={handleCloseDialog} />
       )}
 
       {reassignRequestId && fullReassignRequest && (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <ReassignSupervisorDialog
-          request={fullReassignRequest as any}
+          request={fullReassignRequest}
           open={showReassignDialog}
           onOpenChange={(open) => {
             setShowReassignDialog(open);

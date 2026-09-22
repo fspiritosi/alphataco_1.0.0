@@ -19,7 +19,7 @@ import { getInitialKilometer, validateKilometer } from '@/features/Mantenimiento
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { MaintenanceRequestData } from '../actions/actionsServer';
+import type { MaintenanceRequestData } from '../actions/queries.server';
 import { useApproveWorkshopEntryFromRequest } from '../hooks/useMaintenanceRequests';
 
 interface EntradaTallerDialogProps {
