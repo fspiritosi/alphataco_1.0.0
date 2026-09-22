@@ -1,4 +1,4 @@
-import type { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
+import type { fetchSupervisorsForResource } from '@/features/Checklists/actions/actionsServer';
 import type { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
 import type { CreateDeviationFromNuevoPedido } from '../../actions/orders.server';
 
@@ -35,4 +35,4 @@ export interface ResourceOption {
 }
 
 /** Supervisor de turno, como lo devuelve el listado de checklists. */
-export type SupervisorOption = Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>[number];
+export type SupervisorOption = Awaited<ReturnType<typeof fetchSupervisorsForResource>>[number];

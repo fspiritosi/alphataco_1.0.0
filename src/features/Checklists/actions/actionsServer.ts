@@ -465,4 +465,32 @@ export async function fetchSupervisorsForEquipment(equipmentId: string) {
   }
 }
 
+/**
+ * Supervisores de la empresa del RECURSO, sea vehículo o equipamiento (ticket 596).
+ *
+ * Variante de `fetchSupervisorsForEquipment` para el formulario de Nuevo Pedido, que sirve
+ * a los dos caminos: el del dashboard y el del QR anónimo (`/maintenance/equipment/[id]/…`).
+ * `kind` es sólo el discriminador de qué tabla mirar — la empresa la sigue poniendo la fila
+ * del recurso, nunca el cliente.
+ */
+export async function fetchSupervisorsForResource(kind: 'vehicle' | 'other_equipment', resourceId: string) {
+  try {
+    if (kind === 'other_equipment') {
+      const equipment = await prisma.other_equipment.findUnique({
+        where: { id: resourceId },
+        select: { company_id: true },
+      });
+      if (!equipment?.company_id) throw new Error('No se encontró la empresa del equipamiento');
+      return await getSupervisorsForCompany(equipment.company_id);
+    }
+
+    return await getSupervisorsForCompany(await getVehicleCompanyId(resourceId));
+  } catch (error) {
+    serverLogger.error('Error al obtener supervisores de la empresa del recurso', {
+      data: { error, kind, resourceId },
+    });
+    return [];
+  }
+}
+
 export type SupervisorForChecklist = Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>[number];

@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
+import { fetchSupervisorsForResource } from '@/features/Checklists/actions/actionsServer';
 import {
   fetchAllEquipmentBasicData,
   fetchAllOtherEquipmentBasicData,
@@ -320,11 +320,18 @@ export function NuevoPedidoChecklistForm({
     enabled: steps.findIndex((s) => s.key === 'supervisor') <= currentStep,
   });
 
-  // Query para supervisores (solo se ejecuta cuando NO es supervisor)
+  // Query para supervisores (solo se ejecuta cuando NO es supervisor).
+  //
+  // La lista sale de la empresa DEL RECURSO elegido, no de la sesión: este formulario también
+  // se usa desde `/maintenance/equipment/[id]/request` (QR anónimo), donde no hay empresa
+  // activa y resolverla por sesión dejaba el paso "Supervisor" vacío y sin poder avanzar.
   const { data: supervisors = [], isLoading: isLoadingSupervisors } = useQuery({
-    queryKey: ['supervisors-for-checklist'],
-    queryFn: fetchSupervisorsForChecklist,
-    enabled: steps.findIndex((s) => s.key === 'supervisor') <= currentStep && isCurrentUserSupervisor === false,
+    queryKey: ['supervisors-for-resource', resourceKind, selectedEquipmentId],
+    queryFn: () => fetchSupervisorsForResource(resourceKind, selectedEquipmentId),
+    enabled:
+      !!selectedEquipmentId &&
+      steps.findIndex((s) => s.key === 'supervisor') <= currentStep &&
+      isCurrentUserSupervisor === false,
   });
 
   // Supervisor seleccionado
