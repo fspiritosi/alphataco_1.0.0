@@ -17,7 +17,7 @@ export default async function CustomerTabWrapper() {
       <CustomerTab
         savedFilters={savedCustomersFiltersAreaTable ? JSON.parse(savedCustomersFiltersAreaTable) : []}
         customers={customers}
-        provinces={provinces.map((province) => ({ id: Number(province.id), name: province.name }))}
+        provinces={provinces}
         areas={areas}
       />
     </Card>
