@@ -1,4 +1,4 @@
-import { fetchAllEquipmentBasicData } from '@/features/Mantenimiento/actions/equipment-basic';
+import { fetchEquipmentBasicDataForEquipment } from '@/features/Mantenimiento/actions/equipment-basic';
 import { NuevoPedidoChecklistForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoChecklistForm';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -33,7 +33,9 @@ export default async function MaintenanceEquipmentRequestPage({ params }: { para
   }
 
   // 3. Parallel fetches: employee data + equipment list
-  const [employeeData, allEquipment] = await Promise.all([
+  //    La lista de equipos se pide por el equipo de la ruta: acá no hay empresa activa
+  //    (sesión anónima del QR), así que la empresa la resuelve la action desde el vehículo.
+  const [employeeData, equipment] = await Promise.all([
     employeeId
       ? supabase
           .from('employees')
@@ -43,13 +45,10 @@ export default async function MaintenanceEquipmentRequestPage({ params }: { para
           .single()
           .then((res) => res.data)
       : Promise.resolve(null),
-    fetchAllEquipmentBasicData(),
+    fetchEquipmentBasicDataForEquipment(resolvedParams.id),
   ]);
 
-  // 4. Filter equipment by company
-  const equipment = allEquipment.filter((e) => e.company_id === equipmentData.company_id);
-
-  // 5. Build driver display name (name only — legajo shown separately in UI)
+  // 4. Build driver display name (name only — legajo shown separately in UI)
   const driverName = employeeData ? `${employeeData.lastname} ${employeeData.firstname}`.trim() : undefined;
   const driverFileNumber = employeeData?.file ?? undefined;
 

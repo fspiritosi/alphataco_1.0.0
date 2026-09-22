@@ -1,5 +1,6 @@
 'use server';
 
+import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
@@ -15,44 +16,69 @@ const logger = new Logger('features/Mantenimiento/equipment-basic');
  * El shape de salida se mantiene identico al anterior — solo se AGREGAN
  * `type_name` y `sub_type_name` — para no tocar a ninguno de sus consumidores.
  */
+/**
+ * Listado por empresa. NO es una Server Action: es una función privada del módulo, para que
+ * `companyId` no pueda llegar nunca desde el cliente (sin RLS, un `companyId` de parámetro
+ * en un `'use server'` exportado es un endpoint que lista cualquier empresa).
+ */
+async function listEquipmentBasicDataForCompany(companyId: string) {
+  const equipments = await prisma.vehicles.findMany({
+    where: withCompany({}, companyId),
+    select: {
+      id: true,
+      condition: true,
+      picture: true,
+      year: true,
+      company_id: true,
+      domain: true,
+      serie: true,
+      intern_number: true,
+      kilometer: true,
+      engine_hours: true,
+      types_of_vehicles: { select: { name: true } },
+      type_vehicles_typeTotype: { select: { name: true } },
+      sub_type: { select: { name: true } },
+    },
+  });
+
+  // Aplanamos los nombres de relacion generados por Prisma a claves legibles.
+  //
+  // `condition` se mantiene como string (y no como el enum de Prisma) a proposito:
+  // con Supabase llegaba asi, y varios consumidores lo comparan contra literales
+  // que no coinciden con el enum ('no operativo' en vez de 'no_operativo').
+  // Tiparlo estricto rompe esos archivos y arreglar esas comparaciones cambiaria
+  // el comportamiento de pantallas fuera del alcance de este ticket.
+  return equipments.map(({ type_vehicles_typeTotype, sub_type, condition, ...rest }) => ({
+    ...rest,
+    condition: condition as string | null,
+    type_name: type_vehicles_typeTotype?.name ?? null,
+    sub_type_name: sub_type?.name ?? null,
+  }));
+}
+
 export const fetchAllEquipmentBasicData = async () => {
   try {
-    const companyId = await getActiveCompanyId();
-
-    const equipments = await prisma.vehicles.findMany({
-      where: withCompany({}, companyId),
-      select: {
-        id: true,
-        condition: true,
-        picture: true,
-        year: true,
-        company_id: true,
-        domain: true,
-        serie: true,
-        intern_number: true,
-        kilometer: true,
-        engine_hours: true,
-        types_of_vehicles: { select: { name: true } },
-        type_vehicles_typeTotype: { select: { name: true } },
-        sub_type: { select: { name: true } },
-      },
-    });
-
-    // Aplanamos los nombres de relacion generados por Prisma a claves legibles.
-    //
-    // `condition` se mantiene como string (y no como el enum de Prisma) a proposito:
-    // con Supabase llegaba asi, y varios consumidores lo comparan contra literales
-    // que no coinciden con el enum ('no operativo' en vez de 'no_operativo').
-    // Tiparlo estricto rompe esos archivos y arreglar esas comparaciones cambiaria
-    // el comportamiento de pantallas fuera del alcance de este ticket.
-    return equipments.map(({ type_vehicles_typeTotype, sub_type, condition, ...rest }) => ({
-      ...rest,
-      condition: condition as string | null,
-      type_name: type_vehicles_typeTotype?.name ?? null,
-      sub_type_name: sub_type?.name ?? null,
-    }));
+    return await listEquipmentBasicDataForCompany(await getActiveCompanyId());
   } catch (error) {
     logger.error('Error fetching equipment', { data: { error } });
+    return [];
+  }
+};
+
+/**
+ * Misma lista, pero con la empresa derivada DEL EQUIPO de la ruta.
+ *
+ * Es la variante del flujo QR anónimo (`/maintenance/equipment/[id]/request`): ahí no hay
+ * empresa activa, así que `fetchAllEquipmentBasicData()` devolvía vacío o, peor, la empresa
+ * de una cookie ajena al equipo escaneado. La empresa sale de la fila del vehículo, nunca
+ * del cliente — misma regla que `shared/resource-company.ts::getResourceCompanyId`.
+ */
+export const fetchEquipmentBasicDataForEquipment = async (equipmentId: string) => {
+  try {
+    const companyId = await getResourceCompanyId(prisma, 'vehicle', equipmentId);
+    return await listEquipmentBasicDataForCompany(companyId);
+  } catch (error) {
+    logger.error('Error fetching equipment for equipment', { data: { error, equipmentId } });
     return [];
   }
 };
