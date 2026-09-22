@@ -12,8 +12,9 @@ import { showCompanyFieldErrors } from './company-field-errors';
 
 /**
  * Botón de alta de empresa: valida el `FormData` del formulario de la página (lógica pura
- * `parseCompanyForm`), lo manda a `createCompany` (que sube el logo y asigna owner/rol en el
- * servidor) y deja la empresa nueva como activa en el store.
+ * `parseCompanyForm`) y lo manda a `createCompany`, que en el servidor resuelve el `owner_id` desde
+ * la sesión, crea la pertenencia, sube el logo y —sólo si es la primera empresa del usuario— otorga
+ * el rol admin de bootstrap. Al volver, deja la empresa nueva como activa en el store.
  */
 export default function CreateCompanyButton() {
   const router = useRouter();

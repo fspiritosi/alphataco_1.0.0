@@ -144,10 +144,14 @@ function toCompanyData(values: CompanyFormValues) {
  * - El trigger `assign_owner_role_trigger` (prisma/sql/permissions.sql) sólo actúa si existe el rol
  *   `slug='owner'`; el seed no lo crea, así que la pertenencia se inserta acá (sin duplicarla).
  *
- * No se asigna rol acá: `user_roles` no tiene `company_id`, así que cualquier rol sería global.
- * Task 13 agrega `user_roles.company_id` (+ unique y ajuste de `get_user_permissions`) y recién
- * entonces se puede otorgar `admin` de la empresa creada. Hoy el alta de roles la hace un admin
- * existente desde el editor de permisos.
+ * - Rol: `user_roles` NO tiene `company_id` y `get_user_permissions` une sólo por `user_id`, así que
+ *   todo rol asignado acá es GLOBAL (valdría en todas las empresas del usuario). Por eso el grant se
+ *   limita al bootstrap: sólo si el usuario no pertenecía a ninguna otra empresa Y no tenía ningún
+ *   rol — el caso de la PRIMERA empresa, donde no existe ningún admin que pueda darle permisos. Un
+ *   usuario que ya pertenece a otra empresa o ya tiene un rol NO recibe nada al crear otra empresa:
+ *   ése era el vector de escalación (crear una empresa descartable para volverse admin global).
+ *   Task 13 agrega `user_roles.company_id` (+ unique y ajuste de `get_user_permissions`) y ahí el
+ *   rol pasa a ser por empresa y esta excepción desaparece.
  */
 export async function createCompany(formData: FormData): Promise<CompanyMutationResult> {
   const parsed = parseCompanyForm(formData);
@@ -171,6 +175,30 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
       });
       if (!membership) {
         await tx.share_company_users.create({ data: { company_id: company.id, profile_id: profileId } });
+      }
+
+      // Bootstrap de la PRIMERA empresa: sin pertenencias previas ni roles, el usuario no tendría
+      // ningún módulo visible y no existe un admin que pueda otorgarle permisos. El rol es global
+      // (ver el comentario de arriba), por eso se otorga SÓLO en ese caso.
+      const [previousMemberships, existingRoles] = await Promise.all([
+        tx.share_company_users.count({ where: { profile_id: profileId, company_id: { not: company.id } } }),
+        tx.user_roles.count({ where: { user_id: credentialId } }),
+      ]);
+
+      if (previousMemberships === 0 && existingRoles === 0) {
+        const adminRole = await tx.roles.findFirst({ where: { slug: 'admin', is_system: true }, select: { id: true } });
+        if (adminRole) {
+          await tx.user_roles.create({
+            data: { user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId },
+          });
+          logger.info('Rol admin otorgado en el alta de la primera empresa del usuario', {
+            data: { companyId: company.id, credentialId },
+          });
+        } else {
+          logger.warn('Rol admin no encontrado: la primera empresa se creó sin rol para el owner', {
+            data: { companyId: company.id },
+          });
+        }
       }
 
       return company.id;

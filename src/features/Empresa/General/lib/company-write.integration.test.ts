@@ -5,10 +5,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
  * Integración real contra el Postgres del compose. Corre sólo con DATABASE_URL:
  *   DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco npx vitest run src/features/Empresa/General/lib/company-write.integration.test.ts
  *
- * El primer caso ejecuta la server action REAL `createCompany` (se mockea únicamente la sesión:
- * `getSessionUserId` y el `revalidatePath` de Next). Verifica el `owner_id`, la pertenencia y —
- * sobre todo — que NO se cree ninguna fila en `user_roles`: `user_roles` no tiene `company_id`,
- * así que un rol asignado acá valdría en TODAS las empresas del usuario.
+ * Los dos primeros casos ejecutan la server action REAL `createCompany` (se mockea únicamente la
+ * sesión: `getSessionUserId` y el `revalidatePath` de Next) y fijan el grant de rol acotado:
+ * `user_roles` no tiene `company_id`, así que todo rol otorgado ahí es GLOBAL. Se otorga `admin`
+ * SÓLO en el bootstrap (primera empresa del usuario, sin pertenencias ni roles previos); si el
+ * usuario ya pertenecía a otra empresa, crear una nueva NO le suma ningún rol.
  *
  * Los otros casos cubren lo que `check-types` no ve de las demás escrituras de Task 6: los
  * `BigInt` de `workshops.city/province`, el `Decimal` nullable de lat/long, la guarda
@@ -34,6 +35,23 @@ class Rollback extends Error {}
 /** Empresas creadas por el test (la server action commitea): se borran en el afterAll. */
 const createdCompanyIds: string[] = [];
 
+/** FormData del formulario de alta de empresa (los campos que valida `parseCompanyForm`). */
+function buildCompanyForm({ cuit, city }: { cuit: string; city: { id: bigint; province_id: bigint } }): FormData {
+  const formData = new FormData();
+  formData.set('company_name', 'Empresa test Task 6');
+  formData.set('company_cuit', cuit);
+  formData.set('description', 'prueba de integración');
+  formData.set('website', '');
+  formData.set('contact_email', 'test@test.com');
+  formData.set('contact_phone', '+54 (299) 123-4567');
+  formData.set('address', 'Calle 123');
+  formData.set('country', 'argentina');
+  formData.set('industry', 'Petroleo');
+  formData.set('province_id', String(city.province_id));
+  formData.set('city', String(city.id));
+  return formData;
+}
+
 describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
   beforeAll(async () => {
     const { prisma } = await import('@/shared/lib/prisma');
@@ -57,29 +75,18 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     await prisma.profile.deleteMany({ where: { id: sessionProfileId } });
   });
 
-  it('createCompany: crea la empresa con owner de sesión y su pertenencia, y NO asigna ningún rol', async () => {
+  it('createCompany (primera empresa): crea empresa + pertenencia y otorga el rol admin de bootstrap', async () => {
     const { prisma } = await import('@/shared/lib/prisma');
     const { createCompany } = await import('../actions/company.server');
 
     const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
     if (!city) throw new Error('La base del compose necesita al menos una ciudad');
 
-    const rolesBefore = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    // Estado de partida del bootstrap: sin pertenencias ni roles.
+    expect(await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } })).toBe(0);
+    expect(await prisma.user_roles.count({ where: { user_id: sessionCredentialId } })).toBe(0);
 
-    const formData = new FormData();
-    formData.set('company_name', 'Empresa test Task 6');
-    formData.set('company_cuit', '30712345671');
-    formData.set('description', 'prueba de integración');
-    formData.set('website', '');
-    formData.set('contact_email', 'test@test.com');
-    formData.set('contact_phone', '+54 (299) 123-4567');
-    formData.set('address', 'Calle 123');
-    formData.set('country', 'argentina');
-    formData.set('industry', 'Petroleo');
-    formData.set('province_id', String(city.province_id));
-    formData.set('city', String(city.id));
-
-    const result = await createCompany(formData);
+    const result = await createCompany(buildCompanyForm({ cuit: '30712345671', city }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     createdCompanyIds.push(result.data.id);
@@ -92,7 +99,10 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
       where: { company_id: result.data.id, profile_id: sessionProfileId },
       select: { id: true },
     });
-    const rolesAfter = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    const roles = await prisma.user_roles.findMany({
+      where: { user_id: sessionCredentialId },
+      select: { roles: { select: { slug: true } } },
+    });
 
     expect(company).toMatchObject({
       owner_id: sessionProfileId,
@@ -104,9 +114,33 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     expect(Number(company?.city)).toBe(Number(city.id));
     expect(Number(company?.province_id)).toBe(Number(city.province_id));
     expect(membership).not.toBeNull();
-    // Critical: `user_roles` no tiene `company_id` — un rol asignado acá sería global.
+    // Bootstrap: exactamente un rol admin, porque era su primera empresa.
+    expect(roles).toEqual([{ roles: { slug: 'admin' } }]);
+  });
+
+  it('createCompany (segunda empresa): con pertenencia previa NO suma ningún rol', async () => {
+    const { prisma } = await import('@/shared/lib/prisma');
+    const { createCompany } = await import('../actions/company.server');
+
+    const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
+    if (!city) throw new Error('La base del compose necesita al menos una ciudad');
+
+    // Este caso corre después del anterior: el usuario ya tiene una empresa (y su rol de bootstrap).
+    const membershipsBefore = await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } });
+    const rolesBefore = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    expect(membershipsBefore).toBeGreaterThan(0);
+
+    const result = await createCompany(buildCompanyForm({ cuit: '30712345604', city }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    createdCompanyIds.push(result.data.id);
+
+    const rolesAfter = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    const membershipsAfter = await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } });
+
+    // La pertenencia sí se crea; el rol NO (ése era el vector de escalación).
+    expect(membershipsAfter).toBe(membershipsBefore + 1);
     expect(rolesAfter).toBe(rolesBefore);
-    expect(rolesAfter).toBe(0);
   });
 
   it('talleres y sectores: bigint de city/province, Decimal nullable y duplicado case-insensitive', async () => {
