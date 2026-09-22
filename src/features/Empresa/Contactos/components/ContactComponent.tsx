@@ -1,140 +1,112 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createdContact, updateContact } from '@/features/Empresa/Contactos/components/create';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  createdContact,
+  getActiveCustomerOptions,
+  getContactById,
+  updateContact,
+} from '@/features/Empresa/Contactos/actions/contacts.server';
 import { cn } from '@/lib/utils';
 import { contactSchema } from '@/shared/schemas/schemas';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import { z } from 'zod';
-
-type Action = 'view' | 'edit' | null;
 
 type ContactFormValues = z.infer<typeof contactSchema>;
 
+const EMPTY_VALUES: ContactFormValues = {
+  contact_name: '',
+  contact_email: '',
+  contact_phone: '',
+  contact_charge: '',
+  customer: '',
+};
+
+/**
+ * Alta / edición / vista de un contacto de la empresa activa
+ * (`/dashboard/company/actualCompany/contact/action?action=edit|view&id=...`).
+ * Clientes y contacto se piden por server action (React Query); la empresa la resuelve el servidor.
+ */
 export default function ContactRegister({ id }: { id: string }) {
   const router = useRouter();
-  const functionAction = id ? updateContact : createdContact;
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const actualCompany = useLoggedUserStore((state) => state.actualCompany?.id);
-  const supabase = supabaseBrowser();
-  const [action, setAction] = useState<Action>(searchParams.get('action') as Action);
-  const [readOnly, setReadOnly] = useState(action === 'edit' ? false : true);
-  const [clientData, setClientData] = useState<any>(null);
-  const [contactData, setContactData] = useState<any>(null);
-  const form = useForm<ContactFormValues>({
-    resolver: zodResolver(contactSchema),
-    defaultValues: {
-      contact_name: '',
-      contact_email: '',
-      contact_phone: '',
-      contact_charge: '',
-      customer: '',
-    },
+  const actionParam = searchParams.get('action');
+  const action = actionParam === 'view' || actionParam === 'edit' ? actionParam : null;
+  const readOnly = Boolean(id) && action !== 'edit';
+
+  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
+    queryKey: ['contact-customer-options'],
+    queryFn: getActiveCustomerOptions,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors: formErrors },
-  } = form;
+  const { data: contact, isLoading: loadingContact } = useQuery({
+    queryKey: ['contact', id],
+    queryFn: () => getContactById(id),
+    enabled: Boolean(id),
+  });
 
-  useEffect(() => {
-    const id = searchParams.get('id');
-    if (action === 'view') {
-      setReadOnly(true);
-    }
-    if (action === 'edit') {
-      setReadOnly(false);
-    }
-    if (!id) {
-      setReadOnly(false);
-    }
-
-    const fetchCustomers = async () => {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('is_active', true)
-        .eq('company_id', actualCompany || '');
-      if (error) {
-        console.error('Error fetching customers:', error);
-      } else {
-        setClientData(data);
-      }
-    };
-
-    const fetchContact = async () => {
-      if (id) {
-        const { data, error } = await supabase.from('contacts').select('*').eq('id', id);
-
-        if (error) {
-          console.error('Error fetching contact:', error);
-        } else {
-          if (data && data?.length > 0) {
-            const contact = data[0];
-            setContactData(contact);
-            setValue('contact_name', contact.contact_name || '');
-            setValue('contact_email', contact.constact_email || '');
-            setValue('contact_phone', contact.contact_phone?.toString() || '');
-            setValue('contact_charge', contact.contact_charge || '');
-            setValue('customer', contact.customer_id || '');
-          } else {
-            console.error('No se encontró ningún contacto con el id proporcionado.');
-          }
+  const form = useForm<ContactFormValues>({
+    resolver: zodResolver(contactSchema),
+    defaultValues: EMPTY_VALUES,
+    // El contacto llega asincrónico: `values` sincroniza el form sin useEffect.
+    values: contact
+      ? {
+          contact_name: contact.contact_name ?? '',
+          contact_email: contact.constact_email ?? '',
+          contact_phone: contact.contact_phone ?? '',
+          contact_charge: contact.contact_charge ?? '',
+          customer: contact.customer_id ?? '',
         }
-      }
-    };
+      : undefined,
+  });
 
-    fetchCustomers();
-    fetchContact();
-  }, [action, id]);
+  const onSubmit = async (values: ContactFormValues) => {
+    if (!values.customer || values.customer === 'undefined') {
+      form.setError('customer', { message: 'Debe seleccionar un cliente válido.' });
+      return;
+    }
 
-  const customerValue = watch('customer');
+    const data = new FormData();
+    data.append('id', id);
+    data.append('contact_name', values.contact_name);
+    data.append('contact_email', values.contact_email || '');
+    data.append('contact_phone', values.contact_phone);
+    data.append('contact_charge', values.contact_charge);
+    data.append('customer', values.customer);
 
-  const onSubmit = async (formData: ContactFormValues) => {
-    try {
-      if (!formData.customer || formData.customer === 'undefined') {
-        throw new Error('Debe seleccionar un cliente válido.');
-      }
-
-      const data = new FormData();
-      data.append('id', id);
-      data.append('contact_name', formData.contact_name);
-      data.append('contact_email', formData.contact_email || '');
-      data.append('contact_phone', formData.contact_phone);
-      data.append('contact_charge', formData.contact_charge);
-      data.append('customer', formData.customer);
-      const company_id = actualCompany;
-      data.append('company_id', company_id as string);
-      toast.loading('Creando contacto');
-
-      const response = await functionAction(data);
-
-      if (response.status === 201) {
-        toast.dismiss();
-        toast.success('Contacto creado satisfactoriamente!');
-        router.push('/dashboard/company/actualCompany');
-      } else {
-        toast.dismiss();
-        toast.error(response.body);
-      }
-    } catch (errors) {
-      // console.error('Error submitting form:', error);
-      toast.dismiss();
-      toast.error('Error al crear el cliente');
+    const toastId = toast.loading(id ? 'Actualizando contacto' : 'Creando contacto');
+    const response = id ? await updateContact(data) : await createdContact(data);
+    if (response.status === 201 || response.status === 200) {
+      toast.success(response.body, { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ['contact', id] });
+      router.push('/dashboard/company/actualCompany');
+    } else {
+      toast.error(response.body, { id: toastId });
     }
   };
+
+  if (id && loadingContact) {
+    return <Skeleton className="h-64 w-full rounded-md" />;
+  }
+
+  if (id && !contact) {
+    return (
+      <Card className="mt-6 p-8">
+        <CardTitle className="text-2xl">Contacto no encontrado</CardTitle>
+        <CardDescription>El contacto no existe o no pertenece a la empresa activa.</CardDescription>
+      </Card>
+    );
+  }
 
   return (
     <section className={cn('md:mx-7')}>
@@ -150,111 +122,93 @@ export default function ContactRegister({ id }: { id: string }) {
               : 'Completa este formulario con los datos de tu nuevo Contacto'}
         </CardDescription>
         <div className="mt-6 rounded-xl flex w-full">
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <input type="hidden" name="id" value={id} />
-
-            <div className="flex flex-wrap gap-3 items-center w-full">
-              <div>
-                <Label htmlFor="contact_name">Nombre del Contacto</Label>
-                <Input
-                  id="contact_name"
-                  {...register('contact_name')}
-                  className="max-w-[350px] w-[300px]"
-                  placeholder="nombre del contacto"
-                  defaultValue={contactData?.contact_name || ''}
-                  readOnly={readOnly}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <div className="flex flex-wrap gap-3 items-center w-full">
+                <FormField
+                  control={form.control}
+                  name="contact_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del Contacto</FormLabel>
+                      <FormControl>
+                        <Input className="max-w-[350px] w-[300px]" placeholder="nombre del contacto" readOnly={readOnly} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {formErrors.contact_name && (
-                  <CardDescription id="contact_name_error" className="max-w-[300px]">
-                    {formErrors.contact_name.message}
-                  </CardDescription>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="contact_email">Email</Label>
-                <Input
-                  id="contact_email"
-                  {...register('contact_email')}
-                  className="max-w-[350px] w-[300px]"
-                  placeholder="email"
-                  defaultValue={contactData?.contact_email || ''}
-                  readOnly={readOnly}
+                <FormField
+                  control={form.control}
+                  name="contact_email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input className="max-w-[350px] w-[300px]" placeholder="email" readOnly={readOnly} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {formErrors.contact_email && (
-                  <CardDescription id="contact_email_error" className="max-w-[300px]">
-                    {formErrors.contact_email.message}
-                  </CardDescription>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="contact_phone">Número de teléfono</Label>
-                <Input
-                  id="contact_phone"
-                  {...register('contact_phone')}
-                  className="max-w-[350px] w-[300px]"
-                  placeholder="teléfono"
-                  defaultValue={contactData?.contact_phone || ''}
-                  readOnly={readOnly}
+                <FormField
+                  control={form.control}
+                  name="contact_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número de teléfono</FormLabel>
+                      <FormControl>
+                        <Input className="max-w-[350px] w-[300px]" placeholder="teléfono" readOnly={readOnly} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {formErrors.contact_phone && (
-                  <CardDescription id="contact_phone_error" className="max-w-[300px]">
-                    {formErrors.contact_phone.message}
-                  </CardDescription>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="customer">Seleccione un cliente</Label>
-                <Select
-                  value={customerValue}
-                  onValueChange={(value) => setValue('customer', value)}
-                  disabled={readOnly}
-                >
-                  <SelectTrigger id="customer" name="customer" className="max-w-[350px] w-[300px]">
-                    <SelectValue
-                      placeholder={
-                        clientData?.find((cli: any) => cli.id === customerValue)?.name || 'Seleccionar un cliente'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientData?.map((client: any) => (
-                      <SelectItem key={client?.id} value={client?.id}>
-                        {client?.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {formErrors.customer && (
-                  <CardDescription id="customer_error" className="max-w-[300px]">
-                    {formErrors.customer.message}
-                  </CardDescription>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="contact_charge">Cargo</Label>
-                <Input
-                  id="contact_charge"
-                  {...register('contact_charge')}
-                  className="max-w-[350px] w-[300px]"
-                  placeholder="cargo en la empresa"
-                  defaultValue={contactData?.contact_charge || ''}
-                  readOnly={readOnly}
+                <FormField
+                  control={form.control}
+                  name="customer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Seleccione un cliente</FormLabel>
+                      <Select value={field.value || undefined} onValueChange={field.onChange} disabled={readOnly || loadingCustomers}>
+                        <FormControl>
+                          <SelectTrigger id="customer" className="max-w-[350px] w-[300px]">
+                            <SelectValue placeholder={loadingCustomers ? 'Cargando clientes...' : 'Seleccionar un cliente'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {formErrors.contact_charge && (
-                  <CardDescription id="contact_charge_error" className="max-w-[300px]">
-                    {formErrors.contact_charge.message}
-                  </CardDescription>
-                )}
+                <FormField
+                  control={form.control}
+                  name="contact_charge"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cargo</FormLabel>
+                      <FormControl>
+                        <Input className="max-w-[350px] w-[300px]" placeholder="cargo en la empresa" readOnly={readOnly} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </div>
-            {action === 'view' ? null : (
-              <Button type="submit" className="mt-5" disabled={form.formState.isSubmitting}>
-                {id ? 'Editar Contacto' : 'Registrar Contacto'}
-              </Button>
-            )}
-            <Toaster />
-          </form>
+              {action === 'view' ? null : (
+                <Button type="submit" className="mt-5" disabled={form.formState.isSubmitting}>
+                  {id ? 'Editar Contacto' : 'Registrar Contacto'}
+                </Button>
+              )}
+            </form>
+          </Form>
         </div>
       </Card>
     </section>

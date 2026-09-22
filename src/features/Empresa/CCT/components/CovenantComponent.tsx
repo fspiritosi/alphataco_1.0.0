@@ -4,7 +4,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createdContact, updateContact } from '@/features/Empresa/Contactos/components/create';
+import { createdContact, updateContact } from '@/features/Empresa/Contactos/actions/contacts.server';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { covenantSchema } from '@/shared/schemas/schemas';
