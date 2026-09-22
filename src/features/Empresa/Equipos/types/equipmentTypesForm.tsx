@@ -14,13 +14,21 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Database } from '../../../../../database.types';
 import { createEquipmentType, updateEquipmentType } from '../EquipmentTypes/actions.server';
 import { useActiveChecklists } from '../sub_types/hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentTypesForm');
 
-type VehicleType = Database['public']['Tables']['type']['Row'];
+/** Tipo a editar: sólo los campos que el formulario necesita de la fila. */
+type VehicleType = {
+  id: string;
+  name: string;
+  applies_to?: string | null;
+  is_active?: boolean | null;
+  is_operative?: boolean | null;
+  is_tractor_unit?: boolean | null;
+  has_hitch?: boolean | null;
+};
 
 interface EquipmentTypesFormProps {
   initialData?: VehicleType | null;

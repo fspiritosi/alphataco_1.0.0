@@ -12,6 +12,12 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import {
+  catalogAccessError,
+  catalogReadScope,
+  catalogWriteScope,
+  resolveCatalogAccess,
+} from '../lib/catalog-scope';
 
 // ============================================================================
 // LOGGER
@@ -74,7 +80,8 @@ export async function getEquipmentBrandsPaginated(searchParams: DataTableSearchP
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -116,7 +123,8 @@ export async function getEquipmentBrandsPaginated(searchParams: DataTableSearchP
 export async function getAllEquipmentBrandsForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -164,7 +172,7 @@ export async function getEquipmentBrandSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = { AND: [buildWhereClause(crossState), catalogReadScope(await getActiveCompanyId())] };
 
     switch (columnId) {
       case 'is_active': {
@@ -213,7 +221,7 @@ export async function createEquipmentBrand(data: { name: string; is_active: bool
       data: {
         name: data.name,
         is_active: data.is_active,
-        company_id: await getActiveCompanyId(),
+        ...catalogWriteScope(await getActiveCompanyId()),
       },
       select: { id: true, name: true, is_active: true, created_at: true },
     });
@@ -226,6 +234,12 @@ export async function createEquipmentBrand(data: { name: string; is_active: bool
 
 export async function updateEquipmentBrand(data: { id: number; name: string; is_active: boolean }) {
   try {
+    // Perímetro sin RLS: una marca global se lee pero no se edita desde una empresa.
+    const companyId = await getActiveCompanyId();
+    const existing = await prisma.brand_vehicles.findUnique({ where: { id: data.id }, select: { company_id: true } });
+    const accessError = catalogAccessError(resolveCatalogAccess(existing, companyId, 'write'), 'La marca no existe');
+    if (accessError) throw new Error(accessError);
+
     const result = await prisma.brand_vehicles.update({
       where: { id: data.id },
       data: {
@@ -237,7 +251,7 @@ export async function updateEquipmentBrand(data: { id: number; name: string; is_
     return result;
   } catch (error) {
     logger.error('Error al actualizar marca de equipo', { data: { error } });
-    throw new Error('No se pudo actualizar la marca. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo actualizar la marca. Intente nuevamente.');
   }
 }
 

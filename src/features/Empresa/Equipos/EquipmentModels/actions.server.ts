@@ -12,6 +12,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { catalogReadScope } from '../lib/catalog-scope';
 
 // ============================================================================
 // LOGGER
@@ -102,7 +104,7 @@ export async function getEquipmentModelsPaginated(searchParams: DataTableSearchP
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -151,7 +153,7 @@ export async function getEquipmentModelsPaginated(searchParams: DataTableSearchP
 export async function getAllEquipmentModelsForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -206,7 +208,7 @@ export async function getEquipmentModelSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = withCompany(buildWhereClause(crossState), await getActiveCompanyId());
 
     switch (columnId) {
       case 'is_active': {
@@ -306,8 +308,10 @@ export async function getEquipmentModelSingleFacet(
  * @param excludeId id a excluir de la busqueda (al editar, el propio registro)
  */
 async function findDuplicateEquipmentModel(name: string, brand: number, excludeId?: number) {
+  const companyId = await getActiveCompanyId();
   return prisma.model_vehicles.findFirst({
     where: {
+      company_id: companyId,
       brand,
       name: { equals: name.trim(), mode: 'insensitive' },
       ...(excludeId != null ? { id: { not: excludeId } } : {}),
@@ -365,6 +369,13 @@ export async function updateEquipmentModelPrisma(data: {
       return { ok: false as const, error: `Ya existe el modelo "${duplicate.name}" para esta marca.` };
     }
 
+    // Perímetro sin RLS: `model_vehicles.company_id` es NOT NULL, no hay modelos globales.
+    const owned = await prisma.model_vehicles.findFirst({
+      where: withCompany({ id: data.id }, await getActiveCompanyId()),
+      select: { id: true },
+    });
+    if (!owned) return { ok: false as const, error: 'El modelo no existe.' };
+
     const result = await prisma.model_vehicles.update({
       where: { id: data.id },
       data: {
@@ -394,8 +405,9 @@ export async function updateEquipmentModelPrisma(data: {
 
 export async function getActiveBrandsForSelect() {
   try {
+    const companyId = await getActiveCompanyId();
     return await prisma.brand_vehicles.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...catalogReadScope(companyId) },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });

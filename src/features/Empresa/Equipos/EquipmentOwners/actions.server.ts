@@ -15,6 +15,12 @@ import {
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import {
+  catalogAccessError,
+  catalogReadScope,
+  catalogWriteScope,
+  resolveCatalogAccess,
+} from '../lib/catalog-scope';
 
 // ============================================================================
 // LOGGER
@@ -76,7 +82,8 @@ export async function getEquipmentOwnersPaginated(searchParams: DataTableSearchP
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -125,7 +132,7 @@ export async function getEquipmentOwnersPaginated(searchParams: DataTableSearchP
 export async function getAllEquipmentOwnersForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -180,7 +187,7 @@ export async function getEquipmentOwnerSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = { AND: [buildWhereClause(crossState), catalogReadScope(await getActiveCompanyId())] };
 
     switch (columnId) {
       case 'is_active': {
@@ -660,7 +667,7 @@ export async function createEquipmentOwnerPrisma(data: {
         name: data.name,
         is_active: data.is_active,
         cuit: data.cuit,
-        company_id: await getActiveCompanyId(),
+        ...catalogWriteScope(await getActiveCompanyId()),
         // Campo legacy requerido por el schema: usar el primero de la lista
         contract_type: data.contract_types[0] as 'Leasing' | 'Alquiler' | 'Prendado',
         equipment_owner_contract_types: {
@@ -691,6 +698,12 @@ export async function updateEquipmentOwnerPrisma(data: {
   contract_types: ('Leasing' | 'Alquiler' | 'Prendado')[];
 }) {
   try {
+    // Perímetro sin RLS: un titular global se lee pero no se edita desde una empresa.
+    const companyId = await getActiveCompanyId();
+    const existing = await prisma.equipment_owners.findUnique({ where: { id: data.id }, select: { company_id: true } });
+    const accessError = catalogAccessError(resolveCatalogAccess(existing, companyId, 'write'), 'El titular no existe');
+    if (accessError) throw new Error(accessError);
+
     // Actualizar en transacción: primero eliminar tipos existentes, luego insertar nuevos
     const result = await prisma.$transaction(async (tx) => {
       await tx.equipment_owner_contract_types.deleteMany({
@@ -721,18 +734,20 @@ export async function updateEquipmentOwnerPrisma(data: {
     return result;
   } catch (error) {
     logger.error('Error al actualizar titular de equipo', { data: { error, id: data.id } });
-    throw new Error('No se pudo actualizar el titular. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo actualizar el titular. Intente nuevamente.');
   }
 }
 
 /**
- * Reasigna masivamente los vehículos de un owner a otro (o a null).
- * Reemplaza el uso de supabaseBrowser() en el formulario (seguridad crítica).
+ * Reasigna masivamente los vehículos de un titular a otro (o a ninguno).
+ * Antes esto se hacía desde el navegador con PostgREST: ahora es una server action y la
+ * escritura va acotada a la empresa activa (sin RLS, es la única defensa del endpoint).
  */
 export async function reassignVehiclesToOwner(fromOwnerId: string, toOwnerId: string | null) {
   try {
+    const companyId = await getActiveCompanyId();
     const result = await prisma.vehicles.updateMany({
-      where: { owner_id: fromOwnerId },
+      where: { owner_id: fromOwnerId, company_id: companyId },
       data: { owner_id: toOwnerId },
     });
     logger.info('Vehículos reasignados', { data: { fromOwnerId, toOwnerId, count: result.count } });

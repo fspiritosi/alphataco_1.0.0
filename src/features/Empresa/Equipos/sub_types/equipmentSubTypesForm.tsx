@@ -6,27 +6,40 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
-import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
+import {
+  fetchDependenciesForValue,
+  fetchReplacementOptions,
+  reassignDependencies,
+} from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Database } from '../../../../../database.types';
-import { createSubTypeOfVehicle, getAvailableCompatibleItems, updateSubTypeOfVehicle } from '../actions/actions';
+import {
+  createEquipmentSubType,
+  getAvailableCompatibleItems,
+  updateEquipmentSubType,
+  type EquipmentSubTypeListItem,
+} from '../EquipmentSubTypes/actions.server';
+import {
+  canHaveCompatibleItems,
+  formatCompatibleItemKey,
+  parseCompatibleItemKeys,
+  type CompatibleItem,
+} from '../lib/hitch-compatibility';
 import { useActiveChecklists } from './hooks/useActiveChecklists';
 
 const logger = new Logger('EquipmentSubTypesForm');
 
-type VehicleType = Database['public']['Tables']['type']['Row'];
-type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
-
-interface CompatibleItem {
-  id: string;
-  type: 'sub_type' | 'type';
-}
+/** Tipo de unidad tal como lo consume el selector del formulario. */
+type VehicleType = { id: string; name: string; is_tractor_unit?: boolean | null; has_hitch?: boolean | null };
+/** Subtipo a editar: sólo los campos que el formulario necesita de la fila. */
+type VehicleSubType = Pick<EquipmentSubTypeListItem, 'id' | 'name' | 'is_active' | 'type'>;
+/** Item compatible disponible (subtipo del tipo enganchable). */
+type AvailableSubType = Awaited<ReturnType<typeof getAvailableCompatibleItems>>['subTypes'][number];
+type AvailableType = Awaited<ReturnType<typeof getAvailableCompatibleItems>>['types'][number];
 
 interface EquipmentSubTypesFormProps {
   initialData?: VehicleSubType | null;
@@ -34,7 +47,6 @@ interface EquipmentSubTypesFormProps {
   isEditing?: boolean;
   onSuccess?: () => void;
   types: VehicleType[];
-  allSubTypes?: VehicleSubType[];
   initialCompatibleItems?: CompatibleItem[];
   initialChecklistIds?: string[];
 }
@@ -57,12 +69,11 @@ function EquipmentSubTypesForm({
   isEditing = false,
   onSuccess,
   types,
-  allSubTypes = [],
   initialCompatibleItems = [],
   initialChecklistIds = [],
 }: EquipmentSubTypesFormProps) {
   const [showDependencyModal, setShowDependencyModal] = useState(false);
-  const [availableItems, setAvailableItems] = useState<{ subTypes: VehicleSubType[]; types: VehicleType[] }>({
+  const [availableItems, setAvailableItems] = useState<{ subTypes: AvailableSubType[]; types: AvailableType[] }>({
     subTypes: [],
     types: [],
   });
@@ -79,7 +90,7 @@ function EquipmentSubTypesForm({
           name: initialData.name ?? '',
           is_active: initialData.is_active ?? true,
           type_id: initialData.type ?? '',
-          compatible_item_ids: initialCompatibleItems?.map((item) => `${item.type}:${item.id}`) ?? [],
+          compatible_item_ids: initialCompatibleItems?.map(formatCompatibleItemKey) ?? [],
           checklist_ids: initialChecklistIds ?? [],
         }
       : {
@@ -107,9 +118,7 @@ function EquipmentSubTypesForm({
   }, [types, selectedTypeId]);
 
   // Verificar si el tipo padre es unidad tractora y tiene enganche
-  const showCompatibleItems = useMemo(() => {
-    return selectedType?.is_tractor_unit && selectedType?.has_hitch;
-  }, [selectedType]);
+  const showCompatibleItems = useMemo(() => canHaveCompatibleItems(selectedType), [selectedType]);
 
   // Cargar items compatibles disponibles cuando cambia el tipo seleccionado
   const loadAvailableItems = useCallback(async (typeId: string) => {
@@ -194,17 +203,9 @@ function EquipmentSubTypesForm({
     [isEditing]
   );
 
-  // Función para parsear los IDs de items compatibles del formato "type:id" o "sub_type:id"
-  const parseCompatibleItems = (ids: string[]): CompatibleItem[] => {
-    return ids.map((id) => {
-      const [type, itemId] = id.split(':');
-      return { id: itemId, type: type as 'sub_type' | 'type' };
-    });
-  };
-
   const onSubmit = async (data: FormData) => {
     try {
-      const compatibleItems = parseCompatibleItems(data.compatible_item_ids);
+      const compatibleItems: CompatibleItem[] = parseCompatibleItemKeys(data.compatible_item_ids);
 
       if (isEditing && data.id) {
         const prevActive = !!initialData?.is_active;
@@ -219,7 +220,7 @@ function EquipmentSubTypesForm({
             return; // No ejecutar update aún, el modal decidirá
           }
         }
-        await updateSubTypeOfVehicle({
+        await updateEquipmentSubType({
           id: data.id,
           name: data.name,
           is_active: data.is_active,
@@ -231,7 +232,7 @@ function EquipmentSubTypesForm({
         queryClient.invalidateQueries({ queryKey: ['subtype-checklists', data.id] });
         queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
       } else {
-        await createSubTypeOfVehicle({
+        await createEquipmentSubType({
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
@@ -325,22 +326,17 @@ function EquipmentSubTypesForm({
     // Reemplazo masivo y luego desactivar
     if (action === 'replace') {
       try {
-        const supabase = supabaseBrowser();
-        const { error } = await supabase
-          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
-          .update({
-            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as Parameters<ReturnType<typeof supabase.from>['update']>[0] as any)
-          .eq(dependencyConfigs[0].targetColumn, initialData.id);
-
-        if (error) {
-          logger.error('Error al actualizar referencias en Supabase', { data: { error } });
-        }
+        await reassignDependencies({
+          targetTable: 'vehicles',
+          targetColumn: dependencyConfigs[0].targetColumn,
+          fromValue: initialData.id,
+          toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
+        });
 
         // Ahora sí, desactivar el registro actual
         const values = form.getValues();
-        const compatibleItems = parseCompatibleItems(values.compatible_item_ids);
-        await updateSubTypeOfVehicle({
+        const compatibleItems: CompatibleItem[] = parseCompatibleItemKeys(values.compatible_item_ids);
+        await updateEquipmentSubType({
           id: values.id!,
           name: values.name,
           is_active: values.is_active,

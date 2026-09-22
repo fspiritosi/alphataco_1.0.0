@@ -42,20 +42,6 @@ interface EquipmentTypeDataTableProps {
   allActiveTypes: { id: string; name: string; is_tractor_unit: boolean | null }[];
 }
 
-// Tipo compatible con el prop allTypes del EquipmentTypesForm (Database['public']['Tables']['type']['Row'])
-type FormVehicleType = {
-  applies_to: string | null;
-  company_id: string | null;
-  created_at: string;
-  generates_qr: boolean | null;
-  has_hitch: boolean | null;
-  id: string;
-  is_active: boolean | null;
-  is_operative: boolean | null;
-  is_tractor_unit: boolean | null;
-  name: string;
-};
-
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -323,7 +309,7 @@ function EquipmentTypesFormWrapper({
   const formInitialData = useMemo(
     () =>
       equipmentType
-        ? ({
+        ? {
             id: equipmentType.id,
             name: equipmentType.name,
             is_active: equipmentType.is_active ?? true,
@@ -331,31 +317,19 @@ function EquipmentTypesFormWrapper({
             is_tractor_unit: equipmentType.is_tractor_unit ?? false,
             has_hitch: equipmentType.has_hitch ?? false,
             is_operative: equipmentType.is_operative ?? false,
-            generates_qr: equipmentType.generates_qr ?? true,
-            company_id: null,
-            created_at:
-              equipmentType.created_at instanceof Date
-                ? equipmentType.created_at.toISOString()
-                : String(equipmentType.created_at),
-          } as FormVehicleType)
+          }
         : null,
     [equipmentType]
   );
 
   // Memoizar allTypes para referencia estable
-  const formAllTypes = useMemo<FormVehicleType[]>(
+  const formAllTypes = useMemo(
     () =>
       allActiveTypes.map((t) => ({
         id: t.id,
         name: t.name,
         is_active: true,
         is_tractor_unit: t.is_tractor_unit ?? false,
-        applies_to: null,
-        has_hitch: null,
-        is_operative: null,
-        generates_qr: null,
-        company_id: null,
-        created_at: '',
       })),
     [allActiveTypes]
   );

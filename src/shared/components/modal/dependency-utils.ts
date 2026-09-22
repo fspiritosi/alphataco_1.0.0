@@ -32,6 +32,13 @@ const REPLACEMENT_SOURCES = {
   type: 'type',
 } as const;
 
+/**
+ * `equipment_owners`, `sub_type` y `type` tienen `company_id` nullable: las filas con
+ * `company_id IS NULL` son globales y las comparten todas las empresas, así que también son
+ * opciones de reemplazo válidas. Misma política que `Empresa/Equipos/lib/catalog-scope.ts`,
+ * replicada acá para no invertir la dependencia shared → feature.
+ */
+
 export type ReplacementSourceTable = keyof typeof REPLACEMENT_SOURCES;
 
 export interface FetchDependenciesParams<T extends DependencyTargetTable, C extends string, Select extends string = '*'> {
@@ -161,23 +168,34 @@ export const fetchReplacementOptions = async (
     throw new Error(`Catálogo de reemplazo no admitido: ${table}`);
   }
   const companyId = await getActiveCompanyId();
-  const where = withCompany({ is_active: true, ...(excludeId ? { id: { not: excludeId } } : {}) }, companyId);
-  const args = { where, select: { id: true, name: true }, orderBy: { name: 'asc' as const } };
+  const base = { is_active: true, ...(excludeId ? { id: { not: excludeId } } : {}) };
+  // Catálogos con company_id NOT NULL: sólo los propios.
+  const ownArgs = {
+    where: withCompany(base, companyId),
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' as const },
+  };
+  // Catálogos con company_id nullable: propios + globales.
+  const scopedArgs = {
+    where: { ...base, OR: [{ company_id: null }, { company_id: companyId }] },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' as const },
+  };
 
-  const rows: Array<{ id: string; name: string | null }> = await (() => {
+  const rows: Array<{ id: string | number; name: string | null }> = await (() => {
     switch (table as ReplacementSourceTable) {
       case 'company_positions':
-        return prisma.company_positions.findMany(args);
+        return prisma.company_positions.findMany(ownArgs);
       case 'work_diagram':
-        return prisma.work_diagram.findMany(args);
+        return prisma.work_diagram.findMany(ownArgs);
       case 'types_of_contract':
-        return prisma.types_of_contract.findMany(args);
+        return prisma.types_of_contract.findMany(ownArgs);
       case 'equipment_owners':
-        return prisma.equipment_owners.findMany(args);
+        return prisma.equipment_owners.findMany(scopedArgs);
       case 'sub_type':
-        return prisma.sub_type.findMany(args);
+        return prisma.sub_type.findMany(scopedArgs);
       case 'type':
-        return prisma.type.findMany(args);
+        return prisma.type.findMany(scopedArgs);
     }
   })();
 

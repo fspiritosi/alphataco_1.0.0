@@ -7,9 +7,11 @@ import { EquipmentModelTableSkeleton } from './EquipmentModels/fallback/Equipmen
 import EquipmentOwnersTabContent from './EquipmentOwners/EquipmentOwnersTabContent';
 import EquipmentTypeList from './EquipmentTypes/EquipmentTypeList';
 import { EquipmentTypeTableSkeleton } from './EquipmentTypes/fallback/EquipmentTypeTableSkeleton';
-import EquipmentBrandsWrapper from './brand/EquipmentBrandsWrapper';
+import EquipmentBrandList from './EquipmentBrands/EquipmentBrandList';
+import { EquipmentBrandTableSkeleton } from './EquipmentBrands/fallback/EquipmentBrandTableSkeleton';
+import EquipmentSubTypeList from './EquipmentSubTypes/EquipmentSubTypeList';
+import { EquipmentSubTypeTableSkeleton } from './EquipmentSubTypes/fallback/EquipmentSubTypeTableSkeleton';
 import { EquiposSubtabSkeleton } from './fallback/EquiposSubtabSkeleton';
-import EquipmentSubTypesWrapper from './sub_types/EquipmentSubTypesWrapper';
 
 export default function EquipmentsTabContent({
   searchParams,
@@ -67,7 +69,9 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de marcas de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <EquipmentBrandsWrapper searchParams={searchParams} permissions={permissions} />
+                  <Suspense fallback={<EquipmentBrandTableSkeleton />}>
+                    <EquipmentBrandList searchParams={searchParams} permissions={permissions} />
+                  </Suspense>
                 </CardContent>
               </Card>
             ),
@@ -113,8 +117,8 @@ export default function EquipmentsTabContent({
                   <CardDescription>Gestión de subtipos de equipos</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <Suspense fallback={<EquiposSubtabSkeleton />}>
-                    <EquipmentSubTypesWrapper searchParams={searchParams} permissions={permissions} />
+                  <Suspense fallback={<EquipmentSubTypeTableSkeleton />}>
+                    <EquipmentSubTypeList searchParams={searchParams} permissions={permissions} />
                   </Suspense>
                 </CardContent>
               </Card>

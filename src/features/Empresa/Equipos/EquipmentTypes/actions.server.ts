@@ -13,6 +13,12 @@ import {
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import {
+  catalogAccessError,
+  catalogReadScope,
+  catalogWriteScope,
+  resolveCatalogAccess,
+} from '../lib/catalog-scope';
 import { revalidatePath } from 'next/cache';
 
 // ============================================================================
@@ -111,7 +117,8 @@ export async function getEquipmentTypesPaginated(searchParams: DataTableSearchPa
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -158,7 +165,8 @@ export async function getEquipmentTypesPaginated(searchParams: DataTableSearchPa
 export async function getAllEquipmentTypesForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -211,7 +219,7 @@ export async function getEquipmentTypeSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = { AND: [buildWhereClause(crossState), catalogReadScope(await getActiveCompanyId())] };
 
     switch (columnId) {
       case 'is_active': {
@@ -352,8 +360,9 @@ export async function getHitchTypeIdsForType(typeId: string): Promise<string[]> 
 /** Obtiene todos los tipos activos (para el multi-select de enganche) */
 export async function getAllActiveTypes() {
   try {
+    const companyId = await getActiveCompanyId();
     const data = await prisma.type.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...catalogReadScope(companyId) },
       select: { id: true, name: true, is_tractor_unit: true },
       orderBy: { name: 'asc' },
     });
@@ -385,13 +394,13 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
     const companyId = await getActiveCompanyId();
     const created = await prisma.type.create({
       data: {
+        ...catalogWriteScope(companyId),
         name: formData.name,
         applies_to: formData.applies_to,
         is_active: formData.is_active,
         is_operative: formData.applies_to === 'other_equipment' ? formData.is_operative : false,
         is_tractor_unit: formData.is_tractor_unit,
         has_hitch: formData.is_tractor_unit ? formData.has_hitch : false,
-        company_id: companyId,
       },
       select: { id: true },
     });
@@ -431,6 +440,15 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
 export async function updateEquipmentType(formData: EquipmentTypeFormData & { id: string }) {
   try {
     const companyId = await getActiveCompanyId();
+
+    // Perímetro sin RLS: un tipo global se lee pero no se edita desde una empresa.
+    const existing = await prisma.type.findUnique({ where: { id: formData.id }, select: { company_id: true } });
+    const accessError = catalogAccessError(
+      resolveCatalogAccess(existing, companyId, 'write'),
+      'El tipo de equipo no existe'
+    );
+    if (accessError) throw new Error(accessError);
+
     await prisma.type.update({
       where: { id: formData.id },
       data: {
@@ -473,7 +491,7 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
     return { success: true };
   } catch (error) {
     logger.error('Error al actualizar tipo de equipo', { data: { error } });
-    throw new Error('No se pudo actualizar el tipo de equipo. Intente nuevamente.');
+    throw error instanceof Error ? error : new Error('No se pudo actualizar el tipo de equipo. Intente nuevamente.');
   }
 }
 

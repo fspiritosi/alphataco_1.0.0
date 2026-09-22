@@ -12,6 +12,19 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { revalidatePath } from 'next/cache';
+import {
+  catalogAccessError,
+  catalogReadScope,
+  catalogWriteScope,
+  resolveCatalogAccess,
+} from '../lib/catalog-scope';
+import {
+  canHaveCompatibleItems,
+  typeIdsWithoutSubTypes,
+  type CompatibleItem,
+} from '../lib/hitch-compatibility';
 
 // ============================================================================
 // LOGGER
@@ -97,7 +110,8 @@ export async function getEquipmentSubTypesPaginated(searchParams: DataTableSearc
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -145,7 +159,8 @@ export async function getEquipmentSubTypesPaginated(searchParams: DataTableSearc
 export async function getAllEquipmentSubTypesForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    // `buildWhereClause` puede traer su propio `OR`: se combinan con AND para no pisarse.
+    const where = { AND: [buildWhereClause(state), catalogReadScope(await getActiveCompanyId())] };
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -199,7 +214,7 @@ export async function getEquipmentSubTypeSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = { AND: [buildWhereClause(crossState), catalogReadScope(await getActiveCompanyId())] };
 
     switch (columnId) {
       case 'is_active': {
@@ -281,8 +296,9 @@ export async function getEquipmentSubTypeSingleFacet(
  */
 export async function getActiveEquipmentTypes() {
   try {
+    const companyId = await getActiveCompanyId();
     const data = await prisma.type.findMany({
-      where: { is_active: true },
+      where: { is_active: true, ...catalogReadScope(companyId) },
       select: { id: true, name: true, is_tractor_unit: true, has_hitch: true },
       orderBy: { name: 'asc' },
     });
@@ -343,6 +359,193 @@ export async function getCompatibleItemsForSubTypePrisma(subTypeId: string) {
   } catch (error) {
     logger.error('Error al obtener items compatibles del subtipo', { data: { error, subTypeId } });
     return [];
+  }
+}
+
+// ============================================================================
+// ITEMS COMPATIBLES DISPONIBLES — según los enganches del tipo padre
+// ============================================================================
+
+/**
+ * Subtipos y tipos que un subtipo del tipo `parentTypeId` puede declarar como compatibles.
+ *
+ * Sólo tiene sentido si el tipo padre es unidad tractora con enganche; de ahí salen sus
+ * `type_hitch_types`, y de cada tipo enganchable sus subtipos. Los tipos enganchables que no
+ * tienen ningún subtipo cargado se ofrecen enteros (si no, quedarían sin forma de elegirse).
+ */
+export async function getAvailableCompatibleItems(parentTypeId: string) {
+  const empty = { subTypes: [] as { id: string; name: string; type: string | null }[], types: [] as { id: string; name: string }[] };
+  try {
+    const companyId = await getActiveCompanyId();
+
+    // El tipo padre se lee con el scope de catálogo (propio + global).
+    const parentType = await prisma.type.findFirst({
+      where: { id: parentTypeId, ...catalogReadScope(companyId) },
+      select: { id: true, is_tractor_unit: true, has_hitch: true },
+    });
+    if (!canHaveCompatibleItems(parentType)) return empty;
+
+    const hitchRows = await prisma.type_hitch_types.findMany({
+      where: { type_id: parentTypeId, company_id: companyId },
+      select: { compatible_type_id: true },
+    });
+    const compatibleTypeIds = hitchRows.map((row) => row.compatible_type_id);
+    if (compatibleTypeIds.length === 0) return empty;
+
+    const subTypes = await prisma.sub_type.findMany({
+      where: { type: { in: compatibleTypeIds }, is_active: true, ...catalogReadScope(companyId) },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const orphanTypeIds = typeIdsWithoutSubTypes(compatibleTypeIds, subTypes);
+    const types =
+      orphanTypeIds.length > 0
+        ? await prisma.type.findMany({
+            where: { id: { in: orphanTypeIds }, is_active: true, ...catalogReadScope(companyId) },
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' },
+          })
+        : [];
+
+    return { subTypes, types };
+  } catch (error) {
+    logger.error('Error al obtener items compatibles disponibles', { data: { error, parentTypeId } });
+    return empty;
+  }
+}
+
+// ============================================================================
+// MUTACIONES — crear y actualizar subtipos con Prisma
+// ============================================================================
+
+export type EquipmentSubTypeInput = {
+  name: string;
+  is_active: boolean;
+  type_id: string;
+  /** Items compatibles (`sub_type` o `type`) que van a `sub_type_compatible_items`. */
+  compatible_item_ids: CompatibleItem[];
+  /** Plantillas de checklist asociadas (`checklist_template_sub_types`). */
+  checklist_ids: string[];
+};
+
+/** El tipo padre elegido tiene que ser legible por la empresa activa (propio o global). */
+async function assertParentTypeReadable(companyId: string, typeId: string): Promise<void> {
+  const parent = await prisma.type.findFirst({
+    where: { id: typeId, ...catalogReadScope(companyId) },
+    select: { id: true },
+  });
+  if (!parent) throw new Error('Tipo de unidad no encontrado');
+}
+
+/** Las plantillas de checklist asociadas tienen que ser de la empresa activa. */
+async function assertChecklistsOwned(companyId: string, templateIds: string[]): Promise<void> {
+  const unique = Array.from(new Set(templateIds.filter(Boolean)));
+  if (unique.length === 0) return;
+  const found = await prisma.checklist_templates.count({ where: { id: { in: unique }, company_id: companyId } });
+  if (found !== unique.length) throw new Error('Checklist no encontrado');
+}
+
+export async function createEquipmentSubType(input: EquipmentSubTypeInput) {
+  try {
+    const companyId = await getActiveCompanyId();
+    await assertParentTypeReadable(companyId, input.type_id);
+    await assertChecklistsOwned(companyId, input.checklist_ids);
+
+    const created = await prisma.$transaction(async (tx) => {
+      const subType = await tx.sub_type.create({
+        data: {
+          name: input.name,
+          is_active: input.is_active,
+          type: input.type_id,
+          ...catalogWriteScope(companyId),
+        },
+        select: { id: true, name: true, is_active: true, type: true },
+      });
+
+      if (input.compatible_item_ids.length > 0) {
+        await tx.sub_type_compatible_items.createMany({
+          data: input.compatible_item_ids.map((item) => ({
+            sub_type_id: subType.id,
+            compatible_item_id: item.id,
+            item_type: item.type,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      if (input.checklist_ids.length > 0) {
+        await tx.checklist_template_sub_types.createMany({
+          // `checklist_template_sub_types` no tiene company_id: el perímetro lo da
+          // `assertChecklistsOwned` sobre las plantillas.
+          data: input.checklist_ids.map((template_id) => ({ sub_type_id: subType.id, template_id })),
+          skipDuplicates: true,
+        });
+      }
+
+      return subType;
+    });
+
+    revalidatePath('/dashboard/company/actualCompany');
+    return created;
+  } catch (error) {
+    logger.error('Error al crear subtipo de equipo', { data: { error } });
+    throw error instanceof Error ? error : new Error('No se pudo crear el subtipo. Intente nuevamente.');
+  }
+}
+
+export async function updateEquipmentSubType(input: EquipmentSubTypeInput & { id: string }) {
+  try {
+    const companyId = await getActiveCompanyId();
+
+    // Perímetro sin RLS: un subtipo global se lee pero no se edita desde una empresa.
+    const existing = await prisma.sub_type.findUnique({
+      where: { id: input.id },
+      select: { id: true, company_id: true },
+    });
+    const access = resolveCatalogAccess(existing, companyId, 'write');
+    const accessError = catalogAccessError(access, 'El subtipo de unidad no existe');
+    if (accessError) throw new Error(accessError);
+
+    await assertParentTypeReadable(companyId, input.type_id);
+    await assertChecklistsOwned(companyId, input.checklist_ids);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const subType = await tx.sub_type.update({
+        where: { id: input.id },
+        data: { name: input.name, is_active: input.is_active, type: input.type_id },
+        select: { id: true, name: true, is_active: true, type: true },
+      });
+
+      // Items compatibles y checklists se reemplazan enteros: el form manda siempre el conjunto.
+      await tx.sub_type_compatible_items.deleteMany({ where: { sub_type_id: input.id } });
+      if (input.compatible_item_ids.length > 0) {
+        await tx.sub_type_compatible_items.createMany({
+          data: input.compatible_item_ids.map((item) => ({
+            sub_type_id: input.id,
+            compatible_item_id: item.id,
+            item_type: item.type,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await tx.checklist_template_sub_types.deleteMany({ where: { sub_type_id: input.id } });
+      if (input.checklist_ids.length > 0) {
+        await tx.checklist_template_sub_types.createMany({
+          data: input.checklist_ids.map((template_id) => ({ sub_type_id: input.id, template_id })),
+          skipDuplicates: true,
+        });
+      }
+
+      return subType;
+    });
+
+    revalidatePath('/dashboard/company/actualCompany');
+    return updated;
+  } catch (error) {
+    logger.error('Error al actualizar subtipo de equipo', { data: { error } });
+    throw error instanceof Error ? error : new Error('No se pudo actualizar el subtipo. Intente nuevamente.');
   }
 }
 

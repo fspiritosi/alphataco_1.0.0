@@ -92,10 +92,6 @@ function EquipmentSubTypesFormWrapper({ editingItem, onReset }: FormWrapperProps
     queryClient.invalidateQueries({ queryKey: ['subtype-compatible-items', subTypeId] });
   }, [queryClient, subTypeId]);
 
-  // Memoizar para referencia estable — evita loop infinito en useEffect del form
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const typesForForm = useMemo(() => types as any[], [types]);
-
   const formInitialData = useMemo(
     () =>
       editingItem
@@ -116,12 +112,11 @@ function EquipmentSubTypesFormWrapper({ editingItem, onReset }: FormWrapperProps
   return (
     <EquipmentSubTypesForm
       key={subTypeId ?? 'create'}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      initialData={formInitialData as any}
+      initialData={formInitialData}
       onReset={onReset}
       isEditing={!!editingItem}
       onSuccess={handleSuccess}
-      types={typesForForm}
+      types={types}
       initialChecklistIds={checklistIds}
       initialCompatibleItems={compatibleItems}
     />
