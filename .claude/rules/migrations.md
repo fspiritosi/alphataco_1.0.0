@@ -2,7 +2,7 @@
 
 ## Principio Fundamental
 
-**TODAS las migraciones se gestionan con Prisma contra el Postgres del compose** (`docker compose --env-file .env.docker up -d postgres`, `postgresql://alphataco:devpass@127.0.0.1:55432/alphataco`). Ya no hay Supabase: no existen `auth.`, `storage.`, `extensions.`, `net.`, `cron.` ni RLS. Los MCPs de Supabase son historia; para verificar se usa `psql` dentro del contenedor.
+**TODAS las migraciones se gestionan con Prisma contra el Postgres del compose** (`docker compose --env-file .env.docker up -d postgres`, `postgresql://alphataco:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/alphataco` — el puerto es `POSTGRES_PORT` de tu `.env.docker`, default 5432). Ya no hay Supabase: no existen `auth.`, `storage.`, `extensions.`, `net.`, `cron.` ni RLS. Los MCPs de Supabase son historia; para verificar se usa `psql` dentro del contenedor.
 
 ## Punto de partida: el baseline `0_init`
 
@@ -24,7 +24,9 @@ Todo cambio posterior al baseline es una carpeta manual `prisma/migrations/YYYYM
 ```bash
 # 0. Postgres del compose arriba y al dia
 docker compose --env-file .env.docker up -d --wait postgres
-export DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco
+# El puerto es POSTGRES_PORT de tu .env.docker (default 5432); la password es POSTGRES_PASSWORD
+set -a; source .env.docker; set +a
+export DATABASE_URL=postgresql://alphataco:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT:-5432}/alphataco
 # DATABASE_URL manda (prisma.config.ts: `DATABASE_URL ?? DIRECT_URL`). DIRECT_URL ya
 # NO tiene precedencia: solo se usa como fallback si DATABASE_URL no esta seteada
 # (ej. un .env viejo con un DIRECT_URL de Supabase ya no puede pisar el compose).
@@ -37,7 +39,7 @@ npx prisma migrate deploy                 # aplica lo pendiente (0_init en una B
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
 #    Alternativa sin BD al dia: --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script
 #    (necesita una shadow DB: `datasource.shadowDatabaseUrl` en prisma.config.ts, p. ej.
-#    SHADOW_DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco_shadow, creada a mano)
+#    SHADOW_DATABASE_URL=postgresql://alphataco:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/alphataco_shadow, creada a mano)
 
 # 3. Revisar el SQL generado — SOLO tomar los cambios que necesitamos
 #    Prisma puede detectar drift (p. ej. las columnas GENERATED) y agregar cambios colaterales no deseados

@@ -1,7 +1,20 @@
 name: alphataco
+
+# Build args comunes de la imagen Next (NEXT_PUBLIC_* quedan embebidas en el bundle).
+x-next-build-args: &next-build-args
+  NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+  NEXT_PUBLIC_PROJECT_URL: ${NEXT_PUBLIC_PROJECT_URL}
+  NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+  NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY}
+  NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST}
+  NEXT_PUBLIC_PREPARTE_BUCKET: ${NEXT_PUBLIC_PREPARTE_BUCKET:-preparte-img}
+  NEXT_PUBLIC_SHOW_LOGS: ${NEXT_PUBLIC_SHOW_LOGS:-false}
+
 services:
   postgres:
     build: ./docker/postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: alphataco
       POSTGRES_USER: alphataco
@@ -21,6 +34,7 @@ services:
 
   minio:
     image: minio/minio:latest
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY}
@@ -39,25 +53,40 @@ services:
 
   minio-init:
     image: minio/mc:latest
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
+      mc alias set local http://minio:9000 \"$$S3_ACCESS_KEY\" \"$$S3_SECRET_KEY\" &&
       for b in document-files daily-reports contract-documents employee-documents clothing-signatures logo; do mc mb -p local/$$b; mc anonymous set none local/$$b; done"
     networks: [alphataco]
+
+  # Aplica las migraciones de Prisma (0_init + pendientes) antes de que arranque `app`.
+  # Usa la stage `build` del Dockerfile (node_modules completo + prisma.config.ts):
+  # el CLI de Prisma 7 no puede correr desde el output standalone de Next.
+  migrate:
+    build:
+      context: .
+      target: build
+      args: *next-build-args
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://alphataco:${POSTGRES_PASSWORD}@postgres:5432/alphataco
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [alphataco]
+    restart: "no"
 
   app:
     build:
       context: .
-      args:
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_PROJECT_URL: ${NEXT_PUBLIC_PROJECT_URL}
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
-        NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST}
+      args: *next-build-args
+    restart: unless-stopped
     env_file: .env.docker
     environment:
       DATABASE_URL: postgresql://alphataco:${POSTGRES_PASSWORD}@postgres:5432/alphataco
@@ -68,21 +97,33 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/login').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks: [alphataco]
 
   cron:
     build: ./docker/cron
+    restart: unless-stopped
     environment:
       JOBS_TOKEN: ${JOBS_TOKEN}
       APP_URL: http://app:3000
       TZ: America/Argentina/Buenos_Aires
-    depends_on: [app]
+    depends_on:
+      app:
+        condition: service_healthy
     networks: [alphataco]
 
   caddy:
     image: caddy:2
+    restart: unless-stopped
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
@@ -91,7 +132,9 @@ services:
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
-    depends_on: [app]
+    depends_on:
+      app:
+        condition: service_healthy
     networks: [alphataco]
 
 volumes:

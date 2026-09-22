@@ -98,7 +98,8 @@ Este compose reemplaza la **base de datos** (Postgres vía Prisma), pero **Auth 
 ### Migrar, resetear y sembrar datos
 
 ```bash
-export DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:${POSTGRES_PORT:-55432}/alphataco
+set -a; source .env.docker; set +a   # POSTGRES_PASSWORD y POSTGRES_PORT (default 5432)
+export DATABASE_URL=postgresql://alphataco:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT:-5432}/alphataco
 npm run db:deploy   # prisma migrate deploy — aplica 0_init + migraciones pendientes
 npm run db:seed     # seed idempotente de empresa/módulos/tabs/acciones/roles
 npm run db:reset    # borra y recrea SOLO el contenedor y el volumen de postgres (no toca minio)
@@ -118,17 +119,16 @@ Flujo completo para crear o modificar una migración (diff → carpeta → SQL �
 
 El compose mapea los puertos de host vía variables de entorno con default (`POSTGRES_PORT`, `MINIO_PORT`, `MINIO_CONSOLE_PORT`, `APP_PORT`, `CADDY_HTTP_PORT`, `CADDY_HTTPS_PORT`). Si alguno está ocupado en tu máquina por otro proyecto, cambiar el valor en `.env.docker` — nunca hardcodear un puerto distinto en `docker-compose.yml`.
 
-En el entorno de desarrollo donde se armó esta infra, tres puertos por default ya estaban tomados por otros proyectos locales y se remapearon en `.env.docker.example`:
+`.env.docker.example` trae los puertos default (`POSTGRES_PORT=5432`, `MINIO_PORT=9000`, `MINIO_CONSOLE_PORT=9001`, `APP_PORT=3000`, `CADDY_HTTP_PORT=80`, `CADDY_HTTPS_PORT=443`). Ejemplo de remapeo en un host donde 5432, 9000/9001 y 80 ya están tomados por otros proyectos:
 
-| Servicio        | Puerto por default | Ocupado por             | Remapeado a |
-| ---------------- | ------------------- | ------------------------ | ----------- |
-| postgres          | 5432                 | `ecommerce-postgres-1`   | 55432       |
-| minio (API)       | 9000                 | `credere-minio`          | 29000       |
-| minio (consola)   | 9001                 | `credere-minio`          | 29001       |
-| caddy (HTTP)      | 80                   | otro servicio del host   | 8080        |
-| caddy (HTTPS)     | 443                  | libre                    | 443 (sin cambios) |
+| Servicio        | Puerto por default | Ejemplo de remapeo en `.env.docker` |
+| ---------------- | ------------------- | ------------------------------------ |
+| postgres          | 5432                 | `POSTGRES_PORT=55432`                |
+| minio (API)       | 9000                 | `MINIO_PORT=29000`                   |
+| minio (consola)   | 9001                 | `MINIO_CONSOLE_PORT=29001`           |
+| caddy (HTTP)      | 80                   | `CADDY_HTTP_PORT=8080`               |
 
-`APP_PORT` (3000) no tuvo conflicto y quedó en su default.
+Todo lo que se conecta desde el host (`npm run db:deploy`, `npm run test:db`, `psql`, la consola de MinIO) lee el puerto de `.env.docker`; nunca asumir 5432/9000 hardcodeado.
 
 ### Servicios que corren solo con `postgres` + `minio`
 
@@ -145,4 +145,4 @@ Debe listar los 6 buckets: `document-files`, `daily-reports`, `contract-document
 
 ### Ver los archivos de MinIO (consola web)
 
-`http://localhost:${MINIO_CONSOLE_PORT:-29001}` — login con `S3_ACCESS_KEY`/`S3_SECRET_KEY` de `.env.docker`. Desde ahí se navegan los buckets y objetos igual que en el dashboard de Storage de Supabase.
+`http://localhost:${MINIO_CONSOLE_PORT:-9001}` — login con `S3_ACCESS_KEY`/`S3_SECRET_KEY` de `.env.docker`. Desde ahí se navegan los buckets y objetos igual que en el dashboard de Storage de Supabase.
