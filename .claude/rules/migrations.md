@@ -1,45 +1,74 @@
-# Migraciones con Prisma
+# Migraciones con Prisma (Postgres plano)
 
 ## Principio Fundamental
 
-**TODAS las migraciones se gestionan con Prisma.** Los MCPs de Supabase (LOCAL, DEV, PROD) son **readonly** — solo para consultas y verificaciones, NUNCA para aplicar cambios.
+**TODAS las migraciones se gestionan con Prisma contra el Postgres del compose** (`docker compose --env-file .env.docker up -d postgres`, `postgresql://alphataco:devpass@127.0.0.1:55432/alphataco`). Ya no hay Supabase: no existen `auth.`, `storage.`, `extensions.`, `net.`, `cron.` ni RLS. Los MCPs de Supabase son historia; para verificar se usa `psql` dentro del contenedor.
 
-## Problema Conocido: Shadow Database
+## Punto de partida: el baseline `0_init`
 
-El comando `npx prisma migrate dev` usa un shadow database que replaya todas las migraciones desde cero. La migracion `0_baseline` contiene tablas de Supabase interno (auth, storage) con SQL incompatible con el shadow. Por esto, **NUNCA usar `npx prisma migrate dev`** directamente — siempre seguir el flujo manual descrito abajo.
+`prisma/migrations/0_init/migration.sql` es la **unica** migracion inicial. Lo genera `npm run db:baseline` (`scripts/sql/build-baseline.ts`) concatenando:
+
+1. Extensiones (`pgcrypto`; `uuid-ossp`/`moddatetime` solo si algun `.sql` las usa — hoy ninguno).
+2. `app_current_user_id()` (es DEFAULT de columna, tiene que existir antes del DDL).
+3. El DDL de `prisma/schema.prisma` via `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` (Prisma 7: el flag es `--to-schema`, no `--to-schema-datamodel`), reescribiendo las 4 columnas `GENERATED ALWAYS AS ... STORED` que Prisma no modela (`checklist_answers.customer_id/horometro/kilometraje`, `employees.full_name`).
+4. `prisma/sql/*.sql` en orden `misc → permissions → documents → diagrams → daily-report → kpis → maintenance` (funciones, vistas y triggers revisados en la Task 4 de P1).
+
+**El baseline NO se regenera despues del primer `prisma migrate deploy` real.** Regenerarlo cambia el checksum de `0_init` y rompe `_prisma_migrations` en toda BD ya desplegada. Si todavia no hay ninguna BD real (solo el compose local), se puede regenerar y resetear: `npm run db:baseline && npm run db:reset && npx prisma migrate deploy`.
+
+Las migraciones viejas (Supabase + Prisma sobre Supabase) estan archivadas en `docs/legacy-migrations/` y no se ejecutan.
 
 ## Flujo Unico de Migracion (SIEMPRE)
 
-Independientemente del tipo de cambio (estructura, funciones RPC, datos), el flujo es siempre el mismo:
+Todo cambio posterior al baseline es una carpeta manual `prisma/migrations/YYYYMMDDHHMMSS_nombre/migration.sql` + `prisma migrate deploy`:
 
 ```bash
-# 1. Modificar prisma/schema.prisma si el cambio es de estructura (tablas, columnas, relaciones)
-#    Si es SQL custom (funciones, triggers, inserts), saltar este paso
+# 0. Postgres del compose arriba y al dia
+docker compose --env-file .env.docker up -d --wait postgres
+export DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco
+npx prisma migrate deploy                 # aplica lo pendiente (0_init en una BD vacia)
 
-# 2. Generar el SQL del diff entre la BD actual y el schema (sin shadow database)
+# 1. Modificar prisma/schema.prisma si el cambio es de estructura (tablas, columnas, indices, relaciones)
+#    Si es SQL custom (funciones, triggers, vistas, datos), saltar este paso
+
+# 2. Generar el DDL del diff entre la BD del compose (que ya tiene todas las migraciones) y el schema
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
+#    Alternativa sin BD al dia: --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script
+#    (necesita una shadow DB: `datasource.shadowDatabaseUrl` en prisma.config.ts, p. ej.
+#    SHADOW_DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco_shadow, creada a mano)
 
 # 3. Revisar el SQL generado — SOLO tomar los cambios que necesitamos
-#    Prisma puede detectar drift y agregar cambios colaterales no deseados
+#    Prisma puede detectar drift (p. ej. las columnas GENERATED) y agregar cambios colaterales no deseados
 
 # 4. Crear la carpeta de migracion manualmente
 mkdir -p prisma/migrations/YYYYMMDDHHMMSS_nombre_descriptivo
 
-# 5. Crear el archivo migration.sql con SOLO los cambios necesarios
-#    Para cambios de estructura: copiar solo el ALTER TABLE / CREATE TABLE relevante del diff
-#    Para SQL custom: escribir el SQL directamente (funciones, triggers, inserts)
+# 5. Escribir migration.sql con SOLO los cambios necesarios
+#    Estructura: el ALTER TABLE / CREATE TABLE / CREATE INDEX relevante del diff
+#    SQL custom: escribir el SQL directamente (CREATE OR REPLACE FUNCTION, CREATE TRIGGER, INSERT ...)
 
-# 6. Aplicar la migracion directamente (sin shadow)
-npx prisma db execute --file prisma/migrations/YYYYMMDDHHMMSS_nombre_descriptivo/migration.sql
+# 6. Aplicar contra el compose (registra la migracion en _prisma_migrations)
+npx prisma migrate deploy
 
-# 7. Registrar la migracion como aplicada
-npx prisma migrate resolve --applied YYYYMMDDHHMMSS_nombre_descriptivo
-
-# 8. Regenerar el Prisma Client
+# 7. Regenerar el Prisma Client
 npx prisma generate
 
-# 9. Verificar con MCP supabase-LOCAL (readonly) que los cambios se aplicaron correctamente
+# 8. Verificar con psql (dentro del contenedor) que los cambios se aplicaron
+docker compose --env-file .env.docker exec -T postgres psql -U alphataco -d alphataco -c "\d nombre_tabla"
 ```
+
+## Funciones, triggers y vistas: cambio DOBLE
+
+La logica SQL vive en `prisma/sql/<dominio>.sql` (fuente de verdad, ver `prisma/sql/README.md` e `INVENTARIO.md`). Al modificar o crear una funcion/trigger/vista:
+
+1. Editar `prisma/sql/<dominio>.sql` (para que un baseline futuro la incluya).
+2. Escribir **la misma** `CREATE OR REPLACE FUNCTION ...` / `DROP TRIGGER IF EXISTS ... CREATE TRIGGER ...` en la migracion del cambio (paso 5), porque el baseline no se regenera.
+
+Reglas de contenido:
+
+- Actor de la transaccion: `public.app_current_user_id()` (lee `app.user_id`; la app lo setea con `SET LOCAL app.user_id = '<uuid>'` via `withActor`). NUNCA `auth.uid()`, `auth.jwt()` ni `request.jwt.claims`.
+- Empresa: toda funcion recibe/filtra `company_id`; nada de supuestos "solo GH". Los `document_types` globales tienen `company_id IS NULL`.
+- UUIDs: `gen_random_uuid()` (pgcrypto). NUNCA `uuid_generate_v4()`.
+- Prohibido: `auth.`, `storage.`, `extensions.`, `net.`, `cron.`, `pgsodium`, policies RLS. Los jobs (antes `cron.schedule` + `net.http_post`) se disparan desde el servicio `cron` del compose (P5) llamando a la app.
 
 ## Ejemplos
 
@@ -50,25 +79,32 @@ npx prisma generate
 # 2. Generar diff
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
 # 3. Del output, extraer SOLO el ALTER TABLE relevante
-# 4-9. Seguir el flujo
+# 4-8. Seguir el flujo
 ```
 
-### SQL custom (funcion RPC, trigger, insert de datos)
+### SQL custom (funcion, trigger, insert de datos)
 
 ```bash
 # 1. NO modificar schema.prisma
 # 4. Crear carpeta de migracion
-# 5. Escribir el SQL manualmente en migration.sql
-# 6-9. Seguir el flujo
+# 5. Escribir el SQL a mano en migration.sql Y en prisma/sql/<dominio>.sql
+# 6-8. Seguir el flujo
+```
+
+### Resetear el compose (solo local, borra los datos)
+
+```bash
+npm run db:reset            # recrea el contenedor y el volumen pgdata, espera healthy
+npx prisma migrate deploy   # vuelve a aplicar 0_init + todas las migraciones
 ```
 
 ## Verificacion Post-Migracion (OBLIGATORIO)
 
-Despues de TODA migracion, verificar con el MCP `supabase-LOCAL` (readonly):
+Despues de TODA migracion, verificar con `psql` en el contenedor:
 
-1. **Para estructura**: consultar la tabla modificada para confirmar que las columnas/tipos son correctos
-2. **Para funciones/triggers**: verificar que existen y funcionan
-3. **Para datos**: consultar que los registros se insertaron correctamente
+1. **Para estructura**: `\d nombre_tabla` (columnas, tipos, NOT NULL, indices, FKs)
+2. **Para funciones/triggers**: `\df public.nombre_funcion`, `SELECT pg_get_functiondef('public.nombre_funcion'::regproc)`, `\d tabla` (seccion Triggers)
+3. **Para datos**: `SELECT` de los registros insertados
 
 ```sql
 -- Ejemplo de verificacion de columnas
@@ -81,14 +117,15 @@ ORDER BY ordinal_position;
 
 ## Deploy
 
-En cada deploy se ejecuta `npx prisma migrate deploy`, que aplica automaticamente todas las migraciones pendientes en `prisma/migrations/`.
+En cada deploy se ejecuta `npx prisma migrate deploy` (`npm run build` lo hace antes de `next build`), que aplica automaticamente todas las migraciones pendientes en `prisma/migrations/` contra el `DATABASE_URL` del entorno. Se necesita `prisma/migrations/migration_lock.toml` (`provider = "postgresql"`).
 
 ## Reglas Criticas
 
-1. **NUNCA** usar `npx prisma migrate dev` — el shadow database falla con nuestro baseline
-2. **NUNCA** usar MCP de Supabase para aplicar migraciones — son readonly
-3. **SIEMPRE** usar el flujo manual: diff → crear carpeta → escribir SQL → db execute → resolve → generate
-4. **SIEMPRE** revisar el output de `migrate diff` y tomar SOLO los cambios necesarios (ignorar drift colateral)
-5. **SIEMPRE** usar nombres descriptivos en las migraciones (en ingles, snake_case)
-6. **SIEMPRE** verificar post-migracion con MCP supabase-LOCAL
-7. Si algo falla, usar `npx prisma migrate resolve` para marcar/desmarcar migraciones
+1. **NUNCA** usar `npx prisma migrate dev` — el flujo es manual: diff → carpeta → SQL → `migrate deploy` → `generate`
+2. **NUNCA** regenerar `0_init` despues del primer deploy real; los cambios van en migraciones nuevas
+3. **SIEMPRE** revisar el output de `migrate diff` y tomar SOLO los cambios necesarios (ignorar drift colateral, en especial las columnas GENERATED)
+4. **SIEMPRE** duplicar los cambios de funciones/triggers/vistas en `prisma/sql/<dominio>.sql`
+5. **SIEMPRE** usar nombres descriptivos en las migraciones (en ingles, snake_case) con timestamp `YYYYMMDDHHMMSS`
+6. **SIEMPRE** verificar post-migracion con `psql` en el contenedor
+7. **NUNCA** `auth.`/`storage.`/`extensions.`/`net.`/`cron.`/`uuid_generate_v4()` en SQL nuevo
+8. Si algo falla a mitad de una migracion, corregir el SQL y usar `npx prisma migrate resolve --rolled-back <nombre>` (o `--applied`) para dejar `_prisma_migrations` consistente antes de volver a `migrate deploy`

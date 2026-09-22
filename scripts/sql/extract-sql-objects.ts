@@ -6,9 +6,14 @@
  *   - `prisma/sql/<dominio>.sql`  → objetos portables, aplicables tal cual con psql
  *   - `prisma/sql/INVENTARIO.md`  → tabla por objeto con llamadores y referencias Supabase
  *
- * Orden de lectura: `supabase/migrations/*.sql` (por nombre) y después
- * `prisma/migrations/<timestamp>_<nombre>/migration.sql` con timestamp >= 20260313
- * (`0_baseline` es una re-serialización del esquema y no se lee).
+ * Orden de lectura: `docs/legacy-migrations/supabase/*.sql` (por nombre) y después
+ * `docs/legacy-migrations/prisma/<timestamp>_<nombre>/migration.sql` con timestamp >= 20260313
+ * (`0_baseline` es una re-serialización del esquema y no se lee). Son las migraciones
+ * históricas de gh_gestion/Supabase, archivadas en la Task 4 del plan P1.
+ *
+ * OJO: los `.sql` de `prisma/sql/` fueron revisados A MANO en la Task 4 (sin auth/storage,
+ * actor por app.user_id, filtros por empresa, huérfanas portadas para los jobs). Volver a
+ * correr este script PISA esas ediciones: sólo tiene valor como referencia histórica.
  *
  * Uso: `node scripts/sql/extract-sql-objects.ts` (Node >= 22.18 ejecuta TS por
  * type stripping: sin enums, sin parameter properties, sin namespaces).
@@ -73,8 +78,8 @@ type ExtractionResult = {
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const SUPABASE_MIGRATIONS_DIR = join(REPO_ROOT, 'supabase', 'migrations');
-const PRISMA_MIGRATIONS_DIR = join(REPO_ROOT, 'prisma', 'migrations');
+const SUPABASE_MIGRATIONS_DIR = join(REPO_ROOT, 'docs', 'legacy-migrations', 'supabase');
+const PRISMA_MIGRATIONS_DIR = join(REPO_ROOT, 'docs', 'legacy-migrations', 'prisma');
 const PRISMA_MIN_TIMESTAMP = '20260313';
 const SRC_DIR = join(REPO_ROOT, 'src');
 const EDGE_FUNCTIONS_DIR = join(REPO_ROOT, 'supabase', 'functions');
@@ -524,7 +529,7 @@ function renderInventory(objects: InventoryObject[], result: ExtractionResult, f
     '',
     'Generado por `scripts/sql/extract-sql-objects.ts` — no editar a mano (regenerar con `node scripts/sql/extract-sql-objects.ts`).',
     '',
-    `Fuentes leídas en orden cronológico: ${files.length} archivos (${files.filter((f) => f.startsWith('supabase/')).length} de \`supabase/migrations\`, ${files.filter((f) => f.startsWith('prisma/')).length} de \`prisma/migrations\` con timestamp ≥ ${PRISMA_MIN_TIMESTAMP}).`,
+    `Fuentes leídas en orden cronológico: ${files.length} archivos (${files.filter((f) => f.includes('/supabase/')).length} de \`docs/legacy-migrations/supabase\`, ${files.filter((f) => f.includes('/prisma/')).length} de \`docs/legacy-migrations/prisma\` con timestamp ≥ ${PRISMA_MIN_TIMESTAMP}).`,
     '',
     '## Objetos portados (en `prisma/sql/<dominio>.sql`)',
     '',

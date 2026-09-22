@@ -340,7 +340,7 @@ model checklist_templates {
 
   @@unique([company_id, code])
   @@index([code], map: "idx_checklist_templates_code")
-  @@index([company_id], map: "idx_checklist_templates_company")
+  @@index([company_id], map: "idx_checklist_templates_company_id")
   @@schema("public")
 }
 
@@ -394,7 +394,7 @@ model clothing_deliveries {
   clothing_delivery_items                                         clothing_delivery_items[]
 
   @@index([employee_id], map: "idx_clothing_deliveries_employee")
-  @@index([company_id], map: "idx_clothing_deliveries_company")
+  @@index([company_id], map: "idx_clothing_deliveries_company_id")
   @@schema("public")
 }
 
@@ -473,7 +473,7 @@ model companies_employees {
   company     company?  @relation(fields: [company_id], references: [id], onDelete: Cascade)
   employees   employees @relation(fields: [employee_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id])
+  @@index([company_id], map: "idx_companies_employees_company_id")
   @@index([employee_id])
   @@schema("public")
 }
@@ -923,7 +923,7 @@ model diagrams_logs {
   description  String
   state        String
   prev_state   String
-  modified_by  String?      @default(dbgenerated("auth.uid()")) @db.Uuid
+  modified_by  String?      @default(dbgenerated("app_current_user_id()")) @db.Uuid
   employee_id  String       @db.Uuid
   diagram_id   String       @db.Uuid
   diagram_type diagram_type @relation(fields: [diagram_id], references: [id], onDelete: SetNull)
@@ -2008,7 +2008,7 @@ model provinces {
 }
 
 model remito_documents {
-  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   remit_id      String    @db.Uuid
   document_path String
   document_name String
@@ -2021,7 +2021,7 @@ model remito_documents {
 }
 
 model remitos {
-  id                  String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   daily_report_row_id String             @db.Uuid
   remit_number        String
   created_at          DateTime?          @default(now()) @db.Timestamptz(6)
@@ -2450,7 +2450,7 @@ model vehicles {
   is_active                     Boolean?                        @default(true)
   termination_date              DateTime?                       @db.Date
   reason_for_termination        termination_reason_enum?
-  user_id                       String?                         @default(dbgenerated("auth.uid()")) @db.Uuid
+  user_id                       String?                         @default(dbgenerated("app_current_user_id()")) @db.Uuid
   company_id                    String?                         @db.Uuid
   id                            String                          @id @unique(map: "vehicles_id2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   type                          String                          @db.Uuid
@@ -2823,7 +2823,7 @@ model work_orders {
   profile_work_orders_started_byToprofile   profile?                   @relation("work_orders_started_byToprofile", fields: [started_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workshops                                 workshops                  @relation(fields: [workshop_id], references: [id], onUpdate: NoAction)
 
-  @@index([company_id], map: "idx_work_orders_company")
+  @@index([company_id], map: "idx_work_orders_company_id")
   @@index([planned_start_date, planned_end_date], map: "idx_work_orders_dates")
   @@index([equipment_id], map: "idx_work_orders_equipment")
   @@index([sector_id], map: "idx_work_orders_sector")
@@ -3341,7 +3341,7 @@ model external_api_clients {
   revoker       profile?                     @relation("external_api_clients_revoked_byToprofile", fields: [revoked_by], references: [id], onDelete: SetNull)
   access_logs   external_api_access_logs[]
 
-  @@index([company_id], map: "idx_external_api_clients_company")
+  @@index([company_id], map: "idx_external_api_clients_company_id")
   @@schema("public")
 }
 

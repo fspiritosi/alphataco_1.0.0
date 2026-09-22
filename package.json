@@ -32,7 +32,9 @@
     "db:studio": "prisma studio",
     "db:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
-    "db:status": "prisma migrate status"
+    "db:status": "prisma migrate status",
+    "db:baseline": "node scripts/sql/build-baseline.ts",
+    "db:reset": "docker compose --env-file .env.docker rm -sf postgres && docker volume rm -f alphataco_pgdata && docker compose --env-file .env.docker up -d --wait postgres"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
