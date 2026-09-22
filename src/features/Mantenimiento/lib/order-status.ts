@@ -16,13 +16,15 @@ export const MAINTENANCE_ORDER_STATUSES = [
   'pending_operations_validation',
   'operations_rejected',
   'workshop_rejected',
+  /** El taller rechaza el pedido antes de programarlo (`rejectPendingOrder`). */
+  'rejected',
   'completed',
 ] as const;
 export type MaintenanceOrderStatus = (typeof MAINTENANCE_ORDER_STATUSES)[number];
 
 const MAINTENANCE_ORDER_TRANSITIONS: Record<MaintenanceOrderStatus, readonly MaintenanceOrderStatus[]> = {
-  // Operaciones confirma la fecha o el taller la programa directo.
-  pending_scheduling: ['date_confirmed', 'scheduled'],
+  // El taller programa la fecha (`date_confirmed`) o rechaza el pedido sin programarlo.
+  pending_scheduling: ['date_confirmed', 'scheduled', 'rejected'],
   // Confirmada la fecha, el equipo entra al taller; un rechazo la devuelve a pendiente.
   date_confirmed: ['scheduled', 'in_workshop', 'pending_scheduling'],
   scheduled: ['in_workshop', 'pending_scheduling'],
@@ -34,6 +36,7 @@ const MAINTENANCE_ORDER_TRANSITIONS: Record<MaintenanceOrderStatus, readonly Mai
   // El taller acepta el rechazo (vuelve al taller) o lo discute (vuelve a Operaciones).
   operations_rejected: ['in_workshop', 'pending_operations_validation'],
   workshop_rejected: ['in_workshop'],
+  rejected: [],
   completed: [],
 };
 
@@ -52,41 +55,18 @@ export function isValidMaintenanceOrderTransition(from: string, to: string): boo
   return MAINTENANCE_ORDER_TRANSITIONS[from].includes(to);
 }
 
-/** Estados de `work_orders` (enum `work_order_status`). */
-export const WORK_ORDER_STATUSES = [
-  'pending',
-  'in_progress',
-  'paused',
-  'completed',
-  'completed_partial',
-  'cancelled',
-] as const;
-export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
-
-/** Cierres válidos de una OT: una OT cancelada no cuenta como cerrada para la orden. */
+/**
+ * Cierres válidos de una OT: una OT cancelada no cuenta como cerrada para la orden.
+ *
+ * Acá NO vive la máquina de estados de `work_orders`: los cambios de estado de una OT los
+ * hace el panel del operario (`OperatorPanel`, fuera de esta carpeta) y dentro de
+ * Mantenimiento la única escritura es la reapertura masiva, que ya se acota con un
+ * `where: { status: { in: [...] } }`. Una máquina sin quien la consulte es código muerto.
+ */
 export const WORK_ORDER_CLOSED_STATUSES = ['completed', 'completed_partial'] as const;
-
-const WORK_ORDER_TRANSITIONS: Record<WorkOrderStatus, readonly WorkOrderStatus[]> = {
-  pending: ['in_progress', 'cancelled'],
-  in_progress: ['paused', 'completed', 'completed_partial', 'cancelled'],
-  paused: ['in_progress', 'cancelled'],
-  // El jefe de taller puede devolver la orden y reabrir sus OTs cerradas.
-  completed: ['in_progress'],
-  completed_partial: ['in_progress'],
-  cancelled: [],
-};
-
-export function isWorkOrderStatus(value: string): value is WorkOrderStatus {
-  return (WORK_ORDER_STATUSES as readonly string[]).includes(value);
-}
 
 export function isWorkOrderClosed(status: string): boolean {
   return (WORK_ORDER_CLOSED_STATUSES as readonly string[]).includes(status);
-}
-
-export function isValidWorkOrderTransition(from: string, to: string): boolean {
-  if (!isWorkOrderStatus(from) || !isWorkOrderStatus(to)) return false;
-  return WORK_ORDER_TRANSITIONS[from].includes(to);
 }
 
 /**

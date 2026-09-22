@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   MAINTENANCE_ORDER_STATUSES,
   WORK_ORDER_CLOSED_STATUSES,
-  WORK_ORDER_STATUSES,
   areAllWorkOrdersClosed,
   isMaintenanceOrderStatus,
   isValidMaintenanceOrderTransition,
-  isValidWorkOrderTransition,
   isWorkOrderClosed,
   nextMaintenanceOrderStatuses,
   resolveResourceConditionAfterClose,
@@ -24,6 +22,7 @@ describe('MAINTENANCE_ORDER_STATUSES', () => {
       'pending_operations_validation',
       'operations_rejected',
       'workshop_rejected',
+      'rejected',
       'completed',
     ]);
   });
@@ -62,6 +61,12 @@ describe('isValidMaintenanceOrderTransition', () => {
     expect(isValidMaintenanceOrderTransition('date_confirmed', 'pending_scheduling')).toBe(true);
   });
 
+  it('permite rechazar un pedido que todavía no se programó, y deja rejected terminal', () => {
+    expect(isValidMaintenanceOrderTransition('pending_scheduling', 'rejected')).toBe(true);
+    expect(isValidMaintenanceOrderTransition('in_workshop', 'rejected')).toBe(false);
+    expect(nextMaintenanceOrderStatuses('rejected')).toEqual([]);
+  });
+
   it('deja completed como terminal', () => {
     expect(nextMaintenanceOrderStatuses('completed')).toEqual([]);
     expect(isValidMaintenanceOrderTransition('completed', 'in_workshop')).toBe(false);
@@ -83,45 +88,12 @@ describe('isValidMaintenanceOrderTransition', () => {
 });
 
 describe('work orders', () => {
-  it('cubre el enum de la base', () => {
-    expect([...WORK_ORDER_STATUSES]).toEqual([
-      'pending',
-      'in_progress',
-      'paused',
-      'completed',
-      'completed_partial',
-      'cancelled',
-    ]);
-  });
-
   it('isWorkOrderClosed sólo acepta los cierres', () => {
     expect([...WORK_ORDER_CLOSED_STATUSES]).toEqual(['completed', 'completed_partial']);
     expect(isWorkOrderClosed('completed')).toBe(true);
     expect(isWorkOrderClosed('completed_partial')).toBe(true);
     expect(isWorkOrderClosed('cancelled')).toBe(false);
     expect(isWorkOrderClosed('in_progress')).toBe(false);
-  });
-
-  it('isValidWorkOrderTransition sigue el ciclo de ejecución', () => {
-    expect(isValidWorkOrderTransition('pending', 'in_progress')).toBe(true);
-    expect(isValidWorkOrderTransition('in_progress', 'paused')).toBe(true);
-    expect(isValidWorkOrderTransition('paused', 'in_progress')).toBe(true);
-    expect(isValidWorkOrderTransition('in_progress', 'completed')).toBe(true);
-    expect(isValidWorkOrderTransition('in_progress', 'completed_partial')).toBe(true);
-  });
-
-  it('permite reabrir una OT cerrada cuando el taller devuelve la orden', () => {
-    expect(isValidWorkOrderTransition('completed', 'in_progress')).toBe(true);
-    expect(isValidWorkOrderTransition('completed_partial', 'in_progress')).toBe(true);
-  });
-
-  it('deja cancelled como terminal', () => {
-    expect(isValidWorkOrderTransition('cancelled', 'in_progress')).toBe(false);
-  });
-
-  it('no permite empezar una OT ya terminada ni saltar de pending a completed', () => {
-    expect(isValidWorkOrderTransition('pending', 'completed')).toBe(false);
-    expect(isValidWorkOrderTransition('completed', 'completed')).toBe(false);
   });
 });
 

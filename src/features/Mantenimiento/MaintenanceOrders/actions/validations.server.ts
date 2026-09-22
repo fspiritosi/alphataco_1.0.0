@@ -11,6 +11,7 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany } from './order-perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('MaintenanceOrders/validations');
 
@@ -41,6 +42,7 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
         throw new Error('Orden no encontrada');
       }
 
+      await assertOrderTransition(tx, orderId, 'completed');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: {
@@ -130,6 +132,7 @@ export async function workshopChiefReturnOrder(orderId: string, reason: string) 
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
       // 1. Actualizar estado de la orden a in_workshop
+      await assertOrderTransition(tx, orderId, 'in_workshop');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: {
@@ -200,6 +203,7 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
       }
 
       // Marcar la orden como completada
+      await assertOrderTransition(tx, orderId, 'completed');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: {
@@ -265,6 +269,7 @@ export async function operationsRejectOrder(orderId: string, reason: string) {
 
   try {
     await withMaintenanceActor(profile?.id ?? null, async (tx) => {
+      await assertOrderTransition(tx, orderId, 'pending_workshop_validation');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: {
@@ -371,6 +376,7 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
       }
 
       // 4. Volver la OM a in_workshop
+      await assertOrderTransition(tx, orderId, 'in_workshop');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: { status: 'in_workshop', updated_at: new Date() },
@@ -456,6 +462,7 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
 
     await withMaintenanceActor(profile.id, async (tx) => {
       // 2. Cambiar estado de la orden a operations_rejected
+      await assertOrderTransition(tx, orderId, 'operations_rejected');
       await tx.maintenance_orders.update({
         where: { id: orderId },
         data: { status: 'operations_rejected', updated_at: new Date() },
@@ -557,6 +564,7 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
         }
 
         // Volver la orden a in_workshop
+        await assertOrderTransition(tx, orderId, 'in_workshop');
         await tx.maintenance_orders.update({
           where: { id: orderId },
           data: { status: 'in_workshop', updated_at: new Date() },
@@ -580,6 +588,7 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
       if (!comment?.trim()) throw new Error('Debe indicar el motivo de desacuerdo');
 
       await withMaintenanceActor(profile.id, async (tx) => {
+        await assertOrderTransition(tx, orderId, 'pending_operations_validation');
         await tx.maintenance_orders.update({
           where: { id: orderId },
           data: { status: 'pending_operations_validation', updated_at: new Date() },

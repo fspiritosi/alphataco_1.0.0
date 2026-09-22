@@ -18,6 +18,7 @@ import type {
 } from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
 
@@ -567,6 +568,7 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
         select: { status: true },
       });
 
+      await assertOrderTransition(tx, input.orderId, 'date_confirmed');
       const updated = await tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {
@@ -651,6 +653,7 @@ export async function rejectPendingOrder(input: RejectPendingOrderInput) {
 
       const rejectedAt = new Date();
 
+      await assertOrderTransition(tx, input.orderId, 'rejected');
       const updated = await tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {
@@ -731,6 +734,7 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
     // El pedido es de un vehículo o de un equipamiento (ticket 596): los
     // equipamientos no llevan kilometraje, y sus horas van en `horometer`.
     await withMaintenanceActor(profile.id, async (tx) => {
+      await assertOrderTransition(tx, input.orderId, 'in_workshop');
       await tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {

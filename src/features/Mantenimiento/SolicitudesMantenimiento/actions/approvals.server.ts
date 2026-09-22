@@ -15,7 +15,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { ApproveRequestItemsInput, RejectRequestInput } from '../../types';
-import { assertRequestInActiveCompany } from './request-perimeter';
+import { assertRequestInActiveCompany, assertRequestTransition } from './request-perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
 
 const serverLogger = new Logger('SolicitudesMantenimiento/approvals');
@@ -70,6 +70,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
     });
 
     await withMaintenanceActor(profile.id, async (tx) => {
+      await assertRequestTransition(tx, input.requestId, 'approved');
       await tx.maintenance_requests.update({
         where: { id: input.requestId },
         data: {
@@ -198,6 +199,8 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         assertDescription();
       }
 
+      await assertRequestTransition(tx, input.requestId, outcome.requestStatus);
+
       if (outcome.requestStatus === 'rejected') {
         await tx.maintenance_requests.update({
           where: { id: input.requestId },
@@ -325,6 +328,7 @@ export async function rejectMaintenanceRequest(input: RejectRequestInput) {
       });
 
       // Actualizar estado de la solicitud
+      await assertRequestTransition(tx, input.requestId, 'rejected');
       await tx.maintenance_requests.update({
         where: { id: input.requestId },
         data: {
@@ -369,6 +373,7 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
 
     if (request.source === 'preventive') {
       await withMaintenanceActor(profile.id, async (tx) => {
+        await assertRequestTransition(tx, input.requestId, 'rejected');
         await tx.maintenance_requests.update({
           where: { id: input.requestId },
           data: { status: 'rejected' },
@@ -410,6 +415,7 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
 
     // Si todos los items están rechazados, actualizar el estado de la solicitud
     if (allRejected) {
+      await assertRequestTransition(prisma, input.requestId, 'rejected');
       await prisma.maintenance_requests.update({
         where: { id: input.requestId },
         data: {

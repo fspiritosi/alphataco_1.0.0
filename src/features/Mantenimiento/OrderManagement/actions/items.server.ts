@@ -17,6 +17,7 @@ import {
   filterRepairTypeIdsForCompany,
 } from './perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('OrderManagement/items');
 
@@ -645,6 +646,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
         if (nextStatus === 'workshop_rejected') {
           // All items rejected → mark as workshop_rejected
+          await assertOrderTransition(tx, orderId, 'workshop_rejected');
           await tx.maintenance_orders.update({
             where: { id: orderId },
             data: { status: 'workshop_rejected', updated_at: new Date() },
@@ -660,6 +662,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
           });
         } else if (nextStatus === 'in_workshop') {
           // Some items restored or new items added → back to in_workshop
+          await assertOrderTransition(tx, orderId, 'in_workshop');
           await tx.maintenance_orders.update({
             where: { id: orderId },
             data: { status: 'in_workshop', updated_at: new Date() },

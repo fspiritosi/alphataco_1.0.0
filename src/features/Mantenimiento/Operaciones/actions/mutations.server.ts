@@ -8,6 +8,7 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { ApproveWorkshopEntryInput, RejectOperationInput } from '../../types';
 import { assertOperationOrderInActiveCompany } from './perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const serverLogger = new Logger('Operaciones/mutations');
 
@@ -23,8 +24,9 @@ export async function rejectMaintenanceOperation(input: RejectOperationInput) {
   serverLogger.info('Rechazando operación', { data: { orderId: input.orderId, reason: input.reason } });
 
   try {
-    const data = await withMaintenanceActor(profile.id, (tx) =>
-      tx.maintenance_orders.update({
+    const data = await withMaintenanceActor(profile.id, async (tx) => {
+      await assertOrderTransition(tx, input.orderId, 'pending_scheduling');
+      return tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {
           status: 'pending_scheduling',
@@ -36,8 +38,8 @@ export async function rejectMaintenanceOperation(input: RejectOperationInput) {
           rejected_by: profile.id,
           rejected_at: new Date(),
         },
-      })
-    );
+      });
+    });
 
     serverLogger.info('Operación rechazada, vuelve a pedido pendiente', { data: { orderId: input.orderId } });
 
@@ -76,6 +78,7 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
       }
 
       // Actualizar el pedido
+      await assertOrderTransition(tx, input.orderId, 'in_workshop');
       await tx.maintenance_orders.update({
         where: { id: input.orderId },
         data: {

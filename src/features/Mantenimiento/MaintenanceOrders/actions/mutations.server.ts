@@ -12,6 +12,7 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany, assertWorkOrderInActiveCompany } from './order-perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('MaintenanceOrders/mutations');
 
@@ -149,6 +150,7 @@ export async function completeExternalWorkOrder(workOrderId: string) {
         const allClosed = areAllWorkOrdersClosed(allWOs.map((wo) => wo.status));
 
         if (allClosed) {
+          await assertOrderTransition(tx, maintenanceOrderId, 'pending_workshop_validation');
           await tx.maintenance_orders.update({
             where: { id: maintenanceOrderId },
             data: { status: 'pending_workshop_validation' },
