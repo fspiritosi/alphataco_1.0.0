@@ -446,9 +446,12 @@ export async function getDailyReportTypeServiceSummary(dailyReportId: string) {
   logger.debug('Obteniendo resumen de tipos de servicio', { data: { dailyReportId } });
 
   try {
+    // Perímetro: sólo se resume el parte si pertenece a la empresa activa.
+    const companyId = await getActiveCompanyId();
+
     const rows = await prisma.dailyreportrows.groupBy({
       by: ['type_service'],
-      where: { daily_report_id: dailyReportId },
+      where: { daily_report_id: dailyReportId, dailyreport: { company_id: companyId } },
       _count: true,
     });
 
