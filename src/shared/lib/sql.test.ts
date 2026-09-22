@@ -5,7 +5,7 @@ import { z, ZodError } from 'zod';
 // `sql.ts` importa el cliente por defecto; en unit tests no hay DATABASE_URL.
 vi.mock('@/shared/lib/prisma', () => ({ prisma: {} }));
 
-import { callFunction, callScalar, type SqlClient } from './sql';
+import { callFunction, callScalar, callVoid, type SqlClient, type VoidSqlClient } from './sql';
 
 /** Cliente falso: captura el `Prisma.Sql` que recibe `$queryRaw` y devuelve `rows`. */
 function fakeClient(rows: unknown[]) {
@@ -105,5 +105,45 @@ describe('callScalar', () => {
     const { client } = fakeClient([{ value: 'no-bool' }]);
     await expect(callScalar('1bad', [], z.boolean(), client)).rejects.toThrow('Nombre de función SQL inválido');
     await expect(callScalar('fn', [], z.boolean(), client)).rejects.toBeInstanceOf(ZodError);
+  });
+});
+
+describe('callVoid', () => {
+  /** Doble de `$executeRaw`: captura el `Prisma.Sql` y devuelve 0 (las funciones void no afectan filas). */
+  function fakeVoidClient() {
+    const calls: Prisma.Sql[] = [];
+    const client: VoidSqlClient = {
+      $executeRaw: vi.fn(async (query: TemplateStringsArray | Prisma.Sql) => {
+        calls.push(query as Prisma.Sql);
+        return 0;
+      }) as unknown as VoidSqlClient['$executeRaw'],
+    };
+    return { client, calls };
+  }
+
+  it('genera SELECT public.<fn>($1, $2) con $executeRaw (sin deserializar void) y bindea los args', async () => {
+    const { client, calls } = fakeVoidClient();
+    await callVoid(
+      'controlar_alertas_documentos_single_employee',
+      [{ uuid: '2f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e' }, { uuid: '3f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e' }],
+      client
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].text).toBe('SELECT public.controlar_alertas_documentos_single_employee($1::uuid, $2::uuid)');
+    expect(calls[0].values).toEqual(['2f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e', '3f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e']);
+  });
+
+  it('{ uuidArray } se bindea como array con cast ::uuid[]', async () => {
+    const { client, calls } = fakeVoidClient();
+    const ids = ['2f1e0b4c-1d8a-4a2f-9b6f-0f0a1b2c3d4e'];
+    await callVoid('recalcular_status_documentacion', [{ uuidArray: ids }, 'Persona'], client);
+    expect(calls[0].text).toBe('SELECT public.recalcular_status_documentacion($1::uuid[], $2)');
+    expect(calls[0].values).toEqual([ids, 'Persona']);
+  });
+
+  it('rechaza nombres inválidos sin ejecutar nada', async () => {
+    const { client } = fakeVoidClient();
+    await expect(callVoid('fn; drop table x', [], client)).rejects.toThrow('Nombre de función SQL inválido');
+    expect(client.$executeRaw).not.toHaveBeenCalled();
   });
 });

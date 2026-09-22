@@ -27,6 +27,12 @@ describe.skipIf(!process.env.DATABASE_URL)('callFunction (integración)', () => 
     expect(value).toBeNull();
   });
 
+  it('callVoid ejecuta una función void sin fallar por deserialización (P2010)', async () => {
+    const { callVoid } = await import('./sql');
+    // Con array vacío la función retorna sin escribir nada: sirve para probar el binding `::uuid[]`.
+    await expect(callVoid('recalcular_status_documentacion', [{ uuidArray: [] }, 'Persona'])).resolves.toBeUndefined();
+  });
+
   it('rechaza nombres inválidos sin tocar la base', async () => {
     const { callFunction } = await import('./sql');
     await expect(callFunction('company; drop', [], z.array(z.unknown()))).rejects.toThrow(

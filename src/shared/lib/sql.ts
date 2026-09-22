@@ -18,8 +18,9 @@ import { z } from 'zod';
  *   Si un argumento no puede ser nulo, validarlo antes de llamar.
  * - `bigint` de Postgres (`count(*)`, `RETURNS TABLE(... bigint)`) llega como `bigint` de JS:
  *   el schema Zod lo convierte (`z.coerce.number()` si entra en Number, o `z.bigint()`).
- * - Funciones que devuelven `void` NO van por acá (`$queryRaw` no puede deserializar `void`):
- *   usar `client.$executeRaw` directamente.
+ * - `uuid[]` (ej. `recalcular_status_documentacion(uuid[], text)`): `{ uuidArray: [...] }` → `::uuid[]`.
+ * - Funciones que devuelven `void` van por `callVoid` (`$executeRaw`: `$queryRaw` no puede
+ *   deserializar `void` y falla en runtime con P2010).
  */
 export type SqlArg =
   | string
@@ -29,10 +30,13 @@ export type SqlArg =
   | undefined
   | Date
   | { json: unknown }
-  | { uuid: string | null | undefined };
+  | { uuid: string | null | undefined }
+  | { uuidArray: readonly string[] };
 
 /** Mínimo que necesitan los helpers: sirve `prisma`, un `Prisma.TransactionClient` o un doble de test. */
 export type SqlClient = Pick<Prisma.TransactionClient, '$queryRaw'>;
+/** Cliente para funciones `void`: sólo necesita `$executeRaw`. */
+export type VoidSqlClient = Pick<Prisma.TransactionClient, '$executeRaw'>;
 
 const FUNCTION_NAME_RE = /^[a-z_][a-z0-9_]*$/;
 
@@ -51,6 +55,9 @@ function toSqlValue(arg: SqlArg): Prisma.Sql {
     }
     if ('uuid' in arg) {
       return Prisma.sql`${arg.uuid ?? null}::uuid`;
+    }
+    if ('uuidArray' in arg) {
+      return Prisma.sql`${arg.uuidArray}::uuid[]`;
     }
   }
   return Prisma.sql`${arg}`;
@@ -92,4 +99,15 @@ export async function callScalar<T extends z.ZodTypeAny>(
   const query = Prisma.sql`SELECT public.${Prisma.raw(name)}${buildArgList(args)} AS value`;
   const rows = await client.$queryRaw<Array<{ value: unknown }>>(query);
   return schema.parse(rows[0]?.value);
+}
+
+/**
+ * `SELECT public.<name>($1, ...)` con `$executeRaw` — para funciones que devuelven `void`
+ * (`controlar_alertas_*`, `recalcular_status_documentacion`). No valida resultado: no hay.
+ * Usar el `tx` de `withActor` como `client` cuando la función lee `app_current_user_id()`.
+ */
+export async function callVoid(name: string, args: readonly SqlArg[], client: VoidSqlClient = prisma): Promise<void> {
+  assertFunctionName(name);
+  const query = Prisma.sql`SELECT public.${Prisma.raw(name)}${buildArgList(args)}`;
+  await client.$executeRaw(query);
 }
