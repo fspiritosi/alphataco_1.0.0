@@ -6,15 +6,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
-import { createVehicle, updateVehicle } from '../lib/actions/vehicle-actions';
+import { createVehicle, updateVehicle, isVehicleDomainTaken } from '../lib/actions/vehicle-actions';
 import {
   getModelsByBrand,
   getSubTypesByType,
@@ -25,6 +23,7 @@ import {
 } from '../lib/actions/vehicle-catalog-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
 import { VEHICLE_TYPE_OF_VEHICLE_ID } from '../lib/utils/vehicle-utils';
+import { vehicleFormSchema } from '../schemas/vehicle';
 import { VehicleFormData, VehicleTabs } from './vehicle-tabs';
 
 const logger = new Logger('VehicleForm');
@@ -49,180 +48,20 @@ interface VehicleFormProps {
   ownersPromise: Promise<getVehicleOwnersType>;
 }
 
-const vehicleSchema = z
-  .object({
-    // Basic Data
-    type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
-    brand: z.string().min(1, 'La marca es requerida'),
-    model: z.string().min(1, 'El modelo es requerido'),
-    owner_id: z.string().optional().nullable(),
-    year: z
-      .string()
-      .min(1, 'El año es requerido')
-      .refine(
-        (year) => {
-          const yearNum = Number(year);
-          const currentYear = new Date().getFullYear();
-          return yearNum >= 1900 && yearNum <= currentYear;
-        },
-        { message: 'El año debe ser mayor a 1900 y menor al año actual' }
-      ),
-    type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio', 'Prendado']).optional().nullable(),
-
-    // Technical Data
-    engine: z.string().optional(),
-    type: z.string().optional(),
-    subType: z.string().optional().nullable(),
-    chassis: z.string().optional(),
-    serie: z.string().optional(),
-    domain: z.string().optional().nullable(),
-    kilometer: z.string().optional(),
-    engine_hours: z.string().optional(),
-    intern_number: z.string().optional(),
-    picture: z.string().optional().nullable(),
-    contract_expiration_date: z.date().optional().nullable(),
-    contract_start_date: z.date().optional().nullable(),
-    contract_number: z.string().optional().nullable(),
-    // Certificacion del equipo (ticket 727, idem equipamientos). Los dos datos
-    // dependientes son opcionales en la base y se vuelven obligatorios cuando
-    // `has_certification` esta en true (ver el superRefine de abajo).
-    has_certification: z.boolean().default(false),
-    certification_expiration_date: z.date().optional().nullable(),
-    certification_number: z.string().optional().nullable(),
-
-    // Assignment Data
-    allocated_to: z.array(z.string()).optional(),
-    cost_center_id: z.string().optional().nullable(),
-    cost_type: z.enum(['Directo', 'Indirecto'], { required_error: 'El tipo de costo es requerido' }),
-    sector: z.string({ required_error: 'El sector es requerido' }),
-
-    // Price Data
-    price: z.number().positive('El precio debe ser mayor a 0').optional(),
-    currency: z.enum(['USD', 'EUR', 'GBP', 'ARS']).optional(),
-  })
-  .superRefine((data, ctx) => {
-    // Si el equipo posee certificacion, sus dos datos son obligatorios (idem equipamientos)
-    if (!data.has_certification) return;
-    if (!data.certification_expiration_date) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'La fecha de vencimiento de la certificación es requerida',
-        path: ['certification_expiration_date'],
-      });
+/**
+ * Schema del formulario: la base vive en `schemas/vehicle.ts` (compartida con el servidor);
+ * acá sólo se agrega el chequeo async de dominio repetido, que consulta una server action
+ * y sólo aplica al alta (`action=new`).
+ */
+const vehicleSchema = vehicleFormSchema.refine(
+  async (data) => {
+    if (data.type_of_vehicle === '1' && data.domain && window.location.href.includes('/dashboard/equipment/action?action=new')) {
+      return !(await isVehicleDomainTaken(data.domain));
     }
-    if (!data.certification_number?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'El número de certificación es requerido',
-        path: ['certification_number'],
-      });
-    }
-  })
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '2') {
-        return !!data.type;
-      }
-      return true;
-    },
-    { message: 'El tipo es requerido', path: ['type'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '2') {
-        return !!data.subType;
-      }
-      return true;
-    },
-    { message: 'El subtipo es requerido', path: ['subType'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '1') {
-        return !!data.chassis && data.chassis.length >= 2 && data.chassis.length <= 30;
-      }
-      return true;
-    },
-    { message: 'El chasis debe tener entre 2 y 30 caracteres', path: ['chassis'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '2') {
-        return !!data.serie && data.serie.length >= 2 && data.serie.length <= 30;
-      }
-      return true;
-    },
-    { message: 'La serie debe tener entre 2 y 30 caracteres', path: ['serie'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '1') {
-        if (!data.domain) return false;
-        const domain = data.domain.toUpperCase();
-        const year = Number(data.year);
-
-        const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
-        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
-        if (year <= 2015) {
-          return oldRegex.test(domain) || oldRegex2.test(domain);
-        }
-      }
-      return true;
-    },
-    { message: 'El dominio debe tener el formato AAA000 o AAA00. (verificar año)', path: ['domain'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '1') {
-        if (!data.domain) return false;
-        const domain = data.domain.toUpperCase();
-        const year = Number(data.year);
-
-        const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
-        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
-        if (year >= 2017) {
-          return newRegex.test(domain) || oldRegex2.test(domain);
-        }
-      }
-      return true;
-    },
-    { message: 'El dominio debe tener el formato AA000AA o AAA00. (verificar año)', path: ['domain'] }
-  )
-  .refine(
-    (data) => {
-      if (data.type_of_vehicle === '1') {
-        if (!data.domain) return false;
-        const domain = data.domain.toUpperCase();
-        const year = Number(data.year);
-
-        const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
-        const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
-        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
-        if (year === 2016 || year === 2015) {
-          return newRegex.test(domain) || oldRegex.test(domain) || oldRegex2.test(domain);
-        }
-      }
-      return true;
-    },
-    {
-      message: 'El dominio debe tener uno de los formatos: AA000AA o AAA000 o AAA00. (verificar año)',
-      path: ['domain'],
-    }
-  )
-  .refine(
-    async (data) => {
-      if (data.type_of_vehicle === '1' && data.domain) {
-        const supabase = supabaseBrowser();
-        let { data: vehicles } = await supabase.from('vehicles').select('id').eq('domain', data.domain.toUpperCase());
-
-        if (vehicles?.[0]?.id && window.location.href.includes('/dashboard/equipment/action?action=new')) {
-          return false;
-        }
-      }
-      return true;
-    },
-    { message: 'El dominio ya existe', path: ['domain'] }
-  );
+    return true;
+  },
+  { message: 'El dominio ya existe', path: ['domain'] }
+);
 
 export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: VehicleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -9,9 +9,10 @@ import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions'
 import { fetchAllContractorForVehicles } from '@/features/Equipos/EquipoID/actions/vehicle-actions';
 import { use } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import type { VehicleFormData } from '../components/vehicle-tabs';
 
 interface VehicleAssignmentDataFormProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<VehicleFormData>;
   readOnly?: boolean;
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
@@ -142,8 +143,8 @@ export function VehicleAssignmentDataForm({
                       {allocatedTo.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {allocatedTo
-                            .filter((contractorId: any) => contractorCompanies.some((c) => c.id === contractorId))
-                            .map((contractorId: any) => {
+                            .filter((contractorId) => contractorCompanies.some((c) => c.id === contractorId))
+                            .map((contractorId) => {
                               const contractor = contractorCompanies.find((c) => c.id === contractorId);
                               return (
                                 <Badge key={contractorId} variant="secondary">

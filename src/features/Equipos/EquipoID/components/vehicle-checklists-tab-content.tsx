@@ -7,77 +7,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getChecklistAnswersByEquipment } from '@/features/Equipos/EquipoID/actions/checklist-queries';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { PendingDeviationsAlert } from '@/features/Mantenimiento/shared/components/pending-deviations-alert';
+import { useQuery } from '@tanstack/react-query';
 import { Calendar, CheckCircle, ClipboardList, Link as LinkIcon, User, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { parseCriticalItemLabels, summarizeCriticalItems } from '../lib/critical-items';
 
 interface VehicleChecklistsTabContentProps {
   equipmentId: string;
 }
 
-type ChecklistAnswer = {
-  id: string;
-  created_at: string;
-  result: 'B' | 'M' | null;
-  observations: string | null;
-  critical_items_failed: string[] | string | object | null;
-  ut_checklist_answer_id: string | null;
-  checklist_templates?: {
-    id: string;
-    name: string;
-    description: string | null;
-  } | null;
-  profile?: {
-    id: string;
-    fullname: string | null;
-    email: string | null;
-  } | null;
-  checklist_deviations?: Array<{
-    id: string;
-    item_code: string;
-    item_label: string;
-    section_code: string | null;
-    created_at: string;
-  }>;
-  ut_checklist_answer?: {
-    id: string;
-    equipment_id: string;
-    equipment?: {
-      id: string;
-      domain: string | null;
-      serie: string | null;
-      intern_number: string | null;
-    } | null;
-  } | null;
-};
-
 export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTabContentProps) {
-  const [answers, setAnswers] = useState<ChecklistAnswer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [pendingDeviations, setPendingDeviations] = useState<any[]>([]);
+  const { data: answers = [], isLoading: loadingAnswers } = useQuery({
+    queryKey: ['equipment-checklist-answers', equipmentId],
+    queryFn: () => getChecklistAnswersByEquipment(equipmentId),
+    enabled: !!equipmentId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        const [checklistAnswers, deviations] = await Promise.all([
-          getChecklistAnswersByEquipment(equipmentId),
-          getPendingDeviations(equipmentId),
-        ]);
-        setAnswers(checklistAnswers as any);
-        setPendingDeviations(deviations as any);
-      } catch (error) {
-        console.error('Error loading checklist answers:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+  const { data: pendingDeviations = [], isLoading: loadingDeviations } = useQuery({
+    queryKey: ['equipment-pending-deviations', equipmentId],
+    queryFn: () => getPendingDeviations(equipmentId),
+    enabled: !!equipmentId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-    if (equipmentId) {
-      loadData();
-    }
-  }, [equipmentId]);
+  const isLoading = !!equipmentId && (loadingAnswers || loadingDeviations);
 
   if (isLoading) {
     return (
@@ -157,118 +112,31 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                         )}
                       </TableCell>
                       <TableCell>
-                        {answer.critical_items_failed &&
-                        ((Array.isArray(answer.critical_items_failed) && answer.critical_items_failed.length > 0) ||
-                          (typeof answer.critical_items_failed === 'string' &&
-                            answer.critical_items_failed.length > 0) ||
-                          (typeof answer.critical_items_failed === 'object' &&
-                            Object.keys(answer.critical_items_failed).length > 0)) ? (
-                          <div className="space-y-1">
-                            <Badge variant="destructive" className="text-xs">
-                              {(() => {
-                                // Manejar diferentes formatos de critical_items_failed
-                                if (Array.isArray(answer.critical_items_failed)) {
-                                  return answer.critical_items_failed.length;
-                                }
-                                // Si es string, intentar parsearlo como JSON
-                                if (typeof answer.critical_items_failed === 'string') {
-                                  try {
-                                    const parsed = JSON.parse(answer.critical_items_failed);
-                                    return Array.isArray(parsed) ? parsed.length : 1;
-                                  } catch {
-                                    return 1;
-                                  }
-                                }
-                                return 1;
-                              })()}{' '}
-                              item(s)
-                            </Badge>
-                            <div className="text-xs text-muted-foreground max-w-md break-words">
-                              {(() => {
-                                // Extraer los labels de los items críticos fallidos
-                                let items: string[] = [];
-                                let dataToProcess: any = answer.critical_items_failed;
-
-                                // Si es null o undefined, retornar vacío
-                                if (dataToProcess === null || dataToProcess === undefined) {
-                                  return '';
-                                }
-
-                                // Si es string, intentar parsearlo
-                                if (typeof dataToProcess === 'string') {
-                                  try {
-                                    dataToProcess = JSON.parse(dataToProcess);
-                                  } catch (e) {
-                                    // Si falla el parseo, tratarlo como string simple
-                                    items = [dataToProcess as string];
-                                    return items.slice(0, 2).join(', ') + (items.length > 2 ? '...' : '');
-                                  }
-                                }
-
-                                // Ahora procesar como array o objeto
-                                if (Array.isArray(dataToProcess)) {
-                                  items = dataToProcess.map((item: any) => {
-                                    // Si el elemento es un string JSON, parsearlo primero
-                                    if (typeof item === 'string') {
-                                      try {
-                                        const parsed = JSON.parse(item);
-                                        // Si después de parsear es un objeto con item_label, usarlo
-                                        if (parsed && typeof parsed === 'object' && parsed.item_label) {
-                                          return parsed.item_label;
-                                        }
-                                        // Si después de parsear es un objeto con item_code, usarlo
-                                        if (parsed && typeof parsed === 'object' && parsed.item_code) {
-                                          return parsed.item_code;
-                                        }
-                                        // Si no se puede extraer nada, retornar el string original
-                                        return item;
-                                      } catch {
-                                        // Si falla el parseo, tratarlo como string simple
-                                        return item;
-                                      }
-                                    }
-
-                                    // Si es objeto directamente, extraer item_label o item_code
-                                    if (item && typeof item === 'object') {
-                                      if (item.item_label) return item.item_label;
-                                      if (item.item_code) return item.item_code;
-                                    }
-
-                                    // Si no podemos extraer nada útil, retornar representación del objeto
-                                    return String(item);
-                                  });
-                                } else if (dataToProcess && typeof dataToProcess === 'object') {
-                                  // Si es un objeto único (no array), intentar extraer el label
-                                  const obj = dataToProcess as { item_label?: string; item_code?: string };
-                                  if (obj.item_label) {
-                                    items = [obj.item_label];
-                                  } else if (obj.item_code) {
-                                    items = [obj.item_code];
-                                  } else {
-                                    items = [JSON.stringify(dataToProcess)];
-                                  }
-                                } else {
-                                  items = [String(dataToProcess)];
-                                }
-
-                                return items.slice(0, 2).join(', ') + (items.length > 2 ? '...' : '');
-                              })()}
+                        {(() => {
+                          const labels = parseCriticalItemLabels(answer.critical_items_failed);
+                          if (labels.length === 0) {
+                            return <span className="text-sm text-muted-foreground">Ninguno</span>;
+                          }
+                          return (
+                            <div className="space-y-1">
+                              <Badge variant="destructive" className="text-xs">
+                                {labels.length} item(s)
+                              </Badge>
+                              <div className="text-xs text-muted-foreground max-w-md break-words">
+                                {summarizeCriticalItems(labels)}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Ninguno</span>
-                        )}
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
-                        {answer.ut_checklist_answer && answer.ut_checklist_answer.equipment ? (
-                          <Link
-                            href={`/dashboard/equipment/action?id=${answer.ut_checklist_answer.equipment_id}&action=view`}
-                          >
+                        {answer.checklist_answers?.vehicles ? (
+                          <Link href={`/dashboard/equipment/action?id=${answer.checklist_answers.equipment_id}&action=view`}>
                             <Button variant="outline" size="sm" className="gap-2">
                               <LinkIcon className="h-3 w-3" />
-                              {answer.ut_checklist_answer.equipment.domain
-                                ? `${answer.ut_checklist_answer.equipment.domain} - ${answer.ut_checklist_answer.equipment.intern_number || ''}`
-                                : `${answer.ut_checklist_answer.equipment.serie || ''} - ${answer.ut_checklist_answer.equipment.intern_number || ''}`}
+                              {answer.checklist_answers.vehicles.domain
+                                ? `${answer.checklist_answers.vehicles.domain} - ${answer.checklist_answers.vehicles.intern_number || ''}`
+                                : `${answer.checklist_answers.vehicles.serie || ''} - ${answer.checklist_answers.vehicles.intern_number || ''}`}
                             </Button>
                           </Link>
                         ) : (

@@ -1,4 +1,6 @@
 'use client';
+
+import { Logger } from '@/lib/logger';
 import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
@@ -6,6 +8,8 @@ import { Copy, Download, Info, Printer } from 'lucide-react';
 import { useRef } from 'react';
 import QRCode from 'react-qr-code';
 import { toast } from 'sonner';
+
+const logger = new Logger('VehicleQr');
 
 function VehicleQr({ vehicle }: { vehicle: VehicleById }) {
   const URLQR = process.env.NEXT_PUBLIC_BASE_URL;
@@ -24,7 +28,7 @@ function VehicleQr({ vehicle }: { vehicle: VehicleById }) {
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Error generating image:', error);
+      logger.error('Error al generar la imagen del QR', { data: { error } });
     }
   };
   const printQR = () => {

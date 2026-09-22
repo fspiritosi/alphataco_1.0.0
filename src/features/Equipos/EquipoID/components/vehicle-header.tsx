@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { conditionConfig, variants } from '@/features/Equipos/Equipos/components/data-equipment-server';
+import { conditionIcons, conditionVariants } from '@/features/Equipos/Equipos/VehicleList/columns';
+import { condition_enum } from '@/generated/prisma/enums';
+import { conditionLabels } from '@/shared/utils/mappers';
 import { PermissionGuard } from '@/features/Permissions';
 import BackButton from '@/shared/components/common/BackButton';
 import { CheckCircle2, Edit, Truck } from 'lucide-react';
@@ -30,8 +32,8 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
   const { triggerReset } = useVehicleFormReset();
   const [isChangingCondition, setIsChangingCondition] = useState(false);
 
-  // El valor de condition viene de Supabase con espacios ("en preparacion")
-  const isEnPreparacion = vehicle?.condition === 'en preparacion';
+  const isEnPreparacion = vehicle?.condition === condition_enum.en_preparacion;
+  const conditionIcon = vehicle?.condition ? conditionIcons[vehicle.condition] : undefined;
 
   const handleConditionChange = async (newCondition: string) => {
     if (!vehicle?.id || newCondition !== 'operativo') return;
@@ -87,7 +89,7 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
                   {isEnPreparacion ? (
                     <PermissionGuard module="equipos" tab="detalle-equipo" action="update">
                       <Select
-                        value="en preparacion"
+                        value={condition_enum.en_preparacion}
                         onValueChange={handleConditionChange}
                         disabled={isChangingCondition}
                       >
@@ -95,11 +97,9 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="en preparacion" disabled>
+                          <SelectItem value={condition_enum.en_preparacion} disabled>
                             <div className="flex items-center gap-1.5">
-                              {React.createElement(conditionConfig['en preparacion']?.icon, {
-                                className: 'size-3.5',
-                              })}
+                              {React.createElement(conditionIcons.en_preparacion, { className: 'size-3.5' })}
                               En preparación
                             </div>
                           </SelectItem>
@@ -113,13 +113,9 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
                       </Select>
                     </PermissionGuard>
                   ) : (
-                    <Badge variant={variants[vehicle?.condition ?? 'default'] as 'default'}>
-                      {vehicle?.condition &&
-                        conditionConfig[vehicle.condition] &&
-                        React.createElement(conditionConfig[vehicle.condition].icon, {
-                          className: 'mr-2 size-4',
-                        })}
-                      {vehicle?.condition}
+                    <Badge variant={vehicle?.condition ? conditionVariants[vehicle.condition] ?? 'default' : 'default'}>
+                      {conditionIcon && React.createElement(conditionIcon, { className: 'mr-2 size-4' })}
+                      {vehicle?.condition ? conditionLabels[vehicle.condition] ?? vehicle.condition : ''}
                     </Badge>
                   )}
                 </div>

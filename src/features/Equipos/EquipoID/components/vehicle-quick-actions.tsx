@@ -21,6 +21,7 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { condition_enum } from '@/generated/prisma/enums';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -36,7 +37,7 @@ import { toggleVehicleStatus } from '../lib/actions/vehicle-actions';
 interface VehicleQuickActionsProps {
   equipmentId: string | undefined;
   isActive: boolean | undefined;
-  condition: Database['public']['Enums']['condition_enum'];
+  condition: condition_enum | null | undefined;
 }
 
 const terminationSchema = z.object({
@@ -56,7 +57,7 @@ export function VehicleQuickActions({ equipmentId, isActive, condition }: Vehicl
     startTransition(async () => {
       try {
         // Here you would call your server action to toggle employee status
-        await toggleVehicleStatus(equipmentId!, activate, condition);
+        await toggleVehicleStatus(equipmentId!, activate, condition ?? condition_enum.operativo);
         toast.success(`Equipo ${activate ? 'activado' : 'dado de baja'} correctamente`);
         setShowDeactivateDialog(false);
         setShowActivateDialog(false);
@@ -83,7 +84,7 @@ export function VehicleQuickActions({ equipmentId, isActive, condition }: Vehicl
         await toggleVehicleStatus(
           equipmentId!,
           false,
-          'no operativo',
+          condition_enum.no_operativo,
           values.reason_for_termination,
           values.termination_date
         );

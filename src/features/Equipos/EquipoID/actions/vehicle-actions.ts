@@ -1,108 +1,59 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
-const logger = new Logger('dashboard/employee/actions');
+const logger = new Logger('features/Equipos/EquipoID/vehicle-actions');
 
-export async function fetchAllCostCenter() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
+/**
+ * Catálogos de clientes/contratos que consumen la ficha de vehículos, equipamientos y el
+ * preparte. Todos acotados a la empresa activa (`withCompany`): antes PostgREST devolvía los
+ * de todas las empresas y confiaba en RLS.
+ */
 
-  const { data, error } = await supabase.from('cost_center').select('*').order('name', { ascending: true });
-
-  if (error) {
-    logger.error('Error fetching cost centers', { data: { error } });
-    return [];
-  }
-  return data;
-}
-
-export async function fetchContractorCompanies() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-
-  const { data, error } = await supabase.from('customers').select('*').order('name', { ascending: true });
-
-  if (error) {
-    logger.error('Error fetching contractor companies', { data: { error } });
-    return [];
-  }
-  return data;
-}
-
+/** Contratos (servicios) activos de un cliente de la empresa activa. */
 export async function fetchContractsByClientId(clientId: string) {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-  const { data, error } = await supabase
-    .from('customer_services')
-    .select('id, service_name')
-    .order('service_name', { ascending: true })
-    .eq('customer_id', clientId)
-    .eq('is_active', true);
-
-  if (error) {
-    logger.error('Error fetching contracts', { data: { error } });
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.customer_services.findMany({
+      where: withCompany({ customer_id: clientId, is_active: true }, companyId),
+      select: { id: true, service_name: true },
+      orderBy: { service_name: 'asc' },
+    });
+  } catch (error) {
+    logger.error('Error fetching contracts', { data: { error, clientId } });
     return [];
   }
-  return data;
 }
 
+/** Todos los contratos (servicios) activos de la empresa activa. */
 export async function fetchAllContracts() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('customer_services')
-    .select('id, service_name')
-    .order('service_name', { ascending: true })
-    .eq('is_active', true);
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.customer_services.findMany({
+      where: withCompany({ is_active: true }, companyId),
+      select: { id: true, service_name: true },
+      orderBy: { service_name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching contracts', { data: { error } });
     return [];
   }
-  return data;
 }
+
+/** Clientes activos de la empresa activa para el MultiSelect "Afectado a". */
 export async function fetchAllContractorForVehicles() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id,name')
-    .order('name', { ascending: true })
-    .eq('is_active', true);
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.customers.findMany({
+      where: withCompany({ is_active: true }, companyId),
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching contractor companies for vehicles', { data: { error } });
     return [];
   }
-  return data;
-}
-
-export async function fetchAllCompanyPositon() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-
-  const { data, error } = await supabase.from('company_positions').select('*').order('name', { ascending: true });
-
-  if (error) {
-    logger.error('Error fetching company positions', { data: { error } });
-    return [];
-  }
-  return data;
 }

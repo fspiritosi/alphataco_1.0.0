@@ -1,56 +1,81 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('Equipos/vehicle-operations-actions');
 
 /**
- * Obtiene el historial de ordenes de mantenimiento de un equipo,
- * incluyendo el detalle completo de items, sectores, OTs y su progreso.
+ * Historial de ordenes de mantenimiento de un equipo, con el detalle completo de items,
+ * sectores, OTs y su progreso. Acotado a la empresa activa (`maintenance_orders.company_id`).
  */
 export async function getMaintenanceOrdersForEquipment(equipmentId: string) {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('maintenance_orders')
-    .select(
-      `
-      id, order_number, status, created_at, workshop_entry_date, updated_at,
-      workshop_validated_at, operations_validated_at,
-      workshop_validation_notes, operations_validation_notes,
-      maintenance_requests(id, source, created_at),
-      maintenance_order_items(
-        id, description, is_diagnostico, sector_sequence_order, assigned_sector_id,
-        assigned_workshop_id,
-        types_of_repairs(id, name, autorizable),
-        workshop_sectors(id, name),
-        workshops(id, name, type),
-        maintenance_request_items:maintenance_request_item_id(
-          driver_comment, validator_comment, description
-        ),
-        work_orders(
-          id, order_number, status, started_at, completed_at,
-          work_order_items(
-            id, status, maintenance_order_item_id,
-            work_order_item_repairs(id, status, is_diagnostico, is_operator_added,
-              types_of_repairs(id, name, autorizable)
-            )
-          )
-        )
-      )
-    `
-    )
-    .eq('equipment_id', equipmentId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.maintenance_orders.findMany({
+      where: withCompany({ equipment_id: equipmentId }, companyId),
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        created_at: true,
+        workshop_entry_date: true,
+        updated_at: true,
+        workshop_validated_at: true,
+        operations_validated_at: true,
+        workshop_validation_notes: true,
+        operations_validation_notes: true,
+        maintenance_requests: { select: { id: true, source: true, created_at: true } },
+        maintenance_order_items: {
+          select: {
+            id: true,
+            description: true,
+            is_diagnostico: true,
+            sector_sequence_order: true,
+            assigned_sector_id: true,
+            assigned_workshop_id: true,
+            types_of_repairs: { select: { id: true, name: true, autorizable: true } },
+            workshop_sectors: { select: { id: true, name: true } },
+            workshops: { select: { id: true, name: true, type: true } },
+            maintenance_request_items: {
+              select: { driver_comment: true, validator_comment: true, description: true },
+            },
+            work_orders: {
+              select: {
+                id: true,
+                order_number: true,
+                status: true,
+                started_at: true,
+                completed_at: true,
+                work_order_items: {
+                  select: {
+                    id: true,
+                    status: true,
+                    maintenance_order_item_id: true,
+                    work_order_item_repairs: {
+                      select: {
+                        id: true,
+                        status: true,
+                        is_diagnostico: true,
+                        is_operator_added: true,
+                        types_of_repairs: { select: { id: true, name: true, autorizable: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  } catch (error) {
     logger.error('Error al obtener historial de OM del equipo', { data: { error, equipmentId } });
     throw error;
   }
-
-  return data || [];
 }
 
 export type EquipmentMaintenanceOrders = Awaited<ReturnType<typeof getMaintenanceOrdersForEquipment>>;
@@ -69,13 +94,17 @@ export type EquipmentMaintenanceOrder = EquipmentMaintenanceOrders[number];
  */
 export async function getRejectedRequestsForEquipment(equipmentId: string) {
   logger.debug('Obteniendo solicitudes rechazadas del equipo', { data: { equipmentId } });
+  const companyId = await getActiveCompanyId();
 
   try {
     const requests = await prisma.maintenance_requests.findMany({
-      where: {
-        equipment_id: equipmentId,
-        OR: [{ status: 'rejected' }, { maintenance_request_items: { some: { status: 'rejected' } } }],
-      },
+      where: withCompany(
+        {
+          equipment_id: equipmentId,
+          OR: [{ status: 'rejected' }, { maintenance_request_items: { some: { status: 'rejected' } } }],
+        },
+        companyId
+      ),
       select: {
         id: true,
         status: true,

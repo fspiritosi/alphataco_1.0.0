@@ -35,7 +35,7 @@ export const conditionIcons: ConditionIconMap = {
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'yellow' | 'info';
 
-const conditionVariants: Record<string, BadgeVariant> = {
+export const conditionVariants: Record<string, BadgeVariant> = {
   operativo: 'success',
   no_operativo: 'destructive',
   en_reparacion: 'yellow',

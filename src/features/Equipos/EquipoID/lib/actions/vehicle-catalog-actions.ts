@@ -1,186 +1,165 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Equipos/vehicle-catalog-actions');
 
+/**
+ * Catálogos de la ficha de vehículos/equipamientos. Los catálogos globales (marcas, tipos,
+ * subtipos, propietarios con `company_id NULL`) se leen junto a los propios de la empresa
+ * activa: `OR: [{ company_id }, { company_id: null }]` (mismo patrón que Fase 3).
+ */
+function companyOrGlobal(companyId: string) {
+  return { OR: [{ company_id: companyId }, { company_id: null }] };
+}
+
 export async function getVehicleBrands() {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('brand_vehicles')
-    .select('*')
-    .or(`company_id.eq.${company_id},company_id.is.null`)
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.brand_vehicles.findMany({
+      where: { ...companyOrGlobal(companyId), is_active: true },
+      select: { id: true, name: true, is_active: true, company_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching vehicle brands', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getVehicleModels() {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('model_vehicles')
-    .select('*')
-    .or(`company_id.eq.${company_id},company_id.is.null`)
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.model_vehicles.findMany({
+      where: withCompany({ is_active: true }, companyId),
+      select: { id: true, name: true, brand: true, is_active: true, company_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching vehicle models', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getVehicleOwners() {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('equipment_owners')
-    .select('*, equipment_owner_contract_types(contract_type)')
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.equipment_owners.findMany({
+      where: { ...companyOrGlobal(companyId), is_active: true },
+      select: {
+        id: true,
+        name: true,
+        cuit: true,
+        contract_type: true,
+        is_active: true,
+        company_id: true,
+        equipment_owner_contract_types: { select: { contract_type: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching vehicle owners', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 export type getVehicleOwnersType = Awaited<ReturnType<typeof getVehicleOwners>>;
+
 export async function getVehicleTypes(appliesTo?: 'vehicle' | 'other_equipment') {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  let query = supabase
-    .from('type')
-    .select('*')
-    .or(`company_id.eq.${company_id},company_id.is.null`)
-    .eq('is_active', true);
-
-  // Filtrar por applies_to si se proporciona
-  if (appliesTo) {
-    query = query.eq('applies_to', appliesTo);
-  }
-
-  const { data, error } = await query.order('name');
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.type.findMany({
+      where: { ...companyOrGlobal(companyId), is_active: true, ...(appliesTo ? { applies_to: appliesTo } : {}) },
+      select: {
+        id: true,
+        name: true,
+        is_active: true,
+        company_id: true,
+        has_hitch: true,
+        is_tractor_unit: true,
+        applies_to: true,
+        generates_qr: true,
+        is_operative: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching vehicle types', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
+/** Catálogo global (sin empresa). `id` es bigint en la base: se devuelve como number. */
 export async function getTypesOfVehicles() {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase.from('types_of_vehicles').select('*').order('name').eq('is_active', true);
-
-  if (error) {
+  try {
+    const rows = await prisma.types_of_vehicles.findMany({
+      where: { is_active: true },
+      select: { id: true, name: true, is_active: true },
+      orderBy: { name: 'asc' },
+    });
+    return rows.map((row) => ({ ...row, id: Number(row.id) }));
+  } catch (error) {
     logger.error('Error fetching types of vehicles', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getVehicleSubTypes() {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('sub_type')
-    .select('*')
-    .or(`company_id.eq.${company_id},company_id.is.null`)
-    .order('name')
-    .eq('is_active', true);
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.sub_type.findMany({
+      where: { ...companyOrGlobal(companyId), is_active: true },
+      select: { id: true, name: true, type: true, is_active: true, company_id: true, tire_template_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching vehicle sub types', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getModelsByBrand(brandId: number) {
   if (!brandId) return [];
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('model_vehicles')
-    .select('*')
-    .eq('brand', brandId)
-    .order('name')
-    .eq('is_active', true);
-
-  if (error) {
-    logger.error('Error fetching models by brand', { data: { error } });
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.model_vehicles.findMany({
+      where: withCompany({ brand: brandId, is_active: true }, companyId),
+      select: { id: true, name: true, brand: true, is_active: true, company_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    logger.error('Error fetching models by brand', { data: { error, brandId } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getSubTypesByType(typeId: string) {
   if (!typeId) return [];
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase
-    .from('sub_type')
-    .select('*')
-    .eq('type', typeId)
-    .order('name')
-    .eq('is_active', true);
-
-  if (error) {
-    logger.error('Error fetching sub types by type', { data: { error } });
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.sub_type.findMany({
+      where: { ...companyOrGlobal(companyId), type: typeId, is_active: true },
+      select: { id: true, name: true, type: true, is_active: true, company_id: true, tire_template_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    logger.error('Error fetching sub types by type', { data: { error, typeId } });
     return [];
   }
-
-  return data || [];
 }
 
 export async function getHierarchicalPositions() {
-  const supabase = await supabaseServer();
-
-  const { data, error } = await supabase.from('hierarchy').select('id, name').eq('is_active', true).order('name');
-
-  if (error) {
+  const companyId = await getActiveCompanyId();
+  try {
+    return await prisma.hierarchy.findMany({
+      where: withCompany({ is_active: true }, companyId),
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     logger.error('Error fetching hierarchical positions', { data: { error } });
     return [];
   }
-
-  return data || [];
 }

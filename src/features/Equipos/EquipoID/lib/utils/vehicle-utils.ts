@@ -33,8 +33,3 @@ export function getVehicleTypeFields(typeOfVehicle: string) {
     requireSerie: !isVehicle,
   };
 }
-
-export function formatVehicleDisplay(vehicle: any): string {
-  const parts = [vehicle?.brand, vehicle?.model, vehicle?.year].filter(Boolean);
-  return parts.join(' ') || 'Equipo sin especificar';
-}
