@@ -86,7 +86,12 @@ export async function updateSector(input: SectorFormValues & { id: string }): Pr
   try {
     const sector = await prisma.sectors.findFirst({
       where: { id: sectorId, sector_customer: { some: { customers: { company_id: companyId } } } },
-      select: { id: true, sector_customer: { select: { customer_id: true } } },
+      // Sólo los vínculos con clientes de la empresa activa: un sector puede estar compartido con
+      // otras empresas y esos vínculos no se tocan (ni entran en el diff ni en el deleteMany).
+      select: {
+        id: true,
+        sector_customer: { where: { customers: { company_id: companyId } }, select: { customer_id: true } },
+      },
     });
     if (!sector) return fail('Sector no encontrado');
     await assertCustomerOwned(values.customer_id, companyId);
@@ -102,7 +107,9 @@ export async function updateSector(input: SectorFormValues & { id: string }): Pr
         data: { name: values.name, descripcion_corta: values.descripcion_corta },
       });
       if (toRemove.length > 0) {
-        await tx.sector_customer.deleteMany({ where: { sector_id: sectorId, customer_id: { in: toRemove } } });
+        await tx.sector_customer.deleteMany({
+          where: { sector_id: sectorId, customer_id: { in: toRemove }, customers: { company_id: companyId } },
+        });
       }
       if (toAdd.length > 0) {
         await tx.sector_customer.createMany({

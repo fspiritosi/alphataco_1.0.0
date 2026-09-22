@@ -211,7 +211,8 @@ export async function linkAreaToContracts(
     if (!area) return { ok: false, error: 'Área no encontrada' };
 
     const owned = await prisma.customer_services.count({
-      where: { id: { in: ids }, company_id: companyId, customer_id: area.customer_id },
+      // Perímetro por la relación (customer_services.company_id es nullable).
+      where: { id: { in: ids }, customer_id: area.customer_id, customers: { company_id: companyId } },
     });
     if (owned !== ids.length) return { ok: false, error: 'Uno o más contratos no pertenecen al cliente del área' };
 

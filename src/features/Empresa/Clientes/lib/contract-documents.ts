@@ -40,8 +40,9 @@ interface ContractDocumentPathInput {
 }
 
 /**
- * `<companyId>/<customerId>/<contractId>/<timestamp>_<archivo>`: el primer segmento es la
- * carpeta de la empresa, que las actions verifican antes de firmar o borrar un path.
+ * `<companyId>/<customerId>/<contractId>/<timestamp>_<archivo>`. El path sólo ordena el bucket
+ * por empresa; la pertenencia la verifican las actions sobre el contrato (`documents_contracts.
+ * contract_id → customer_services → customers.company_id`) antes de subir, firmar o borrar.
  */
 export function buildContractDocumentPath({
   companyId,

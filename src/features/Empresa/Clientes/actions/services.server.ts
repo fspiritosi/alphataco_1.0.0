@@ -3,7 +3,6 @@
 import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { withCompany } from '@/shared/lib/prisma-tenant';
 import { storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage'; // P3: storage
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
@@ -33,12 +32,21 @@ const serviceInclude = {
   },
 } satisfies Prisma.customer_servicesInclude;
 
+/**
+ * Perímetro de contratos: `customer_services.company_id` es nullable, así que la pertenencia a
+ * la empresa se decide por la relación `customers.company_id` (NOT NULL). La columna propia se
+ * sigue seteando al crear, pero no se usa como filtro.
+ */
+function ownedServiceWhere(companyId: string): Prisma.customer_servicesWhereInput {
+  return { customers: { company_id: companyId } };
+}
+
 /** Contratos de la empresa activa con cliente, áreas y sectores; ordenados por nombre. */
 export async function getCustomerServices() {
   const companyId = await getActiveCompanyId();
   try {
     return await prisma.customer_services.findMany({
-      where: withCompany({}, companyId),
+      where: ownedServiceWhere(companyId),
       include: serviceInclude,
       orderBy: { service_name: 'asc' },
     });
@@ -57,7 +65,7 @@ export async function getActiveContractsByCustomer(customerId: string) {
   const companyId = await getActiveCompanyId();
   try {
     return await prisma.customer_services.findMany({
-      where: { customer_id: customerId, company_id: companyId, is_active: true },
+      where: { customer_id: customerId, is_active: true, ...ownedServiceWhere(companyId) },
       select: { id: true, service_name: true, contract_number: true, service_start: true, service_validity: true },
       orderBy: { service_name: 'asc' },
     });
@@ -72,7 +80,7 @@ export type ActiveContract = Awaited<ReturnType<typeof getActiveContractsByCusto
 /** Verifica que el contrato pertenezca a la empresa activa; devuelve su cliente. */
 async function findOwnedService(serviceId: string, companyId: string) {
   return prisma.customer_services.findFirst({
-    where: { id: serviceId, company_id: companyId },
+    where: { id: serviceId, ...ownedServiceWhere(companyId) },
     select: { id: true, customer_id: true, service_name: true, customers: { select: { name: true } } },
   });
 }

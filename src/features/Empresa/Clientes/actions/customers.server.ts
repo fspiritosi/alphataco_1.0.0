@@ -74,9 +74,10 @@ export async function saveCustomer(
   try {
     const duplicate = await prisma.customers.findFirst({
       where: { cuit: data.cuit, ...(customerId ? { id: { not: customerId } } : {}) },
-      select: { name: true },
+      select: { id: true },
     });
-    if (duplicate) return fail(`El cliente ${duplicate.name} ya tiene este cuit`);
+    // El CUIT es único en toda la tabla: no se revela el nombre del cliente de otra empresa.
+    if (duplicate) return fail('Ya existe un cliente con este CUIT');
 
     if (customerId) {
       const updated = await prisma.customers.updateMany({ where: { id: customerId, company_id: companyId }, data });
@@ -92,7 +93,7 @@ export async function saveCustomer(
     return ok({ id: created.id });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return fail('Ya existe un cliente con este cuit');
+      return fail('Ya existe un cliente con este CUIT');
     }
     logger.error('Error al guardar el cliente', { data: { error, customerId } });
     return fail(errorMessage(error, 'Error al guardar el cliente'));

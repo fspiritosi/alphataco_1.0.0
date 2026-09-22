@@ -92,7 +92,8 @@ export async function createServiceItem(
   const companyId = await getActiveCompanyId();
   try {
     const service = await prisma.customer_services.findFirst({
-      where: { id: customerServiceId, company_id: companyId },
+      // Perímetro por la relación (customer_services.company_id es nullable).
+      where: { id: customerServiceId, customers: { company_id: companyId } },
       select: { id: true },
     });
     if (!service) return fail('Contrato no encontrado');
