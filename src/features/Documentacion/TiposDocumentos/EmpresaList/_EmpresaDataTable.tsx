@@ -16,7 +16,7 @@ import {
   getEmpresaDocTypesForExport,
   getEmpresaDocTypesPaginated,
   type DocumentTypeListItem,
-} from '../actions/actions.server';
+} from '../actions/queries.server';
 import { _DocumentTypeFormModal } from '../components/_DocumentTypeFormModal';
 
 // ============================================================================

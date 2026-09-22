@@ -15,7 +15,7 @@ import {
   getPersonasDocTypesForExport,
   getPersonasDocTypesPaginated,
   type DocumentTypeListItem,
-} from '../actions/actions.server';
+} from '../actions/queries.server';
 import { _DocumentTypeFormModal } from '../components/_DocumentTypeFormModal';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getDocTypeColumns } from './columns';
 

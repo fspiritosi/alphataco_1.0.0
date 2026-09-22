@@ -19,13 +19,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import {
-  analyzeDocumentTypeImpact,
-  deactivateDocumentType,
-  hardDeleteDocumentType,
-  reactivateDocumentType,
-  type DocumentTypeListItem,
-} from '../actions/actions.server';
+import { analyzeDocumentTypeImpact } from '../actions/consistency.server';
+import { deactivateDocumentType, hardDeleteDocumentType, reactivateDocumentType } from '../actions/mutations.server';
+import type { DocumentTypeListItem } from '../actions/queries.server';
 
 // ============================================
 // TIPOS

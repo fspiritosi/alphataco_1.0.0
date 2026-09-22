@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { getPersonasDocTypesPaginated } from '../actions/actions.server';
+import { getPersonasDocTypesPaginated } from '../actions/queries.server';
 import _PersonasDataTable from './_PersonasDataTable';
 
 // ============================================================================

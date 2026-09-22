@@ -2,8 +2,8 @@
 
 import { _EnumMultiSelect } from '@/shared/components/common/_EnumMultiSelect';
 import { _MultiSelectField } from '@/shared/components/common/_MultiSelectField';
-import type { CatalogKey } from '../actions/actions.server';
-import { searchCatalogForConditions } from '../actions/actions.server';
+import type { CatalogKey } from '../actions/catalog.server';
+import { searchCatalogForConditions } from '../actions/catalog.server';
 import {
   EQUIPMENT_CONDITIONS,
   getEnumConditions,

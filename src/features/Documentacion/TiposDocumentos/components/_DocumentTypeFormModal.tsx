@@ -25,13 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { document_applies } from '@/generated/prisma/enums';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 
-import {
-  countMatchingResources,
-  createDocumentType,
-  getDocumentTypeForEdit,
-  updateDocumentType,
-  type DocumentTypeListItem,
-} from '../actions/actions.server';
+import { createDocumentType, updateDocumentType } from '../actions/mutations.server';
+import { countMatchingResources, getDocumentTypeForEdit, type DocumentTypeListItem } from '../actions/queries.server';
 import { createEmptyConditionsState, type ConditionsState } from '../config/documentConditions';
 import { EQUIPMENT_TYPE_OPTIONS } from '../config/equipmentTypes';
 import {

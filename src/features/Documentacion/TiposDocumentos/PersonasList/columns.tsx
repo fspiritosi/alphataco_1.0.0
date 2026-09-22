@@ -6,7 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Check, Pencil, X } from 'lucide-react';
 import moment from 'moment';
-import type { DocumentTypeListItem } from '../actions/actions.server';
+import type { DocumentTypeListItem } from '../actions/queries.server';
 import { getEquipmentTypeLabel } from '../config/equipmentTypes';
 
 // ============================================================================

@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { fixDocumentTypeConsistency, verifyDocumentTypeConsistency } from '../actions/actions.server';
+import { fixDocumentTypeConsistency, verifyDocumentTypeConsistency } from '../actions/consistency.server';
 import { _VerifyDocumentsSkeleton } from './_VerifyDocumentsSkeleton';
 
 // ============================================================================
