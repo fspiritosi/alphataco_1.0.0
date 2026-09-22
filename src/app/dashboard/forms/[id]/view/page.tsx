@@ -1,4 +1,4 @@
-import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
 import {
   fetchAnswerById,
   fetchChecklistAnswerById,

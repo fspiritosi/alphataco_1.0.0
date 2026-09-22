@@ -1,13 +1,13 @@
 import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChecklistAnswersList } from '@/features/Formularios/ChecklistAnswers/ChecklistAnswersList';
-import { ChecklistAnswersTableSkeleton } from '@/features/Formularios/ChecklistAnswers/fallback/ChecklistAnswersTableSkeleton';
+import { ChecklistAnswersList } from '@/features/Checklists/ChecklistAnswers/ChecklistAnswersList';
+import { ChecklistAnswersTableSkeleton } from '@/features/Checklists/ChecklistAnswers/fallback/ChecklistAnswersTableSkeleton';
 import {
   fetchChecklistTemplateById,
   fetchCustomFormById,
   fetchFormsAnswersByFormId,
 } from '@/features/Formularios/actions/checklist-actions';
-import { ChecklistPDFButton } from '@/features/Formularios/components/ChecklistPDFButton';
+import { ChecklistPDFButton } from '@/features/Checklists/components/ChecklistPDFButton';
 import CheckListAnwersTable from '@/features/Formularios/components/forms/CheckListAnwersTable';
 import { PDFPreviewDialog } from '@/features/Formularios/components/pdf-preview-dialog';
 import { TransporteSPANAYCHKHYS01 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS01';

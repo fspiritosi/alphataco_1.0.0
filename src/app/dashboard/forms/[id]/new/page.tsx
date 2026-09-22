@@ -1,5 +1,5 @@
-import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklist';
-import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklists';
+import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
 import {
   fetchChecklistTemplateById,
   fetchCustomFormById,

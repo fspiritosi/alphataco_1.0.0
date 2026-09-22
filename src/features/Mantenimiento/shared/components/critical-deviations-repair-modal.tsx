@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
 import { createOrUpdateMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';

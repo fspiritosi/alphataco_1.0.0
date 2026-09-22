@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
 import { WORKSHOP_STATUS_CONFIG } from '@/features/Mantenimiento/WorkshopTracking/workshopTrackingColumns';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';

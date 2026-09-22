@@ -13,10 +13,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CreateChecklistAnswer } from '@/features/Checklist';
-import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { CreateChecklistAnswer } from '@/features/Checklists';
+import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Formularios/actions/checklist-actions';
-import { isHitchSectionCode } from '@/features/Formularios/utils/hitchSections';
+import { isHitchSectionCode } from '@/features/Checklists/utils/hitchSections';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { AdditionalDeviationModal } from '@/features/Mantenimiento/shared/components/AdditionalDeviationModal';
 import { AllGoodDeviationPromptDialog } from '@/features/Mantenimiento/shared/components/AllGoodDeviationPromptDialog';

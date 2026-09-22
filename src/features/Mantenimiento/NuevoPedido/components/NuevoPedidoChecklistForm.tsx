@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
 import {
   fetchAllEquipmentBasicData,
   fetchAllOtherEquipmentBasicData,

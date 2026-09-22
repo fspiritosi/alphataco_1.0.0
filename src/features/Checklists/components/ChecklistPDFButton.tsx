@@ -1,6 +1,6 @@
 'use client';
 
-import { ChecklistPDFPreviewDialog } from '@/features/Formularios/components/checklist-pdf-preview-dialog';
+import { ChecklistPDFPreviewDialog } from '@/features/Checklists/components/checklist-pdf-preview-dialog';
 
 interface ChecklistPDFButtonProps {
   templateName: string;

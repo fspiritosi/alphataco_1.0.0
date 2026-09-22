@@ -1,5 +1,5 @@
-import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
-import { NormalizedChecklistForm } from '@/features/Formularios/Checklists/NormalizedChecklistForm';
+import { fetchActiveCustomersForChecklist } from '@/features/Checklists';
+import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
 import { fetchChecklistTemplateById, getCurrentProfile } from '@/features/Formularios/actions/checklist-actions';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';

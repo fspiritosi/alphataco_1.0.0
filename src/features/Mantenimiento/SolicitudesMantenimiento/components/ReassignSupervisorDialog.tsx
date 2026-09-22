@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
 import { SearchableSelect } from '@/features/Mantenimiento/shared/components/SearchableSelect';
 import { Logger } from '@/lib/logger';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

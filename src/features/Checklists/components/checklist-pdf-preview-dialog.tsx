@@ -20,9 +20,11 @@ const PDFViewer = dynamic(() => import('@react-pdf/renderer').then((mod) => mod.
   ssr: false,
 });
 
-interface ChecklistPDFDownloadButtonProps {
+interface ChecklistPDFPreviewDialogProps {
+  buttonText?: string;
   templateName: string;
   templateCode: string;
+  logoUrl?: string;
   sections: Array<{
     id: string;
     code: string;
@@ -38,56 +40,29 @@ interface ChecklistPDFDownloadButtonProps {
       input_type?: string;
     }>;
   }>;
-  // Datos del equipo
-  dominio?: string;
-  tipoEquipo?: string;
-  fluidoTransportable?: string;
-  cliente?: string;
-  // Datos de la inspección
-  observaciones?: string;
-  fechaInspeccion?: string;
-  // Nombre del chofer (TODO: reemplazar por imagen de firma cuando esté disponible)
-  chofer?: string;
-  // Respuestas del checklist (formato: { section_code: { item_code: value | { left, right } } })
-  answers?: Record<string, Record<string, string | { left: string; right: string }>>;
-  /** Observaciones por item, indexadas por `seccion__item` */
-  itemObservations?: Record<string, string>;
-  // Datos adicionales
   date?: string;
   revision?: string;
 }
 
-export function ChecklistPDFDownloadButton({
+export function ChecklistPDFPreviewDialog({
+  buttonText = 'Generar PDF',
   templateName,
   templateCode,
+  logoUrl,
   sections,
-  dominio = '',
-  tipoEquipo = '',
-  fluidoTransportable = '',
-  cliente = '',
-  observaciones = '',
-  fechaInspeccion = '',
-  chofer = '',
-  answers = {},
-  itemObservations = {},
   date,
   revision,
-}: ChecklistPDFDownloadButtonProps) {
+}: ChecklistPDFPreviewDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [PDFComponent, setPDFComponent] = useState<React.ComponentType<any> | null>(null);
-
-  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
-
-  // Transformar answers al formato que espera el PDF (flat con sufijos _left/_right)
-  const flattenedAnswers = flattenAnswers(answers);
 
   // Cargar el componente PDF cuando se abre el diálogo
   const handleOpenChange = async (open: boolean) => {
     setIsOpen(open);
     if (open && !PDFComponent) {
       const { NormalizedChecklistPDFLayout } = await import(
-        '@/features/Formularios/pdf/layouts/NormalizedChecklistPDFLayout'
+        '@/features/Checklists/pdf/layouts/NormalizedChecklistPDFLayout'
       );
       setPDFComponent(() => NormalizedChecklistPDFLayout);
     }
@@ -96,42 +71,39 @@ export function ChecklistPDFDownloadButton({
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
+      // Importar dinámicamente el componente del PDF
       const { NormalizedChecklistPDFLayout } = await import(
-        '@/features/Formularios/pdf/layouts/NormalizedChecklistPDFLayout'
+        '@/features/Checklists/pdf/layouts/NormalizedChecklistPDFLayout'
       );
 
+      // Crear el documento PDF
       const doc = (
         <NormalizedChecklistPDFLayout
           templateName={templateName}
           templateCode={templateCode}
           logoUrl={logoUrl}
           sections={sections}
-          dominio={dominio}
-          tipoEquipo={tipoEquipo}
-          fluidoTransportable={fluidoTransportable}
-          cliente={cliente}
-          observaciones={observaciones}
-          fechaInspeccion={fechaInspeccion}
-          chofer={chofer}
           date={date}
           revision={revision}
-          isEmpty={false}
-          answers={flattenedAnswers}
-          itemObservations={itemObservations}
+          isEmpty={true}
         />
       );
 
+      // Generar el blob del PDF
       const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
 
+      // Crear un enlace temporal y hacer clic para descargar
       const link = document.createElement('a');
       link.href = url;
+      // Sanitizar el nombre del template para el archivo (remover caracteres no permitidos)
       const sanitizedName = templateName.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s-]/g, '').replace(/\s+/g, '_');
-      link.download = `Checklist_${sanitizedName}_${dominio || 'sin_dominio'}_${fechaInspeccion || new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = `Checklist_${sanitizedName}_${new Date().toISOString().split('T')[0]}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
+      // Liberar la URL del objeto
       URL.revokeObjectURL(url);
     } catch (error) {
       logger.error('Error al generar PDF', { data: { error } });
@@ -144,16 +116,27 @@ export function ChecklistPDFDownloadButton({
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <Download className="h-4 w-4" />
-          Descargar PDF
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          {buttonText}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-2xl">{templateName}</DialogTitle>
-          <DialogDescription>
-            Vista previa del PDF - {dominio} - {fechaInspeccion}
-          </DialogDescription>
+          <DialogDescription>Vista previa del PDF vacío</DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-auto p-6">
           {PDFComponent && (
@@ -163,18 +146,9 @@ export function ChecklistPDFDownloadButton({
                 templateCode={templateCode}
                 logoUrl={logoUrl}
                 sections={sections}
-                dominio={dominio}
-                tipoEquipo={tipoEquipo}
-                fluidoTransportable={fluidoTransportable}
-                cliente={cliente}
-                observaciones={observaciones}
-                fechaInspeccion={fechaInspeccion}
-                chofer={chofer}
                 date={date}
                 revision={revision}
-                isEmpty={false}
-                answers={flattenedAnswers}
-                itemObservations={itemObservations}
+                isEmpty={true}
               />
             </PDFViewer>
           )}
@@ -191,32 +165,4 @@ export function ChecklistPDFDownloadButton({
       </DialogContent>
     </Dialog>
   );
-}
-
-/**
- * Transforma el formato de answers del backend al formato plano que espera el PDF
- * Input: { section_code: { item_code: "B" | { left: "B", right: "M" } } }
- * Output: { "item_code": "B", "item_code_left": "B", "item_code_right": "M" }
- */
-function flattenAnswers(
-  answers: Record<string, Record<string, string | { left: string; right: string }>>
-): Record<string, string> {
-  const flattened: Record<string, string> = {};
-
-  for (const sectionCode in answers) {
-    const sectionAnswers = answers[sectionCode];
-    for (const itemCode in sectionAnswers) {
-      const value = sectionAnswers[itemCode];
-      if (typeof value === 'object' && value !== null && 'left' in value && 'right' in value) {
-        // Item con side validation
-        flattened[`${itemCode}_left`] = value.left;
-        flattened[`${itemCode}_right`] = value.right;
-      } else if (typeof value === 'string') {
-        // Item normal
-        flattened[itemCode] = value;
-      }
-    }
-  }
-
-  return flattened;
 }

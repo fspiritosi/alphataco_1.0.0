@@ -1,5 +1,5 @@
-import { checkListAnswerColumns } from '@/features/Formularios/Checklists/tables/checkListAnswerColumns';
-import { CheckListAnswerTable } from '@/features/Formularios/Checklists/tables/data-table-answer';
+import { checkListAnswerColumns } from '@/features/Formularios/components/tables/checkListAnswerColumns';
+import { CheckListAnswerTable } from '@/features/Formularios/components/tables/data-table-answer';
 
 async function CheckListAnwersTable({ answers }: { answers: CheckListAnswerWithForm[] }) {
   return (
