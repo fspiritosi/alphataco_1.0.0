@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ActionButton } from '@/features/Mantenimiento/shared/components/action-button';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { PendingDeviationsAlert } from '@/features/Mantenimiento/shared/components/pending-deviations-alert';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { signOutMaintenanceSession } from '@/features/Mantenimiento/actions/maintenance-actions';
 import {
   AlertCircle,
   CheckCircle,
@@ -53,10 +53,9 @@ export default function EquipmentDashboardClient({
   empleadoName,
 }: EquipmentDashboardClientProps) {
   const router = useRouter();
-  const supabase = supabaseBrowser();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOutMaintenanceSession();
     router.push('/maintenance/thanks');
   };
 

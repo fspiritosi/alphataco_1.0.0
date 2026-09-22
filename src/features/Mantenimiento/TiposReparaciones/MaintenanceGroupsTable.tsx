@@ -144,7 +144,7 @@ function MaintenanceGroupsTable({
       <BaseDataTable
         className="mt-4"
         columns={getMaintenanceGroupsColumns(types, handleEdit, canEdit)}
-        data={groups as any}
+        data={groups}
         savedVisibility={savedVisibility}
         tableId="maintenance-groups-table"
         toolbarOptions={{

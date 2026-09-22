@@ -1,12 +1,19 @@
-import { Database } from '@/../database.types';
+import type {
+  work_order_item_repairs,
+  work_order_item_status,
+  work_order_items,
+  work_order_priority,
+  work_order_status,
+  work_orders,
+} from '@/generated/prisma/client';
 
-// Tipos base de la BD
-export type WorkOrder = Database['public']['Tables']['work_orders']['Row'];
-export type WorkOrderItem = Database['public']['Tables']['work_order_items']['Row'];
-export type WorkOrderStatus = Database['public']['Enums']['work_order_status'];
-export type WorkOrderItemStatus = Database['public']['Enums']['work_order_item_status'];
-export type WorkOrderPriority = Database['public']['Enums']['work_order_priority'];
-export type WorkOrderItemRepairRow = Database['public']['Tables']['work_order_item_repairs']['Row'];
+// Tipos base de la BD (modelos y enums generados por Prisma)
+export type WorkOrder = work_orders;
+export type WorkOrderItem = work_order_items;
+export type WorkOrderStatus = work_order_status;
+export type WorkOrderItemStatus = work_order_item_status;
+export type WorkOrderPriority = work_order_priority;
+export type WorkOrderItemRepairRow = work_order_item_repairs;
 
 // Tipo para un trabajo individual (tipo de reparación) dentro de un item
 export interface WorkOrderItemRepair {

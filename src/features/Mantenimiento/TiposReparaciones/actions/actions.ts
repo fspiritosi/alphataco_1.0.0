@@ -1,177 +1,215 @@
 'use server';
 
+import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
-const logger = new Logger('RepairTypeActions');
+const logger = new Logger('Mantenimiento/TiposReparaciones/actions');
 
+/** Datos que el formulario manda para crear o editar un tipo de reparación. */
+export interface TypeOfRepairInput {
+  name: string;
+  description: string;
+  criticity?: string | null;
+  is_active?: boolean;
+  type_of_maintenance?: Prisma.types_of_repairsCreateInput['type_of_maintenance'];
+  multi_equipment?: boolean;
+  qr_close?: boolean;
+  autorizable?: boolean;
+}
+
+/**
+ * Tipos de reparación de la empresa activa.
+ *
+ * Perímetro: sin RLS, el listado se acota siempre por `company_id` (antes traía TODAS las
+ * filas de la tabla: el filtro por empresa estaba comentado).
+ */
 export async function fetchAllTypesOfRepairs() {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
   try {
-    let { data: types_of_repairs, error } = await supabase.from('types_of_repairs').select('*');
-    // .eq('company_id', company_id || '');
+    const companyId = await getActiveCompanyId();
 
-    if (error) {
-      logger.error('Error fetching types of repairs', { data: { error } });
-      return [];
-    }
-    return types_of_repairs || [];
+    return await prisma.types_of_repairs.findMany({
+      where: withCompany({}, companyId),
+      orderBy: { created_at: 'desc' },
+    });
   } catch (error) {
+    logger.error('Error al obtener los tipos de reparación', { data: { error } });
     return [];
   }
 }
 
-export async function createTypeOfRepair(body: Database['public']['Tables']['types_of_repairs']['Insert']) {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
+export type TypesOfRepairsData = Awaited<ReturnType<typeof fetchAllTypesOfRepairs>>;
+export type TypeOfRepairData = TypesOfRepairsData[number];
 
-  if (!company_id) {
-    return { ok: false as const, error: 'No se pudo identificar la empresa actual.' };
-  }
-
+/**
+ * Crea un tipo de reparación en la empresa activa.
+ *
+ * Guarda contra duplicados: sin esto, repetir el alta del mismo tipo (por doble click o
+ * por volver a cargarlo más tarde) creaba una segunda fila idéntica sin ningún aviso
+ * (ticket 616). La comparación ignora mayúsculas y espacios sobrantes, y es por empresa.
+ */
+export async function createTypeOfRepair(body: TypeOfRepairInput) {
   try {
-    // Guarda contra duplicados: sin esto, repetir el alta del mismo tipo de reparacion
-    // (por doble click o por volver a cargarlo mas tarde) creaba una segunda fila
-    // identica sin ningun aviso (ticket 616). La comparacion ignora mayusculas y
-    // espacios sobrantes.
+    const companyId = await getActiveCompanyId();
     const name = body.name?.trim();
-    if (name) {
-      const { data: existing } = await supabase
-        .from('types_of_repairs')
-        .select('id, name')
-        .ilike('name', name)
-        .limit(1);
 
-      if (existing && existing.length > 0) {
-        return { ok: false as const, error: `Ya existe el tipo de reparación "${existing[0].name}".` };
+    if (name) {
+      const existing = await prisma.types_of_repairs.findFirst({
+        where: withCompany({ name: { equals: name, mode: Prisma.QueryMode.insensitive } }, companyId),
+        select: { id: true, name: true },
+      });
+
+      if (existing) {
+        return { ok: false as const, error: `Ya existe el tipo de reparación "${existing.name}".` };
       }
     }
 
-    const { data: types_of_repairs, error } = await supabase.from('types_of_repairs').insert(body).select();
+    const created = await prisma.types_of_repairs.create({
+      data: {
+        name: name ?? body.name,
+        description: body.description,
+        criticity: body.criticity ?? null,
+        is_active: body.is_active ?? true,
+        type_of_maintenance: body.type_of_maintenance ?? null,
+        multi_equipment: body.multi_equipment ?? false,
+        qr_close: body.qr_close ?? false,
+        autorizable: body.autorizable ?? false,
+        company_id: companyId,
+      },
+    });
 
-    if (error) {
-      logger.error('Error al crear tipo de reparacion', { data: { error } });
-      return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
-    }
-    return { ok: true as const, data: types_of_repairs || [] };
+    return { ok: true as const, data: [created] };
   } catch (error) {
     logger.error('Error al crear tipo de reparacion', { data: { error } });
     return { ok: false as const, error: 'No se pudo crear el tipo de reparación. Intente nuevamente.' };
   }
 }
 
-export async function updateTypeOfRepair(body: Database['public']['Tables']['types_of_repairs']['Update'], id: string) {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
+/** Actualiza un tipo de reparación de la empresa activa. */
+export async function updateTypeOfRepair(body: Partial<TypeOfRepairInput>, id: string) {
   try {
-    const { data: types_of_repairs, error } = await supabase
-      .from('types_of_repairs')
-      .update(body)
-      .eq('id', id || '');
+    const companyId = await getActiveCompanyId();
 
-    if (error) {
-      return [];
+    // Perímetro: el tipo tiene que ser de la empresa activa.
+    const { count } = await prisma.types_of_repairs.updateMany({
+      where: withCompany({ id }, companyId),
+      data: {
+        ...(body.name !== undefined ? { name: body.name.trim() } : {}),
+        ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.criticity !== undefined ? { criticity: body.criticity } : {}),
+        ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
+        ...(body.type_of_maintenance !== undefined ? { type_of_maintenance: body.type_of_maintenance } : {}),
+        ...(body.multi_equipment !== undefined ? { multi_equipment: body.multi_equipment } : {}),
+        ...(body.qr_close !== undefined ? { qr_close: body.qr_close } : {}),
+        ...(body.autorizable !== undefined ? { autorizable: body.autorizable } : {}),
+      },
+    });
+
+    if (count === 0) {
+      logger.warn('No se actualizó ningún tipo de reparación', { data: { id } });
     }
-    return types_of_repairs || [];
+
+    return { ok: count > 0 } as const;
   } catch (error) {
-    return [];
+    logger.error('Error al actualizar tipo de reparacion', { data: { error, id } });
+    return { ok: false } as const;
   }
 }
 
+/** Elimina un tipo de reparación de la empresa activa. */
 export async function deleteTypeOfRepair(id: string) {
-  const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
   try {
-    const { data: types_of_repairs, error } = await supabase
-      .from('types_of_repairs')
-      .delete()
-      .eq('id', id || '');
-    if (error) {
-      return [];
-    }
-    return types_of_repairs || [];
+    const companyId = await getActiveCompanyId();
+
+    const { count } = await prisma.types_of_repairs.deleteMany({
+      where: withCompany({ id }, companyId),
+    });
+
+    return { ok: count > 0 } as const;
   } catch (error) {
-    return [];
+    logger.error('Error al eliminar tipo de reparacion', { data: { error, id } });
+    return { ok: false } as const;
   }
 }
 
+/** Sectores activos de los talleres de la empresa activa, para la config del tipo. */
 export async function fetchAllWorkshopSectorsForConfig() {
-  const supabase = await supabaseServer();
+  try {
+    const companyId = await getActiveCompanyId();
 
-  const { data, error } = await supabase
-    .from('workshop_sectors')
-    .select('id, name, workshop_id, workshops(id, name)')
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-
-  if (error) {
-    logger.error('Error fetching workshop sectors', { data: { error } });
+    return await prisma.workshop_sectors.findMany({
+      where: withCompany({ is_active: true }, companyId),
+      select: {
+        id: true,
+        name: true,
+        workshop_id: true,
+        workshops: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    logger.error('Error al obtener los sectores de taller', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
+/** Ids de los sectores asociados a un tipo de reparación de la empresa activa. */
 export async function fetchSectorsForRepairType(repairTypeId: string) {
-  const supabase = await supabaseServer();
+  try {
+    const companyId = await getActiveCompanyId();
 
-  const { data, error } = await supabase
-    .from('sector_repair_types')
-    .select('workshop_sector_id')
-    .eq('repair_type_id', repairTypeId);
+    const rows = await prisma.sector_repair_types.findMany({
+      where: {
+        repair_type_id: repairTypeId,
+        types_of_repairs: { company_id: companyId },
+      },
+      select: { workshop_sector_id: true },
+    });
 
-  if (error) {
-    logger.error('Error fetching sectors for repair type', { data: { error } });
+    return rows.map((row) => row.workshop_sector_id);
+  } catch (error) {
+    logger.error('Error al obtener los sectores del tipo de reparación', { data: { error, repairTypeId } });
     return [];
   }
-
-  return data?.map((d) => d.workshop_sector_id) || [];
 }
 
+/**
+ * Reemplaza los sectores asociados a un tipo de reparación.
+ *
+ * Es un formulario de UNA entidad renderizado con su estado real, así que el reemplazo
+ * total es seguro (ver la regla de mutaciones M:M): igual se acota el alta a sectores de
+ * la misma empresa para que un id ajeno no entre por el endpoint.
+ */
 export async function updateRepairTypeSectors(repairTypeId: string, sectorIds: string[]) {
-  const supabase = await supabaseServer();
+  const companyId = await getActiveCompanyId();
 
-  // Delete existing
-  const { error: deleteError } = await supabase.from('sector_repair_types').delete().eq('repair_type_id', repairTypeId);
+  const repairType = await prisma.types_of_repairs.findFirst({
+    where: withCompany({ id: repairTypeId }, companyId),
+    select: { id: true },
+  });
+  if (!repairType) throw new Error('El tipo de reparación no pertenece a la empresa activa');
 
-  if (deleteError) {
-    logger.error('Error deleting sector repair types', { data: { error: deleteError } });
-    throw deleteError;
-  }
+  const validSectors =
+    sectorIds.length > 0
+      ? await prisma.workshop_sectors.findMany({
+          where: withCompany({ id: { in: sectorIds } }, companyId),
+          select: { id: true },
+        })
+      : [];
 
-  // Insert new ones
-  if (sectorIds.length > 0) {
-    const rows = sectorIds.map((sectorId) => ({
-      workshop_sector_id: sectorId,
-      repair_type_id: repairTypeId,
-    }));
+  await prisma.$transaction(async (tx) => {
+    await tx.sector_repair_types.deleteMany({ where: { repair_type_id: repairTypeId } });
 
-    const { error: insertError } = await supabase.from('sector_repair_types').insert(rows);
-
-    if (insertError) {
-      logger.error('Error inserting sector repair types', { data: { error: insertError } });
-      throw insertError;
+    if (validSectors.length > 0) {
+      await tx.sector_repair_types.createMany({
+        data: validSectors.map((sector) => ({
+          workshop_sector_id: sector.id,
+          repair_type_id: repairTypeId,
+        })),
+        skipDuplicates: true,
+      });
     }
-  }
+  });
 }

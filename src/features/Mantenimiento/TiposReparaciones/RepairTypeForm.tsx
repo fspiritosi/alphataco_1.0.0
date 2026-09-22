@@ -25,7 +25,6 @@ import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -41,7 +40,11 @@ import {
   fetchSectorsForRepairType,
   updateRepairTypeSectors,
   updateTypeOfRepair,
+  type TypeOfRepairData,
 } from './actions/actions';
+
+/** Fila de la tabla: el tipo sale del retorno de la action, no de los tipos legacy. */
+type TypeOfRepair = TypeOfRepairData;
 
 const logger = new Logger('RepairTypeForm');
 
@@ -157,7 +160,6 @@ export function RepairTypeForm({
   savedVisibility: VisibilityState;
   savedFilters: string[];
 }) {
-  const company_id = useLoggedUserStore((state) => state.actualCompany)?.id;
   const [selectedRepair, setSelectedRepair] = useState<TypeOfRepair | null>(null);
   const router = useRouter();
   const { hasPermission } = usePermissions();
@@ -174,10 +176,6 @@ export function RepairTypeForm({
       .min(3, { message: 'Intenta explicar con un poco más de detalle' }),
     criticity: z.enum(['Alta', 'Media', 'Baja'], { required_error: 'La criticidad es requerida' }),
     is_active: z.boolean().default(true).optional(),
-    company_id: z
-      .string()
-      .default(company_id || '')
-      .optional(),
     type_of_maintenance: z.enum(['Correctivo', 'Preventivo', 'Otro']),
     autorizable: z.boolean().default(false).optional(),
   });
@@ -186,9 +184,6 @@ export function RepairTypeForm({
 
   const form = useForm<Repair>({
     resolver: zodResolver(typeOfRepair),
-    defaultValues: {
-      company_id: company_id,
-    },
   });
 
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);

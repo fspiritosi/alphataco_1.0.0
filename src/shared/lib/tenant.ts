@@ -58,3 +58,27 @@ export const assertCompanyAccess = cache(async (companyId: string): Promise<void
     throw new Error('Sin acceso a la empresa');
   }
 });
+
+/**
+ * Escribe la cookie `actualComp` desde el servidor.
+ *
+ * Es el único punto de escritura de la cookie fuera del middleware y del store del
+ * cliente: las features no la conocen, usan `getActiveCompanyId()`. Lo necesita el login
+ * anónimo del QR de mantenimiento, donde la empresa sale del legajo/equipo y todavía no
+ * está en el JWT. P4 la elimina junto con la sesión de Supabase.
+ */
+export async function setActiveCompanyCookie(companyId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set('actualComp', companyId, {
+    path: '/',
+    maxAge: 60 * 60, // 1 hora
+    httpOnly: false, // el cliente también la lee
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  });
+}
+
+/** Borra la cookie `actualComp` (cierre de sesión). */
+export async function clearActiveCompanyCookie(): Promise<void> {
+  (await cookies()).delete('actualComp');
+}

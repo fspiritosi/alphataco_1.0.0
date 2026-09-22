@@ -114,7 +114,7 @@ export function _EquiposConDesviosDataTable({
           section_code: d.section_code,
           is_critical: d.is_critical ?? false,
           checklistAnswerId: d.checklist_answer_id,
-          created_at: d.created_at || new Date().toISOString(),
+          created_at: d.created_at?.toISOString() ?? new Date().toISOString(),
         }))
       );
       setSelectedEquipmentId(equipmentId);

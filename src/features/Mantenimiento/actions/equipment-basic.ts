@@ -1,9 +1,9 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
 import { prisma } from '@/shared/lib/prisma';
-import { cookies } from 'next/headers';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/equipment-basic');
 
@@ -16,13 +16,11 @@ const logger = new Logger('features/Mantenimiento/equipment-basic');
  * `type_name` y `sub_type_name` — para no tocar a ninguno de sus consumidores.
  */
 export const fetchAllEquipmentBasicData = async () => {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-
   try {
+    const companyId = await getActiveCompanyId();
+
     const equipments = await prisma.vehicles.findMany({
-      where: { company_id },
+      where: withCompany({}, companyId),
       select: {
         id: true,
         condition: true,
@@ -66,22 +64,19 @@ export const fetchAllEquipmentBasicData = async () => {
 export const findRelatedHitchEquipmentId = async (
   utChecklistAnswerId: string
 ): Promise<{ hitchEquipmentId: string; hitchChecklistAnswerId: string } | null> => {
-  const supabase = await supabaseServer();
-
   try {
-    // Obtener el checklist_answer del UT
-    const { data: utAnswer, error: utError } = await supabase
-      .from('checklist_answers')
-      .select('id, template_id, equipment_id, answer_data, created_at')
-      .eq('id', utChecklistAnswerId)
-      .single();
+    // El checklist del UT define la empresa: este flujo también corre desde el QR anónimo.
+    const utAnswer = await prisma.checklist_answers.findUnique({
+      where: { id: utChecklistAnswerId },
+      select: { id: true, template_id: true, equipment_id: true, answer_data: true, company_id: true },
+    });
 
-    if (utError || !utAnswer) {
-      logger.error('[HITCH] Error fetching UT checklist answer', { data: { utError } });
+    if (!utAnswer) {
+      logger.error('[HITCH] No se encontró el checklist de la unidad tractora', { data: { utChecklistAnswerId } });
       return null;
     }
 
-    const answerData = utAnswer.answer_data as { fecha?: string; hora?: string; chofer?: string };
+    const answerData = utAnswer.answer_data as { fecha?: string; hora?: string; chofer?: string } | null;
     const fecha = answerData?.fecha;
     const hora = answerData?.hora;
     const chofer = answerData?.chofer;
@@ -93,22 +88,27 @@ export const findRelatedHitchEquipmentId = async (
 
     // Buscar checklists con el mismo template, fecha, hora y chofer pero diferente equipment_id
     // Limitamos a los últimos 10 para mejorar rendimiento (checklists recientes)
-    const { data: relatedAnswers, error: relatedError } = await supabase
-      .from('checklist_answers')
-      .select('id, equipment_id, answer_data')
-      .eq('template_id', utAnswer.template_id)
-      .neq('equipment_id', utAnswer.equipment_id)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const relatedAnswers = await prisma.checklist_answers.findMany({
+      where: withCompany(
+        {
+          template_id: utAnswer.template_id,
+          ...(utAnswer.equipment_id ? { equipment_id: { not: utAnswer.equipment_id } } : {}),
+        },
+        utAnswer.company_id
+      ),
+      select: { id: true, equipment_id: true, answer_data: true },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
 
-    if (relatedError || !relatedAnswers || relatedAnswers.length === 0) {
+    if (relatedAnswers.length === 0) {
       logger.info('[HITCH] No related checklist answers found');
       return null;
     }
 
     // Buscar el que coincida en fecha, hora y chofer
     const matchingAnswer = relatedAnswers.find((answer) => {
-      const hitchAnswerData = answer.answer_data as { fecha?: string; hora?: string; chofer?: string };
+      const hitchAnswerData = answer.answer_data as { fecha?: string; hora?: string; chofer?: string } | null;
       const hitchFecha = hitchAnswerData?.fecha;
       const hitchHora = hitchAnswerData?.hora;
       const hitchChofer = hitchAnswerData?.chofer;
@@ -134,10 +134,10 @@ export const findRelatedHitchEquipmentId = async (
       return fechaMatch && horaMatch && choferMatch;
     });
 
-    if (matchingAnswer) {
+    if (matchingAnswer?.equipment_id) {
       logger.info('[HITCH] Found related hitch equipment', { data: { equipmentId: matchingAnswer.equipment_id } });
       return {
-        hitchEquipmentId: matchingAnswer.equipment_id as string,
+        hitchEquipmentId: matchingAnswer.equipment_id,
         hitchChecklistAnswerId: matchingAnswer.id,
       };
     }
@@ -158,13 +158,11 @@ export const findRelatedHitchEquipmentId = async (
  * numero de serie y mide uso con horometro.
  */
 export const fetchAllOtherEquipmentBasicData = async () => {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
+  const companyId = await getActiveCompanyId();
 
   try {
     const equipments = await prisma.other_equipment.findMany({
-      where: { company_id, is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: {
         id: true,
         condition: true,

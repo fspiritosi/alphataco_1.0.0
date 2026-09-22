@@ -903,7 +903,7 @@ export function NormalizedChecklistForm({
             is_critical: d.is_critical ?? false,
             checklistAnswerId: d.checklist_answer_id,
             driver_comment: d.driver_comment,
-            created_at: d.created_at ?? new Date().toISOString(),
+            created_at: d.created_at?.toISOString() ?? new Date().toISOString(),
             // Unidad a la que se le imputa el desvío. Solo se muestra cuando hay
             // enganche declarado: sin él no hay ambigüedad que aclarar.
             equipment_label: selectedHitchEquipment

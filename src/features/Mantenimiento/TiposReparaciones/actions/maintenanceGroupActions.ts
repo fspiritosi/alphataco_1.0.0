@@ -1,166 +1,238 @@
 'use server';
 
-// import { TablesInsert, TablesUpdate } from "@/database.types";
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
-// Tipos explícitos para el grupo y las relaciones
-// export type MaintenanceGroupInsert = TablesInsert<'maintenance_request_groups'>;
-export type MaintenanceGroupInsert = Database['public']['Tables']['maintenance_request_groups']['Insert'];
-export type MaintenanceGroupUpdate = Database['public']['Tables']['maintenance_request_groups']['Update'];
-export type MaintenanceGroupRelationInsert =
-  Database['public']['Tables']['maintenance_group_type_of_repairs']['Insert'];
+const logger = new Logger('Mantenimiento/TiposReparaciones/grupos');
 
-// Crear grupo y relaciones
-export const createMaintenanceGroupAction = async (groupData: MaintenanceGroupInsert, typeIds: string[]) => {
+/** Datos del grupo de reparaciones que manda el formulario. */
+export interface MaintenanceGroupInput {
+  name: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Error inesperado';
+}
+
+/**
+ * Tipos de reparación de la empresa activa que pueden entrar en un grupo.
+ *
+ * Perímetro: `maintenance_request_groups` no tiene `company_id` (es un catálogo global),
+ * pero los tipos que se le cuelgan sí, así que toda alta de relación se acota a la empresa.
+ */
+async function assertRepairTypesInActiveCompany(typeIds: string[], companyId: string): Promise<string[]> {
+  if (typeIds.length === 0) return [];
+
+  const types = await prisma.types_of_repairs.findMany({
+    where: withCompany({ id: { in: typeIds } }, companyId),
+    select: { id: true },
+  });
+
+  return types.map((type) => type.id);
+}
+
+/** Crea un grupo de reparaciones y sus relaciones con los tipos elegidos. */
+export const createMaintenanceGroupAction = async (groupData: MaintenanceGroupInput, typeIds: string[]) => {
   try {
-    const supabase = await supabaseServer();
-    // Crear grupo
-    const { data: group, error: groupError } = await supabase
-      .from('maintenance_request_groups')
-      .insert([groupData])
-      .select()
-      .single();
-    if (groupError) throw groupError;
-    // Crear relaciones
-    if (typeIds.length > 0) {
-      const relations = typeIds.map((type_id) => ({
-        group_id: group.id,
-        type_id,
-      }));
-      const { error: relError } = await supabase.from('maintenance_group_type_of_repairs').insert(relations);
-      if (relError) throw relError;
-    }
+    const companyId = await getActiveCompanyId();
+    const validTypeIds = await assertRepairTypesInActiveCompany(typeIds, companyId);
+
+    const group = await prisma.$transaction(async (tx) => {
+      const created = await tx.maintenance_request_groups.create({
+        data: {
+          name: groupData.name,
+          description: groupData.description ?? null,
+          is_active: groupData.is_active ?? true,
+        },
+      });
+
+      if (validTypeIds.length > 0) {
+        await tx.maintenance_group_type_of_repairs.createMany({
+          data: validTypeIds.map((type_id) => ({ group_id: created.id, type_id })),
+          skipDuplicates: true,
+        });
+      }
+
+      return created;
+    });
+
     return { group, error: null };
-  } catch (error: any) {
-    console.error('Error en createMaintenanceGroupAction:', error);
-    return { group: null, error: error.message };
+  } catch (error) {
+    logger.error('Error al crear el grupo de reparaciones', { data: { error } });
+    return { group: null, error: errorMessage(error) };
   }
 };
 export type createMaintenanceGroupActionType = Awaited<ReturnType<typeof createMaintenanceGroupAction>>;
 
-// Actualizar grupo y relaciones
+/**
+ * Actualiza un grupo y sus relaciones.
+ *
+ * Las altas y bajas de la pivote se calculan como diferencia explícita contra lo que hay
+ * en la base (no se borra todo y se reinserta): es un formulario de UNA entidad, cargado
+ * con su estado real, y sólo se tocan los ids que cambiaron.
+ */
 export const updateMaintenanceGroupAction = async (
   groupId: string,
-  groupData: MaintenanceGroupUpdate,
+  groupData: MaintenanceGroupInput,
   newTypeIds: string[]
 ) => {
   try {
-    const supabase = await supabaseServer();
-    // Actualizar grupo
-    const { data: updatedGroup, error: groupError } = await supabase
-      .from('maintenance_request_groups')
-      .update(groupData)
-      .eq('id', groupId)
-      .select()
-      .single();
-    if (groupError) throw groupError;
-    // Obtener relaciones actuales
-    const { data: currentRelations, error: relError } = await supabase
-      .from('maintenance_group_type_of_repairs')
-      .select('type_id')
-      .eq('group_id', groupId);
-    if (relError) throw relError;
-    const currentTypeIds = currentRelations?.map((r) => r.type_id) || [];
-    // Calcular relaciones a agregar y eliminar
-    const toAdd = newTypeIds.filter((id) => !currentTypeIds.includes(id));
-    const toRemove = currentTypeIds.filter((id) => !newTypeIds.includes(id));
-    // Agregar nuevas relaciones
-    if (toAdd.length > 0) {
-      const addRelations = toAdd.map((type_id) => ({ group_id: groupId, type_id }));
-      const { error: addError } = await supabase.from('maintenance_group_type_of_repairs').insert(addRelations);
-      if (addError) throw addError;
-    }
-    // Eliminar relaciones quitadas
-    if (toRemove.length > 0) {
-      const { error: delError } = await supabase
-        .from('maintenance_group_type_of_repairs')
-        .delete()
-        .eq('group_id', groupId)
-        .in('type_id', toRemove);
-      if (delError) throw delError;
-    }
+    const companyId = await getActiveCompanyId();
+    const validTypeIds = await assertRepairTypesInActiveCompany(newTypeIds, companyId);
+
+    const updatedGroup = await prisma.$transaction(async (tx) => {
+      const updated = await tx.maintenance_request_groups.update({
+        where: { id: groupId },
+        data: {
+          name: groupData.name,
+          description: groupData.description ?? null,
+          is_active: groupData.is_active ?? true,
+        },
+      });
+
+      const currentRelations = await tx.maintenance_group_type_of_repairs.findMany({
+        where: { group_id: groupId },
+        select: { type_id: true },
+      });
+      const currentTypeIds = currentRelations.map((relation) => relation.type_id);
+
+      const toAdd = validTypeIds.filter((id) => !currentTypeIds.includes(id));
+      const toRemove = currentTypeIds.filter((id) => !validTypeIds.includes(id));
+
+      if (toAdd.length > 0) {
+        await tx.maintenance_group_type_of_repairs.createMany({
+          data: toAdd.map((type_id) => ({ group_id: groupId, type_id })),
+          skipDuplicates: true,
+        });
+      }
+
+      if (toRemove.length > 0) {
+        await tx.maintenance_group_type_of_repairs.deleteMany({
+          where: { group_id: groupId, type_id: { in: toRemove } },
+        });
+      }
+
+      return updated;
+    });
+
     return { updatedGroup, error: null };
-  } catch (error: any) {
-    console.error('Error en updateMaintenanceGroupAction:', error);
-    return { updatedGroup: null, error: error.message };
+  } catch (error) {
+    logger.error('Error al actualizar el grupo de reparaciones', { data: { error, groupId } });
+    return { updatedGroup: null, error: errorMessage(error) };
   }
 };
 export type updateMaintenanceGroupActionType = Awaited<ReturnType<typeof updateMaintenanceGroupAction>>;
 
-// Soft delete de grupo y relaciones
+/** Baja lógica del grupo (queda inactivo) y limpieza de sus relaciones. */
 export const deleteMaintenanceGroupAction = async (groupId: string) => {
   try {
-    const supabase = await supabaseServer();
-    // Marcar grupo como inactivo
-    const { data: deletedGroup, error: groupError } = await supabase
-      .from('maintenance_request_groups')
-      .update({ is_active: false })
-      .eq('id', groupId)
-      .select()
-      .single();
-    if (groupError) throw groupError;
-    // Opcional: eliminar relaciones
-    const { error: relError } = await supabase
-      .from('maintenance_group_type_of_repairs')
-      .delete()
-      .eq('group_id', groupId);
-    if (relError) throw relError;
+    const deletedGroup = await prisma.$transaction(async (tx) => {
+      const updated = await tx.maintenance_request_groups.update({
+        where: { id: groupId },
+        data: { is_active: false },
+      });
+
+      await tx.maintenance_group_type_of_repairs.deleteMany({ where: { group_id: groupId } });
+
+      return updated;
+    });
+
     return { deletedGroup, error: null };
-  } catch (error: any) {
-    console.error('Error en deleteMaintenanceGroupAction:', error);
-    return { deletedGroup: null, error: error.message };
+  } catch (error) {
+    logger.error('Error al eliminar el grupo de reparaciones', { data: { error, groupId } });
+    return { deletedGroup: null, error: errorMessage(error) };
   }
 };
 export type deleteMaintenanceGroupActionType = Awaited<ReturnType<typeof deleteMaintenanceGroupAction>>;
 
-// Obtener todos los grupos con relaciones
+/**
+ * Grupos activos con los ids de sus tipos de reparación.
+ *
+ * Sólo se listan los grupos que tienen al menos un tipo de la empresa activa, o que
+ * todavía no tienen ninguno (recién creados): el catálogo de grupos es global, pero lo que
+ * se ve de él depende de los tipos de la empresa.
+ */
 export const fetchMaintenanceGroupsAction = async () => {
   try {
-    const supabase = await supabaseServer();
-    const { data, error } = await supabase
-      .from('maintenance_request_groups')
-      .select('*, maintenance_group_type_of_repairs(type_id)')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const companyId = await getActiveCompanyId();
+
+    const data = await prisma.maintenance_request_groups.findMany({
+      where: {
+        is_active: true,
+        OR: [
+          { maintenance_group_type_of_repairs: { some: { types_of_repairs: { company_id: companyId } } } },
+          { maintenance_group_type_of_repairs: { none: {} } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        is_active: true,
+        created_at: true,
+        maintenance_group_type_of_repairs: {
+          where: { types_of_repairs: { company_id: companyId } },
+          select: { type_id: true },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
     return { groups: data, error: null };
-  } catch (error: any) {
-    console.error('Error en fetchMaintenanceGroupsAction:', error);
-    return { groups: [], error: error.message };
+  } catch (error) {
+    logger.error('Error al obtener los grupos de reparaciones', { data: { error } });
+    return { groups: [], error: errorMessage(error) };
   }
 };
 export type fetchMaintenanceGroupsActionType = Awaited<ReturnType<typeof fetchMaintenanceGroupsAction>>;
 
+/** Tipos de reparación de la empresa activa, para armar los grupos. */
 export const fetchTypesOfRepairAction = async () => {
   try {
-    const supabase = await supabaseServer();
-    const { data, error } = await supabase
-      .from('types_of_repairs')
-      .select('id,name')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const companyId = await getActiveCompanyId();
+
+    const data = await prisma.types_of_repairs.findMany({
+      where: withCompany({}, companyId),
+      select: { id: true, name: true },
+      orderBy: { created_at: 'desc' },
+    });
+
     return { types: data, error: null };
-  } catch (error: any) {
-    console.error('Error en fetchTypesOfRepairAction:', error);
-    return { types: [], error: error.message };
+  } catch (error) {
+    logger.error('Error al obtener los tipos de reparación', { data: { error } });
+    return { types: [], error: errorMessage(error) };
   }
 };
 export type fetchTypesOfRepairActionType = Awaited<ReturnType<typeof fetchTypesOfRepairAction>>;
 
-// Obtener grupo por ID con relaciones
+/** Grupo puntual con los ids de sus tipos de reparación de la empresa activa. */
 export const fetchMaintenanceGroupByIdAction = async (groupId: string) => {
   try {
-    const supabase = await supabaseServer();
-    const { data, error } = await supabase
-      .from('maintenance_request_groups')
-      .select('*, maintenance_group_type_relations(type_id)')
-      .eq('id', groupId)
-      .single();
-    if (error) throw error;
-    return { group: data, error: null };
-  } catch (error: any) {
-    console.error('Error en fetchMaintenanceGroupByIdAction:', error);
-    return { group: null, error: error.message };
+    const companyId = await getActiveCompanyId();
+
+    const group = await prisma.maintenance_request_groups.findUnique({
+      where: { id: groupId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        is_active: true,
+        created_at: true,
+        maintenance_group_type_of_repairs: {
+          where: { types_of_repairs: { company_id: companyId } },
+          select: { type_id: true },
+        },
+      },
+    });
+
+    return { group, error: null };
+  } catch (error) {
+    logger.error('Error al obtener el grupo de reparaciones', { data: { error, groupId } });
+    return { group: null, error: errorMessage(error) };
   }
 };
 export type fetchMaintenanceGroupByIdActionType = Awaited<ReturnType<typeof fetchMaintenanceGroupByIdAction>>;

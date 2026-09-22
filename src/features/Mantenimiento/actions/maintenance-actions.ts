@@ -1,8 +1,15 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUser } from '@/shared/lib/session';
+import {
+  clearActiveCompanyCookie,
+  getActiveCompanyId,
+  setActiveCompanyCookie,
+} from '@/shared/lib/tenant';
 
 const deviationsLogger = new Logger('Mantenimiento/deviations');
 
@@ -15,7 +22,10 @@ type Err = { ok: false; error: string };
 
 /**
  * Busca equipos (vehículos) por dominio o serie.
- * Pública (sin autenticación) para permitir selección antes del login.
+ *
+ * Flujo anónimo (`/maintenance`): corre ANTES del login, así que no hay empresa activa y
+ * la búsqueda no puede acotarse por sesión. Devuelve sólo identificadores del equipo
+ * (dominio, serie, número interno), que es lo que el operario tipea en el cartel del QR.
  */
 export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
   | Ok<{
@@ -34,45 +44,57 @@ export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
   }
 
   const searchTerm = domainOrSerie.trim().toUpperCase();
-  const admin = await adminSupabaseServer();
 
-  // Buscar por dominio o serie (case-insensitive, ilike)
-  const { data, error } = await admin
-    .from('vehicles')
-    .select('id, domain, serie, intern_number')
-    .or(`domain.ilike.%${searchTerm}%,serie.ilike.%${searchTerm}%`)
-    .limit(10)
-    .order('domain', { ascending: true, nullsFirst: false });
+  try {
+    const data = await prisma.vehicles.findMany({
+      where: {
+        OR: [
+          { domain: { contains: searchTerm, mode: 'insensitive' } },
+          { serie: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true, domain: true, serie: true, intern_number: true },
+      orderBy: { domain: { sort: 'asc', nulls: 'last' } },
+      take: 10,
+    });
 
-  if (error) {
-    return { ok: false, error: `Error al buscar equipos: ${error.message}` };
+    return {
+      ok: true,
+      equipment: data.map((v) => ({
+        id: v.id,
+        domain: v.domain,
+        serie: v.serie,
+        intern_number: v.intern_number,
+        label: `${v.domain ?? v.serie ?? 'Sin dominio/serie'}${v.intern_number ? ` (Nº ${v.intern_number})` : ''}`,
+      })),
+    };
+  } catch (error) {
+    deviationsLogger.error('Error al buscar equipos por dominio o serie', { data: { error } });
+    return { ok: false, error: 'Error al buscar equipos.' };
   }
-
-  const equipment =
-    data?.map((v) => ({
-      id: v.id,
-      domain: v.domain,
-      serie: v.serie,
-      intern_number: v.intern_number,
-      label: `${v.domain ?? v.serie ?? 'Sin dominio/serie'}${v.intern_number ? ` (Nº ${v.intern_number})` : ''}`,
-    })) ?? [];
-
-  return { ok: true, equipment };
 }
 
+/** Empresa del equipo elegido en el flujo anónimo: sale del vehículo, nunca de la sesión. */
 export async function getCompanyIdForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
 
-  const admin = await adminSupabaseServer();
-  const { data, error } = await admin.from('vehicles').select('company_id').eq('id', equipmentId).single();
+  const vehicle = await prisma.vehicles.findUnique({
+    where: { id: equipmentId },
+    select: { company_id: true },
+  });
 
-  if (error || !data?.company_id) {
+  if (!vehicle?.company_id) {
     return { ok: false, error: 'No se pudo obtener la empresa del equipo seleccionado.' };
   }
 
-  return { ok: true, companyId: data.company_id as string };
+  return { ok: true, companyId: vehicle.company_id };
 }
 
+/**
+ * Completa la sesión anónima del operario: valida el CUIL contra el legajo, asegura el
+ * profile y deja la empresa del EMPLEADO (o, si no tiene, la del equipo) en la cookie y
+ * en el metadata de Auth.
+ */
 export async function completeMaintenanceEmployeeAnonymousSession(params: {
   cuil: string;
   equipmentId: string;
@@ -90,39 +112,33 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   if (!cuil) return { ok: false, error: 'El CUIL es requerido.' };
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
 
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user?.id) {
+  const user = await getSessionUser(); // P4: auth
+  if (!user?.id) {
     return { ok: false, error: 'No hay sesión activa. Reintenta iniciar sesión.' };
   }
 
-  const admin = await adminSupabaseServer();
-  const cookieStore = await cookies();
-
-  // 1) Buscar empleado por CUIL (usando service role para evitar depender de RLS durante el login)
+  // 1) Buscar empleado por CUIL (normalizado y, si no aparece, tal cual lo tipearon)
   const normalized = normalizeCuil(cuil);
 
-  const selectEmployee = async (value: string) => {
-    const { data, error } = await admin
-      .from('employees')
-      .select('id, firstname, lastname, email, phone, cuil, company_id, is_active')
-      .eq('cuil', value)
-      .limit(1);
-    return { data: data?.[0], error };
-  };
-
-  let { data: employee, error: employeeError } = await selectEmployee(normalized);
-  if (!employee && normalized !== cuil) {
-    ({ data: employee, error: employeeError } = await selectEmployee(cuil));
-  }
-
-  if (employeeError) {
-    return { ok: false, error: 'Error consultando empleado.' };
-  }
+  const employee =
+    (await prisma.employees.findFirst({
+      where: { cuil: normalized },
+      select: { id: true, firstname: true, lastname: true, email: true, phone: true, company_id: true, is_active: true },
+    })) ??
+    (normalized !== cuil
+      ? await prisma.employees.findFirst({
+          where: { cuil },
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+            email: true,
+            phone: true,
+            company_id: true,
+            is_active: true,
+          },
+        })
+      : null);
 
   if (!employee?.id) {
     return { ok: false, error: 'Empleado no encontrado.' };
@@ -132,98 +148,76 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
     return { ok: false, error: 'El empleado no se encuentra activo.' };
   }
 
-  // 2) Obtener company_id del empleado (prioridad) o del equipo (fallback)
-  let companyId: string | null = null;
+  // 2) Empresa: la del empleado (prioridad) o la del equipo (fallback)
+  let companyId: string | null = employee.company_id ?? null;
 
-  // Prioridad 1: company_id del empleado
-  if (employee.company_id) {
-    companyId = employee.company_id as string;
-  } else {
-    // Prioridad 2: company_id del equipo (fallback)
-    const { data: vehicle, error: vehicleError } = await admin
-      .from('vehicles')
-      .select('id, company_id')
-      .eq('id', equipmentId)
-      .single();
+  if (!companyId) {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: equipmentId },
+      select: { company_id: true },
+    });
 
-    if (vehicleError || !vehicle?.company_id) {
+    if (!vehicle?.company_id) {
       return { ok: false, error: 'El empleado no tiene empresa asignada y el equipo no tiene empresa asignada.' };
     }
 
-    companyId = vehicle.company_id as string;
+    companyId = vehicle.company_id;
   }
 
-  if (!companyId) {
-    return { ok: false, error: 'No se pudo determinar la empresa.' };
-  }
-
-  const employeeId = employee.id as string;
-  const employeeEmail = (employee.email as string | null) ?? null;
-  const employeePhone = (employee.phone as string | null) ?? null;
+  const employeeId = employee.id;
+  const employeeEmail = employee.email ?? null;
+  const employeePhone = employee.phone ?? null;
   const employeeName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
 
-  // 3) Asegurar profile (necesario para FKs que apuntan a profile.id)
-  // Evitar choque por UNIQUE(email): si el email ya pertenece a otro profile, lo omitimos en profile y lo dejamos en user_metadata.
+  // 3) Asegurar el profile (hay FKs que apuntan a profile.id).
+  //    El email es UNIQUE: si ya pertenece a OTRO profile se omite acá y queda solo en el
+  //    user_metadata, para no romper el alta por un choque de unicidad.
   let emailForProfile: string | null = employeeEmail;
   if (emailForProfile) {
-    const { data: existingEmail } = await admin.from('profile').select('id').eq('email', emailForProfile).limit(1);
-    if (existingEmail?.[0]?.id && existingEmail[0].id !== user.id) {
+    const existing = await prisma.profile.findFirst({
+      where: { email: emailForProfile },
+      select: { id: true },
+    });
+    if (existing && existing.id !== user.id) {
       emailForProfile = null;
     }
   }
 
-  const { error: profileUpsertError } = await admin.from('profile').upsert(
-    [
-      {
-        id: user.id,
-        credential_id: user.id,
-        email: emailForProfile,
-        fullname: employeeName,
-        role: 'Usuario',
-      },
-    ],
-    { onConflict: 'id' }
-  );
-
-  if (profileUpsertError) {
-    return { ok: false, error: `No se pudo crear/actualizar el perfil: ${profileUpsertError.message}` };
-  }
-
-  // 4) Establecer cookie actualComp desde el servidor
   try {
-    cookieStore.set('actualComp', companyId, {
-      path: '/',
-      maxAge: 60 * 60, // 1 hora (equivalente a expires: 1/24)
-      httpOnly: false, // Necesario para que el cliente también pueda leerla
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+    await prisma.profile.upsert({
+      where: { id: user.id },
+      update: { credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'Usuario' },
+      create: { id: user.id, credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'Usuario' },
     });
   } catch (error) {
-    // Si falla establecer la cookie (puede pasar en algunos contextos), continuar
-    console.warn('No se pudo establecer la cookie actualComp desde el servidor:', error);
+    deviationsLogger.error('No se pudo crear o actualizar el perfil del operario', { data: { error } });
+    return { ok: false, error: 'No se pudo crear/actualizar el perfil.' };
   }
 
-  // 5) Completar metadata de Auth para sesiones/RLS y UI (nombre/email/etc)
-  const nextAppMetadata = {
-    ...(user.app_metadata ?? {}),
-    company: companyId,
-    employee_id: employeeId,
-    maintenance_login: true,
-  } as Record<string, unknown>;
+  // 4) Empresa activa del request, desde el servidor
+  try {
+    await setActiveCompanyCookie(companyId);
+  } catch (error) {
+    // Si falla establecerla (puede pasar en algunos contextos), continuar
+    deviationsLogger.warn('No se pudo fijar la empresa activa desde el servidor', { data: { error } });
+  }
 
-  const nextUserMetadata = {
-    ...(user.user_metadata ?? {}),
-    login_type: 'empleado',
-    employee_id: employeeId,
-    cuil: normalized,
-    fullname: employeeName,
-    email: employeeEmail,
-    phone: employeePhone,
-  } as Record<string, unknown>;
-
+  // 5) Metadata de Auth para la sesión y la UI (nombre/email/etc)
+  const admin = await adminSupabaseServer(); // P4: auth
   const { error: metadataError } = await admin.auth.admin.updateUserById(user.id, {
-    app_metadata: nextAppMetadata,
-    user_metadata: nextUserMetadata,
+    app_metadata: {
+      company: companyId,
+      employee_id: employeeId,
+      maintenance_login: true,
+    },
+    user_metadata: {
+      login_type: 'empleado',
+      employee_id: employeeId,
+      cuil: normalized,
+      fullname: employeeName,
+      email: employeeEmail,
+      phone: employeePhone,
+    },
   });
 
   if (metadataError) {
@@ -232,195 +226,6 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
 
   return { ok: true, companyId, employeeId, employeeName, employeeEmail };
 }
-
-/**
- * Verifica si una cadena es un UUID válido
- */
-function isValidUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-}
-
-/**
- * Obtiene el company_id del empleado usando su employee_id o CUIL.
- */
-async function getEmployeeCompanyId(employeeId?: string, cuil?: string): Promise<string | null> {
-  if (!employeeId && !cuil) return null;
-
-  const admin = await adminSupabaseServer();
-
-  // Prioridad 1: Si tenemos employee_id y es un UUID válido, usarlo directamente
-  if (employeeId && isValidUUID(employeeId)) {
-    const { data: employee, error } = await admin
-      .from('employees')
-      .select('company_id')
-      .eq('id', employeeId)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[MAINTENANCE] Error fetching employee company_id by ID:', error);
-    } else if (employee?.company_id) {
-      return employee.company_id as string | null;
-    }
-  }
-
-  // Prioridad 2: Si employee_id no es un UUID (probablemente es un CUIL), o si tenemos CUIL explícito, buscar por CUIL
-  const cuilToSearch = employeeId && !isValidUUID(employeeId) ? employeeId : cuil;
-
-  if (cuilToSearch) {
-    const normalized = normalizeCuil(cuilToSearch);
-
-    // Buscar empleado por CUIL normalizado
-    const { data: employee, error } = await admin
-      .from('employees')
-      .select('company_id')
-      .eq('cuil', normalized)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[MAINTENANCE] Error fetching employee company_id by CUIL:', error);
-    } else if (employee?.company_id) {
-      return employee.company_id as string | null;
-    }
-
-    // Si falla con CUIL normalizado, intentar sin normalizar
-    if (normalized !== cuilToSearch) {
-      const { data: employeeAlt, error: errorAlt } = await admin
-        .from('employees')
-        .select('company_id')
-        .eq('cuil', cuilToSearch)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (errorAlt) {
-        console.error('[MAINTENANCE] Error fetching employee company_id by CUIL (alt):', errorAlt);
-      } else if (employeeAlt?.company_id) {
-        return employeeAlt.company_id as string | null;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Obtiene los checklists (custom_form y checklist_templates) para el contexto de mantenimiento.
- * Usa el company_id del empleado (obtenido por employee_id o CUIL) en lugar del company_id del equipo.
- * Usa adminSupabaseServer para evitar problemas de RLS con usuarios anónimos.
- * @param employeeId ID del empleado (opcional)
- * @param cuil CUIL del empleado (opcional)
- * @param equipmentTypeId ID del tipo de vehículo del equipo (opcional, para filtrar)
- * @param equipmentSubTypeId ID del subtipo de vehículo del equipo (opcional, para filtrar)
- */
-export async function fetchMaintenanceChecklists(
-  employeeId?: string,
-  cuil?: string,
-  equipmentTypeId?: string,
-  equipmentSubTypeId?: string
-) {
-  if (!employeeId && !cuil) {
-    console.error('[MAINTENANCE] No se proporcionó employee_id ni CUIL');
-    return [];
-  }
-
-  // Obtener company_id del empleado usando employee_id o CUIL
-  const employeeCompanyId = await getEmployeeCompanyId(employeeId, cuil);
-
-  if (!employeeCompanyId) {
-    console.error('[MAINTENANCE] No se pudo obtener company_id del empleado. employeeId:', employeeId, 'cuil:', cuil);
-    return [];
-  }
-
-  const admin = await adminSupabaseServer();
-
-  // Buscar en custom_form (estructura antigua)
-  const { data: oldChecklists, error: oldError } = await admin
-    .from('custom_form')
-    .select('id, name, form, created_at')
-    // .eq('company_id', employeeCompanyId)
-    .order('created_at', { ascending: false });
-
-  if (oldError) {
-    console.error('[MAINTENANCE] Error fetching old checklists:', oldError);
-  }
-
-  // Buscar en checklist_templates (estructura nueva normalizada)
-  // Incluir relación con checklist_template_sub_types y checklist_template_types para filtrar
-  let newChecklistsQuery = admin
-    .from('checklist_templates')
-    .select(
-      'id, name, description, code, created_at, is_active, checklist_template_sub_types(sub_type_id), checklist_template_types(type_id)'
-    )
-    // .eq('company_id', employeeCompanyId)
-    .eq('is_active', true);
-
-  const { data: newChecklists, error: newError } = await newChecklistsQuery.order('created_at', { ascending: false });
-
-  if (newError) {
-    console.error('[MAINTENANCE] Error fetching new checklists:', newError);
-  }
-
-  // Filtrar checklists por subtipo O tipo del vehículo
-  // Un checklist aplica si:
-  // 1. No tiene subtipos ni tipos específicos (arrays vacíos, null, o undefined) -> aplica a todos
-  // 2. Tiene subtipos específicos y el subtipo del equipo está incluido, O
-  // 3. Tiene tipos específicos y el tipo del equipo está incluido
-  const filteredNewChecklists = (newChecklists || []).filter((checklist) => {
-    // Manejar diferentes formas en que Supabase puede devolver relaciones vacías
-    const subTypes = checklist.checklist_template_sub_types;
-    const types = checklist.checklist_template_types;
-
-    // Filtrar subTypes y types válidos (que tengan id no nulo)
-    const validSubTypes =
-      subTypes && Array.isArray(subTypes)
-        ? subTypes.filter((st) => st && st.sub_type_id !== null && st.sub_type_id !== undefined)
-        : [];
-    const validTypes =
-      types && Array.isArray(types) ? types.filter((t) => t && t.type_id !== null && t.type_id !== undefined) : [];
-
-    // Si no tiene subtipos ni tipos específicos válidos, aplica a todos
-    if (validSubTypes.length === 0 && validTypes.length === 0) {
-      return true;
-    }
-
-    // Verificar si coincide en subtipo
-    // Comparar con los registros de checklist_template_sub_types
-    const matchesSubType =
-      equipmentSubTypeId && validSubTypes.length > 0
-        ? validSubTypes.some((st) => st.sub_type_id === equipmentSubTypeId)
-        : false;
-
-    // Verificar si coincide en tipo
-    // Comparar con los registros de checklist_template_types
-    const matchesType =
-      equipmentTypeId && validTypes.length > 0 ? validTypes.some((t) => t.type_id === equipmentTypeId) : false;
-
-    // El checklist aplica si coincide en subtipo O en tipo
-    return matchesSubType || matchesType;
-  });
-
-  // Mapear nuevos checklists al formato esperado (similar a custom_form)
-  const mappedNewChecklists = filteredNewChecklists.map((checklist) => ({
-    id: checklist.id,
-    name: checklist.name,
-    form: {
-      title: checklist.name,
-      description: checklist.description || '',
-      vehicle_type: ['all'], // Por defecto, permitir todos los tipos de vehículos
-    },
-    created_at: checklist.created_at,
-  }));
-
-  // Combinar ambos tipos de checklists
-  const allChecklists = [...(oldChecklists || []), ...mappedNewChecklists];
-
-  return allChecklists;
-}
-
-// Exportar el tipo inferido del retorno de la función
-export type MaintenanceChecklist = Awaited<ReturnType<typeof fetchMaintenanceChecklists>>[number];
 
 /**
  * Opciones para acotar qué desvíos se consideran "pendientes".
@@ -444,6 +249,9 @@ interface PendingDeviationsOptions {
  *
  * Con `onlyWithoutRequest` se aplica el criterio más estricto de la tabla "Equipos con Desvíos":
  * cualquier desvío que ya esté dentro de una solicitud queda excluido.
+ *
+ * Perímetro: el equipo define la empresa (los desvíos se leen desde el flujo QR anónimo,
+ * donde no hay sesión), y todo lo demás se acota a esa misma empresa.
  */
 export async function getPendingDeviations(equipmentId: string, options?: PendingDeviationsOptions) {
   if (!equipmentId) {
@@ -451,207 +259,140 @@ export async function getPendingDeviations(equipmentId: string, options?: Pendin
     return [];
   }
 
-  const supabase = await supabaseServer();
-
-  // Primero obtener todos los desvíos del equipo
-  let deviationsQuery = supabase
-    .from('checklist_deviations')
-    .select(
-      `
-      id,
-      item_code,
-      item_label,
-      section_code,
-      is_critical,
-      driver_comment,
-      created_at,
-      checklist_answer_id,
-      created_by_user_id,
-      created_by_employee_id,
-      checklist_answers!inner(
-        id,
-        created_at,
-        template_id,
-        checklist_templates(
-          id,
-          name
-        )
-      ),
-      profile:created_by_user_id(
-        id,
-        fullname,
-        email
-      ),
-      employees:created_by_employee_id(
-        id,
-        firstname,
-        lastname,
-        cuil
-      )
-    `
-    )
-    .eq('equipment_id', equipmentId);
-
-  // Acotar a un checklist puntual (modal posterior a completar un checklist)
-  if (options?.checklistAnswerId) {
-    deviationsQuery = deviationsQuery.eq('checklist_answer_id', options.checklistAnswerId);
-  }
-
-  const { data: allDeviations, error: deviationsError } = await deviationsQuery.order('created_at', {
-    ascending: false,
-  });
-
-  if (deviationsError) {
-    deviationsLogger.error('Error al obtener los desvíos del equipo', {
-      data: { error: deviationsError, equipmentId },
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: equipmentId },
+      select: { company_id: true },
     });
+
+    if (!vehicle?.company_id) {
+      deviationsLogger.warn('El equipo no tiene empresa asignada', { data: { equipmentId } });
+      return [];
+    }
+
+    const companyId = vehicle.company_id;
+
+    const allDeviations = await prisma.checklist_deviations.findMany({
+      where: withCompany(
+        {
+          equipment_id: equipmentId,
+          ...(options?.checklistAnswerId ? { checklist_answer_id: options.checklistAnswerId } : {}),
+        },
+        companyId
+      ),
+      select: {
+        id: true,
+        item_code: true,
+        item_label: true,
+        section_code: true,
+        is_critical: true,
+        driver_comment: true,
+        created_at: true,
+        checklist_answer_id: true,
+        created_by_user_id: true,
+        created_by_employee_id: true,
+        checklist_answers: {
+          select: {
+            id: true,
+            created_at: true,
+            template_id: true,
+            checklist_templates: { select: { id: true, name: true } },
+          },
+        },
+        profile: { select: { id: true, fullname: true, email: true } },
+        employees: { select: { id: true, firstname: true, lastname: true, cuil: true } },
+        maintenance_request_items: { select: { repair_type_id: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (allDeviations.length === 0) return [];
+
+    const pendingDeviations = allDeviations.filter((deviation) => {
+      const items = deviation.maintenance_request_items;
+
+      // Criterio estricto: cualquier desvío ya incluido en una solicitud queda fuera
+      if (options?.onlyWithoutRequest && items.length > 0) return false;
+
+      // Tiene tipo de reparación asignado
+      return !items.some((item) => item.repair_type_id);
+    });
+
+    deviationsLogger.debug('Desvíos pendientes calculados', {
+      data: {
+        equipmentId,
+        checklistAnswerId: options?.checklistAnswerId,
+        onlyWithoutRequest: !!options?.onlyWithoutRequest,
+        total: allDeviations.length,
+        pendientes: pendingDeviations.length,
+      },
+    });
+
+    return pendingDeviations;
+  } catch (error) {
+    deviationsLogger.error('Error al obtener los desvíos del equipo', { data: { error, equipmentId } });
     return [];
   }
+}
 
-  if (!allDeviations || allDeviations.length === 0) {
+export type PendingDeviationsData = Awaited<ReturnType<typeof getPendingDeviations>>;
+export type PendingDeviation = PendingDeviationsData[number];
+
+/**
+ * Unidades tractoras con desvíos pendientes, para el dashboard.
+ *
+ * Equivale a la vista `equipments_with_pending_deviations` acotada a los tipos marcados
+ * como unidad tractora: un desvío cuenta mientras no esté dentro de ninguna solicitud.
+ */
+export async function getTractorUnitsWithPendingDeviations() {
+  try {
+    const companyId = await getActiveCompanyId();
+
+    const vehicles = await prisma.vehicles.findMany({
+      where: withCompany(
+        {
+          type_vehicles_typeTotype: { is_tractor_unit: true },
+          checklist_deviations: { some: { maintenance_request_items: { none: {} } } },
+        },
+        companyId
+      ),
+      select: {
+        id: true,
+        domain: true,
+        serie: true,
+        intern_number: true,
+        types_of_vehicles: { select: { name: true } },
+        checklist_deviations: {
+          where: { maintenance_request_items: { none: {} } },
+          select: { id: true, created_at: true },
+        },
+      },
+    });
+
+    return vehicles
+      .map((vehicle) => ({
+        id: vehicle.id,
+        domain: vehicle.domain,
+        serie: vehicle.serie,
+        intern_number: vehicle.intern_number,
+        type_name: vehicle.types_of_vehicles?.name ?? null,
+        deviation_count: vehicle.checklist_deviations.length,
+      }))
+      .sort((a, b) => b.deviation_count - a.deviation_count);
+  } catch (error) {
+    deviationsLogger.error('Error al obtener las unidades tractoras con desvíos pendientes', { data: { error } });
     return [];
   }
-
-  const deviationIds = allDeviations.map((d) => d.id);
-
-  // Desvíos que ya tienen solicitud de mantenimiento
-  const { data: maintenanceRequestItems, error: maintenanceError } = await supabase
-    .from('maintenance_request_items')
-    .select('checklist_deviation_id, maintenance_request_id, repair_type_id')
-    .in('checklist_deviation_id', deviationIds);
-
-  if (maintenanceError) {
-    deviationsLogger.error('Error al obtener los ítems de solicitudes', {
-      data: { error: maintenanceError, equipmentId },
-    });
-  }
-
-  // Desvíos que ya están dentro de una solicitud, con o sin tipo de reparación asignado
-  const deviationsInRequest = new Set<string>();
-  const deviationsWithRepairTypeAssigned = new Set<string>();
-
-  maintenanceRequestItems?.forEach((item) => {
-    if (!item.checklist_deviation_id) return;
-    deviationsInRequest.add(item.checklist_deviation_id);
-    if (item.repair_type_id) {
-      deviationsWithRepairTypeAssigned.add(item.checklist_deviation_id);
-    }
-  });
-
-  const pendingDeviations = allDeviations.filter((deviation) => {
-    // Criterio estricto: cualquier desvío ya incluido en una solicitud queda fuera
-    if (options?.onlyWithoutRequest && deviationsInRequest.has(deviation.id)) {
-      return false;
-    }
-
-    // Tiene tipo de reparación asignado
-    if (deviationsWithRepairTypeAssigned.has(deviation.id)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  deviationsLogger.debug('Desvíos pendientes calculados', {
-    data: {
-      equipmentId,
-      checklistAnswerId: options?.checklistAnswerId,
-      onlyWithoutRequest: !!options?.onlyWithoutRequest,
-      total: allDeviations.length,
-      pendientes: pendingDeviations.length,
-    },
-  });
-
-  return pendingDeviations;
 }
 
 /**
- * Obtiene todos los equipos únicos que tienen desvíos pendientes
- * SOLO para unidades tractoras (is_tractor_unit = true)
- * Retorna una lista de equipos con información básica y cantidad de desvíos
- * Para usar en el dashboard
+ * Cierra la sesión del operario en el flujo de mantenimiento.
+ *
+ * Vive en una Server Action (y no en el cliente con `supabaseBrowser`) para que el único
+ * punto de contacto con Auth siga siendo el servidor. P4 reemplaza el cuerpo.
  */
-export async function getTractorUnitsWithPendingDeviations() {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  try {
-    // Obtener equipos con desvíos pendientes y filtrar solo unidades tractoras
-    const { data: equipmentsWithDeviations, error: deviationsError } = await supabase
-      .from('equipments_with_pending_deviations')
-      .select('*')
-      .eq('company_id', company_id ?? '');
-
-    if (deviationsError) {
-      console.error('[DASHBOARD] Error fetching equipments with pending deviations:', deviationsError);
-      return [];
-    }
-
-    if (!equipmentsWithDeviations || equipmentsWithDeviations.length === 0) {
-      return [];
-    }
-
-    // Obtener los IDs de los equipos para verificar si son unidades tractoras
-    const equipmentIds = equipmentsWithDeviations.map((eq) => eq.id);
-
-    // Obtener información de tipos de los equipos para filtrar solo unidades tractoras
-    // Primero obtener los vehicles con sus type_id
-    const { data: vehiclesData, error: vehiclesError } = await supabase
-      .from('vehicles')
-      .select('id, type')
-      .in('id', equipmentIds);
-
-    if (vehiclesError) {
-      console.error('[DASHBOARD] Error fetching vehicles data:', vehiclesError);
-      return [];
-    }
-
-    // Obtener los type_ids únicos
-    const typeIds = [...new Set(vehiclesData?.map((v) => v.type).filter(Boolean) || [])];
-
-    // Obtener información de los tipos para verificar is_tractor_unit
-    const { data: typesData, error: typesError } = await supabase
-      .from('type')
-      .select('id, is_tractor_unit')
-      .in('id', typeIds);
-
-    if (typesError) {
-      console.error('[DASHBOARD] Error fetching types data:', typesError);
-      return [];
-    }
-
-    // Crear un mapa de type_id -> is_tractor_unit
-    const typeTractorMap = new Map<string, boolean>();
-    typesData?.forEach((type) => {
-      typeTractorMap.set(type.id, type.is_tractor_unit || false);
-    });
-
-    // Crear un mapa de equipos que son unidades tractoras
-    const tractorUnitIds = new Set<string>();
-    vehiclesData?.forEach((vehicle) => {
-      if (vehicle.type && typeTractorMap.get(vehicle.type) === true) {
-        tractorUnitIds.add(vehicle.id);
-      }
-    });
-
-    // Filtrar solo equipos que son unidades tractoras
-    const tractorEquipments = equipmentsWithDeviations.filter((eq) => eq.id && tractorUnitIds.has(eq.id));
-
-    // Ordenar por cantidad de desvíos (mayor a menor)
-    tractorEquipments.sort((a, b) => Number(b.deviation_count) - Number(a.deviation_count));
-
-    // Mapear los datos al formato esperado
-    return tractorEquipments.map((equipment) => ({
-      id: equipment.id,
-      domain: equipment.domain,
-      serie: equipment.serie,
-      intern_number: equipment.intern_number,
-      type_name: equipment.type_name,
-      deviation_count: Number(equipment.deviation_count),
-    }));
-  } catch (error) {
-    console.error('[DASHBOARD] Error in getTractorUnitsWithPendingDeviations:', error);
-    return [];
-  }
+export async function signOutMaintenanceSession(): Promise<void> {
+  const supabase = await supabaseServer(); // P4: auth
+  await supabase.auth.signOut();
+  await clearActiveCompanyCookie();
 }

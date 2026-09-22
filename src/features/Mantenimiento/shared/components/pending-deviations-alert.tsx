@@ -3,72 +3,30 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
-import type { TypeOfRepair } from '@/shared/types/legacy';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Wrench } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CriticalDeviationsRepairModal } from './critical-deviations-repair-modal';
-
-type Deviation = {
-  id: string;
-  item_code: string;
-  item_label: string;
-  section_code: string | null;
-  created_at: string;
-  checklist_answer_id: string;
-  checklist_answers?: {
-    id: string;
-    created_at: string;
-    checklist_templates?: {
-      id: string;
-      name: string;
-    } | null;
-  } | null;
-  profile?: {
-    id: string;
-    fullname: string | null;
-    email: string | null;
-  } | null;
-  employees?: {
-    id: string;
-    firstname: string | null;
-    lastname: string | null;
-    cuil: string | null;
-  } | null;
-};
 
 interface PendingDeviationsAlertProps {
   equipmentId: string;
 }
 
 export function PendingDeviationsAlert({ equipmentId }: PendingDeviationsAlertProps) {
-  const [deviations, setDeviations] = useState<Deviation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [repairTypes, setRepairTypes] = useState<TypeOfRepair>([]);
 
-  useEffect(() => {
-    async function loadDeviations() {
-      try {
-        setIsLoading(true);
-        const [pendingDeviations, types] = await Promise.all([
-          getPendingDeviations(equipmentId),
-          fetchAllTypesOfRepairs(),
-        ]);
-        setDeviations(pendingDeviations as any);
-        setRepairTypes(types as TypeOfRepair);
-      } catch (error) {
-        console.error('Error loading pending deviations:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    if (equipmentId) {
-      loadDeviations();
-    }
-  }, [equipmentId]);
+  // React Query sobre la server action: sin useEffect + useState para fetching.
+  const {
+    data: deviations = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ['pending-deviations', equipmentId],
+    queryFn: () => getPendingDeviations(equipmentId),
+    enabled: !!equipmentId,
+    staleTime: 60 * 1000,
+  });
 
   if (isLoading) {
     return null;
@@ -104,9 +62,7 @@ export function PendingDeviationsAlert({ equipmentId }: PendingDeviationsAlertPr
   const handleCloseModal = () => {
     setShowModal(false);
     // Recargar desvíos después de cerrar el modal (por si se resolvieron)
-    getPendingDeviations(equipmentId).then((deviations) => {
-      setDeviations(deviations as any);
-    });
+    void refetch();
   };
 
   return (
@@ -156,7 +112,7 @@ export function PendingDeviationsAlert({ equipmentId }: PendingDeviationsAlertPr
             item_code: d.item_code,
             item_label: d.item_label,
             section_code: d.section_code,
-            created_at: d.created_at,
+            created_at: d.created_at?.toISOString() ?? new Date().toISOString(),
           }))}
           equipmentId={equipmentId}
         />
