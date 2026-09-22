@@ -1,7 +1,8 @@
 /**
  * Seed idempotente de una empresa: crea/actualiza `company` y el catalogo GLOBAL
  * de permisos (`modules`, `tabs`, `actions`, los 3 roles de sistema y sus
- * `role_permissions`) a partir de src/features/Permissions/permissions-map.ts.
+ * `role_permissions`) a partir de src/features/Permissions/permissions-map.ts,
+ * mas el rol `User` (default de `profile.role`, FK a `roles.name`) sin permisos.
  *
  * `modules`/`tabs`/`actions`/`roles`/`role_permissions` NO tienen `company_id`
  * en el schema (prisma/schema.prisma) — son catalogo global del sistema, no por
@@ -31,6 +32,13 @@ const SYSTEM_ROLE_NAMES: Record<(typeof SYSTEM_ROLE_SLUGS)[number], string> = {
   administrador: 'Administrador',
   'full-access-provisional': 'Full Access Provisional',
 };
+
+/**
+ * Rol por defecto de `profile.role` (`String? @default("User")`, FK a `roles.name`).
+ * Sin el, cualquier alta de perfil que no fije `role` falla por FK. No es uno de
+ * los 3 roles de acceso total: no recibe `role_permissions`.
+ */
+const DEFAULT_PROFILE_ROLE = { name: 'User', slug: 'user' } as const;
 
 /** UUID v5 (RFC 4122) via crypto.createHash('sha1') — sin dependencias externas. */
 function uuidV5(name: string, namespace: string): string {
@@ -187,6 +195,18 @@ async function main(): Promise<void> {
       roleIdBySlug.set(roleSlug, upserted.id);
     }
 
+    // Se upsertea por `name` (la clave que usa la FK de profile.role), no por slug.
+    await prisma.roles.upsert({
+      where: { name: DEFAULT_PROFILE_ROLE.name },
+      update: { is_system: true, is_active: true },
+      create: {
+        name: DEFAULT_PROFILE_ROLE.name,
+        slug: DEFAULT_PROFILE_ROLE.slug,
+        is_system: true,
+        is_active: true,
+      },
+    });
+
     let rolePermissionCount = 0;
     for (const rp of rolePermissions) {
       const roleId = roleIdBySlug.get(rp.roleSlug);
@@ -203,7 +223,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      `Seed OK - company: ${company.company_name} (${company.id}) | modules: ${modules.length} | tabs: ${tabs.length} | actions: ${actions.length} | roles: ${roleIdBySlug.size} | role_permissions: ${rolePermissionCount}`
+      `Seed OK - company: ${company.company_name} (${company.id}) | modules: ${modules.length} | tabs: ${tabs.length} | actions: ${actions.length} | roles: ${roleIdBySlug.size + 1} | role_permissions: ${rolePermissionCount}`
     );
   } finally {
     await prisma.$disconnect();

@@ -1,10 +1,17 @@
 -- Smoke test del sistema de permisos: los 3 roles de acceso total tienen la
 -- misma cantidad de role_permissions (ver CLAUDE.md "Permisos: 3 roles de
--- acceso completo"), y user_has_permission responde false/true segun exista
--- (y tenga el rol) el usuario.
+-- acceso completo"), existe el rol `User` (default de profile.role), y
+-- user_has_permission responde false/true segun exista (y tenga el rol) el usuario.
 BEGIN;
 
-SELECT plan(5);
+SELECT plan(6);
+
+-- (0) el seed crea el rol `User`: es el DEFAULT de profile.role (FK a roles.name);
+-- sin el, cualquier INSERT en profile que no fije `role` falla por FK.
+SELECT ok(
+  (SELECT count(*) FROM roles WHERE name = 'User') = 1,
+  'roles: existe el rol User (default de profile.role)'
+);
 
 -- (i) admin, administrador y full-access-provisional tienen exactamente la
 -- misma cantidad de role_permissions (suma de acciones permitidas por tab),
@@ -36,14 +43,12 @@ SELECT is(
 -- (iii) usuario con rol admin -> true
 -- profile.id es NOT NULL sin default; user_roles.user_id referencia
 -- profile.credential_id. Se usa el mismo uuid para id y credential_id.
--- role tiene default 'User', que es FK a roles.name; el seed no crea ese rol
--- (solo los 3 roles de sistema), asi que se fija explicitamente en NULL.
-INSERT INTO profile (id, credential_id, email, role)
+-- `role` no se fija: toma el DEFAULT 'User', que el seed garantiza (ver (0)).
+INSERT INTO profile (id, credential_id, email)
 VALUES (
   '11111111-1111-1111-1111-111111111111'::uuid,
   '11111111-1111-1111-1111-111111111111'::uuid,
-  'pgtap-permissions-test@alphataco.local',
-  NULL
+  'pgtap-permissions-test@alphataco.local'
 );
 
 INSERT INTO user_roles (user_id, role_id)
