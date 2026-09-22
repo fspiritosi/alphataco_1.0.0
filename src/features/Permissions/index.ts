@@ -12,27 +12,7 @@ export { PermissionGuardServer } from './components/PermissionGuardServer';
 // Hooks
 export { usePermissions } from './hooks/usePermissions';
 
-// Actions (Client)
-export {
-  assignRoleToUser,
-  checkUserPermission,
-  createRole,
-  deleteRole,
-  getModulesWithTabs,
-  getRolePermissions,
-  getRoles,
-  getUserAccessibleModules,
-  getUserPermissions,
-  getUserPermissionsByUserId,
-  getUserRoles,
-  removeRoleFromUser,
-  removeUserPermission,
-  setRolePermissions,
-  setUserPermission,
-  updateRole,
-} from './actions';
-
-// Server Actions
+// Server Actions — verificación de permisos (capa única sobre Prisma + callFunction)
 export {
   canViewServer,
   checkMultiplePermissionsServer,
@@ -40,7 +20,24 @@ export {
   getUserAccessibleModulesServer,
   getUserPermissionsMapServer,
   getUserPermissionsServer,
-} from './actionsServer';
+} from './actions/permissions.server';
+
+// Server Actions — CRUD de roles/permisos (Prisma)
+export {
+  assignRoleToUserServer,
+  createRoleWithPermissions,
+  deleteRoleServer,
+  getAllRolePermissions,
+  getAllRolesWithCounts,
+  getModulesWithTabsServer,
+  getRolePermissionsServer,
+  getUserRolesServer,
+  getUsersForRoleAssignment,
+  removeRoleFromUserServer,
+  removeUserPermissionServer,
+  setUserPermissionServer,
+  updateRoleWithPermissions,
+} from './actions/roles.server';
 
 // Mapa de permisos y tipos
 export { ACTIONS, PERMISSIONS, getSubtabId, getTabId } from './permissions-map';

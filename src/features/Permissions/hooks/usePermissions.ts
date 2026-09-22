@@ -2,17 +2,20 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { getUserPermissions } from '../actions';
-import { PERMISSIONS, type ModuleSlug } from '../permissions-map';
+import type { UserPermissionRow } from '../actions/permissions.schemas';
+import { getUserPermissionsServer } from '../actions/permissions.server';
+import { findTabDef } from '../lib/permissions-map-utils';
+import { hasInferredView } from '../lib/visibility';
+import { PERMISSIONS } from '../permissions-map';
 
 export function usePermissions() {
   const {
     data: permissions = [],
     isLoading,
     error,
-  } = useQuery({
+  } = useQuery<UserPermissionRow[]>({
     queryKey: ['permissions'],
-    queryFn: getUserPermissions,
+    queryFn: () => getUserPermissionsServer(),
     staleTime: 5 * 60 * 1000, // 5 minutos - datos se consideran frescos
     gcTime: 30 * 60 * 1000, // 30 minutos - mantener en cache
     refetchOnWindowFocus: false, // NO refetch automático al volver a la ventana
@@ -23,10 +26,21 @@ export function usePermissions() {
   // Create a Map for O(1) permission lookups
   const permissionMap = useMemo(() => {
     const map = new Map<string, boolean>();
-    permissions.forEach((perm: any) => {
+    permissions.forEach((perm) => {
       const key = `${perm.module_slug}:${perm.tab_slug}:${perm.action_slug}`;
       map.set(key, perm.is_granted === true);
     });
+    return map;
+  }, [permissions]);
+
+  // Set de "module:tab" con view concedido, para la inferencia de visibilidad por módulo
+  const grantedViewByModule = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const perm of permissions) {
+      if (perm.action_slug !== 'view' || !perm.is_granted) continue;
+      if (!map.has(perm.module_slug)) map.set(perm.module_slug, new Set());
+      map.get(perm.module_slug)!.add(perm.tab_slug);
+    }
     return map;
   }, [permissions]);
 
@@ -39,55 +53,16 @@ export function usePermissions() {
   };
 
   /**
-   * Helper to check inferred permission (if any child is accessible)
-   */
-  const checkInferredPermission = (moduleSlug: string, tabSlug: string): boolean => {
-    const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
-    if (!moduleDef) return false;
-
-    // Helper to find the tab definition
-    const findTabDef = (tabs: any): any => {
-      if (tabs[tabSlug]) return tabs[tabSlug];
-      for (const key in tabs) {
-        if (tabs[key].subtabs) {
-          const found = findTabDef(tabs[key].subtabs);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const tabDef = findTabDef(moduleDef.tabs);
-    if (!tabDef || !tabDef.subtabs) return false;
-
-    // Helper to check if any subtab has permission
-    const hasAnySubtabPermission = (subtabs: any): boolean => {
-      for (const key in subtabs) {
-        const subtab = subtabs[key];
-        // Check if this subtab has 'view' permission
-        if (hasPermission(moduleSlug, subtab.slug, 'view')) return true;
-
-        // Recursively check its subtabs
-        if (subtab.subtabs && hasAnySubtabPermission(subtab.subtabs)) return true;
-      }
-      return false;
-    };
-
-    return hasAnySubtabPermission(tabDef.subtabs);
-  };
-
-  /**
    * Convenience helper for view permission with INFERRED VISIBILITY
    * If explicit view permission is missing, checks if user has access to any subtab
+   * (lógica pura en `lib/visibility.ts`, misma que usa `canViewServer`).
    */
   const canView = (moduleSlug: string, tabSlug: string): boolean => {
-    // 1. Check explicit permission
-    if (hasPermission(moduleSlug, tabSlug, 'view')) {
-      return true;
-    }
+    if (hasPermission(moduleSlug, tabSlug, 'view')) return true;
 
-    // 2. Check inferred permission (if any child is accessible)
-    return checkInferredPermission(moduleSlug, tabSlug);
+    const tabDef = findTabDef(PERMISSIONS, moduleSlug, tabSlug);
+    const grantedViewTabSlugs = grantedViewByModule.get(moduleSlug) ?? new Set<string>();
+    return hasInferredView(tabDef, grantedViewTabSlugs);
   };
 
   /**

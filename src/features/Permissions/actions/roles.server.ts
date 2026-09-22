@@ -1,0 +1,678 @@
+'use server';
+
+import { Logger } from '@/lib/logger';
+import { callFunction } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { getSessionUserId } from '@/shared/lib/session';
+import { prisma } from '@/shared/lib/prisma';
+import { z } from 'zod';
+import { findTabDef } from '../lib/permissions-map-utils';
+import { PERMISSIONS } from '../permissions-map';
+import { userPermissionRowSchema } from './permissions.schemas';
+import { checkPermissionServer } from './permissions.server';
+
+const logger = new Logger('features/Permissions/roles');
+
+// ─── Perímetro ──────────────────────────────────────────────────────────────────
+// Sin RLS: cada 'use server' exportado es un endpoint público. Sólo quien tiene
+// permiso de gestión de roles (tab 'gestion-roles') o de edición del detalle de
+// usuario (tab 'detalle-usuario', módulo 'empresa') puede escribir acá.
+
+class PermissionDeniedError extends Error {}
+
+async function assertCanManageRoles(): Promise<void> {
+  const allowed = await checkPermissionServer('empresa', 'gestion-roles', 'update');
+  if (!allowed) throw new PermissionDeniedError('No tienes permisos para gestionar roles');
+}
+
+async function assertCanManageUserAssignments(): Promise<void> {
+  const [canManageRoles, canManageUserDetail] = await Promise.all([
+    checkPermissionServer('empresa', 'gestion-roles', 'update'),
+    checkPermissionServer('empresa', 'detalle-usuario', 'update'),
+  ]);
+  if (!canManageRoles && !canManageUserDetail) {
+    throw new PermissionDeniedError('No tienes permisos para gestionar la asignación de roles del usuario');
+  }
+}
+
+async function assertCanManageUserDetail(): Promise<void> {
+  const allowed = await checkPermissionServer('empresa', 'detalle-usuario', 'update');
+  if (!allowed) throw new PermissionDeniedError('No tienes permisos para modificar los permisos de este usuario');
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type RoleWithCount = Awaited<ReturnType<typeof getAllRolesWithCounts>>[number];
+export type AllRolePermissionsMap = Awaited<ReturnType<typeof getAllRolePermissions>>;
+export type ModulesWithTabsData = Awaited<ReturnType<typeof getModulesWithTabsServer>>;
+export type UsersForRoleData = Awaited<ReturnType<typeof getUsersForRoleAssignment>>;
+
+// ─── Read Actions ─────────────────────────────────────────────────────────────
+
+/**
+ * Obtiene todos los roles activos con el conteo de usuarios asignados.
+ * Elimina el N+1 de getRoles + getRoleUserCounts.
+ */
+export async function getAllRolesWithCounts() {
+  logger.debug('Obteniendo todos los roles con conteos');
+
+  try {
+    const roles = await prisma.roles.findMany({
+      where: { is_active: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        color: true,
+        is_system: true,
+        is_active: true,
+        slug: true,
+        intern: true,
+        _count: {
+          select: { user_roles: true },
+        },
+      },
+    });
+
+    // Convertir BigInt a number para serialización
+    return roles.map((r) => ({
+      ...r,
+      id: Number(r.id),
+      userCount: r._count.user_roles,
+    }));
+  } catch (error) {
+    logger.error('Error al obtener roles con conteos', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Obtiene TODOS los role_permissions en una sola query.
+ * Retorna un Map<number, Array<{tabId, actionId}>> agrupado por role_id.
+ * Elimina el N+1 de una query por RoleCard/RoleTemplateItem.
+ */
+export async function getAllRolePermissions(): Promise<Map<number, Array<{ tabId: string; actionId: string }>>> {
+  logger.debug('Obteniendo todos los permisos de roles');
+
+  try {
+    const perms = await prisma.role_permissions.findMany({
+      select: {
+        role_id: true,
+        tab_id: true,
+        action_id: true,
+        tabs: {
+          select: {
+            slug: true,
+            modules: { select: { slug: true } },
+          },
+        },
+        actions: {
+          select: { slug: true },
+        },
+      },
+    });
+
+    const grouped = new Map<number, Array<{ tabId: string; actionId: string }>>();
+    for (const p of perms) {
+      const roleId = Number(p.role_id);
+      if (!grouped.has(roleId)) grouped.set(roleId, []);
+      grouped.get(roleId)!.push({ tabId: p.tab_id, actionId: p.action_id });
+    }
+
+    return grouped;
+  } catch (error) {
+    logger.error('Error al obtener todos los permisos de roles', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Obtiene los permisos de un único rol.
+ * Usado al editar un rol para pre-popular el editor de permisos.
+ */
+export async function getRolePermissionsServer(roleId: number): Promise<Array<{ tabId: string; actionId: string }>> {
+  logger.debug('Obteniendo permisos del rol', { data: { roleId } });
+
+  try {
+    const perms = await prisma.role_permissions.findMany({
+      where: { role_id: BigInt(roleId) },
+      select: { tab_id: true, action_id: true },
+    });
+
+    return perms.map((p) => ({ tabId: p.tab_id, actionId: p.action_id }));
+  } catch (error) {
+    logger.error('Error al obtener permisos del rol', { data: { error, roleId } });
+    throw error;
+  }
+}
+
+/**
+ * Obtiene módulos con tabs y acciones, aplicando allowedActions del permissions-map.
+ */
+export async function getModulesWithTabsServer() {
+  logger.debug('Obteniendo módulos con tabs');
+
+  try {
+    const [modules, allTabs, actions] = await Promise.all([
+      prisma.modules.findMany({
+        where: { is_active: true },
+        orderBy: { order_index: 'asc' },
+        select: { id: true, name: true, slug: true, icon: true, is_active: true, order_index: true, description: true },
+      }),
+      prisma.tabs.findMany({
+        where: { is_active: true },
+        orderBy: { order_index: 'asc' },
+        select: {
+          id: true,
+          module_id: true,
+          parent_tab_id: true,
+          slug: true,
+          name: true,
+          description: true,
+          order_index: true,
+        },
+      }),
+      prisma.actions.findMany({
+        orderBy: { name: 'asc' },
+        select: { id: true, slug: true, name: true, description: true },
+      }),
+    ]);
+
+    type ActionItem = (typeof actions)[number];
+    type TabItem = (typeof allTabs)[number] & { actions: ActionItem[]; subtabs: TabWithActions[] };
+    type TabWithActions = Omit<TabItem, 'subtabs'> & { subtabs: TabWithActions[] };
+
+    const buildTabHierarchy = (parentId: string | null, moduleId: string, moduleSlug: string): TabWithActions[] => {
+      return allTabs
+        .filter((tab) => tab.module_id === moduleId && tab.parent_tab_id === parentId)
+        .map((tab) => {
+          const tabDefinition = findTabDef(PERMISSIONS, moduleSlug, tab.slug);
+          // Si la tab no está declarada en permissions-map o no tiene allowedActions,
+          // NO mostramos acciones. Antes el fallback era "todas", lo cual permitía que
+          // acciones custom (upload_private, view_all_requests, etc.) aparezcan en tabs
+          // que nunca las declararon, contaminando role_permissions.
+          const allowed = (tabDefinition as { allowedActions?: string[] } | null)?.allowedActions;
+          const tabActions = allowed ? actions.filter((a) => allowed.includes(a.slug)) : [];
+          return {
+            ...tab,
+            actions: tabActions,
+            subtabs: buildTabHierarchy(tab.id, moduleId, moduleSlug),
+          };
+        });
+    };
+
+    return modules.map((module) => ({
+      ...module,
+      tabs: buildTabHierarchy(null, module.id, module.slug ?? ''),
+    }));
+  } catch (error) {
+    logger.error('Error al obtener módulos con tabs', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Obtiene los usuarios de la empresa activa con estado de asignación al rol dado.
+ */
+export async function getUsersForRoleAssignment(roleId: number) {
+  logger.debug('Obteniendo usuarios para asignación de rol', { data: { roleId } });
+
+  const companyId = await getActiveCompanyId();
+
+  try {
+    // 1. Obtener usuarios de la empresa a través de share_company_users → profile
+    const shareUsers = await prisma.share_company_users.findMany({
+      where: { company_id: companyId, is_active: true },
+      select: {
+        id: true,
+        profile: {
+          select: {
+            id: true,
+            fullname: true,
+            email: true,
+            credential_id: true,
+          },
+        },
+      },
+    });
+
+    // 2. Obtener credential_ids que tienen este rol
+    const userRoles = await prisma.user_roles.findMany({
+      where: { role_id: BigInt(roleId) },
+      select: { user_id: true },
+    });
+    const usersWithRole = new Set(userRoles.map((ur) => ur.user_id));
+
+    // 3. Mapear resultados
+    return shareUsers
+      .filter((su) => su.profile !== null)
+      .map((su) => ({
+        userId: su.id, // ID de share_company_users para link
+        credentialId: su.profile!.credential_id ?? su.profile!.id, // credential_id para operaciones de roles
+        userName: su.profile!.fullname ?? 'Sin nombre',
+        userEmail: su.profile!.email ?? 'Sin email',
+        hasRole: usersWithRole.has(su.profile!.credential_id ?? ''),
+      }));
+  } catch (error) {
+    logger.error('Error al obtener usuarios para asignación de rol', { data: { error, roleId } });
+    throw error;
+  }
+}
+
+// ─── Mutation Actions ─────────────────────────────────────────────────────────
+
+/**
+ * Crea un nuevo rol con sus permisos en una sola transacción.
+ */
+export async function createRoleWithPermissions(data: {
+  name: string;
+  description?: string;
+  color?: string;
+  permissions: Array<{ tabId: string; actionId: string }>;
+}) {
+  await assertCanManageRoles();
+
+  logger.debug('Creando rol con permisos', { data: { name: data.name, permissionsCount: data.permissions.length } });
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const newRole = await tx.roles.create({
+        data: {
+          name: data.name,
+          description: data.description ?? null,
+          color: data.color ?? null,
+          is_active: true,
+          is_system: false,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          color: true,
+          is_system: true,
+          is_active: true,
+          slug: true,
+          intern: true,
+        },
+      });
+
+      if (data.permissions.length > 0) {
+        await tx.role_permissions.createMany({
+          data: data.permissions.map((perm) => ({
+            role_id: newRole.id,
+            tab_id: perm.tabId,
+            action_id: perm.actionId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return { ...newRole, id: Number(newRole.id) };
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Error al crear rol', { data: { error, name: data.name } });
+    // Manejar error de nombre duplicado
+    if ((error as { code?: string }).code === 'P2002') {
+      throw new Error(`Ya existe un rol con el nombre "${data.name}". Por favor, elige un nombre diferente.`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Actualiza un rol existente y reemplaza sus permisos en una sola transacción.
+ */
+export async function updateRoleWithPermissions(data: {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  permissions: Array<{ tabId: string; actionId: string }>;
+}) {
+  await assertCanManageRoles();
+
+  logger.debug('Actualizando rol con permisos', { data: { id: data.id, name: data.name } });
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRole = await tx.roles.update({
+        where: { id: BigInt(data.id), is_system: false },
+        data: {
+          name: data.name,
+          description: data.description ?? null,
+          color: data.color ?? null,
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          color: true,
+          is_system: true,
+          is_active: true,
+          slug: true,
+          intern: true,
+        },
+      });
+
+      // Reemplazar permisos: delete + createMany
+      await tx.role_permissions.deleteMany({
+        where: { role_id: BigInt(data.id) },
+      });
+
+      if (data.permissions.length > 0) {
+        await tx.role_permissions.createMany({
+          data: data.permissions.map((perm) => ({
+            role_id: updatedRole.id,
+            tab_id: perm.tabId,
+            action_id: perm.actionId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return { ...updatedRole, id: Number(updatedRole.id) };
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Error al actualizar rol', { data: { error, id: data.id } });
+    if ((error as { code?: string }).code === 'P2002') {
+      throw new Error(`Ya existe un rol con el nombre "${data.name}". Por favor, elige un nombre diferente.`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Elimina un rol (solo roles no-sistema).
+ */
+export async function deleteRoleServer(roleId: number) {
+  await assertCanManageRoles();
+
+  logger.debug('Eliminando rol', { data: { roleId } });
+
+  try {
+    // Verificar que no sea un rol del sistema
+    const role = await prisma.roles.findUnique({
+      where: { id: BigInt(roleId) },
+      select: { is_system: true },
+    });
+
+    if (role?.is_system) {
+      throw new Error('No se pueden eliminar roles del sistema');
+    }
+
+    await prisma.roles.delete({
+      where: { id: BigInt(roleId) },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al eliminar rol', { data: { error, roleId } });
+    throw error;
+  }
+}
+
+/**
+ * Asigna un rol a un usuario.
+ */
+export async function assignRoleToUserServer(userId: string, roleId: number) {
+  await assertCanManageUserAssignments();
+
+  logger.debug('Asignando rol a usuario', { data: { userId, roleId } });
+
+  const assignedBy = await getSessionUserId();
+
+  try {
+    await prisma.user_roles.create({
+      data: {
+        user_id: userId,
+        role_id: BigInt(roleId),
+        assigned_by: assignedBy,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al asignar rol a usuario', { data: { error, userId, roleId } });
+    if ((error as { code?: string }).code === 'P2002') {
+      // Ya tiene el rol asignado — idempotente, no es error real
+      return { success: true };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Remueve un rol de un usuario.
+ */
+export async function removeRoleFromUserServer(userId: string, roleId: number) {
+  await assertCanManageUserAssignments();
+
+  logger.debug('Removiendo rol de usuario', { data: { userId, roleId } });
+
+  try {
+    await prisma.user_roles.deleteMany({
+      where: {
+        user_id: userId,
+        role_id: BigInt(roleId),
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al remover rol de usuario', { data: { error, userId, roleId } });
+    throw error;
+  }
+}
+
+// ─── User Permissions (custom) ────────────────────────────────────────────────
+
+/**
+ * Obtiene los permisos combinados (rol + custom) de un usuario arbitrario, reusando
+ * la misma función SQL `get_user_permissions` que usa `permissions.server.ts` para el
+ * usuario de sesión (sin reimplementar la lógica en Prisma por separado).
+ */
+export async function getUserPermissionsServer(userId: string) {
+  logger.debug('Obteniendo permisos del usuario', { data: { userId } });
+
+  try {
+    return await callFunction('get_user_permissions', [{ uuid: userId }], z.array(userPermissionRowSchema));
+  } catch (error) {
+    logger.error('Error al obtener permisos del usuario', { data: { error, userId } });
+    throw error;
+  }
+}
+
+export type UserPermissionsData = Awaited<ReturnType<typeof getUserPermissionsServer>>;
+export type UserPermissionEntry = UserPermissionsData[number];
+
+/**
+ * Obtiene los roles asignados a un usuario.
+ */
+export async function getUserRolesServer(userId: string) {
+  logger.debug('Obteniendo roles del usuario', { data: { userId } });
+
+  try {
+    const userRoles = await prisma.user_roles.findMany({
+      where: { user_id: userId },
+      include: {
+        roles: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            color: true,
+            is_system: true,
+            is_active: true,
+            slug: true,
+          },
+        },
+      },
+      orderBy: { assigned_at: 'asc' },
+    });
+
+    // Serializar BigInt
+    return userRoles.map((ur) => ({
+      id: ur.id,
+      user_id: ur.user_id,
+      role_id: Number(ur.role_id),
+      assigned_by: ur.assigned_by,
+      assigned_at: ur.assigned_at,
+      roles: ur.roles
+        ? {
+            ...ur.roles,
+            id: Number(ur.roles.id),
+          }
+        : null,
+    }));
+  } catch (error) {
+    logger.error('Error al obtener roles del usuario', { data: { error, userId } });
+    throw error;
+  }
+}
+
+export type UserRolesData = Awaited<ReturnType<typeof getUserRolesServer>>;
+export type UserRoleEntry = UserRolesData[number];
+
+/**
+ * Obtiene el detalle de un usuario por su share_company_users.id (para la página de detalle).
+ * Filtra por la empresa activa del usuario de sesión (no por un companyId del cliente).
+ */
+export async function getUserDetailById(shareUserId: string) {
+  logger.debug('Obteniendo detalle de usuario', { data: { shareUserId } });
+
+  const companyId = await getActiveCompanyId();
+
+  try {
+    const shareUser = await prisma.share_company_users.findFirst({
+      where: { id: shareUserId, company_id: companyId },
+      include: {
+        profile: {
+          select: {
+            id: true,
+            fullname: true,
+            email: true,
+            avatar: true,
+            credential_id: true,
+            employee_id: true,
+            employees: {
+              select: {
+                id: true,
+                full_name: true,
+                file: true,
+                picture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return shareUser;
+  } catch (error) {
+    logger.error('Error al obtener detalle de usuario', { data: { error, shareUserId } });
+    throw error;
+  }
+}
+
+export type UserDetailData = Awaited<ReturnType<typeof getUserDetailById>>;
+
+/**
+ * Establece (upsert) un permiso custom de usuario.
+ */
+export async function setUserPermissionServer(userId: string, tabId: string, actionId: string, isGranted: boolean) {
+  await assertCanManageUserDetail();
+
+  logger.debug('Seteando permiso de usuario', { data: { userId, tabId, actionId, isGranted } });
+
+  const assignedBy = await getSessionUserId();
+
+  try {
+    await prisma.user_permissions.upsert({
+      where: { user_id_tab_id_action_id: { user_id: userId, tab_id: tabId, action_id: actionId } },
+      create: {
+        user_id: userId,
+        tab_id: tabId,
+        action_id: actionId,
+        is_granted: isGranted,
+        assigned_by: assignedBy,
+      },
+      update: {
+        is_granted: isGranted,
+        assigned_by: assignedBy,
+        updated_at: new Date(),
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al setear permiso de usuario', { data: { error, userId, tabId, actionId } });
+    throw error;
+  }
+}
+
+/**
+ * Remueve un permiso custom de usuario.
+ */
+export async function removeUserPermissionServer(userId: string, tabId: string, actionId: string) {
+  await assertCanManageUserDetail();
+
+  logger.debug('Removiendo permiso de usuario', { data: { userId, tabId, actionId } });
+
+  try {
+    await prisma.user_permissions.deleteMany({
+      where: { user_id: userId, tab_id: tabId, action_id: actionId },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al remover permiso de usuario', { data: { error, userId, tabId, actionId } });
+    throw error;
+  }
+}
+
+/**
+ * Elimina TODOS los permisos custom de un usuario.
+ */
+export async function cleanUserCustomPermissions(userId: string) {
+  await assertCanManageUserDetail();
+
+  logger.debug('Limpiando permisos custom del usuario', { data: { userId } });
+
+  try {
+    await prisma.user_permissions.deleteMany({
+      where: { user_id: userId },
+    });
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al limpiar permisos custom del usuario', { data: { error, userId } });
+    throw error;
+  }
+}
+
+/**
+ * Elimina TODOS los permisos custom y roles de un usuario en una transacción.
+ */
+export async function cleanAllUserPermissionsAndRoles(userId: string) {
+  await assertCanManageUserDetail();
+
+  logger.debug('Limpiando todos los permisos y roles del usuario', { data: { userId } });
+
+  try {
+    await prisma.$transaction([
+      prisma.user_permissions.deleteMany({ where: { user_id: userId } }),
+      prisma.user_roles.deleteMany({ where: { user_id: userId } }),
+    ]);
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error al limpiar todos los permisos y roles del usuario', { data: { error, userId } });
+    throw error;
+  }
+}
