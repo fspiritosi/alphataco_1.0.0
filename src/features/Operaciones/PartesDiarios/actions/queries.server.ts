@@ -141,7 +141,13 @@ const historyValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null(
 
 const historyRowSchema = z.object({
   id: z.string(),
-  action_type: z.enum(['CREATE', 'UPDATE', 'DELETE', 'LINK', 'UNLINK']),
+  // `dailyreportrows_history` es tabla histórica e inmutable: un `action_type` fuera de este
+  // enum (dato viejo, o el enum de la función SQL se amplía sin actualizar este schema) no
+  // puede tirar la lista entera. `.catch('UPDATE')` cae al branch que ya maneja con más
+  // gracia un action_type desconocido (si no hay `changed_fields` no arma mensaje, pero el
+  // registro se sigue mostrando) en vez de que `z.array(historyRowSchema).parse(...)` reviente
+  // TODO el historial por una sola fila rara.
+  action_type: z.enum(['CREATE', 'UPDATE', 'DELETE', 'LINK', 'UNLINK']).catch('UPDATE'),
   changed_fields: z.record(z.string(), z.object({ old: historyValueSchema, new: historyValueSchema })).nullable(),
   changed_data: z.record(z.string(), historyValueSchema).nullable(),
   changed_by: z

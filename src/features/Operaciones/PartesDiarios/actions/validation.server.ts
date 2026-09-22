@@ -13,7 +13,8 @@ const logger = new Logger('features/Operaciones/PartesDiarios/validation');
 // ============================================================================
 
 export interface EmployeeDeviation {
-  employee_id: string;
+  /** `dailyreportemployeerelations.employee_id` es nullable en el schema; el SQL no lo COALESCEa. */
+  employee_id: string | null;
   employee_name: string;
   employee_cuil: string;
   role: string;
@@ -25,8 +26,12 @@ export interface EmployeeDeviation {
 }
 
 export interface EquipmentDeviation {
-  /** Id efectivo de la relación polimórfica: `vehicles.id` u `other_equipment.id`. */
-  equipment_id: string;
+  /**
+   * Id efectivo de la relación polimórfica: `vehicles.id` u `other_equipment.id`
+   * (`COALESCE(equipment_id, other_equipment_id)`). Nullable en el caso extremo de una fila con
+   * ambas columnas en null (dato corrupto: la relación no apunta a ningún recurso).
+   */
+  equipment_id: string | null;
   equipment_domain: string;
   equipment_intern_number: string;
   /** Identificador a mostrar: dominio del vehículo, o N° de serie / interno si es otro equipo. */
@@ -47,7 +52,8 @@ export interface CustomerEquipmentInfo {
 
 export interface RowWithDeviations {
   row_id: string;
-  customer_id: string;
+  /** `dailyreportrows.customer_id` es nullable en el schema; el SQL no lo COALESCEa (a diferencia de `customer_name`). */
+  customer_id: string | null;
   customer_name: string;
   service_name: string;
   item_name: string;
@@ -90,7 +96,9 @@ const EMPTY_SUMMARY: DeviationsSummary = {
 // ============================================================================
 
 const employeeDeviationSchema = z.object({
-  employee_id: z.string(),
+  // Nullable: `dailyreportemployeerelations.employee_id` es nullable y el SQL no lo COALESCEa.
+  // Un solo registro NULL acá rompía todo el panel de desvíos con un schema estricto.
+  employee_id: z.string().nullable(),
   employee_name: z.string(),
   employee_cuil: z.string(),
   role: z.string(),
@@ -102,7 +110,9 @@ const employeeDeviationSchema = z.object({
 });
 
 const equipmentDeviationSchema = z.object({
-  equipment_id: z.string(),
+  // Nullable: COALESCE(equipment_id, other_equipment_id) puede dar null si ambas columnas de
+  // la relación polimórfica están vacías (dato corrupto) — no asumir que el COALESCE alcanza.
+  equipment_id: z.string().nullable(),
   equipment_domain: z.string(),
   equipment_intern_number: z.string(),
   equipment_label: z.string(),
@@ -115,7 +125,9 @@ const equipmentDeviationSchema = z.object({
 
 const rowWithDeviationsSchema = z.object({
   row_id: z.string(),
-  customer_id: z.string(),
+  // Nullable: `dailyreportrows.customer_id` es nullable y el SQL no lo COALESCEa (a diferencia
+  // de `customer_name`, que sí sale con COALESCE(..., '—')).
+  customer_id: z.string().nullable(),
   customer_name: z.string(),
   service_name: z.string(),
   item_name: z.string(),
