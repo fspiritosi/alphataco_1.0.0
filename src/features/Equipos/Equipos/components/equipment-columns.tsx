@@ -106,7 +106,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     cell: ({ row }: { row: any }) => {
       const share = useLoggedUserStore((state) => state.sharedCompanies);
       const profile = useLoggedUserStore((state) => state.credentialUser?.id);
-      const owner = useLoggedUserStore((state) => state.actualCompany?.owner_id.id);
+      const owner = useLoggedUserStore((state) => state.actualCompany?.owner_id?.id);
       const users = useLoggedUserStore((state) => state);
       const company = useLoggedUserStore((state) => state.actualCompany?.id);
 

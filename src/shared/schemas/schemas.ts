@@ -1,35 +1,10 @@
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { isCompanyCuitAvailable } from '@/shared/actions/company-validation.server';
 import { validarCUIL } from '@/lib/utils';
 import * as z from 'zod';
 
-const getAllFiles = async (legajo: string) => {
-  const supabase = supabaseBrowser();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const profile = await supabase.from('profile').select('*').eq('credential_id', user?.id!);
-
-  const { data } = await supabase.from('company').select('*').eq('owner_id', profile.data?.[0].id!);
-
-  const { data: employee } = await supabase.from('employees').select('*').eq('file', legajo);
-
-  if (employee && employee?.length > 0) {
-    return true;
-  } else {
-    return true;
-  }
-};
-
+/** true si NO existe otra empresa con ese CUIT (validación asíncrona del form de empresa). */
 const validateDuplicatedCuil = async (cuil: string) => {
-  const supabase = supabaseBrowser();
-  const { data: employees } = await supabase.from('company').select('*').eq('company_cuit', cuil);
-
-  if (employees && employees?.length > 0) {
-    return false;
-  } else {
-    return true;
-  }
+  return isCompanyCuitAvailable(cuil);
 };
 
 const passwordSchema = z

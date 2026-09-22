@@ -1,4 +1,3 @@
-import { supabaseServer } from '@/lib/supabase/server';
 import {
   CompaniesTableOptions,
   DocumentsTableOptions,
@@ -11,121 +10,118 @@ export const formatDate = (dateString: string) => {
   const formattedDate = `${day}/${month}/${year}`;
   return formattedDate || 'No vence';
 };
-export const mapDocument = (doc: any) => {
-  return {
-    date: doc.created_at,
-    allocated_to: doc.employees?.contractor_employee?.map((doc: any) => doc.contractors?.name).join(', '),
-    documentName: doc.document_types?.name,
-    state: doc.state,
-    multiresource: doc.document_types?.multiresource ? 'Si' : 'No',
-    isItMonthly: doc.document_types?.is_it_montlhy,
-    validity: doc.validity,
-    mandatory: doc.document_types?.mandatory ? 'Si' : 'No',
-    id: doc.id,
-    resource: `${doc.employees?.lastname?.charAt(0)?.toUpperCase()}${doc?.employees?.lastname.slice(
-      1
-    )} ${doc.employees?.firstname?.charAt(0)?.toUpperCase()}${doc?.employees?.firstname.slice(1)}`,
-    document_number: doc.employees?.document_number,
-    document_url: doc?.document_path,
-    is_active: doc?.employees?.is_active,
-    period: doc?.period,
-    applies: doc?.document_types?.applies,
-    id_document_types: doc?.document_types?.id,
-    intern_number: '',
-  };
-};
-export const mapVehicle = (doc: any) => {
-  return {
-    date: doc.created_at,
-    allocated_to: doc.applies?.allocated_to,
-    documentName: doc.document_types?.name,
-    state: doc.state,
-    multiresource: doc.document_types?.multiresource ? 'Si' : 'No',
-    isItMonthly: doc.document_types?.is_it_montlhy,
-    validity: doc.validity,
-    mandatory: doc.document_types?.mandatory ? 'Si' : 'No',
-    id: doc.id,
-    resource: `${doc.applies?.domain}`,
-    vehicle_id: doc.applies?.id,
-    is_active: doc.applies?.is_active,
-    period: doc.period,
-    applies: doc.document_types.applies,
-    id_document_types: doc.document_types.id,
-    intern_number: `${doc.applies?.intern_number}`,
-  };
-};
-export const setEmployeesToShow = (employees: any) => {
-  const employee = employees?.map((employees: any) => {
-    return {
-      full_name: `${employees?.lastname?.charAt(0).toUpperCase()}${employees?.lastname?.slice(1)} ${employees?.firstname
-        ?.charAt(0)
-        .toUpperCase()}${employees?.firstname?.slice(1)}`,
-      id: employees?.id,
-      email: employees?.email,
-      cuil: employees?.cuil,
-      document_number: employees?.document_number,
-      hierarchical_position: employees?.hierarchical_position?.name,
-      company_position: employees?.company_position?.id || employees?.company_position, // Usar el ID del puesto
-      company_position_name: employees?.company_position?.name, // Agregar el nombre del puesto
-      normal_hours: employees?.normal_hours,
-      type_of_contract: employees?.type_of_contract,
-      allocated_to: employees?.allocated_to,
-      picture: employees?.picture,
-      nationality: employees?.nationality,
-      lastname: `${employees?.lastname?.charAt(0)?.toUpperCase()}${employees?.lastname.slice(1)}`,
-      firstname: `${employees?.firstname?.charAt(0)?.toUpperCase()}${employees?.firstname.slice(1)}`,
-      document_type: employees?.document_type,
-      birthplace: employees?.birthplace?.name?.trim(),
-      gender: employees?.gender,
-      marital_status: employees?.marital_status,
-      level_of_education: employees?.level_of_education,
-      street: employees?.street,
-      street_number: employees?.street_number,
-      province: employees?.province?.name?.trim(),
-      country: employees?.country?.name?.trim(),
-      postal_code: employees?.postal_code,
-      phone: employees?.phone,
-      file: employees?.file,
-      date_of_admission: employees?.date_of_admission,
-      born_date: employees?.born_date,
-      affiliate_status: employees?.affiliate_status,
-      city: employees?.city?.name?.trim(),
-      hierrl_position: employees?.hierarchical_position?.name,
-      workflow_diagram: employees?.workflow_diagram?.name,
-      contractor_employee: employees?.contractor_employee?.map(({ customers }: any) => customers?.id),
-      is_active: employees?.is_active,
-      reason_for_termination: employees?.reason_for_termination,
-      termination_date: employees?.termination_date,
-      status: employees?.status,
-      documents_employees: employees.documents_employees,
-      guild_id: employees?.guild?.id || employees?.guild_id,
-      covenants_id: employees?.covenant?.id || employees?.covenants_id,
-      category_id: employees?.category?.id || employees?.category_id,
-      guild: employees?.guild_id?.name || employees?.guild_id,
-      covenants: employees?.covenants_id?.name || employees?.covenants_id,
-      category: employees?.category_id?.name || employees?.category_id,
-      cost_center_id: employees?.cost_center_id,
-      empleado_aptitudes:
-        employees?.empleado_aptitudes?.map((apt: any) => ({
-          aptitud_id: apt.aptitud_id,
-          aptitudes_tecnicas: apt.aptitudes_tecnicas,
-        })) || [],
-    };
-  });
+/** Shape mínimo (PostgREST legacy o Prisma) que necesita `setEmployeesToShow`. */
+type Named = { id?: string | null; name?: string | null } | null | undefined;
+/** En las filas planas de PostgREST las FK vienen como id (string o number) en vez de objeto. */
+type Ref = Named | string | number;
+export interface LegacyEmployeeInput {
+  id?: string;
+  lastname?: string | null;
+  firstname?: string | null;
+  email?: string | null;
+  cuil?: string | null;
+  document_number?: string | null;
+  hierarchical_position?: Ref;
+  company_position?: Ref;
+  normal_hours?: string | null;
+  type_of_contract?: string | null;
+  allocated_to?: string | string[] | null;
+  picture?: string | null;
+  nationality?: string | null;
+  document_type?: string | null;
+  birthplace?: Ref;
+  gender?: string | null;
+  marital_status?: string | null;
+  level_of_education?: string | null;
+  street?: string | null;
+  street_number?: string | null;
+  province?: Ref;
+  country?: Ref;
+  postal_code?: string | null;
+  phone?: string | null;
+  file?: string | null;
+  date_of_admission?: string | Date | null;
+  born_date?: string | Date | null;
+  affiliate_status?: string | null;
+  city?: Ref;
+  workflow_diagram?: Ref;
+  contractor_employee?: Array<{ customers?: { id?: string | null } | null }> | null;
+  is_active?: boolean | null;
+  reason_for_termination?: string | null;
+  termination_date?: string | Date | null;
+  status?: string | null;
+  documents_employees?: unknown;
+  guild?: Named;
+  guild_id?: Ref;
+  covenant?: Named;
+  covenants_id?: Ref;
+  category?: Named;
+  category_id?: Ref;
+  cost_center_id?: string | null;
+  empleado_aptitudes?: Array<{ aptitud_id?: string | null; aptitudes_tecnicas?: unknown }> | null;
+}
 
-  return employee;
-};
-export const getUser = async () => {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+const nameOf = (value: Ref | undefined) =>
+  typeof value === 'string' ? value : typeof value === 'number' ? undefined : value?.name?.trim();
+const idOf = (value: Ref | undefined) =>
+  typeof value === 'string' ? value : typeof value === 'number' ? String(value) : value?.id;
+const capitalize = (value: string | null | undefined) =>
+  value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
 
-  if (user) {
-    return user;
-  }
-  return error;
+export const setEmployeesToShow = (employees: LegacyEmployeeInput[] | null | undefined) => {
+  return employees?.map((employee) => ({
+    full_name: `${capitalize(employee.lastname)} ${capitalize(employee.firstname)}`,
+    id: employee.id,
+    email: employee.email,
+    cuil: employee.cuil,
+    document_number: employee.document_number,
+    hierarchical_position: nameOf(employee.hierarchical_position),
+    company_position: idOf(employee.company_position), // Usar el ID del puesto
+    company_position_name: nameOf(employee.company_position), // Agregar el nombre del puesto
+    normal_hours: employee.normal_hours,
+    type_of_contract: employee.type_of_contract,
+    allocated_to: employee.allocated_to,
+    picture: employee.picture,
+    nationality: employee.nationality,
+    lastname: capitalize(employee.lastname),
+    firstname: capitalize(employee.firstname),
+    document_type: employee.document_type,
+    birthplace: nameOf(employee.birthplace),
+    gender: employee.gender,
+    marital_status: employee.marital_status,
+    level_of_education: employee.level_of_education,
+    street: employee.street,
+    street_number: employee.street_number,
+    province: nameOf(employee.province),
+    country: nameOf(employee.country),
+    postal_code: employee.postal_code,
+    phone: employee.phone,
+    file: employee.file,
+    date_of_admission: employee.date_of_admission,
+    born_date: employee.born_date,
+    affiliate_status: employee.affiliate_status,
+    city: nameOf(employee.city),
+    hierrl_position: nameOf(employee.hierarchical_position),
+    workflow_diagram: nameOf(employee.workflow_diagram),
+    contractor_employee: employee.contractor_employee?.map(({ customers }) => customers?.id),
+    is_active: employee.is_active,
+    reason_for_termination: employee.reason_for_termination,
+    termination_date: employee.termination_date,
+    status: employee.status,
+    documents_employees: employee.documents_employees,
+    guild_id: employee.guild?.id || idOf(employee.guild_id),
+    covenants_id: employee.covenant?.id || idOf(employee.covenants_id),
+    category_id: employee.category?.id || idOf(employee.category_id),
+    guild: nameOf(employee.guild_id) || idOf(employee.guild_id),
+    covenants: nameOf(employee.covenants_id) || idOf(employee.covenants_id),
+    category: nameOf(employee.category_id) || idOf(employee.category_id),
+    cost_center_id: employee.cost_center_id,
+    empleado_aptitudes:
+      employee.empleado_aptitudes?.map((apt) => ({
+        aptitud_id: apt.aptitud_id,
+        aptitudes_tecnicas: apt.aptitudes_tecnicas,
+      })) || [],
+  }));
 };
 /**
  * Normaliza un texto para usarlo como segmento de una ruta de Supabase Storage.

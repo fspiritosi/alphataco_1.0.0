@@ -8,7 +8,6 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
-import { Database } from '../../../../../database.types';
 import { DataTableExportExcel } from '../base/data-table-export-excel';
 import { DataTableExportExcelServer } from '../base/data-table-export-excel-server';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
@@ -17,7 +16,7 @@ import { DataTableDatePicker } from '../filters/data-table-date-picker';
 import { DataTableFacetedFilter, FacetedFilterConfig } from '../filters/data-table-faceted-filter-server';
 
 // Ahora FilterableColumn es genérico para TableName y Query
-interface FilterableColumn<TData, TableName extends keyof Database['public']['Tables'], Query extends string = '*'> {
+interface FilterableColumn<TData, TableName extends string, Query extends string = '*'> {
   columnId: string;
   title: string;
   options?: {
@@ -114,7 +113,7 @@ function SearchInput({
 // DataTableToolbarProps también es genérico para Query
 interface DataTableToolbarProps<
   TData,
-  TableName extends keyof Database['public']['Tables'],
+  TableName extends string,
   Query extends string = '*',
 > {
   table: Table<TData>;
@@ -136,7 +135,7 @@ interface DataTableToolbarProps<
 
 export function DataTableToolbar<
   TData,
-  TableName extends keyof Database['public']['Tables'],
+  TableName extends string,
   Query extends string = '*',
 >({
   table,
@@ -311,7 +310,7 @@ export function DataTableToolbar<
                   column={tableColumn}
                   title={column.title}
                   options={column.options}
-                  config={column.config as any} // Pasamos el config
+                  config={column.config}
                   disabled={isLoading}
                   hasNullFilter={hasNullFilter}
                 />

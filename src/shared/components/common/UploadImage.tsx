@@ -16,7 +16,8 @@ interface UploadImageProps {
   desciption?: string;
   labelInput?: string;
   imageBucket: string;
-  field?: any;
+  /** Field de react-hook-form (sólo se usa como flag; el input maneja el archivo por su cuenta). */
+  field?: { onChange?: (event: ChangeEvent<HTMLInputElement>) => void };
   setAvailableToSubmit?: (value: boolean) => void;
   disabledInput?: boolean;
   companyId: string;
@@ -77,8 +78,8 @@ export function UploadImage({
         // onUploadSuccess(uploadedImageUrl)
         if (setAvailableToSubmit) setAvailableToSubmit(true);
         setDisabled(true);
-      } catch (error: any) {
-        toast.error(`${handleSupabaseError(error.message)}`);
+      } catch (error) {
+        toast.error(`${handleSupabaseError(error instanceof Error ? error.message : String(error))}`);
       }
     }
   };

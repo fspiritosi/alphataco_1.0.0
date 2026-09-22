@@ -12,9 +12,10 @@ import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 
 export default async function CustomerFormAction({ searchParams, params }: { searchParams: any; params: any }) {
-  const equipment = await fetchAllEquipment();
+  // P2 Task 5: CustomerComponent sigue tipado con los Row legacy de Supabase; las actions ya devuelven filas Prisma.
+  const equipment = (await fetchAllEquipment()) as unknown as VehicleWithBrand[];
   const items = await fetchServiceItems(searchParams.actual, searchParams.user, searchParams.service);
-  const employees = await fetchAllEmployees();
+  const employees = (await fetchAllEmployees()) as unknown as Employee[];
   const services = await fetchAllActivesEmployees();
   const filteredServices = services
     .filter((service: any) => service.customer_id?.toString() === searchParams.id && service.is_active === true)

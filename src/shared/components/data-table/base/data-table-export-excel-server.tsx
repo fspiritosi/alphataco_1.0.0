@@ -11,10 +11,24 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
+import { Logger } from '@/lib/logger';
+import type { ColumnDef, ColumnFiltersState, HeaderContext, SortingState, Table } from '@tanstack/react-table';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
+
+const logger = new Logger('DataTableExportExcelServer');
+
+/** Extensiones de `ColumnDef` que usa la exportación (definidas en las columnas de cada tabla). */
+type ExportableColumnDef<TData> = ColumnDef<TData, unknown> & {
+  accessorKey?: string;
+  excludeFromExport?: boolean;
+  exportHeader?: string;
+  exportFormatter?: (value: unknown, row: TData) => unknown;
+};
+
+/** Nodo React mínimo del que se intenta leer `props.title` / `props.children`. */
+type TitledNode = { props?: { title?: string; children?: TitledNode | string } } | null | undefined;
 
 interface DataTableExportExcelServerProps<TData> {
   table: Table<TData>;
@@ -33,14 +47,14 @@ export function DataTableExportExcelServer<TData>({
 
   // Obtiene solo las columnas visibles y excluye las que tienen excludeFromExport: true
   const columns = table.getVisibleLeafColumns().filter((col) => {
-    const columnDef = col.columnDef as any;
+    const columnDef = col.columnDef as ExportableColumnDef<TData>;
     return !columnDef.excludeFromExport;
   });
 
   // Construye los headers usando el título de la columna
   const headers: string[] = columns.map((col) => {
     // Intentar obtener el header de la columna
-    const columnDef = col.columnDef as any;
+    const columnDef = col.columnDef as ExportableColumnDef<TData>;
 
     // 1. Prioridad: exportHeader personalizado
     if (columnDef.exportHeader) {
@@ -51,7 +65,7 @@ export function DataTableExportExcelServer<TData>({
     if (typeof columnDef.header === 'function') {
       // Para headers que usan DataTableColumnHeader, intentar extraer el título
       try {
-        const headerElement = columnDef.header({ column: col });
+        const headerElement = columnDef.header({ column: col } as HeaderContext<TData, unknown>) as TitledNode;
         // Intentar múltiples formas de acceder al título
         if (headerElement) {
           // Forma 1: props directas
@@ -64,13 +78,13 @@ export function DataTableExportExcelServer<TData>({
             if (typeof children === 'string') {
               return children;
             }
-            if (children && children.props && children.props.title) {
+            if (typeof children === 'object' && children?.props?.title) {
               return children.props.title;
             }
           }
           // Forma 3: buscar en el árbol de props recursivamente
-          const findTitleInProps = (obj: any): string | null => {
-            if (!obj) return null;
+          const findTitleInProps = (obj: TitledNode | string): string | null => {
+            if (!obj || typeof obj === 'string') return null;
             if (obj.props && obj.props.title) return obj.props.title;
             if (obj.props && obj.props.children) {
               const childTitle = findTitleInProps(obj.props.children);
@@ -83,7 +97,7 @@ export function DataTableExportExcelServer<TData>({
         }
       } catch (e) {
         // Si falla, continuar con la lógica de fallback
-        console.warn('Error al extraer header:', e);
+        logger.warn('Error al extraer header', { data: { error: e } });
       }
     }
 
@@ -111,12 +125,12 @@ export function DataTableExportExcelServer<TData>({
 
       // Procesar los datos para exportar
       const exportData = allData.map((rowData) => {
-        const rowObj: Record<string, any> = {};
+        const rowObj: Record<string, unknown> = {};
         columns.forEach((col, idx) => {
           // Obtener el valor usando el accessorKey o id de la columna
-          const accessorKey = (col.columnDef as any).accessorKey || col.id;
+          const columnDef = col.columnDef as ExportableColumnDef<TData>;
+          const accessorKey = columnDef.accessorKey || col.id;
           let value = getNestedValue(rowData, accessorKey);
-          const columnDef = col.columnDef as any;
 
           // Usar exportFormatter personalizado si está disponible
           if (columnDef.exportFormatter && typeof columnDef.exportFormatter === 'function') {
@@ -168,7 +182,7 @@ export function DataTableExportExcelServer<TData>({
       XLSX.writeFile(wb, `${fileNameInput || 'tabla_exportada'}.xlsx`, { compression: true });
       setOpen(false);
     } catch (error) {
-      console.error('❌ Error al exportar:', error);
+      logger.error('Error al exportar', { data: { error } });
       // Aquí podrías mostrar un toast de error
     } finally {
       setIsExporting(false);
@@ -232,16 +246,20 @@ export function DataTableExportExcelServer<TData>({
 }
 
 // Función auxiliar para obtener valores anidados de un objeto
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: unknown, path: string): unknown {
   if (!path || !obj) return obj;
 
-  return path.split('.').reduce((current, key) => {
-    return current && current[key] !== undefined ? current[key] : null;
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (current && typeof current === 'object' && key in current) {
+      const next = (current as Record<string, unknown>)[key];
+      return next !== undefined ? next : null;
+    }
+    return null;
   }, obj);
 }
 
 // Función para formatear valores por defecto en la exportación
-function formatValueForExport(value: any, columnHeader: string): string {
+function formatValueForExport(value: unknown, columnHeader: string): string {
   // Si el valor es null o undefined, retornar '-'
   if (value === null || value === undefined) {
     return '-';
@@ -255,8 +273,8 @@ function formatValueForExport(value: any, columnHeader: string): string {
     // Si los elementos del array son objetos con propiedad 'name', extraerla
     const formattedItems = value
       .map((item) => {
-        if (typeof item === 'object' && item !== null && item.name) {
-          return item.name;
+        if (typeof item === 'object' && item !== null && 'name' in item && item.name) {
+          return String(item.name);
         }
         return String(item);
       })
@@ -268,7 +286,7 @@ function formatValueForExport(value: any, columnHeader: string): string {
   // Si es un objeto, intentar extraer propiedades útiles
   if (typeof value === 'object' && value !== null) {
     // Si tiene propiedad 'name', usarla
-    if (value.name) {
+    if ('name' in value && value.name) {
       return String(value.name);
     }
     // Si es una fecha, formatearla

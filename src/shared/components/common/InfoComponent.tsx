@@ -1,12 +1,12 @@
 import { Info } from 'lucide-react';
 
 function InfoComponent({ message, size, iconSize }: { message: string; size: string; iconSize?: string }) {
-  const sizeComponent: any = {
+  const sizeComponent: Record<string, string> = {
     sm: 'p-2',
     md: 'p-3',
     lg: 'p-4',
   };
-  const sizeIcon: any = {
+  const sizeIcon: Record<string, string> = {
     sm: 'size-4',
     md: 'size-5',
     lg: 'size-14',

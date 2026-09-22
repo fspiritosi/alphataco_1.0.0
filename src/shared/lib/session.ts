@@ -2,7 +2,7 @@ import 'server-only';
 
 // P4: auth — único punto de contacto con Supabase Auth para datos. P4 reemplaza este módulo
 // por la sesión propia; el resto de `src/shared` y las features sólo conocen estos helpers.
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { cache } from 'react';
 
 /**
@@ -11,8 +11,7 @@ import { cache } from 'react';
  * repiten la llamada. Helper server-only, NO es una Server Action.
  */
 const getAuthUser = cache(async () => {
-  // P4: auth
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
 });
@@ -51,8 +50,7 @@ export const getSessionCompanyClaim = cache(async (): Promise<string | null> => 
  * migra a `getSessionUserId()` / `getActiveCompanyId()`.
  */
 export const getCachedSession = cache(async () => {
-  // P4: auth
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
   const {
     data: { session },
   } = await supabase.auth.getSession();

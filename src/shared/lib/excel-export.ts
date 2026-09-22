@@ -1,5 +1,6 @@
 'use client';
 
+import type { ColumnDef } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -109,8 +110,7 @@ export async function exportToExcel<T extends Record<string, unknown>>(
         }
 
         const imageId = workbook.addImage({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          buffer: logoBuffer as any,
+          buffer: logoBuffer as unknown as ExcelJS.Image['buffer'],
           extension: 'png',
         });
 
@@ -356,9 +356,20 @@ function calculateColumnWidth<T extends Record<string, unknown>>(column: ExcelCo
  * - `meta.exportFormatter` como formatter explícito para la exportación
  * - `accessorFn` para columnas que no usan accessorKey
  */
+/**
+ * Shape mínimo de una `ColumnDef` de TanStack que usa la exportación. `ColumnDef` es una
+ * unión discriminada (accessorKey / accessorFn / display) y `meta` es abierto, por eso se
+ * lee a través de este tipo estructural.
+ */
+type ExportableTanstackColumn = {
+  id?: string;
+  accessorKey?: string;
+  accessorFn?: unknown;
+  meta?: { title?: string; excludeFromExport?: boolean; exportFormatter?: unknown };
+};
+
 export function tanstackColumnsToExcelColumns<T extends Record<string, unknown>>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns: any[],
+  tanstackColumns: ReadonlyArray<ColumnDef<T, unknown>>,
   options?: {
     /** Columnas a excluir por accessorKey o id */
     exclude?: string[];
@@ -367,6 +378,7 @@ export function tanstackColumnsToExcelColumns<T extends Record<string, unknown>>
   }
 ): ExcelColumn[] {
   const { exclude = ['select', 'actions'], formatters = {} } = options || {};
+  const columns = tanstackColumns as ReadonlyArray<ExportableTanstackColumn>;
 
   return columns
     .filter((col) => {
@@ -376,7 +388,8 @@ export function tanstackColumnsToExcelColumns<T extends Record<string, unknown>>
       return key && !exclude.includes(key);
     })
     .map((col) => {
-      const key = col.accessorKey || col.id;
+      // El filter anterior garantiza que hay key.
+      const key = col.accessorKey || col.id || '';
       const title = col.meta?.title || key;
 
       // Prioridad de formatter: formatters param > meta.exportFormatter > undefined

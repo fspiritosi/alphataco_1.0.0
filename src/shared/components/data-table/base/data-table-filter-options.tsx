@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Definir la interfaz para las propiedades del componente
 interface DataTableFilterOptionsProps {
-  filterableColumns: any[]; // Los filtros disponibles
+  filterableColumns: Array<{ columnId: string; title: string }>; // Los filtros disponibles
   visibleFilters: string[]; // IDs de filtros actualmente visibles
   onVisibilityChange: (visibleFilters: string[]) => void; // Callback cuando cambia la visibilidad
   tableId?: string; // ID opcional para guardar estado en cookies

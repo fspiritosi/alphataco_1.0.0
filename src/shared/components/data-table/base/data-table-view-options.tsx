@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table } from '@tanstack/react-table';
+import { HeaderContext, Table } from '@tanstack/react-table';
 import cookiejs from 'js-cookie';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -53,7 +53,7 @@ export function DataTableViewOptions<TData>({ table, tableId }: DataTableViewOpt
   //     // saveVisibilityState();
 
   //   } catch (error) {
-  //     console.error('Error al verificar el estado de visibilidad de columnas:', error);
+  //     logger.error('Error al verificar el estado de visibilidad de columnas', { data: { error } });
   //   }
   // }, [table, tableId]);
 
@@ -105,7 +105,9 @@ export function DataTableViewOptions<TData>({ table, tableId }: DataTableViewOpt
 
                 // Si el header es una función (como DataTableColumnHeader)
                 if (typeof column.columnDef.header === 'function') {
-                  const headerResult = (column.columnDef.header as any)({ column });
+                  const headerResult = column.columnDef.header({ column } as HeaderContext<TData, unknown>) as {
+                    props?: { title?: string };
+                  } | null;
                   // Si es un componente React con props
                   if (headerResult?.props?.title) {
                     header = headerResult.props.title;

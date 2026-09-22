@@ -573,7 +573,7 @@ export function FormDisplay({ campos }: MailDisplayProps) {
                           .filter((e) => e.domain)
                           .map((e) => {
                             return (
-                              <SelectItem key={e.domain} value={e.domain}>
+                              <SelectItem key={e.domain ?? ''} value={e.domain ?? ''}>
                                 {e.domain}
                               </SelectItem>
                             );
@@ -589,7 +589,7 @@ export function FormDisplay({ campos }: MailDisplayProps) {
                           .filter((e) => e.serie)
                           .map((e) => {
                             return (
-                              <SelectItem key={e.serie} value={e.serie}>
+                              <SelectItem key={e.serie ?? ''} value={e.serie ?? ''}>
                                 {e.serie}
                               </SelectItem>
                             );
@@ -605,7 +605,7 @@ export function FormDisplay({ campos }: MailDisplayProps) {
                           .filter((e) => e.intern_number)
                           .map((e) => {
                             return (
-                              <SelectItem key={e.intern_number} value={e.intern_number}>
+                              <SelectItem key={e.intern_number ?? ''} value={e.intern_number ?? ''}>
                                 {e.intern_number}
                               </SelectItem>
                             );

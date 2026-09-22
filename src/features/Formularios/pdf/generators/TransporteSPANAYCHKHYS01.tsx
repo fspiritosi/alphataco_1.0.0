@@ -330,7 +330,7 @@ export const TransporteSPANAYCHKHYS01 = ({
         observaciones: data?.observaciones,
         chofer: data?.chofer,
       }}
-      logoUrl={company}
+      logoUrl={company ?? undefined}
       items={items}
       singurl={singurl}
     />

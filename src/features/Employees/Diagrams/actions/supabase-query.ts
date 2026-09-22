@@ -1,7 +1,15 @@
 'use server';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { Filter } from '@/shared/actions/supabase-query';
+
+// P2 Task 3 (Diagrams): este helper PostgREST desaparece con la migración a Prisma de la
+// carpeta. El tipo `Filter` vivía en `@/shared/actions/supabase-query` (ya sin PostgREST).
+type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'is' | 'in' | 'cs' | 'cd' | 'not.is';
+type Filter<T extends keyof Database['public']['Tables']> = {
+  column: keyof Database['public']['Tables'][T]['Row'] | string;
+  operator?: FilterOperator;
+  value: unknown;
+};
 import { Database } from '../../../../../database.types';
 
 export async function query<

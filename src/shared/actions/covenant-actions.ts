@@ -1,21 +1,25 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
-import { Guild } from '@/shared/types/legacy';
+import { Logger } from '@/lib/logger';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
+const logger = new Logger('shared/covenants');
+
+/** Sindicatos de la empresa activa con sus convenios y categorías (árbol CCT). */
 export async function getGuildsWithCovenants() {
   try {
-    const supabase = await supabaseServer();
-    const { data: guilds, error } = await supabase.from('guild').select('*,covenant(*,category(*))');
-
-    if (error) {
-      console.error('Error fetching guilds with covenants:', error);
-      throw error;
-    }
-
-    return guilds as Guild[] | null;
+    const companyId = await getActiveCompanyId();
+    return await prisma.guild.findMany({
+      where: withCompany({}, companyId),
+      include: { covenant: { include: { category: true } } },
+      orderBy: { name: 'asc' },
+    });
   } catch (error) {
-    console.error('Error in getGuildsWithCovenants:', error);
+    logger.error('Error fetching guilds with covenants', { data: { error } });
     throw error;
   }
 }
+
+export type GuildWithCovenants = Awaited<ReturnType<typeof getGuildsWithCovenants>>[number];

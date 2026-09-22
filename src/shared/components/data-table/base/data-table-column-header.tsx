@@ -32,7 +32,8 @@ export function DataTableColumnHeader<TData, TValue>({
   const isSorted = column.getIsSorted();
 
   // Usar la tabla pasada como prop o intentar acceder desde la columna
-  const table = tableProp || (column as any).table;
+  // Las columnas de TanStack no exponen `table`; si no viene por prop, no hay ordenamiento multiple.
+  const table: Table<TData> | undefined = tableProp;
 
   const sortingState: SortingState = table?.getState().sorting || [];
 
@@ -51,7 +52,7 @@ export function DataTableColumnHeader<TData, TValue>({
     const currentSorting = table.getState().sorting;
 
     // Buscar si esta columna ya está en el sorting
-    const existingIndex = currentSorting.findIndex((s: any) => s.id === column.id);
+    const existingIndex = currentSorting.findIndex((s) => s.id === column.id);
 
     let newSorting;
     if (existingIndex >= 0) {
@@ -74,7 +75,7 @@ export function DataTableColumnHeader<TData, TValue>({
 
     // Remover solo esta columna del sorting
     const currentSorting = table.getState().sorting;
-    const newSorting = currentSorting.filter((s: any) => s.id !== column.id);
+    const newSorting = currentSorting.filter((s) => s.id !== column.id);
     table.setSorting(newSorting);
   };
 

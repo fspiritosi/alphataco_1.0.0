@@ -3,7 +3,7 @@
 // Activa el errorMap de zod en español (side-effect: z.setErrorMap).
 // Se importa acá porque este es un Client Component de raíz — así el side-effect
 // se ejecuta en el bundle del cliente, donde viven los forms con zodResolver.
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
 import '@/lib/zod-es';
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
@@ -31,8 +31,9 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
 
     initialized.current = true;
 
-    // Configurar listener de Supabase con cleanup
-    const supabase = supabaseBrowser();
+    // P4: auth — identifica al usuario en PostHog escuchando los eventos de Supabase Auth;
+    // P4 lo reemplaza por la sesión propia.
+    const supabase = supabaseBrowser(); // P4: auth
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {

@@ -338,7 +338,7 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
     id: 'Fecha de ingreso',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de ingreso" />,
     cell: ({ row }) => {
-      return <div>{row.original.date_of_admission || '-'}</div>;
+      return <div>{row.original.date_of_admission ? moment(row.original.date_of_admission).format('DD/MM/YYYY') : '-'}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(String(row.getValue(id)));

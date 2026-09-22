@@ -110,8 +110,8 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
     domain: equipment.domain,
     serie: equipment.serie,
     kilometer: equipment.kilometer ?? '0',
-    model: equipment.model.name,
-    brand: equipment.brand.name,
+    model: equipment.model?.name,
+    brand: equipment.brand?.name,
     intern_number: equipment.intern_number || '',
   }));
   const choferName = (answer[0].answer as any)?.chofer;

@@ -1,18 +1,18 @@
 'use client';
 
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { handleSupabaseError } from '@/lib/errorHandler';
 
-// import { supabase } from '../../supabase/supabase';
-
+/**
+ * Traducción de mensajes de error para los toasts del dashboard legacy.
+ *
+ * P5: jobs — antes llamaba a la edge function `errors_translate` de Supabase
+ * (`supabase.functions.invoke`). Hasta que P5 reemplace las edge functions, se resuelve
+ * localmente con el diccionario de `handleSupabaseError`.
+ */
 export const useEdgeFunctions = () => {
-  const supabase = supabaseBrowser();
   return {
-    errorTranslate: async (errorMessage: string) => {
-      const { data, error } = await supabase.functions.invoke('errors_translate', {
-        body: { errorMessage },
-      });
-
-      return data;
+    errorTranslate: async (errorMessage: string): Promise<string> => {
+      return handleSupabaseError(errorMessage);
     },
   };
 };

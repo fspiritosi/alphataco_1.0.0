@@ -140,7 +140,7 @@ export const EmployeesListColumns: ColumnDef<Colum>[] = [
     cell: ({ row }: { row: any }) => {
       const share = useLoggedUserStore((state) => state.sharedCompanies);
       const profile = useLoggedUserStore((state) => state.credentialUser?.id);
-      const owner = useLoggedUserStore((state) => state.actualCompany?.owner_id.id);
+      const owner = useLoggedUserStore((state) => state.actualCompany?.owner_id?.id);
       const users = useLoggedUserStore((state) => state);
       const company = useLoggedUserStore((state) => state.actualCompany?.id);
 
@@ -196,7 +196,7 @@ export const EmployeesListColumns: ColumnDef<Colum>[] = [
         const documentToUpdate = useLoggedUserStore
           ?.getState()
           ?.active_and_inactive_employees?.find((e: any) => e.document_number === document)
-          .documents_employees?.filter((e: any) => e.id_document_types.down_document)
+          ?.documents_employees?.filter((e: any) => e.id_document_types.down_document)
           ?.map((e: any) => e.id);
 
         try {
@@ -209,7 +209,7 @@ export const EmployeesListColumns: ColumnDef<Colum>[] = [
             })
             .eq('document_number', document);
 
-          documentToUpdate.forEach(async (element: string) => {
+          documentToUpdate?.forEach(async (element: string) => {
             const { data, error } = await supabase
               .from('documents_employees')
               .update({

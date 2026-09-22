@@ -1,27 +1,19 @@
 'use server';
 
 import { logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
 import type { TablePreferences } from '@/shared/components/common/DataTable/helpers';
 import type { SortItem } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
 
 type TablePref = TablePreferences;
-
-async function getCurrentUserId(): Promise<string | null> {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
 
 /**
  * Mergea un patch sobre las preferencias guardadas de la tabla, conservando el resto.
  * Centraliza el read-modify-write para que cada preferencia no pise a las demás.
  */
 async function mergeTablePreferences(tableId: string, patch: TablePref): Promise<void> {
-  const userId = await getCurrentUserId();
+  const userId = await getSessionUserId();
   if (!userId) return;
 
   const key = `${userId}:${tableId}`;
@@ -42,7 +34,7 @@ async function mergeTablePreferences(tableId: string, patch: TablePref): Promise
 
 export async function getTablePreferences(tableId: string): Promise<TablePref> {
   try {
-    const userId = await getCurrentUserId();
+    const userId = await getSessionUserId();
     if (!userId) return {};
 
     const pref = await prisma.user_table_preferences.findUnique({

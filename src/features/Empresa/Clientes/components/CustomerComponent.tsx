@@ -322,7 +322,7 @@ export default function ClientRegister({
   const sharedUsers =
     sharedUsersAll?.map((user) => {
       return {
-        email: user.profile_id.email,
+        email: user.profile_id.email ?? '',
         fullname: user.profile_id.fullname,
         role: user?.role,
         alta: user.created_at,

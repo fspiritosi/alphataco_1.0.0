@@ -121,7 +121,7 @@ export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>
 
         // Buscar filas por ID y deseleccionarlas
         data.forEach((row, index) => {
-          const rowData = row as any;
+          const rowData = row as { id?: string } | null;
           if (rowData && rowData.id && rowIdsToClear.includes(rowData.id)) {
             delete newSelection[index.toString()];
           }

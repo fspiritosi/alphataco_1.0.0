@@ -19,7 +19,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface PasswordChangeAlertProps {
-  userMetadata: any;
+  /** `user_metadata` del usuario de sesión (P4: auth); sólo se lee `needs_password_change`. */
+  userMetadata: { needs_password_change?: boolean } | null | undefined;
 }
 
 export function PasswordChangeAlert({ userMetadata }: PasswordChangeAlertProps) {

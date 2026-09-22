@@ -245,7 +245,7 @@ function CreatedForm() {
       doc.text(companyInfo?.company_name || '', infoXPosition, 15);
       doc.text(companyInfo?.address?.trim() || '', infoXPosition, 20);
       doc.text(companyInfo?.city?.name?.trim() || '', infoXPosition, 25);
-      doc.text(companyInfo?.province_id.name.trim() || '', infoXPosition, 30);
+      doc.text(companyInfo?.province_id?.name.trim() || '', infoXPosition, 30);
     }
 
     // Función para agregar el pie de página

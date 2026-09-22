@@ -256,7 +256,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Estado para empleados
   const [employees, setEmployees] = useState<Employee[]>([]);
 
-  const [equipments, setEquipment] = useState<Awaited<ReturnType<typeof fetchAllEquipment>>>();
+  const [equipments, setEquipment] = useState<VehicleWithBrand[]>();
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
@@ -293,8 +293,9 @@ export function DataCustomers<TData extends Customer, TValue>({
 
       setIsEmployeesLoading(true);
       try {
+        // P2 Task 5: el componente sigue tipado con los Row legacy de Supabase; la action ya devuelve filas Prisma.
         const employeesData = await fetchAllEmployees2(selectedCustomer.id);
-        setEmployees(employeesData);
+        setEmployees(employeesData as unknown as Employee[]);
       } catch (error) {
         console.error('Error loading employees:', error);
       } finally {
@@ -312,7 +313,7 @@ export function DataCustomers<TData extends Customer, TValue>({
 
       setIsEquipmentLoading(true);
       try {
-        const equipmentData = await fetchAllEquipment();
+        const equipmentData = (await fetchAllEquipment()) as unknown as VehicleWithBrand[];
         setEquipment(equipmentData);
       } catch (error) {
         console.error('Error loading equipment:', error);
@@ -385,7 +386,7 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   useEffect(() => {
     const fetchEquipment = async () => {
-      const equipment = await fetchAllEquipment();
+      const equipment = (await fetchAllEquipment()) as unknown as VehicleWithBrand[];
       setEquipment(equipment);
     };
     fetchEquipment();
@@ -424,7 +425,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   const fetchEmployees = async () => {
     setIsEmployeesLoading(true);
     const employees = await fetchAllEmployees2(selectedCustomer?.id!);
-    setEmployees(employees);
+    setEmployees(employees as unknown as Employee[]);
     setIsEmployeesLoading(false);
   };
 

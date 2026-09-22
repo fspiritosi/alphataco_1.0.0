@@ -1,14 +1,14 @@
 import { formatCompanyName } from '@/lib/utils';
-import { Company } from '@/shared/schemas/schemas';
+import type { StoreCompany } from '@/shared/actions/session.server';
 import React from 'react';
 
 interface CardsGridProps {
-  allCompanies: Company;
-  onCardClick: (card: Company[0]) => void;
+  allCompanies: StoreCompany[];
+  onCardClick: (card: StoreCompany) => void;
 }
 
 export const CardsGrid: React.FC<CardsGridProps> = ({ allCompanies, onCardClick }) => {
-  const handleCardClick = (card: Company[0]) => {
+  const handleCardClick = (card: StoreCompany) => {
     onCardClick(card);
   };
   const activeCompanies = allCompanies?.filter((company) => company.is_active);
@@ -23,7 +23,7 @@ export const CardsGrid: React.FC<CardsGridProps> = ({ allCompanies, onCardClick 
           <h3 className=" font-semibold text-center overflow-hidden whitespace-wrap ">
             {formatCompanyName(companyItems.company_name)}
           </h3>
-          <img src={companyItems.company_logo} alt="Logo de la empresa" />
+          <img src={companyItems.company_logo ?? undefined} alt="Logo de la empresa" />
         </div>
       ))}
     </div>

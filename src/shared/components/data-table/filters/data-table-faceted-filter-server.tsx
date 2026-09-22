@@ -19,7 +19,6 @@ import { useQuery } from '@tanstack/react-query';
 import type { Column } from '@tanstack/react-table';
 import { CheckIcon, PlusCircleIcon } from 'lucide-react';
 import * as React from 'react';
-import { Database } from '../../../../../database.types';
 interface Option {
   label: string;
   value: string;
@@ -28,7 +27,7 @@ interface Option {
 }
 
 // Tipado genérico para la configuración del filtro con inferencia automática
-export interface FacetedFilterConfig<TableName extends keyof Database['public']['Tables'], Query extends string> {
+export interface FacetedFilterConfig<TableName extends string, Query extends string> {
   tableName: TableName;
   select: Query;
   relation?: string;
@@ -47,7 +46,7 @@ export interface FacetedFilterConfig<TableName extends keyof Database['public'][
 interface DataTableFacetedFilterProps<
   TData,
   TValue,
-  TableName extends keyof Database['public']['Tables'],
+  TableName extends string,
   Query extends string = '*',
 > {
   column?: Column<TData, TValue>;
@@ -58,14 +57,14 @@ interface DataTableFacetedFilterProps<
   hasNullFilter?: boolean;
 }
 
-export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Database['public']['Tables'] = never>({
+export function DataTableFacetedFilter<TData, TValue, TableName extends string = never, Query extends string = '*'>({
   column,
   title,
   options: staticOptions,
   disabled,
   config,
   hasNullFilter = false,
-}: DataTableFacetedFilterProps<TData, TValue, TableName>) {
+}: DataTableFacetedFilterProps<TData, TValue, TableName, Query>) {
   // Obtener los valores seleccionados actuales
   const selectedValues = React.useMemo(() => {
     const value = column?.getFilterValue();

@@ -11,10 +11,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Table } from '@tanstack/react-table';
+import type { ColumnDef, Table } from '@tanstack/react-table';
 import { FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
+
+/** Extensiones de `ColumnDef` que usa la exportación (definidas en las columnas de cada tabla). */
+type ExportableColumnDef<TData> = ColumnDef<TData, unknown> & {
+  accessorKey?: string;
+  excludeFromExport?: boolean;
+  exportHeader?: string;
+  exportFormatter?: (value: unknown, row: TData) => unknown;
+};
+
+type Affectation = { contractor_id?: { name?: string | null } | null };
 
 interface DataTableExportExcelProps<TData> {
   table: Table<TData>;
@@ -29,14 +39,14 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
   const rows = table.getFilteredRowModel().rows;
   // Obtiene solo las columnas visibles y excluye las que tienen excludeFromExport: true
   const columns = table.getVisibleLeafColumns().filter((col) => {
-    const columnDef = col.columnDef as any;
+    const columnDef = col.columnDef as ExportableColumnDef<TData>;
     return !columnDef.excludeFromExport;
   });
 
   // Construye los datos para exportar
   // Extraer headers como texto plano (sin iconos)
   const headers: string[] = columns.map((col) => {
-    const columnDef = col.columnDef as any;
+    const columnDef = col.columnDef as ExportableColumnDef<TData>;
 
     // 1. Prioridad: exportHeader personalizado
     if (columnDef.exportHeader) {
@@ -53,10 +63,10 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
   });
 
   const exportData = rows.map((row) => {
-    const rowObj: Record<string, any> = {};
+    const rowObj: Record<string, unknown> = {};
     columns.forEach((col, idx) => {
-      let value = row.getValue(col.id);
-      const columnDef = col.columnDef as any;
+      let value: unknown = row.getValue(col.id);
+      const columnDef = col.columnDef as ExportableColumnDef<TData>;
 
       // Usar exportFormatter personalizado si está disponible
       if (columnDef.exportFormatter && typeof columnDef.exportFormatter === 'function') {
@@ -65,7 +75,7 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
         // Lógica de formateo por defecto
         // Procesar columna 'Afectaciones' de forma especial
         if (headers[idx].toLowerCase().includes('afectac')) {
-          let parsed: any[] = [];
+          let parsed: Affectation[] = [];
           try {
             parsed = typeof value === 'string' ? JSON.parse(value) : Array.isArray(value) ? value : [];
           } catch {
@@ -75,7 +85,7 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
             value = '-';
           } else {
             // Si hay objetos, extraer el nombre del contratista (contractor_id.name)
-            const nombres = parsed.map((af: any) => af.contractor_id?.name).filter(Boolean);
+            const nombres = parsed.map((af) => af.contractor_id?.name).filter(Boolean);
             value = nombres.length > 0 ? nombres.join(', ') : '-';
           }
         } else if (Array.isArray(value)) {
@@ -83,7 +93,7 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
           value = value.length > 0 ? value.join(', ') : '-';
         } else if (typeof value === 'object' && value !== null) {
           // Si es un objeto, intentar extraer 'name' o convertir a JSON
-          value = (value as any).name || JSON.stringify(value);
+          value = ('name' in value && value.name) || JSON.stringify(value);
         }
       }
 

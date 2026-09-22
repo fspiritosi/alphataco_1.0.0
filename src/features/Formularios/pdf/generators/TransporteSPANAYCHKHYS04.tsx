@@ -150,7 +150,7 @@ export const TransporteSPANAYCHKHYS04 = ({
         kilometers: data?.kilometraje,
         aptoParaOperar: data?.aptoParaOperar,
       }}
-      logoUrl={company}
+      logoUrl={company ?? undefined}
       singurl={singurl}
     />
   );

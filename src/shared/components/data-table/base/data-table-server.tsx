@@ -18,7 +18,13 @@ import {
 import * as React from 'react';
 // import { DataTableToolbar, type BulkActionProps } from "./data-table-toolbar"
 import { Skeleton } from '@/components/ui/skeleton';
-import { clearTableFilters, getTableFilters, setTableFilters, type TableFilterState } from '@/lib/cookies';
+import {
+  clearTableFilters,
+  getTableFilters,
+  setTableFilters,
+  type FilterValue,
+  type TableFilterState,
+} from '@/lib/cookies';
 import { cn } from '@/lib/utils';
 import { QueryClient, QueryClientProvider, keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
@@ -192,7 +198,7 @@ export function BaseDataTable<
     const state: TableFilterState = {
       columnFilters: columnFilters.map((filter) => ({
         id: filter.id,
-        value: filter.value as any, // Usamos 'as any' temporalmente para evitar problemas de tipo
+        value: filter.value as FilterValue,
         type: Array.isArray(filter.value)
           ? 'faceted'
           : typeof filter.value === 'object' &&

@@ -13,10 +13,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Database } from '../../../../database.types';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('DependencyValidationModal');
 
 export interface DependencyConfig {
-  sourceTable: keyof Database['public']['Tables'];
+  sourceTable: string;
   sourceColumn: string;
   targetTable: string;
   targetColumn: string;
@@ -34,13 +36,13 @@ export interface DependencyValidationModalProps {
   dependencies: DependencyConfig[];
   title?: string;
   description?: string;
-  fetchDependencies: (config: DependencyConfig, recordId: string) => Promise<{ data: any[]; count: number }>;
+  fetchDependencies: (config: DependencyConfig, recordId: string) => Promise<{ data: Record<string, unknown>[]; count: number }>;
   fetchReplacementOptions?: (config: DependencyConfig, excludeId?: string) => Promise<{ id: string; name: string }[]>;
 }
 
 interface DependencyResult {
   config: DependencyConfig;
-  records: any[];
+  records: Record<string, unknown>[];
   totalCount: number;
   loading: boolean;
   error?: string;
@@ -108,7 +110,7 @@ export default function DependencyValidationModal({
       const configOptions = await fetchReplacementOptions(dependencies[0], recordId);
       setAllReplacementOptions(configOptions);
     } catch (error) {
-      console.error('Error loading replacement options:', error);
+      logger.error('Error al cargar opciones de reemplazo', { data: { error } });
     }
   };
 
@@ -221,7 +223,7 @@ export default function DependencyValidationModal({
                               <div key={recordIndex} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
                                 {result.config.displayColumns.map((column, colIndex) => (
                                   <span key={colIndex} className="mr-4">
-                                    <strong>{result.config.displayLabels[colIndex]}:</strong> {record[column] || 'N/A'}
+                                    <strong>{result.config.displayLabels[colIndex]}:</strong> {String(record[column] ?? '') || 'N/A'}
                                   </span>
                                 ))}
                               </div>

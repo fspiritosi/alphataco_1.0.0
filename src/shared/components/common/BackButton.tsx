@@ -1,14 +1,16 @@
 'use client';
 import { Button } from '@/components/ui/button';
+import type { ComponentProps } from 'react';
 import { useEditButton } from '@/shared/store/editState';
 import { useRouter } from 'next/navigation';
 
-function BackButton({ size }: { size?: any }) {
+function BackButton({ size }: { size?: ComponentProps<typeof Button>['size'] }) {
   const router = useRouter();
-  const desabilitarEdicion = useEditButton((state: any) => state.setReadOnly);
+  const desabilitarEdicion = useEditButton((state) => state.setReadOnly);
 
   const handleBack = () => {
-    desabilitarEdicion();
+    // `setReadOnly(readonly)` guarda `!readonly`: con `false` la vista queda en solo lectura.
+    desabilitarEdicion(false);
     router.back();
   };
 

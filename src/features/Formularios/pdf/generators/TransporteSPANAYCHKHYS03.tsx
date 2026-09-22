@@ -421,7 +421,7 @@ export const TransporteSPANAYCHKHYS03 = ({
         observaciones: data?.observaciones,
       }}
       items={items}
-      logoUrl={company}
+      logoUrl={company ?? undefined}
       singurl={singurl}
     />
   );

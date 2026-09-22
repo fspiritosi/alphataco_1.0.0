@@ -1,28 +1,24 @@
 'use server';
 
 import { logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { adminSupabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { canAccessCompany } from '@/shared/lib/company-membership';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionCompanyClaim, getSessionUser } from '@/shared/lib/session';
 
 export type SetCompanyMetadataResult = { ok: boolean; error?: string };
 
 /**
  * Cambia la empresa activa del usuario (app_metadata.company del JWT).
  *
- * Lee el usuario con la sesión real (`supabaseServer`), valida que el profile
- * sea owner o miembro activo de `company_id` y recién ahí escribe con el admin
- * client. Sin esta validación cualquier UUID de empresa pasaba a ser la empresa
- * activa de `getActiveCompanyId()` (fuga cross-tenant).
+ * Lee el usuario de sesión, valida que el profile sea owner o miembro activo de
+ * `company_id` y recién ahí escribe con el admin client. Sin esta validación cualquier
+ * UUID de empresa pasaba a ser la empresa activa de `getActiveCompanyId()` (fuga cross-tenant).
  */
 export const setNewCompanyUserMetadata = async (company_id: string): Promise<SetCompanyMetadataResult> => {
   if (!company_id) return { ok: false, error: 'Empresa inválida' };
 
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getSessionUser();
   if (!user) return { ok: false, error: 'No hay sesión activa' };
 
   const profile = await prisma.profile.findUnique({
@@ -50,9 +46,10 @@ export const setNewCompanyUserMetadata = async (company_id: string): Promise<Set
     return { ok: false, error: 'No tenés acceso a esa empresa' };
   }
 
-  if (user.app_metadata?.company === company_id) return { ok: true };
+  if ((await getSessionCompanyClaim()) === company_id) return { ok: true };
 
-  const admin = await adminSupabaseServer();
+  // P4: auth — el claim de empresa vive en el JWT de Supabase hasta que P4 traiga la sesión propia.
+  const admin = await adminSupabaseServer(); // P4: auth
   const { error } = await admin.auth.admin.updateUserById(user.id, {
     app_metadata: { company: company_id },
   });
@@ -65,11 +62,7 @@ export const setNewCompanyUserMetadata = async (company_id: string): Promise<Set
   return { ok: true };
 };
 
+/** `{ id, email }` del usuario de sesión o null. */
 export const fetchCurrentUser = async () => {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return user;
+  return getSessionUser();
 };

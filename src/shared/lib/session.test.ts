@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/supabase/server', () => ({ supabaseServer: vi.fn() }));
+vi.mock('@/lib/supabase/server', () => ({ supabaseServer: vi.fn() })); // P4: auth
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { getSessionCompanyClaim, getSessionUser, getSessionUserId } from './session';
 
 function mockUser(user: unknown) {
-  vi.mocked(supabaseServer).mockResolvedValue({
+  vi.mocked(supabaseServer).mockResolvedValue({ // P4: auth
     auth: { getUser: async () => ({ data: { user } }) },
-  } as unknown as Awaited<ReturnType<typeof supabaseServer>>);
+  } as unknown as Awaited<ReturnType<typeof supabaseServer>>); // P4: auth
 }
 
 describe('session', () => {

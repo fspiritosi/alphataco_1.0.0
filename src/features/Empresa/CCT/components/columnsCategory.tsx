@@ -74,7 +74,7 @@ export const columnsCategory: ColumnDef<Colum>[] = [
     cell: ({ row }: { row: any }) => {
       const profile = useLoggedUserStore((state) => state);
       let role = '';
-      if (profile?.actualCompany?.owner_id.id === profile?.credentialUser?.id) {
+      if (profile?.actualCompany?.owner_id?.id === profile?.credentialUser?.id) {
         role = profile?.actualCompany?.owner_id?.role as string;
       } else {
         role = profile?.actualCompany?.share_company_users?.[0]?.role as string;

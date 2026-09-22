@@ -1,190 +1,110 @@
-import { Equipo } from '@/shared/schemas/schemas';
-import cookies from 'js-cookie';
+import {
+  getCitiesByProvince,
+  getCompanyDocumentTypes,
+  getContacts,
+  getCountries,
+  getCustomers,
+  getHierarchyPositions,
+  getProvinces,
+  getWorkDiagrams,
+} from '@/shared/actions/countries.server';
 import { create } from 'zustand';
-// import { supabase } from '../../supabase/supabase';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { MandatoryDocuments } from '@/shared/schemas/schemas';
-import { useLoggedUserStore } from './loggedUser';
 
-type Province = {
-  id: number;
-  name: string;
-};
-export type generic = {
-  id: number;
-  name: string;
-  created_at: string;
-};
+/**
+ * Store de catálogos del dashboard legacy. Sólo guarda estado: los datos vienen de las
+ * server actions de `@/shared/actions/countries.server.ts` (antes PostgREST + realtime).
+ *
+ * Los consumidores que quedan (columnas de Clientes/Equipos, formularios) leen el estado
+ * directamente; la carga inicial se dispara una vez en el navegador (`ensureLoaded`) como
+ * puente hasta que cada pantalla pase a React Query.
+ */
+type Country = Awaited<ReturnType<typeof getCountries>>[number];
+type Province = Awaited<ReturnType<typeof getProvinces>>[number];
+type City = Awaited<ReturnType<typeof getCitiesByProvince>>[number];
+type Hierarchy = Awaited<ReturnType<typeof getHierarchyPositions>>[number];
+type WorkDiagram = Awaited<ReturnType<typeof getWorkDiagrams>>[number];
+type Customer = Awaited<ReturnType<typeof getCustomers>>[number];
+type Contact = Awaited<ReturnType<typeof getContacts>>[number];
+type DocumentType = Awaited<ReturnType<typeof getCompanyDocumentTypes>>[number];
+
+export type MandatoryDocuments = Record<string, DocumentType[]>;
+
 interface State {
-  countries: generic[];
+  countries: Country[];
   provinces: Province[];
-  cities: Province[];
-  fetchCities: (provinceId: any) => void;
-  hierarchy: generic[];
-  workDiagram: generic[];
-  customers: generic[];
-  contacts: generic[];
+  cities: City[];
+  fetchCities: (provinceId: number) => Promise<void>;
+  hierarchy: Hierarchy[];
+  workDiagram: WorkDiagram[];
+  customers: Customer[];
+  contacts: Contact[];
   mandatoryDocuments: MandatoryDocuments;
-  documentTypes: (company_id?: string) => void;
-  companyDocumentTypes: Equipo;
-  fetchContractors: () => void; // Añadir esta función al estado
-  fetchContacts: () => void;
-  subscribeToCustomersChanges: () => () => void;
-  subscribeToContactsChanges: () => () => void;
+  documentTypes: (company_id?: string) => Promise<void>;
+  companyDocumentTypes: DocumentType[];
+  fetchContractors: () => Promise<void>;
+  fetchContacts: () => Promise<void>;
+  /** Carga los catálogos una sola vez (idempotente). */
+  ensureLoaded: () => Promise<void>;
 }
 
-export const useCountriesStore = create<State>((set, get) => {
-  const supabase = supabaseBrowser();
-  const fetchCountrys = async () => {
-    const { data: fetchCountries, error } = await supabase
-      .from('countries')
-      .select('*')
-      .order('name', { ascending: true });
-    if (error) {
-      console.error('Error al obtener los países:', error);
-    } else {
-      set({ countries: (fetchCountries as any) || [] });
-    }
-  };
-  const fetchProvinces = async () => {
-    const { data: fetchedProvinces, error } = await supabase
-      .from('provinces')
-      .select('*')
-      .order('name', { ascending: true });
+let loadingPromise: Promise<void> | null = null;
 
-    if (error) {
-      console.error('Error al obtener las provincias:', error);
-    } else {
-      set({ provinces: fetchedProvinces || [] });
-    }
+export const useCountriesStore = create<State>((set) => {
+  const fetchCities = async (provinceId: number) => {
+    set({ cities: await getCitiesByProvince(provinceId) });
   };
-  const fetchCities = async (provinceId: any) => {
-    const { data: fetchCities, error } = await supabase
-      .from('cities')
-      .select('*')
-      .eq('province_id', provinceId)
-      .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error al obtener las ciudades:', error);
-    } else {
-      set({ cities: fetchCities || [] });
-    }
-  };
-  const fetchHierarchy = async () => {
-    const { data: hierarchy, error } = await supabase.from('hierarchy').select('*').order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error al obtener la jerarquia:', error);
-    } else {
-      set({ hierarchy: (hierarchy as any) || [] });
-    }
-  };
-  const fetchworkDiagram = async () => {
-    const { data: workDiagram, error } = await supabase
-      .from('work_diagram')
-      .select('*')
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error al obtener el diagrama de trabajo:', error);
-    } else {
-      set({ workDiagram: (workDiagram as any) || [] });
-    }
-  };
   const fetchContractors = async () => {
-    const { data: customers, error } = await supabase.from('customers').select('*').order('name', { ascending: true });
-
-    if (error) {
-      console.error('Error al obtener los contratistas:', error);
-    } else {
-      set({ customers: (customers as any) || [] });
-    }
+    set({ customers: await getCustomers() });
   };
 
   const fetchContacts = async () => {
-    const { data: contacts, error } = await supabase
-      .from('contacts')
-      .select('*, customers(id, name)')
-      .order('contact_name', { ascending: true });
-    // .eq('company_id', actualCompany?.id)
-
-    if (error) {
-      console.error('Error fetching customers:', error);
-    } else {
-      set({ contacts: (contacts as any) || [] });
-    }
+    set({ contacts: await getContacts() });
   };
 
-  const documentTypes = async (id: string | undefined) => {
-    const company_id = id ?? useLoggedUserStore?.getState?.()?.actualCompany?.id;
-    const company = cookies.get('actualComp');
-
-    let { data: document_types } = await supabase
-      .from('document_types')
-      .select('*')
-      .eq('is_active', true)
-      // ?.filter('mandatory', 'eq', true)
-      .or(`company_id.eq.${company_id || company || ''},company_id.is.null`);
-
-    const groupedData = document_types
-      ?.filter((item) => item['mandatory'] === true)
-      ?.reduce((acc: Record<string, any[]>, item) => {
-        (acc[item['applies']] = acc[item['applies']] || []).push(item);
+  const documentTypes = async (company_id?: string) => {
+    const document_types = await getCompanyDocumentTypes(company_id);
+    const mandatoryDocuments = document_types
+      .filter((item) => item.mandatory)
+      .reduce<MandatoryDocuments>((acc, item) => {
+        (acc[item.applies] = acc[item.applies] || []).push(item);
         return acc;
-      }, {}) as MandatoryDocuments;
-
-    set({ companyDocumentTypes: document_types as any });
-    set({ mandatoryDocuments: groupedData });
+      }, {});
+    set({ companyDocumentTypes: document_types, mandatoryDocuments });
   };
 
-  const subscribeToCustomersChanges = () => {
-    const channel = supabase
-      .channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, (payload) => {
-        fetchContractors(); // Actualiza el estado global
-      })
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
+  const ensureLoaded = () => {
+    if (!loadingPromise) {
+      loadingPromise = Promise.all([
+        getCountries().then((countries) => set({ countries })),
+        getProvinces().then((provinces) => set({ provinces })),
+        getHierarchyPositions().then((hierarchy) => set({ hierarchy })),
+        getWorkDiagrams().then((workDiagram) => set({ workDiagram })),
+        fetchContractors(),
+        fetchContacts(),
+      ]).then(() => undefined);
+    }
+    return loadingPromise;
   };
 
-  const subscribeToContactsChanges = () => {
-    const channel = supabase
-      .channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, (payload) => {
-        fetchContacts(); // Actualiza el estado global
-      })
-      .subscribe();
+  if (typeof window !== 'undefined') {
+    void ensureLoaded();
+  }
 
-    return () => {
-      channel.unsubscribe();
-    };
-  };
-
-  fetchContractors();
-  fetchContacts();
-  fetchworkDiagram();
-  fetchHierarchy();
-  fetchCountrys();
-  fetchProvinces();
   return {
-    countries: get()?.countries,
-    provinces: get()?.provinces,
-    cities: get()?.cities,
+    countries: [],
+    provinces: [],
+    cities: [],
     fetchCities,
-    hierarchy: get()?.hierarchy,
-    workDiagram: get()?.workDiagram,
-    customers: get()?.customers,
-    contacts: get()?.contacts || [],
-    mandatoryDocuments: get()?.mandatoryDocuments,
-    documentTypes: (company_id?: string | undefined) => documentTypes(company_id || ''),
-    companyDocumentTypes: get()?.companyDocumentTypes,
+    hierarchy: [],
+    workDiagram: [],
+    customers: [],
+    contacts: [],
+    mandatoryDocuments: {},
+    documentTypes,
+    companyDocumentTypes: [],
     fetchContractors,
     fetchContacts,
-    subscribeToCustomersChanges,
-    subscribeToContactsChanges,
+    ensureLoaded,
   };
 });

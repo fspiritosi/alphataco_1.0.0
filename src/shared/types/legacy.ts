@@ -13,7 +13,7 @@ export type LoggedUser = {
     created_at: string;
     email: string;
     id: string;
-    identities: any[];
+    identities: unknown[];
     phone: string;
     role: string;
     updated_at: string;
@@ -136,7 +136,7 @@ export type Employee = {
   workflow_diagram: string;
   normal_hours?: string | undefined | null; //!si
   type_of_contract?: string | undefined | null; //!si
-  allocated_to?: any; //!si
+  allocated_to?: string | string[] | null; //!si
   date_of_admission: Date | undefined | string;
   full_name?: string; //!si
   is_active?: boolean;
@@ -631,7 +631,7 @@ export type WorkDiagramWithRelations = {
       name: string;
     };
   }>;
-  active_novelty?: any;
+  active_novelty?: unknown;
   inactive_novelty: {
     id: string;
     name: string;

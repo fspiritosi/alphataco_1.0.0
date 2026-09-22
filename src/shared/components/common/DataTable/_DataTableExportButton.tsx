@@ -1,6 +1,7 @@
 'use client';
 
 import { Download, Loader2 } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -29,19 +30,21 @@ export interface DataTableExportConfig<TData> {
   excludeColumns?: string[];
 }
 
-interface Props<TData> {
+interface Props<TData, TValue = unknown> {
   /**
    * Columnas de TanStack Table (para extraer meta.title)
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns: any[];
+  columns: ReadonlyArray<ColumnDef<TData, TValue>>;
   /**
    * Configuración de exportación
    */
   exportConfig: DataTableExportConfig<TData>;
 }
 
-export function _DataTableExportButton<TData extends Record<string, unknown>>({ columns, exportConfig }: Props<TData>) {
+export function _DataTableExportButton<TData extends Record<string, unknown>, TValue = unknown>({
+  columns,
+  exportConfig,
+}: Props<TData, TValue>) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -56,7 +59,7 @@ export function _DataTableExportButton<TData extends Record<string, unknown>>({ 
       }
 
       // Convertir columnas de TanStack a formato Excel
-      const excelColumns = tanstackColumnsToExcelColumns<TData>(columns, {
+      const excelColumns = tanstackColumnsToExcelColumns<TData>(columns as ReadonlyArray<ColumnDef<TData, unknown>>, {
         exclude: ['select', 'actions', ...(exportConfig.excludeColumns || [])],
         formatters: exportConfig.formatters,
       });
