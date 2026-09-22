@@ -4,18 +4,20 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
-  getActiveEmployeesForDailyReportClient,
-  getActiveEquipmentsForDailyReportClient,
-} from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+  getActiveEmployeesForRowForm,
+  getActiveEquipmentsForRowForm,
+} from '@/features/Operaciones/PartesDiarios/actions/comercial-rows.server';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Info, Loader2, Users, X } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
+import type { DailyReportRowFormValues } from '../form-types';
 
 type ResourcesSectionProps = {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<DailyReportRowFormValues>;
   isCreating: boolean;
-  selectedRow: any;
+  /** La sección no lee la fila; se acepta para mantener la firma del formulario. */
+  selectedRow: { id?: string; status?: string | null } | null;
   disabled?: boolean;
   itemNeedsPersonnel?: boolean;
   itemNeedsEquipment?: boolean;
@@ -37,7 +39,7 @@ export function ResourcesSection({
   // Fetch employees con useQuery (solo si el item requiere personal)
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery({
     queryKey: ['active-employees'],
-    queryFn: getActiveEmployeesForDailyReportClient,
+    queryFn: getActiveEmployeesForRowForm,
     staleTime: 5 * 60 * 1000, // 5 minutos
     enabled: needsPersonnel,
   });
@@ -45,7 +47,7 @@ export function ResourcesSection({
   // Fetch equipments con useQuery (solo si el item requiere equipos)
   const { data: equipments = [], isLoading: isLoadingEquipments } = useQuery({
     queryKey: ['active-equipments'],
-    queryFn: getActiveEquipmentsForDailyReportClient,
+    queryFn: getActiveEquipmentsForRowForm,
     staleTime: 5 * 60 * 1000, // 5 minutos
     enabled: needsEquipment,
   });

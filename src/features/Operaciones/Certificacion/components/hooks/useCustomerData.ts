@@ -1,11 +1,12 @@
-import type { GetCustomersClientType } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+import type { CustomerForRowForm } from '@/features/Operaciones/PartesDiarios/actions/comercial-rows.server';
 import { useCallback, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import type { DailyReportRowFormValues } from '../form-types';
 
-export function useCustomerData(customers: GetCustomersClientType[], form: UseFormReturn<any>) {
+export function useCustomerData(customers: CustomerForRowForm[], form: UseFormReturn<DailyReportRowFormValues>) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<GetCustomersClientType | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerForRowForm | null>(null);
   const [isSectorDisabled, setIsSectorDisabled] = useState<boolean>(true);
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
 
@@ -24,7 +25,7 @@ export function useCustomerData(customers: GetCustomersClientType[], form: UseFo
 
     const selectedService = selectedCustomer.customer_services.find((service) => service.id === selectedServiceId);
 
-    return selectedService?.service_items?.filter((item: any) => item.is_active) || [];
+    return selectedService?.service_items?.filter((item) => item.is_active) || [];
   }, [selectedCustomer, selectedServiceId]);
 
   // Manejar cambio de cliente
@@ -41,8 +42,8 @@ export function useCustomerData(customers: GetCustomersClientType[], form: UseFo
         form.setValue('areas_service_id', '');
         setSelectedServiceId(null);
 
-        const hasSectors = customer.customer_services?.some((s: any) => s.service_sectors?.length > 0);
-        const hasAreas = customer.customer_services?.some((s: any) => s.service_areas?.length > 0);
+        const hasSectors = customer.customer_services?.some((service) => service.service_sectors.length > 0);
+        const hasAreas = customer.customer_services?.some((service) => service.service_areas.length > 0);
 
         setIsSectorDisabled(!hasSectors);
         setIsAreaDisabled(!hasAreas);

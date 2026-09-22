@@ -1,16 +1,8 @@
 import {
-  checkDailyReportExistsClient,
-  createDailyReportClient,
-  createDailyReportCustomerEquipmentRelationsClient,
-  createDailyReportEmployeeRelationsClient,
-  createDailyReportEquipmentRelationsClient,
-  createDailyReportRowClient,
-  syncDailyReportCustomerEquipmentRelationsClient,
-  syncDailyReportEmployeeRelationsClient,
-  syncDailyReportEquipmentRelationsClient,
-  updateDailyReportStatusAndRemitNumberClient,
-} from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
-import { createRemitoClient } from '@/features/Operaciones/PartesDiarios/remitManager/actions/actionsClient';
+  createComercialDailyReportRow,
+  updateComercialDailyReportRow,
+} from '@/features/Operaciones/PartesDiarios/actions/comercial-rows.server';
+import { createRemito } from '@/features/Operaciones/PartesDiarios/remitManager/actions/remitos.server';
 import { logger } from '@/lib/logger';
 import { QueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -63,23 +55,6 @@ export function useFormSubmit(
 
       const formattedDate = format(data.date, 'yyyy-MM-dd');
 
-      // 1. Verificar si existe daily_report para esa fecha
-      const existingReports = await checkDailyReportExistsClient([formattedDate]);
-      let dailyReportId: string;
-
-      if (existingReports && existingReports.length > 0) {
-        dailyReportId = existingReports[0].id;
-      } else {
-        // 2. Crear daily_report si no existe
-        const createdReports = await createDailyReportClient([formattedDate]);
-        if (!createdReports || createdReports.length === 0) {
-          toast.error('Error al crear el parte diario.');
-          return;
-        }
-        dailyReportId = createdReports[0].id;
-      }
-
-      // 3. Crear daily_report_row (SIN remit_number)
       // Determinar completed_day y completed_night según la jornada
       const is24Hours = data.working_day === 'jornada 24 horas';
 
@@ -96,54 +71,37 @@ export function useFormSubmit(
 
       const initialStatus = missingRequiredResources ? 'sin_recursos_asignados' : 'en_certificacion';
 
-      const rowData = {
-        daily_report_id: dailyReportId,
+      // Una sola server action: crea el parte diario si falta, la línea y sus relaciones.
+      const created = await createComercialDailyReportRow({
+        date: formattedDate,
         customer_id: data.customer,
         service_id: data.services,
         item_id: data.item,
         working_day: data.working_day,
+        employees: data.employees ?? [],
+        equipment: data.equipment ?? [],
+        customer_equipment: data.equipos_cliente ?? [],
         start_time: data.start_time || null,
         end_time: data.end_time || null,
         status: initialStatus,
         description: data.observations || null,
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
-        type_service: data.type_service || null,
+        type_service: data.type_service ?? null,
         completed_day: is24Hours ? true : null,
         completed_night: is24Hours ? true : null,
-      };
+      });
 
-      const createdRows = await createDailyReportRowClient([rowData]);
-      if (!createdRows || createdRows.length === 0) {
-        toast.error('Error al crear la línea del parte diario.');
-        return;
-      }
-
-      const newRowId = createdRows[0].id;
+      const newRowId = created.id;
 
       // 3.5. Crear remito en la tabla remitos (NUEVO)
       if (data.remit_number) {
         try {
-          await createRemitoClient(newRowId, data.remit_number);
+          await createRemito(newRowId, data.remit_number);
         } catch (error) {
           logger.error('Error al crear remito', { data: { error } });
           toast.error('Error al crear el remito. La línea se creó pero sin remito.');
         }
-      }
-
-      // 4. Crear relaciones de empleados
-      if (data.employees && data.employees.length > 0) {
-        await createDailyReportEmployeeRelationsClient(newRowId, data.employees);
-      }
-
-      // 5. Crear relaciones de equipos
-      if (data.equipment && data.equipment.length > 0) {
-        await createDailyReportEquipmentRelationsClient(newRowId, data.equipment);
-      }
-
-      // 6. Crear relaciones de equipos de cliente
-      if (data.equipos_cliente && data.equipos_cliente.length > 0) {
-        await createDailyReportCustomerEquipmentRelationsClient(newRowId, data.equipos_cliente);
       }
 
       toast.success('Línea creada exitosamente.');
@@ -209,25 +167,24 @@ export function useFormSubmit(
         finalStatus = 'pendiente';
       }
 
-      const updateData = {
-        status: finalStatus,
-        description: data.observations || null, // Usar 'observations' que es el campo del formulario
+      // Una sola server action: actualiza la línea y sincroniza sus relaciones.
+      await updateComercialDailyReportRow(rowId, {
+        status: finalStatus ?? 'pendiente',
+        description: data.observations || null,
         start_time: data.start_time || null,
         end_time: data.end_time || null,
         working_day: data.working_day || null,
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
-        last_comercial_edit_at: new Date().toISOString(),
-      };
-      await updateDailyReportStatusAndRemitNumberClient(
-        rowId,
-        updateData as Parameters<typeof updateDailyReportStatusAndRemitNumberClient>[1]
-      );
+        ...(data.employees !== undefined ? { employees: data.employees ?? [] } : {}),
+        ...(data.equipment !== undefined ? { equipment: data.equipment ?? [] } : {}),
+        ...(data.equipos_cliente !== undefined ? { customer_equipment: data.equipos_cliente ?? [] } : {}),
+      });
 
       // Crear remito en la tabla remitos si se está cambiando a certificación (NUEVO)
       if (isChangingToCertificacion && data.remit_number) {
         try {
-          await createRemitoClient(rowId, data.remit_number);
+          await createRemito(rowId, data.remit_number);
         } catch (error) {
           logger.error('Error al crear remito', { data: { error } });
           // Si el remito ya existe, no es un error crítico
@@ -237,21 +194,6 @@ export function useFormSubmit(
             toast.error('Error al crear el remito.');
           }
         }
-      }
-
-      // Sincronizar relaciones de empleados
-      if (data.employees !== undefined) {
-        await syncDailyReportEmployeeRelationsClient(rowId, data.employees || []);
-      }
-
-      // Sincronizar relaciones de equipos
-      if (data.equipment !== undefined) {
-        await syncDailyReportEquipmentRelationsClient(rowId, data.equipment || []);
-      }
-
-      // Sincronizar relaciones de equipos de cliente
-      if (data.equipos_cliente !== undefined) {
-        await syncDailyReportCustomerEquipmentRelationsClient(rowId, data.equipos_cliente || []);
       }
 
       toast.success('Parte diario actualizado exitosamente.');

@@ -10,12 +10,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { transformDailyReports } from '@/features/Comercial/Comerce/components/DailyReportWrapper';
-import { updateDailyReportStatusAndRemitNumberClient } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+import { transformDailyReports } from '../lib/transform';
+import { bulkCertifyRows } from '../actions/mutations.server';
+import { Logger } from '@/lib/logger';
 import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
 type TableRow = ReturnType<typeof transformDailyReports>[number];
+
+const logger = new Logger('BulkCertificacionModal');
 
 interface BulkCertificacionModalProps {
   isOpen: boolean;
@@ -40,18 +43,15 @@ export function BulkCertificacionModal({ isOpen, onClose, selectedRows, onSucces
     try {
       setIsUpdating(true);
 
-      // Actualizar todos los registros seleccionados a 'en_certificacion'
-      const updatePromises = selectedRows.map((row: TableRow) =>
-        updateDailyReportStatusAndRemitNumberClient(row.id, {
-          status: 'en_certificacion',
-        })
-      );
-
-      await Promise.all(updatePromises);
+      // Una sola server action: pasa a 'en_certificacion' las filas elegibles.
+      const result = await bulkCertifyRows(selectedRows.map((row: TableRow) => row.id));
 
       toast({
         title: 'Éxito',
-        description: `Se actualizaron ${selectedRows.length} registro(s) a En certificación.`,
+        description:
+          result.skippedIds.length > 0
+            ? `Se actualizaron ${result.certified} de ${selectedRows.length} registro(s) a En certificación. ${result.skippedIds.length} no estaban en estado "ejecutado".`
+            : `Se actualizaron ${result.certified} registro(s) a En certificación.`,
       });
 
       // Llamar callback para refrescar datos
@@ -61,10 +61,10 @@ export function BulkCertificacionModal({ isOpen, onClose, selectedRows, onSucces
 
       onClose();
     } catch (error) {
-      console.error('Error al actualizar registros:', error);
+      logger.error('Error al actualizar los registros seleccionados', { data: { error } });
       toast({
         title: 'Error',
-        description: 'Ocurrió un error al actualizar los registros.',
+        description: error instanceof Error ? error.message : 'Ocurrió un error al actualizar los registros.',
         variant: 'destructive',
       });
     } finally {

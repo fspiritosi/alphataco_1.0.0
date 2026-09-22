@@ -24,7 +24,7 @@ import {
 } from './form-sections';
 
 // Importar hooks personalizados
-import { getCustomersClient } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+import { getCustomersForRowForm } from '@/features/Operaciones/PartesDiarios/actions/comercial-rows.server';
 import { useCustomerData, useFormInitialization, useFormSchema, useFormSubmit } from './hooks';
 
 export function DailyReportRowFormRefactored() {
@@ -34,7 +34,7 @@ export function DailyReportRowFormRefactored() {
   // Fetch customers con useQuery
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
     queryKey: ['customers'],
-    queryFn: getCustomersClient,
+    queryFn: getCustomersForRowForm,
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
@@ -86,7 +86,7 @@ export function DailyReportRowFormRefactored() {
     setSelectedCustomer,
     setIsSectorDisabled,
     setIsAreaDisabled,
-  } = useCustomerData((customers || []) as any, form);
+  } = useCustomerData(customers || [], form);
 
   // 5. Ref para rastrear si ya se inicializó
   const initializedRef = React.useRef(false);
@@ -102,14 +102,16 @@ export function DailyReportRowFormRefactored() {
         const serviceId = selectedRow.data_to_clone?.service_id;
 
         // Extraer IDs de empleados y equipos de las referencias
-        const employeeIds = selectedRow.employees_references?.map((emp: any) => emp.id) || [];
-        const equipmentIds = selectedRow.equipment_references?.map((eq: any) => eq.id) || [];
+        const employeeIds =
+          selectedRow.employees_references?.map((emp) => emp.id).filter((id): id is string => !!id) || [];
+        const equipmentIds =
+          selectedRow.equipment_references?.map((eq) => eq.id).filter((id): id is string => !!id) || [];
         const customerEquipmentIds =
-          selectedRow.customer_equipment?.map((eq: any) => eq.id).filter((id: unknown): id is string => !!id) || [];
+          selectedRow.customer_equipment?.map((eq) => eq.id).filter((id): id is string => !!id) || [];
 
         // Buscar el cliente
         if (customerId && customers.length > 0) {
-          const customer = customers.find((c: any) => c.id === customerId);
+          const customer = customers.find((item) => item.id === customerId);
           if (customer) {
             setSelectedCustomer(customer);
             setSelectedCustomerId(customerId);
@@ -118,8 +120,8 @@ export function DailyReportRowFormRefactored() {
             }
 
             // Habilitar sectores y áreas si existen
-            const hasSectors = customer.customer_services?.some((s: any) => s.service_sectors?.length > 0);
-            const hasAreas = customer.customer_services?.some((s: any) => s.service_areas?.length > 0);
+            const hasSectors = customer.customer_services?.some((service) => service.service_sectors.length > 0);
+            const hasAreas = customer.customer_services?.some((service) => service.service_areas.length > 0);
             setIsSectorDisabled(!hasSectors);
             setIsAreaDisabled(!hasAreas);
           }

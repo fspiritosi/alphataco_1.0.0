@@ -1,115 +1,82 @@
 /**
- * Funciones de formateo para exportación de datos a Excel
- * Estas funciones manejan la conversión de datos complejos (arrays, objetos, JSON strings)
- * a formatos legibles para Excel
+ * Formateo de datos para la exportación a Excel del tablero comercial.
+ *
+ * Los valores llegan del `exportFormatter` de la tabla, que no conoce el tipo de cada
+ * columna: por eso la entrada es `unknown` y cada función se encarga de estrechar.
  */
 
-/**
- * Formatea un array de empleados para exportación
- * Maneja tanto arrays normales como strings JSON
- */
-export function formatEmployeesForExport(value: any): string {
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('Certificacion/export-formatters');
+
+/** Une una lista de textos con coma; vacío → `-`. */
+function joinOrDash(values: unknown[]): string {
+  const texts = values.map((value) => (value == null ? '' : String(value))).filter(Boolean);
+  return texts.length > 0 ? texts.join(', ') : '-';
+}
+
+/** Parsea un JSON sin lanzar. Devuelve `undefined` si no es JSON válido. */
+function tryParseJson(value: string): unknown {
   try {
-    // Si es un string JSON, parsearlo
-    if (typeof value === 'string') {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed.length > 0 ? parsed.join(', ') : '-';
-      }
-      return parsed || '-';
-    }
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
 
-    // Si ya es un array
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(', ') : '-';
-    }
-
+/** Lista de empleados (array de textos o string JSON). */
+export function formatEmployeesForExport(value: unknown): string {
+  if (typeof value === 'string') {
+    const parsed = tryParseJson(value);
+    if (Array.isArray(parsed)) return joinOrDash(parsed);
     return value || '-';
-  } catch (error) {
-    console.error('Error formateando empleados:', error);
+  }
+  if (Array.isArray(value)) return joinOrDash(value);
+  return value == null ? '-' : String(value) || '-';
+}
+
+/** Lista de equipos (array de textos o string JSON). */
+export function formatEquipmentForExport(value: unknown): string {
+  return formatEmployeesForExport(value);
+}
+
+/** Nombre de un equipo del cliente, que puede venir como objeto `{ name }` o como texto. */
+function equipmentName(item: unknown): string {
+  if (item && typeof item === 'object' && 'name' in item) {
+    const name = (item as { name?: unknown }).name;
+    return name == null ? '' : String(name);
+  }
+  return item == null ? '' : String(item);
+}
+
+/** Equipos del cliente: extrae el nombre de cada objeto. */
+export function formatCustomerEquipmentForExport(value: unknown): string {
+  if (typeof value === 'string') {
+    const parsed = tryParseJson(value);
+    if (Array.isArray(parsed)) return joinOrDash(parsed.map(equipmentName));
+    return value || '-';
+  }
+  if (Array.isArray(value)) return joinOrDash(value.map(equipmentName));
+  return value == null ? '-' : String(value) || '-';
+}
+
+/** Fecha en `DD/MM/YYYY`. Si el valor no es una fecha válida se devuelve tal cual. */
+export function formatDateForExport(value: unknown): string {
+  if (value == null || value === '') return '-';
+
+  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) {
+    logger.warn('Valor de fecha no exportable', { data: { value: String(value) } });
     return '-';
   }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-/**
- * Formatea un array de equipos para exportación
- * Maneja tanto arrays normales como strings JSON
- */
-export function formatEquipmentForExport(value: any): string {
-  try {
-    // Si es un string JSON, parsearlo
-    if (typeof value === 'string') {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed.length > 0 ? parsed.join(', ') : '-';
-      }
-      return parsed || '-';
-    }
-
-    // Si ya es un array
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(', ') : '-';
-    }
-
-    return value || '-';
-  } catch (error) {
-    console.error('Error formateando equipos:', error);
-    return '-';
-  }
-}
-
-/**
- * Formatea equipos del cliente para exportación
- * Extrae solo los nombres de los objetos
- */
-export function formatCustomerEquipmentForExport(value: any): string {
-  try {
-    // Si es un string JSON, parsearlo
-    if (typeof value === 'string') {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        const names = parsed.map((eq: any) => eq.name || eq).filter(Boolean);
-        return names.length > 0 ? names.join(', ') : '-';
-      }
-      return parsed || '-';
-    }
-
-    // Si ya es un array de objetos
-    if (Array.isArray(value)) {
-      const names = value.map((eq: any) => eq.name || eq).filter(Boolean);
-      return names.length > 0 ? names.join(', ') : '-';
-    }
-
-    return value || '-';
-  } catch (error) {
-    console.error('Error formateando equipos del cliente:', error);
-    return '-';
-  }
-}
-
-/**
- * Formatea fechas para exportación
- */
-export function formatDateForExport(value: any): string {
-  if (!value) return '-';
-
-  try {
-    const date = new Date(value);
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch (error) {
-    console.error('Error formateando fecha:', error);
-    return value || '-';
-  }
-}
-
-/**
- * Formatea estados para exportación (traduce los valores)
- */
-export function formatStatusForExport(value: any): string {
+/** Estado de la línea traducido. */
+export function formatStatusForExport(value: unknown): string {
   const statusMap: Record<string, string> = {
     pendiente: 'Pendiente',
     sin_recursos_asignados: 'Sin recursos asignados',
@@ -119,29 +86,20 @@ export function formatStatusForExport(value: any): string {
     en_certificacion: 'En certificación',
   };
 
-  return statusMap[value] || value || '-';
+  const key = value == null ? '' : String(value);
+  return statusMap[key] || key || '-';
 }
 
-/**
- * Formatea valores genéricos para exportación
- */
-export function formatGenericValue(value: any): string {
-  if (value === null || value === undefined || value === '') {
-    return '-';
-  }
+/** Cualquier otro valor: array → coma, objeto con `name` → `name`, resto → texto. */
+export function formatGenericValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '-';
+  if (Array.isArray(value)) return joinOrDash(value);
 
-  // Si es un array
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(', ') : '-';
-  }
-
-  // Si es un objeto
   if (typeof value === 'object') {
-    // Intentar extraer la propiedad 'name'
-    if (value.name) {
-      return value.name;
+    if ('name' in value) {
+      const name = (value as { name?: unknown }).name;
+      if (name != null) return String(name);
     }
-    // Si no, convertir a JSON
     return JSON.stringify(value);
   }
 

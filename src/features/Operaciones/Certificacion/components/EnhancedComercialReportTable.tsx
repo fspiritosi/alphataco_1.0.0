@@ -22,14 +22,30 @@ import {
   formatEquipmentForExport,
 } from './export-formatters';
 
-import {
-  transformDailyReports,
-  transformDailyReportsType,
-} from '@/features/Comercial/Comerce/components/DailyReportWrapper';
+import { Logger } from '@/lib/logger';
+import { transformDailyReports, type transformDailyReportsType } from '../lib/transform';
+
+/**
+ * Columna filtrable del toolbar legacy. `type: 'select'` es sólo descriptivo: el toolbar
+ * únicamente distingue `'date-range'`; el resto se resuelve por la presencia de `options`.
+ */
+const logger = new Logger('Certificacion/EnhancedComercialReportTable');
+
+export interface ReportFilterableColumn {
+  columnId: string;
+  title: string;
+  type?: 'date-range' | 'select';
+  options?: { label: string; value: string }[];
+  showFrom?: boolean;
+  showTo?: boolean;
+  fromPlaceholder?: string;
+  toPlaceholder?: string;
+  defaultValues?: { from: Date | null; to: Date | null };
+}
 
 // Tipo extendido para columnas con propiedades adicionales de exportación
 type ExtendedColumnDef<TData> = ColumnDef<TData> & {
-  exportFormatter?: (value: any, row: TData) => string;
+  exportFormatter?: (value: unknown, row: TData) => string;
   excludeFromExport?: boolean;
   exportHeader?: string; // Nombre personalizado para la columna en el Excel
 };
@@ -43,7 +59,7 @@ interface EnhancedComercialReportTableProps {
   onView?: (row: TableRow) => void;
   onViewHistory?: (row: TableRow) => void;
   showActions: boolean;
-  filterableColumns?: any[];
+  filterableColumns?: ReportFilterableColumn[];
   refetchDailyReports?: () => void;
 }
 
@@ -133,7 +149,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
             toDate.setHours(23, 59, 59, 999);
             return rowDate >= fromDate && rowDate <= toDate;
           } catch (error) {
-            console.error('Error al filtrar por fecha:', error);
+            logger.error('Error al filtrar por fecha', { data: { error } });
             return true;
           }
         },
@@ -199,9 +215,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           const equipment = row.original.customer_equipment || [];
           return (
             <div className="flex flex-wrap gap-1">
-              {equipment.map((eq: any, index: number) => (
+              {equipment.map((eq, index) => (
                 <Badge key={index} variant="secondary" className="rounded-sm">
-                  {typeof eq === 'object' && eq !== null && 'name' in eq ? eq.name : String(eq)}
+                  {eq.name}
                 </Badge>
               ))}
             </div>
@@ -210,9 +226,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const equipment = row.original.customer_equipment || [];
-          const equipmentNames = equipment.map((eq: any) =>
-            typeof eq === 'object' && eq !== null && 'name' in eq ? eq.name : String(eq)
-          );
+          const equipmentNames = equipment.map((eq) => eq.name);
           return equipmentNames.some((eqName) => value.includes(eqName));
         },
         exportFormatter: (value, row) => formatCustomerEquipmentForExport(row.customer_equipment),
@@ -526,7 +540,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <ServiceDetailModal reportDate={row.original.date} serviceData={row.original as any} />
+                      <ServiceDetailModal reportDate={row.original.date} serviceData={row.original} />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Ver detalles</p>
@@ -619,7 +633,10 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
               setSelectedRows(rows);
             }}
             toolbarOptions={{
-              filterableColumns: filterableColumns as any,
+              filterableColumns: filterableColumns?.map((column) => ({
+                ...column,
+                type: column.type === 'date-range' ? ('date-range' as const) : undefined,
+              })),
               searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
               initialVisibleFilters: ['customer', 'services', 'item'],
               showFilterOptions: true,

@@ -6,19 +6,32 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { Building, Check, ChevronsUpDown, X } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
+import type { DailyReportRowFormValues } from '../form-types';
 
-import type { GetCustomersClientType } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+import type { CustomerForRowForm } from '@/features/Operaciones/PartesDiarios/actions/comercial-rows.server';
+
+type CustomerServiceForForm = CustomerForRowForm['customer_services'][number];
+type ServiceItemForForm = CustomerServiceForForm['service_items'][number];
 
 type CustomerDataSectionProps = {
-  form: UseFormReturn<any>;
-  customers: GetCustomersClientType[];
+  form: UseFormReturn<DailyReportRowFormValues>;
+  customers: CustomerForRowForm[];
   isCreating: boolean;
-  selectedRow: any;
+  /** Fila en edición: sólo se leen los nombres ya resueltos para mostrarlos como valor inicial. */
+  selectedRow: {
+    id?: string;
+    status?: string | null;
+    customer?: string | null;
+    services?: string | null;
+    item?: string | null;
+    sector?: string | null;
+    area?: string | null;
+  } | null;
   selectedCustomerId: string | null;
   selectedServiceId: string | null;
-  selectedCustomer: GetCustomersClientType | null;
-  customerServices: any[];
-  serviceItems: any[];
+  selectedCustomer: CustomerForRowForm | null;
+  customerServices: CustomerServiceForForm[];
+  serviceItems: ServiceItemForForm[];
   isSectorDisabled: boolean;
   isAreaDisabled: boolean;
   handleCustomerChange: (id: string) => void;
@@ -47,15 +60,15 @@ export function CustomerDataSection({
     new Set(
       selectedCustomer?.customer_services
         ?.flatMap((service) => service.service_sectors || [])
-        .filter((sector: any) => sector.sectors && sector.service_id === selectedServiceId)
-        .map((sector: any) => ({ sector_id: sector.sectors?.id, id: sector.id }))
+        .filter((sector) => sector.sectors && sector.service_id === selectedServiceId)
+        .map((sector) => ({ sector_id: sector.sectors?.id, id: sector.id }))
     )
-  ).map((data: any) => ({
+  ).map((data) => ({
     id: data.id,
     name:
       selectedCustomer?.customer_services
         ?.flatMap((service) => service.service_sectors || [])
-        .find((sector: any) => sector.sectors?.id === data.sector_id)?.sectors?.name || '',
+        .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.name || '',
   }));
 
   // Filtrar áreas del cliente seleccionado
@@ -63,15 +76,15 @@ export function CustomerDataSection({
     new Set(
       selectedCustomer?.customer_services
         ?.flatMap((service) => service.service_areas || [])
-        .filter((area: any) => area.areas_cliente && area.service_id === selectedServiceId)
-        .map((area: any) => ({ id: area.id, area_id: area.areas_cliente?.id }))
+        .filter((area) => area.areas_cliente && area.service_id === selectedServiceId)
+        .map((area) => ({ id: area.id, area_id: area.areas_cliente?.id }))
     )
-  ).map((data: any) => ({
+  ).map((data) => ({
     id: data.id,
     name:
       selectedCustomer?.customer_services
         ?.flatMap((service) => service.service_areas || [])
-        .find((area: any) => area.areas_cliente?.id === data.area_id)?.areas_cliente?.nombre || '',
+        .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente?.nombre || '',
   }));
 
   return (
@@ -433,7 +446,7 @@ export function CustomerDataSection({
                       <CommandList>
                         <CommandEmpty>No hay equipos disponibles.</CommandEmpty>
                         <CommandGroup>
-                          {customerEquipments.map((equipment: any) => {
+                          {customerEquipments.map((equipment) => {
                             const isSelected = selectedCustomerEquipment.includes(equipment.id);
                             return (
                               <CommandItem
@@ -461,7 +474,7 @@ export function CustomerDataSection({
                 {selectedCustomerEquipment.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {selectedCustomerEquipment.map((eqId: string) => {
-                      const eq = customerEquipments.find((e: any) => e.id === eqId);
+                      const eq = customerEquipments.find((item) => item.id === eqId);
                       return (
                         <Badge key={eqId} variant="secondary" className="gap-1">
                           {eq?.name}

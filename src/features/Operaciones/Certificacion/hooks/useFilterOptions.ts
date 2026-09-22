@@ -8,7 +8,7 @@ import {
   getFilterItems,
   getFilterSectors,
   getFilterServices,
-} from '../actions/actions';
+} from '../actions/catalogs.server';
 
 export function useFilterOptions() {
   // Fetch customers

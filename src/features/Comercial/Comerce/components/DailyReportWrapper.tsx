@@ -6,13 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
-import {
-  getFilteredDailyReportRows,
-  getFilteredDailyReportRowsType,
-  getServicesByCustomer,
-  type Service,
-} from '@/features/Operaciones/Certificacion/actions/actions';
-import { getCustomers } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { getFilteredDailyReportRows } from '@/features/Operaciones/Certificacion/actions/queries.server';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
 import { useDailyReportFormStore } from '@/shared/store/useDailyReportFormStore';
@@ -23,6 +17,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { DailyReportRowFormRefactored } from '@/features/Operaciones/Certificacion/components/DailyReportRowFormRefactored';
 import EnhancedComercialReportTable from '@/features/Operaciones/Certificacion/components/EnhancedComercialReportTable';
 import { useFilterOptions } from '@/features/Operaciones/Certificacion/hooks/useFilterOptions';
+import type { ReportFilterableColumn } from '@/features/Operaciones/Certificacion/components/EnhancedComercialReportTable';
+import { transformDailyReports, type transformDailyReportsType } from '@/features/Operaciones/Certificacion/lib/transform';
 
 interface ReportFilters {
   customer?: string[];
@@ -37,6 +33,12 @@ interface ReportFilters {
   dateFrom?: Date | null;
   dateTo?: Date | null;
 }
+
+/** Filtros ya normalizados que viajan a la server action. */
+type ReportSearchFilters = Parameters<typeof getFilteredDailyReportRows>[0];
+
+/** Fila de la tabla comercial, tal como la deja `transformDailyReports`. */
+type TableRow = transformDailyReportsType[number];
 
 interface FilterOption {
   id: string;
@@ -62,95 +64,6 @@ interface FilterOptions {
   sectors: FilterOption[];
 }
 
-export const transformDailyReports = (reports: getFilteredDailyReportRowsType) => {
-  return reports
-    ?.map((row) => ({
-      id: row.id,
-      date: row.date,
-      dailyReportStatus: row.dailyreport?.status || 'cerrado', // Acceder a dailyreport desde el objeto original
-      created_at: row.created_at, // Agregar created_at para detectar filas post-cierre
-      type_service: row.type_service,
-      preparte: row.preparte,
-      last_comercial_edit_at: row.last_comercial_edit_at,
-      customer: row.customer || row.customers?.name,
-      cancel_reason: row.cancel_reason,
-      employees:
-        row.employees ||
-        row.dailyreportemployeerelations?.map((rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname) ||
-        [],
-      equipment:
-        row.company_equipment ||
-        row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) ||
-        [],
-      customer_equipment:
-        row.dailyreport_customer_equipment_relations?.map((rel) => {
-          return {
-            name: rel.equipos_clientes?.name,
-            type: rel.equipos_clientes?.type,
-            id: rel.equipos_clientes?.id,
-            relacion_id: rel.id,
-          };
-        }) ||
-        row.customer_equipment ||
-        [],
-      services: row.services || row.customer_services?.service_name,
-      item: row.item || row.service_items?.item_name,
-      item_description: row.service_items?.item_description || '',
-      start_time: row.start_time,
-      end_time: row.end_time,
-      status: row.status,
-      working_day: row.working_day,
-      sector_customer_id: row.service_sectors?.id,
-      sector: row.sector || row.service_sectors?.sectors?.name,
-      completed_night: row.completed_night as boolean,
-      completed_day: row.completed_day as boolean,
-      areas_customer_id: row.service_areas?.id,
-      area: row.area || row.service_areas?.areas_cliente?.descripcion_corta,
-      description: row.description || '',
-      document_path: row.document_path,
-      remit_number: row.remit_number || '', // Ya viene procesado con múltiples remitos separados por coma
-      remit_numbers: row.remit_numbers || [], // Array con todos los números de remito
-      remitos: row.remitos || [], // Array completo de objetos remito
-      employees_references:
-        row.employees_references ||
-        row.dailyreportemployeerelations?.map((rel) => ({
-          ...rel.employees,
-          name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
-          id: rel.employees?.id,
-        })) ||
-        [],
-      equipment_references:
-        row.equipment_references ||
-        row.dailyreportequipmentrelations?.map((rel) => ({
-          ...rel.vehicles,
-          name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-          id: rel.vehicles?.id,
-          brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-        })) ||
-        [],
-      data_to_clone: {
-        customer_id: row.customers?.id,
-        service_id: row.customer_services?.id,
-        item_id: row.service_items?.id,
-        working_day: row.working_day,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        description: row.description,
-        type_service: row.type_service,
-        areas_service_id: row.areas_service_id,
-        sector_service_id: row.sector_service_id,
-      },
-    }))
-    .sort((a, b) => {
-      // Ordenar por fecha descendente (más recientes primero)
-      // Formato de fecha: DD-MM-YYYY
-      const dateA = moment(a.date, 'DD-MM-YYYY');
-      const dateB = moment(b.date, 'DD-MM-YYYY');
-      return dateB.valueOf() - dateA.valueOf();
-    });
-};
-
-export type transformDailyReportsType = ReturnType<typeof transformDailyReports>;
 
 export default function DailyReportWrapper() {
   const [filters, setFilters] = useState<ReportFilters>({
@@ -168,7 +81,7 @@ export default function DailyReportWrapper() {
   });
 
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchFilters, setSearchFilters] = useState<any>(null);
+  const [searchFilters, setSearchFilters] = useState<ReportSearchFilters | null>(null);
 
   // Usar el hook de filtros con useQuery
   const filterOptions = useFilterOptions();
@@ -194,7 +107,7 @@ export default function DailyReportWrapper() {
   const { openForCreate, openForEdit } = useDailyReportFormStore();
 
   const handleEditRow = useCallback(
-    (row: any) => {
+    (row: TableRow) => {
       openForEdit(row);
     },
     [openForEdit]
@@ -209,7 +122,7 @@ export default function DailyReportWrapper() {
 
     setHasSearched(true);
 
-    const cleanFilters: any = {};
+    const cleanFilters: ReportSearchFilters = {};
 
     // Ahora pasamos los arrays directamente al servidor
     if (filters.customer?.length) cleanFilters.customer = filters.customer;
@@ -243,12 +156,12 @@ export default function DailyReportWrapper() {
     await refetchTableData();
   }, [refetchTableData]);
 
-  const handleViewRow = useCallback((row: any) => {
-    alert(`Viendo detalles de: ${row.customer} - ${row.services}`);
+  const handleViewRow = useCallback((row: TableRow) => {
+    toast({ title: 'Detalle del servicio', description: `${row.customer} - ${row.services}` });
   }, []);
 
-  const handleViewHistory = useCallback((row: any) => {
-    alert(`Viendo historial de: ${row.customer} - ${row.services}`);
+  const handleViewHistory = useCallback((row: TableRow) => {
+    toast({ title: 'Historial del servicio', description: `${row.customer} - ${row.services}` });
   }, []);
 
   // Ya no necesitamos este useEffect, los datos se cargan automáticamente con useQuery
@@ -257,7 +170,7 @@ export default function DailyReportWrapper() {
     setFilters((prev) => ({ ...prev, [key]: values }));
   }, []);
 
-  const handleCustomerChange = useCallback(async (values: string[]) => {
+  const handleCustomerChange = useCallback((values: string[]) => {
     setFilters((prev) => ({
       ...prev,
       customer: values,
@@ -268,59 +181,9 @@ export default function DailyReportWrapper() {
       sectors: [],
     }));
 
-    if (values.length > 0) {
-      try {
-        const allCustomers = await getCustomers();
-        const selectedCustomers = allCustomers?.filter((c) => values.includes(c.id));
-
-        const services: Service[] = [];
-        const equipmentOptions: FilterOption[] = [];
-        const areasMap = new Map();
-        const sectorsMap = new Map();
-
-        for (const customer of selectedCustomers as any) {
-          const customerServices = await getServicesByCustomer(customer.id);
-          services.push(...(customerServices as any));
-
-          (customer?.equipos_clientes || []).forEach((eq: any) => {
-            equipmentOptions.push({
-              id: eq.id,
-              name: eq.name,
-            });
-          });
-
-          (customer?.customer_services || []).forEach((service: any) => {
-            (service.service_areas || []).forEach((sa: any) => {
-              if (sa.areas_cliente) {
-                areasMap.set(sa.areas_cliente.id, {
-                  id: sa.areas_cliente.id,
-                  name: sa.areas_cliente.nombre || sa.areas_cliente.nombre || 'Sin nombre',
-                });
-              }
-            });
-            (service.service_sectors || []).forEach((ss: any) => {
-              if (ss.sectors) {
-                sectorsMap.set(ss.sectors.id, {
-                  id: ss.sectors.id,
-                  name: ss.sectors.name || 'Sin nombre',
-                });
-              }
-            });
-          });
-        }
-
-        // Los datos ya están en el hook, no necesitamos setFilterOptions
-        // El filtrado se hará en los useMemo de las opciones
-      } catch (error) {
-        console.error('Error loading customer data:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'No se pudieron cargar los datos del cliente',
-        });
-      }
-    } else {
-      // Refetch de todas las opciones
+    // Sin clientes seleccionados se vuelven a pedir todas las opciones; con clientes,
+    // el filtrado lo resuelven los useMemo de las opciones sobre los datos del hook.
+    if (values.length === 0) {
       filterOptions.refetch.customers();
       filterOptions.refetch.services();
       filterOptions.refetch.equipment();
@@ -329,6 +192,7 @@ export default function DailyReportWrapper() {
       filterOptions.refetch.areas();
       filterOptions.refetch.sectors();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleServiceChange = useCallback((values: string[]) => {
@@ -381,7 +245,7 @@ export default function DailyReportWrapper() {
 
   const customerOptions = useMemo(
     () =>
-      filterOptions.customers.map((customer: any) => ({
+      filterOptions.customers.map((customer) => ({
         label: customer.name,
         value: customer.id,
         cuit: customer.cuit,
@@ -391,7 +255,7 @@ export default function DailyReportWrapper() {
 
   const serviceOptions = useMemo(
     () =>
-      filterOptions.services.map((service: any) => ({
+      filterOptions.services.map((service) => ({
         label: service.name,
         value: service.id,
       })),
@@ -412,7 +276,7 @@ export default function DailyReportWrapper() {
 
   const employeeOptions = useMemo(
     () =>
-      filterOptions.employees.map((employee: any) => ({
+      filterOptions.employees.map((employee) => ({
         label: employee.name,
         value: employee.id,
       })),
@@ -421,7 +285,7 @@ export default function DailyReportWrapper() {
 
   const equipmentOptions = useMemo(
     () =>
-      filterOptions.equipment.map((eq: any) => ({
+      filterOptions.equipment.map((eq) => ({
         label: eq.name,
         value: eq.id,
       })),
@@ -430,7 +294,7 @@ export default function DailyReportWrapper() {
 
   const memoizedCustomerEquipmentOptions = useMemo(
     () =>
-      filterOptions.customerEquipments.map((eq: any) => ({
+      filterOptions.customerEquipments.map((eq) => ({
         label: eq.name,
         value: eq.id,
       })),
@@ -439,7 +303,7 @@ export default function DailyReportWrapper() {
 
   const memoizedAreaOptions = useMemo(
     () =>
-      filterOptions.areas.map((area: any) => ({
+      filterOptions.areas.map((area) => ({
         label: area.name,
         value: area.id,
       })),
@@ -448,7 +312,7 @@ export default function DailyReportWrapper() {
 
   const memoizedSectorOptions = useMemo(
     () =>
-      filterOptions.sectors.map((sector: any) => ({
+      filterOptions.sectors.map((sector) => ({
         label: sector.name,
         value: sector.id,
       })),
@@ -459,8 +323,8 @@ export default function DailyReportWrapper() {
     const allItems = filterOptions.items;
     const selectedServices = filters.service || [];
     if (!selectedServices.length) return [] as { label: string; value: string }[];
-    const filtered = allItems.filter((it: any) => selectedServices.includes(it.customer_service_id));
-    return filtered.map((it: any) => ({ label: it.name, value: it.id }));
+    const filtered = allItems.filter((it) => selectedServices.includes(it.customer_service_id));
+    return filtered.map((it) => ({ label: it.name, value: it.id }));
   }, [filterOptions.items, filters.service]);
 
   // Memoizar los datos transformados para evitar re-renders innecesarios
@@ -468,7 +332,14 @@ export default function DailyReportWrapper() {
     return transformDailyReports(rawTableData);
   }, [rawTableData]);
 
-  const filterableColumns = useMemo(() => {
+  /** Valores únicos no vacíos, listos para usar como opciones del filtro. */
+  const toOptions = (values: (string | null | undefined)[]) =>
+    Array.from(new Set(values.filter((value): value is string => Boolean(value)))).map((value) => ({
+      value,
+      label: value,
+    }));
+
+  const filterableColumns = useMemo<ReportFilterableColumn[]>(() => {
     // Si no hay datos, no se crean filtros
     if (!formattedData.length) return [];
 
@@ -487,93 +358,67 @@ export default function DailyReportWrapper() {
         columnId: 'customer',
         title: 'Cliente',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.customer).filter(Boolean))).map((customer) => ({
-          value: customer,
-          label: customer,
-        })),
+        options: toOptions(formattedData.map((d) => d.customer)),
       },
       {
         columnId: 'services',
         title: 'Servicio',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.services).filter(Boolean))).map((service) => ({
-          value: service,
-          label: service,
-        })),
+        options: toOptions(formattedData.map((d) => d.services)),
       },
       {
         columnId: 'item',
         title: 'Ítem',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.item).filter(Boolean))).map((item) => ({
-          value: item,
-          label: item,
-        })),
+        options: toOptions(formattedData.map((d) => d.item)),
       },
       {
         columnId: 'type_service',
         title: 'Tipo de Servicio',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.type_service).filter(Boolean))).map((type) => ({
-          value: type,
-          label: type,
-        })),
+        options: toOptions(formattedData.map((d) => d.type_service)),
       },
       {
         columnId: 'status',
         title: 'Estado',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.status).filter(Boolean))).map((status) => ({
-          value: status,
-          label: status.replace(/_/g, ' '),
+        options: toOptions(formattedData.map((d) => d.status)).map((option) => ({
+          ...option,
+          label: option.label.replace(/_/g, ' '),
         })),
       },
       {
         columnId: 'employees',
         title: 'Empleados',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.flatMap((d) => d.employees).filter(Boolean))).map((employee) => ({
-          value: employee,
-          label: employee,
-        })),
+        options: toOptions(formattedData.flatMap((d) => d.employees)),
       },
       {
         columnId: 'equipment',
         title: 'Equipo Empresa',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.flatMap((d) => d.equipment).filter(Boolean))).map((eq) => ({
-          value: eq,
-          label: eq,
-        })),
+        options: toOptions(formattedData.flatMap((d) => d.equipment)),
       },
       {
         columnId: 'customer_equipment',
         title: 'Equipo Cliente',
         type: 'select' as const,
-        options: Array.from(
-          new Set(formattedData.flatMap((d) => d.customer_equipment.map((eq: any) => eq.name)).filter(Boolean))
-        ).map((eq) => ({
-          value: eq,
-          label: eq,
+        options: toOptions(formattedData.flatMap((d) => d.customer_equipment.map((eq) => eq.name))).map((option) => ({
+          value: option.value,
+          label: option.label,
         })),
       },
       {
         columnId: 'area',
         title: 'Área',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.area).filter(Boolean))).map((area) => ({
-          value: area,
-          label: area,
-        })),
+        options: toOptions(formattedData.map((d) => d.area)),
       },
       {
         columnId: 'sector',
         title: 'Sector',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.sector).filter(Boolean))).map((sector) => ({
-          value: sector,
-          label: sector,
-        })),
+        options: toOptions(formattedData.map((d) => d.sector)),
       },
       {
         columnId: 'remit_number',
@@ -607,10 +452,7 @@ export default function DailyReportWrapper() {
         columnId: 'working_day',
         title: 'Jornada',
         type: 'select' as const,
-        options: Array.from(new Set(formattedData.map((d) => d.working_day).filter(Boolean))).map((day) => ({
-          value: day,
-          label: day,
-        })),
+        options: toOptions(formattedData.map((d) => d.working_day)),
       },
     ];
   }, [formattedData]);
@@ -833,7 +675,7 @@ export default function DailyReportWrapper() {
                 onView={handleViewRow}
                 onViewHistory={handleViewHistory}
                 showActions={true}
-                filterableColumns={filterableColumns as any}
+                filterableColumns={filterableColumns}
                 refetchDailyReports={refetchDailyReport}
               />
             ) : (
