@@ -4,7 +4,9 @@ import type { Prisma, state } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getSessionUserId } from '@/shared/lib/session';
+import { assertCompanyAccess, getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('shared/documents');
 
@@ -35,7 +37,9 @@ type Client = Prisma.TransactionClient | typeof prisma;
  *   (multirecurso: se actualizan las que existen y se crean las que faltan).
  * - no obligatorio: se crean filas nuevas con `state = 'presentado'`.
  *
- * Corre dentro de `withActor` (si hay sesión) por los triggers de `documents_*`.
+ * Antes de escribir verifica que TODOS los recursos (`applies`) pertenezcan a la empresa
+ * activa; si alguno no, lanza sin escribir. Corre dentro de `withActor` (si hay sesión) por
+ * los triggers de `documents_*`.
  */
 export const uploadDocument = async (
   dataToUpdate: UploadDocumentInput,
@@ -47,6 +51,18 @@ export const uploadDocument = async (
     dataToUpdate;
   const ids = Array.isArray(applies) ? applies : [applies];
   const targets = multipleResources ? ids : [ids[0]];
+
+  const companyId = await getActiveCompanyId();
+  const owned =
+    tableName === 'documents_employees'
+      ? await prisma.employees.count({ where: withCompany({ id: { in: targets } }, companyId) })
+      : await prisma.vehicles.count({ where: withCompany({ id: { in: targets } }, companyId) });
+  if (owned !== new Set(targets).size) {
+    logger.warn('Intento de subir documento a recursos de otra empresa', {
+      data: { tableName, companyId, targets: targets.length, owned },
+    });
+    throw new Error('Alguno de los recursos no pertenece a la empresa activa');
+  }
 
   // `user_id` es uuid nullable: un '' rompe en Postgres, así que sólo se manda si viene.
   const common = {
@@ -131,12 +147,19 @@ export const getAllDocumentsByIdDocumentTypeCientSide = async (
   tableName: DocumentTableName = 'documents_employees'
 ): Promise<{ applies: string | null }[]> => {
   if (!company_id) return [];
+  await assertCompanyAccess(company_id);
   try {
     const where = { id_document_types: selectedValue, document_path: { not: null }, archived_at: null };
     if (tableName === 'documents_employees') {
-      return await prisma.documents_employees.findMany({ where, select: { applies: true } });
+      return await prisma.documents_employees.findMany({
+        where: { ...where, employees: { company_id } },
+        select: { applies: true },
+      });
     }
-    return await prisma.documents_equipment.findMany({ where, select: { applies: true } });
+    return await prisma.documents_equipment.findMany({
+      where: { ...where, vehicles: { company_id } },
+      select: { applies: true },
+    });
   } catch (error) {
     logger.error('Error al obtener documentos por tipo de documento', { data: { error, tableName } });
     return [];

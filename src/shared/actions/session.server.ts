@@ -3,12 +3,17 @@
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { getSessionUser } from '@/shared/lib/session';
+import { getSessionUser, getSessionUserId } from '@/shared/lib/session';
+import { assertCompanyAccess, getActiveCompanyId } from '@/shared/lib/tenant';
 import type { EmployeeDocumentInput, EquipmentDocumentInput } from '@/shared/store/lib/document-buckets';
 
 /**
  * Datos que consume el store `useLoggedUserStore` (antes los pedía con PostgREST y realtime
  * desde el navegador). El store sólo guarda estado; todo lo que toca la base vive acá.
+ *
+ * Sin RLS cada export es un endpoint público: todo `companyId` que llega del cliente pasa por
+ * `assertCompanyAccess`, el profile sale siempre de la sesión y las lecturas por id de recurso
+ * se acotan a la empresa activa.
  */
 const logger = new Logger('shared/session-store');
 
@@ -50,11 +55,18 @@ function toStoreCompany({ profile, cities, provinces, share_company_users, city,
 export type StoreCompany = ReturnType<typeof toStoreCompany>;
 
 /**
- * Empresas propias (`owner_id = profileId`) y compartidas (`share_company_users.profile_id`)
- * de un profile, para la selección de empresa activa del store.
+ * Empresas propias (`owner_id`) y compartidas (`share_company_users`) del profile de sesión,
+ * para la selección de empresa activa del store. El profile se resuelve desde la sesión
+ * (nunca del cliente).
  */
-export async function getStoreCompanies(profileId: string) {
+export async function getStoreCompanies() {
   try {
+    const credentialId = await getSessionUserId();
+    if (!credentialId) return { allCompanies: [], sharedCompanies: [] };
+    const profile = await prisma.profile.findUnique({ where: { credential_id: credentialId }, select: { id: true } });
+    if (!profile) return { allCompanies: [], sharedCompanies: [] };
+    const profileId = profile.id;
+
     const [owned, shared] = await Promise.all([
       prisma.company.findMany({ where: { owner_id: profileId }, include: companyForStoreInclude }),
       prisma.share_company_users.findMany({
@@ -69,7 +81,7 @@ export async function getStoreCompanies(profileId: string) {
       ),
     };
   } catch (error) {
-    logger.error('Error al obtener empresas para el store', { data: { error, profileId } });
+    logger.error('Error al obtener empresas para el store', { data: { error } });
     return { allCompanies: [], sharedCompanies: [] };
   }
 }
@@ -89,6 +101,7 @@ const documentTypeSelect = {
 
 /** Documentos de empleados, equipos y empresa de una compañía, en el shape de `document-buckets`. */
 export async function getStoreDocuments(companyId: string) {
+  await assertCompanyAccess(companyId);
   try {
     const [employees, vehicles, company] = await Promise.all([
       prisma.documents_employees.findMany({
@@ -174,6 +187,7 @@ export type StoreCompanyDocument = Awaited<ReturnType<typeof getStoreDocuments>>
 
 /** Empleados de la compañía con las relaciones que usa `employeesToShow`. */
 export async function getStoreEmployees(companyId: string) {
+  await assertCompanyAccess(companyId);
   try {
     return await prisma.employees.findMany({
       where: withCompany({}, companyId),
@@ -201,6 +215,7 @@ export type StoreEmployee = Awaited<ReturnType<typeof getStoreEmployees>>[number
 
 /** Equipos de la compañía con tipo, marca y modelo resueltos. */
 export async function getStoreVehicles(companyId: string) {
+  await assertCompanyAccess(companyId);
   try {
     const rows = await prisma.vehicles.findMany({
       where: withCompany({}, companyId),
@@ -221,6 +236,7 @@ export type StoreVehicle = Awaited<ReturnType<typeof getStoreVehicles>>[number];
 
 /** Usuarios compartidos de la compañía (shape legacy: `profile_id` y `customer_id` expandidos). */
 export async function getStoreSharedUsers(companyId: string) {
+  await assertCompanyAccess(companyId);
   try {
     const rows = await prisma.share_company_users.findMany({
       where: withCompany({}, companyId),
@@ -250,11 +266,12 @@ export async function getStoreSharedUsers(companyId: string) {
 
 export type StoreSharedUser = Awaited<ReturnType<typeof getStoreSharedUsers>>[number];
 
-/** Documentos de un empleado por número de documento (drawer de `SimpleDocument`). */
+/** Documentos de un empleado (de la empresa activa) por número de documento (drawer de `SimpleDocument`). */
 export async function getEmployeeDocumentsByDocumentNumber(documentNumber: string) {
   try {
+    const companyId = await getActiveCompanyId();
     return await prisma.documents_employees.findMany({
-      where: { employees: { document_number: documentNumber } },
+      where: { employees: { document_number: documentNumber, company_id: companyId } },
       include: { employees: true, document_types: true },
     });
   } catch (error) {
@@ -263,11 +280,12 @@ export async function getEmployeeDocumentsByDocumentNumber(documentNumber: strin
   }
 }
 
-/** Documentos de un equipo por id (drawer de `SimpleDocument`). */
+/** Documentos de un equipo (de la empresa activa) por id (drawer de `SimpleDocument`). */
 export async function getVehicleDocumentsByVehicleId(vehicleId: string) {
   try {
+    const companyId = await getActiveCompanyId();
     return await prisma.documents_equipment.findMany({
-      where: { applies: vehicleId },
+      where: { applies: vehicleId, vehicles: { company_id: companyId } },
       include: {
         document_types: true,
         vehicles: {

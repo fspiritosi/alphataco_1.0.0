@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('shared/company');
@@ -57,13 +58,18 @@ export const fetchCurrentCompany = async () => {
   }
 };
 
-/** Empresas propias (`owner_id`) y compartidas (`share_company_users`) de un profile. */
-export const fetchUserCompanies = async (userId: string) => {
-  if (!userId) {
+/** Empresas propias (`owner_id`) y compartidas (`share_company_users`) del profile de sesión. */
+export const fetchUserCompanies = async () => {
+  const credentialId = await getSessionUserId();
+  if (!credentialId) {
     return { sharedCompanies: [], allCompanies: [] };
   }
 
   try {
+    const profile = await prisma.profile.findUnique({ where: { credential_id: credentialId }, select: { id: true } });
+    if (!profile) return { sharedCompanies: [], allCompanies: [] };
+    const userId = profile.id;
+
     const [shared, owned] = await Promise.all([
       prisma.share_company_users.findMany({
         where: { profile_id: userId },
@@ -77,7 +83,7 @@ export const fetchUserCompanies = async (userId: string) => {
       allCompanies: owned.map(toCompanyRow),
     };
   } catch (error) {
-    logger.error('Error fetching user companies', { data: { error, userId } });
+    logger.error('Error fetching user companies', { data: { error } });
     return { sharedCompanies: [], allCompanies: [] };
   }
 };

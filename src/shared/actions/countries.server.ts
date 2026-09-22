@@ -3,7 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { getActiveCompanyId, NoActiveCompanyError } from '@/shared/lib/tenant';
+import { assertCompanyAccess, getActiveCompanyId, NoActiveCompanyError } from '@/shared/lib/tenant';
 
 /** Catálogos que consume el store `useCountriesStore` (antes PostgREST + realtime desde el navegador). */
 const logger = new Logger('shared/catalogs');
@@ -38,14 +38,18 @@ export async function getCitiesByProvince(provinceId: number) {
   return rows.map((c) => ({ ...c, id: Number(c.id), province_id: Number(c.province_id) }));
 }
 
-/** Puestos jerárquicos (catálogo global, sin `company_id`). */
+/** Puestos jerárquicos de la empresa activa (`hierarchy.company_id` NOT NULL). */
 export async function getHierarchyPositions() {
-  return prisma.hierarchy.findMany({ orderBy: { name: 'asc' } });
+  const companyId = await activeCompanyOrNull();
+  if (!companyId) return [];
+  return prisma.hierarchy.findMany({ where: withCompany({}, companyId), orderBy: { name: 'asc' } });
 }
 
-/** Diagramas de trabajo (catálogo global, sin `company_id`). */
+/** Diagramas de trabajo de la empresa activa (`work_diagram.company_id` NOT NULL). */
 export async function getWorkDiagrams() {
-  return prisma.work_diagram.findMany({ orderBy: { name: 'asc' } });
+  const companyId = await activeCompanyOrNull();
+  if (!companyId) return [];
+  return prisma.work_diagram.findMany({ where: withCompany({}, companyId), orderBy: { name: 'asc' } });
 }
 
 /** Clientes (contratistas) de la empresa activa. */
@@ -83,6 +87,7 @@ export async function getContacts() {
 
 /** Tipos de documento activos aplicables a una empresa: globales (`company_id IS NULL`) + propios. */
 export async function getCompanyDocumentTypes(companyId?: string) {
+  if (companyId) await assertCompanyAccess(companyId);
   const resolved = companyId || (await activeCompanyOrNull());
   if (!resolved) return [];
   try {

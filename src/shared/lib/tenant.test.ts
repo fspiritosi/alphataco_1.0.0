@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/headers', () => ({ cookies: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ supabaseServer: vi.fn() })); // P4: auth
+vi.mock('@/shared/lib/prisma', () => ({ prisma: {} }));
 
 import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { cookies } from 'next/headers';

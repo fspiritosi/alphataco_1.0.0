@@ -265,8 +265,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
   };
 
   /** Selección de empresa activa: la guardada en localStorage, la por defecto, la única o la primera compartida. */
-  const selectCompany = async (profileId: string) => {
-    const { allCompanies, sharedCompanies } = await getStoreCompanies(profileId);
+  const selectCompany = async () => {
+    const { allCompanies, sharedCompanies } = await getStoreCompanies();
     set({ allCompanies, sharedCompanies });
 
     const savedCompany = typeof window !== 'undefined' ? window.localStorage.getItem('company_id') : null;
@@ -307,8 +307,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
       profile: bootstrap.profile,
       codeControlRole: bootstrap.profile[0]?.role ?? undefined,
     });
-    const profileId = bootstrap.profile[0]?.id;
-    if (profileId) await selectCompany(profileId);
+    if (bootstrap.profile[0]?.id) await selectCompany();
   };
 
   return {
