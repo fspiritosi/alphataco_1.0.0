@@ -624,7 +624,10 @@ export const PERMISSIONS = {
           equipments_with_deviations: {
             slug: 'equipments_with_deviations',
             name: 'Equipos con Desvíos',
-            tabId: '60000000-0000-0000-0000-000000000015',
+            // UUID propio: antes compartía '...015' con mantenimiento/equipments_with_deviations
+            // (mismo id de tab en dos módulos distintos). El seed hacía upsert por `id`, así que
+            // la última fila en pisar ganaba (mantenimiento) y esta entrada quedaba sin fila en BD.
+            tabId: '60000000-0000-0000-0000-000000000019',
             parent: 'type_of_repairs',
             allowedActions: ['view'],
           },
