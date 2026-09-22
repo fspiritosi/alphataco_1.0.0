@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { deleteDailyReportRowPrisma } from '../actions.server';
+import { deleteDailyReportRowPrisma } from '../mutations.server';
 import type { DailyReportDetailRow } from '../types';
 
 // ============================================================================

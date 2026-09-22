@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import type { EmployeeForForm } from '../../actions.server';
+import type { EmployeeForForm } from '../../form-data.server';
 import type { DailyReportRowFormValues } from './schema';
 
 interface EmployeeSectionProps {

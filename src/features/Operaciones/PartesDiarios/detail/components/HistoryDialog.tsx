@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
-import { getDailyReportRowHistory } from '../actions.server';
+import { getDailyReportRowHistory } from '../history.server';
 import type { DailyReportHistoryEntry } from '../types';
 
 // ============================================================================

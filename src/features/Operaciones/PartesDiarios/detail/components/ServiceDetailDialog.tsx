@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Building2, ExternalLink, FileText, Mail, Phone, User, Wrench } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { getDailyReportRowDetail } from '../actions.server';
+import { getDailyReportRowDetail } from '../form-data.server';
 
 // ============================================================================
 // PROPS

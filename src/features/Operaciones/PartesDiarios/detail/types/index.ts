@@ -3,12 +3,9 @@
  * NO definir tipos manualmente — siempre usar Awaited<ReturnType<typeof fn>>.
  */
 
-import type {
-  getDailyReportDetailForExport,
-  getDailyReportDetailPaginated,
-  getDailyReportHeader,
-  getDailyReportRowHistory,
-} from '../actions.server';
+import type { getDailyReportDetailForExport } from '../export.server';
+import type { getDailyReportRowHistory } from '../history.server';
+import type { getDailyReportDetailPaginated, getDailyReportHeader } from '../queries.server';
 
 /** Datos de la cabecera del parte diario */
 export type DailyReportHeaderData = Awaited<ReturnType<typeof getDailyReportHeader>>;

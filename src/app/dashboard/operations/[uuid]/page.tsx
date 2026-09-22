@@ -1,6 +1,6 @@
 import { DailyReportDetailTable } from '@/features/Operaciones/PartesDiarios/detail/DailyReportDetailTable';
 import { DailyReportHeader } from '@/features/Operaciones/PartesDiarios/detail/DailyReportHeader';
-import { getDailyReportHeader } from '@/features/Operaciones/PartesDiarios/detail/actions.server';
+import { getDailyReportHeader } from '@/features/Operaciones/PartesDiarios/detail/queries.server';
 import { DailyReportDetailSkeleton } from '@/features/Operaciones/PartesDiarios/detail/fallback/DailyReportDetailSkeleton';
 import { DailyReportHeaderSkeleton } from '@/features/Operaciones/PartesDiarios/detail/fallback/DailyReportHeaderSkeleton';
 import { checkPermissionServer } from '@/features/Permissions';

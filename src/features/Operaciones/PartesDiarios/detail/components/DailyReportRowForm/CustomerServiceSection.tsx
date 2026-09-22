@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import type { CustomerForForm } from '../../actions.server';
+import type { CustomerForForm } from '../../form-data.server';
 import type { DailyReportRowFormValues } from './schema';
 
 interface CustomerServiceSectionProps {

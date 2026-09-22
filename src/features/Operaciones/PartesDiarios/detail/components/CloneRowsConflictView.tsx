@@ -7,7 +7,7 @@ import { dailyReportTypeServiceLabels } from '@/shared/utils/mappers';
 import { AlertTriangle, ArrowLeft, Calendar as CalendarIcon, Copy } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/es';
-import type { CloneConflictRow, CloneConflictsByDate } from '../actions.server';
+import type { CloneConflictRow, CloneConflictsByDate } from '../clone.server';
 
 moment.locale('es');
 

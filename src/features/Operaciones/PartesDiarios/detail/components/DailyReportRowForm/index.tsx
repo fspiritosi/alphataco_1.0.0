@@ -12,16 +12,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { useDailyReportDetailFormStore } from '../../../store/dailyReportDetailFormStore';
-import {
-  CustomerForForm,
-  EmployeeForForm,
-  OtherEquipmentItem,
-  VehicleForForm,
-  bulkUpdateRowStatus,
-  createDailyReportRowPrisma,
-  getDailyReportRowForForm,
-  updateDailyReportRowPrisma,
-} from '../../actions.server';
+import { CustomerForForm, EmployeeForForm, OtherEquipmentItem, VehicleForForm, getDailyReportRowForForm } from '../../form-data.server';
+import { bulkUpdateRowStatus, createDailyReportRowPrisma, updateDailyReportRowPrisma } from '../../mutations.server';
 import { CustomerServiceSection } from './CustomerServiceSection';
 import { EmployeeSection } from './EmployeeSection';
 import { EquipmentSection, type SavedOtherEquipment } from './EquipmentSection';

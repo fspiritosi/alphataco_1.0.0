@@ -22,7 +22,7 @@ import { AlertTriangle, CalendarIcon, CheckCircle2, Info, Loader2 } from 'lucide
 import moment from 'moment';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { bulkUpdateRowStatus } from '../actions.server';
+import { bulkUpdateRowStatus } from '../mutations.server';
 import type { DailyReportDetailRow } from '../types';
 
 // ============================================================================

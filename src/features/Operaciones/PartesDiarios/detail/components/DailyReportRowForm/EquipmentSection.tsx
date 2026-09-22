@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { defaultFilter } from 'cmdk';
 import { Check, ChevronsUpDown, Info, Truck, X } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
-import type { DailyReportRowForForm, OtherEquipmentItem, VehicleForForm } from '../../actions.server';
+import type { DailyReportRowForForm, OtherEquipmentItem, VehicleForForm } from '../../form-data.server';
 import type { DailyReportRowFormValues } from './schema';
 
 export type SavedOtherEquipment = NonNullable<

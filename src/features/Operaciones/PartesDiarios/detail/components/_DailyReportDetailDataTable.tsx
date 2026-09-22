@@ -28,15 +28,9 @@ import moment from 'moment';
 import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState } from 'react';
 import { useDailyReportDetailFormStore } from '../../store/dailyReportDetailFormStore';
-import {
-  getCustomersForForm,
-  getDailyReportDetailForExport,
-  getDailyReportDetailPaginated,
-  getDailyReportDetailSingleFacet,
-  getEmployeesForForm,
-  getOtherEquipmentForForm,
-  getVehiclesForForm,
-} from '../actions.server';
+import { getDailyReportDetailForExport } from '../export.server';
+import { getCustomersForForm, getEmployeesForForm, getOtherEquipmentForForm, getVehiclesForForm } from '../form-data.server';
+import { getDailyReportDetailPaginated, getDailyReportDetailSingleFacet } from '../queries.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns, type RowActionHandlers } from '../columns';
 import { useDailyReportDetailInvalidation } from '../hooks/useDailyReportDetail';
 import { useValidationData } from '../hooks/useValidationData';

@@ -4,7 +4,7 @@ import { checkPermissionServer } from '@/features/Permissions';
 import BackButton from '@/shared/components/common/BackButton';
 import { dailyReportStatusBadges, dailyReportStatusLabels } from '@/shared/utils/mappers';
 import moment from 'moment';
-import { getDailyReportHeader } from './actions.server';
+import { getDailyReportHeader } from './queries.server';
 
 interface Props {
   uuid: string;
