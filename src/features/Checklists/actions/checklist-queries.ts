@@ -448,3 +448,74 @@ export const getCompatibleEquipmentForHitch = async (utEquipmentId: string) => {
     return [];
   }
 };
+
+/**
+ * Plantillas de checklist activas que aplican a un equipo, para el flujo QR anónimo
+ * (`/maintenance/equipment/[id]/checklists`).
+ *
+ * La empresa sale del equipo, nunca de la sesión. Una plantilla aplica si su
+ * `checklist_template_sub_types` incluye el subtipo del vehículo, si su
+ * `checklist_template_types` incluye su tipo, o si no declara ninguna restricción.
+ *
+ * Reemplaza al filtro por título hardcodeado (`'Transporte SP-ANAY - CHK - HYS - 03'`) y
+ * deja fuera los `custom_form` legacy: el detalle del flujo QR sólo sabe abrir plantillas
+ * normalizadas, así que un `custom_form` listado ahí era un enlace muerto.
+ *
+ * Devuelve `null` si el equipo no existe (la página redirige), y `[]` si existe pero no
+ * tiene plantillas aplicables.
+ */
+export const fetchChecklistTemplatesForEquipment = async (equipmentId: string) => {
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: equipmentId },
+      select: { company_id: true, type: true, subType: true },
+    });
+    if (!vehicle?.company_id) return null;
+
+    const templates = await prisma.checklist_templates.findMany({
+      where: withCompany({ is_active: true }, vehicle.company_id),
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        code: true,
+        created_at: true,
+        checklist_template_sub_types: { select: { sub_type_id: true } },
+        checklist_template_types: { select: { type_id: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return templates
+      .filter((template) => {
+        const subTypeIds = template.checklist_template_sub_types
+          .map((st) => st.sub_type_id)
+          .filter((id): id is string => Boolean(id));
+        const typeIds = template.checklist_template_types
+          .map((t) => t.type_id)
+          .filter((id): id is string => Boolean(id));
+
+        // Sin restricciones declaradas, la plantilla aplica a todos los equipos.
+        if (subTypeIds.length === 0 && typeIds.length === 0) return true;
+
+        return (
+          (vehicle.subType != null && subTypeIds.includes(vehicle.subType)) ||
+          (vehicle.type != null && typeIds.includes(vehicle.type))
+        );
+      })
+      .map((template) => ({
+        id: template.id,
+        name: template.name,
+        code: template.code,
+        description: template.description,
+        created_at: template.created_at,
+      }));
+  } catch (error) {
+    logger.error('Error al obtener las plantillas de checklist del equipo', { data: { error, equipmentId } });
+    return [];
+  }
+};
+
+export type ChecklistTemplateForEquipment = NonNullable<
+  Awaited<ReturnType<typeof fetchChecklistTemplatesForEquipment>>
+>[number];
