@@ -34,6 +34,7 @@
     "db:migrate": "prisma migrate dev",
     "db:status": "prisma migrate status",
     "db:baseline": "node scripts/sql/build-baseline.ts",
+    "db:seed": "node scripts/seed-company.ts",
     "db:reset": "docker compose --env-file .env.docker rm -sf postgres && docker volume rm -f alphataco_pgdata && docker compose --env-file .env.docker up -d --wait postgres"
   },
   "dependencies": {
