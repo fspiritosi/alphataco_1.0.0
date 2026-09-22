@@ -116,7 +116,7 @@ export function NormalizedChecklistForm({
   const hitchSectionCodes = useMemo(() => {
     const codes = new Set<string>();
     template.checklist_template_sections?.forEach((section) => {
-      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      const sectionCode = getSectionCode(section);
       if (isHitchSectionCode(sectionCode)) {
         codes.add(sectionCode);
       }
@@ -200,7 +200,7 @@ export function NormalizedChecklistForm({
   const visibleSections = useMemo(
     () =>
       sortedSections.filter(
-        (section) => !hiddenSectionCodes.has(section.code || section.section?.code || `section_${section.id}`)
+        (section) => !hiddenSectionCodes.has(getSectionCode(section))
       ),
     [sortedSections, hiddenSectionCodes]
   );
@@ -209,7 +209,7 @@ export function NormalizedChecklistForm({
   const hiddenHitchSectionNames = useMemo(
     () =>
       sortedSections
-        .filter((section) => hiddenSectionCodes.has(section.code || section.section?.code || `section_${section.id}`))
+        .filter((section) => hiddenSectionCodes.has(getSectionCode(section)))
         .map((section) => section.name || section.section?.name || 'Sin nombre'),
     [sortedSections, hiddenSectionCodes]
   );
@@ -241,7 +241,7 @@ export function NormalizedChecklistForm({
   const sectionByField = useMemo(() => {
     const map = new Map<string, string>();
     sortedSections.forEach((section) => {
-      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      const sectionCode = getSectionCode(section);
       (section.checklist_template_items || []).forEach((item) => {
         const base = `${sectionCode}__${item.code || `item_${item.id}`}`;
         map.set(base, section.id);
@@ -764,7 +764,7 @@ export function NormalizedChecklistForm({
         <Accordion type="multiple" className="w-full space-y-6" value={openSections} onValueChange={setOpenSections}>
           {/* Secciones del checklist (la del enganche solo si se declaró la unidad) */}
           {visibleSections.map((section) => {
-            const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+            const sectionCode = getSectionCode(section);
             const sectionName = section.name || section.section?.name || 'Sin nombre';
             const sectionDescription = section.section?.description || null;
 

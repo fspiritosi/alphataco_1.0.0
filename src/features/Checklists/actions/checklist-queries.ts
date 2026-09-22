@@ -461,16 +461,25 @@ export const getCompatibleEquipmentForHitch = async (utEquipmentId: string) => {
  * deja fuera los `custom_form` legacy: el detalle del flujo QR sólo sabe abrir plantillas
  * normalizadas, así que un `custom_form` listado ahí era un enlace muerto.
  *
- * Devuelve `null` si el equipo no existe (la página redirige), y `[]` si existe pero no
- * tiene plantillas aplicables.
+ * Devuelve un resultado discriminado para que la página pueda distinguir los tres casos:
+ * `not_found` (el equipo no existe), `error` (falló la consulta) y `ok` con la lista, que
+ * puede estar vacía si el equipo existe pero no tiene plantillas aplicables. Antes los tres
+ * colapsaban en `[]` y un fallo de BD se veía como "este equipo no tiene checklists".
  */
-export const fetchChecklistTemplatesForEquipment = async (equipmentId: string) => {
+export type ChecklistTemplatesForEquipmentResult =
+  | { status: 'ok'; templates: ChecklistTemplateForEquipment[] }
+  | { status: 'not_found' }
+  | { status: 'error' };
+
+export const fetchChecklistTemplatesForEquipment = async (
+  equipmentId: string
+): Promise<ChecklistTemplatesForEquipmentResult> => {
   try {
     const vehicle = await prisma.vehicles.findUnique({
       where: { id: equipmentId },
       select: { company_id: true, type: true, subType: true },
     });
-    if (!vehicle?.company_id) return null;
+    if (!vehicle?.company_id) return { status: 'not_found' };
 
     const templates = await prisma.checklist_templates.findMany({
       where: withCompany({ is_active: true }, vehicle.company_id),
@@ -486,7 +495,7 @@ export const fetchChecklistTemplatesForEquipment = async (equipmentId: string) =
       orderBy: { created_at: 'desc' },
     });
 
-    return templates
+    const applicable = templates
       .filter((template) => {
         const subTypeIds = template.checklist_template_sub_types
           .map((st) => st.sub_type_id)
@@ -510,12 +519,18 @@ export const fetchChecklistTemplatesForEquipment = async (equipmentId: string) =
         description: template.description,
         created_at: template.created_at,
       }));
+
+    return { status: 'ok', templates: applicable };
   } catch (error) {
     logger.error('Error al obtener las plantillas de checklist del equipo', { data: { error, equipmentId } });
-    return [];
+    return { status: 'error' };
   }
 };
 
-export type ChecklistTemplateForEquipment = NonNullable<
-  Awaited<ReturnType<typeof fetchChecklistTemplatesForEquipment>>
->[number];
+export type ChecklistTemplateForEquipment = {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  created_at: Date | null;
+};

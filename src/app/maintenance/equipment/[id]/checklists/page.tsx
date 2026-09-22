@@ -28,16 +28,20 @@ export default async function ChecklistsListPage({
   // Flujo QR anónimo: la empresa, el tipo y el subtipo salen del equipo, no de la sesión.
   // El filtro real por subtipo/tipo reemplaza al título hardcodeado que excluía un
   // `custom_form` legacy (los custom_form no son abribles desde este flujo).
-  const checklists = await fetchChecklistTemplatesForEquipment(resolvedParams.id);
+  const result = await fetchChecklistTemplatesForEquipment(resolvedParams.id);
 
-  if (checklists === null) {
+  if (result.status === 'not_found') {
     redirect('/maintenance?error=equipment_not_found');
+  }
+  // Un fallo de consulta no se disfraza de "este equipo no tiene checklists".
+  if (result.status === 'error') {
+    redirect(`/maintenance/equipment/${resolvedParams.id}?error=checklists_unavailable`);
   }
 
   return (
     <ChecklistsListClient
       equipmentId={resolvedParams.id}
-      checklists={checklists.map((checklist) => ({
+      checklists={result.templates.map((checklist) => ({
         id: checklist.id,
         name: checklist.name,
         form: { description: checklist.description ?? checklist.name, title: checklist.name },

@@ -1,10 +1,11 @@
 'use client';
 
-import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
+import { getSectionCode, isSideValidationItem } from '@/features/Checklists/lib/checklist-evaluation';
+import { logger } from '@/lib/logger';
 import { Zap } from 'lucide-react';
 import moment from 'moment';
-import { UseFormReturn } from 'react-hook-form';
+import type { FieldValues, UseFormReturn } from 'react-hook-form';
 
 type ChecklistTemplate = Awaited<
   ReturnType<typeof import('@/features/Checklists/actions/checklist-queries').fetchChecklistTemplateById>
@@ -13,15 +14,8 @@ type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_templa
 type ChecklistTemplateItem = ChecklistTemplateSection['checklist_template_items'][number];
 
 type DevAutoFillButtonProps = {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<FieldValues>;
   template: NonNullable<ChecklistTemplate>;
-};
-
-/**
- * Determina si un item debe tratarse como "doble lado" (izquierda/derecha).
- */
-const isSideValidationItem = (item: ChecklistTemplateItem): boolean => {
-  return item.input_type !== 'date' && (item.input_type === 'double_side' || Boolean(item.requires_side_validation));
 };
 
 /**
@@ -75,7 +69,7 @@ export function DevAutoFillButton({ form, template }: DevAutoFillButtonProps) {
 
     // Iterar sobre todas las secciones e items
     template.checklist_template_sections?.forEach((section) => {
-      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      const sectionCode = getSectionCode(section);
 
       section.checklist_template_items?.forEach((item) => {
         const itemCode = item.code || `item_${item.id}`;

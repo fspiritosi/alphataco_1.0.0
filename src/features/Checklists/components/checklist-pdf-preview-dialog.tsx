@@ -44,6 +44,10 @@ interface ChecklistPDFPreviewDialogProps {
   revision?: string;
 }
 
+type NormalizedChecklistPDFLayoutComponent = typeof import(
+  '@/features/Checklists/pdf/layouts/NormalizedChecklistPDFLayout'
+)['NormalizedChecklistPDFLayout'];
+
 export function ChecklistPDFPreviewDialog({
   buttonText = 'Generar PDF',
   templateName,
@@ -55,7 +59,9 @@ export function ChecklistPDFPreviewDialog({
 }: ChecklistPDFPreviewDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [PDFComponent, setPDFComponent] = useState<React.ComponentType<any> | null>(null);
+  // El layout se carga con `import()` dinámico; el tipo viene de un `import type`,
+  // que TypeScript borra en el build y no arrastra el PDF al bundle inicial.
+  const [PDFComponent, setPDFComponent] = useState<NormalizedChecklistPDFLayoutComponent | null>(null);
 
   // Cargar el componente PDF cuando se abre el diálogo
   const handleOpenChange = async (open: boolean) => {

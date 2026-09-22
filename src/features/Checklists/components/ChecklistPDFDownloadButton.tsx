@@ -57,6 +57,10 @@ interface ChecklistPDFDownloadButtonProps {
   revision?: string;
 }
 
+type NormalizedChecklistPDFLayoutComponent = typeof import(
+  '@/features/Checklists/pdf/layouts/NormalizedChecklistPDFLayout'
+)['NormalizedChecklistPDFLayout'];
+
 export function ChecklistPDFDownloadButton({
   templateName,
   templateCode,
@@ -75,7 +79,9 @@ export function ChecklistPDFDownloadButton({
 }: ChecklistPDFDownloadButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [PDFComponent, setPDFComponent] = useState<React.ComponentType<any> | null>(null);
+  // El layout se carga con `import()` dinámico; el tipo viene de un `import type`,
+  // que TypeScript borra en el build y no arrastra el PDF al bundle inicial.
+  const [PDFComponent, setPDFComponent] = useState<NormalizedChecklistPDFLayoutComponent | null>(null);
 
   const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
 

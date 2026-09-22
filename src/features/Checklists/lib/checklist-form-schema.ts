@@ -178,7 +178,7 @@ export const generateChecklistSchema = (
 
   // Iterar sobre las secciones
   template.checklist_template_sections?.forEach((section) => {
-    const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+    const sectionCode = getSectionCode(section);
 
     // Sección oculta: no se pide ni se guarda
     if (hiddenSectionCodes?.has(sectionCode)) {
@@ -324,7 +324,7 @@ export const generateDefaultValues = (
 
     // Cargar respuestas por sección
     template.checklist_template_sections?.forEach((section) => {
-      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      const sectionCode = getSectionCode(section);
       const rawSection = defaultAnswers[sectionCode];
       const sectionAnswers: DefaultAnswerSectionValue = rawSection && typeof rawSection === 'object' ? rawSection : {};
 
@@ -354,7 +354,7 @@ export const generateDefaultValues = (
   } else {
     // Inicializar todos los campos de items con string vacío (patrón recomendado para Select/inputs controlados)
     template.checklist_template_sections?.forEach((section) => {
-      const sectionCode = section.code || section.section?.code || `section_${section.id}`;
+      const sectionCode = getSectionCode(section);
       section.checklist_template_items?.forEach((item) => {
         const itemCode = item.code || `item_${item.id}`;
         const fieldName = `${sectionCode}__${itemCode}`;

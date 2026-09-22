@@ -18,11 +18,11 @@ import {
 } from '@/features/Formularios/components/forms/Inputs';
 import { FormField } from '@/shared/types/legacy';
 import React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import type { FieldValues, UseFormReturn } from 'react-hook-form';
 
 interface FieldRendererProps {
   campo: FormField;
-  form: UseFormReturn<any> | null;
+  form: UseFormReturn<FieldValues> | null;
   index: number;
   completObjet: FormField[] | null;
 }
