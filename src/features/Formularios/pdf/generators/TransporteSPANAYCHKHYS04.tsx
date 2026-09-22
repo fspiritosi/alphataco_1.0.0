@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { pdf } from '@react-pdf/renderer';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
@@ -40,7 +39,8 @@ interface DailyChecklistPDFProps {
     kitHerramientas?: string;
     botiquin?: string;
     manejoDefensivo?: string;
-    [key: string]: any;
+    aptoParaOperar?: 'SI' | 'NO';
+    [key: string]: string | undefined;
   };
   preview?: boolean;
   companyLogo?: string;
@@ -52,6 +52,7 @@ interface DailyChecklistPDFProps {
 export const TransporteSPANAYCHKHYS04 = ({
   data,
   preview = true,
+  companyLogo,
   singurl,
   title,
   description,
@@ -134,7 +135,7 @@ export const TransporteSPANAYCHKHYS04 = ({
     },
   ];
 
-  const company = useLoggedUserStore((state) => state.actualCompany)?.company_logo;
+  // El logo llega por prop desde el servidor: el PDF se renderiza también sin el store cargado.
 
   const pdfContent = (
     <BaseChecklistLayout
@@ -150,7 +151,7 @@ export const TransporteSPANAYCHKHYS04 = ({
         kilometers: data?.kilometraje,
         aptoParaOperar: data?.aptoParaOperar,
       }}
-      logoUrl={company ?? undefined}
+      logoUrl={companyLogo ?? undefined}
       singurl={singurl}
     />
   );

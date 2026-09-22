@@ -5,13 +5,18 @@ import { TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis } from 'recharts';
 
+/** Config de colores/labels por serie del gráfico de uso del formulario. */
+export type FormUseChartConfig = ChartConfig;
+/** Punto del gráfico: un mes con su cantidad de respuestas. */
+export type FormUseChartDatum = { month: string; respuestas: number; fill: string };
+
 export function FormUseChart({
   chartConfig,
   chartData,
   formName,
 }: {
-  chartConfig: ChartConfig;
-  chartData: any;
+  chartConfig: FormUseChartConfig;
+  chartData: FormUseChartDatum[];
   formName: string;
 }) {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());

@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { pdf } from '@react-pdf/renderer';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
@@ -80,7 +79,7 @@ interface MaintenanceChecklistPDFProps {
     elementosSueltos?: string;
     bolsasResiduos?: string;
     limpiezaCabina?: string;
-    [key: string]: any;
+    [key: string]: string | undefined;
   };
   preview?: boolean;
   companyLogo?: string;
@@ -97,7 +96,7 @@ export const TransporteSPANAYCHKHYS01 = ({
   title,
   description,
 }: MaintenanceChecklistPDFProps) => {
-  const company = useLoggedUserStore((state) => state.actualCompany)?.company_logo;
+  // El logo llega por prop desde el servidor: el PDF se renderiza también sin el store cargado.
 
   const items = [
     {
@@ -330,7 +329,7 @@ export const TransporteSPANAYCHKHYS01 = ({
         observaciones: data?.observaciones,
         chofer: data?.chofer,
       }}
-      logoUrl={company ?? undefined}
+      logoUrl={companyLogo ?? undefined}
       items={items}
       singurl={singurl}
     />

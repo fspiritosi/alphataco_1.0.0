@@ -82,7 +82,7 @@ export function CheckListAnswerTable<TData, TValue>({ columns, data }: DataTable
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
                   onClick={() => {
-                    router.push(`/dashboard/forms/${(row.original as any).id}/view`);
+                    router.push(`/dashboard/forms/${(row.original as { id: string }).id}/view`);
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (

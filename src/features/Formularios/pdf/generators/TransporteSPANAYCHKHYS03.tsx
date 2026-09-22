@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { pdf } from '@react-pdf/renderer';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
@@ -21,11 +20,16 @@ interface VehicleInspectionPDFProps {
     fecha?: string;
     hora?: string;
     observaciones?: string;
-    luces?: Record<string, string>;
-    seguridad?: Record<string, string>;
+    // Secciones del checklist: `seccion -> { item: resultado }`
+    carroceria?: Record<string, string>;
+    general?: Record<string, string>;
     interior?: Record<string, string>;
+    luces?: Record<string, string>;
     mecanica?: Record<string, string>;
-    [key: string]: any;
+    neumaticos?: Record<string, string>;
+    niveles?: Record<string, string>;
+    seguridad?: Record<string, string>;
+    suspension?: Record<string, string>;
   };
   preview?: boolean;
   companyLogo?: string;
@@ -42,7 +46,7 @@ export const TransporteSPANAYCHKHYS03 = ({
   title,
   description,
 }: VehicleInspectionPDFProps) => {
-  const company = useLoggedUserStore((state) => state.actualCompany)?.company_logo;
+  // El logo llega por prop desde el servidor: el PDF se renderiza también sin el store cargado.
 
   const items = [
     {
@@ -421,7 +425,7 @@ export const TransporteSPANAYCHKHYS03 = ({
         observaciones: data?.observaciones,
       }}
       items={items}
-      logoUrl={company ?? undefined}
+      logoUrl={companyLogo ?? undefined}
       singurl={singurl}
     />
   );

@@ -4,29 +4,54 @@ import { Button } from '@/components/ui/button';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCaption, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { FormData } from '@/shared/types/legacy';
+import {
+  fetchFormsAnswersByFormId,
+  type CustomFormWithAnswerCount,
+} from '@/features/Formularios/actions/form-actions';
+import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import FormCard from './FormCard';
 
-const generateChartConfig = (data: any, category: string) => {
-  const categoryConfig: any = {};
-  data[category].forEach((item: any, index: number) => {
-    const key = item.name ? item.name.replace(/_/g, ' ') : `item_${index}`;
+/** Categoría a la que aplica un formulario personalizado. */
+type FormCategory = 'employees' | 'equipment' | 'company' | 'documents';
 
-    categoryConfig[key] = {
-      label: item.name.replace(/_/g, ' ') || `Item ${index + 1}`,
+type GroupedForms = Record<FormCategory, CustomFormWithAnswerCount[]>;
+
+/** Sección de un `custom_form.form` (JSON legacy). La primera (`id === '1'`) es la cabecera. */
+type FormSection = {
+  id: string;
+  tipo?: string;
+  title?: string;
+  value?: string;
+  apply?: FormCategory;
+};
+
+type ChartConfig = Record<string, { label: string; color: string }>;
+type ChartDatum = { month: string; respuestas: number; fill: string };
+
+function getFormSections(form: CustomFormWithAnswerCount): FormSection[] {
+  return Array.isArray(form.form) ? (form.form as unknown as FormSection[]) : [];
+}
+
+function getFormHeader(form: CustomFormWithAnswerCount): FormSection | undefined {
+  return getFormSections(form).find((section) => section.id === '1');
+}
+
+const generateChartConfig = (forms: CustomFormWithAnswerCount[]): ChartConfig => {
+  const config: ChartConfig = {};
+  forms.forEach((form, index) => {
+    const key = form.name ? form.name.replace(/_/g, ' ') : `item_${index}`;
+    config[key] = {
+      label: form.name?.replace(/_/g, ' ') || `Item ${index + 1}`,
       color: 'var(--chart-5)',
     };
   });
-
-  return { [category]: categoryConfig };
+  return config;
 };
 
-const generateChartData = (categoryConfig: any, forms: any[]) => {
-  // Obtener los últimos 6 meses en español
-  const months = [];
+const generateChartData = (chartConfig: ChartConfig, forms: CustomFormWithAnswerCount[]): ChartDatum[] => {
+  // Últimos 6 meses en español
+  const months: string[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
@@ -34,37 +59,23 @@ const generateChartData = (categoryConfig: any, forms: any[]) => {
     months.push(monthName.charAt(0).toUpperCase() + monthName.slice(1));
   }
 
-  // Mapear cada mes a su correspondiente objeto de datos
   return months.map((month) => {
-    // Encuentra el formulario correspondiente usando el nombre clave
     const form = forms.find((f) => f.name === month);
-    const item = categoryConfig[month.replace(/_/g, ' ')] || { color: 'defaultColor' }; // Asegurar que item no sea undefined
+    const item = chartConfig[month.replace(/_/g, ' ')] ?? { color: 'defaultColor', label: month };
     return {
-      month: month, // Usar el nombre del mes como identificador
-      respuestas: form ? (form.form_answers?.length === 0 ? 1 : form.form_answers?.length) : 10, // Asignar valor a desktop
-      fill: item.color, // Usar el color especificado en categoryConfig o un color por defecto
+      month,
+      respuestas: form ? (form.answersCount === 0 ? 1 : form.answersCount) : 10,
+      fill: item.color,
     };
   });
 };
 
-// Definir el tipo de los formularios agrupados
-interface GroupedForms {
-  employees: FormData[];
-  equipment: FormData[];
-  company: FormData[];
-  documents: FormData[];
-}
-
-// Definir el tipo para los formularios con 'apply'
-interface FormWithApply {
-  id: string;
-  tipo: string;
-  title: string;
-  value?: string;
-  opciones: string[];
-  placeholder: string;
-  apply?: keyof GroupedForms;
-}
+const CATEGORY_TABS: Array<{ key: FormCategory; label: string }> = [
+  { key: 'employees', label: 'Empleados' },
+  { key: 'equipment', label: 'Vehículos' },
+  { key: 'company', label: 'Empresa' },
+  { key: 'documents', label: 'Documentos' },
+];
 
 function FormCardContainer({
   form,
@@ -72,201 +83,141 @@ function FormCardContainer({
   documents,
   equipment,
   company,
-  showAnswers,
 }: {
-  form: FormData[];
+  form: CustomFormWithAnswerCount[];
   employees?: boolean;
   documents?: boolean;
   equipment?: boolean;
   company?: boolean;
   showAnswers?: boolean;
 }) {
-  const [formData, setFormData] = useState<FormData[]>(form);
   const searchParams = useSearchParams();
-  const params = new URLSearchParams(searchParams as any);
+  const params = new URLSearchParams(searchParams.toString());
   const formId = params.get('form_id');
+  const pathname = usePathname();
+  const { replace } = useRouter();
 
-  const groupedForms: GroupedForms = formData?.reduce(
-    (acc, curr) => {
-      const mainForm = curr.form.find((f) => f.id === '1') as FormWithApply | undefined;
-      if (mainForm && mainForm.apply) {
-        const key = mainForm.apply;
-        if (acc[key]) {
-          acc[key].push(curr as never);
-        }
-      }
+  const groupedForms = form.reduce<GroupedForms>(
+    (acc, current) => {
+      const apply = getFormHeader(current)?.apply;
+      if (apply && acc[apply]) acc[apply].push(current);
       return acc;
     },
-    {
-      employees: [],
-      equipment: [],
-      company: [],
-      documents: [],
-    }
+    { employees: [], equipment: [], company: [], documents: [] }
   );
 
-  const defaultValue = employees
-    ? 'employees'
-    : equipment
-      ? 'equipment'
-      : company
-        ? 'company'
-        : documents
-          ? 'documents'
-          : '';
+  const enabledTabs: Record<FormCategory, boolean | undefined> = { employees, equipment, company, documents };
+  const defaultValue = CATEGORY_TABS.find((tab) => enabledTabs[tab.key])?.key ?? '';
 
-  const pathname = usePathname();
-
-  const chartConfigForEmployees = generateChartConfig(groupedForms, 'employees');
-  const chartDataForEmployees = generateChartData(chartConfigForEmployees.employees || {}, groupedForms.employees);
-
-  const chartConfigForEquipment = generateChartConfig(groupedForms, 'equipment');
-  const chartDataForEquipment = generateChartData(chartConfigForEquipment.equipment || {}, groupedForms.equipment);
-
-  const chartConfigForCompany = generateChartConfig(groupedForms, 'company');
-  const chartDataForCompany = generateChartData(chartConfigForCompany.company || {}, groupedForms.company);
-
-  const chartConfigForDocuments = generateChartConfig(groupedForms, 'documents');
-  const chartDataForDocuments = generateChartData(chartConfigForDocuments.documents || {}, groupedForms.documents);
-
-  const { replace } = useRouter();
   const handleAnswersChange = () => {
     params.delete('form_id');
     replace(`${pathname}?${params.toString()}`);
   };
 
-  const [forms, setForms] = useState<any[] | null>([]);
-  const supabase = supabaseBrowser();
+  const { data: answers } = useQuery({
+    queryKey: ['custom-form-answers', formId],
+    queryFn: () => fetchFormsAnswersByFormId(formId ?? ''),
+    enabled: Boolean(formId),
+  });
 
-  const fetchAnswers = async () => {
-    let { data: form_answers, error } = await supabase
-      .from('form_answers')
-      .select('*,form_id(*)')
-      .eq('form_id', formId || '');
-    setForms(form_answers);
+  // `form_answers.answer` guarda el JSON como texto (lo escribe `SubmitCustomForm`).
+  const parseAnswer = (value: unknown): Record<string, unknown> => {
+    if (typeof value !== 'string') return (value as Record<string, unknown>) ?? {};
+    try {
+      return JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
   };
 
-  useEffect(() => {
-    if (formId) fetchAnswers();
-  }, [formId]);
-
-  const formKeys = Object.keys(JSON.parse(forms?.[0]?.answer || '{}'));
+  const formKeys = Object.keys(parseAnswer(answers?.[0]?.answer));
+  const answersTitle = answers?.[0]?.form_id
+    ? ((answers[0].form_id.form as unknown as FormSection[] | null)?.find((section) => section.id === '1')?.value ??
+      answers[0].form_id.name)
+    : '';
 
   return (
     <>
       {formId ? (
         <Card className="p-4 flex flex-col">
-          <Button className="self-end" onClick={() => handleAnswersChange()}>
+          <Button className="self-end" type="button" onClick={handleAnswersChange}>
             Volver
           </Button>
-          <CardTitle className="text-xl mb-3">
-            {forms?.[0]?.form_id?.form.find((e: any) => e.id === '1').value}
-          </CardTitle>
+          <CardTitle className="text-xl mb-3">{answersTitle}</CardTitle>
           <Table>
             <TableCaption>Lista de respuestas del formulario</TableCaption>
             <TableHeader>
               <TableRow>
-                {formKeys.map((key, index) => {
-                  return <TableCell key={crypto.randomUUID()}>{key.replaceAll('_', ' ')}</TableCell>;
-                })}
+                {formKeys.map((key) => (
+                  <TableCell key={key}>{key.replaceAll('_', ' ')}</TableCell>
+                ))}
                 <TableCell>Imprimir</TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {forms?.map((formItem, formIndex) => (
-                <TableRow key={formIndex}>
-                  {formKeys.map((key, index) => {
-                    const value = JSON.parse(formItem.answer)[key];
-                    // Comprobar si el valor parece una fecha
-                    const isDate =
-                      typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/.test(value);
-                    const formattedValue = isDate ? new Date(value).toLocaleDateString() : value;
-                    return (
-                      <TableCell key={crypto.randomUUID()}>
-                        {Array.isArray(formattedValue) ? (
-                          <div className="gap-2 flex flex-col">
-                            {formattedValue.map((item, itemIndex) => (
-                              <Badge key={itemIndex}>{item}</Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          formattedValue
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <Button>Imprimir</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {answers?.map((answerRow) => {
+                const parsed = parseAnswer(answerRow.answer);
+                return (
+                  <TableRow key={answerRow.id}>
+                    {formKeys.map((key) => {
+                      const value = parsed[key];
+                      // Comprobar si el valor parece una fecha ISO
+                      const isDate =
+                        typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/.test(value);
+                      const formattedValue = isDate ? new Date(value as string).toLocaleDateString() : value;
+                      return (
+                        <TableCell key={key}>
+                          {Array.isArray(formattedValue) ? (
+                            <div className="gap-2 flex flex-col">
+                              {formattedValue.map((item, itemIndex) => (
+                                <Badge key={itemIndex}>{String(item)}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            (formattedValue as string | number | null | undefined)
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell>
+                      <Button type="button">Imprimir</Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
       ) : (
         <Tabs defaultValue={defaultValue}>
           <TabsList className="mb-3">
-            {employees && <TabsTrigger value="employees">Empleados</TabsTrigger>}
-            {equipment && <TabsTrigger value="equipment">Vehículos</TabsTrigger>}
-            {company && <TabsTrigger value="company">Empresa</TabsTrigger>}
-            {documents && <TabsTrigger value="documents">Documentos</TabsTrigger>}
+            {CATEGORY_TABS.filter((tab) => enabledTabs[tab.key]).map((tab) => (
+              <TabsTrigger key={tab.key} value={tab.key}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <TabsContent value="employees">
-            <section>
-              <div className="flex gap-4 flex-wrap">
-                {groupedForms.employees?.map((form: FormData, index: number) => (
-                  <FormCard
-                    chartConfig={chartConfigForEmployees}
-                    chartData={chartDataForEmployees}
-                    key={crypto.randomUUID()}
-                    form={form}
-                  />
-                ))}
-              </div>
-            </section>
-          </TabsContent>
-          <TabsContent value="equipment">
-            <section>
-              <div className="flex gap-4 flex-wrap">
-                {groupedForms.equipment?.map((form: FormData, index: number) => (
-                  <FormCard
-                    chartConfig={chartConfigForEquipment}
-                    chartData={chartDataForEquipment}
-                    key={crypto.randomUUID()}
-                    form={form}
-                  />
-                ))}
-              </div>
-            </section>
-          </TabsContent>
-          <TabsContent value="company">
-            <section>
-              <div className="flex gap-4 flex-wrap">
-                {groupedForms.company?.map((form: FormData, index: number) => (
-                  <FormCard
-                    chartConfig={chartConfigForCompany}
-                    chartData={chartDataForCompany}
-                    key={crypto.randomUUID()}
-                    form={form}
-                  />
-                ))}
-              </div>
-            </section>
-          </TabsContent>
-          <TabsContent value="documents">
-            <section>
-              <div className="flex gap-4 flex-wrap">
-                {groupedForms.documents?.map((form: FormData, index: number) => (
-                  <FormCard
-                    chartConfig={chartConfigForDocuments}
-                    chartData={chartDataForDocuments}
-                    key={crypto.randomUUID()}
-                    form={form}
-                  />
-                ))}
-              </div>
-            </section>
-          </TabsContent>
+          {CATEGORY_TABS.map((tab) => {
+            const categoryForms = groupedForms[tab.key];
+            const chartConfig = generateChartConfig(categoryForms);
+            const chartData = generateChartData(chartConfig, categoryForms);
+            return (
+              <TabsContent key={tab.key} value={tab.key}>
+                <section>
+                  <div className="flex gap-4 flex-wrap">
+                    {categoryForms.map((categoryForm) => (
+                      <FormCard
+                        chartConfig={chartConfig}
+                        chartData={chartData}
+                        key={categoryForm.id}
+                        form={categoryForm}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </TabsContent>
+            );
+          })}
         </Tabs>
       )}
     </>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import FieldRenderer from '@/features/Formularios/utils/fieldRenderer';
 import { buildFormData, buildFormSchema } from '@/features/Formularios/utils/formUtils';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { createFormAnswer } from '@/features/Formularios/actions/form-actions';
 import { FormField } from '@/shared/types/legacy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -12,8 +12,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+/** Formulario personalizado a responder: el primer elemento trae el `id` de `custom_form`. */
+type CustomFormInput = { id: string; form?: unknown } | null | undefined;
+
 interface Props {
-  campos: any[] | null;
+  campos: CustomFormInput[] | null;
   fetchAnswers?: () => Promise<void>;
 }
 
@@ -29,14 +32,9 @@ export function SubmitCustomForm({ campos, fetchAnswers }: Props) {
     await toast
       .promise(
         async () => {
-          const supabase = supabaseBrowser();
-          const { error } = await supabase.from('form_answers').insert({
-            form_id: campos?.[0]?.id,
-            answer: JSON.stringify(data),
-          });
-          if (error) {
-            throw new Error(error.message);
-          }
+          const formId = campos?.[0]?.id;
+          if (!formId) throw new Error('No se encontró el formulario a responder');
+          await createFormAnswer(formId, JSON.stringify(data));
           if (fetchAnswers) await fetchAnswers();
         },
         {

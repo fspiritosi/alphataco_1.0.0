@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerTrigger } from '@/components/ui/drawer';
-import { FormUseChart } from './FormUseChart';
+import type { CustomFormWithAnswerCount } from '@/features/Formularios/actions/form-actions';
+import { FormUseChart, type FormUseChartConfig, type FormUseChartDatum } from './FormUseChart';
 import { SubmitCustomForm } from './SubmitCustomForm';
 
 function FormCard({
@@ -10,11 +11,12 @@ function FormCard({
   chartData,
   fetchAnswers,
 }: {
-  form: any;
-  chartConfig: any;
-  chartData: any;
+  form: CustomFormWithAnswerCount;
+  chartConfig: FormUseChartConfig;
+  chartData: FormUseChartDatum[];
   fetchAnswers?: () => Promise<void>;
 }) {
+  const sectionsCount = (Array.isArray(form?.form) ? form.form.length : 1) - 1;
   // Encuentra el índice del formulario actual en el chartData
 
   return (
@@ -40,7 +42,7 @@ function FormCard({
           </DrawerContent>
         </Drawer>
         <CardDescription className="text-center">
-          {form?.form?.length - 1} {form?.form?.length - 1 > 1 ? 'secciones' : 'sección'}
+          {sectionsCount} {sectionsCount > 1 ? 'secciones' : 'sección'}
         </CardDescription>
       </CardHeader>
       <FormUseChart chartConfig={chartConfig} formName={form?.name} chartData={chartData} />

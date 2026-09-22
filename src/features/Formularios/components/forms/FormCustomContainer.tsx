@@ -1,22 +1,10 @@
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { FormData } from '@/shared/types/legacy';
-import { cookies } from 'next/headers';
+import { fetchCustomFormsWithAnswerCount } from '@/features/Formularios/actions/form-actions';
 import FormCardContainer from './FormCardContainer';
 
-const getForms = async (company_id: string) => {
-  const supabase = supabaseBrowser();
-  const { data, error } = await supabase
-    .from('custom_form')
-    .select('*,form_answers(form_id)')
-    .eq('company_id', company_id);
-  if (error) {
-    console.error(error);
-  }
-  if (data) {
-    return data;
-  }
-};
-
+/**
+ * Listado de formularios personalizados de la empresa activa.
+ * Server Component: la empresa sale de la sesión (`getActiveCompanyId`), no de la cookie.
+ */
 export async function FormCustomContainer({
   employees,
   documents,
@@ -30,12 +18,11 @@ export async function FormCustomContainer({
   company?: boolean;
   showAnswers?: boolean;
 }) {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp');
-  const createdFormsState = (await getForms(company_id?.value as string)) as FormData[] | undefined;
+  const forms = await fetchCustomFormsWithAnswerCount();
+
   return (
     <FormCardContainer
-      form={createdFormsState || []}
+      form={forms}
       employees={employees}
       documents={documents}
       equipment={equipment}

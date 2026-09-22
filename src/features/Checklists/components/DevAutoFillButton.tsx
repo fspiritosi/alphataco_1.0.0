@@ -1,5 +1,6 @@
 'use client';
 
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Zap } from 'lucide-react';
 import moment from 'moment';
@@ -41,7 +42,7 @@ const getPositiveValue = (item: ChecklistTemplateItem): string => {
       // Si no hay ninguna opción positiva conocida, usar la primera
       return options[0] || 'B';
     } catch (e) {
-      console.error('Error parsing options:', e);
+      logger.error('Error al parsear las opciones del item', { data: { error: e } });
     }
   }
   // Por defecto, usar 'B' (Bueno)
@@ -101,7 +102,7 @@ export function DevAutoFillButton({ form, template }: DevAutoFillButtonProps) {
       form.setValue(fieldName, value, { shouldValidate: false, shouldDirty: true });
     });
 
-    console.log('[DEV_AUTOFILL] Valores seteados:', valuesToSet);
+    logger.debug('[DEV_AUTOFILL] Valores seteados', { data: { valuesToSet } });
   };
 
   return (

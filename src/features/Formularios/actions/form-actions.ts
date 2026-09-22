@@ -178,3 +178,50 @@ export const getCurrentProfile = async () => {
 };
 
 export type CurrentProfile = Awaited<ReturnType<typeof getCurrentProfile>>[number];
+
+/**
+ * Formularios personalizados de la empresa activa con la cantidad de respuestas de cada uno
+ * (reemplaza el `select('*,form_answers(form_id)')` legacy, que traía una fila por respuesta
+ * sólo para contarlas).
+ */
+export const fetchCustomFormsWithAnswerCount = async () => {
+  try {
+    const company_id = await getActiveCompanyId();
+    const forms = await prisma.custom_form.findMany({
+      where: withCompany({}, company_id),
+      select: { ...customFormSelect, _count: { select: { form_answers: true } } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return forms.map(({ _count, ...form }) => ({ ...form, answersCount: _count.form_answers }));
+  } catch (error) {
+    logger.error('Error al obtener los formularios personalizados', { data: { error } });
+    return [];
+  }
+};
+
+export type CustomFormWithAnswerCount = Awaited<ReturnType<typeof fetchCustomFormsWithAnswerCount>>[number];
+
+/**
+ * Guarda una respuesta de formulario personalizado.
+ *
+ * El `formId` llega del cliente: se valida que el formulario sea de la empresa activa antes
+ * de escribir (sin RLS, cada action exportada es un endpoint público).
+ */
+export const createFormAnswer = async (formId: string, answer: string) => {
+  const company_id = await getActiveCompanyId();
+
+  const form = await prisma.custom_form.findFirst({
+    where: withCompany({ id: formId }, company_id),
+    select: { id: true },
+  });
+  if (!form) throw new Error('El formulario no pertenece a la empresa activa');
+
+  const created = await prisma.form_answers.create({
+    data: { form_id: form.id, answer },
+    select: { id: true },
+  });
+
+  logger.info('Respuesta de formulario guardada', { data: { formId: form.id, answerId: created.id } });
+  return created;
+};

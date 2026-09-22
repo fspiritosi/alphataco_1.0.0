@@ -227,11 +227,11 @@ export const VehicleInspectionLayout = ({
   const ITEMS_PER_COLUMN = 34;
 
   // Función para dividir los items en secciones
-  const splitItemsInSections = (items: any) => {
-    const sections: Array<typeof items> = [];
-    let currentSection: typeof items = [];
+  const splitItemsInSections = <T extends { title?: boolean }>(items: T[]) => {
+    const sections: T[][] = [];
+    let currentSection: T[] = [];
 
-    items.forEach((item: any) => {
+    items.forEach((item) => {
       if (item.title) {
         if (currentSection?.length > 0) {
           sections.push([...currentSection]);

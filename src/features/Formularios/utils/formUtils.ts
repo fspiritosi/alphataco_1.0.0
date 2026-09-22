@@ -1,13 +1,47 @@
 import { FormField } from '@/shared/types/legacy';
 import { z } from 'zod';
 
-export const buildFormData = (campos: any[] | null, isPreview: boolean): FormField[] => {
+/**
+ * Campo de un `custom_form.form` (JSON legacy, sin schema en la base).
+ * Los formularios personalizados los arma el usuario, así que el JSON es abierto: se
+ * describe acá lo que el constructor consume y todo es opcional.
+ */
+type LegacyFormCampo = {
+  id: string;
+  tipo: string;
+  title: string;
+  value?: string;
+  placeholder?: string;
+  opciones?: string[];
+  date?: boolean;
+  observation?: boolean;
+  required?: boolean;
+  sectionCampos?: unknown;
+};
+
+/** Elemento de entrada: una sección del constructor (preview) o la fila de `custom_form`. */
+type LegacyFormInput = {
+  id?: string;
+  name?: string;
+  value?: string;
+  tipo?: string;
+  title?: string;
+  form?: unknown;
+  sectionCampos?: unknown;
+};
+
+const asCampos = (value: unknown): LegacyFormCampo[] => (Array.isArray(value) ? (value as LegacyFormCampo[]) : []);
+
+export const buildFormData = (
+  campos: Array<LegacyFormInput | null | undefined> | null | undefined,
+  isPreview: boolean
+): FormField[] => {
   const formArray: FormField[] = [];
 
   formArray.push({
     formName: 'Nombre del formulario',
     title: 'Nombre del formulario',
-    value: isPreview ? campos?.[0].value : campos?.[0]?.name,
+    value: isPreview ? campos?.[0]?.value : campos?.[0]?.name,
     tipo: 'Nombre del formulario',
     id: '',
     placeholder: '',
@@ -15,7 +49,7 @@ export const buildFormData = (campos: any[] | null, isPreview: boolean): FormFie
 
   if (isPreview) {
     if (campos && campos?.length > 0) {
-      campos?.forEach((campo: any) => {
+      asCampos(campos).forEach((campo) => {
         if (campo.tipo === 'Seccion') {
           formArray.push({
             formName: `inicio_seccion_${campo.title.replace(/ /g, '_')}`,
@@ -25,7 +59,7 @@ export const buildFormData = (campos: any[] | null, isPreview: boolean): FormFie
             id: '',
             placeholder: '',
           });
-          campo.sectionCampos.forEach((sectionCampo: any) => {
+          asCampos(campo.sectionCampos).forEach((sectionCampo) => {
             formArray.push({
               formName: `${sectionCampo.title.replace(/ /g, '_')}`,
               title: `${sectionCampo.title.replace(/ /g, '_')}`,
@@ -94,7 +128,7 @@ export const buildFormData = (campos: any[] | null, isPreview: boolean): FormFie
     }
   } else {
     if (campos && campos?.length > 0 && campos[0]?.form) {
-      campos[0].form?.forEach((campo: any) => {
+      asCampos(campos[0].form).forEach((campo) => {
         if (campo.tipo === 'Seccion') {
           formArray.push({
             formName: `inicio_seccion_${campo.title.replace(/ /g, '_')}`,
@@ -104,7 +138,7 @@ export const buildFormData = (campos: any[] | null, isPreview: boolean): FormFie
             id: '',
             placeholder: '',
           });
-          campo.sectionCampos.forEach((sectionCampo: any) => {
+          asCampos(campo.sectionCampos).forEach((sectionCampo) => {
             formArray.push({
               formName: `${sectionCampo.title.replace(/ /g, '_')}`,
               title: `${sectionCampo.title.replace(/ /g, '_')}`,
@@ -181,10 +215,12 @@ export const buildFormData = (campos: any[] | null, isPreview: boolean): FormFie
   return formArray;
 };
 
-export const buildFormSchema = (formObject: any[]) => {
-  const formSchema: { [key: string]: any } = {};
+export const buildFormSchema = (formObject: FormField[]) => {
+  const formSchema: Record<string, z.ZodTypeAny> = {};
 
   formObject.forEach((campo) => {
+    // `opciones` viene del JSON del formulario; z.enum pide una tupla no vacía.
+    const opciones = (campo.opciones?.length ? campo.opciones : ['']) as [string, ...string[]];
     const formattedTitle = campo.title.replace(/ /g, '_');
     const displayTitle = campo.title.replace(/_/g, ' ');
     const isRequired = campo.required !== false; // Si no se especifica, se asume que es requerido
@@ -192,12 +228,12 @@ export const buildFormSchema = (formObject: any[]) => {
     switch (campo.tipo) {
       case 'Si-No':
         formSchema[formattedTitle] = isRequired
-          ? z.enum(campo.opciones, {
+          ? z.enum(opciones, {
               required_error: `El campo "${displayTitle}" es obligatorio`,
               invalid_type_error: `El valor ingresado en "${displayTitle}" no es válido`,
             })
           : z
-              .enum(campo.opciones, {
+              .enum(opciones, {
                 invalid_type_error: `El valor ingresado en "${displayTitle}" no es válido`,
               })
               .optional();
@@ -232,12 +268,12 @@ export const buildFormSchema = (formObject: any[]) => {
         break;
       case 'Radio':
         formSchema[formattedTitle] = isRequired
-          ? z.enum(campo.opciones, {
+          ? z.enum(opciones, {
               required_error: `El campo "${displayTitle}" es obligatorio`,
               invalid_type_error: `El valor ingresado en "${displayTitle}" no es válido`,
             })
           : z
-              .enum(campo.opciones, {
+              .enum(opciones, {
                 invalid_type_error: `El valor ingresado en "${displayTitle}" no es válido`,
               })
               .optional();

@@ -1,18 +1,10 @@
+import { fetchCustomFormById } from '@/features/Formularios/actions/form-actions';
 import { SubmitCustomForm } from '@/features/Formularios/components/forms/SubmitCustomForm';
-import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 
-async function page({ searchParams }: { searchParams: { formid: string } }) {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp');
-  const form = searchParams.formid;
-  const { data, error } = await supabase
-    .from('custom_form')
-    .select('*')
-    .eq('company_id', company_id?.value || '');
+async function page({ searchParams }: { searchParams: Promise<{ formid: string }> }) {
+  const { formid } = await searchParams;
+  const [dataForm] = await fetchCustomFormById(formid);
 
-  const dataForm = data?.find((e) => e.id === form);
   return (
     <div>
       <SubmitCustomForm campos={[dataForm]} />

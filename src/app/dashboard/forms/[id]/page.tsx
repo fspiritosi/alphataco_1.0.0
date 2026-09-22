@@ -10,19 +10,41 @@ import { PDFPreviewDialog } from '@/features/Formularios/components/pdf-preview-
 import { TransporteSPANAYCHKHYS01 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS01';
 import { TransporteSPANAYCHKHYS03 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS03';
 import { TransporteSPANAYCHKHYS04 } from '@/features/Formularios/pdf/generators/TransporteSPANAYCHKHYS04';
+import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import BackButton from '@/shared/components/common/BackButton';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-const renderForm = (activeFormType: string) => {
+const renderForm = (activeFormType: string, companyLogo?: string) => {
   switch (activeFormType) {
     case 'Transporte SP-ANAY - CHK - HYS - 01':
-      return <TransporteSPANAYCHKHYS01 title="CHECK LIST MANTENIMIENTO VEHICULAR" description="Pdf vacio" preview />;
+      return (
+        <TransporteSPANAYCHKHYS01
+          title="CHECK LIST MANTENIMIENTO VEHICULAR"
+          description="Pdf vacio"
+          companyLogo={companyLogo}
+          preview
+        />
+      );
     case 'Transporte SP-ANAY - CHK - HYS - 03':
-      return <TransporteSPANAYCHKHYS03 title="CHECK LIST INSPECCION VEHICULAR" description="Pdf vacio" preview />;
+      return (
+        <TransporteSPANAYCHKHYS03
+          title="CHECK LIST INSPECCION VEHICULAR"
+          description="Pdf vacio"
+          companyLogo={companyLogo}
+          preview
+        />
+      );
     case 'Transporte SP-ANAY - CHK - HYS - 04':
-      return <TransporteSPANAYCHKHYS04 title="INSPERCION DIARIA DE VEHICULO" description="Pdf vacio" preview />;
+      return (
+        <TransporteSPANAYCHKHYS04
+          title="INSPERCION DIARIA DE VEHICULO"
+          description="Pdf vacio"
+          companyLogo={companyLogo}
+          preview
+        />
+      );
     default:
       return <div>No hay formulario seleccionado</div>;
   }
@@ -103,7 +125,8 @@ export default async function FormDetailPage({
     );
   }
 
-  const answers = await fetchFormsAnswersByFormId(resolvedParams.id);
+  const [answers, company] = await Promise.all([fetchFormsAnswersByFormId(resolvedParams.id), fetchCurrentCompany()]);
+  const companyLogo = company?.[0]?.company_logo ?? undefined;
   const formName = formInfo[0].name;
   const formDescription = (answers[0]?.form_id?.form as { description?: string } | undefined)?.description ?? '';
 
@@ -112,7 +135,7 @@ export default async function FormDetailPage({
       <div className="flex gap-4 mb-6">
         <BackButton />
         <PDFPreviewDialog buttonText="Imprimir vacío" title={formName} description="Vista previa del formulario vacío">
-          <div className="h-full w-full bg-white">{renderForm(formName)}</div>
+          <div className="h-full w-full bg-white">{renderForm(formName, companyLogo)}</div>
         </PDFPreviewDialog>
         <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${resolvedParams.id}/new`}>
           Nueva respuesta

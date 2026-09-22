@@ -14,21 +14,15 @@ interface DataTableToolbarProps<TData> {
 export function DataTableToolbarAnswer<TData>({ table }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters?.length > 0;
 
-  const uniqueChofer = table.getColumn('Chofer')?.getFacetedUniqueValues()
-    ? Array.from(
-        new Set(
-          Array?.from((table.getColumn('Chofer')?.getFacetedUniqueValues() as any)?.keys()).map((item: any) => item)
-        )
-      )
-    : [];
+  /** Valores distintos de una columna, ya facetados por la tabla. */
+  const uniqueValuesOf = (columnId: string): string[] => {
+    const facets = table.getColumn(columnId)?.getFacetedUniqueValues();
+    if (!facets) return [];
+    return Array.from(new Set(Array.from(facets.keys()).map((value) => String(value))));
+  };
 
-  const uniqueDomain = table.getColumn('Dominio')?.getFacetedUniqueValues()
-    ? Array.from(
-        new Set(
-          Array?.from((table.getColumn('Dominio')?.getFacetedUniqueValues() as any)?.keys()).map((item: any) => item)
-        )
-      )
-    : [];
+  const uniqueChofer = uniqueValuesOf('Chofer');
+  const uniqueDomain = uniqueValuesOf('Dominio');
 
   const domainOptions = uniqueDomain.map((domain) => {
     return {
