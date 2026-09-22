@@ -3,7 +3,7 @@
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
 import { getResourceLabel } from '../../shared/maintenance-resource';
-import type { ExternalWorkshop, OrderManagementData, WorkshopSector } from '../actions/actionsServer';
+import type { ExternalWorkshop, OrderManagementData, WorkshopSector } from '../actions/queries.server';
 import { useOrderManagement } from '../hooks/useOrderManagement';
 import { ManageOrderWizard } from './ManageOrderWizard';
 import { getOrderManagementColumns } from './columns';

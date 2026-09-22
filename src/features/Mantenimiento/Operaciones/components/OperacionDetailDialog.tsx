@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PREVENTIVE_TYPES, type PreventiveType } from '@/features/Mantenimiento/shared/preventive-maintenance';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import type { MaintenanceOperationData } from '../actions/actionsServer';
+import type { MaintenanceOperationData } from '../actions/queries.server';
 
 interface OperacionDetailDialogProps {
   operation: MaintenanceOperationData;
@@ -99,10 +99,10 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                 <div className="space-y-3">
                   {operation.maintenance_order_items.map((item) => {
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
-                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter(Boolean)
                         : item.types_of_repairs?.name
                           ? [item.types_of_repairs.name]
                           : [];

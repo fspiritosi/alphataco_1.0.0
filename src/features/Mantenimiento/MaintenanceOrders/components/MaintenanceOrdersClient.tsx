@@ -1,12 +1,7 @@
 'use client';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  getOrderForManagement,
-  type ExternalWorkshop,
-  type OrderManagementItem,
-  type WorkshopSector,
-} from '@/features/Mantenimiento/OrderManagement/actions/actionsServer';
+import { getOrderForManagement, type ExternalWorkshop, type OrderManagementItem, type WorkshopSector } from '@/features/Mantenimiento/OrderManagement/actions/queries.server';
 import { ManageOrderWizard } from '@/features/Mantenimiento/OrderManagement/components/ManageOrderWizard';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useCallback, useMemo, useState } from 'react';

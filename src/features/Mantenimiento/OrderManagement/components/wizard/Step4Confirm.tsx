@@ -10,7 +10,7 @@ import { getRepairItemGroupName, getRepairItemImages } from '@/features/Mantenim
 import { ClipboardList, Info } from 'lucide-react';
 import moment from 'moment';
 import { useMemo } from 'react';
-import type { WorkshopSector } from '../../actions/actionsServer';
+import type { WorkshopSector } from '../../actions/queries.server';
 import type { LocalItem } from '../ManageOrderWizard';
 import { RejectedItemsList } from './RejectedItemsList';
 import type { SectorOrderEntry } from './Step3ExecutionOrder';

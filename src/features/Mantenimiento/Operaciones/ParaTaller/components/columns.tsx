@@ -6,7 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef } from '@tanstack/react-table';
 import { Eye, History } from 'lucide-react';
 import moment from 'moment';
-import type { OrderForWorkshopData } from '../../actions/actionsServer';
+import type { OrderForWorkshopData } from '../../actions/queries.server';
 
 interface ColumnsProps {
   onViewDetail: (order: OrderForWorkshopData) => void;

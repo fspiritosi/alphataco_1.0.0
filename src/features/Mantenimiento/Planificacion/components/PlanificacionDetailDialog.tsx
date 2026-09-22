@@ -118,10 +118,10 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
                   const deviation = item.maintenance_request_items?.checklist_deviations;
 
                   // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
                   const repairTypeNames: string[] =
                     pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter(Boolean)
                       : item.types_of_repairs?.name
                         ? [item.types_of_repairs.name]
                         : [];

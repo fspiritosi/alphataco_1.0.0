@@ -8,12 +8,7 @@
  * como intermediario entre el DataTable y el ManageOrderWizard.
  */
 
-import {
-  getOrderForManagement,
-  type ExternalWorkshop,
-  type OrderManagementItem,
-  type WorkshopSector,
-} from '@/features/Mantenimiento/OrderManagement/actions/actionsServer';
+import { getOrderForManagement, type ExternalWorkshop, type OrderManagementItem, type WorkshopSector } from '@/features/Mantenimiento/OrderManagement/actions/queries.server';
 import { ManageOrderWizard } from '@/features/Mantenimiento/OrderManagement/components/ManageOrderWizard';
 import { useState } from 'react';
 import { toast } from 'sonner';

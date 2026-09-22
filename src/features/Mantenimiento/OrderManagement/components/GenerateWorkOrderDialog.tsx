@@ -21,11 +21,8 @@ import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { getResourceLabel } from '../../shared/maintenance-resource';
-import {
-  generateWorkOrdersForOrder,
-  getOrderGenerationPreview,
-  type OrderGenerationPreview,
-} from '../actions/actionsServer';
+import { getOrderGenerationPreview, type OrderGenerationPreview } from '../actions/queries.server';
+import { generateWorkOrdersForOrder } from '../actions/work-orders.server';
 
 const logger = new Logger('GenerateWorkOrderDialog');
 

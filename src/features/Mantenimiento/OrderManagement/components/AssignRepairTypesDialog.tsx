@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2, Search, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { OrderManagementItem } from '../actions/actionsServer';
+import type { OrderManagementItem } from '../actions/queries.server';
 import type { LocalItem } from './ManageOrderWizard';
 
 type OrderItem = OrderManagementItem['maintenance_order_items'][number];

@@ -46,22 +46,22 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
         const repairType = item.types_of_repairs;
 
         // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-        const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+        const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
         const repairTypeIds: string[] =
           pivotRepairTypes.length > 0
-            ? pivotRepairTypes.map((rt: any) => rt.repair_type_id).filter(Boolean)
+            ? pivotRepairTypes.map((rt) => rt.repair_type_id).filter(Boolean)
             : repairType?.id
               ? [repairType.id]
               : [];
         const repairTypeNames: string[] =
           pivotRepairTypes.length > 0
-            ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+            ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter(Boolean)
             : repairType?.name
               ? [repairType.name]
               : [];
 
         // Extraer información de la orden de trabajo asociada
-        const workOrder = (item as any).work_orders;
+        const workOrder = item.work_orders;
 
         desvios.push({
           id: item.id,
@@ -79,7 +79,7 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           itemCode: deviation?.item_code || null,
           sectionCode: deviation?.section_code || null,
           description: item.maintenance_request_items?.description || null,
-          driverComment: (item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment || null,
+          driverComment: item.maintenance_request_items?.driver_comment || deviation?.driver_comment || null,
           // Tipo de reparación (legacy)
           repairTypeId: repairType?.id || null,
           repairTypeName: repairType?.name || null,
@@ -90,12 +90,13 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           workshopEntryDate: order.workshop_entry_date?.toISOString() ?? null,
           kilometer: order.maintenance_requests?.kilometer || null,
           // Asignaciones
-          workshopId: (item as any).assigned_workshop_id || null,
-          sectorId: (item as any).assigned_sector_id || null,
-          startDate: (item as any).planned_start_date || null,
-          endDate: (item as any).planned_end_date || null,
+          workshopId: item.assigned_workshop_id || null,
+          sectorId: item.assigned_sector_id || null,
+          // Columnas `date` de Postgres: llegan como Date y la fila las guarda como ISO.
+          startDate: item.planned_start_date?.toISOString() ?? null,
+          endDate: item.planned_end_date?.toISOString() ?? null,
           // Orden de trabajo asociada
-          workOrderId: workOrder?.id || (item as any).work_order_id || null,
+          workOrderId: workOrder?.id || item.work_order_id || null,
           workOrderNumber: workOrder?.order_number || null,
           workOrderStatus: workOrder?.status || null,
           workOrderPriority: workOrder?.priority || null,

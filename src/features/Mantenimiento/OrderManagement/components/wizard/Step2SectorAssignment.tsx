@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { getSectorCandidatesForRepairTypes, type WorkshopSector } from '../../actions/actionsServer';
+import { getSectorCandidatesForRepairTypes, type WorkshopSector } from '../../actions/queries.server';
 import type { LocalItem } from '../ManageOrderWizard';
 import { RejectedItemsList } from './RejectedItemsList';
 import { getItemLabel, getItemRepairTypeIds as getRepairTypeIds } from './helpers';

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApproveWorkshopEntryInput, RejectOperationInput } from '../../types';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
-import { approveWorkshopEntry, getMaintenanceOperations, rejectMaintenanceOperation } from '../actions/actionsServer';
+import { getMaintenanceOperations } from '../actions/queries.server';
+import { approveWorkshopEntry, rejectMaintenanceOperation } from '../actions/mutations.server';
 
 export const MAINTENANCE_OPERATIONS_QUERY_KEY = ['maintenance-operations'];
 

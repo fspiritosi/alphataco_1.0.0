@@ -33,13 +33,8 @@ import { ClipboardList, Clock, Loader2, Plus, Save, Trash2, Wrench } from 'lucid
 import moment from 'moment';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  saveOrderChanges,
-  type ExternalWorkshop,
-  type OrderChangeSet,
-  type OrderManagementItem,
-  type WorkshopSector,
-} from '../actions/actionsServer';
+import { type ExternalWorkshop, type OrderManagementItem, type WorkshopSector } from '../actions/queries.server';
+import { saveOrderChanges, type OrderChangeSet } from '../actions/items.server';
 import { AddItemDialog } from './AddItemDialog';
 import { AssignRepairTypesDialog } from './AssignRepairTypesDialog';
 import { AssignSectorsPanel } from './AssignSectorsPanel';

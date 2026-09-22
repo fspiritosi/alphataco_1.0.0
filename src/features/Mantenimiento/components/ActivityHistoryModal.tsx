@@ -4,13 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { statusLabels as maintenanceOrderStatusLabels } from '@/features/Mantenimiento/MaintenanceOrders/table/columns';
-import {
-  getMaintenanceOrderActivityLog,
-  getMaintenanceOrderFullActivityLog,
-  getMaintenanceRequestFullActivityLog,
-  getWorkOrderFullActivityLog,
-  type MaintenanceRequestOrigin,
-} from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
+import { getMaintenanceOrderActivityLog, getMaintenanceOrderFullActivityLog, getMaintenanceRequestFullActivityLog, getWorkOrderFullActivityLog, type MaintenanceRequestOrigin } from '@/features/Mantenimiento/Operaciones/actions/activity-log.server';
 import { WORK_ORDER_STATUS_LABELS } from '@/features/Mantenimiento/shared/work-order-types';
 import {
   ACTIVITY_STAGE_DESCRIPTIONS,

@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react';
 import { getAllOrderManagementForExport, getOrderManagementFacets, type OrderManagementListItem } from './actions.server';
 import { getOrderManagementColumns, HIDDEN_COLUMNS_BY_DEFAULT } from './columns';
 import { ManageOrderWizard } from './components/ManageOrderWizard';
-import type { ExternalWorkshop, WorkshopSector } from './actions/actionsServer';
+import type { ExternalWorkshop, WorkshopSector } from './actions/queries.server';
 
 // ============================================================================
 // TYPES

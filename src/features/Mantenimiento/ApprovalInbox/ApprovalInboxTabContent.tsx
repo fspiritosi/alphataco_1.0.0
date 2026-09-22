@@ -1,4 +1,4 @@
-import { getActiveWorkshopSectors } from '../OrderManagement/actions/actionsServer';
+import { getActiveWorkshopSectors } from '../OrderManagement/actions/queries.server';
 import { getOrdersPendingValidation, getPendingApprovalTasks, getReturnedTasks } from './actions/actionsServer';
 import { ApprovalInboxClient } from './components/ApprovalInboxClient';
 

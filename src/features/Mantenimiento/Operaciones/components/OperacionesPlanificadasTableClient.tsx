@@ -5,11 +5,7 @@ import { ActivityHistoryModal } from '@/features/Mantenimiento/components/Activi
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import {
-  getMaintenanceOperations,
-  type MaintenanceOperationData,
-  type MaintenanceOperationsData,
-} from '../actions/actionsServer';
+import { getMaintenanceOperations, type MaintenanceOperationData, type MaintenanceOperationsData } from '../actions/queries.server';
 import { MAINTENANCE_OPERATIONS_QUERY_KEY } from '../hooks/useMaintenanceOperations';
 import { OperacionDetailDialog } from './OperacionDetailDialog';
 import { getReadonlyColumns } from './columnsReadonly';

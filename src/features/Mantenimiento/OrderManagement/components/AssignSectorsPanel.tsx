@@ -12,7 +12,7 @@ import { SearchableSelect } from '@/features/Mantenimiento/shared/components/Sea
 import { Building2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { ExternalWorkshop, OrderManagementItem, WorkshopSector } from '../actions/actionsServer';
+import type { ExternalWorkshop, OrderManagementItem, WorkshopSector } from '../actions/queries.server';
 
 type OrderItem = OrderManagementItem['maintenance_order_items'][number];
 

@@ -7,7 +7,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef } from '@tanstack/react-table';
 import { CheckCircle, Eye, History, XCircle } from 'lucide-react';
 import moment from 'moment';
-import type { MaintenanceOperationData } from '../actions/actionsServer';
+import type { MaintenanceOperationData } from '../actions/queries.server';
 
 interface ColumnsProps {
   onView: (operation: MaintenanceOperationData) => void;

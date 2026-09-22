@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
-import type { RequestItemComment } from '@/features/Mantenimiento/Operaciones/actions/actionsServer';
+import type { RequestItemComment } from '@/features/Mantenimiento/Operaciones/actions/operations-select';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import { useMemo, useState } from 'react';

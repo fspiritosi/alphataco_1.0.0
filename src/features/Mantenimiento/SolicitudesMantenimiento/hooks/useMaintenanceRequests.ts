@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { approveWorkshopEntry } from '../../Operaciones/actions/actionsServer';
+import { approveWorkshopEntry } from '../../Operaciones/actions/mutations.server';
 import type { ApproveRequestItemsInput, ApproveWorkshopEntryInput, RejectRequestInput } from '../../types';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import { approveMaintenanceRequestItems, rejectMaintenanceRequest, rejectMaintenanceRequestItems } from '../actions/approvals.server';

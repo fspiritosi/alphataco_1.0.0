@@ -2,7 +2,7 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { Clock, Eye, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import { ParaTallerTableClient } from './ParaTaller/components/ParaTallerTableClient';
-import { getMaintenanceOperations, getOrdersForWorkshop } from './actions/actionsServer';
+import { getMaintenanceOperations, getOrdersForWorkshop } from './actions/queries.server';
 import { OperacionesPlanificadasTableClient } from './components/OperacionesPlanificadasTableClient';
 import { OperacionesTableClient } from './components/OperacionesTableClient';
 import { OperacionesTableSkeleton } from './fallback';

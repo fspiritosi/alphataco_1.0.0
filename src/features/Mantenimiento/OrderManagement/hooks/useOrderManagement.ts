@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getMaintenanceOrdersForManagement, type OrderManagementData } from '../actions/actionsServer';
+import { getMaintenanceOrdersForManagement, type OrderManagementData } from '../actions/queries.server';
 
 export const ORDER_MANAGEMENT_QUERY_KEY = ['maintenance', 'order-management'] as const;
 

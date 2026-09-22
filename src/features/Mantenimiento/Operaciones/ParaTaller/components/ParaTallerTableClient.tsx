@@ -5,11 +5,7 @@ import { ActivityHistoryModal } from '@/features/Mantenimiento/components/Activi
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import {
-  getOrdersForWorkshop,
-  type OrderForWorkshopData,
-  type OrdersForWorkshopData,
-} from '../../actions/actionsServer';
+import { getOrdersForWorkshop, type OrderForWorkshopData, type OrdersForWorkshopData } from '../../actions/queries.server';
 import { ParaTallerDetailDialog } from './ParaTallerDetailDialog';
 import { getColumnsParaTaller } from './columns';
 

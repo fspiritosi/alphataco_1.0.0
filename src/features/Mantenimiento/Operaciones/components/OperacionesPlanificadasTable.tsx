@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
-import type { MaintenanceOperationData } from '../actions/actionsServer';
+import type { MaintenanceOperationData } from '../actions/queries.server';
 import { useMaintenanceOperations } from '../hooks/useMaintenanceOperations';
 import { OperacionDetailDialog } from './OperacionDetailDialog';
 import { getReadonlyColumns } from './columnsReadonly';

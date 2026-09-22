@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { MaintenanceOperationData } from '../actions/actionsServer';
+import type { MaintenanceOperationData } from '../actions/queries.server';
 import { useRejectMaintenanceOperation } from '../hooks/useMaintenanceOperations';
 
 interface RechazarOperacionDialogProps {

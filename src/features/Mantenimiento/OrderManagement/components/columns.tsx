@@ -6,7 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef } from '@tanstack/react-table';
 import { Settings2 } from 'lucide-react';
 import moment from 'moment';
-import type { OrderManagementItem } from '../actions/actionsServer';
+import type { OrderManagementItem } from '../actions/queries.server';
 
 interface ColumnsProps {
   onManage: (order: OrderManagementItem) => void;

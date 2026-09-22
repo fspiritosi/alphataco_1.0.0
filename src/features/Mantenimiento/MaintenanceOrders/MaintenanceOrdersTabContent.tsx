@@ -1,6 +1,6 @@
 import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { Suspense } from 'react';
-import { getActiveExternalWorkshops, getActiveWorkshopSectors } from '../OrderManagement/actions/actionsServer';
+import { getActiveExternalWorkshops, getActiveWorkshopSectors } from '../OrderManagement/actions/queries.server';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';
 import { MaintenanceOrdersSkeleton } from './fallback/MaintenanceOrdersSkeleton';
 import { MaintenanceOrderList } from './table/MaintenanceOrderList';

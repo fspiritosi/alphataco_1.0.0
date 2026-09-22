@@ -3,10 +3,7 @@ import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTabl
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { fetchAllTypesOfRepairs } from '@/features/Mantenimiento/TiposReparaciones/actions/actions';
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';
-import {
-  getActiveExternalWorkshops,
-  getActiveWorkshopSectors,
-} from './actions/actionsServer';
+import { getActiveExternalWorkshops, getActiveWorkshopSectors } from './actions/queries.server';
 import { getOrderManagementPaginated } from './actions.server';
 import { _OrderManagementDataTable } from './_OrderManagementDataTable';
 

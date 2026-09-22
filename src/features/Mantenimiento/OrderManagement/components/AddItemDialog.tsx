@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Layers, Search, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { getMaintenanceTaskGroupsWithRepairTypes } from '../actions/actionsServer';
+import { getMaintenanceTaskGroupsWithRepairTypes } from '../actions/queries.server';
 
 const NONE_GROUP_VALUE = '__none__';
 

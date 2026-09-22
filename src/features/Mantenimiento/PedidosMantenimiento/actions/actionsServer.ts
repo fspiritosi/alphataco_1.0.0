@@ -9,7 +9,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { cacheTag } from 'next/cache';
-import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/actionsServer';
+import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/items.server';
 import type {
   ApproveWorkshopEntryInput,
   MaintenanceOrderFilters,

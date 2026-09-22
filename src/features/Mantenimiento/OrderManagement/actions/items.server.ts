@@ -1,0 +1,685 @@
+'use server';
+
+import { resolveWorkshopRejectionStatus } from '@/features/Mantenimiento/lib/order-status';
+import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/action-types';
+import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
+import { getMaintenanceOrderCompanyId } from '@/features/Mantenimiento/shared/resource-company';
+import { Logger } from '@/lib/logger';
+import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
+import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { assertOrderInActiveCompany, assertOrderItemInActiveCompany } from './perimeter';
+
+const logger = new Logger('OrderManagement/items');
+
+export interface AssignSectorInput {
+  maintenanceOrderItemIds: string[];
+  sectorId: string;
+  sequenceOrder: number;
+}
+
+/**
+ * Asigna items a un sector con un orden de secuencia.
+ * Ademas, crea automaticamente un item DIAGNOSTICO para cada sector asignado.
+ */
+export async function assignItemsToSectors(maintenanceOrderId: string, assignments: AssignSectorInput[]) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderInActiveCompany(maintenanceOrderId);
+
+  const profile = await requireServerAuthProfile();
+
+  logger.info('Asignando items a sectores', {
+    data: { maintenanceOrderId, assignmentCount: assignments.length },
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
+      for (const assignment of assignments) {
+        // Actualizar items existentes con sector y secuencia
+        await tx.maintenance_order_items.updateMany({
+          where: { id: { in: assignment.maintenanceOrderItemIds } },
+          data: {
+            assigned_sector_id: assignment.sectorId,
+            sector_sequence_order: assignment.sequenceOrder,
+            assigned_by: profile.id,
+            assigned_at: new Date(),
+          },
+        });
+
+        // Verificar si ya existe un item DIAGNOSTICO para este sector + orden
+        const existingDiag = await tx.maintenance_order_items.findFirst({
+          where: {
+            maintenance_order_id: maintenanceOrderId,
+            assigned_sector_id: assignment.sectorId,
+            is_diagnostico: true,
+          },
+          select: { id: true },
+        });
+
+        // Crear item DIAGNOSTICO si no existe
+        if (!existingDiag) {
+          await tx.maintenance_order_items.create({
+            data: {
+              maintenance_order_id: maintenanceOrderId,
+              company_id: companyId,
+              assigned_sector_id: assignment.sectorId,
+              sector_sequence_order: assignment.sequenceOrder,
+              is_diagnostico: true,
+              description: 'DIAGNOSTICO',
+              assigned_by: profile.id,
+              assigned_at: new Date(),
+            },
+          });
+        }
+      }
+
+      await logActivity(tx, {
+        maintenanceOrderId,
+        actionType: ACTIVITY_LOG.ORDER_ITEMS_ASSIGNED,
+        performedBy: profile.id,
+        metadata: {
+          assignments: assignments.map((a) => ({
+            itemIds: a.maintenanceOrderItemIds,
+            sectorId: a.sectorId,
+            sequenceOrder: a.sequenceOrder,
+          })),
+        },
+      });
+    });
+
+    logger.info('Items asignados a sectores exitosamente', {
+      data: { maintenanceOrderId },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.assignItemsToSectors);
+  } catch (error) {
+    logger.error('Error asignando sector a items', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Agrega un nuevo item manualmente a un pedido de mantenimiento.
+ * Soporta multiples tipos de reparacion via tabla pivot.
+ */
+export async function addItemToOrder(
+  maintenanceOrderId: string,
+  data: {
+    description: string;
+    repairTypeIds?: string[];
+  }
+) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderInActiveCompany(maintenanceOrderId);
+
+  const profile = await requireServerAuthProfile();
+
+  try {
+    const newItem = await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, maintenanceOrderId);
+      const item = await tx.maintenance_order_items.create({
+        data: {
+          maintenance_order_id: maintenanceOrderId,
+          company_id: companyId,
+          description: data.description,
+          repair_type_id: data.repairTypeIds?.[0] ?? null,
+        },
+      });
+
+      // Insertar en tabla pivot si hay tipos de reparacion
+      if (data.repairTypeIds && data.repairTypeIds.length > 0) {
+        await tx.maintenance_order_item_repair_types.createMany({
+          data: data.repairTypeIds.map((repairTypeId) => ({
+            maintenance_order_item_id: item.id,
+            repair_type_id: repairTypeId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await logActivity(tx, {
+        maintenanceOrderId,
+        actionType: ACTIVITY_LOG.ORDER_ITEM_ADDED,
+        performedBy: profile.id,
+        metadata: {
+          itemId: item.id,
+          description: data.description,
+          repairTypeIds: data.repairTypeIds ?? [],
+        },
+      });
+
+      return item;
+    });
+
+    logger.info('Item agregado exitosamente', { data: { itemId: newItem.id } });
+    await invalidateCacheTags(INVALIDATION_MAP.addItemToOrder);
+    return newItem;
+  } catch (error) {
+    logger.error('Error agregando item', { data: { error } });
+    throw new Error(`Error al agregar item: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Actualiza los tipos de reparacion asignados a un item.
+ * Actualiza tanto el campo legacy como la tabla pivot.
+ */
+export async function updateItemRepairTypes(maintenanceOrderItemId: string, repairTypeIds: string[]) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderItemInActiveCompany(maintenanceOrderItemId);
+
+  const profile = await requireServerAuthProfile();
+
+  try {
+    const item = await prisma.maintenance_order_items.findUnique({
+      where: { id: maintenanceOrderItemId },
+      select: { maintenance_order_id: true },
+    });
+    if (!item?.maintenance_order_id) {
+      throw new Error('Item no encontrado o sin orden asociada');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Actualizar campo legacy con el primer tipo
+      await tx.maintenance_order_items.update({
+        where: { id: maintenanceOrderItemId },
+        data: { repair_type_id: repairTypeIds[0] ?? null },
+      });
+
+      // Eliminar registros anteriores de la tabla pivot
+      await tx.maintenance_order_item_repair_types.deleteMany({
+        where: { maintenance_order_item_id: maintenanceOrderItemId },
+      });
+
+      // Insertar nuevos registros en la tabla pivot
+      if (repairTypeIds.length > 0) {
+        await tx.maintenance_order_item_repair_types.createMany({
+          data: repairTypeIds.map((repairTypeId) => ({
+            maintenance_order_item_id: maintenanceOrderItemId,
+            repair_type_id: repairTypeId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await logActivity(tx, {
+        maintenanceOrderId: item.maintenance_order_id,
+        actionType: ACTIVITY_LOG.ORDER_ITEM_REPAIR_TYPES_UPDATED,
+        performedBy: profile.id,
+        metadata: { itemId: maintenanceOrderItemId, repairTypeIds },
+      });
+    });
+
+    logger.info('Tipos de reparacion actualizados', {
+      data: { maintenanceOrderItemId, repairTypeCount: repairTypeIds.length },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.saveOrderChanges);
+  } catch (error) {
+    logger.error('Error actualizando repair_type_id', { data: { error } });
+    throw new Error(
+      `Error al actualizar tipo de reparacion: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Elimina un item que fue agregado manualmente (no tiene maintenance_request_item_id)
+ */
+export async function removeManualItem(itemId: string) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderItemInActiveCompany(itemId);
+
+  const profile = await requireServerAuthProfile();
+
+  try {
+    // Verificar que el item no tiene origen de solicitud
+    const item = await prisma.maintenance_order_items.findUnique({
+      where: { id: itemId },
+      select: { id: true, maintenance_order_id: true, maintenance_request_item_id: true, is_diagnostico: true },
+    });
+
+    if (!item) {
+      throw new Error('Item no encontrado');
+    }
+
+    if (item.maintenance_request_item_id && !item.is_diagnostico) {
+      throw new Error('No se puede eliminar un item que proviene de una solicitud');
+    }
+
+    // Las relaciones tienen ON DELETE CASCADE, por lo que el delete borra el pivot automáticamente
+    await prisma.$transaction(async (tx) => {
+      await tx.maintenance_order_items.delete({ where: { id: itemId } });
+      if (item.maintenance_order_id) {
+        await logActivity(tx, {
+          maintenanceOrderId: item.maintenance_order_id,
+          actionType: ACTIVITY_LOG.ORDER_ITEM_REMOVED,
+          performedBy: profile.id,
+          metadata: { itemId },
+        });
+      }
+    });
+
+    logger.info('Item eliminado exitosamente', { data: { itemId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.saveOrderChanges);
+  } catch (error) {
+    logger.error('Error eliminando item', { data: { error } });
+    throw new Error(`Error al eliminar item: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export type AddItemResult = Awaited<ReturnType<typeof addItemToOrder>>;
+
+// =============================================================================
+// ORDER NUMBER GENERATION
+// =============================================================================
+
+/**
+ * Generates and assigns an order number to a maintenance order.
+ * Format: OM-{SEQUENCE} (e.g. OM-000001)
+ * Called when the OM enters the workshop (status = 'in_workshop').
+ */
+export async function generateMaintenanceOrderNumber(orderId: string) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderInActiveCompany(orderId);
+
+  const profile = await requireServerAuthProfile();
+
+  try {
+    // Check if already has a number
+    const existing = await prisma.maintenance_orders.findUnique({
+      where: { id: orderId },
+      select: { order_number: true },
+    });
+
+    if (!existing) throw new Error('Orden no encontrada');
+    if (existing.order_number) return existing.order_number;
+
+    // Get next sequence number (global) — count de órdenes que ya tienen número
+    const count = await prisma.maintenance_orders.count({
+      where: { order_number: { not: null } },
+    });
+
+    const nextSeq = count + 1;
+    const paddedSeq = String(nextSeq).padStart(6, '0');
+    const orderNumber = `OM-${paddedSeq}`;
+
+    // Update the order
+    await prisma.$transaction(async (tx) => {
+      await tx.maintenance_orders.update({
+        where: { id: orderId },
+        data: { order_number: orderNumber },
+      });
+      await logActivity(tx, {
+        maintenanceOrderId: orderId,
+        actionType: ACTIVITY_LOG.ORDER_NUMBER_GENERATED,
+        performedBy: profile.id,
+        metadata: { orderNumber },
+      });
+    });
+
+    logger.info('Numero de orden generado', { data: { orderId, orderNumber } });
+    await invalidateCacheTags(INVALIDATION_MAP.saveOrderChanges);
+    return orderNumber;
+  } catch (error) {
+    logger.error('Error generando numero de orden', { data: { error } });
+    throw error;
+  }
+}
+
+// =============================================================================
+// BATCH SAVE
+// =============================================================================
+
+export interface OrderChangeSet {
+  /** Items to delete (only manual items, not from request) */
+  deletes: string[];
+  /** Items to add */
+  adds: Array<{ description: string; repairTypeIds: string[] }>;
+  /** Sector assignments (item -> sector + sequence) */
+  sectorAssignments: Array<{
+    itemIds: string[];
+    sectorId: string;
+    sequenceOrder: number;
+  }>;
+  /** Repair type updates per item */
+  repairTypeUpdates: Array<{
+    itemId: string;
+    repairTypeIds: string[];
+  }>;
+  /** Sequence order updates for already-assigned items */
+  sequenceUpdates: Array<{
+    itemId: string;
+    sequenceOrder: number;
+  }>;
+  /** Description updates per item */
+  descriptionUpdates: Array<{
+    itemId: string;
+    description: string;
+  }>;
+  /** Workshop chief comment updates per item */
+  chiefCommentUpdates: Array<{
+    itemId: string;
+    comment: string;
+  }>;
+  /** External workshop assignments (no sector) */
+  workshopAssignments: Array<{
+    itemIds: string[];
+    workshopId: string;
+  }>;
+  /** Items rejected by workshop chief (won't travel to WO) */
+  rejections?: Array<{
+    itemId: string;
+    reason: string;
+  }>;
+  /** Items restored from rejected state */
+  restorations?: string[];
+}
+
+/**
+ * Batch save: procesa todos los cambios pendientes en una sola accion.
+ * Procesa en orden: deletes -> adds -> sector assignments -> repair type updates -> sequence updates.
+ */
+export async function saveOrderChanges(orderId: string, changes: OrderChangeSet) {
+  // Perímetro: el registro tiene que ser de la empresa activa.
+  await assertOrderInActiveCompany(orderId);
+
+  const profile = await requireServerAuthProfile();
+
+  logger.info('Guardando cambios batch en orden', {
+    data: {
+      orderId,
+      deletes: changes.deletes.length,
+      adds: changes.adds.length,
+      sectorAssignments: changes.sectorAssignments.length,
+      repairTypeUpdates: changes.repairTypeUpdates.length,
+      sequenceUpdates: changes.sequenceUpdates.length,
+      descriptionUpdates: changes.descriptionUpdates.length,
+      chiefCommentUpdates: changes.chiefCommentUpdates.length,
+      workshopAssignments: changes.workshopAssignments.length,
+    },
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const companyId = await getMaintenanceOrderCompanyId(tx, orderId);
+      // 1. DELETES - Eliminar items manuales
+      for (const itemId of changes.deletes) {
+        const item = await tx.maintenance_order_items.findUnique({
+          where: { id: itemId },
+          select: { id: true, maintenance_request_item_id: true, is_diagnostico: true },
+        });
+
+        if (item && (!item.maintenance_request_item_id || item.is_diagnostico)) {
+          // ON DELETE CASCADE elimina el pivot automáticamente
+          await tx.maintenance_order_items.delete({ where: { id: itemId } });
+        }
+      }
+
+      // 2. ADDS - Agregar nuevos items
+      for (const add of changes.adds) {
+        const newItem = await tx.maintenance_order_items.create({
+          data: {
+            maintenance_order_id: orderId,
+            company_id: companyId,
+            description: add.description,
+            repair_type_id: add.repairTypeIds[0] ?? null,
+          },
+        });
+
+        if (add.repairTypeIds.length > 0) {
+          await tx.maintenance_order_item_repair_types.createMany({
+            data: add.repairTypeIds.map((repairTypeId) => ({
+              maintenance_order_item_id: newItem.id,
+              repair_type_id: repairTypeId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      // 3. SECTOR ASSIGNMENTS
+      // Backend safeguard: normalize sequence orders to avoid duplicates
+      const existingSeqData = await tx.maintenance_order_items.findMany({
+        where: {
+          maintenance_order_id: orderId,
+          work_order_id: { not: null },
+          assigned_sector_id: { not: null },
+          sector_sequence_order: { not: null },
+        },
+        select: { sector_sequence_order: true },
+      });
+
+      const maxExistingSeqBatch = existingSeqData.reduce(
+        (max, item) => Math.max(max, item.sector_sequence_order ?? 0),
+        0
+      );
+
+      // Normalize assignments: sort by their sequence order and re-assign sequential values
+      const sortedAssignments = [...changes.sectorAssignments].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+      const normalizedAssignments = sortedAssignments.map((assignment, idx) => ({
+        ...assignment,
+        sequenceOrder: maxExistingSeqBatch + idx + 1,
+      }));
+
+      for (const assignment of normalizedAssignments) {
+        await tx.maintenance_order_items.updateMany({
+          where: { id: { in: assignment.itemIds } },
+          data: {
+            assigned_sector_id: assignment.sectorId,
+            sector_sequence_order: assignment.sequenceOrder,
+            assigned_by: profile.id,
+            assigned_at: new Date(),
+          },
+        });
+
+        // Crear item DIAGNOSTICO si no existe para este sector
+        const existingDiag = await tx.maintenance_order_items.findFirst({
+          where: {
+            maintenance_order_id: orderId,
+            assigned_sector_id: assignment.sectorId,
+            is_diagnostico: true,
+          },
+          select: { id: true },
+        });
+
+        if (!existingDiag) {
+          await tx.maintenance_order_items.create({
+            data: {
+              maintenance_order_id: orderId,
+              company_id: companyId,
+              assigned_sector_id: assignment.sectorId,
+              sector_sequence_order: assignment.sequenceOrder,
+              is_diagnostico: true,
+              description: 'DIAGNOSTICO',
+              assigned_by: profile.id,
+              assigned_at: new Date(),
+            },
+          });
+        }
+      }
+
+      // 4. REPAIR TYPE UPDATES
+      for (const update of changes.repairTypeUpdates) {
+        // Actualizar campo legacy
+        await tx.maintenance_order_items.update({
+          where: { id: update.itemId },
+          data: { repair_type_id: update.repairTypeIds[0] ?? null },
+        });
+
+        // Reemplazar pivot records
+        await tx.maintenance_order_item_repair_types.deleteMany({
+          where: { maintenance_order_item_id: update.itemId },
+        });
+
+        if (update.repairTypeIds.length > 0) {
+          await tx.maintenance_order_item_repair_types.createMany({
+            data: update.repairTypeIds.map((repairTypeId) => ({
+              maintenance_order_item_id: update.itemId,
+              repair_type_id: repairTypeId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      // 5. SEQUENCE ORDER UPDATES
+      for (const seqUpdate of changes.sequenceUpdates) {
+        await tx.maintenance_order_items.update({
+          where: { id: seqUpdate.itemId },
+          data: { sector_sequence_order: seqUpdate.sequenceOrder },
+        });
+      }
+
+      // 6. DESCRIPTION UPDATES
+      for (const descUpdate of changes.descriptionUpdates) {
+        await tx.maintenance_order_items.update({
+          where: { id: descUpdate.itemId },
+          data: { description: descUpdate.description },
+        });
+      }
+
+      // 7. CHIEF COMMENT UPDATES
+      for (const commentUpdate of changes.chiefCommentUpdates) {
+        await tx.maintenance_order_items.update({
+          where: { id: commentUpdate.itemId },
+          data: {
+            workshop_chief_comment: commentUpdate.comment,
+            workshop_chief_comment_by: profile.id,
+          },
+        });
+      }
+
+      // 8. EXTERNAL WORKSHOP ASSIGNMENTS (no sector, no diagnostico)
+      for (const wsAssignment of changes.workshopAssignments) {
+        await tx.maintenance_order_items.updateMany({
+          where: { id: { in: wsAssignment.itemIds } },
+          data: {
+            assigned_workshop_id: wsAssignment.workshopId,
+            assigned_sector_id: null,
+            sector_sequence_order: null,
+            assigned_by: profile.id,
+            assigned_at: new Date(),
+          },
+        });
+      }
+
+      // 9. REJECTIONS - Marcar items como rechazados
+      if (changes.rejections && changes.rejections.length > 0) {
+        for (const rejection of changes.rejections) {
+          await tx.maintenance_order_items.update({
+            where: { id: rejection.itemId },
+            data: {
+              is_rejected: true,
+              rejection_reason: rejection.reason,
+              rejected_by: profile.id,
+              rejected_at: new Date(),
+            },
+          });
+        }
+      }
+
+      // 10. RESTORATIONS - Restaurar items rechazados
+      if (changes.restorations && changes.restorations.length > 0) {
+        await tx.maintenance_order_items.updateMany({
+          where: { id: { in: changes.restorations } },
+          data: {
+            is_rejected: false,
+            rejection_reason: null,
+            rejected_by: null,
+            rejected_at: null,
+          },
+        });
+      }
+
+      // After rejections/restorations, check if order needs status transition
+      if (
+        (changes.rejections && changes.rejections.length > 0) ||
+        (changes.restorations && changes.restorations.length > 0) ||
+        changes.adds.length > 0
+      ) {
+        const currentOrder = await tx.maintenance_orders.findUnique({
+          where: { id: orderId },
+          select: { status: true },
+        });
+
+        const allItems = await tx.maintenance_order_items.findMany({
+          where: { maintenance_order_id: orderId },
+          select: { id: true, is_rejected: true, is_diagnostico: true },
+        });
+
+        const regularItems = allItems.filter((item) => !item.is_diagnostico);
+        // Transición por rechazo/restauración de items: la regla vive en `lib/order-status.ts`.
+        const nextStatus = resolveWorkshopRejectionStatus(currentOrder?.status ?? '', allItems);
+
+        if (nextStatus === 'workshop_rejected') {
+          // All items rejected → mark as workshop_rejected
+          await tx.maintenance_orders.update({
+            where: { id: orderId },
+            data: { status: 'workshop_rejected', updated_at: new Date() },
+          });
+
+          await logActivity(tx, {
+            maintenanceOrderId: orderId,
+            actionType: ACTIVITY_LOG.WORKSHOP_REJECTED_ALL_ITEMS,
+            performedBy: profile.id,
+            previousStatus: currentOrder?.status ?? 'in_workshop',
+            newStatus: 'workshop_rejected',
+            notes: `Todos los items rechazados por taller (${regularItems.length} item(s))`,
+          });
+        } else if (nextStatus === 'in_workshop') {
+          // Some items restored or new items added → back to in_workshop
+          await tx.maintenance_orders.update({
+            where: { id: orderId },
+            data: { status: 'in_workshop', updated_at: new Date() },
+          });
+
+          await logActivity(tx, {
+            maintenanceOrderId: orderId,
+            actionType: ACTIVITY_LOG.WORKSHOP_RESTORED_FROM_REJECTED,
+            performedBy: profile.id,
+            previousStatus: 'workshop_rejected',
+            newStatus: 'in_workshop',
+            notes: 'Orden restaurada - items disponibles para gestionar',
+          });
+        }
+      }
+
+      // Grouped audit log: one entry capturing ALL changes from this save session
+      const groupedMetadata: Record<string, unknown> = {};
+      if (changes.deletes.length > 0) groupedMetadata.deletes = changes.deletes;
+      if (changes.adds.length > 0) groupedMetadata.adds = changes.adds;
+      if (changes.sectorAssignments.length > 0) groupedMetadata.sectorAssignments = changes.sectorAssignments;
+      if (changes.repairTypeUpdates.length > 0) groupedMetadata.repairTypeUpdates = changes.repairTypeUpdates;
+      if (changes.sequenceUpdates.length > 0) groupedMetadata.sequenceUpdates = changes.sequenceUpdates;
+      if (changes.descriptionUpdates.length > 0) groupedMetadata.descriptionUpdates = changes.descriptionUpdates;
+      if (changes.chiefCommentUpdates.length > 0) groupedMetadata.chiefCommentUpdates = changes.chiefCommentUpdates;
+      if (changes.workshopAssignments.length > 0) groupedMetadata.workshopAssignments = changes.workshopAssignments;
+      if (changes.rejections && changes.rejections.length > 0) groupedMetadata.rejections = changes.rejections;
+      if (changes.restorations && changes.restorations.length > 0) groupedMetadata.restorations = changes.restorations;
+
+      if (Object.keys(groupedMetadata).length > 0) {
+        await logActivity(tx, {
+          maintenanceOrderId: orderId,
+          actionType: ACTIVITY_LOG.ORDER_ITEMS_UPDATED,
+          performedBy: profile.id,
+          metadata: groupedMetadata,
+        });
+      }
+    });
+
+    logger.info('Cambios batch guardados exitosamente', { data: { orderId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.saveOrderChanges);
+  } catch (error) {
+    logger.error('Error guardando cambios batch', { data: { error, orderId } });
+    throw error;
+  }
+}
+
+// =============================================================================
+// GENERAR ORDENES DE TRABAJO
+// =============================================================================

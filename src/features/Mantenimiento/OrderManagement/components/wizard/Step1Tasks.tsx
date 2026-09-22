@@ -22,7 +22,7 @@ import { getRepairItemGroupName, getRepairItemImages } from '@/features/Mantenim
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { AlertTriangle, Ban, MessageSquare, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
-import type { OrderManagementItem } from '../../actions/actionsServer';
+import type { OrderManagementItem } from '../../actions/queries.server';
 import type { LocalItem } from '../ManageOrderWizard';
 import { getItemLabel } from './helpers';
 
