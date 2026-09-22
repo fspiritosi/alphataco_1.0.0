@@ -50,6 +50,7 @@ import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, HelpCircle, Link as 
 import moment from 'moment';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm, type Control, type FieldErrors, type FieldValues } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -106,11 +107,6 @@ export function NormalizedChecklistForm({
   const [showHitchSelector, setShowHitchSelector] = useState(false);
   const [compatibleHitchEquipment, setCompatibleHitchEquipment] = useState<Equipment[]>([]);
   const [isLoadingHitchEquipment, setIsLoadingHitchEquipment] = useState(false);
-  const [selectedEquipmentType, setSelectedEquipmentType] = useState<{
-    id: string;
-    has_hitch: boolean;
-    is_tractor_unit: boolean;
-  } | null>(null);
 
   /**
    * Códigos de las secciones que describen la unidad enganchada (ticket 677).
@@ -333,66 +329,29 @@ export function NormalizedChecklistForm({
 
   logger.debug('equipments loaded', { data: { count: equipments.length } });
 
-  // Obtener información del tipo del equipo seleccionado para verificar si tiene enganche
+  /**
+   * Tipo del equipo seleccionado (React Query sobre la server action, no `useEffect` + fetch):
+   * define si el checklist puede llevar un acoplado enganchado.
+   */
+  const { data: equipmentTypeInfo } = useQuery({
+    queryKey: ['checklist-equipment-type', selectedEquipmentId],
+    queryFn: () => getEquipmentTypeInfo(selectedEquipmentId as string),
+    enabled: Boolean(selectedEquipmentId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const selectedEquipmentType = selectedEquipmentId ? (equipmentTypeInfo ?? null) : null;
+
+  /**
+   * Al cambiar de equipo se descarta el enganche elegido y sus equipos compatibles: son del
+   * equipo anterior. En modo sólo lectura se conserva el que vino por prop.
+   */
   useEffect(() => {
-    async function checkEquipmentHitch() {
-      if (!selectedEquipmentId) {
-        setSelectedEquipmentType(null);
-        // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
-        if (!readOnly || !defaultHitchEquipmentId) {
-          setSelectedHitchEquipment(null);
-        }
-        setCompatibleHitchEquipment([]);
-        return;
-      }
-
-      try {
-        const typeInfo = await getEquipmentTypeInfo(selectedEquipmentId);
-        if (!typeInfo) {
-          setSelectedEquipmentType(null);
-          // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
-          if (!readOnly || !defaultHitchEquipmentId) {
-            setSelectedHitchEquipment(null);
-          }
-          setCompatibleHitchEquipment([]);
-          return;
-        }
-
-        setSelectedEquipmentType({
-          id: typeInfo.id,
-          has_hitch: typeInfo.has_hitch,
-          is_tractor_unit: typeInfo.is_tractor_unit,
-        });
-
-        // Si no tiene enganche o no es UT, limpiar el enganche seleccionado y equipos compatibles
-        if (!typeInfo.has_hitch || !typeInfo.is_tractor_unit) {
-          // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
-          if (!readOnly || !defaultHitchEquipmentId) {
-            setSelectedHitchEquipment(null);
-          }
-          setCompatibleHitchEquipment([]);
-          setShowHitchSelector(false); // Cerrar modal si estaba abierto
-        } else {
-          // Si el equipo tiene enganche pero cambió el equipo, limpiar la selección previa de enganche
-          // para que el usuario seleccione nuevamente el enganche correcto
-          // Pero en modo readOnly, mantener el enganche si viene de defaultHitchEquipmentId
-          if (!readOnly || !defaultHitchEquipmentId) {
-            setSelectedHitchEquipment(null);
-          }
-          setCompatibleHitchEquipment([]);
-        }
-      } catch (error) {
-        logger.error('Error checking equipment hitch', { data: { error } });
-        setSelectedEquipmentType(null);
-        // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
-        if (!readOnly || !defaultHitchEquipmentId) {
-          setSelectedHitchEquipment(null);
-        }
-        setCompatibleHitchEquipment([]);
-      }
+    if (!readOnly || !defaultHitchEquipmentId) {
+      setSelectedHitchEquipment(null);
     }
-
-    checkEquipmentHitch();
+    setCompatibleHitchEquipment([]);
+    setShowHitchSelector(false);
   }, [selectedEquipmentId, readOnly, defaultHitchEquipmentId]);
 
   // Auto-poblar kilometraje y horómetro cuando se selecciona un equipo
