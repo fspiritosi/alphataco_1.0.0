@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  getUserPermissionsServer,
+  getUserPermissionsForUserServer,
   type AllRolePermissionsMap,
   type ModulesWithTabsData,
   type RoleWithCount,
@@ -44,7 +44,7 @@ export function UserPermissionsManager({
   // useQuery con initialData — no hay loading en el primer render
   const { data: permissions = initialUserPermissions } = useQuery({
     queryKey: ['user-permissions', userId],
-    queryFn: () => getUserPermissionsServer(userId),
+    queryFn: () => getUserPermissionsForUserServer(userId),
     initialData: initialUserPermissions,
     staleTime: 0,
   });

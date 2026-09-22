@@ -5,7 +5,7 @@ import {
   getAllRolesWithCounts,
   getModulesWithTabsServer,
   getUserDetailById,
-  getUserPermissionsServer,
+  getUserPermissionsForUserServer,
   getUserRolesServer,
 } from '@/features/UserPermissionsManager/actions.server';
 import { UserPermissionsManager } from '@/features/UserPermissionsManager/UserPermissionsManager';
@@ -56,7 +56,7 @@ async function User({ params }: { params: Promise<{ id: string }> }) {
   // Cargar datos iniciales en paralelo para SSR
   const [initialUserPermissions, initialUserRoles, initialRoles, initialRolePermissions, initialModules] =
     await Promise.all([
-      getUserPermissionsServer(authUserId),
+      getUserPermissionsForUserServer(authUserId),
       getUserRolesServer(authUserId),
       getAllRolesWithCounts(),
       getAllRolePermissions(),

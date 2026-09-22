@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import {
-  getUserPermissionsServer,
+  getUserPermissionsForUserServer,
   getUserRolesServer,
   type UserPermissionsData,
   type UserRolesData,
@@ -11,7 +11,7 @@ import {
 export function useUserPermissions(userId: string) {
   const permissionsQuery = useQuery<UserPermissionsData>({
     queryKey: ['user-permissions', userId],
-    queryFn: () => getUserPermissionsServer(userId),
+    queryFn: () => getUserPermissionsForUserServer(userId),
     enabled: !!userId,
     staleTime: 0, // Sin caché para ver cambios inmediatos
   });

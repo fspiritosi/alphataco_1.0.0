@@ -40,6 +40,25 @@ async function assertCanManageUserDetail(): Promise<void> {
   if (!allowed) throw new PermissionDeniedError('No tienes permisos para modificar los permisos de este usuario');
 }
 
+// Lecturas por id arbitrario: mismo criterio fail-closed que las escrituras. `userId` es
+// SIEMPRE el propio dato del usuario (permiso implícito: ver lo propio) o requiere permiso
+// explícito de lectura sobre 'detalle-usuario' (contexto donde se consumen estas dos lecturas
+// — ver `UserPermissionsManager.tsx` y `app/dashboard/company/actualCompany/user/[id]/page.tsx`).
+async function assertCanReadUserData(userId: string): Promise<void> {
+  const sessionUserId = await getSessionUserId();
+  if (sessionUserId && sessionUserId === userId) return;
+
+  const allowed = await checkPermissionServer('empresa', 'detalle-usuario', 'view');
+  if (!allowed) throw new PermissionDeniedError('Sin permiso');
+}
+
+// `getRolePermissionsServer` no tiene noción de "propio dato" (es el detalle de un ROL, no
+// de un usuario): sólo gestión de roles puede leerlo.
+async function assertCanReadRolePermissions(): Promise<void> {
+  const allowed = await checkPermissionServer('empresa', 'gestion-roles', 'view');
+  if (!allowed) throw new PermissionDeniedError('Sin permiso');
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type RoleWithCount = Awaited<ReturnType<typeof getAllRolesWithCounts>>[number];
@@ -132,6 +151,8 @@ export async function getAllRolePermissions(): Promise<Map<number, Array<{ tabId
  * Usado al editar un rol para pre-popular el editor de permisos.
  */
 export async function getRolePermissionsServer(roleId: number): Promise<Array<{ tabId: string; actionId: string }>> {
+  await assertCanReadRolePermissions();
+
   logger.debug('Obteniendo permisos del rol', { data: { roleId } });
 
   try {
@@ -476,8 +497,14 @@ export async function removeRoleFromUserServer(userId: string, roleId: number) {
  * Obtiene los permisos combinados (rol + custom) de un usuario arbitrario, reusando
  * la misma función SQL `get_user_permissions` que usa `permissions.server.ts` para el
  * usuario de sesión (sin reimplementar la lógica en Prisma por separado).
+ *
+ * Nombre distinto de `getUserPermissionsServer` de `permissions.server.ts` (esa es sin
+ * argumentos, siempre el usuario de sesión) para no tener dos funciones homónimas con
+ * firmas distintas en la misma capa.
  */
-export async function getUserPermissionsServer(userId: string) {
+export async function getUserPermissionsForUserServer(userId: string) {
+  await assertCanReadUserData(userId);
+
   logger.debug('Obteniendo permisos del usuario', { data: { userId } });
 
   try {
@@ -488,13 +515,15 @@ export async function getUserPermissionsServer(userId: string) {
   }
 }
 
-export type UserPermissionsData = Awaited<ReturnType<typeof getUserPermissionsServer>>;
+export type UserPermissionsData = Awaited<ReturnType<typeof getUserPermissionsForUserServer>>;
 export type UserPermissionEntry = UserPermissionsData[number];
 
 /**
  * Obtiene los roles asignados a un usuario.
  */
 export async function getUserRolesServer(userId: string) {
+  await assertCanReadUserData(userId);
+
   logger.debug('Obteniendo roles del usuario', { data: { userId } });
 
   try {

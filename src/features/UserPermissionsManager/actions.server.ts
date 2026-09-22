@@ -27,7 +27,7 @@ export {
   getModulesWithTabsServer,
   getRolePermissionsServer,
   getUserDetailById,
-  getUserPermissionsServer,
+  getUserPermissionsForUserServer,
   getUserRolesServer,
   getUsersForRoleAssignment,
   removeRoleFromUserServer,
