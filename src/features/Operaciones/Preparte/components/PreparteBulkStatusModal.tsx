@@ -18,7 +18,7 @@ import {
   bulkReschedulePrepartes,
   confirmMultiplePrepartesToDailyReport,
   updateMultiplePreparteStatus,
-} from '../actions/preparte';
+} from '../actions/bulk.server';
 import { PreparteItem } from './PreparteManager';
 
 const logger = new Logger('PreparteBulkStatusModal');

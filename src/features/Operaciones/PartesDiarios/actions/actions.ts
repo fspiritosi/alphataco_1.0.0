@@ -1690,7 +1690,7 @@ export async function deleteDailyReportRow(id: string) {
     // Si tenía preparte vinculado, revertir a pendiente y registrar en el log
     const preparte = row?.preparte;
     if (row?.preparte_id && preparte) {
-      const { updatePreparte, logPreparteChange } = await import('@/features/Operaciones/Preparte/actions/preparte');
+      const { updatePreparte, logPreparteChange } = await import('@/features/Operaciones/Preparte/actions/mutations.server');
 
       await updatePreparte(row.preparte_id, { status: 'pendiente' });
       await logPreparteChange({

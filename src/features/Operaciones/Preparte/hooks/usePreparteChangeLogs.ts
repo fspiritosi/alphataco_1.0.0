@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getPreparteChangeLogs, getPreparteChangeLogsByOrderNumber } from '../actions/preparte';
+import { getPreparteChangeLogs, getPreparteChangeLogsByOrderNumber } from '../actions/queries.server';
 
 // Tipo inferido de la respuesta
 export type PreparteChangeLogEntry = Awaited<ReturnType<typeof getPreparteChangeLogs>>[number];

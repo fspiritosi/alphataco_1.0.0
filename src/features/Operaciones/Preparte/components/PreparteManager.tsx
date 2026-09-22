@@ -3,15 +3,15 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { confirmPreparteToDailyReport } from '@/features/Operaciones/Preparte/actions/bulk.server';
 import {
-  confirmPreparteToDailyReport,
   createPreparte,
   deletePreparte,
-  getLastOrderNumber,
   movePreparteFile,
   updatePreparte,
-  type Preparte,
-} from '@/features/Operaciones/Preparte/actions/preparte';
+} from '@/features/Operaciones/Preparte/actions/mutations.server';
+import { getLastOrderNumber } from '@/features/Operaciones/Preparte/actions/queries.server';
+import type { Preparte } from '@/features/Operaciones/Preparte/types';
 import { PermissionGuard } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';

@@ -1369,7 +1369,7 @@ export async function deleteDailyReportRowPrisma(rowId: string) {
 
     // 3. Si tenía preparte vinculado, revertir su estado a pendiente
     if (row.preparte_id && row.preparte) {
-      const { updatePreparte, logPreparteChange } = await import('@/features/Operaciones/Preparte/actions/preparte');
+      const { updatePreparte, logPreparteChange } = await import('@/features/Operaciones/Preparte/actions/mutations.server');
 
       await updatePreparte(row.preparte_id, { status: 'pendiente' });
       await logPreparteChange({

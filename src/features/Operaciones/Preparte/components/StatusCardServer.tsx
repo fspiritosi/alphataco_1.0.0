@@ -13,7 +13,8 @@ interface StatusCardServerProps {
 /**
  * Server Component que carga el count de prepartes por estado
  * Cada card hace su propia query COUNT independiente
- * Hace fetch directo con supabaseServer() (no server actions)
+ * Cuenta con Prisma acotado a la empresa activa (los pedidos viejos sin company_id
+ * se siguen contando, mismo criterio que el resto del módulo).
  */
 export async function StatusCardServer({ status, label, color }: StatusCardServerProps) {
   const companyId = await getServerCompanyId();

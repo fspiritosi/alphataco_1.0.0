@@ -1,124 +1,190 @@
 'use server';
+
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { prisma } from '@/shared/lib/prisma';
 
-const logger = new Logger('preparte-actions');
+const logger = new Logger('features/Operaciones/Preparte/actions');
 
+/**
+ * Clientes de la empresa activa con todo lo que el formulario de pedido necesita:
+ * contratos vigentes, sus sectores/áreas/items e inventario de equipos del cliente.
+ *
+ * Perímetro: `customers.company_id` = empresa activa. Los contratos y los items se
+ * filtran por `is_active` dentro del `include` (equivale a los `.eq()` anidados de PostgREST).
+ * `item_price` es `Decimal` en Postgres: se devuelve como `number` para que el objeto
+ * viaje al cliente (un `Decimal` de Prisma no es serializable).
+ */
 export async function fetchCustomersWithRelations() {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  const supabase = await supabaseServer();
-  if (!company_id) return [];
+  try {
+    const companyId = await getActiveCompanyId();
 
-  const { data, error } = await supabase
-    .from('customers')
-    .select(
-      `
-      id,
-      name,
-      equipos_clientes(id, name),
-      sector_customer(id, customer_id, sector_id, sectors(id, name)),
-      customer_services!customer_services_customer_id_fkey(
-        id,
-        customer_id,
-        service_sectors(id, sector_id, service_id, sectors(id, name)),
-        service_areas(id, area_id, service_id, areas_cliente(id, nombre)),
-        service_items(*)
-      )
-    `
-    )
-    .eq('company_id', company_id)
-    .eq('is_active', true)
-    .eq('customer_services.is_active', true)
-    .eq('customer_services.service_items.is_active', true);
+    const customers = await prisma.customers.findMany({
+      where: { company_id: companyId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        equipos_clientes: {
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        },
+        sector_customer: {
+          select: {
+            id: true,
+            customer_id: true,
+            sector_id: true,
+            sectors: { select: { id: true, name: true } },
+          },
+        },
+        customer_services: {
+          where: { is_active: true },
+          select: {
+            id: true,
+            customer_id: true,
+            service_sectors: {
+              select: {
+                id: true,
+                sector_id: true,
+                service_id: true,
+                sectors: { select: { id: true, name: true } },
+              },
+            },
+            service_areas: {
+              select: {
+                id: true,
+                area_id: true,
+                service_id: true,
+                areas_cliente: { select: { id: true, nombre: true } },
+              },
+            },
+            service_items: {
+              where: { is_active: true },
+              select: {
+                id: true,
+                item_name: true,
+                item_description: true,
+                item_price: true,
+                item_measure_units: true,
+                customer_service_id: true,
+                code_item: true,
+                item_number: true,
+                is_active: true,
+                needs_equipment: true,
+                needs_personnel: true,
+              },
+              orderBy: { item_name: 'asc' },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
 
-  if (error) {
-    logger.error('Error fetching customers with relations', { data: { error } });
+    return customers.map((customer) => ({
+      ...customer,
+      customer_services: customer.customer_services.map((service) => ({
+        ...service,
+        service_items: service.service_items.map((item) => ({
+          ...item,
+          item_price: Number(item.item_price),
+        })),
+      })),
+    }));
+  } catch (error) {
+    logger.error('Error al obtener los clientes con sus relaciones', { data: { error } });
     return [];
   }
-  return data;
 }
 
+/**
+ * Sectores de un contrato. `id` es el `service_sectors.id` (lo que se guarda en el pedido)
+ * y `sector_id` el del sector del catálogo.
+ *
+ * Perímetro: el contrato tiene que ser de un cliente de la empresa activa.
+ */
 export async function fetchSectorsByContract(serviceId: string) {
-  const supabase = await supabaseServer();
   if (!serviceId) return [];
 
-  // Get service_sectors with related sectors
-  const { data, error } = await supabase
-    .from('service_sectors')
-    .select(
-      `
-      id,
-      sector_id,
-      sectors:sectors!service_sectors_sector_id_fkey(
-        id,
-        name
-      )
-    `
-    )
-    .eq('service_id', serviceId);
+  try {
+    const companyId = await getActiveCompanyId();
 
-  if (error) {
-    logger.error('[fetchSectorsByContract] error', { data: { error } });
+    const serviceSectors = await prisma.service_sectors.findMany({
+      where: {
+        service_id: serviceId,
+        customer_services: { customers: { company_id: companyId } },
+      },
+      select: {
+        id: true,
+        sector_id: true,
+        sectors: { select: { name: true } },
+      },
+      orderBy: { sectors: { name: 'asc' } },
+    });
+
+    return serviceSectors.map((item) => ({
+      id: item.id,
+      sector_id: item.sector_id,
+      name: item.sectors?.name ?? '',
+    }));
+  } catch (error) {
+    logger.error('Error al obtener los sectores del contrato', { data: { error, serviceId } });
     return [];
   }
-
-  // Map to the expected format
-  const options = (data || []).map((item: any) => ({
-    id: item.id, // service_sectors.id
-    sector_id: item.sector_id, // sectors.id
-    name: item.sectors?.name || '',
-  }));
-
-  return options;
 }
 
+/**
+ * Áreas de un contrato. `id` es el `service_areas.id` y `area_id` el del área del cliente.
+ *
+ * Perímetro: el contrato tiene que ser de un cliente de la empresa activa.
+ */
 export async function fetchAreasByContract(serviceId: string) {
-  const supabase = await supabaseServer();
   if (!serviceId) return [];
 
-  const { data, error } = await supabase
-    .from('service_areas')
-    .select(
-      `
-      id,
-      area_id,
-      areas_cliente:areas_cliente!service_areas_area_id_fkey(
-        id,
-        nombre
-      )
-    `
-    )
-    .eq('service_id', serviceId)
-    .order('id');
+  try {
+    const companyId = await getActiveCompanyId();
 
-  if (error) {
-    logger.error('Error fetching areas by contract', { data: { error } });
+    const serviceAreas = await prisma.service_areas.findMany({
+      where: {
+        service_id: serviceId,
+        customer_services: { customers: { company_id: companyId } },
+      },
+      select: {
+        id: true,
+        area_id: true,
+        areas_cliente: { select: { nombre: true } },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    return serviceAreas.map((item) => ({
+      id: item.id,
+      area_id: item.area_id,
+      name: item.areas_cliente?.nombre ?? '',
+    }));
+  } catch (error) {
+    logger.error('Error al obtener las áreas del contrato', { data: { error, serviceId } });
     return [];
   }
-
-  // Map to the expected format
-  return (data || []).map((item: any) => ({
-    id: item.id, // service_areas.id
-    area_id: item.area_id, // areas_cliente.id
-    name: item.areas_cliente?.nombre || '',
-  }));
 }
 
+/**
+ * Equipos del cliente (`equipos_clientes` no tiene `service_id`: se filtra por cliente).
+ *
+ * Perímetro: el cliente tiene que pertenecer a la empresa activa.
+ */
 export async function fetchEquipmentsByCustomer(customerId: string) {
-  const supabase = await supabaseServer();
   if (!customerId) return [];
-  const { data, error } = await supabase
-    .from('equipos_clientes')
-    .select('id, name, customer_id')
-    .eq('customer_id', customerId)
-    .order('name', { ascending: true });
-  if (error) {
-    logger.error('Error fetching equipments by customer', { data: { error } });
+
+  try {
+    const companyId = await getActiveCompanyId();
+
+    return await prisma.equipos_clientes.findMany({
+      where: { customer_id: customerId, customers: { company_id: companyId } },
+      select: { id: true, name: true, customer_id: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    logger.error('Error al obtener los equipos del cliente', { data: { error, customerId } });
     return [];
   }
-  return data || [];
 }
-
-// Nota: equipos_clientes no tiene service_id, se filtra por customer_id

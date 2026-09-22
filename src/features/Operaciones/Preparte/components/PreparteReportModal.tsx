@@ -24,7 +24,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { getPreparteReportData, type PreparteReportResult, type PreparteReportSummary } from '../actions/preparte';
+import { getPreparteReportData, type PreparteReportResult, type PreparteReportSummary } from '../actions/report.server';
 import type { Cliente } from './PreparteManager';
 
 const logger = new Logger('PreparteReportModal');
