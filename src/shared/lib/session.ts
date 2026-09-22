@@ -44,6 +44,19 @@ export const getSessionCompanyClaim = cache(async (): Promise<string | null> => 
 });
 
 /**
+ * `employee_id` del usuario de sesión (`app_metadata` con fallback a `user_metadata`),
+ * o null si el claim no está. Lo usa la atribución de respuestas de checklist.
+ */
+export const getSessionEmployeeIdClaim = cache(async (): Promise<string | null> => {
+  // P4: auth
+  const user = await getAuthUser();
+  const fromApp = user?.app_metadata?.employee_id;
+  if (typeof fromApp === 'string' && fromApp) return fromApp;
+  const fromUser = user?.user_metadata?.employee_id;
+  return typeof fromUser === 'string' && fromUser ? fromUser : null;
+});
+
+/**
  * Sesión decodificada desde la cookie — 0 llamadas de red (`auth.getSession()`).
  * Sólo usar DESPUÉS de que el middleware validó al usuario con `getUser()`.
  * Los consumidores leen `session.user.id` y `session.user.app_metadata.company`; P4 los

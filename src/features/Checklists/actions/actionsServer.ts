@@ -1,10 +1,12 @@
 'use server';
 
 import { Prisma } from '@/generated/prisma/client';
+import { resolveChecklistEmployeeId } from '@/features/Checklists/lib/checklist-attribution';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionEmployeeIdClaim } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
@@ -124,8 +126,13 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
   const failedItems = answerData.failed_items || answerData.critical_items_failed || [];
   const computedResult: 'B' | 'M' = hasMValue(sanitizedAnswers) || failedItems.length > 0 ? 'M' : 'B';
 
-  // Obtener employee_id del cookie si no viene en answerData (flujo QR anónimo)
-  const requestedEmployeeId = answerData.employee_id || cookiesStore.get('empleado_id')?.value || null;
+  // Atribución del empleado: payload → cookie `empleado_id` (QR) → metadata de sesión.
+  // La metadata es la única fuente desde `dashboard/forms/[id]/new`.
+  const requestedEmployeeId = resolveChecklistEmployeeId({
+    payload: answerData.employee_id,
+    cookie: cookiesStore.get('empleado_id')?.value,
+    metadata: await getSessionEmployeeIdClaim(),
+  });
   const finalEmployeeId = await employeeIdInCompany(requestedEmployeeId, companyId);
   const choferEmployeeId = await employeeIdInCompany(answerData.chofer_employee_id, companyId);
 
