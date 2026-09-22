@@ -248,9 +248,9 @@ function DiagramFormUpdated({
    * tabla. Ojo: las server actions loguean los errores por fila y no los propagan, asi que
    * "termino bien" significa "la operacion no lanzo", no "se guardaron todas las filas".
    */
-  const runDiagramOperation = (
-    operation: Promise<unknown>,
-    messages: { loading: string; success: string; error: string },
+  const runDiagramOperation = <T,>(
+    operation: Promise<T>,
+    messages: { loading: string; success: string | ((result: T) => string); error: string },
     remainingErrors: ErrorToCreate[],
     remainingSuccess: DiagramaToCreate[]
   ) => {
@@ -379,7 +379,8 @@ function DiagramFormUpdated({
       CreateDiagrams(payload),
       {
         loading: 'Creando diagramas...',
-        success: `Se crearon ${payload.length} diagramas`,
+        // Los días que ya tenían registro se omiten (skipDuplicates): se informa lo que se creó de verdad.
+        success: ({ count }) => `Se crearon ${count} diagramas`,
         error: 'No se pudieron crear los diagramas. Volvé a intentar.',
       },
       errorsDiagrams,

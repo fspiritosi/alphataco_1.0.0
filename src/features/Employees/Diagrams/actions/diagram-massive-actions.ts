@@ -22,6 +22,9 @@ import type { ConflictCheckResult, ProcessingResult } from '../types/massive-dia
 
 const logger = new Logger('features/Employees/Diagrams/massive');
 
+/** Ver comentario en processMassiveDiagramCreation. */
+const MASSIVE_TX_OPTIONS = { timeout: 120_000, maxWait: 5_000 } as const;
+
 // ─── Work Diagrams ──────────────────────────────────────────────────────────
 
 export async function getActiveWorkDiagrams() {
@@ -365,9 +368,14 @@ export async function processMassiveDiagramCreation(params: {
     const activeNovelty = await resolveActiveNovelty(workDiagram, params.activeNoveltyId || undefined, companyId);
 
     // Dentro de withActor: el trigger de employees_diagram escribe diagrams_logs con app.user_id.
-    const raw = await withActor(actor, (tx) =>
-      callScalar(
-        'process_massive_diagram_creation_v2',
+    // Timeout ampliado: la función SQL itera empleados × días con trigger por fila
+    // (diagrams_logs); con 100 empleados × 1 mes supera los 5 s del default de Prisma
+    // y abortaría con P2028. maxWait 5 s para tomar la conexión bajo carga.
+    const raw = await withActor(
+      actor,
+      (tx) =>
+        callScalar(
+          'process_massive_diagram_creation_v2',
         [
           { uuidArray: employees.map((e) => e.id) },
           { uuid: workDiagram.id },
@@ -378,7 +386,9 @@ export async function processMassiveDiagramCreation(params: {
         ],
         z.unknown(),
         tx
-      )
+      ),
+      prisma,
+      MASSIVE_TX_OPTIONS
     );
 
     return normalizeProcessingResult(raw);
@@ -408,9 +418,12 @@ export async function processMassiveNoveltyCreation(params: {
     ]);
     if (!novelty) throw new Error('Novedad no encontrada');
 
-    const raw = await withActor(actor, (tx) =>
-      callScalar(
-        'process_massive_novelty_creation',
+    // Mismo timeout ampliado que la carga por diagrama (empleados × días con trigger por fila).
+    const raw = await withActor(
+      actor,
+      (tx) =>
+        callScalar(
+          'process_massive_novelty_creation',
         [
           { uuidArray: employees.map((e) => e.id) },
           { uuid: novelty.id },
@@ -420,7 +433,9 @@ export async function processMassiveNoveltyCreation(params: {
         ],
         z.unknown(),
         tx
-      )
+      ),
+      prisma,
+      MASSIVE_TX_OPTIONS
     );
 
     return normalizeProcessingResult(raw);

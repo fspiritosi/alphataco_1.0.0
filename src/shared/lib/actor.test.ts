@@ -75,6 +75,17 @@ describe('withActor', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
+  it('pasa las opciones de transacción (timeout/maxWait) a $transaction; sin opciones no manda nada', async () => {
+    const { tx } = fakeTx();
+    const client = fakeClient(tx);
+
+    await withActor(UUID, async () => 'ok', client, { timeout: 120_000, maxWait: 5_000 });
+    expect(client.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { timeout: 120_000, maxWait: 5_000 });
+
+    await withActor(UUID, async () => 'ok', client);
+    expect(client.$transaction).toHaveBeenLastCalledWith(expect.any(Function), undefined);
+  });
+
   it('acepta uuids en mayúsculas', async () => {
     const { tx, executed } = fakeTx();
     await setActor(tx, UUID.toUpperCase());

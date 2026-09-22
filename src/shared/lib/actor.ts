@@ -17,6 +17,16 @@ import { prisma } from '@/shared/lib/prisma';
 export type ActorTx = Pick<Prisma.TransactionClient, '$executeRaw'>;
 export type ActorClient = { $transaction: typeof prisma.$transaction };
 
+/**
+ * Opciones de la transacción interactiva. Los defaults de Prisma son `timeout: 5000` /
+ * `maxWait: 2000`; las funciones SQL largas (cargas masivas) piden un `timeout` mayor o
+ * abortan con P2028.
+ */
+export interface ActorTransactionOptions {
+  timeout?: number;
+  maxWait?: number;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function assertUuid(userId: string): void {
@@ -33,16 +43,17 @@ export async function setActor(tx: ActorTx, userId: string): Promise<void> {
 
 /**
  * Ejecuta `fn` dentro de una transacción con `app.user_id = <userId>` ya seteado.
- * Valida el uuid ANTES de abrir la transacción.
+ * Valida el uuid ANTES de abrir la transacción. `options` va directo a `$transaction`.
  */
 export async function withActor<T>(
   userId: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
-  client: ActorClient = prisma
+  client: ActorClient = prisma,
+  options?: ActorTransactionOptions
 ): Promise<T> {
   assertUuid(userId);
   return client.$transaction(async (tx) => {
     await setActor(tx, userId);
     return fn(tx);
-  });
+  }, options);
 }
