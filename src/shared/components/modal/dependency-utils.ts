@@ -113,6 +113,44 @@ export async function fetchDependenciesForValue<
   }
 }
 
+/**
+ * Reapunta las filas que dependen de `fromValue` hacia `toValue` (o a NULL) antes de desactivar
+ * un catálogo. Tabla y columna salen de la lista cerrada `DEPENDENCY_TARGETS` y la escritura va
+ * acotada a la empresa activa: sin RLS, es la única defensa del endpoint.
+ *
+ * Devuelve la cantidad de filas reapuntadas.
+ */
+export async function reassignDependencies<T extends DependencyTargetTable>(params: {
+  targetTable: T;
+  targetColumn: string;
+  fromValue: string;
+  /** `null` deja la FK vacía (el modal lo envía como `__NULL__`). */
+  toValue: string | null;
+}): Promise<number> {
+  const { targetTable, targetColumn, fromValue, toValue } = params;
+  assertTargetColumn(targetTable, targetColumn);
+  const companyId = await getActiveCompanyId();
+
+  try {
+    if (targetTable === 'employees') {
+      const result = await prisma.employees.updateMany({
+        where: withCompany({ [targetColumn]: fromValue } as Prisma.employeesWhereInput, companyId),
+        data: { [targetColumn]: toValue } as Prisma.employeesUpdateManyMutationInput,
+      });
+      return result.count;
+    }
+
+    const result = await prisma.vehicles.updateMany({
+      where: withCompany({ [targetColumn]: fromValue } as Prisma.vehiclesWhereInput, companyId),
+      data: { [targetColumn]: toValue } as Prisma.vehiclesUpdateManyMutationInput,
+    });
+    return result.count;
+  } catch (error) {
+    logger.error('Error al reasignar dependencias', { data: { error, targetTable, targetColumn } });
+    throw error;
+  }
+}
+
 /** Opciones activas del catálogo fuente (empresa activa) para reemplazar al registro que se desactiva. */
 export const fetchReplacementOptions = async (
   config: DependencyConfig,

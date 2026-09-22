@@ -344,6 +344,14 @@ export async function updateDiagramTypePrisma(data: {
   computes_absenteeism: boolean;
 }) {
   try {
+    // Perímetro sin RLS: sólo se edita un tipo de novedad de la empresa activa.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.diagram_type.findFirst({
+      where: withCompany({ id: data.id }, companyId),
+      select: { id: true },
+    });
+    if (!owned) throw new Error('Tipo de novedad no encontrado');
+
     const result = await prisma.diagram_type.update({
       where: { id: data.id },
       data: {

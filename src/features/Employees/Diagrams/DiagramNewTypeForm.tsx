@@ -5,7 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
-import { createDiagramType, updateDiagramType } from '@/features/Empresa/RRHH/tabs/TiposDeNovedades/actions/actions';
+import {
+  createDiagramTypePrisma,
+  updateDiagramTypePrisma,
+} from '@/features/Empresa/RRHH/DiagramTypes/actions.server';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -59,10 +62,20 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
     await toast
       .promise(
         async () => {
+          // `computes_absenteeism` por defecto: una novedad que NO es de trabajo activo computa ausentismo.
+          const payload = {
+            name: values.name,
+            color: values.color,
+            short_description: values.short_description,
+            work_active: values.work_active ?? false,
+            is_active: values.is_active ?? false,
+            computes_absenteeism: values.computes_absenteeism ?? !values.work_active,
+          };
           if (method === 'PUT') {
-            await updateDiagramType(values);
+            if (!values.id) throw new Error('Falta el id de la novedad a editar');
+            await updateDiagramTypePrisma({ id: values.id, ...payload });
           } else {
-            await createDiagramType(values);
+            await createDiagramTypePrisma(payload);
           }
         },
         {

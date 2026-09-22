@@ -280,9 +280,9 @@ export default function _WorkDiagramDataTable({
         <ResizablePanel defaultSize={30}>
           <div className="overflow-auto h-full pr-2">
             <WorkDiagramForm
-              diagram={workDiagram as Parameters<typeof WorkDiagramForm>[0]['diagram']}
+              diagram={workDiagram}
               mode={effectiveMode}
-              diagramsTypes={diagramTypes as Parameters<typeof WorkDiagramForm>[0]['diagramsTypes']}
+              diagramsTypes={diagramTypes}
               setMode={handleSetMode}
             />
           </div>

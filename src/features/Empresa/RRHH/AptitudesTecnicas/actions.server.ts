@@ -10,6 +10,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
@@ -88,7 +89,7 @@ export async function getAptitudesTecnicasPaginated(searchParams: DataTableSearc
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     // Multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -125,7 +126,7 @@ export async function getAptitudesTecnicasPaginated(searchParams: DataTableSearc
 export async function getAllAptitudesTecnicasForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -164,7 +165,7 @@ export async function getAptitudesTecnicasSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = withCompany(buildWhereClause(crossState), await getActiveCompanyId());
 
     switch (columnId) {
       case 'is_active': {
@@ -205,8 +206,9 @@ export async function getAptitudesTecnicasSingleFacet(
 
 export async function getActiveCompanyPositions() {
   try {
+    const companyId = await getActiveCompanyId();
     return await prisma.company_positions.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -247,6 +249,14 @@ export async function updateAptitudTecnicaPrisma(data: {
   is_active: boolean;
 }) {
   try {
+    // Perímetro sin RLS: la aptitud tiene que ser de la empresa activa antes de escribirla.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.aptitudes_tecnicas.findFirst({
+      where: withCompany({ id: data.id }, companyId),
+      select: { id: true },
+    });
+    if (!owned) throw new Error('Aptitud técnica no encontrada');
+
     // deleteMany + createMany en transacción para reemplazar las relaciones M:M
     const result = await prisma.$transaction(async (tx) => {
       // 1. Borrar relaciones existentes

@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
-import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
+import {
+  fetchDependenciesForValue,
+  fetchReplacementOptions,
+  reassignDependencies,
+} from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -196,19 +199,12 @@ export default function ContractTypeForm() {
 
     if (action === 'replace') {
       try {
-        const supabase = supabaseBrowser();
-        const { error } = await supabase
-          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
-          .update({
-            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as never)
-          .eq(dependencyConfigs[0].targetColumn, editingContractType.id);
-
-        if (error) {
-          logger.error('Error al reemplazar referencias', { data: { error } });
-          toast.error('No se pudieron reemplazar las referencias');
-          return;
-        }
+        await reassignDependencies({
+          targetTable: 'employees',
+          targetColumn: dependencyConfigs[0].targetColumn,
+          fromValue: editingContractType.id,
+          toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
+        });
 
         const values = form.getValues();
         await handleUpdate(values);

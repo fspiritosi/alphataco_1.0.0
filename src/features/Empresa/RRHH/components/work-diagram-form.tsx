@@ -12,10 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createWorkDiagram, updateWorkDiagram } from '@/features/Empresa/RRHH/actions/actions';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
-import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
+import {
+  fetchDependenciesForValue,
+  fetchReplacementOptions,
+  reassignDependencies,
+} from '@/shared/components/modal/dependency-utils';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -23,6 +25,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
+import {
+  createWorkDiagramPrisma,
+  updateWorkDiagramPrisma,
+  type DiagramTypeItem,
+  type WorkDiagramListItem,
+} from '../WorkDiagrams/actions.server';
 
 const logger = new Logger('features/Empresa/RRHH');
 // Actualizar el esquema para eliminar el campo days
@@ -44,9 +52,9 @@ const WorkDiagramSchema = z.object({
 type WorkDiagramFormValues = z.infer<typeof WorkDiagramSchema>;
 
 interface WorkDiagramFormProps {
-  diagram?: any | null;
+  diagram?: WorkDiagramListItem | null;
   mode: 'create' | 'edit';
-  diagramsTypes?: DiagramType[] | null;
+  diagramsTypes?: DiagramTypeItem[] | null;
   setMode: React.Dispatch<React.SetStateAction<'create' | 'edit'>>;
 }
 
@@ -78,8 +86,8 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
       is_active: diagram?.is_active ?? true,
       active_working_days: diagram?.active_working_days || 0,
       inactive_working_days: diagram?.inactive_working_days || 0,
-      active_novelty: diagram?.active_novelty?.id || '',
-      inactive_novelty: diagram?.inactive_novelty?.id || '',
+      active_novelty: diagram?.work_diagram_active_novelties?.map((n) => n.diagram_type.id) ?? [],
+      inactive_novelty: diagram?.inactive_novelty ?? '',
     },
   });
   const { reset } = form;
@@ -123,14 +131,12 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
     // Reemplazo masivo y luego desactivar
     if (action === 'replace') {
       try {
-        const supabase = supabaseBrowser();
-
-        const { error } = await supabase
-          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
-          .update({
-            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
-          } as any)
-          .eq(dependencyConfigs[0].targetColumn, diagram.id);
+        await reassignDependencies({
+          targetTable: 'employees',
+          targetColumn: dependencyConfigs[0].targetColumn,
+          fromValue: diagram.id,
+          toValue: replacementValue && replacementValue !== '__NULL__' ? replacementValue : null,
+        });
 
         // Ahora sí, desactivar el registro actual
         const values = form.getValues();
@@ -145,15 +151,15 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   useEffect(() => {
     if (diagram) {
       // Extraer los IDs de las novedades activas
-      const activeNoveltyIds = diagram.work_diagram_active_novelties?.map((n: any) => n.diagram_type.id) || [];
+      const activeNoveltyIds = diagram.work_diagram_active_novelties?.map((n) => n.diagram_type.id) ?? [];
 
       form.reset({
-        name: diagram.name,
-        is_active: diagram.is_active,
-        active_working_days: diagram.active_working_days,
-        inactive_working_days: diagram.inactive_working_days,
+        name: diagram.name ?? '',
+        is_active: diagram.is_active ?? true,
+        active_working_days: diagram.active_working_days ?? 0,
+        inactive_working_days: diagram.inactive_working_days ?? 0,
         active_novelty: activeNoveltyIds,
-        inactive_novelty: diagram.inactive_novelty?.id || '',
+        inactive_novelty: diagram.inactive_novelty ?? '',
       });
     }
   }, [diagram]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -161,7 +167,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   const onSubmit = async (values: z.infer<typeof WorkDiagramSchema>) => {
     toast.promise(
       async () => {
-        await createWorkDiagram({
+        await createWorkDiagramPrisma({
           name: values.name,
           is_active: values.is_active,
           active_working_days: values.active_working_days,
@@ -177,9 +183,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
           reset();
           return 'Diagrama creado correctamente';
         },
-        error: (error) => {
-          return 'Error al crear el diagrama';
-        },
+        error: () => 'Error al crear el diagrama',
       }
     );
   };
@@ -204,7 +208,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
             toast.error('No diagram ID found');
             return;
           }
-          await updateWorkDiagram({
+          await updateWorkDiagramPrisma({
             id: diagram?.id,
             name: values.name,
             is_active: values.is_active,
@@ -221,9 +225,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
             reset();
             return 'Diagrama actualizado correctamente';
           },
-          error: (error) => {
-            return 'Error al actualizar el diagrama';
-          },
+          error: () => 'Error al actualizar el diagrama',
         }
       );
     } else {
@@ -233,7 +235,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
             toast.error('No diagram ID found');
             return;
           }
-          await updateWorkDiagram({
+          await updateWorkDiagramPrisma({
             id: diagram?.id,
             name: values.name,
             is_active: values.is_active,
@@ -250,9 +252,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
             reset();
             return 'Diagrama actualizado correctamente';
           },
-          error: (error) => {
-            return 'Error al actualizar el diagrama';
-          },
+          error: () => 'Error al actualizar el diagrama',
         }
       );
     }

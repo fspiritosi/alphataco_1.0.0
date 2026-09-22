@@ -11,6 +11,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
@@ -94,7 +95,7 @@ export async function getPositionsPaginated(searchParams: DataTableSearchParams)
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     // Multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -164,7 +165,7 @@ export async function getPositionsPaginated(searchParams: DataTableSearchParams)
 export async function getAllPositionsForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -236,7 +237,7 @@ export async function getPositionSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = withCompany(buildWhereClause(crossState), await getActiveCompanyId());
 
     switch (columnId) {
       case 'is_active': {
@@ -328,8 +329,9 @@ export async function getPositionSingleFacet(
 
 export async function getAllHierarchiesForForm() {
   try {
+    const companyId = await getActiveCompanyId();
     const data = await prisma.hierarchy.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -342,8 +344,9 @@ export async function getAllHierarchiesForForm() {
 
 export async function getAllAptitudesForForm() {
   try {
+    const companyId = await getActiveCompanyId();
     const data = await prisma.aptitudes_tecnicas.findMany({
-      where: { is_active: true },
+      where: withCompany({ is_active: true }, companyId),
       select: { id: true, nombre: true },
       orderBy: { nombre: 'asc' },
     });
@@ -398,6 +401,14 @@ export async function updatePositionPrisma(data: {
   aptitudes_tecnicas_id: string[];
 }) {
   try {
+    // Perímetro sin RLS: el puesto tiene que ser de la empresa activa antes de escribirlo.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.company_positions.findFirst({
+      where: withCompany({ id: data.id }, companyId),
+      select: { id: true },
+    });
+    if (!owned) throw new Error('Puesto no encontrado');
+
     // Actualizar en transacción: primero eliminar relaciones M:M, luego recrear
     await prisma.$transaction([
       // Eliminar relaciones M:M existentes

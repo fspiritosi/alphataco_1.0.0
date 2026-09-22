@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
-import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { VerActivosButton } from '@/shared/components/common/VerActivosButton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -102,7 +102,7 @@ export function TalleresTable({
 }) {
   const workshopsData = use(workshops);
   const onEdit = useTalleresStore((state) => state.setWorkshop);
-  const [filteredData, setFilteredData] = useState<Workshop[]>(workshopsData);
+  const [filteredData, setFilteredData] = useState<Workshop[]>(() => workshopsData.filter((row) => row.is_active));
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('empresa', 'talleres', 'update');
 

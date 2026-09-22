@@ -111,7 +111,7 @@ export async function getWorkDiagramsPaginated(searchParams: DataTableSearchPara
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     // Multi-sort: iterar state.sorting (array), NO state.sortBy (patrón viejo)
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -174,7 +174,7 @@ export async function getWorkDiagramsPaginated(searchParams: DataTableSearchPara
 export async function getAllWorkDiagramsForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -242,7 +242,7 @@ export async function getWorkDiagramSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = withCompany(buildWhereClause(crossState), await getActiveCompanyId());
 
     switch (columnId) {
       case 'is_active': {
@@ -370,6 +370,128 @@ export async function getAllDiagramTypes() {
   } catch (error) {
     logger.error('Error al obtener tipos de diagrama', { data: { error } });
     throw new Error('No se pudo obtener los tipos de diagrama.');
+  }
+}
+
+// ============================================================================
+// MUTACIONES — crear y actualizar con Prisma
+// ============================================================================
+
+/** Payload común de alta/edición de un diagrama de trabajo. */
+export type WorkDiagramInput = {
+  name: string;
+  is_active: boolean;
+  active_working_days: number;
+  inactive_working_days: number;
+  /** Ids de `diagram_type` que componen las novedades activas (M:M). */
+  active_novelty: string[];
+  /** Id de `diagram_type` de la novedad inactiva, o cadena vacía si no se eligió. */
+  inactive_novelty: string;
+};
+
+/** Los días son `Decimal` en Prisma: se serializan a number para cruzar a Client Components. */
+function serializeWorkDiagram<
+  T extends { active_working_days: unknown; inactive_working_days: unknown },
+>(row: T): Omit<T, 'active_working_days' | 'inactive_working_days'> & {
+  active_working_days: number | null;
+  inactive_working_days: number | null;
+} {
+  return {
+    ...row,
+    active_working_days: row.active_working_days !== null ? Number(row.active_working_days) : null,
+    inactive_working_days: row.inactive_working_days !== null ? Number(row.inactive_working_days) : null,
+  };
+}
+
+const workDiagramSelect = {
+  id: true,
+  name: true,
+  is_active: true,
+  active_working_days: true,
+  inactive_working_days: true,
+  inactive_novelty: true,
+  created_at: true,
+  work_diagram_active_novelties: {
+    select: { id: true, diagram_type: { select: { id: true, name: true } } },
+  },
+} as const;
+
+/** Verifica que todos los `diagram_type` referenciados sean de la empresa activa. */
+async function assertDiagramTypesOwned(companyId: string, ids: string[]): Promise<void> {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (unique.length === 0) return;
+  const found = await prisma.diagram_type.count({ where: withCompany({ id: { in: unique } }, companyId) });
+  if (found !== unique.length) throw new Error('Tipo de novedad no encontrado');
+}
+
+export async function createWorkDiagramPrisma(input: WorkDiagramInput) {
+  try {
+    const companyId = await getActiveCompanyId();
+    const inactiveNovelty = input.inactive_novelty || null;
+    await assertDiagramTypesOwned(companyId, [...input.active_novelty, ...(inactiveNovelty ? [inactiveNovelty] : [])]);
+
+    const result = await prisma.work_diagram.create({
+      data: {
+        name: input.name,
+        is_active: input.is_active,
+        active_working_days: input.active_working_days,
+        inactive_working_days: input.inactive_working_days,
+        inactive_novelty: inactiveNovelty,
+        company_id: companyId,
+        work_diagram_active_novelties: {
+          create: input.active_novelty.map((diagramTypeId) => ({
+            diagram_type_id: diagramTypeId,
+            company_id: companyId,
+          })),
+        },
+      },
+      select: workDiagramSelect,
+    });
+    return serializeWorkDiagram(result);
+  } catch (error) {
+    logger.error('Error al crear diagrama de trabajo', { data: { error } });
+    throw new Error('No se pudo crear el diagrama. Intente nuevamente.');
+  }
+}
+
+export async function updateWorkDiagramPrisma(input: WorkDiagramInput & { id: string }) {
+  try {
+    const companyId = await getActiveCompanyId();
+    // Perímetro sin RLS: sólo se edita un diagrama de la empresa activa.
+    const owned = await prisma.work_diagram.findFirst({
+      where: withCompany({ id: input.id }, companyId),
+      select: { id: true },
+    });
+    if (!owned) throw new Error('Diagrama no encontrado');
+
+    const inactiveNovelty = input.inactive_novelty || null;
+    await assertDiagramTypesOwned(companyId, [...input.active_novelty, ...(inactiveNovelty ? [inactiveNovelty] : [])]);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Las novedades activas se reemplazan enteras: el form manda siempre el conjunto completo.
+      await tx.work_diagram_active_novelties.deleteMany({ where: { work_diagram_id: input.id } });
+      return tx.work_diagram.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+          is_active: input.is_active,
+          active_working_days: input.active_working_days,
+          inactive_working_days: input.inactive_working_days,
+          inactive_novelty: inactiveNovelty,
+          work_diagram_active_novelties: {
+            create: input.active_novelty.map((diagramTypeId) => ({
+              diagram_type_id: diagramTypeId,
+              company_id: companyId,
+            })),
+          },
+        },
+        select: workDiagramSelect,
+      });
+    });
+    return serializeWorkDiagram(result);
+  } catch (error) {
+    logger.error('Error al actualizar diagrama de trabajo', { data: { error } });
+    throw new Error('No se pudo actualizar el diagrama. Intente nuevamente.');
   }
 }
 

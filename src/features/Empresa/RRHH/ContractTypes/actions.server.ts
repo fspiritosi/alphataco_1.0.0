@@ -11,6 +11,7 @@ import {
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 // ============================================================================
@@ -75,7 +76,7 @@ export async function getContractTypesPaginated(searchParams: DataTableSearchPar
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     // Resolución de multi-sort
     const resolvedSorts: Array<Record<string, unknown>> = [];
@@ -118,7 +119,7 @@ export async function getContractTypesPaginated(searchParams: DataTableSearchPar
 export async function getAllContractTypesForExport(searchParams: DataTableSearchParams) {
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(state);
+    const where = withCompany(buildWhereClause(state), await getActiveCompanyId());
 
     const resolvedSorts: Array<Record<string, unknown>> = [];
     for (const s of state.sorting) {
@@ -167,7 +168,7 @@ export async function getContractTypeSingleFacet(
     };
     delete crossState.filters[columnId];
 
-    const crossWhere = buildWhereClause(crossState);
+    const crossWhere = withCompany(buildWhereClause(crossState), await getActiveCompanyId());
 
     switch (columnId) {
       case 'is_active': {
@@ -235,6 +236,14 @@ export async function updateContractTypePrisma(data: {
   is_active: boolean;
 }) {
   try {
+    // Perímetro sin RLS: sólo se edita un tipo de contrato de la empresa activa.
+    const companyId = await getActiveCompanyId();
+    const owned = await prisma.types_of_contract.findFirst({
+      where: withCompany({ id: data.id }, companyId),
+      select: { id: true },
+    });
+    if (!owned) throw new Error('Tipo de contrato no encontrado');
+
     const result = await prisma.types_of_contract.update({
       where: { id: data.id },
       data: {
