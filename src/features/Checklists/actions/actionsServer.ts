@@ -1,14 +1,16 @@
 'use server';
 
+import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 
-const serverLogger = new Logger('Checklist/actions');
+const serverLogger = new Logger('Checklists/actions');
 
 /**
  * Crea una nueva respuesta de checklist normalizado
@@ -19,6 +21,14 @@ const serverLogger = new Logger('Checklist/actions');
  * - En su lugar, crea una maintenance_request que debe ser aprobada
  * - El kilometraje y condición se actualizan cuando se aprueba la entrada a taller
  */
+type FailedChecklistItem = {
+  item_code: string;
+  item_label: string;
+  section_code: string;
+  is_critical: boolean;
+  driver_comment?: string;
+};
+
 type ChecklistAnswerInput = {
   equipment_id: string;
   customer_id?: string | null;
@@ -41,104 +51,140 @@ type ChecklistAnswerInput = {
    * el checklist entero como fallido.
    */
   item_observations?: Record<string, string>;
-  failed_items?: Array<{
-    item_code: string;
-    item_label: string;
-    section_code: string;
-    is_critical: boolean;
-    driver_comment?: string;
-  }>;
-  critical_items_failed?: Array<{
-    item_code: string;
-    item_label: string;
-    section_code: string;
-    is_critical: boolean;
-    driver_comment?: string;
-  }>;
+  failed_items?: Array<FailedChecklistItem | string>;
+  critical_items_failed?: Array<FailedChecklistItem | string>;
   ut_checklist_answer_id?: string | null;
 };
 
+const hasMValue = (value: unknown): boolean => {
+  if (value === 'M' || value === 'Malo') return true;
+  if (Array.isArray(value)) return value.some(hasMValue);
+  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).some(hasMValue);
+  return false;
+};
+
+/** Sanitiza valores no serializables / sentinelas (ej: "$undefined" en payloads) */
+const sanitize = (value: unknown): Prisma.InputJsonValue | null => {
+  if (value === '$undefined' || value === undefined) return null;
+  if (Array.isArray(value)) return value.map(sanitize) as Prisma.InputJsonValue;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitize(v)] as const);
+    return Object.fromEntries(entries) as Prisma.InputJsonValue;
+  }
+  return value as Prisma.InputJsonValue;
+};
+
+/**
+ * Empresa del checklist: SIEMPRE la del equipo, nunca la de sesión.
+ *
+ * El formulario se responde también desde el flujo QR anónimo
+ * (`/maintenance/equipment/[id]/checklists/**`), donde no hay empresa activa;
+ * misma regla que `Mantenimiento/shared/resource-company.ts::getResourceCompanyId`.
+ */
+async function getVehicleCompanyId(equipmentId: string): Promise<string> {
+  const vehicle = await prisma.vehicles.findUnique({
+    where: { id: equipmentId },
+    select: { company_id: true },
+  });
+  if (!vehicle?.company_id) throw new Error('No se encontró la empresa del equipo del checklist');
+  return vehicle.company_id;
+}
+
+/** Devuelve el id sólo si el empleado existe y pertenece a la empresa del equipo. */
+async function employeeIdInCompany(employeeId: string | null | undefined, companyId: string) {
+  if (!employeeId) return null;
+  const employee = await prisma.employees.findFirst({
+    where: { id: employeeId, company_id: companyId },
+    select: { id: true },
+  });
+  return employee?.id ?? null;
+}
+
 export const CreateChecklistAnswer = async (templateId: string, answerData: ChecklistAnswerInput) => {
   const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const authProfile = await getServerAuthProfile();
 
   serverLogger.info('Creando respuesta de checklist', {
     data: { templateId, equipmentId: answerData.equipment_id },
   });
 
+  // Sin RLS: la empresa sale del equipo y todo lo que llega del cliente se valida contra ella.
+  const companyId = await getVehicleCompanyId(answerData.equipment_id);
+
+  const template = await prisma.checklist_templates.findFirst({
+    where: { id: templateId, company_id: companyId },
+    select: { id: true },
+  });
+  if (!template) throw new Error('La plantilla de checklist no pertenece a la empresa del equipo');
+
   // checklist_answers.result tiene un CHECK constraint: solo permite 'B' o 'M'.
   // Calculamos el resultado global a partir de las respuestas (si existe algún 'M' => 'M', sino 'B').
-  const hasMValue = (value: unknown): boolean => {
-    if (value === 'M' || value === 'Malo') return true;
-    if (Array.isArray(value)) return value.some(hasMValue);
-    if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).some(hasMValue);
-    return false;
-  };
-
-  // Sanitiza valores no serializables / sentinelas (ej: "$undefined" en payloads)
-  const sanitize = (value: unknown): unknown => {
-    if (value === '$undefined') return null;
-    if (Array.isArray(value)) return value.map(sanitize);
-    if (value && typeof value === 'object') {
-      const entries = Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitize(v)] as const);
-      return Object.fromEntries(entries);
-    }
-    return value;
-  };
-
-  const sanitizedAnswers = sanitize(answerData.answers || {});
+  const sanitizedAnswers = sanitize(answerData.answers ?? {}) ?? {};
   // Soportar tanto el nuevo formato (failed_items) como el antiguo (critical_items_failed)
   const failedItems = answerData.failed_items || answerData.critical_items_failed || [];
   const computedResult: 'B' | 'M' = hasMValue(sanitizedAnswers) || failedItems.length > 0 ? 'M' : 'B';
 
-  // Obtener employee_id del cookie o metadata si no viene en answerData
-  const employeeId = answerData.employee_id || cookiesStore.get('empleado_id')?.value;
-  const employeeIdFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const finalEmployeeId = employeeId || employeeIdFromMetadata || null;
+  // Obtener employee_id del cookie si no viene en answerData (flujo QR anónimo)
+  const requestedEmployeeId = answerData.employee_id || cookiesStore.get('empleado_id')?.value || null;
+  const finalEmployeeId = await employeeIdInCompany(requestedEmployeeId, companyId);
+  const choferEmployeeId = await employeeIdInCompany(answerData.chofer_employee_id, companyId);
 
-  // Preparar los datos de la respuesta según la estructura de la tabla
+  const customer = answerData.customer_id
+    ? await prisma.customers.findFirst({
+        where: { id: answerData.customer_id, company_id: companyId },
+        select: { id: true },
+      })
+    : null;
+
   const answerPayload = {
-    template_id: templateId,
-    equipment_id: answerData.equipment_id,
-    employee_id: finalEmployeeId,
-    user_id: user?.id || null,
-    ut_checklist_answer_id: answerData.ut_checklist_answer_id || null, // ID del checklist UT si este es de enganche
-    // Columna FK directa — guarda el ID del empleado chofer para filtrado y trazabilidad
-    chofer_employee_id: answerData.chofer_employee_id || null,
-    answer_data: {
-      // Respuestas estructuradas por sección
-      answers: sanitizedAnswers,
-      // ⚠️ CRÍTICO: Las keys del JSONB 'customer_id', 'kilometraje', 'horometro' son
-      // capturadas por columnas GENERATED en la tabla checklist_answers.
-      // Si se renombran estas keys, actualizar también la migración de BD.
-      customer_id: answerData.customer_id || null,
-      chofer: answerData.chofer,
-      fecha: answerData.fecha,
-      hora: answerData.hora,
-      kilometraje: answerData.kilometraje,
-      // El horómetro también alimenta una columna GENERATED; faltaba en el payload,
-      // por lo que la vista de detalle lo mostraba siempre vacío.
-      horometro: answerData.horometro,
-      // Observaciones por item, fuera de `answers` (ver el tipo de entrada)
-      item_observations: sanitize(answerData.item_observations || {}),
-    } as any, // answer_data es Json type, pero TypeScript necesita ayuda con el tipado dinámico
-    observations: answerData.observaciones || null,
-    result: computedResult,
-    // Guardar los items fallidos (nuevo formato incluye is_critical)
-    critical_items_failed: (failedItems.length > 0 ? failedItems : null) as string[] | null,
-  };
+    // Respuestas estructuradas por sección
+    answers: sanitizedAnswers,
+    // ⚠️ CRÍTICO: Las keys del JSONB 'customer_id', 'kilometraje', 'horometro' son
+    // capturadas por columnas GENERATED en la tabla checklist_answers.
+    // Si se renombran estas keys, actualizar también la migración de BD.
+    customer_id: customer?.id ?? null,
+    chofer: answerData.chofer ?? null,
+    fecha: answerData.fecha ?? null,
+    hora: answerData.hora ?? null,
+    kilometraje: answerData.kilometraje ?? null,
+    // El horómetro también alimenta una columna GENERATED; faltaba en el payload,
+    // por lo que la vista de detalle lo mostraba siempre vacío.
+    horometro: answerData.horometro ?? null,
+    // Observaciones por item, fuera de `answers` (ver el tipo de entrada)
+    item_observations: sanitize(answerData.item_observations ?? {}) ?? {},
+  } satisfies Prisma.InputJsonObject;
 
-  const { data, error } = await supabase.from('checklist_answers').insert(answerPayload).select().single();
+  // Normaliza los items fallidos: el formato antiguo es un string con el label.
+  const normalizedFailedItems: FailedChecklistItem[] = failedItems.map((item) =>
+    typeof item === 'string'
+      ? { item_code: item, item_label: item, section_code: '', is_critical: false }
+      : {
+          item_code: item.item_code || item.item_label || '',
+          item_label: item.item_label || item.item_code || '',
+          section_code: item.section_code || '',
+          is_critical: item.is_critical || false,
+          ...(item.driver_comment ? { driver_comment: item.driver_comment } : {}),
+        }
+  );
 
-  if (error) {
-    serverLogger.error('Error creating checklist answer', { data: { error } });
-    throw error;
-  }
+  const data = await prisma.checklist_answers.create({
+    data: {
+      template_id: templateId,
+      equipment_id: answerData.equipment_id,
+      company_id: companyId,
+      employee_id: finalEmployeeId,
+      user_id: authProfile?.id ?? null,
+      ut_checklist_answer_id: answerData.ut_checklist_answer_id || null, // ID del checklist UT si este es de enganche
+      // Columna FK directa — guarda el ID del empleado chofer para filtrado y trazabilidad
+      chofer_employee_id: choferEmployeeId,
+      answer_data: answerPayload,
+      observations: answerData.observaciones || null,
+      result: computedResult,
+      // Guardar los labels de los items fallidos (columna text[])
+      critical_items_failed: normalizedFailedItems.map((item) => item.item_label),
+    },
+    select: { id: true },
+  });
 
   serverLogger.info('Checklist answer creado', { data: { answerId: data.id, result: computedResult } });
 
@@ -151,50 +197,25 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
   // y habría duplicado todo. Hoy el formulario le manda únicamente los ítems de la
   // sección que describe al acoplado, así que el desvío —y la solicitud de
   // mantenimiento que sale de él— quedan imputados a la patente correcta.
-  if (failedItems.length > 0 && data) {
-    // Crear registros de desvíos para cada item fallido (crítico o no)
-    const deviationsToInsert = failedItems.map((item: any) => {
-      // Soporta tanto formato antiguo (string) como nuevo (objeto)
-      if (typeof item === 'string') {
-        // Formato antiguo: solo label, necesitamos buscar el código en el template
-        return {
+  if (normalizedFailedItems.length > 0) {
+    try {
+      await prisma.checklist_deviations.createMany({
+        data: normalizedFailedItems.map((item) => ({
           checklist_answer_id: data.id,
           equipment_id: answerData.equipment_id,
-          item_code: item, // Como fallback, usamos el label como código
-          item_label: item,
-          section_code: null,
-          is_critical: false, // Formato antiguo no tiene esta info
-          driver_comment: null,
-          created_by_user_id: user?.id || null,
-          created_by_employee_id: finalEmployeeId,
-        };
-      } else {
-        // Formato nuevo: objeto con item_code, item_label, section_code, is_critical, driver_comment
-        return {
-          checklist_answer_id: data.id,
-          equipment_id: answerData.equipment_id,
-          item_code: item.item_code || item.item_label || '',
-          item_label: item.item_label || item.item_code || '',
+          company_id: companyId,
+          item_code: item.item_code,
+          item_label: item.item_label,
           section_code: item.section_code || null,
-          is_critical: item.is_critical || false,
-          driver_comment: item.driver_comment || null,
-          created_by_user_id: user?.id || null,
+          is_critical: item.is_critical,
+          driver_comment: item.driver_comment ?? null,
+          created_by_user_id: authProfile?.id ?? null,
           created_by_employee_id: finalEmployeeId,
-        };
-      }
-    });
+        })),
+      });
 
-    const { data: deviationsData, error: deviationsError } = await supabase
-      .from('checklist_deviations')
-      .insert(deviationsToInsert)
-      .select();
-
-    if (deviationsError) {
-      serverLogger.error('Error creating checklist deviations', { data: { error: deviationsError } });
-      // No lanzamos error para no fallar el guardado del checklist, solo lo logueamos
-    } else {
-      serverLogger.info(`Created ${deviationsToInsert.length} checklist deviations`, {
-        data: { answerId: data.id, count: deviationsToInsert.length },
+      serverLogger.info(`Created ${normalizedFailedItems.length} checklist deviations`, {
+        data: { answerId: data.id, count: normalizedFailedItems.length },
       });
 
       // Los desvíos quedan registrados sin solicitud de mantenimiento.
@@ -203,36 +224,34 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
       // Por eso invalidamos su cache acá: es el único punto donde se crean desvíos
       // pendientes sin quedar linkeados a una solicitud en la misma operación.
       await invalidateCacheTags([CACHE_TAGS.TAB_EQUIPMENTS_DEVIATIONS]);
+    } catch (error) {
+      serverLogger.error('Error creating checklist deviations', { data: { error } });
+      // No lanzamos error para no fallar el guardado del checklist, solo lo logueamos
     }
   }
 
   // Actualizar km del vehículo al responder el checklist (solo si es mayor al actual)
-  if (answerData.kilometraje && answerData.equipment_id) {
+  if (answerData.kilometraje) {
     const newKm = Number(answerData.kilometraje);
     if (!isNaN(newKm) && newKm > 0) {
-      const { data: vehicle } = await supabase
-        .from('vehicles')
-        .select('kilometer')
-        .eq('id', answerData.equipment_id)
-        .single();
+      try {
+        const vehicle = await prisma.vehicles.findUnique({
+          where: { id: answerData.equipment_id },
+          select: { kilometer: true },
+        });
+        const currentKm = Number(vehicle?.kilometer) || 0;
 
-      const currentKm = Number(vehicle?.kilometer) || 0;
-
-      if (newKm > currentKm) {
-        const { error: vehicleError } = await supabase
-          .from('vehicles')
-          .update({ kilometer: String(newKm) })
-          .eq('id', answerData.equipment_id);
-
-        if (vehicleError) {
-          serverLogger.warn('No se pudo actualizar km del vehículo al responder checklist', {
-            data: { error: vehicleError },
+        if (newKm > currentKm) {
+          await prisma.vehicles.update({
+            where: { id: answerData.equipment_id },
+            data: { kilometer: String(newKm) },
           });
-        } else {
           serverLogger.info('Km del vehículo actualizado al responder checklist', {
             data: { equipmentId: answerData.equipment_id, newKm, currentKm },
           });
         }
+      } catch (error) {
+        serverLogger.warn('No se pudo actualizar km del vehículo al responder checklist', { data: { error } });
       }
     }
   }
@@ -246,58 +265,62 @@ export type ChecklistAnswerData = Awaited<ReturnType<typeof CreateChecklistAnswe
  * Obtiene la lista de clientes activos para el checklist
  */
 export async function fetchActiveCustomersForChecklist() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id, name')
-    .eq('company_id', company_id)
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-
-  if (error) {
+  try {
+    const company_id = await getActiveCompanyId();
+    return await prisma.customers.findMany({
+      where: { company_id, is_active: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
     serverLogger.error('Error fetching customers for checklist', { data: { error } });
     return [];
   }
-
-  return data || [];
 }
 
 export type CustomerForChecklist = Awaited<ReturnType<typeof fetchActiveCustomersForChecklist>>[number];
 
 /**
+ * Clientes activos de la empresa DEL EQUIPO, para el flujo QR anónimo
+ * (`/maintenance/equipment/[id]/checklists/**`), donde no hay empresa de sesión.
+ */
+export async function fetchActiveCustomersForEquipment(equipmentId: string) {
+  try {
+    const company_id = await getVehicleCompanyId(equipmentId);
+    return await prisma.customers.findMany({
+      where: { company_id, is_active: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    serverLogger.error('Error fetching customers for equipment checklist', { data: { error, equipmentId } });
+    return [];
+  }
+}
+
+/**
  * Obtiene la lista de empleados activos para el checklist (para el campo Chofer)
  */
 export async function fetchActiveEmployeesForChecklist() {
-  const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
+  try {
+    const company_id = await getActiveCompanyId();
+    const employees = await prisma.employees.findMany({
+      where: { company_id, is_active: true },
+      select: { id: true, firstname: true, lastname: true, cuil: true, file: true },
+      orderBy: { lastname: 'asc' },
+    });
 
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('employees')
-    .select('id, firstname, lastname, cuil, file')
-    .eq('company_id', company_id)
-    .eq('is_active', true)
-    .order('lastname', { ascending: true });
-
-  if (error) {
+    // Formatear el nombre completo — legajo (field: file) obligatorio según estándar del proyecto
+    return employees.map((emp) => ({
+      id: emp.id,
+      fullName: `${emp.lastname || ''} ${emp.firstname || ''}`.trim(),
+      document: emp.cuil || null,
+      file_number: emp.file || null,
+    }));
+  } catch (error) {
     serverLogger.error('Error fetching employees for checklist', { data: { error } });
     return [];
   }
-
-  // Formatear el nombre completo — legajo (field: file) obligatorio según estándar del proyecto
-  return (data || []).map((emp) => ({
-    id: emp.id,
-    fullName: `${emp.lastname || ''} ${emp.firstname || ''}`.trim(),
-    document: emp.cuil || null,
-    file_number: emp.file || null,
-  }));
 }
 
 export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployeesForChecklist>>[number];
@@ -313,15 +336,8 @@ export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployee
  * - Si el profile NO tiene employee_id → se incluye como no disponible (sin empleado vinculado).
  */
 export async function fetchSupervisorsForChecklist() {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    serverLogger.warn('No company_id found in cookies for fetchSupervisorsForChecklist');
-    return [];
-  }
-
   try {
+    const company_id = await getActiveCompanyId();
     const ADMIN_OPERACIONES_ROLE_ID = 20;
 
     // Paso 1: Obtener los user_ids con rol Administrador Operaciones

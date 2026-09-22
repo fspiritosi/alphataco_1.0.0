@@ -6,7 +6,7 @@ import moment from 'moment';
 import { UseFormReturn } from 'react-hook-form';
 
 type ChecklistTemplate = Awaited<
-  ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').fetchChecklistTemplateById>
+  ReturnType<typeof import('@/features/Checklists/actions/checklist-queries').fetchChecklistTemplateById>
 >;
 type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_template_sections'][number];
 type ChecklistTemplateItem = ChecklistTemplateSection['checklist_template_items'][number];

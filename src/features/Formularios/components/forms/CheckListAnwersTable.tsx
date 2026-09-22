@@ -1,19 +1,21 @@
+import type { FormAnswerRow } from '@/features/Formularios/actions/form-actions';
 import { checkListAnswerColumns } from '@/features/Formularios/components/tables/checkListAnswerColumns';
 import { CheckListAnswerTable } from '@/features/Formularios/components/tables/data-table-answer';
+import moment from 'moment';
 
-async function CheckListAnwersTable({ answers }: { answers: CheckListAnswerWithForm[] }) {
+async function CheckListAnwersTable({ answers }: { answers: FormAnswerRow[] }) {
   return (
     <CheckListAnswerTable
       columns={checkListAnswerColumns}
       data={answers.map((e) => {
+        const answer = (e.answer ?? {}) as Record<string, string | undefined>;
         return {
-          chofer: (e.answer as { chofer: string })?.chofer,
+          chofer: answer.chofer ?? '',
           id: e.id,
-          name: (e.answer as { dominio: string })?.dominio,
-          kilometer: (e.answer as { kilometraje: string })?.kilometraje,
-          engine_hours: (e.answer as { horometro: string })?.horometro || '-',
-          created_at: e.created_at,
-          domain: (e.answer as { dominio: string })?.dominio,
+          kilometer: answer.kilometraje ?? '',
+          engine_hours: answer.horometro || '-',
+          created_at: moment(e.created_at).toISOString(),
+          domain: answer.dominio ?? '',
         };
       })}
     />

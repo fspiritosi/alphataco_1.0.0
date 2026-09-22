@@ -1,0 +1,180 @@
+'use server';
+
+import { Logger } from '@/lib/logger';
+import { getActualRole } from '@/shared/actions/shared-users.server';
+import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getSessionUser, getSessionUserId } from '@/shared/lib/session';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+
+const logger = new Logger('features/Formularios/actions');
+
+const customFormSelect = { id: true, created_at: true, company_id: true, form: true, name: true } as const;
+
+/** Formulario personalizado (estructura legacy `custom_form`) de la empresa activa. */
+export const fetchCustomFormById = async (formId: string) => {
+  try {
+    const company_id = await getActiveCompanyId();
+    return await prisma.custom_form.findMany({
+      where: withCompany({ id: formId }, company_id),
+      select: customFormSelect,
+    });
+  } catch (error) {
+    logger.error('Error al obtener el formulario personalizado', { data: { error, formId } });
+    return [];
+  }
+};
+
+export type CustomFormRow = Awaited<ReturnType<typeof fetchCustomFormById>>[number];
+
+const formAnswerSelect = {
+  id: true,
+  created_at: true,
+  answer: true,
+  custom_form: { select: customFormSelect },
+} as const;
+
+type CustomFormRowShape = {
+  id: string;
+  created_at: Date;
+  company_id: string;
+  form: unknown;
+  name: string;
+};
+
+/** Alias legacy `form_id` con el formulario expandido (shape del select `*,form_id(*)`). */
+function toFormAnswer<T extends { custom_form: CustomFormRowShape }>({ custom_form, ...rest }: T) {
+  return { ...rest, form_id: custom_form };
+}
+
+/**
+ * Respuestas de un formulario personalizado.
+ *
+ * Los usuarios con rol `Invitado` sólo ven las respuestas de los equipos afectados a sus
+ * clientes (`share_company_users → customers → contractor_equipment`); el resto ve todas
+ * las del formulario. El formulario se acota siempre a la empresa activa.
+ */
+export const fetchFormsAnswersByFormId = async (formId: string) => {
+  try {
+    const company_id = await getActiveCompanyId();
+    const credentialId = await getSessionUserId();
+
+    const form = await prisma.custom_form.findFirst({
+      where: withCompany({ id: formId }, company_id),
+      select: { id: true },
+    });
+    if (!form) return [];
+
+    const role = await getActualRole(company_id);
+
+    if (role === 'Invitado' && credentialId) {
+      // `share_company_users.profile_id` es `profile.id`, no el id de credencial de la sesión.
+      const memberships = await prisma.share_company_users.findMany({
+        where: { company_id, profile: { credential_id: credentialId } },
+        select: {
+          customers: {
+            select: { contractor_equipment: { select: { equipment_id: true } } },
+          },
+        },
+      });
+
+      const equipmentIds = memberships.flatMap(
+        (membership) =>
+          membership.customers?.contractor_equipment
+            .map((relation) => relation.equipment_id)
+            .filter((id): id is string => Boolean(id)) ?? []
+      );
+
+      if (equipmentIds.length === 0) return [];
+
+      const answers = await prisma.form_answers.findMany({
+        where: { form_id: formId },
+        select: formAnswerSelect,
+        orderBy: { created_at: 'desc' },
+      });
+
+      // `answer->>movil` no es una columna: el filtro por equipo se resuelve sobre el JSON.
+      const allowed = new Set(equipmentIds);
+      return answers
+        .filter((answer) => {
+          const movil = (answer.answer as Record<string, unknown> | null)?.movil;
+          return typeof movil === 'string' && allowed.has(movil);
+        })
+        .map(toFormAnswer);
+    }
+
+    const answers = await prisma.form_answers.findMany({
+      where: { form_id: formId },
+      select: formAnswerSelect,
+      orderBy: { created_at: 'desc' },
+    });
+    return answers.map(toFormAnswer);
+  } catch (error) {
+    logger.error('Error al obtener las respuestas del formulario', { data: { error, formId } });
+    return [];
+  }
+};
+
+export type FormAnswerRow = Awaited<ReturnType<typeof fetchFormsAnswersByFormId>>[number];
+
+/** Respuesta de formulario personalizado por id, con su formulario (empresa activa). */
+export const fetchAnswerById = async (answerId: string) => {
+  try {
+    const company_id = await getActiveCompanyId();
+    const answers = await prisma.form_answers.findMany({
+      where: { id: answerId, custom_form: withCompany({}, company_id) },
+      select: {
+        id: true,
+        created_at: true,
+        answer: true,
+        custom_form: { select: customFormSelect },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // Alias `form_id` expandido, como lo devolvía el select legacy `*,form_id(*)`.
+    return answers.map(toFormAnswer);
+  } catch (error) {
+    logger.error('Error al obtener la respuesta del formulario', { data: { error, answerId } });
+    return [];
+  }
+};
+
+export type FormAnswerDetail = Awaited<ReturnType<typeof fetchAnswerById>>[number];
+
+/** Usuario autenticado del request (id de credencial y email). */
+export const fetchCurrentUser = async () => {
+  return getSessionUser();
+};
+
+/**
+ * Profile del usuario de sesión (array de 0/1 elementos, shape legacy de `select('*')`).
+ *
+ * Se resuelve por `credential_id`: `profile.id` es el UUID interno y NO coincide con el id
+ * del usuario de sesión, así que la consulta legacy por `id` devolvía vacío.
+ */
+export const getCurrentProfile = async () => {
+  try {
+    const credentialId = await getSessionUserId();
+    if (!credentialId) return [];
+
+    return await prisma.profile.findMany({
+      where: { credential_id: credentialId },
+      select: {
+        id: true,
+        credential_id: true,
+        created_at: true,
+        email: true,
+        avatar: true,
+        fullname: true,
+        role: true,
+        employee_id: true,
+      },
+    });
+  } catch (error) {
+    logger.error('Error al obtener el profile del usuario', { data: { error } });
+    return [];
+  }
+};
+
+export type CurrentProfile = Awaited<ReturnType<typeof getCurrentProfile>>[number];

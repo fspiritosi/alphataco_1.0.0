@@ -2,11 +2,8 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChecklistAnswersList } from '@/features/Checklists/ChecklistAnswers/ChecklistAnswersList';
 import { ChecklistAnswersTableSkeleton } from '@/features/Checklists/ChecklistAnswers/fallback/ChecklistAnswersTableSkeleton';
-import {
-  fetchChecklistTemplateById,
-  fetchCustomFormById,
-  fetchFormsAnswersByFormId,
-} from '@/features/Formularios/actions/checklist-actions';
+import { fetchChecklistTemplateById } from '@/features/Checklists/actions/checklist-queries';
+import { fetchCustomFormById, fetchFormsAnswersByFormId } from '@/features/Formularios/actions/form-actions';
 import { ChecklistPDFButton } from '@/features/Checklists/components/ChecklistPDFButton';
 import CheckListAnwersTable from '@/features/Formularios/components/forms/CheckListAnwersTable';
 import { PDFPreviewDialog } from '@/features/Formularios/components/pdf-preview-dialog';

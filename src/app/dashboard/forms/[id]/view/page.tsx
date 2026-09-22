@@ -1,9 +1,6 @@
 import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
-import {
-  fetchAnswerById,
-  fetchChecklistAnswerById,
-  getCurrentProfile,
-} from '@/features/Formularios/actions/checklist-actions';
+import { fetchChecklistAnswerById } from '@/features/Checklists/actions/checklist-queries';
+import { fetchAnswerById, getCurrentProfile } from '@/features/Formularios/actions/form-actions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import BackButton from '@/shared/components/common/BackButton';
 

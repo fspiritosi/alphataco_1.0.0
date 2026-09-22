@@ -1,11 +1,7 @@
 import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklists';
 import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
-import {
-  fetchChecklistTemplateById,
-  fetchCustomFormById,
-  fetchFilteredEquipmentForChecklist,
-  getCurrentProfile,
-} from '@/features/Formularios/actions/checklist-actions';
+import { fetchChecklistTemplateById, fetchFilteredEquipmentForChecklist } from '@/features/Checklists/actions/checklist-queries';
+import { fetchCustomFormById, getCurrentProfile } from '@/features/Formularios/actions/form-actions';
 import { mapEquipmentToChecklistFormat } from '@/lib/utils';
 import BackButton from '@/shared/components/common/BackButton';
 

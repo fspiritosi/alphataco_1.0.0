@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklists';
 import { fetchSupervisorsForChecklist } from '@/features/Checklists/actions/actionsServer';
-import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Formularios/actions/checklist-actions';
+import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/features/Checklists/actions/checklist-queries';
 import { isHitchSectionCode } from '@/features/Checklists/utils/hitchSections';
 import { getPendingDeviations } from '@/features/Mantenimiento/actions/maintenance-actions';
 import { AdditionalDeviationModal } from '@/features/Mantenimiento/shared/components/AdditionalDeviationModal';
@@ -53,7 +53,7 @@ import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
 type ChecklistTemplate = Awaited<
-  ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').fetchChecklistTemplateById>
+  ReturnType<typeof import('@/features/Checklists/actions/checklist-queries').fetchChecklistTemplateById>
 >;
 
 type ChecklistTemplateSection = NonNullable<ChecklistTemplate>['checklist_template_sections'][number];
@@ -160,7 +160,7 @@ type NormalizedChecklistFormProps = {
   customers?: Customer[];
   employees?: Employee[];
   currentUser:
-    | Awaited<ReturnType<typeof import('@/features/Formularios/actions/checklist-actions').getCurrentProfile>>[number]
+    | Awaited<ReturnType<typeof import('@/features/Formularios/actions/form-actions').getCurrentProfile>>[number]
     | null;
   defaultEquipmentId?: string;
   defaultAnswers?: any;

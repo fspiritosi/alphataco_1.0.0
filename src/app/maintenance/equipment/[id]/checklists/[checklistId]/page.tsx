@@ -1,6 +1,7 @@
-import { fetchActiveCustomersForChecklist } from '@/features/Checklists';
+import { fetchActiveCustomersForEquipment } from '@/features/Checklists';
 import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
-import { fetchChecklistTemplateById, getCurrentProfile } from '@/features/Formularios/actions/checklist-actions';
+import { fetchChecklistTemplateById } from '@/features/Checklists/actions/checklist-queries';
+import { getCurrentProfile } from '@/features/Formularios/actions/form-actions';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { supabaseServer } from '@/lib/supabase/server';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
@@ -55,7 +56,8 @@ export default async function ChecklistFormPage({
   }
 
   // Obtener template del checklist
-  const template = await fetchChecklistTemplateById(resolvedParams.checklistId);
+  // Flujo QR anónimo: la empresa se deriva del equipo, no de la sesión.
+  const template = await fetchChecklistTemplateById(resolvedParams.checklistId, { equipmentId: resolvedParams.id });
   if (!template) {
     redirect(`/maintenance/equipment/${resolvedParams.id}/checklists?error=template_not_found`);
   }
@@ -87,7 +89,7 @@ export default async function ChecklistFormPage({
   // Obtener perfil del usuario actual y clientes activos
   const [currentUserProfiles, customers] = await Promise.all([
     user?.id ? getCurrentProfile() : Promise.resolve(null),
-    fetchActiveCustomersForChecklist(),
+    fetchActiveCustomersForEquipment(resolvedParams.id),
   ]);
   const currentUser = currentUserProfiles?.find((p) => p.credential_id === user?.id) || null;
 

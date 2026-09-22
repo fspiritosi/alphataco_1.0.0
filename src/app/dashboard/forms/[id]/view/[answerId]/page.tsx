@@ -1,6 +1,7 @@
 import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklists';
 import { NormalizedChecklistForm } from '@/features/Checklists/components/NormalizedChecklistForm';
-import { fetchChecklistAnswerById, getCurrentProfile } from '@/features/Formularios/actions/checklist-actions';
+import { fetchChecklistAnswerById } from '@/features/Checklists/actions/checklist-queries';
+import { getCurrentProfile } from '@/features/Formularios/actions/form-actions';
 import { ChecklistPDFDownloadButton } from '@/features/Checklists/components/ChecklistPDFDownloadButton';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import BackButton from '@/shared/components/common/BackButton';
