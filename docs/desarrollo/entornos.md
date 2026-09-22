@@ -91,6 +91,21 @@ bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los bucket
 
 `.env.docker` es local y está en `.gitignore` — nunca se versiona.
 
+### Auth y Storage: todavía en Supabase
+
+Este compose reemplaza la **base de datos** (Postgres vía Prisma), pero **Auth y Storage siguen en Supabase** hasta que se completen las tasks P4 (Auth) y P3 (Storage → MinIO) del plan de infra. Mientras tanto `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` siguen apuntando al proyecto Supabase correspondiente (ver tabla de variables arriba).
+
+### Migrar, resetear y sembrar datos
+
+```bash
+export DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:${POSTGRES_PORT:-55432}/alphataco
+npm run db:deploy   # prisma migrate deploy — aplica 0_init + migraciones pendientes
+npm run db:seed     # seed idempotente de empresa/módulos/tabs/acciones/roles
+npm run db:reset    # borra y recrea SOLO el contenedor y el volumen de postgres (no toca minio)
+```
+
+Flujo completo para crear o modificar una migración (diff → carpeta → SQL → deploy → verificación): `.claude/rules/migrations.md`.
+
 ### Variables obligatorias para el build de `app`
 
 `docker compose build app` pasa `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` como build args (Next.js las embebe en el bundle del cliente durante `next build`). Si quedan vacías, completar con los valores reales del Supabase local/dev, o con un placeholder (`http://localhost:54321` + una key ficticia) si el objetivo es solo validar que el build compila.
@@ -127,3 +142,7 @@ docker compose --env-file .env.docker run --rm --entrypoint sh minio-init -c \
 ```
 
 Debe listar los 6 buckets: `document-files`, `daily-reports`, `contract-documents`, `employee-documents`, `clothing-signatures`, `logo`.
+
+### Ver los archivos de MinIO (consola web)
+
+`http://localhost:${MINIO_CONSOLE_PORT:-29001}` — login con `S3_ACCESS_KEY`/`S3_SECRET_KEY` de `.env.docker`. Desde ahí se navegan los buckets y objetos igual que en el dashboard de Storage de Supabase.

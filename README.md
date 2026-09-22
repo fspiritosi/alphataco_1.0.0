@@ -3,54 +3,18 @@
 Sistema de gestión integral (empleados, equipos, documentación, operaciones, mantenimiento, comercial). Base: Next.js 16 + Prisma 7 + Supabase.
 Ver `CLAUDE.md` para convenciones y `docs/superpowers/plans/` para planes.
 
-## Actualizar Supabase DB
+## Entorno local
 
-Para sincronizar la Base de datos Local con la Deploy seguir los siguientes pasos.
-
-##### Actualizar la rama local con dev
+La base de datos corre en Docker (Postgres + MinIO), no en Supabase. Setup rápido:
 
 ```bash
-git pull origin dev
-
+bash scripts/dev-up.sh   # levanta postgres + minio (Docker)
+npm run db:deploy        # aplica las migraciones (prisma migrate deploy)
+npm run db:seed          # seed idempotente de empresa/módulos/tabs/roles
+npm run test:db          # tests pgTAP contra la base de test
 ```
 
-Esto asegura que tenemos la ultima migración que se encuentra en producción.
-
-Una vez tengamos la ultima migración en nuestro local, se debe correr
-
-```bash
-npx supabase migration up
-
-```
-
-## Subir cambios a la DB - PREVIO SE DEBE ASEGURAR TENER LA DB ACTUALIZADA
-
-Esto actualiza nuestra base de datos local igualandola con la de producción, pero mantiene los cambios que hayamos realizado en local.
-
-##### Crear la migración de los ultimos cambios
-
-```bash
-npx supabase db diff -f nombreDeLaMigracion
-
-```
-
-##### Enviar los cambios de la migración a producción
-
-```bash
-npx supabase db push
-
-```
-
-##### Crear un commit de la rama con la nueva migración.
-
-```bash
-git  add .
-git commit -m "nombre del Commit"
-git push
-
-```
-
-##### Crear un PR para incluir los cambios de la migración en DEV.
+Detalle de variables, puertos y servicios del compose: `docs/desarrollo/entornos.md`. Para crear o modificar una migración, seguir SIEMPRE el flujo de `.claude/rules/migrations.md` (nunca `prisma migrate dev`).
 
 ## Server actions
 

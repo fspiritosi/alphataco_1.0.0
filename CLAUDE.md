@@ -9,7 +9,7 @@ Sistema de gestion integral para Grupo Horizonte (GH). Administra empleados, equ
 ## Tech Stack
 
 - **Framework**: Next.js 16 with React 19 (App Router, Server Components)
-- **Database**: Supabase (PostgreSQL) — accessed via Prisma ORM (new) or Supabase client (legacy)
+- **Database**: PostgreSQL (Docker) vía Prisma; Supabase Auth/Storage sólo hasta P3/P4
 - **State**: Zustand (global), React Query (server state), Jotai (atomic)
 - **UI**: shadcn/ui + Tailwind CSS + Lucide icons
 - **Forms**: React Hook Form + Zod validation
@@ -28,33 +28,22 @@ Verification loop for quality:
 ```sh
 # Development
 npm run dev              # Start Next.js dev server
-npm run local            # Start Supabase + Next.js dev server
+bash scripts/dev-up.sh   # Start postgres + minio (Docker) para dev local
 
 # Verification
 npm run check-types      # TypeScript type checking
 
-# Database
-npm run create-migration # Create new migration: npm run create-migration nombre
-npm run push-migrations  # Push migrations to remote
-npm run migration-status # Check migration status
+# Database (ver docs/desarrollo/entornos.md y .claude/rules/migrations.md)
+npm run db:deploy        # Aplicar migraciones pendientes (prisma migrate deploy)
+npm run db:seed          # Seed idempotente de empresa/módulos/tabs/roles
+npm run test:db          # Tests pgTAP contra Postgres (Docker)
 npx prisma generate      # Regenerate Prisma client
 
-# Testing (E2E only — no unit tests yet)
+# Testing
+npm test                 # Unit tests (vitest)
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
-
-# Sincronizar dev con datos de PROD (clonar prod -> dev para replicar bugs con el ambiente real)
-bash scripts/sync-prod-to-dev.sh   # requiere Docker corriendo; pide confirmar con 'CLONAR'
 ```
-
-### Sincronizar dev con datos de prod
-
-`bash scripts/sync-prod-to-dev.sh` clona los datos de **producción a dev** (para replicar/depurar un bug con el ambiente real, sin tocar prod). Repetible cada vez que reportan un error.
-
-- **Requiere Docker corriendo** — usa `pg_dump`/`psql` dentro de un contenedor `postgres:15`, no instala nada local.
-- Lee las connection strings del `.env`: **DEV** = línea activa `DIRECT_URL` (ref `pdrylqbztmpgawsfdsbr`); **PROD** = línea comentada `DIRECT_URL` (ref `vvrckjjyrwqzpbaatemz`). Usa el puerto 5432 (directo), no el pooler `:6543`.
-- **Solo LEE prod** (`pg_dump`); **reemplaza** el schema `public` de dev y trae `auth.users`/`identities` con upsert (FK desactivadas durante la carga, conserva los logins de dev). Pide confirmar escribiendo `CLONAR` y muestra progreso tabla por tabla.
-- **NO** copia los archivos físicos del Storage (los "Ver documento" dan 404 en dev). Para clonar datos, dev y prod deben tener el mismo esquema (mismas migraciones).
 
 ## Slash Commands
 
