@@ -148,7 +148,7 @@ export async function sendErrorReport(params: ErrorReportParams) {
     });
 
     if (result.success) {
-      logger.info('Reporte de error enviado correctamente', { data: { messageId: result.messageId } });
+      logger.info('Reporte de error enviado correctamente');
     } else {
       logger.error('Error al enviar reporte', { data: { error: result.error } });
     }

@@ -7,7 +7,7 @@ import { Logger } from '@/lib/logger';
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
 import { createCredential, createPasswordSetupLink, normalizeEmail } from '@/shared/lib/auth-credentials';
-import { sendInvitationEmail } from '@/shared/lib/mailer';
+import { sendInvitationEmail } from '@/shared/lib/mail';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
@@ -37,7 +37,7 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
  *    resuelve en el alta de sesión (`session.create.before` en `shared/lib/auth.ts`) contra la
  *    base, así que el invitado entra con su empresa sin que nadie se la escriba por anticipado
  *    — y sin la rama `force` que decidía cuándo pisarle la empresa a alguien que ya tenía otra.
- * 3. **La invitación se manda con el emisor SMTP de `shared/lib/mailer.ts`** (el límite con P5),
+ * 3. **La invitación se manda con el emisor SMTP de `shared/lib/mail`** (P5 generalizó esa costura),
  *    con un enlace que emite `createPasswordSetupLink()` dentro de la misma transacción.
  */
 const logger = new Logger('features/Auth/register-user');

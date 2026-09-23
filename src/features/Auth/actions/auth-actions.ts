@@ -11,7 +11,7 @@ import { headers } from 'next/headers';
  *
  * `requestPasswordReset` emite un token en `auth_verification` y dispara
  * `emailAndPassword.sendResetPassword` (ver `shared/lib/auth.ts`), que manda el mail por el
- * emisor SMTP mínimo de `shared/lib/mailer.ts` — el límite acordado con P5.
+ * emisor SMTP de `shared/lib/mail` (P4 lo dejó mínimo; P5 lo generalizó).
  *
  * El enlace del mail apunta directo a `/reset_password/update-user?token=...`: ya no hace falta
  * una ruta intermedia que canjee un OTP, así que `/auth/confirm`, `/login/auth/confirm` y

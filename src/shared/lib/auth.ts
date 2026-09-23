@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '@/shared/lib/prisma';
 import { Logger } from '@/lib/logger';
 import { APIError } from 'better-auth/api';
-import { sendPasswordResetEmail } from '@/shared/lib/mailer';
+import { sendPasswordResetEmail } from '@/shared/lib/mail';
 import { resolveDefaultCompanyId } from '@/shared/lib/session-claims';
 
 /**

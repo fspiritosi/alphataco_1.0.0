@@ -2,8 +2,7 @@ import 'server-only';
 
 import type { EmailInfo } from '@/features/Auth/utils/emailTemplates';
 import { renderDocumentEmailTemplate, renderHelpEmailTemplate } from '@/features/Auth/utils/emailTemplates';
-import { Logger } from '@/lib/logger';
-import nodemailer from 'nodemailer';
+import { sendMail } from '@/shared/lib/mail';
 
 /**
  * Envío de correo por el SMTP de la empresa.
@@ -16,24 +15,13 @@ import nodemailer from 'nodemailer';
  *
  * Los llamadores son server-side y fijan el destinatario: `sendHelpRequestEmail`
  * (`features/Ayuda`) y `sendErrorReport` (`lib/utils`).
+ *
+ * **P5**: tenía su propio `nodemailer.createTransport` — un segundo transporte SMTP con su
+ * propia configuración (puerto 465 por default, `rejectUnauthorized: false`) y su propio
+ * `from` hardcodeado. Ahora delega en `sendMail` de `shared/lib/mail`, que es el único punto
+ * de salida de correo del sistema. Efecto colateral deseado: sin `SMTP_HOST` ya no intenta
+ * conectarse a localhost y esperar el timeout — loguea y devuelve `false`.
  */
-const logger = new Logger('features/Auth/email');
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 300,
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
 
 export type EmailOptions = {
   /** Destinatario. Lo fija SIEMPRE el código del servidor, nunca un valor que venga del cliente. */
@@ -47,39 +35,39 @@ export type EmailOptions = {
   reason?: string;
 };
 
-export type SendEmailResult = { success: true; messageId: string } | { success: false; error: string };
+export type SendEmailResult = { success: true } | { success: false; error: string };
 
 export async function sendEmail(options: EmailOptions): Promise<SendEmailResult> {
-  try {
-    const { to, subject, userEmail, template, body, html, text, reason } = options;
+  const { to, subject, userEmail, template, body, html, text, reason } = options;
 
-    let emailHtml = html;
+  let emailHtml = html;
 
-    // Si se especifica un template, usarlo
-    if (template && !html) {
-      if (template === 'document' && body) {
-        emailHtml = renderDocumentEmailTemplate(userEmail, body);
-      } else if (template === 'help') {
-        emailHtml = renderHelpEmailTemplate({ userEmail, reason, body });
-      }
+  // Si se especifica un template, usarlo
+  if (template && !html) {
+    if (template === 'document' && body) {
+      emailHtml = renderDocumentEmailTemplate(userEmail, body);
+    } else if (template === 'help') {
+      emailHtml = renderHelpEmailTemplate({ userEmail, reason, body });
     }
-
-    // Si no hay HTML ni texto, no podemos enviar el correo
-    if (!emailHtml && !text) {
-      throw new Error('Se requiere contenido HTML o texto para enviar el correo');
-    }
-
-    const info = await transporter.sendMail({
-      from: `"Grupo Horizonte" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html: emailHtml,
-      text: text || (emailHtml ? undefined : ''),
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    logger.error('Error enviando el correo', { data: { error } });
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+
+  // Si no hay HTML ni texto, no podemos enviar el correo
+  if (!emailHtml && !text) {
+    return { success: false, error: 'Se requiere contenido HTML o texto para enviar el correo' };
+  }
+
+  // `to` puede venir como lista separada por comas (sendErrorReport manda a dos casillas).
+  const recipients = to
+    .split(',')
+    .map((address) => address.trim())
+    .filter((address) => address.length > 0);
+
+  const sent = await sendMail({
+    to: recipients,
+    subject,
+    html: emailHtml ?? '',
+    text: text ?? '',
+  });
+
+  return sent ? { success: true } : { success: false, error: 'No se pudo enviar el correo (ver el log de shared/mail)' };
 }
