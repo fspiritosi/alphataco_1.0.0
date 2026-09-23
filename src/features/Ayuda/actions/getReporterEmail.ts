@@ -13,6 +13,10 @@ const logger = new Logger('features/Ayuda/reporter');
  * El id y el email salen de la sesión (`getSessionUser()`, único punto de contacto con
  * Auth hasta P4); el nombre visible sale de `profile.fullname` por Prisma en vez del
  * `user_metadata` de Supabase, que es el mismo dato duplicado en el lado de Auth.
+ *
+ * Si el profile no tiene `fullname` cargado, el nombre cae al email en vez de quedar en
+ * `null`: el ticket lo muestra como identificación del reporter y un ticket sin nombre no
+ * le sirve a nadie.
  */
 export async function getReporterEmail(): Promise<ReporterIdentity | null> {
   const user = await getSessionUser();
@@ -26,9 +30,9 @@ export async function getReporterEmail(): Promise<ReporterIdentity | null> {
 
     const fullname = profile?.fullname?.trim();
 
-    return { email: user.email, name: fullname ? fullname : null, userId: user.id };
+    return { email: user.email, name: fullname || user.email, userId: user.id };
   } catch (error) {
     logger.error('Error al obtener el perfil del usuario que reporta', { data: { error } });
-    return { email: user.email, name: null, userId: user.id };
+    return { email: user.email, name: user.email, userId: user.id };
   }
 }
