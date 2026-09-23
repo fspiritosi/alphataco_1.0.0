@@ -4,9 +4,10 @@ import type { Prisma } from '@/generated/prisma/client';
 import { buildFullname, registerUserSchema, type RegisterUserInput } from '@/features/Auth/schemas/register-user';
 import { checkPermissionServer } from '@/features/Permissions/actions/permissions.server';
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
+import { createCredential, createPasswordSetupLink, normalizeEmail } from '@/shared/lib/auth-credentials';
+import { sendInvitationEmail } from '@/shared/lib/mailer';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
@@ -15,19 +16,29 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 /**
  * Alta de usuario de la empresa activa (tab Empresa → Usuarios).
  *
- * Dos caminos: si el email ya tiene `profile`, se lo agrega a la empresa activa; si no, se crea la
- * credencial en Auth y después el perfil, la pertenencia y el rol.
+ * Dos caminos: si el email ya tiene `profile`, se lo agrega a la empresa activa; si no, se crea
+ * la credencial, el perfil, la pertenencia y el rol.
  *
  * Perímetro sin RLS (esto es un endpoint público):
- * - La empresa sale SIEMPRE de `getActiveCompanyId()`; el caller no manda `companyId` ni se lee la
- *   cookie `actualComp` a mano.
+ * - La empresa sale SIEMPRE de `getActiveCompanyId()`; el caller no manda `companyId` ni se lee
+ *   la cookie `actualComp` a mano.
  * - Exige `empresa.usuarios-empleados.create`, el mismo permiso que ya guardaba el botón en la UI.
- *   Sin esto cualquier usuario logueado podía crear usuarios y asignarles el rol que quisiera.
- * - `customer_id` salía de `values.customer`, un uuid del cliente que nadie validaba (y que ningún
- *   llamador mandaba): se eliminó del contrato.
  *
- * Las llamadas `auth.*` se conservan y están marcadas `// P4: auth` (P4 las reemplaza por Better
- * Auth); lo que es dato ya va por Prisma.
+ * ── Qué cambió con P4 ──────────────────────────────────────────────────────────────────
+ *
+ * 1. **Se acabó la credencial huérfana.** Con Supabase Auth el usuario vivía en otro sistema:
+ *    se creaba primero la credencial y después el perfil, y si lo segundo fallaba había que
+ *    borrar lo primero. Cuando ese borrado también fallaba quedaba alguien que podía loguearse,
+ *    con empresa asignada y sin perfil — se logueaba como CRÍTICO y nadie lo reconciliaba.
+ *    Ahora la credencial vive en la misma base, así que el alta entera (usuario + cuenta de
+ *    contraseña + token de invitación + perfil + pertenencia + rol) es UNA transacción.
+ * 2. **Ya no se escribe ningún claim acá.** `ensureCompanyMetadata()` existía para dejar la
+ *    empresa en el JWT del invitado antes de su primer login. Con Better Auth el claim se
+ *    resuelve en el alta de sesión (`session.create.before` en `shared/lib/auth.ts`) contra la
+ *    base, así que el invitado entra con su empresa sin que nadie se la escriba por anticipado
+ *    — y sin la rama `force` que decidía cuándo pisarle la empresa a alguien que ya tenía otra.
+ * 3. **La invitación se manda con el emisor SMTP de `shared/lib/mailer.ts`** (el límite con P5),
+ *    con un enlace que emite `createPasswordSetupLink()` dentro de la misma transacción.
  */
 const logger = new Logger('features/Auth/register-user');
 
@@ -35,13 +46,6 @@ export type RegisterUserResult = { success: true; message: string } | { success:
 
 /**
  * Otorga el rol elegido EN esta empresa.
- *
- * Hasta la Task 13a `user_roles` no tenía `company_id`, así que el rol era global y esto
- * estaba acotado a un bootstrap ("sólo si el usuario todavía no tiene ningún rol") para que
- * invitar a un usuario de otra empresa no lo subiera a admin allá. El efecto colateral era
- * que a un invitado que ya pertenecía a otra empresa NO se le daba el rol elegido: entraba
- * con los permisos que ya traía. Con `company_id` el rol no sale de esta empresa y el
- * invitado recibe el que se le eligió, sin excepciones.
  *
  * `skipDuplicates`: dos altas simultáneas del mismo usuario chocarían con la unique
  * (user_id, role_id, company_id) y abortarían la transacción entera.
@@ -64,7 +68,8 @@ export async function registerUserWithRole(values: RegisterUserInput): Promise<R
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
   }
-  const { email, password, role } = parsed.data;
+  const { password, role } = parsed.data;
+  const email = normalizeEmail(parsed.data.email);
   const fullname = buildFullname(parsed.data);
 
   try {
@@ -103,7 +108,13 @@ export async function registerUserWithRole(values: RegisterUserInput): Promise<R
   }
 }
 
-/** Alta de la pertenencia (y del rol) de un perfil que ya existe en otra empresa. */
+/**
+ * Alta de la pertenencia (y del rol) de un perfil que ya existe en otra empresa.
+ *
+ * No toca la empresa activa del invitado: la sesión que ya tenga abierta sigue en la empresa
+ * donde estaba, y la próxima vez que entre el hook de alta de sesión le resolverá la suya. Es
+ * el comportamiento que antes se conseguía llamando a `ensureCompanyMetadata()` SIN `force`.
+ */
 async function addExistingProfileToCompany({
   profile,
   companyId,
@@ -122,10 +133,6 @@ async function addExistingProfileToCompany({
   if (existingAccess) throw new Error('El usuario ya tiene acceso a esta empresa');
 
   if (!profile.credential_id) throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
-  // Sin `force` a propósito (a diferencia de `createUserForCompany`): este usuario ya existía y
-  // puede tener otra empresa activa en su JWT; sumarlo a una nueva no es motivo para sacarlo de
-  // donde estaba. El `force` del alta completa es correcto porque ahí no hay nada que pisar.
-  await ensureCompanyMetadata(profile.credential_id, companyId); // P4: auth
 
   const credentialId = profile.credential_id;
   await withActor(actor, async (tx) => {
@@ -136,7 +143,16 @@ async function addExistingProfileToCompany({
   logger.info('Usuario existente agregado a la empresa', { data: { profileId: profile.id, companyId } });
 }
 
-/** Alta completa: credencial en Auth + perfil, pertenencia y rol en la base. */
+/**
+ * Alta completa: credencial + perfil, pertenencia y rol, TODO en una transacción.
+ *
+ * Si algo falla no queda nada: ni el usuario de `auth_user`, ni su cuenta de contraseña, ni el
+ * token de invitación, ni el perfil. Esa es la diferencia con el alta anterior, que tenía que
+ * compensar a mano el alta en un sistema externo.
+ *
+ * El mail de invitación se manda DESPUÉS de commitear, y su fallo no revierte el alta: el
+ * usuario ya existe y puede pedir el enlace desde "¿Olvidaste tu contraseña?".
+ */
 async function createUserForCompany({
   email,
   password,
@@ -152,80 +168,49 @@ async function createUserForCompany({
   role: { id: bigint; name: string };
   actor: string;
 }): Promise<void> {
-  const adminSupabase = await adminSupabaseServer(); // P4: auth
   const hasPassword = Boolean(password?.trim());
 
-  // P4: auth — creación de la credencial auto-verificada.
-  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({ // P4: auth
-    email,
-    password: hasPassword ? password : undefined,
-    email_confirm: true,
-    user_metadata: { fullname, needs_password_change: !hasPassword },
+  const { credentialId, invitationUrl } = await withActor(actor, async (tx) => {
+    const newCredentialId = await createCredential(tx, {
+      email,
+      name: fullname,
+      password: hasPassword ? password : undefined,
+      // Con contraseña puesta por el admin, el usuario tiene que cambiarla al entrar.
+      needsPasswordChange: hasPassword,
+    });
+
+    await tx.profile.create({
+      data: {
+        // `profile.id === profile.credential_id`: las dos FKs de auditoría (a `profile.id` y a
+        // `profile.credential_id`, ver `shared/lib/actor.ts`) apuntan al mismo uuid, que es el
+        // que `withActor()` deja en `app.user_id`. P4 mantiene esa igualdad a propósito.
+        id: newCredentialId,
+        email,
+        fullname,
+        role: role.name, // columna legacy: FK a roles.name
+        credential_id: newCredentialId,
+      },
+    });
+    await tx.share_company_users.create({ data: { company_id: companyId, profile_id: newCredentialId } });
+    await assignRoleInCompany(tx, newCredentialId, role.id, companyId, actor);
+
+    // Sin contraseña = invitación: el enlace para que se la ponga él mismo.
+    const url = hasPassword ? null : await createPasswordSetupLink(tx, newCredentialId);
+    return { credentialId: newCredentialId, invitationUrl: url };
   });
 
-  if (authError) {
-    logger.error('Error creando usuario', { data: { error: authError } });
-    throw new Error(`Error al crear usuario: ${authError.message}`);
-  }
-
-  const credentialId = authData.user?.id;
-  if (!credentialId) throw new Error('No se pudo obtener el ID del usuario');
-
-  try {
-    // La empresa activa del nuevo usuario va en el JWT: sin esto entra sin empresa.
-    await ensureCompanyMetadata(credentialId, companyId, { force: true }); // P4: auth
-
-    await withActor(actor, async (tx) => {
-      await tx.profile.create({
-        data: {
-          id: credentialId,
-          email,
-          fullname,
-          role: role.name, // columna legacy: FK a roles.name
-          credential_id: credentialId,
-        },
-      });
-      await tx.share_company_users.create({ data: { company_id: companyId, profile_id: credentialId } });
-      await assignRoleInCompany(tx, credentialId, role.id, companyId, actor);
+  if (invitationUrl) {
+    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { company_name: true } });
+    const sent = await sendInvitationEmail({
+      to: email,
+      name: fullname,
+      companyName: company?.company_name ?? 'tu empresa',
+      url: invitationUrl,
     });
-  } catch (error) {
-    // La credencial ya existe en Auth pero no hay perfil: se elimina para no dejar un usuario
-    // huérfano que pueda loguearse sin empresa.
-    logger.error('Error creando el perfil del usuario, rollback de la credencial en Auth', { data: { error } });
-    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(credentialId); // P4: auth
-    if (deleteError) {
-      logger.error('CRITICO: no se pudo eliminar la credencial huérfana en Auth', {
-        data: { deleteError, credentialId },
-      });
-    }
-    throw error;
-  }
-
-  if (!hasPassword) {
-    // Invitación: el usuario define su propia contraseña con el flujo nativo de recuperación.
-    const supabase = await supabaseServer(); // P4: auth
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { // P4: auth
-      redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
-    });
-    if (error) {
-      logger.warn('Usuario creado pero no se pudo enviar el email de invitación', { data: { error, email } });
+    if (!sent) {
+      logger.warn('Usuario creado pero no se pudo enviar el mail de invitación', { data: { email } });
     }
   }
 
   logger.info('Usuario creado y agregado a la empresa', { data: { credentialId, companyId } });
-}
-
-/** Deja `app_metadata.company` apuntando a la empresa activa. P4: auth */
-async function ensureCompanyMetadata(credentialId: string, companyId: string, options?: { force: boolean }): Promise<void> {
-  const adminSupabase = await adminSupabaseServer(); // P4: auth
-
-  if (!options?.force) {
-    const { data: userData } = await adminSupabase.auth.admin.getUserById(credentialId); // P4: auth
-    if (userData?.user?.app_metadata?.company) return;
-  }
-
-  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, { // P4: auth
-    app_metadata: { company: companyId },
-  });
-  if (error) throw new Error(`Error al asignar metadata: ${error.message}`);
 }
