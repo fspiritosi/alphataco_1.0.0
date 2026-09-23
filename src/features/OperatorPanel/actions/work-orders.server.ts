@@ -63,6 +63,23 @@ async function assertNoSiblingInProgress(
   }
 }
 
+/**
+ * Motivo por el que el pedido no puede pasar a `pending_workshop_validation`, o `null` si
+ * puede. Envuelve `assertOrderTransition` para poder decidir sin que el throw se lleve
+ * puesta la transacción del cierre.
+ */
+async function getOrderTransitionBlock(
+  tx: Prisma.TransactionClient,
+  maintenanceOrderId: string
+): Promise<string | null> {
+  try {
+    await assertOrderTransition(tx, maintenanceOrderId, 'pending_workshop_validation');
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 /** Arranca la OT, si la secuencia de sectores la habilita y no hay otra OT del pedido activa. */
 export async function startWorkOrder(workOrderId: string) {
   const { operator, workOrder } = await assertWorkOrderInScope(workOrderId);
@@ -202,6 +219,9 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
     });
     const maintenanceOrderId = workOrderItem?.maintenance_order_items?.maintenance_order_id ?? null;
 
+    // Aviso para el operario si el pedido no pudo avanzar. No es un error del cierre.
+    let orderAdvanceWarning: string | null = null;
+
     if (maintenanceOrderId) {
       const siblings = await tx.work_orders.findMany({
         where: { maintenance_order_items: { some: { maintenance_order_id: maintenanceOrderId } } },
@@ -211,13 +231,32 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
       if (areAllWorkOrdersClosed(siblings.map((sibling) => sibling.status))) {
         // La guarda de transición del pedido, en la misma transacción que la escritura:
         // el estado se escribía a mano y se podía saltar el circuito.
-        await assertOrderTransition(tx, maintenanceOrderId, 'pending_workshop_validation');
-        await tx.maintenance_orders.update({
-          where: { id: maintenanceOrderId },
-          data: { status: 'pending_workshop_validation' },
-        });
+        //
+        // Pero si la guarda rechaza, el cierre de la OT NO se revierte: el trabajo del
+        // operario está hecho y él no controla en qué estado quedó el pedido. Se registra
+        // a nivel `error` para que lo destrabe quien puede, y al operario se le devuelve
+        // un aviso con algo que hacer.
+        //
+        // Sólo se captura el throw de la guarda, que es un error de JS sobre un `SELECT`
+        // que ya salió bien: si fallara el `update`, el error es de SQL y aborta la
+        // transacción, así que no hay nada que tragarse.
+        const blocked = await getOrderTransitionBlock(tx, maintenanceOrderId);
 
-        logger.info('Pedido listo para validación del taller', { data: { maintenanceOrderId } });
+        if (blocked) {
+          logger.error('El pedido quedó en un estado que impide avanzarlo a validación del taller', {
+            data: { workOrderId, maintenanceOrderId, reason: blocked },
+          });
+          orderAdvanceWarning =
+            'La OT se cerró, pero el pedido quedó en un estado que impide avanzarlo a validación del taller. ' +
+            'Avisá al jefe de taller.';
+        } else {
+          await tx.maintenance_orders.update({
+            where: { id: maintenanceOrderId },
+            data: { status: 'pending_workshop_validation' },
+          });
+
+          logger.info('Pedido listo para validación del taller', { data: { maintenanceOrderId } });
+        }
       }
     } else {
       logger.warn('OT sin pedido asociado', { data: { workOrderId } });
@@ -233,7 +272,7 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
       metadata: { status: closeStatus },
     });
 
-    return { closeStatus, maintenanceOrderId };
+    return { closeStatus, maintenanceOrderId, orderAdvanceWarning };
   });
 
   // El cierre también se registra contra el PEDIDO: el historial del pedido filtra por
@@ -255,4 +294,6 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   logger.info('OT cerrada', { data: { workOrderId, finalStatus: closed.closeStatus } });
 
   revalidatePath('/operator');
+
+  return { orderAdvanceWarning: closed.orderAdvanceWarning };
 }

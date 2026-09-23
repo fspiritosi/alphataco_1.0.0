@@ -61,11 +61,18 @@ export function CloseWorkOrderDialog({ workOrderId, workOrderItems, open, onClos
     mutationFn: async () => {
       return closeWorkOrder(workOrderId, notes || undefined);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       logger.info('Orden de trabajo cerrada exitosamente', {
         data: { workOrderId },
       });
       toast.success('Orden de trabajo cerrada exitosamente');
+
+      // La OT se cerró igual, pero el pedido no pudo avanzar: el operario tiene que saberlo
+      // y a quién avisar. El toast va aparte y sin auto-cierre para que no se lo pierda.
+      if (result?.orderAdvanceWarning) {
+        toast.warning(result.orderAdvanceWarning, { duration: Infinity, closeButton: true });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
       invalidateAllMaintenanceQueries(queryClient);
       handleClose();
