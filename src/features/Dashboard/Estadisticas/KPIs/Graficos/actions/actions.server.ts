@@ -1,12 +1,14 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import type { KpiCode } from './getKpiChartData';
 
 const logger = new Logger('features/Dashboard/KPIs/Graficos');
 
-type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
+const KPI_CODES: KpiCode[] = ['KPI-0001', 'KPI-0002', 'KPI-0003', 'KPI-0004', 'KPI-0005', 'KPI-0006'];
 
 // Descripciones cortas para cada KPI (no requieren query a BD)
 const KPI_DESCRIPTION_MAP: Record<KpiCode, string> = {
@@ -23,27 +25,20 @@ const KPI_DESCRIPTION_MAP: Record<KpiCode, string> = {
 };
 
 /**
- * Obtiene metadata (name, number, description) de los 6 KPIs en 1 sola query.
- * Diseñado para ser llamado desde el Server Component.
+ * Metadata (nombre, número, descripción) de los 6 KPIs en una sola query.
+ *
+ * Perímetro: la empresa sale de `getActiveCompanyId()`. Antes esta action leía a mano el
+ * claim `app_metadata.company` del JWT: además de saltearse el único punto de entrada,
+ * devolvía vacío en las sesiones que todavía no tienen el claim.
  */
 export async function getAllKpisMetadata() {
   logger.debug('Obteniendo metadata de todos los KPIs');
 
   try {
-    const session = await getCachedSession();
-    const companyId = session?.user?.app_metadata?.company;
-
-    if (!companyId) {
-      logger.warn('No se encontró company_id en la sesión');
-      return [];
-    }
+    const companyId = await getActiveCompanyId();
 
     const kpis = await prisma.kpis.findMany({
-      where: {
-        company_id: companyId,
-        is_active: true,
-        code: { in: ['KPI-0001', 'KPI-0002', 'KPI-0003', 'KPI-0004', 'KPI-0005', 'KPI-0006'] },
-      },
+      where: withCompany({ is_active: true, code: { in: KPI_CODES } }, companyId),
       select: {
         code: true,
         name: true,
