@@ -4,7 +4,6 @@ import { getAssignedSectorsForEmployee, getOperatorIdentity } from '@/features/O
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { prisma } from '@/shared/lib/prisma';
-import { clearActiveCompanyCookie, setActiveCompanyCookie } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -67,8 +66,11 @@ export async function operatorLogin(email: string, password: string) {
     return { error: 'Tu empleado no tiene sectores de taller asignados. Contacta al administrador.' };
   }
 
-  await setActiveCompanyCookie(employee.company_id);
-
+  // El login del operario NO escribe la cookie `actualComp` de empresa activa, a propósito:
+  // el panel no la lee (todo el perímetro sale del empleado de la sesión, ver `perimeter.ts`)
+  // y `/operator` ni siquiera pasa por el middleware, que tiene `matcher: ['/dashboard/:path*']`.
+  // Escribirla sólo contaminaba: en un navegador que además entra a `/dashboard`, este login
+  // pisaba la cookie de un año con una de una hora.
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_SECTOR_COOKIE, sectors[0]!.sectorId, SECTOR_COOKIE_OPTIONS);
 
@@ -79,7 +81,8 @@ export async function operatorLogout() {
   const supabase = await supabaseServer(); // P4: auth
   await supabase.auth.signOut(); // P4: auth
 
-  await clearActiveCompanyCookie();
+  // Sólo se borra lo que este panel escribió. La cookie de empresa activa es del dashboard:
+  // el operario no la setea, así que tampoco se la lleva puesta al salir.
   (await cookies()).delete(ACTIVE_SECTOR_COOKIE);
 
   revalidatePath('/', 'layout');
