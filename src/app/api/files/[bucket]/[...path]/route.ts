@@ -23,6 +23,10 @@ import { NextResponse } from 'next/server';
  *
  * Todo lo que no se puede probar responde 404, nunca 403: un 403 confirmaría que el archivo
  * existe.
+ *
+ * Excepción consciente a "Server Actions, no API Routes": lo que se sirve acá es el destino
+ * de un `<img src>` / `<a href>`, es decir una URL que pide el navegador. Una Server Action
+ * no puede responder eso.
  */
 const logger = new Logger('app/api/files');
 

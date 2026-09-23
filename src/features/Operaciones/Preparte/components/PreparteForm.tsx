@@ -171,8 +171,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       // 1) Si hay archivo seleccionado, subirlo desde el formulario usando el hook
       if (selectedFile) {
         try {
-          const bucket = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
-          const tempUrl = await uploadImage(selectedFile, bucket);
+          // El bucket es fijo: el destino del archivo no lo decide el cliente.
+          const tempUrl = await uploadImage(selectedFile, 'preparte-img');
           // Guardar la URL temporal en el formulario para que el manager la procese
           form.setValue('image_url', tempUrl);
           data.image_url = tempUrl;

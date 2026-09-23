@@ -159,7 +159,10 @@ docker compose --env-file .env.docker run --rm --entrypoint sh minio-init -c \
   'mc alias set local http://minio:9000 "$S3_ACCESS_KEY" "$S3_SECRET_KEY" >/dev/null && mc ls local/'
 ```
 
-Debe listar los 6 buckets: `document-files`, `daily-reports`, `contract-documents`, `employee-documents`, `clothing-signatures`, `logo`.
+Debe listar los 10 buckets de `STORAGE_BUCKETS` (`src/shared/lib/storage-buckets.ts`): `document-files`,
+`document-files-expired`, `contract-documents`, `daily-reports`, `logo`, `avatar`, `clothing-signatures`,
+`repair-images`, `tire-discards`, `preparte-img`. Todos privados (`mc anonymous set none`): se leen por la
+ruta `/api/files/...` de la app o por URL firmada.
 
 ### Ver los archivos de MinIO (consola web)
 
