@@ -1,25 +1,34 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { prisma } from '@/shared/lib/prisma';
+import { getSessionUser } from '@/shared/lib/session';
 import type { ReporterIdentity } from '../types';
 
-export async function getReporterEmail(): Promise<ReporterIdentity | null> {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const logger = new Logger('features/Ayuda/reporter');
 
+/**
+ * Identidad del usuario que reporta, para los tickets de soporte.
+ *
+ * El id y el email salen de la sesión (`getSessionUser()`, único punto de contacto con
+ * Auth hasta P4); el nombre visible sale de `profile.fullname` por Prisma en vez del
+ * `user_metadata` de Supabase, que es el mismo dato duplicado en el lado de Auth.
+ */
+export async function getReporterEmail(): Promise<ReporterIdentity | null> {
+  const user = await getSessionUser();
   if (!user?.email) return null;
 
-  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const firstname = typeof meta.firstname === 'string' ? meta.firstname : null;
-  const lastname = typeof meta.lastname === 'string' ? meta.lastname : null;
-  const fullName = typeof meta.full_name === 'string' ? meta.full_name : null;
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { credential_id: user.id },
+      select: { fullname: true },
+    });
 
-  let name: string | null = null;
-  if (firstname && lastname) name = `${firstname} ${lastname}`;
-  else if (fullName) name = fullName;
-  else if (firstname) name = firstname;
+    const fullname = profile?.fullname?.trim();
 
-  return { email: user.email, name, userId: user.id };
+    return { email: user.email, name: fullname ? fullname : null, userId: user.id };
+  } catch (error) {
+    logger.error('Error al obtener el perfil del usuario que reporta', { data: { error } });
+    return { email: user.email, name: null, userId: user.id };
+  }
 }

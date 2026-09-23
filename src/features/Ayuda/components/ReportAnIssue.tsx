@@ -4,29 +4,27 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getCompanyDetails } from '@/features/Ayuda/actions/company-details';
+import { getActiveCompanyDetails } from '@/features/Ayuda/actions/company-details';
+import { Logger } from '@/lib/logger';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import Cookies from 'js-cookie';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
+const logger = new Logger('features/Ayuda/ReportAnIssue');
+
 export function ReportAnIssue() {
-  const companyId = Cookies.get('actualComp');
-  const [area, setArea] = useState('billing'); // Valor por defecto para el área
-  const [nivelSeguridad, setNivelSeguridad] = useState('2'); // Valor por defecto para el nivel de seguridad
   const [asunto, setAsunto] = useState(''); // Valor inicial para el asunto
   const [descripcion, setDescripcion] = useState(''); // Valor inicial para la descripción
   const emailUser = useLoggedUserStore((state) => state.credentialUser?.email);
-  const [company, setCompany] = useState<Company | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    async function getCompany() {
-      const companyData = await getCompanyDetails(companyId as string);
-      setCompany(companyData as Company);
-    }
-    getCompany();
-  }, [companyId]);
+  // La empresa la resuelve el servidor desde la sesión: el cliente ya no manda el id.
+  const { data: company } = useQuery({
+    queryKey: ['ayuda', 'active-company-details'],
+    queryFn: () => getActiveCompanyDetails(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +72,7 @@ export function ReportAnIssue() {
       toast.success('Solicitud enviada correctamente');
       setDescripcion(''); // Limpiar el campo después del envío exitoso
     } catch (error) {
-      console.error('Error inesperado:', error);
+      logger.error('Error inesperado al enviar la solicitud de ayuda', { data: { error } });
       toast.error(error instanceof Error ? error.message : 'Error inesperado al enviar la solicitud');
     } finally {
       setIsSubmitting(false);
