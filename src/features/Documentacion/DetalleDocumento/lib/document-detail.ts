@@ -1,0 +1,109 @@
+import type { DocumentResourceKind } from '@/features/Documentacion/shared/lib/document-scope';
+import moment from 'moment';
+
+/**
+ * Lógica pura del detalle de documento (`/dashboard/document/[id]`). Sin acceso a la base ni a
+ * React: traduce el `?resource=` de la URL y arma las etiquetas, variantes de badge y formatos
+ * que pinta la vista.
+ */
+
+/** Etiquetas del `?resource=` tal como las arma la navegación de documentación. */
+const RESOURCE_PARAM_TO_KIND: Record<string, DocumentResourceKind> = {
+  Persona: 'employee',
+  Equipos: 'vehicle',
+  Empresa: 'company',
+};
+
+/**
+ * Recurso pedido por la URL, o `null` si el parámetro falta o no se reconoce (ahí el detalle
+ * busca el documento en las tres tablas).
+ */
+export function resolveResourceKind(resourceParam: string | undefined | null): DocumentResourceKind | null {
+  if (!resourceParam) return null;
+  return RESOURCE_PARAM_TO_KIND[resourceParam] ?? null;
+}
+
+/** Nombre del recurso para los textos de la vista. */
+export function resourceLabel(kind: DocumentResourceKind): string {
+  switch (kind) {
+    case 'employee':
+      return 'Empleado';
+    case 'vehicle':
+      return 'Equipo';
+    case 'company':
+      return 'Empresa';
+  }
+}
+
+/** CUIT/CUIL con guiones (`30712345673` → `30-71234567-3`). Deja intacto lo que no tenga 11 dígitos. */
+export function formatCuit(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3');
+}
+
+/** Variante del badge que muestra el estado del documento. */
+export function documentStateBadgeVariant(
+  state: string | null | undefined
+): 'destructive' | 'success' | 'yellow' | 'default' {
+  switch (state) {
+    case 'rechazado':
+      return 'destructive';
+    case 'aprobado':
+      return 'success';
+    case 'vencido':
+      return 'yellow';
+    default:
+      return 'default';
+  }
+}
+
+/** Variante del badge del motivo de rechazo: `vencido` también se pinta como error. */
+export function denyReasonBadgeVariant(state: string | null | undefined): 'destructive' | 'success' | 'default' {
+  if (state === 'rechazado' || state === 'vencido') return 'destructive';
+  if (state === 'aprobado') return 'success';
+  return 'default';
+}
+
+/** true si la URL del archivo apunta a un PDF (se embebe a pantalla completa). */
+export function isPdfUrl(url: string): boolean {
+  return url.split('.').pop()?.toLocaleLowerCase() === 'pdf';
+}
+
+/** Vencimiento del documento según el tipo: fecha de validez o "no vence". */
+export function expiryLabel(expires: boolean | null | undefined, validity: Date | string | null | undefined): string {
+  if (!expires) return 'No tiene vencimiento';
+  return `Vence el ${moment(validity).format('DD/MM/YYYY')}`;
+}
+
+/** "Subido el DD/MM/YYYY a las HH:mm", o cadena vacía si el documento no tiene fecha de alta. */
+export function uploadedAtLabel(createdAt: Date | string | null | undefined): string {
+  if (!createdAt) return '';
+  const uploaded = moment(createdAt);
+  return `Subido el ${uploaded.format('DD/MM/YYYY')} a las ${uploaded.format('HH:mm')}`;
+}
+
+/** Fecha corta (DD/MM/YYYY) o cadena vacía si no hay dato. */
+export function shortDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  return moment(value).format('DD/MM/YYYY');
+}
+
+/** Apellido y nombre del empleado, sin espacios sobrantes si falta alguno. */
+export function employeeDisplayName(employee: { lastname: string | null; firstname: string | null }): string {
+  return [employee.lastname, employee.firstname].filter(Boolean).join(' ');
+}
+
+/** Identificación visible de un equipo: dominio y, si no tiene, número interno. */
+export function equipmentDisplayName(vehicle: { domain: string | null; intern_number: string | null }): string {
+  return vehicle.domain || vehicle.intern_number || '';
+}
+
+/** "Calle 123, Ciudad" omitiendo las partes que falten. */
+export function employeeAddress(employee: {
+  street: string | null;
+  street_number: string | null;
+  city: { name: string } | null;
+}): string {
+  const street = [employee.street, employee.street_number].filter(Boolean).join(' ');
+  return [street, employee.city?.name].filter(Boolean).join(', ');
+}

@@ -35,9 +35,11 @@ const companySelect = {
   provinces: { select: { name: true } },
 } as const;
 
-type CompanyRow = { provinces: { name: string } | null } & Record<string, unknown>;
-
-function toLegacyCompany({ provinces, ...company }: CompanyRow) {
+/**
+ * Genérico a propósito: el rest de un `Record<string, unknown>` pierde los campos y el detalle
+ * de documento necesita leerlos tipados (`company_name`, `company_cuit`, `address`, …).
+ */
+function toLegacyCompany<T extends { provinces: { name: string } | null }>({ provinces, ...company }: T) {
   return { ...company, province_id: provinces };
 }
 
