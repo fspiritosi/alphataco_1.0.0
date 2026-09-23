@@ -5,7 +5,7 @@
 -- empresa) el usuario.
 BEGIN;
 
-SELECT plan(7);
+SELECT plan(9);
 
 -- (0) el seed crea el rol `User`: es el DEFAULT de profile.role (FK a roles.name);
 -- sin el, cualquier INSERT en profile que no fije `role` falla por FK.
@@ -97,6 +97,47 @@ SELECT is(
   ),
   false,
   'user_has_permission: el rol no vale en otra empresa'
+);
+
+-- (v) los permisos custom (`user_permissions`) tampoco salen de su empresa (Task 13b).
+-- Usuario sin ningun rol: lo unico que puede darle el permiso es el custom.
+INSERT INTO profile (id, credential_id, email)
+VALUES (
+  '44444444-4444-4444-4444-444444444444'::uuid,
+  '44444444-4444-4444-4444-444444444444'::uuid,
+  'pgtap-custom-permissions-test@alphataco.local'
+);
+
+INSERT INTO user_permissions (user_id, tab_id, action_id, company_id, is_granted)
+SELECT
+  '44444444-4444-4444-4444-444444444444'::uuid,
+  t.id,
+  a.id,
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  true
+FROM tabs t
+JOIN modules m ON m.id = t.module_id
+CROSS JOIN actions a
+WHERE m.slug = 'dashboard' AND t.slug = 'principal' AND a.slug = 'view';
+
+SELECT is(
+  user_has_permission(
+    '44444444-4444-4444-4444-444444444444'::uuid,
+    '22222222-2222-2222-2222-222222222222'::uuid,
+    'dashboard', 'principal', 'view'
+  ),
+  true,
+  'user_has_permission: el permiso custom vale en la empresa donde se otorgo'
+);
+
+SELECT is(
+  user_has_permission(
+    '44444444-4444-4444-4444-444444444444'::uuid,
+    '33333333-3333-3333-3333-333333333333'::uuid,
+    'dashboard', 'principal', 'view'
+  ),
+  false,
+  'user_has_permission: el permiso custom no vale en otra empresa'
 );
 
 SELECT * FROM finish();

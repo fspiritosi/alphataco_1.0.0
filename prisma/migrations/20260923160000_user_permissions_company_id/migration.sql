@@ -1,67 +1,33 @@
--- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
--- Dominio: permissions — 6 objeto(s)
+-- `user_permissions.company_id`: el permiso custom se otorga EN una empresa.
+--
+-- Es la otra mitad del agujero que cerró la Task 13a. Esa task le puso `company_id` a
+-- `user_roles`, pero `get_user_permissions` combina DOS fuentes: los roles (ya por empresa)
+-- y los permisos custom por usuario (`user_permissions`), que seguían siendo globales. O sea:
+-- un permiso custom otorgado a un usuario en una empresa valía en TODAS las empresas donde
+-- ese usuario entrara — exactamente el mismo agujero, abierto por el otro lado.
+--
+-- Base vacía por decisión de producto: no hay backfill.
+
+-- DropIndex
+DROP INDEX "user_permissions_user_id_tab_id_action_id_key";
+
+-- AlterTable
+ALTER TABLE "user_permissions" ADD COLUMN     "company_id" UUID NOT NULL;
+
+-- CreateIndex
+CREATE INDEX "idx_user_permissions_company_id" ON "user_permissions"("company_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_permissions_user_id_tab_id_action_id_company_id_key" ON "user_permissions"("user_id", "tab_id", "action_id", "company_id");
+
+-- AddForeignKey
+ALTER TABLE "user_permissions" ADD CONSTRAINT "user_permissions_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ============================================================================
--- FUNCTIONS (4)
+-- get_user_permissions: la rama de permisos custom pasa a filtrar por empresa
+-- (cambio doble con prisma/sql/permissions.sql). La firma no cambia (uuid, uuid),
+-- así que alcanza con CREATE OR REPLACE.
 -- ============================================================================
-
--- `assign_owner_role_on_company_creation()` y su trigger `assign_owner_role_trigger` se
--- eliminaron en la Task 13a de P2: insertaba en `user_roles(user_id)` el `company.owner_id`,
--- que es un `profile.id`, cuando esa columna es FK a `profile.credential_id` — y además
--- salía por el `RAISE WARNING` porque no existe ningún rol `slug = 'owner'` en el seed, así
--- que en la práctica no hacía nada. El alta del owner (pertenencia en `share_company_users`
--- y rol inicial de la empresa) la resuelve `createCompany` en la aplicación.
-
--- function check_multiple_permissions (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
--- Task 13a: suma `p_company_id` (los roles pasaron a ser por empresa).
-CREATE OR REPLACE FUNCTION public.check_multiple_permissions(p_user_id uuid, p_company_id uuid, p_permissions jsonb)
- RETURNS TABLE(module_slug text, tab_slug text, action_slug text, has_permission boolean)
- LANGUAGE plpgsql
- STABLE
-AS $function$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    perm->>'module' as module_slug,
-    perm->>'tab' as tab_slug,
-    perm->>'action' as action_slug,
-    EXISTS (
-      SELECT 1 
-      FROM public.get_user_permissions(p_user_id, p_company_id) up
-      WHERE up.module_slug = perm->>'module'
-        AND up.tab_slug = perm->>'tab'
-        AND up.action_slug = perm->>'action'
-        AND up.is_granted = true
-    ) as has_permission
-  FROM jsonb_array_elements(p_permissions) as perm;
-END;
-$function$;
-
--- function get_user_accessible_modules (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
--- Task 13a: suma `p_company_id` (los roles pasaron a ser por empresa).
-CREATE OR REPLACE FUNCTION public.get_user_accessible_modules(p_user_id uuid, p_company_id uuid)
- RETURNS TABLE(module_id uuid, module_slug text, module_name text, module_icon text)
- LANGUAGE plpgsql
- STABLE
-AS $function$
-BEGIN
-    RETURN QUERY
-    SELECT DISTINCT
-        m.id,
-        m.slug,
-        m.name,
-        m.icon
-    FROM public.modules m
-    WHERE m.is_active = true
-        AND EXISTS (
-            SELECT 1
-            FROM public.get_user_permissions(p_user_id, p_company_id) up
-            WHERE up.module_id = m.id
-                AND up.action_slug = 'view'  -- Only count 'view' permissions
-        )
-    ORDER BY m.id;
-END;
-$function$;
 
 -- function get_user_permissions (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
 -- Task 13a: suma `p_company_id`. `user_roles` ganó `company_id`, así que un rol vale en la
@@ -162,34 +128,3 @@ BEGIN
         ucp.source NULLS LAST;
 END;
 $function$;
-
--- function user_has_permission (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
--- Task 13a: suma `p_company_id` (los roles pasaron a ser por empresa).
-CREATE OR REPLACE FUNCTION public.user_has_permission(p_user_id uuid, p_company_id uuid, p_module_slug text, p_tab_slug text, p_action_slug text)
- RETURNS boolean
- LANGUAGE plpgsql
- STABLE
-AS $function$
-DECLARE
-    v_has_permission boolean;
-BEGIN
-    -- Check if user has the permission (from role or custom)
-    SELECT EXISTS (
-        SELECT 1
-        FROM public.get_user_permissions(p_user_id, p_company_id) up
-        WHERE up.module_slug = p_module_slug
-            AND up.tab_slug = p_tab_slug
-            AND up.action_slug = p_action_slug
-            AND up.is_granted = true
-    ) INTO v_has_permission;
-    
-    RETURN v_has_permission;
-END;
-$function$;
-
--- ============================================================================
--- TRIGGERS (0)
--- ============================================================================
-
--- El único trigger del dominio era `assign_owner_role_trigger ON company`, eliminado en la
--- Task 13a de P2 junto con su función (ver la nota en la sección FUNCTIONS).

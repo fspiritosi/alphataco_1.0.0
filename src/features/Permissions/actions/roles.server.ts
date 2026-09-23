@@ -632,22 +632,31 @@ export async function getUserDetailById(shareUserId: string) {
 export type UserDetailData = Awaited<ReturnType<typeof getUserDetailById>>;
 
 /**
- * Establece (upsert) un permiso custom de usuario.
+ * Establece (upsert) un permiso custom de usuario EN la empresa activa (Task 13b: el permiso
+ * custom se otorga en una empresa, no en todas las del usuario).
  */
 export async function setUserPermissionServer(userId: string, tabId: string, actionId: string, isGranted: boolean) {
   await assertCanManageUserDetail();
 
   logger.debug('Seteando permiso de usuario', { data: { userId, tabId, actionId, isGranted } });
 
-  const assignedBy = await getSessionUserId();
+  const [assignedBy, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyId()]);
 
   try {
     await prisma.user_permissions.upsert({
-      where: { user_id_tab_id_action_id: { user_id: userId, tab_id: tabId, action_id: actionId } },
+      where: {
+        user_id_tab_id_action_id_company_id: {
+          user_id: userId,
+          tab_id: tabId,
+          action_id: actionId,
+          company_id: companyId,
+        },
+      },
       create: {
         user_id: userId,
         tab_id: tabId,
         action_id: actionId,
+        company_id: companyId,
         is_granted: isGranted,
         assigned_by: assignedBy,
       },
@@ -666,16 +675,19 @@ export async function setUserPermissionServer(userId: string, tabId: string, act
 }
 
 /**
- * Remueve un permiso custom de usuario.
+ * Remueve un permiso custom de usuario EN la empresa activa (los de otras empresas no son
+ * asunto de esta pantalla).
  */
 export async function removeUserPermissionServer(userId: string, tabId: string, actionId: string) {
   await assertCanManageUserDetail();
 
   logger.debug('Removiendo permiso de usuario', { data: { userId, tabId, actionId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
     await prisma.user_permissions.deleteMany({
-      where: { user_id: userId, tab_id: tabId, action_id: actionId },
+      where: { user_id: userId, tab_id: tabId, action_id: actionId, company_id: companyId },
     });
 
     return { success: true };
@@ -686,16 +698,18 @@ export async function removeUserPermissionServer(userId: string, tabId: string, 
 }
 
 /**
- * Elimina TODOS los permisos custom de un usuario.
+ * Elimina TODOS los permisos custom de un usuario EN la empresa activa.
  */
 export async function cleanUserCustomPermissions(userId: string) {
   await assertCanManageUserDetail();
 
   logger.debug('Limpiando permisos custom del usuario', { data: { userId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
     await prisma.user_permissions.deleteMany({
-      where: { user_id: userId },
+      where: { user_id: userId, company_id: companyId },
     });
 
     return { success: true };
@@ -713,13 +727,13 @@ export async function cleanAllUserPermissionsAndRoles(userId: string) {
 
   logger.debug('Limpiando todos los permisos y roles del usuario', { data: { userId } });
 
-  // Los roles se borran sólo en la empresa activa. `user_permissions` todavía NO tiene
-  // `company_id`, así que ese borrado sigue siendo global (deuda pendiente de esa tabla).
+  // Ambas tablas se limpian sólo en la empresa activa: `user_roles` desde la Task 13a y
+  // `user_permissions` desde la 13b. Lo que el usuario tenga en otras empresas no se toca.
   const companyId = await getActiveCompanyId();
 
   try {
     await prisma.$transaction([
-      prisma.user_permissions.deleteMany({ where: { user_id: userId } }),
+      prisma.user_permissions.deleteMany({ where: { user_id: userId, company_id: companyId } }),
       prisma.user_roles.deleteMany({ where: { user_id: userId, company_id: companyId } }),
     ]);
 

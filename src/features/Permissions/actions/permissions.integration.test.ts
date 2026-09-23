@@ -143,6 +143,60 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     await expect(getUserPermissionsMapServer()).resolves.toEqual({});
   });
 
+  // ─── Permisos custom (`user_permissions`) ───────────────────────────────────
+  // Task 13b: la otra fuente de `get_user_permissions`. Antes era global: un permiso custom
+  // otorgado en una empresa valía en todas. Ahora también se acota por `company_id`.
+
+  it('el permiso custom no sale de su empresa: vale en la empresa donde se otorgó y en la otra no', async () => {
+    const deleteAction = await prisma.actions.findFirstOrThrow({ where: { slug: 'delete' } });
+    await prisma.user_permissions.create({
+      data: {
+        user_id: testUserId,
+        tab_id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID,
+        action_id: deleteAction.id,
+        company_id: companyId,
+        is_granted: true,
+      },
+    });
+
+    try {
+      const { checkPermissionServer } = await import('./permissions.server');
+
+      getSessionUserIdMock.mockResolvedValue(testUserId);
+      getSessionCompanyClaimMock.mockResolvedValue(companyId);
+      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'delete')).resolves.toBe(true);
+
+      getSessionCompanyClaimMock.mockResolvedValue(otherCompanyId);
+      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'delete')).resolves.toBe(false);
+    } finally {
+      await prisma.user_permissions.deleteMany({ where: { user_id: testUserId } });
+    }
+  });
+
+  it('el permiso custom negado (is_granted false) sólo revoca en su empresa', async () => {
+    // El rol concede `view` en `companyId`. Un custom `is_granted = false` en la OTRA empresa
+    // no tiene que tocar lo que el usuario ve en `companyId`.
+    await prisma.user_permissions.create({
+      data: {
+        user_id: testUserId,
+        tab_id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID,
+        action_id: viewActionId,
+        company_id: otherCompanyId,
+        is_granted: false,
+      },
+    });
+
+    try {
+      const { checkPermissionServer } = await import('./permissions.server');
+
+      getSessionUserIdMock.mockResolvedValue(testUserId);
+      getSessionCompanyClaimMock.mockResolvedValue(companyId);
+      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(true);
+    } finally {
+      await prisma.user_permissions.deleteMany({ where: { user_id: testUserId } });
+    }
+  });
+
   it('sin empresa activa no hay permisos', async () => {
     getSessionUserIdMock.mockResolvedValue(testUserId);
     getSessionCompanyClaimMock.mockResolvedValue(null);

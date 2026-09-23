@@ -69,10 +69,12 @@ const loadSupervisorFilterInfo = cache(async (): Promise<SupervisorFilterInfo | 
       },
     });
 
-    // Verificar permisos específicos por usuario (user_permissions.user_id = users.id = credentialId)
+    // Verificar permisos específicos por usuario (user_permissions.user_id = users.id = credentialId).
+    // El permiso custom también vale sólo en la empresa donde se otorgó (Task 13b).
     const userPermsCount = await prisma.user_permissions.count({
       where: {
         user_id: profile.credentialId,
+        company_id: companyId,
         tabs: { slug: { in: operationsTabs } },
         actions: { slug: 'view_all_requests' },
         is_granted: true,
