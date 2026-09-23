@@ -1,6 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
+import { findUserProfileByEmployee } from '@/shared/lib/employee-profile';
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
@@ -57,10 +58,10 @@ export async function toggleEmployeeStatus(
 
   // Ban/unban del usuario vinculado al empleado + sync share_company_users.is_active
   try {
-    const profile = await prisma.profile.findFirst({
-      where: { employee_id: employeeId },
-      select: { id: true, credential_id: true },
-    });
+    // El profile del USUARIO vinculado, no el de una sesión anónima del QR (que también lleva
+    // `employee_id` y se crea uno por login): banear esa credencial no haría nada útil y
+    // dejaría al usuario real entrando.
+    const profile = await findUserProfileByEmployee(employeeId);
 
     if (profile?.credential_id) {
       const credentialId = profile.credential_id;
@@ -79,7 +80,13 @@ export async function toggleEmployeeStatus(
         if (!activate) {
           await tx.session.deleteMany({ where: { userId: credentialId } });
         }
-        await tx.share_company_users.updateMany({ where: { profile_id: profile.id }, data: { is_active: activate } });
+        // Acotado a la empresa activa: el `updateMany` filtraba sólo por `profile_id`, así que
+        // dar de baja un legajo en la empresa A le desactivaba la pertenencia en la B. El
+        // camino hermano (`applyUserStatusPlan`) siempre estuvo acotado; esto lo empareja.
+        await tx.share_company_users.updateMany({
+          where: { profile_id: profile.id, company_id: companyId },
+          data: { is_active: activate },
+        });
       });
 
       await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
