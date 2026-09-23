@@ -1,3 +1,4 @@
+import { ensureCity } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -47,7 +48,7 @@ describe.skipIf(!RUN)('assignRoleInCompany: grant del rol en el alta de usuario 
     });
     roleId = role.id;
 
-    const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
+    const city = await ensureCity(prisma);
     const company = await prisma.company.create({
       data: {
         company_name: `Test alta ${credentialId.slice(0, 8)}`,
@@ -108,7 +109,7 @@ describe.skipIf(!RUN)('assignRoleInCompany: grant del rol en el alta de usuario 
   });
 
   it('la unique es por empresa: el mismo rol en OTRA empresa no choca', async () => {
-    const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
+    const city = await ensureCity(prisma);
     const other = await prisma.company.create({
       data: {
         company_name: `Test alta otra ${credentialId.slice(0, 8)}`,

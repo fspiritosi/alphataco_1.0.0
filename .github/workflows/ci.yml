@@ -43,3 +43,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
       - run: bash scripts/test-db.sh
+      # Los tests de auth estan gateados por DATABASE_URL, asi que `npm test` no los corre:
+      # sin esto, una regresion en `input: false` —la propiedad que sostiene todo el perimetro
+      # multi-empresa— no la agarra nadie. El job ya tiene Postgres levantado.
+      - run: bash scripts/test-auth.sh
