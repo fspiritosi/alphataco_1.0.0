@@ -42,11 +42,23 @@ edge functions: P5 los reemplazó a todos.
 | todos los días 07:00 | `GET /api/jobs/daily-report-deviations` | Desvíos del parte diario del día. Un correo **por empresa**, solo si hay desvíos. |
 | todos los días 00:30 | `GET /api/jobs/daily-indicators`        | Cierra partes diarios, marca prepartes vencidos y persiste los 11 indicadores del día por empresa en `daily_indicators`. No manda correos. |
 
-El crontab (`docker/cron/crontab`) llama con `curl -fsS -H "Authorization: Bearer $JOBS_TOKEN"`.
-Son `GET` porque `curl` sin `-X` manda `GET`; los mismos handlers están expuestos como `POST`
-para dispararlos a mano. `curl -fsS` falla con HTTP ≥ 400, así que un 401 o un 500 quedan en
-el log de `crond` (`docker compose --env-file .env.docker logs cron`). **No hay reintentos
-automáticos**: el siguiente disparo del cron es el reintento.
+El crontab (`docker/cron/crontab`) llama con
+`curl --fail-with-body -sS -H "Authorization: Bearer $JOBS_TOKEN"`. Son `GET` porque `curl`
+sin `-X` manda `GET`; los mismos handlers están expuestos como `POST` para dispararlos a mano.
+
+`--fail-with-body` y no `-f`: los dos fallan con exit != 0 ante HTTP ≥ 400, pero `-f` es
+*fail silently* y **descarta la respuesta**, así que en el log de `crond` sólo quedaría
+`curl: (22)`. Con `--fail-with-body` aparece además el JSON con el detalle por empresa:
+
+```bash
+docker compose --env-file .env.docker logs cron
+# curl: (22) The requested URL returned error: 500
+# {"ok":false,...,"failed":1,"units":[{"companyName":"...","status":"error","error":"..."}]}
+```
+
+El endpoint devuelve **500 si falló al menos una empresa**, aunque las demás hayan salido
+bien: un job que procesó 4 de 5 no es un éxito. **No hay reintentos automáticos**: el
+siguiente disparo del cron es el reintento.
 
 ### Autenticación
 
@@ -82,16 +94,30 @@ manda "por las dudas".
 
 ### Bitácora e idempotencia: `jobs_runs`
 
-Cada corrida deja una fila **por empresa** en `jobs_runs` (`job`, `run_key`, `company_id`,
-`status`, `attempts`, `started_at`, `finished_at`, `error`, `metadata`). La `run_key` es
-`<company_id>:<fecha AR>` y se reclama con `INSERT ... ON CONFLICT` **antes** de trabajar: por
-eso correr un job dos veces el mismo día no manda el correo dos veces. Una corrida en `error`
-(o una `running` colgada hace más de una hora) sí se puede reclamar de nuevo.
+Cada corrida deja filas en `jobs_runs` (`job`, `run_key`, `company_id`, `status`, `attempts`,
+`started_at`, `finished_at`, `error`, `metadata`):
+
+| `run_key` | Qué es |
+| ---------- | ------- |
+| `corrida:<fecha AR>` | Bitácora de la corrida completa. Se abre ANTES de consultar nada, así que un fallo previo al bucle (base caída, pool agotado) también queda registrado. **No es candado**: no bloquea un segundo disparo. |
+| `<company_id>:<fecha AR>` | Una por empresa. **Es el candado de idempotencia.** |
+| `mantenimiento:<fecha AR>` | El paso global del job diario (cierre de partes y prepartes). |
+
+La clave por empresa se reclama con `INSERT ... ON CONFLICT` **antes** de trabajar: por eso
+correr un job dos veces el mismo día no manda el correo dos veces. Qué se puede volver a
+reclamar:
+
+| `status` | ¿Reclamable? | Por qué |
+| --------- | ------------- | -------- |
+| `ok`      | **No**        | El trabajo se hizo. Es lo que impide reenviar un correo ya enviado. |
+| `error`   | Sí            | Falló; el siguiente disparo reintenta **sólo** esa empresa. |
+| `skipped` | Sí            | No hubo trabajo (sin parte diario, sin destinatarios). Si cargás los destinatarios a media mañana y redisparás, la empresa se reintenta en vez de esperar a mañana. |
+| `running` | Sólo pasada 1 h | Evita que dos disparos simultáneos dupliquen, y que un proceso muerto deje la clave trabada para siempre. |
 
 Es el único rastro confiable: el `Logger` del repo sólo emite con `NEXT_PUBLIC_SHOW_LOGS=true`.
 
 ```sql
-SELECT job, run_key, status, attempts, started_at, finished_at, error, metadata
+SELECT job, run_key, status, attempts, finished_at - started_at AS duracion, error, metadata
 FROM jobs_runs ORDER BY started_at DESC LIMIT 20;
 ```
 
