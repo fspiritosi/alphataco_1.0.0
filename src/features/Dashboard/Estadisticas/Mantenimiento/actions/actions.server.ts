@@ -1,7 +1,6 @@
 'use server';
 
 import {
-  contract_type_vehicles_enum,
   daily_report_status,
   type_of_maintenance_ENUM,
   work_order_item_status,
@@ -14,12 +13,18 @@ import moment from 'moment';
 import { UNKNOWN_SOURCE_KEY } from '../chart-constants';
 import type {
   MaintenanceMonthSummary,
-  MaintenanceTypeOption,
   MaintenanceVehicle,
   OwnershipCategory,
   VehicleStatus,
   WorkdaysAggregate,
 } from '../types';
+import {
+  categoryForContractType,
+  computeDaysElapsed,
+  CONTRACT_TYPES_BY_CATEGORY,
+  emptyTypeMap,
+  toSortedOptions,
+} from '../lib/ownership';
 import { resolvePeriodRange, type PeriodGranularity } from '../utils/periods';
 
 const logger = new Logger('Dashboard/Estadisticas/Mantenimiento');
@@ -27,21 +32,6 @@ const logger = new Logger('Dashboard/Estadisticas/Mantenimiento');
 // ============================================================================
 // CONSTANTES INTERNAS
 // ============================================================================
-
-// Mapeo de contract_type del enum a las 3 categorias del dashboard.
-// Prendado se agrupa con Leasing por decision de negocio.
-const CATEGORY_BY_CONTRACT_TYPE: Record<contract_type_vehicles_enum, OwnershipCategory> = {
-  Propio: 'Propios',
-  Leasing: 'Leasing',
-  Prendado: 'Leasing',
-  Alquiler: 'Contratados',
-};
-
-const CONTRACT_TYPES_BY_CATEGORY: Record<OwnershipCategory, contract_type_vehicles_enum[]> = {
-  Propios: ['Propio'],
-  Leasing: ['Leasing', 'Prendado'],
-  Contratados: ['Alquiler'],
-};
 
 // Estados terminales de los workflows. Todo lo no terminal cuenta como "abierto".
 const TERMINAL_REQUEST_STATUSES = ['rejected', 'completed', 'cancelled'];
@@ -55,27 +45,6 @@ const TERMINAL_WORK_ORDER_STATUSES: work_order_status[] = [
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-/**
- * Calcula los dias calendario transcurridos del mes:
- * - Mes en curso → dias del 1 a hoy (inclusivo)
- * - Mes pasado  → dias totales del mes
- * - Mes futuro  → 0
- */
-function computeDaysElapsed(monthStart: moment.Moment): number {
-  const today = moment().startOf('day');
-  if (monthStart.isAfter(today, 'month')) return 0;
-  if (monthStart.isBefore(today, 'month')) return monthStart.daysInMonth();
-  return today.date();
-}
-
-function emptyTypeMap(): Record<OwnershipCategory, Map<string, string>> {
-  return { Propios: new Map(), Leasing: new Map(), Contratados: new Map() };
-}
-
-function toSortedOptions(m: Map<string, string>): MaintenanceTypeOption[] {
-  return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-}
 
 // ============================================================================
 // SUMMARY (liviano — se carga upfront)
@@ -165,7 +134,7 @@ export async function getMaintenanceMonthSummary(monthKey: string): Promise<Main
     const categoryByVehicleId = new Map<string, OwnershipCategory>();
 
     for (const v of vehiclesLight) {
-      const cat = CATEGORY_BY_CONTRACT_TYPE[v.type_of_contract!];
+      const cat = categoryForContractType(v.type_of_contract);
       countsByCategory[cat] += 1;
       categoryByVehicleId.set(v.id, cat);
 
