@@ -82,8 +82,12 @@ export interface BulkRowUpdateData {
  * Determina el status automático de una fila según si tiene recursos asignados.
  * Si el status enviado es uno de los terminales (ejecutado, cancelado, reprogramado,
  * en_certificacion) lo respeta; si no, calcula pendiente / sin_recursos_asignados.
+ *
+ * NO se exporta: en un archivo `'use server'` todo lo exportado es una Server Action y tiene
+ * que ser `async`, así que exportarla rompía `next build` ("Server Actions must be async
+ * functions"). Su único llamador está en este mismo archivo.
  */
-export function resolveRowStatus(
+function resolveRowStatus(
   requestedStatus: string,
   hasResources: boolean
 ): 'pendiente' | 'sin_recursos_asignados' | 'ejecutado' | 'reprogramado' | 'cancelado' | 'en_certificacion' {
