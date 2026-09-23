@@ -49,9 +49,15 @@ function notFound(): NextResponse {
   return new NextResponse('No encontrado', { status: 404 });
 }
 
-/** `Content-Disposition` con el nombre del archivo, tolerando nombres no ASCII (RFC 5987). */
-function contentDisposition(key: string): string {
-  const name = key.split('/').pop() || 'archivo';
+/**
+ * `Content-Disposition` con el nombre del archivo, tolerando nombres no ASCII (RFC 5987).
+ *
+ * `preferredName` es el que guardó la base cuando difiere del de la key (los adjuntos de
+ * contrato llevan un `<timestamp>_` delante para no pisarse entre sí, y eso no tiene por qué
+ * terminar en la carpeta de descargas del usuario).
+ */
+function contentDisposition(key: string, preferredName?: string): string {
+  const name = preferredName?.trim() || key.split('/').pop() || 'archivo';
   const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }
@@ -107,7 +113,7 @@ export async function GET(
     if (object.ETag) headers.set('ETag', object.ETag);
     if (object.ContentLength !== undefined) headers.set('Content-Length', String(object.ContentLength));
     if (new URL(request.url).searchParams.get(DOWNLOAD_PARAM)) {
-      headers.set('Content-Disposition', contentDisposition(key));
+      headers.set('Content-Disposition', contentDisposition(key, owner.downloadName));
     }
 
     if (!object.Body) return notFound();
@@ -158,8 +164,12 @@ async function isOwnerReachable(owner: StorageObjectOwner): Promise<boolean> {
   if (me?.id === owner.profileId) return true;
   if (!activeCompanyId) return false;
 
+  // `is_active` se exige igual que en `canAccessCompany()`: un usuario dado de baja deja de
+  // ser miembro, y su avatar deja de ser legible para sus excompañeros.
   const [shared, owns] = await Promise.all([
-    prisma.share_company_users.count({ where: { profile_id: owner.profileId, company_id: activeCompanyId } }),
+    prisma.share_company_users.count({
+      where: { profile_id: owner.profileId, company_id: activeCompanyId, is_active: true },
+    }),
     prisma.company.count({ where: { id: activeCompanyId, owner_id: owner.profileId } }),
   ]);
   return shared > 0 || owns > 0;

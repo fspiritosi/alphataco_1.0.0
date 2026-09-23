@@ -69,20 +69,24 @@ async function remitDocumentCompany(path: string): Promise<string | null> {
 }
 
 /**
- * Empresa del adjunto de un contrato: la del cliente dueño del contrato.
+ * Empresa del adjunto de un contrato, más el nombre con el que se cargó.
  *
  * Son dos consultas porque `documents_contracts.contract_id` es un `String` suelto, sin
  * relación declarada en el schema. Es el mismo camino que usa `findOwnedDocument()` en
  * `services.server.ts`.
  */
-async function contractDocumentCompany(path: string): Promise<string | null> {
-  const document = await prisma.documents_contracts.findFirst({ where: { path }, select: { contract_id: true } });
+async function contractDocumentOwner(path: string): Promise<{ companyId: string; downloadName: string } | null> {
+  const document = await prisma.documents_contracts.findFirst({
+    where: { path },
+    select: { contract_id: true, name: true },
+  });
   if (!document?.contract_id || !UUID_RE.test(document.contract_id)) return null;
   const service = await prisma.customer_services.findUnique({
     where: { id: document.contract_id },
     select: { customers: { select: { company_id: true } } },
   });
-  return service?.customers?.company_id ?? null;
+  const companyId = service?.customers?.company_id;
+  return companyId ? { companyId, downloadName: document.name } : null;
 }
 
 /**
@@ -96,7 +100,14 @@ async function contractDocumentCompany(path: string): Promise<string | null> {
  * `document-files-expired` no está: es un archivo histórico que no se sirve por URL, sólo
  * se escribe al renovar un documento. El default es negar.
  */
-export type StorageObjectOwner = { kind: 'company'; companyId: string } | { kind: 'profile'; profileId: string };
+export type StorageObjectOwner = ({ kind: 'company'; companyId: string } | { kind: 'profile'; profileId: string }) & {
+  /**
+   * Nombre con el que ofrecer el archivo al descargar, cuando la base guarda uno distinto
+   * del de la key. Sale SIEMPRE de la fila, nunca del pedido: si viniera del querystring,
+   * cualquiera podría elegir con qué nombre se guarda un archivo ajeno.
+   */
+  downloadName?: string;
+};
 
 export async function resolveStorageObjectOwner(
   bucket: StorageBucket,
@@ -115,14 +126,19 @@ export async function resolveStorageObjectOwner(
     return companyId ? { kind: 'company', companyId } : null;
   }
 
+  if (bucket === 'contract-documents') {
+    const owner = await contractDocumentOwner(path);
+    // La key lleva un `<timestamp>_` que el usuario no debería ver en su carpeta de
+    // descargas: el nombre bueno es el que se guardó al subir el archivo.
+    return owner ? { kind: 'company', companyId: owner.companyId, downloadName: owner.downloadName } : null;
+  }
+
   const companyId = await (async () => {
     switch (bucket) {
       case 'document-files':
         return (await otherEquipmentCompany(path)) ?? (await documentCompany(path));
       case 'daily-reports':
         return remitDocumentCompany(path);
-      case 'contract-documents':
-        return contractDocumentCompany(path);
       default:
         return null;
     }
