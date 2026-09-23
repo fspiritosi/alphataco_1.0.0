@@ -1,5 +1,9 @@
 'use server';
 
+import {
+  assertSubTypeInActiveCompany,
+  assertTemplateInActiveCompany,
+} from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { Logger } from '@/lib/logger';
 import {
   buildDateRangeFiltersWhere,
@@ -11,6 +15,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/Gomeria/Plantillas');
 
@@ -62,7 +67,7 @@ const DATE_RANGE_COLUMNS = ['created_at'];
 // INTERNAL WHERE BUILDER
 // ============================================================================
 
-function buildTemplatesWhereClause(state: ReturnType<typeof parseSearchParams>) {
+function buildTemplatesWhereClause(state: ReturnType<typeof parseSearchParams>, companyId: string) {
   const searchWhere = buildSearchWhere(state.search, ['name', 'description']);
 
   const filtersWhere = buildFiltersWhere(
@@ -82,6 +87,7 @@ function buildTemplatesWhereClause(state: ReturnType<typeof parseSearchParams>) 
   };
 
   return {
+    company_id: companyId,
     is_active: true,
     ...searchWhere,
     ...filtersWhereWithoutAnd,
@@ -99,9 +105,10 @@ export async function getTemplatesPaginated(searchParams: DataTableSearchParams)
   logger.debug('Fetching tire templates paginated');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildTemplatesWhereClause(state);
+    const where = buildTemplatesWhereClause(state, companyId);
 
     const resolvedSorts: Record<string, unknown>[] = [];
     for (const s of state.sorting) {
@@ -138,8 +145,9 @@ export async function getTemplatesForExport(searchParams: DataTableSearchParams)
   logger.debug('Exporting tire templates');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
-    const where = buildTemplatesWhereClause(state);
+    const where = buildTemplatesWhereClause(state, companyId);
 
     const data = await prisma.tire_templates.findMany({
       orderBy: [{ created_at: 'desc' }],
@@ -171,7 +179,14 @@ export async function getTemplateSingleFacet(
 } | null> {
   logger.debug('Getting template single facet', { data: { columnId } });
 
-  const baseWhere = { is_active: true };
+  let companyId: string;
+  try {
+    companyId = await getActiveCompanyId();
+  } catch {
+    return null;
+  }
+
+  const baseWhere = { company_id: companyId, is_active: true };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -186,7 +201,7 @@ export async function getTemplateSingleFacet(
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildTemplatesWhereClause(modified);
+    return buildTemplatesWhereClause(modified, companyId);
   }
 
   try {
@@ -208,8 +223,9 @@ export async function getTemplateSingleFacet(
 export async function getTemplateById(id: string) {
   logger.debug('Fetching template by id', { data: { id } });
   try {
-    const template = await prisma.tire_templates.findUnique({
-      where: { id },
+    const companyId = await getActiveCompanyId();
+    const template = await prisma.tire_templates.findFirst({
+      where: { id, company_id: companyId },
       select: {
         id: true,
         name: true,
@@ -237,20 +253,18 @@ export async function getTemplateById(id: string) {
   }
 }
 
-export async function createTemplate(data: {
-  name: string;
-  description?: string;
-  companyId: string;
-  axles: AxleInput[];
-}) {
+/** Alta de plantilla: la empresa sale de la sesión, no del formulario. */
+export async function createTemplate(data: { name: string; description?: string; axles: AxleInput[] }) {
   logger.debug('Creating tire template', { data: { name: data.name } });
   try {
+    const companyId = await getActiveCompanyId();
+
     const template = await prisma.$transaction(async (tx) => {
       const created = await tx.tire_templates.create({
         data: {
           name: data.name,
           description: data.description ?? null,
-          company_id: data.companyId,
+          company_id: companyId,
         },
       });
 
@@ -287,6 +301,8 @@ export async function updateTemplate(
 ) {
   logger.debug('Updating tire template', { data: { id, name: data.name } });
   try {
+    await assertTemplateInActiveCompany(id);
+
     const template = await prisma.$transaction(async (tx) => {
       const updated = await tx.tire_templates.update({
         where: { id },
@@ -325,6 +341,8 @@ export async function updateTemplate(
 export async function deleteTemplate(id: string) {
   logger.debug('Soft-deleting tire template', { data: { id } });
   try {
+    await assertTemplateInActiveCompany(id);
+
     // Check if any active sub_type uses this template
     const subTypesWithTemplate = await prisma.sub_type.findMany({
       where: { tire_template_id: id, is_active: true },
@@ -363,6 +381,10 @@ export async function deleteTemplate(id: string) {
 export async function assignTemplateToSubType(subTypeId: string, templateId: string) {
   logger.debug('Assigning template to sub_type', { data: { subTypeId, templateId } });
   try {
+    // El subtipo y la plantilla llegan del cliente: los dos tienen que ser de la empresa activa.
+    await assertSubTypeInActiveCompany(subTypeId);
+    await assertTemplateInActiveCompany(templateId);
+
     // Simply update the sub_type's tire_template_id.
     // Vehicle positions are generated lazily (on-demand) when a service order is created.
     await prisma.sub_type.update({
@@ -378,6 +400,8 @@ export async function assignTemplateToSubType(subTypeId: string, templateId: str
 export async function unassignTemplateFromSubType(subTypeId: string) {
   logger.debug('Unassigning template from sub_type', { data: { subTypeId } });
   try {
+    await assertSubTypeInActiveCompany(subTypeId);
+
     await prisma.sub_type.update({
       where: { id: subTypeId },
       data: { tire_template_id: null },
@@ -392,9 +416,11 @@ export async function unassignTemplateFromSubType(subTypeId: string) {
 // SUB_TYPE QUERY (for assignment)
 // ============================================================================
 
-export async function getSubTypesForTemplateAssign(companyId: string) {
-  logger.debug('Fetching sub_types for template assignment', { data: { companyId } });
+/** Subtipos de la empresa activa, para el diálogo de asignación de plantillas. */
+export async function getSubTypesForTemplateAssign() {
+  logger.debug('Fetching sub_types for template assignment');
   try {
+    const companyId = await getActiveCompanyId();
     const subTypes = await prisma.sub_type.findMany({
       where: { company_id: companyId, is_active: true },
       select: {

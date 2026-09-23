@@ -42,7 +42,6 @@ const logger = new Logger('TemplateAssignDialog');
 interface TemplateAssignDialogProps {
   templateId: string;
   templateName: string;
-  companyId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -51,13 +50,7 @@ interface TemplateAssignDialogProps {
 // COMPONENT
 // ============================================================================
 
-export function TemplateAssignDialog({
-  templateId,
-  templateName,
-  companyId,
-  open,
-  onOpenChange,
-}: TemplateAssignDialogProps) {
+export function TemplateAssignDialog({ templateId, templateName, open, onOpenChange }: TemplateAssignDialogProps) {
   const queryClient = useQueryClient();
 
   // ─── State ────────────────────────────────────────────────────────────────
@@ -68,8 +61,8 @@ export function TemplateAssignDialog({
 
   // ─── Fetch sub_types ──────────────────────────────────────────────────────
   const { data: subTypes = [], isLoading: isLoadingSubTypes } = useQuery({
-    queryKey: ['sub-types-for-assign', companyId],
-    queryFn: () => getSubTypesForTemplateAssign(companyId),
+    queryKey: ['sub-types-for-assign'],
+    queryFn: () => getSubTypesForTemplateAssign(),
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });

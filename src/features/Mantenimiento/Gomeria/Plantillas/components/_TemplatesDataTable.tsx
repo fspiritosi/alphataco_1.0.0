@@ -42,7 +42,6 @@ interface TemplatesDataTableProps {
   data: TemplateListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
-  companyId: string;
   tableId: string;
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility?: Record<string, boolean>;
@@ -57,7 +56,6 @@ export default function _TemplatesDataTable({
   data,
   totalRows,
   searchParams,
-  companyId,
   tableId,
   permissionsMap,
   initialColumnVisibility,
@@ -189,7 +187,6 @@ export default function _TemplatesDataTable({
       <TemplateForm
         open={showCreateForm}
         onOpenChange={setShowCreateForm}
-        companyId={companyId}
         queryKey={['tire-templates']}
       />
 
@@ -199,7 +196,6 @@ export default function _TemplatesDataTable({
         onOpenChange={(open) => {
           if (!open) setEditingTemplate(null);
         }}
-        companyId={companyId}
         template={editingTemplate ?? undefined}
         queryKey={['tire-templates']}
       />
@@ -236,7 +232,6 @@ export default function _TemplatesDataTable({
       <TemplateAssignDialog
         templateId={assigningTemplate?.id ?? ''}
         templateName={assigningTemplate?.name ?? ''}
-        companyId={companyId}
         open={assigningTemplate !== null}
         onOpenChange={(open) => {
           if (!open) setAssigningTemplate(null);

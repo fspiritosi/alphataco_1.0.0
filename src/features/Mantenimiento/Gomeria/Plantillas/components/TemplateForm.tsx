@@ -43,7 +43,6 @@ type TemplateFormValues = z.infer<typeof templateFormSchema>;
 interface TemplateFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
   template?: TemplateListItem;
   queryKey: (string | boolean | undefined)[];
 }
@@ -52,7 +51,7 @@ interface TemplateFormProps {
 // COMPONENT
 // ============================================================================
 
-export function TemplateForm({ open, onOpenChange, companyId, template, queryKey }: TemplateFormProps) {
+export function TemplateForm({ open, onOpenChange, template, queryKey }: TemplateFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!template;
 
@@ -108,7 +107,6 @@ export function TemplateForm({ open, onOpenChange, companyId, template, queryKey
         return createTemplate({
           name: values.name,
           description: values.description || undefined,
-          companyId,
           axles,
         });
       }
