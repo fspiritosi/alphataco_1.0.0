@@ -16,6 +16,7 @@ import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { getOperationToday, getTodayParts } from '../lib/dashboard-dates';
 import { aggregateDiagramIndicators, percentage } from '../lib/indicators';
+import { positionFilter, sanitizePositionIds } from '../lib/position-filter';
 import { mapEmployeesNotInReport, toFacetMap, type EmployeeDiagramRow } from '../lib/row-mapping';
 import type { DiagramIndicatorResult, EmployeeIndicatorResult, EmployeeNotInReportResult } from './types';
 
@@ -26,8 +27,8 @@ const logger = new Logger('features/Dashboard/Principal/rrhh');
  * fuera del parte y la tabla paginada del diálogo de disponibles.
  *
  * Perímetro: la empresa sale de `getActiveCompanyId()`. Los `positionIds` que manda el
- * cliente sólo acotan el listado; además se filtran contra los puestos de la empresa antes
- * de usarlos en SQL (ver `sanitizePositionIds`).
+ * cliente sólo acotan el listado y se sanean antes de entrar al SQL — ver
+ * `lib/position-filter`, que además deja el filtro fallando CERRADO.
  */
 
 const DEFAULT_EMPLOYEE_INDICATOR: EmployeeIndicatorResult = {
@@ -35,23 +36,6 @@ const DEFAULT_EMPLOYEE_INDICATOR: EmployeeIndicatorResult = {
   employees_used: 0,
   indicator: 0,
 };
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Deja sólo los `positionIds` que son uuid válidos.
- *
- * Los ids entran a una consulta SQL cruda (`buildAvailableEmployeesWhere`): antes se
- * interpolaban como texto dentro del SQL con `$queryRawUnsafe`, o sea una inyección
- * directa desde el cliente. Ahora van bindeados, y esto es el cinturón extra.
- */
-function sanitizePositionIds(positionIds?: string[]): string[] {
-  return (positionIds ?? []).filter((id) => UUID_RE.test(id));
-}
-
-function positionFilter(positionIds: readonly string[]) {
-  return positionIds.length > 0 ? { company_position: { in: [...positionIds] } } : {};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Indicadores
@@ -294,14 +278,17 @@ function buildAvailableEmployeeSelect() {
  */
 async function getAvailableEmployeeIds(
   companyId: string,
-  positionIds: readonly string[],
+  positionIds: readonly string[] | undefined,
   todayDate: string,
   day: number,
   month: number,
   year: number
 ): Promise<string[]> {
-  const hasPositions = positionIds.length > 0;
-  const positionArray = [...positionIds];
+  // Vino filtro pero ningún id sobrevivió al saneo: ningún empleado puede caer dentro.
+  if (positionIds !== undefined && positionIds.length === 0) return [];
+
+  const hasPositions = positionIds !== undefined;
+  const positionArray = [...(positionIds ?? [])];
 
   const operativePositionClause = hasPositions
     ? Prisma.sql`AND e.company_position = ANY(${positionArray}::uuid[])`
@@ -350,7 +337,7 @@ async function getAvailableEmployeeIds(
  */
 async function buildAvailableEmployeesWhere(
   companyId: string,
-  positionIds: readonly string[],
+  positionIds: readonly string[] | undefined,
   state: ReturnType<typeof parseSearchParams>
 ) {
   const { day, month, year } = getTodayParts();
