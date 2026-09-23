@@ -50,7 +50,6 @@ interface MarcasDataTableProps {
   data: TireBrandListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
-  companyId: string;
   tableId: string;
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility?: Record<string, boolean>;
@@ -65,7 +64,6 @@ export default function _MarcasDataTable({
   data,
   totalRows,
   searchParams,
-  companyId,
   tableId,
   permissionsMap,
   initialColumnVisibility,
@@ -218,7 +216,7 @@ export default function _MarcasDataTable({
       />
 
       {/* ─── Create form ─────────────────────────────────────────────────── */}
-      <MarcaForm open={showCreateForm} onOpenChange={setShowCreateForm} companyId={companyId} queryKey={QUERY_KEY} />
+      <MarcaForm open={showCreateForm} onOpenChange={setShowCreateForm} queryKey={QUERY_KEY} />
 
       {/* ─── Edit form ───────────────────────────────────────────────────── */}
       <MarcaForm
@@ -226,7 +224,6 @@ export default function _MarcasDataTable({
         onOpenChange={(open) => {
           if (!open) setEditTarget(null);
         }}
-        companyId={companyId}
         brand={editTarget ?? undefined}
         queryKey={QUERY_KEY}
       />

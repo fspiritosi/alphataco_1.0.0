@@ -1,5 +1,6 @@
 'use server';
 
+import { assertTireBrandInActiveCompany } from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
@@ -209,16 +210,18 @@ export async function getTireBrandSingleFacet(
 // CRUD ACTIONS
 // ============================================================================
 
-export async function createTireBrand(data: { name: string; company_id: string }) {
+/** Alta de marca: la empresa sale de la sesión, no del formulario. */
+export async function createTireBrand(data: { name: string }) {
   logger.debug('Creating tire brand', { data: { name: data.name } });
   try {
+    const companyId = await getServerCompanyId();
     const existing = await prisma.tire_brands.findFirst({
-      where: { name: data.name, company_id: data.company_id },
+      where: { name: data.name, company_id: companyId },
     });
     if (existing) {
       throw new Error(`Ya existe una marca con el nombre "${data.name}"`);
     }
-    const brand = await prisma.tire_brands.create({ data });
+    const brand = await prisma.tire_brands.create({ data: { name: data.name, company_id: companyId } });
     return brand;
   } catch (error) {
     logger.error('Error creating tire brand', { data: { error } });
@@ -229,6 +232,8 @@ export async function createTireBrand(data: { name: string; company_id: string }
 export async function updateTireBrand(id: string, data: { name: string }) {
   logger.debug('Updating tire brand', { data: { id, ...data } });
   try {
+    await assertTireBrandInActiveCompany(id);
+
     const brand = await prisma.tire_brands.update({
       where: { id },
       data: { name: data.name },
@@ -243,6 +248,8 @@ export async function updateTireBrand(id: string, data: { name: string }) {
 export async function toggleTireBrandActive(id: string, isActive: boolean) {
   logger.debug('Toggling tire brand active', { data: { id, isActive } });
   try {
+    await assertTireBrandInActiveCompany(id);
+
     const brand = await prisma.tire_brands.update({
       where: { id },
       data: { is_active: isActive },

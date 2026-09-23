@@ -32,7 +32,6 @@ type MarcaFormValues = z.infer<typeof marcaFormSchema>;
 interface MarcaFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
   brand?: TireBrandListItem;
   queryKey: string[];
 }
@@ -41,7 +40,7 @@ interface MarcaFormProps {
 // COMPONENT
 // ============================================================================
 
-export function MarcaForm({ open, onOpenChange, companyId, brand, queryKey }: MarcaFormProps) {
+export function MarcaForm({ open, onOpenChange, brand, queryKey }: MarcaFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!brand;
 
@@ -67,7 +66,7 @@ export function MarcaForm({ open, onOpenChange, companyId, brand, queryKey }: Ma
         await updateTireBrand(brand.id, { name: values.name });
         toast.success('Marca actualizada correctamente');
       } else {
-        await createTireBrand({ name: values.name, company_id: companyId });
+        await createTireBrand({ name: values.name });
         toast.success('Marca creada correctamente');
       }
       await queryClient.invalidateQueries({ queryKey });
