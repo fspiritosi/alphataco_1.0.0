@@ -9,9 +9,12 @@ const logger = new Logger('features/Mantenimiento/Gomeria/Ordenes/tire-service-q
 /**
  * Contexto de gomería del equipo escaneado por el QR.
  *
- * La empresa sale del vehículo de la ruta (no hay empresa activa en este flujo) y la
- * plantilla efectiva de cubiertas es el override del vehículo o, si no tiene, la de su
+ * La plantilla efectiva de cubiertas es el override del vehículo o, si no tiene, la de su
  * subtipo. Devuelve `null` si el equipo no existe o no tiene empresa.
+ *
+ * La empresa NO viaja al cliente: cada action del asistente la vuelve a derivar del
+ * vehículo o de la orden en el servidor, así que acá sólo se usa como comprobación de que
+ * el equipo es utilizable.
  */
 export async function fetchTireServiceContextForEquipment(equipmentId: string) {
   try {
@@ -27,7 +30,6 @@ export async function fetchTireServiceContextForEquipment(equipmentId: string) {
     if (!vehicle?.company_id) return null;
 
     return {
-      companyId: vehicle.company_id,
       tireTemplateId: resolveVehicleTireTemplateId(vehicle),
     };
   } catch (error) {

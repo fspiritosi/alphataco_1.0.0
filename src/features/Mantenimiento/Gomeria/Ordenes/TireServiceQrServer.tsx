@@ -36,7 +36,7 @@ export async function TireServiceQrServer({ equipmentId }: { equipmentId: string
         backHref={`/maintenance/equipment/${equipmentId}`}
       />
       <main className="flex-1 flex flex-col p-4 pb-24">
-        <TireServiceQrClient vehicleId={equipmentId} companyId={context.companyId} />
+        <TireServiceQrClient vehicleId={equipmentId} />
       </main>
     </div>
   );

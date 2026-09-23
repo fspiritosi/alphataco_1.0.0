@@ -17,7 +17,6 @@ const TABLE_ID = 'tire-service-orders';
 
 interface ServiceOrdersListProps {
   searchParams: Record<string, string | string[] | undefined>;
-  companyId: string;
   permissionsMap: Record<string, boolean>;
 }
 
@@ -25,7 +24,7 @@ interface ServiceOrdersListProps {
 // SERVER COMPONENT
 // ============================================================================
 
-export default async function ServiceOrdersList({ searchParams, companyId, permissionsMap }: ServiceOrdersListProps) {
+export default async function ServiceOrdersList({ searchParams, permissionsMap }: ServiceOrdersListProps) {
   // Extract only the params for this table (strip namespace prefix)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, TABLE_ID);
 
@@ -42,7 +41,6 @@ export default async function ServiceOrdersList({ searchParams, companyId, permi
           data={data}
           totalRows={total}
           searchParams={tableParams}
-          companyId={companyId}
           tableId={TABLE_ID}
           permissionsMap={permissionsMap}
           initialColumnVisibility={preferences.columnVisibility ?? {}}

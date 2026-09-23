@@ -1,5 +1,4 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { Suspense } from 'react';
 import TiresList from './TiresList';
 import { CatalogoSkeleton } from './fallback/CatalogoSkeleton';
@@ -9,11 +8,11 @@ export default async function CatalogoTabContent({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const [companyId, permissionsMap] = await Promise.all([getServerCompanyId(), getUserPermissionsMapServer()]);
+  const permissionsMap = await getUserPermissionsMapServer();
 
   return (
     <Suspense fallback={<CatalogoSkeleton />}>
-      <TiresList searchParams={searchParams} companyId={companyId} permissionsMap={permissionsMap} />
+      <TiresList searchParams={searchParams} permissionsMap={permissionsMap} />
     </Suspense>
   );
 }

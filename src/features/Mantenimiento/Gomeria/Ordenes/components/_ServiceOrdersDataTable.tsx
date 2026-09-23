@@ -63,7 +63,6 @@ interface ServiceOrdersDataTableProps {
   data: ServiceOrderListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
-  companyId: string;
   tableId: string;
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility?: Record<string, boolean>;
@@ -78,7 +77,6 @@ export default function _ServiceOrdersDataTable({
   data,
   totalRows,
   searchParams,
-  companyId,
   tableId,
   permissionsMap,
   initialColumnVisibility,
@@ -336,7 +334,7 @@ export default function _ServiceOrdersDataTable({
       {/* ─── New Order Wizard ──────────────────────────────────────────── */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <ServiceOrderWizard companyId={companyId} mode="dashboard" onClose={() => setShowWizard(false)} />
+          <ServiceOrderWizard mode="dashboard" onClose={() => setShowWizard(false)} />
         </DialogContent>
       </Dialog>
 
@@ -350,7 +348,6 @@ export default function _ServiceOrdersDataTable({
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           {continuingOrder && (
             <ServiceOrderWizard
-              companyId={companyId}
               mode="dashboard"
               existingOrderId={continuingOrder.id}
               vehicleId={continuingOrder.vehicle_id}

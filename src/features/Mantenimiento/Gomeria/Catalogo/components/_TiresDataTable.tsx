@@ -50,7 +50,6 @@ interface TiresDataTableProps {
   data: TireListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
-  companyId: string;
   tableId: string;
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility?: Record<string, boolean>;
@@ -83,7 +82,6 @@ export default function _TiresDataTable({
   data,
   totalRows,
   searchParams,
-  companyId,
   tableId,
   permissionsMap,
   initialColumnVisibility,
@@ -333,7 +331,6 @@ export default function _TiresDataTable({
       <TireForm
         open={showCreateForm}
         onOpenChange={setShowCreateForm}
-        companyId={companyId}
         queryKey={['tires-catalog']}
       />
 
@@ -344,7 +341,6 @@ export default function _TiresDataTable({
           onOpenChange={(open) => {
             if (!open) setEditingTire(null);
           }}
-          companyId={companyId}
           tire={editingTire}
           queryKey={['tires-catalog']}
         />
@@ -354,7 +350,6 @@ export default function _TiresDataTable({
       <TireBulkForm
         open={showBulkForm}
         onOpenChange={setShowBulkForm}
-        companyId={companyId}
         queryKey={['tires-catalog']}
       />
 

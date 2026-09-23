@@ -1,6 +1,14 @@
 'use server';
 
 import { checkVehicleTireReadiness } from '@/features/Mantenimiento/Gomeria/shared/check-vehicle-tire-readiness';
+import {
+  assertServiceOrderInActiveCompany,
+  assertTireInCompany,
+  assertVehicleInActiveCompany,
+  assertVehicleInCompany,
+  getServiceOrderCompanyId,
+  getVehicleCompanyId,
+} from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { resolveVehicleTireTemplateId } from '@/features/Mantenimiento/Gomeria/shared/resolve-template';
 import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
@@ -20,6 +28,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/Gomeria/Ordenes');
 
@@ -67,7 +76,7 @@ const DATE_RANGE_COLUMNS = ['service_date', 'created_at'];
 // INTERNAL WHERE BUILDER
 // ============================================================================
 
-function buildServiceOrdersWhereClause(state: ReturnType<typeof parseSearchParams>) {
+function buildServiceOrdersWhereClause(state: ReturnType<typeof parseSearchParams>, companyId: string) {
   const searchWhere = buildSearchWhere(state.search, ['kilometer']);
 
   const filtersWhere = buildFiltersWhere(
@@ -85,6 +94,7 @@ function buildServiceOrdersWhereClause(state: ReturnType<typeof parseSearchParam
   const { AND: _discarded, ...filtersWhereWithoutAnd } = filtersWhere as Record<string, unknown> & { AND?: unknown };
 
   return {
+    company_id: companyId,
     ...searchWhere,
     ...filtersWhereWithoutAnd,
     ...textFiltersWhere,
@@ -97,13 +107,18 @@ function buildServiceOrdersWhereClause(state: ReturnType<typeof parseSearchParam
 // PAGINATED QUERY
 // ============================================================================
 
+/**
+ * Listado de órdenes del dashboard: la empresa sale de la sesión (`getActiveCompanyId`).
+ * Sin ese filtro el listado devolvía las órdenes de todas las empresas.
+ */
 export async function getServiceOrdersPaginated(searchParams: DataTableSearchParams) {
   logger.debug('Fetching service orders paginated');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildServiceOrdersWhereClause(state);
+    const where = buildServiceOrdersWhereClause(state, companyId);
 
     const resolvedSorts: Record<string, unknown>[] = [];
     for (const s of state.sorting) {
@@ -143,8 +158,9 @@ export async function getServiceOrdersForExport(searchParams: DataTableSearchPar
   logger.debug('Exporting service orders');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
-    const where = buildServiceOrdersWhereClause(state);
+    const where = buildServiceOrdersWhereClause(state, companyId);
 
     const data = await prisma.tire_service_orders.findMany({
       orderBy: [{ created_at: 'desc' }],
@@ -170,7 +186,14 @@ export async function getServiceOrderSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const baseWhere = {};
+  let companyId: string;
+  try {
+    companyId = await getActiveCompanyId();
+  } catch {
+    return null;
+  }
+
+  const baseWhere = { company_id: companyId };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -185,7 +208,7 @@ export async function getServiceOrderSingleFacet(
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildServiceOrdersWhereClause(modified);
+    return buildServiceOrdersWhereClause(modified, companyId);
   }
 
   function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
@@ -294,12 +317,17 @@ export async function getServiceOrderSingleFacet(
 // DETAIL QUERY
 // ============================================================================
 
+/**
+ * Detalle de una orden para el dashboard: la empresa sale de la sesión y el id de la ruta
+ * sólo resuelve si la orden es de esa empresa (antes cualquier uuid de orden era legible).
+ */
 export async function getServiceOrderById(id: string) {
   logger.debug('Fetching service order by id', { data: { id } });
 
   try {
-    const order = await prisma.tire_service_orders.findUnique({
-      where: { id },
+    const companyId = await getActiveCompanyId();
+    const order = await prisma.tire_service_orders.findFirst({
+      where: { id, company_id: companyId },
       include: {
         vehicle: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
         trailer: { select: { id: true, domain: true, intern_number: true, sub_type: { select: { name: true } } } },
@@ -381,6 +409,9 @@ export async function createServiceOrder(data: {
 
     // Validar readiness del trailer si aplica
     if (data.trailer_vehicle_id) {
+      // El enganche llega del cliente: tiene que ser de la misma empresa que el vehículo.
+      await assertVehicleInCompany(prisma, data.trailer_vehicle_id, companyId);
+
       const trailerData = await prisma.vehicles.findUnique({
         where: { id: data.trailer_vehicle_id },
         select: { domain: true },
@@ -394,10 +425,10 @@ export async function createServiceOrder(data: {
     }
 
     // Snapshot current tire positions for historical diagram reconstruction
-    const vehiclePositions = await getVehicleTirePositions(data.vehicle_id);
-    let trailerPositions: Awaited<ReturnType<typeof getVehicleTirePositions>> = [];
+    const vehiclePositions = await fetchVehicleTirePositions(data.vehicle_id);
+    let trailerPositions: Awaited<ReturnType<typeof fetchVehicleTirePositions>> = [];
     if (data.trailer_vehicle_id) {
-      trailerPositions = await getVehicleTirePositions(data.trailer_vehicle_id);
+      trailerPositions = await fetchVehicleTirePositions(data.trailer_vehicle_id);
     }
 
     const allPositions = [...vehiclePositions, ...trailerPositions];
@@ -457,10 +488,17 @@ export async function createServiceOrder(data: {
 // CLOSE SERVICE ORDER
 // ============================================================================
 
+/**
+ * Finaliza una orden. La cierra tanto el dashboard como el asistente del QR, así que el
+ * perímetro es el de la orden (tiene que existir), no el de la empresa activa: el operario
+ * del QR no es miembro de la empresa y la sesión no sirve para validarlo.
+ */
 export async function closeServiceOrder(id: string) {
   logger.debug('Closing service order', { data: { id } });
 
   try {
+    await getServiceOrderCompanyId(prisma, id);
+
     const order = await prisma.tire_service_orders.update({
       where: { id },
       data: {
@@ -479,10 +517,13 @@ export async function closeServiceOrder(id: string) {
 // CANCEL SERVICE ORDER
 // ============================================================================
 
+/** Anular una orden es una acción del dashboard: la orden tiene que ser de la empresa activa. */
 export async function cancelServiceOrder(id: string) {
   logger.debug('Cancelling service order', { data: { id } });
 
   try {
+    await assertServiceOrderInActiveCompany(id);
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Fetch the order and verify it's OPEN
       const order = await tx.tire_service_orders.findUnique({
@@ -614,10 +655,53 @@ export async function cancelServiceOrder(id: string) {
 // GET VEHICLE TIRE POSITIONS
 // ============================================================================
 
+/**
+ * Posiciones de un vehículo sin perímetro propio: helper interno para los flujos que ya
+ * resolvieron la empresa del vehículo (el alta de la orden, que corre también desde el QR).
+ * NO exportar: quien la llame tiene que haber validado el vehículo antes.
+ */
+async function fetchVehicleTirePositions(vehicleId: string) {
+  const positions = await prisma.vehicle_tire_positions.findMany({
+    where: { vehicle_id: vehicleId },
+    include: {
+      tire: {
+        select: {
+          id: true,
+          serial_number: true,
+          is_new: true,
+          retread_level: true,
+          tread_depth: true,
+          status: true,
+          brand: { select: { id: true, name: true } },
+          tire_type: { select: { id: true, size: true, tread_type: true } },
+        },
+      },
+      template_axle: {
+        select: {
+          id: true,
+          axle_number: true,
+          tires_per_side: true,
+          tire_size: true,
+          is_drive_axle: true,
+          is_spare: true,
+        },
+      },
+    },
+    orderBy: { position_number: 'asc' },
+  });
+  return positions;
+}
+
+/**
+ * Posiciones de un vehículo para el detalle de orden del dashboard: el vehículo tiene que
+ * ser de la empresa activa.
+ */
 export async function getVehicleTirePositions(vehicleId: string) {
   logger.debug('Fetching vehicle tire positions', { data: { vehicleId } });
 
   try {
+    await assertVehicleInActiveCompany(vehicleId);
+
     const positions = await prisma.vehicle_tire_positions.findMany({
       where: { vehicle_id: vehicleId },
       include: {
@@ -658,18 +742,26 @@ export async function getVehicleTirePositions(vehicleId: string) {
 // ============================================================================
 
 /**
- * Devuelve todo el stock de cubiertas disponibles (y extraviadas) de la empresa.
+ * Stock de cubiertas disponibles (y extraviadas) de la empresa del vehículo que se está
+ * atendiendo.
+ *
+ * La empresa sale del vehículo y no de la sesión: el picker se usa tanto desde el
+ * dashboard como desde el QR anónimo. Antes no filtraba por empresa y listaba el stock de
+ * todas.
  *
  * Ya NO se filtra por la medida del eje: el operario elige la cubierta que
  * corresponde (su medida es visible en cada fila) o crea una nueva indicando el
  * tipo de rueda. Ordenadas por medida y luego por serie para facilitar la búsqueda.
  */
-export async function getAvailableTires() {
-  logger.debug('Fetching available tires');
+export async function getAvailableTiresForVehicle(vehicleId: string) {
+  logger.debug('Fetching available tires', { data: { vehicleId } });
 
   try {
+    const companyId = await getVehicleCompanyId(prisma, vehicleId);
+
     const tires = await prisma.tires.findMany({
       where: {
+        company_id: companyId,
         status: { in: ['AVAILABLE', 'MISSING'] },
         is_active: true,
       },
@@ -696,6 +788,10 @@ export async function getAvailableTires() {
 // CALIBRATE
 // ============================================================================
 
+/**
+ * Calibración de una posición. La empresa sale de la orden (el flujo corre desde el QR) y
+ * el vehículo y la cubierta que llegan del cliente tienen que ser de esa misma empresa.
+ */
 export async function performCalibration(data: {
   serviceOrderId: string;
   positionNumber: number;
@@ -711,6 +807,10 @@ export async function performCalibration(data: {
   });
 
   try {
+    const companyId = await getServiceOrderCompanyId(prisma, data.serviceOrderId);
+    await assertVehicleInCompany(prisma, data.vehicleId, companyId);
+    await assertTireInCompany(prisma, data.tireId, companyId);
+
     // Assert: tire exists at this position and matches tireId
     const position = await prisma.vehicle_tire_positions.findFirst({
       where: { vehicle_id: data.vehicleId, position_number: data.positionNumber },
@@ -756,6 +856,10 @@ export async function performCalibration(data: {
 // REPAIR (atomic: old → IN_REPAIR, new → INSTALLED)
 // ============================================================================
 
+/**
+ * Reparación: sale la cubierta actual y entra otra del stock. La empresa sale de la orden
+ * (flujo del QR) y las dos cubiertas y el vehículo tienen que pertenecerle.
+ */
 export async function performRepair(data: {
   serviceOrderId: string;
   positionNumber: number;
@@ -770,6 +874,11 @@ export async function performRepair(data: {
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getServiceOrderCompanyId(tx, data.serviceOrderId);
+      await assertVehicleInCompany(tx, data.vehicleId, companyId);
+      await assertTireInCompany(tx, data.tireId, companyId);
+      await assertTireInCompany(tx, data.newTireId, companyId);
+
       // 1. Assert old tire matches the position
       const position = await tx.vehicle_tire_positions.findFirst({
         where: { vehicle_id: data.vehicleId, position_number: data.positionNumber },
@@ -833,6 +942,10 @@ export async function performRepair(data: {
 // REPLACE (atomic: handle old tire destination, new tire → INSTALLED)
 // ============================================================================
 
+/**
+ * Reemplazo (o primera asignación si `tireId` es null). La empresa sale de la orden y el
+ * vehículo y las cubiertas que llegan del cliente tienen que ser de esa empresa.
+ */
 export async function performReplace(data: {
   serviceOrderId: string;
   positionNumber: number;
@@ -853,6 +966,11 @@ export async function performReplace(data: {
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getServiceOrderCompanyId(tx, data.serviceOrderId);
+      await assertVehicleInCompany(tx, data.vehicleId, companyId);
+      if (data.tireId !== null) await assertTireInCompany(tx, data.tireId, companyId);
+      await assertTireInCompany(tx, data.newTireId, companyId);
+
       if (data.tireId !== null) {
         // 1. Assert old tire matches the position
         const position = await tx.vehicle_tire_positions.findFirst({
@@ -943,6 +1061,10 @@ export async function performReplace(data: {
 // MISSING REPORT (mark tire as missing, clear position)
 // ============================================================================
 
+/**
+ * Reporte de extravío. La empresa sale de la orden (flujo del QR) y el vehículo y la
+ * cubierta tienen que pertenecerle.
+ */
 export async function performMissingReport(data: {
   serviceOrderId: string;
   positionNumber: number;
@@ -956,6 +1078,10 @@ export async function performMissingReport(data: {
 
   try {
     await prisma.$transaction(async (tx) => {
+      const companyId = await getServiceOrderCompanyId(tx, data.serviceOrderId);
+      await assertVehicleInCompany(tx, data.vehicleId, companyId);
+      await assertTireInCompany(tx, data.tireId, companyId);
+
       // 1. Assert tire matches the position
       const position = await tx.vehicle_tire_positions.findFirst({
         where: { vehicle_id: data.vehicleId, position_number: data.positionNumber },
@@ -1004,10 +1130,16 @@ export async function performMissingReport(data: {
 // SEARCH VEHICLE BY DOMAIN
 // ============================================================================
 
-export async function searchVehicleByDomain(domain: string, companyId: string) {
-  logger.debug('Searching vehicle by domain', { data: { domain, companyId } });
+/**
+ * Buscador de vehículos del asistente en modo dashboard (desde el QR el vehículo ya viene
+ * fijado por la ruta y este paso no se muestra), así que la empresa sale de la sesión.
+ */
+export async function searchVehicleByDomain(domain: string) {
+  logger.debug('Searching vehicle by domain', { data: { domain } });
 
   try {
+    const companyId = await getActiveCompanyId();
+
     const vehicles = await prisma.vehicles.findMany({
       where: {
         company_id: companyId,
@@ -1049,7 +1181,10 @@ export async function searchVehicleByDomain(domain: string, companyId: string) {
 }
 
 /**
- * Get vehicle type info (is_tractor_unit, has_hitch) for hitch UI visibility
+ * Get vehicle type info (is_tractor_unit, has_hitch) for hitch UI visibility.
+ *
+ * Perímetro por recurso: sólo devuelve el tipo del propio vehículo de la ruta y también se
+ * usa desde el QR, así que no hay empresa de sesión contra la cual validar.
  */
 export async function getVehicleTypeInfo(vehicleId: string) {
   logger.debug('Getting vehicle type info', { data: { vehicleId } });
@@ -1173,6 +1308,10 @@ export async function searchCompatibleHitchVehicles(tractorId: string, domain: s
  * Ensures a vehicle has tire positions generated from its sub_type's template.
  * Idempotent: if positions already exist, returns them immediately.
  * If positions are missing, generates them from the sub_type's tire_template.
+ *
+ * Perímetro por recurso: opera sobre las posiciones del propio vehículo de la ruta y la
+ * plantilla que ya tiene asignada, y corre también desde el QR, donde la sesión del
+ * operario no sirve para validar la empresa.
  */
 export async function ensureVehicleTirePositions(vehicleId: string) {
   logger.debug('Ensuring vehicle tire positions', { data: { vehicleId } });
@@ -1348,7 +1487,7 @@ export type ServiceOrderDetail = Awaited<ReturnType<typeof getServiceOrderById>>
 
 export type VehicleTirePosition = Awaited<ReturnType<typeof getVehicleTirePositions>>[number];
 
-export type AvailableTire = Awaited<ReturnType<typeof getAvailableTires>>[number];
+export type AvailableTire = Awaited<ReturnType<typeof getAvailableTiresForVehicle>>[number];
 
 export type VehicleSearchResult = Awaited<ReturnType<typeof searchVehicleByDomain>>[number];
 

@@ -16,14 +16,13 @@ import { TirePositionCard } from './TirePositionCard';
 interface TireDiagramProps {
   vehicleId: string;
   serviceOrderId: string;
-  companyId: string;
   label?: string;
   onInterventionDone?: () => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function TireDiagram({ vehicleId, serviceOrderId, companyId, label, onInterventionDone }: TireDiagramProps) {
+export function TireDiagram({ vehicleId, serviceOrderId, label, onInterventionDone }: TireDiagramProps) {
   const [selectedPosition, setSelectedPosition] = useState<EnsuredTirePosition | null>(null);
   const [highlightedPositions, setHighlightedPositions] = useState<number[]>([]);
 
@@ -119,7 +118,6 @@ export function TireDiagram({ vehicleId, serviceOrderId, companyId, label, onInt
           position={selectedPosition}
           serviceOrderId={serviceOrderId}
           vehicleId={vehicleId}
-          companyId={companyId}
           open={selectedPosition !== null}
           onOpenChange={(open) => {
             if (!open) setSelectedPosition(null);

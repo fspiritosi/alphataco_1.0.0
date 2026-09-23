@@ -9,8 +9,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { createTire, getTireBrandsForSelect } from '@/features/Mantenimiento/Gomeria/Catalogo/actions/actions.server';
-import { getTireTypesForSelect } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
+import {
+  createTireForVehicle,
+  getTireBrandsForVehicle,
+} from '@/features/Mantenimiento/Gomeria/Catalogo/actions/actions.server';
+import { getTireTypesForVehicle } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
 import { tireRetreadLabels, tireTreadTypeLabels } from '@/features/Mantenimiento/Gomeria/shared/tire-mappers';
 import { TireRetreadLevel } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
@@ -22,27 +25,28 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { getAvailableTires, type AvailableTire } from '../actions/actions.server';
+import { getAvailableTiresForVehicle, type AvailableTire } from '../actions/actions.server';
 
 const logger = new Logger('TireReplacePicker');
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface TireReplacePickerProps {
-  companyId: string;
+  /** Vehículo que se está atendiendo: de él sale la empresa del stock y del alta rápida. */
+  vehicleId: string;
   onSelect: (tire: AvailableTire) => void;
   selectedTireId?: string;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function TireReplacePicker({ companyId, onSelect, selectedTireId }: TireReplacePickerProps) {
+export function TireReplacePicker({ vehicleId, onSelect, selectedTireId }: TireReplacePickerProps) {
   const [search, setSearch] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: tires = [], isLoading } = useQuery({
-    queryKey: ['available-tires'],
-    queryFn: () => getAvailableTires(),
+    queryKey: ['available-tires', vehicleId],
+    queryFn: () => getAvailableTiresForVehicle(vehicleId),
     staleTime: 30 * 1000,
   });
 
@@ -110,7 +114,7 @@ export function TireReplacePicker({ companyId, onSelect, selectedTireId }: TireR
       <QuickCreateTireDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        companyId={companyId}
+        vehicleId={vehicleId}
         onCreated={(newTire) => {
           onSelect(newTire);
           setShowCreateDialog(false);
@@ -205,11 +209,11 @@ type QuickTireValues = z.infer<typeof quickTireSchema>;
 interface QuickCreateTireDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
+  vehicleId: string;
   onCreated: (tire: AvailableTire) => void;
 }
 
-function QuickCreateTireDialog({ open, onOpenChange, companyId, onCreated }: QuickCreateTireDialogProps) {
+function QuickCreateTireDialog({ open, onOpenChange, vehicleId, onCreated }: QuickCreateTireDialogProps) {
   const queryClient = useQueryClient();
 
   const form = useForm<QuickTireValues>({
@@ -224,34 +228,34 @@ function QuickCreateTireDialog({ open, onOpenChange, companyId, onCreated }: Qui
   });
 
   const { data: brands = [] } = useQuery({
-    queryKey: ['tire-brands-select', companyId],
-    queryFn: () => getTireBrandsForSelect(),
+    queryKey: ['tire-brands-for-vehicle', vehicleId],
+    queryFn: () => getTireBrandsForVehicle(vehicleId),
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: tireTypes = [] } = useQuery({
-    queryKey: ['tire-types-select'],
-    queryFn: () => getTireTypesForSelect(),
+    queryKey: ['tire-types-for-vehicle', vehicleId],
+    queryFn: () => getTireTypesForVehicle(vehicleId),
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
 
   const mutation = useMutation({
     mutationFn: (values: QuickTireValues) =>
-      createTire({
+      createTireForVehicle({
+        vehicle_id: vehicleId,
         serial_number: values.serial_number,
         brand_id: values.brand_id,
         tire_type_id: values.tire_type_id,
         is_new: values.is_new,
         retread_level: values.retread_level ?? null,
         tread_depth: null,
-        company_id: companyId,
       }),
     onSuccess: async (newTire) => {
       toast.success(`Cubierta ${newTire.serial_number} creada`);
       // Invalidate available tires so the new one appears
-      await queryClient.invalidateQueries({ queryKey: ['available-tires'] });
+      await queryClient.invalidateQueries({ queryKey: ['available-tires', vehicleId] });
       form.reset();
       // Build an AvailableTire-compatible object for auto-selection
       const brandId = form.getValues('brand_id');

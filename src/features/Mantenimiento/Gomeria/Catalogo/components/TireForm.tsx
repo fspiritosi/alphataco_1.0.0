@@ -15,13 +15,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import {
-  createTire,
-  getTireBrandsForSelect,
-  getTireTypesForSelect,
-  updateTire,
-  type TireListItem,
-} from '../actions/actions.server';
+import { getTireTypesForSelect } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
+import { createTire, getTireBrandsForSelect, updateTire, type TireListItem } from '../actions/actions.server';
 
 const logger = new Logger('TireForm');
 
@@ -47,7 +42,6 @@ type TireFormValues = z.infer<typeof tireFormSchema>;
 interface TireFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
   tire?: TireListItem;
   queryKey: (string | boolean | undefined)[];
 }
@@ -56,13 +50,13 @@ interface TireFormProps {
 // COMPONENT
 // ============================================================================
 
-export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: TireFormProps) {
+export function TireForm({ open, onOpenChange, tire, queryKey }: TireFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!tire;
 
   // Load brands
   const { data: brands = [], isLoading: isLoadingBrands } = useQuery({
-    queryKey: ['tire-brands-select', companyId],
+    queryKey: ['tire-brands-select'],
     queryFn: () => getTireBrandsForSelect(),
     staleTime: 5 * 60 * 1000,
     enabled: open,
@@ -70,8 +64,8 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
 
   // Load tire types
   const { data: tireTypes = [], isLoading: isLoadingTypes } = useQuery({
-    queryKey: ['tire-types-select', companyId],
-    queryFn: () => getTireTypesForSelect(companyId),
+    queryKey: ['tire-types-select'],
+    queryFn: () => getTireTypesForSelect(),
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
@@ -116,7 +110,6 @@ export function TireForm({ open, onOpenChange, companyId, tire, queryKey }: Tire
           is_new: values.is_new,
           retread_level: values.retread_level ?? null,
           tread_depth: values.tread_depth ?? null,
-          company_id: companyId,
         });
       }
     },

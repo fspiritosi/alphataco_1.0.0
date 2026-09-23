@@ -14,7 +14,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { createTiresBulk, getTireBrandsForSelect, getTireTypesForSelect } from '../actions/actions.server';
+import { getTireTypesForSelect } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
+import { createTiresBulk, getTireBrandsForSelect } from '../actions/actions.server';
 
 const logger = new Logger('TireBulkForm');
 
@@ -51,7 +52,6 @@ type TireBulkFormValues = z.infer<typeof tireBulkFormSchema>;
 interface TireBulkFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
   queryKey: (string | boolean | undefined)[];
 }
 
@@ -59,19 +59,19 @@ interface TireBulkFormProps {
 // COMPONENT
 // ============================================================================
 
-export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBulkFormProps) {
+export function TireBulkForm({ open, onOpenChange, queryKey }: TireBulkFormProps) {
   const queryClient = useQueryClient();
 
   const { data: brands = [] } = useQuery({
-    queryKey: ['tire-brands-select', companyId],
+    queryKey: ['tire-brands-select'],
     queryFn: () => getTireBrandsForSelect(),
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
 
   const { data: tireTypes = [] } = useQuery({
-    queryKey: ['tire-types-select', companyId],
-    queryFn: () => getTireTypesForSelect(companyId),
+    queryKey: ['tire-types-select'],
+    queryFn: () => getTireTypesForSelect(),
     staleTime: 5 * 60 * 1000,
     enabled: open,
   });
@@ -110,7 +110,6 @@ export function TireBulkForm({ open, onOpenChange, companyId, queryKey }: TireBu
         is_new: values.is_new,
         retread_level: values.retread_level ?? null,
         tread_depth: values.tread_depth ?? null,
-        company_id: companyId,
       });
     },
     onSuccess: (result) => {

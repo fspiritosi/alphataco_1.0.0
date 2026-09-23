@@ -1,5 +1,12 @@
 'use server';
 
+import {
+  assertTireBrandInActiveCompany,
+  assertTireCatalogRefsInCompany,
+  assertTireInActiveCompany,
+  assertTireTypeInActiveCompany,
+  getVehicleCompanyId,
+} from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import type { TireRetreadLevel, TireStatus } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import {
@@ -13,6 +20,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/Gomeria/Catalogo');
 
@@ -71,7 +79,7 @@ const DATE_RANGE_COLUMNS = ['created_at'];
 // INTERNAL WHERE BUILDER
 // ============================================================================
 
-function buildTiresWhereClause(state: ReturnType<typeof parseSearchParams>) {
+function buildTiresWhereClause(state: ReturnType<typeof parseSearchParams>, companyId: string) {
   const searchWhere = buildSearchWhere(state.search, ['serial_number']);
 
   const filtersWhere = buildFiltersWhere(
@@ -91,6 +99,7 @@ function buildTiresWhereClause(state: ReturnType<typeof parseSearchParams>) {
   };
 
   return {
+    company_id: companyId,
     is_active: true,
     ...searchWhere,
     ...filtersWhereWithoutAnd,
@@ -104,13 +113,18 @@ function buildTiresWhereClause(state: ReturnType<typeof parseSearchParams>) {
 // PAGINATED QUERY
 // ============================================================================
 
+/**
+ * Catálogo de cubiertas del dashboard: la empresa sale de la sesión. Sin ese filtro el
+ * listado mezclaba el stock de todas las empresas.
+ */
 export async function getTiresPaginated(searchParams: DataTableSearchParams) {
   logger.debug('Fetching tires paginated');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildTiresWhereClause(state);
+    const where = buildTiresWhereClause(state, companyId);
 
     const resolvedSorts: Record<string, unknown>[] = [];
     for (const s of state.sorting) {
@@ -151,8 +165,9 @@ export async function getTiresForExport(searchParams: DataTableSearchParams) {
   logger.debug('Exporting tires');
 
   try {
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
-    const where = buildTiresWhereClause(state);
+    const where = buildTiresWhereClause(state, companyId);
 
     const raw = await prisma.tires.findMany({
       orderBy: [{ created_at: 'desc' }],
@@ -182,7 +197,14 @@ export async function getTireSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const baseWhere = { is_active: true };
+  let companyId: string;
+  try {
+    companyId = await getActiveCompanyId();
+  } catch {
+    return null;
+  }
+
+  const baseWhere = { company_id: companyId, is_active: true };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
@@ -197,7 +219,7 @@ export async function getTireSingleFacet(
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildTiresWhereClause(modified);
+    return buildTiresWhereClause(modified, companyId);
   }
 
   function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
@@ -381,35 +403,77 @@ export async function getTireSingleFacet(
 // CRUD ACTIONS
 // ============================================================================
 
-export async function createTire(data: {
+interface NewTireData {
   serial_number: string;
   brand_id: string;
   tire_type_id: string;
   is_new: boolean;
   retread_level?: TireRetreadLevel | null;
   tread_depth?: number | null;
-  company_id: string;
-}) {
+}
+
+/** Alta de la cubierta una vez resuelta la empresa (marca y tipo ya validados). */
+async function insertTire(data: NewTireData, companyId: string) {
+  return prisma.tires.create({
+    data: {
+      serial_number: data.serial_number,
+      brand_id: data.brand_id,
+      tire_type_id: data.tire_type_id,
+      is_new: data.is_new,
+      retread_level: data.retread_level ?? null,
+      tread_depth: data.tread_depth ?? null,
+      company_id: companyId,
+    },
+  });
+}
+
+/**
+ * Alta de cubierta desde el catálogo del dashboard: la empresa sale de la sesión y ya no
+ * llega como `company_id` del cliente (con el que se podían sembrar cubiertas en cualquier
+ * empresa).
+ */
+export async function createTire(data: NewTireData) {
   logger.debug('Creating tire', { data: { serial_number: data.serial_number } });
   try {
-    const tire = await prisma.tires.create({
-      data: {
-        serial_number: data.serial_number,
-        brand_id: data.brand_id,
-        tire_type_id: data.tire_type_id,
-        is_new: data.is_new,
-        retread_level: data.retread_level ?? null,
-        tread_depth: data.tread_depth ?? null,
-        company_id: data.company_id,
-      },
-    });
-    return tire;
+    const companyId = await getActiveCompanyId();
+    await assertTireCatalogRefsInCompany(
+      prisma,
+      { brandId: data.brand_id, tireTypeId: data.tire_type_id },
+      companyId
+    );
+    return await insertTire(data, companyId);
   } catch (error) {
     logger.error('Error creating tire', { data: { error } });
     throw error;
   }
 }
 
+/**
+ * Alta rápida de cubierta desde el asistente de gomería (alcanzable desde el QR anónimo):
+ * la empresa sale del vehículo que se está atendiendo, no de la sesión.
+ */
+export async function createTireForVehicle(data: NewTireData & { vehicle_id: string }) {
+  logger.debug('Creating tire for vehicle', {
+    data: { serial_number: data.serial_number, vehicle_id: data.vehicle_id },
+  });
+  try {
+    const companyId = await getVehicleCompanyId(prisma, data.vehicle_id);
+    await assertTireCatalogRefsInCompany(
+      prisma,
+      { brandId: data.brand_id, tireTypeId: data.tire_type_id },
+      companyId
+    );
+    return await insertTire(data, companyId);
+  } catch (error) {
+    logger.error('Error creating tire for vehicle', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Alta masiva desde el catálogo del dashboard: la empresa sale de la sesión y la marca y el
+ * tipo tienen que ser de esa empresa.
+ */
 export async function createTiresBulk(data: {
   prefix: string;
   rangeFrom: number;
@@ -419,11 +483,13 @@ export async function createTiresBulk(data: {
   is_new: boolean;
   retread_level?: TireRetreadLevel | null;
   tread_depth?: number | null;
-  company_id: string;
 }) {
   logger.debug('Creating tires bulk', {
     data: { prefix: data.prefix, rangeFrom: data.rangeFrom, rangeTo: data.rangeTo },
   });
+
+  const companyId = await getActiveCompanyId();
+  await assertTireCatalogRefsInCompany(prisma, { brandId: data.brand_id, tireTypeId: data.tire_type_id }, companyId);
 
   const count = data.rangeTo - data.rangeFrom + 1;
   if (count > 500) {
@@ -438,7 +504,7 @@ export async function createTiresBulk(data: {
 
   // Check for conflicts in bulk
   const existing = await prisma.tires.findMany({
-    where: { serial_number: { in: serials }, company_id: data.company_id },
+    where: { serial_number: { in: serials }, company_id: companyId },
     select: { serial_number: true },
   });
 
@@ -456,7 +522,7 @@ export async function createTiresBulk(data: {
         is_new: data.is_new,
         retread_level: data.retread_level ?? null,
         tread_depth: data.tread_depth ?? null,
-        company_id: data.company_id,
+        company_id: companyId,
       })),
     });
     return result;
@@ -479,6 +545,10 @@ export async function updateTire(
 ) {
   logger.debug('Updating tire', { data: { id } });
   try {
+    await assertTireInActiveCompany(id);
+    if (data.brand_id != null) await assertTireBrandInActiveCompany(data.brand_id);
+    if (data.tire_type_id != null) await assertTireTypeInActiveCompany(data.tire_type_id);
+
     const tire = await prisma.tires.update({
       where: { id },
       data: {
@@ -497,6 +567,8 @@ export async function updateTire(
 export async function updateTireStatus(id: string, status: TireStatus) {
   logger.debug('Updating tire status', { data: { id, status } });
   try {
+    await assertTireInActiveCompany(id);
+
     const tire = await prisma.tires.update({
       where: { id },
       data: { status },
@@ -511,6 +583,8 @@ export async function updateTireStatus(id: string, status: TireStatus) {
 export async function deleteTire(id: string) {
   logger.debug('Soft-deleting tire', { data: { id } });
   try {
+    await assertTireInActiveCompany(id);
+
     const tire = await prisma.tires.update({
       where: { id },
       data: { is_active: false },
@@ -526,11 +600,13 @@ export async function deleteTire(id: string) {
 // HELPER: Get brands for forms (client-side selects)
 // ============================================================================
 
+/** Marcas de la empresa activa, para los formularios del dashboard. */
 export async function getTireBrandsForSelect() {
   logger.debug('Fetching tire brands for select');
   try {
-    return prisma.tire_brands.findMany({
-      where: { is_active: true },
+    const companyId = await getActiveCompanyId();
+    return await prisma.tire_brands.findMany({
+      where: { company_id: companyId, is_active: true },
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     });
@@ -540,20 +616,21 @@ export async function getTireBrandsForSelect() {
   }
 }
 
-// ============================================================================
-// HELPER: Get tire types for forms (client-side selects)
-// ============================================================================
-
-export async function getTireTypesForSelect(companyId: string) {
-  logger.debug('Fetching tire types for select');
+/**
+ * Marcas de la empresa del vehículo atendido, para el alta rápida del asistente de
+ * gomería (alcanzable desde el QR, donde la sesión no define la empresa).
+ */
+export async function getTireBrandsForVehicle(vehicleId: string) {
+  logger.debug('Fetching tire brands for vehicle', { data: { vehicleId } });
   try {
-    return prisma.tire_types.findMany({
-      where: { is_active: true, company_id: companyId },
+    const companyId = await getVehicleCompanyId(prisma, vehicleId);
+    return await prisma.tire_brands.findMany({
+      where: { company_id: companyId, is_active: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, size: true, tread_type: true },
+      select: { id: true, name: true },
     });
   } catch (error) {
-    logger.error('Error fetching tire types for select', { data: { error } });
+    logger.error('Error fetching tire brands for vehicle', { data: { error, vehicleId } });
     throw error;
   }
 }

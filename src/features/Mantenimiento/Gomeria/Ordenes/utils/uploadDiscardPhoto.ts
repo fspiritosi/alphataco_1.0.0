@@ -1,10 +1,10 @@
 'use server';
 
+import { getVehicleCompanyId } from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { assertValidImageFile, sanitizeFileName } from '@/features/Mantenimiento/shared/utils/repair-images';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { storagePublicUrl, storageUpload } from '@/shared/lib/storage'; // P3: storage
-import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Mantenimiento/Gomeria/Ordenes/uploadDiscardPhoto');
 
@@ -15,20 +15,15 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  * Sube la foto de descarte/reparación de una cubierta y devuelve su URL pública.
  *
  * Server Action: el navegador ya no habla con el storage. La carpeta se arma en el
- * servidor como `<empresa>/<vehículo>/...`; la empresa sale del vehículo y se verifica
- * contra la empresa activa antes de escribir.
+ * servidor como `<empresa>/<vehículo>/...` y la empresa sale del vehículo, no de la
+ * sesión: el descarte también se registra desde el QR anónimo, donde el operario puede no
+ * ser miembro de la empresa del equipo.
  */
 export async function uploadDiscardPhoto(file: File, vehicleId: string): Promise<string> {
   // Tipo y tamaño se validan en el servidor: el `accept` del input no es una garantía.
   assertValidImageFile(file, MAX_FILE_SIZE);
 
-  const companyId = await getActiveCompanyId();
-
-  const vehicle = await prisma.vehicles.findFirst({
-    where: { id: vehicleId, company_id: companyId },
-    select: { id: true },
-  });
-  if (!vehicle) throw new Error('El equipo no pertenece a la empresa activa');
+  const companyId = await getVehicleCompanyId(prisma, vehicleId);
 
   const path = `${companyId}/${vehicleId}/${Date.now()}_${sanitizeFileName(file.name)}`;
 

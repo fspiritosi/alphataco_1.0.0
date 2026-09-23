@@ -29,7 +29,6 @@ const logger = new Logger('features/Mantenimiento/Gomeria/Ordenes/ServiceOrderWi
 
 export interface ServiceOrderWizardProps {
   vehicleId?: string;
-  companyId: string;
   mode: 'qr' | 'dashboard';
   onClose: () => void;
   /** Resume an existing open order (skip setup, go straight to operation) */
@@ -46,7 +45,6 @@ type Step = 'setup' | 'operation';
 
 export function ServiceOrderWizard({
   vehicleId: presetVehicleId,
-  companyId,
   mode,
   onClose,
   existingOrderId,
@@ -149,11 +147,7 @@ export function ServiceOrderWizard({
         <div className="space-y-4">
           {/* Vehicle search */}
           {!skipVehicleSearch && (
-            <VehicleSearchSection
-              companyId={companyId}
-              selectedVehicle={selectedVehicle}
-              onSelect={handleVehicleSelect}
-            />
+            <VehicleSearchSection selectedVehicle={selectedVehicle} onSelect={handleVehicleSelect} />
           )}
 
           {skipVehicleSearch && (
@@ -244,7 +238,6 @@ export function ServiceOrderWizard({
           <TireDiagram
             vehicleId={activeVehicleId}
             serviceOrderId={serviceOrderId}
-            companyId={companyId}
             onInterventionDone={() => setInterventionCount((c) => c + 1)}
           />
         )}
@@ -260,7 +253,6 @@ export function ServiceOrderWizard({
             <TireDiagram
               vehicleId={selectedTrailer?.id ?? presetTrailerId!}
               serviceOrderId={serviceOrderId}
-              companyId={companyId}
               label="Enganche"
               onInterventionDone={() => setInterventionCount((c) => c + 1)}
             />
@@ -291,17 +283,17 @@ export function ServiceOrderWizard({
 // ─── Vehicle Search Section ──────────────────────────────────────────────────
 
 interface VehicleSearchSectionProps {
-  companyId: string;
   selectedVehicle: VehicleSearchResult | null;
   onSelect: (vehicle: VehicleSearchResult) => void;
 }
 
-function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleSearchSectionProps) {
+/** Sólo se muestra en el dashboard: la empresa del buscador la resuelve la action por sesión. */
+function VehicleSearchSection({ selectedVehicle, onSelect }: VehicleSearchSectionProps) {
   const [query, setQuery] = useState('');
 
   const { data: results = [], isFetching } = useQuery({
-    queryKey: ['vehicle-search', companyId, query],
-    queryFn: () => searchVehicleByDomain(query, companyId),
+    queryKey: ['vehicle-search', query],
+    queryFn: () => searchVehicleByDomain(query),
     enabled: query.trim().length >= 1,
     staleTime: 10 * 1000,
   });

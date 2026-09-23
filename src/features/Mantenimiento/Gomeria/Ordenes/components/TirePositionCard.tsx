@@ -31,7 +31,6 @@ interface TirePositionCardProps {
   position: EnsuredTirePosition;
   serviceOrderId: string;
   vehicleId: string;
-  companyId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onActionComplete: () => void;
@@ -43,7 +42,6 @@ export function TirePositionCard({
   position,
   serviceOrderId,
   vehicleId,
-  companyId,
   open,
   onOpenChange,
   onActionComplete,
@@ -73,7 +71,6 @@ export function TirePositionCard({
               position={position}
               serviceOrderId={serviceOrderId}
               vehicleId={vehicleId}
-              companyId={companyId}
               onActionComplete={onActionComplete}
               onClose={() => onOpenChange(false)}
             />
@@ -82,7 +79,6 @@ export function TirePositionCard({
               position={position}
               serviceOrderId={serviceOrderId}
               vehicleId={vehicleId}
-              companyId={companyId}
               onActionComplete={onActionComplete}
               onClose={() => onOpenChange(false)}
             />
@@ -157,19 +153,11 @@ interface ActionProps {
   position: EnsuredTirePosition;
   serviceOrderId: string;
   vehicleId: string;
-  companyId: string;
   onActionComplete: () => void;
   onClose: () => void;
 }
 
-function TireActionsWithTire({
-  position,
-  serviceOrderId,
-  vehicleId,
-  companyId,
-  onActionComplete,
-  onClose,
-}: ActionProps) {
+function TireActionsWithTire({ position, serviceOrderId, vehicleId, onActionComplete, onClose }: ActionProps) {
   const queryClient = useQueryClient();
 
   function handleSuccess(message: string) {
@@ -370,11 +358,7 @@ function TireActionsWithTire({
       <TabsContent value="repair" className="space-y-3 pt-2">
         <div>
           <Label className="text-xs mb-1 block">Cubierta de reemplazo</Label>
-          <TireReplacePicker
-            companyId={companyId}
-            selectedTireId={repairNewTire?.id}
-            onSelect={setRepairNewTire}
-          />
+          <TireReplacePicker vehicleId={vehicleId} selectedTireId={repairNewTire?.id} onSelect={setRepairNewTire} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Observaciones</Label>
@@ -394,11 +378,7 @@ function TireActionsWithTire({
       <TabsContent value="replace" className="space-y-3 pt-2">
         <div>
           <Label className="text-xs mb-1 block">Cubierta nueva</Label>
-          <TireReplacePicker
-            companyId={companyId}
-            selectedTireId={replaceNewTire?.id}
-            onSelect={setReplaceNewTire}
-          />
+          <TireReplacePicker vehicleId={vehicleId} selectedTireId={replaceNewTire?.id} onSelect={setReplaceNewTire} />
         </div>
 
         <div className="space-y-1">
@@ -555,7 +535,6 @@ interface EmptyPositionAssignProps {
   position: EnsuredTirePosition;
   serviceOrderId: string;
   vehicleId: string;
-  companyId: string;
   onActionComplete: () => void;
   onClose: () => void;
 }
@@ -564,7 +543,6 @@ function EmptyPositionAssign({
   position,
   serviceOrderId,
   vehicleId,
-  companyId,
   onActionComplete,
   onClose,
 }: EmptyPositionAssignProps) {
@@ -599,11 +577,7 @@ function EmptyPositionAssign({
       <p className="text-sm text-muted-foreground">
         Seleccione la cubierta a instalar en esta posición:
       </p>
-      <TireReplacePicker
-        companyId={companyId}
-        selectedTireId={selectedTire?.id}
-        onSelect={setSelectedTire}
-      />
+      <TireReplacePicker vehicleId={vehicleId} selectedTireId={selectedTire?.id} onSelect={setSelectedTire} />
       <Button
         className="w-full"
         onClick={() => assignMutation.mutate()}
