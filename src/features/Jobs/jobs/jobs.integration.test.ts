@@ -46,6 +46,7 @@ const REPORT_A = '55555555-5555-4555-8555-55555555aaaa';
 const REPORT_B = '55555555-5555-4555-8555-55555555bbbb';
 const RECIPIENT_A = 'destinatario-de-a@integracion.local';
 const RECIPIENT_B = 'destinatario-de-b@integracion.local';
+const COUNTRY_ID = '66666666-6666-4666-8666-666666666666';
 
 /** Fecha de negocio fija para todo el test, para no depender del día real. */
 const TEST_DATE = '2026-06-15';
@@ -213,12 +214,23 @@ describe.skipIf(!RUN)('jobs de P5 (integración contra el compose)', () => {
 
     await cleanup();
 
-    const country = await prisma.countries.findFirst({ select: { id: true } });
-    const province = await prisma.provinces.findFirst({ select: { id: true } });
-    const city = await prisma.cities.findFirst({ select: { id: true } });
-    if (!country || !province || !city) {
-      throw new Error('La base del compose no tiene países/provincias/ciudades: correr `npm run db:seed`');
-    }
+    // Catálogo mínimo: `employees` exige `birthplace` (FK a countries) y `province`. Se crea
+    // acá y no se asume el seed, para que la suite corra contra una base recién migrada (CI).
+    const country =
+      (await prisma.countries.findFirst({ select: { id: true } })) ??
+      (await prisma.countries.create({ data: { id: COUNTRY_ID, name: 'Sin especificar' }, select: { id: true } }));
+    const province = await prisma.provinces.upsert({
+      where: { id: BigInt(1) },
+      update: {},
+      create: { id: BigInt(1), name: 'Sin especificar' },
+      select: { id: true },
+    });
+    const city = await prisma.cities.upsert({
+      where: { id: BigInt(1) },
+      update: {},
+      create: { id: BigInt(1), name: 'Sin especificar', province_id: province.id },
+      select: { id: true },
+    });
 
     await seedCompany({
       companyId: COMPANY_A,

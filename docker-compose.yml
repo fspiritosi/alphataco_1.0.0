@@ -120,6 +120,21 @@ services:
         condition: service_healthy
     networks: [alphataco]
 
+  # SMTP de prueba para verificar los correos de los jobs de punta a punta (P5). NO arranca
+  # con `up`: vive detrás del perfil `mail`, así que hay que pedirlo explícitamente
+  # (`docker compose --env-file .env.docker --profile mail up -d mailpit`). Captura todo lo
+  # que se le manda y no reenvía nada a internet. Ver la sección "Jobs" de
+  # docs/desarrollo/entornos.md. No usar en producción.
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: [mail]
+    restart: unless-stopped
+    ports:
+      # 1025 = SMTP, 8025 = interfaz web y API REST (`/api/v1/messages`).
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025"
+    networks: [alphataco]
+
   caddy:
     image: caddy:2
     restart: unless-stopped
