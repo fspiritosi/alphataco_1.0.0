@@ -1,41 +1,37 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
+
+/**
+ * Cambio de contraseña del usuario de sesión (cartel "tenés que cambiar la contraseña").
+ * Sólo `auth.*`: sin acceso a datos. P4 lo reemplaza.
+ */
+const logger = new Logger('features/Auth/change-password');
 
 export async function changePassword(newPassword: string) {
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
 
   try {
-    // Actualizar la contraseña del usuario
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
-      console.error('❌ [CHANGE_PASSWORD] Error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      logger.error('Error al cambiar la contraseña', { data: { error } });
+      return { success: false, error: error.message };
     }
 
-    // Actualizar la metadata para indicar que ya no necesita cambiar contraseña
+    // La metadata deja de pedir el cambio de contraseña en el próximo login.
     const { error: metadataError } = await supabase.auth.updateUser({
-      data: {
-        needs_password_change: false,
-      },
+      data: { needs_password_change: false },
     });
 
     if (metadataError) {
-      console.error('❌ [CHANGE_PASSWORD] Error actualizando metadata:', metadataError);
+      logger.error('Error actualizando la metadata del usuario', { data: { metadataError } });
     }
 
-    return {
-      success: true,
-      message: 'Contraseña actualizada exitosamente',
-    };
+    return { success: true, message: 'Contraseña actualizada exitosamente' };
   } catch (error) {
-    console.error('❌ [CHANGE_PASSWORD] Error inesperado:', error);
+    logger.error('Error inesperado al cambiar la contraseña', { data: { error } });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error al cambiar la contraseña',
