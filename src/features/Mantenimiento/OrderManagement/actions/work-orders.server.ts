@@ -19,6 +19,7 @@ import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../../utils/constants';
 import type { OrderChangeSet } from './items.server';
 import { getOrderGenerationPreview } from './queries.server';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { nextWorkOrderSequence } from '@/features/Mantenimiento/shared/order-numbering';
 
 const logger = new Logger('OrderManagement/work-orders');
 
@@ -83,29 +84,25 @@ export async function generateWorkOrdersForOrder(
 
     // 3. Por cada sector/taller externo, crear una OT
     for (const sector of preview.sectors) {
-      // Obtener siguiente numero de secuencia
-      const lastWorkOrder = await prisma.work_orders.findFirst({
-        orderBy: { sequence_number: 'desc' },
-        select: { sequence_number: true },
-      });
-
-      const sequenceNumber = (lastWorkOrder?.sequence_number ?? 0) + 1;
-
-      // Formatear numero de OT: OT-{EQUIPO}-{SECTOR/TALLER}-{SECUENCIA}
-      // El identificador sale del recurso: patente/serie del vehiculo, o N° de serie
-      // (o interno) del equipamiento, que no tiene dominio.
-      const orderNumber = buildWorkOrderNumber({
-        resourceLabel: getResourceLabel(resource),
-        sectorName: sector.sectorName,
-        sequenceNumber,
-      });
-
       // Determinar workshop_id y sector_id para la OT
       const woWorkshopId = sector.isExternal && sector.workshopId ? sector.workshopId : workshopId;
       const woSectorId = sector.isExternal ? null : sector.sectorId;
 
       // Crear la OT y sus items en una transacción por sector
       const workOrder = await withMaintenanceActor(profile.id, async (tx) => {
+        // El número de secuencia se toma DENTRO de la transacción y por empresa: el
+        // `max()+1` leído afuera repetía el número entre generaciones simultáneas.
+        const sequenceNumber = await nextWorkOrderSequence(tx, companyId);
+
+        // Formatear numero de OT: OT-{EQUIPO}-{SECTOR/TALLER}-{SECUENCIA}
+        // El identificador sale del recurso: patente/serie del vehiculo, o N° de serie
+        // (o interno) del equipamiento, que no tiene dominio.
+        const orderNumber = buildWorkOrderNumber({
+          resourceLabel: getResourceLabel(resource),
+          sectorName: sector.sectorName,
+          sequenceNumber,
+        });
+
         // Crear la OT
         const wo = await tx.work_orders.create({
           data: {
@@ -247,14 +244,14 @@ export async function generateWorkOrdersForOrder(
       });
 
       createdOrders.push({
-        orderNumber,
+        orderNumber: workOrder.order_number,
         sectorName: sector.sectorName,
         itemCount: sector.items.length,
       });
 
       logger.info('OT creada para sector', {
         data: {
-          orderNumber,
+          orderNumber: workOrder.order_number,
           sector: sector.sectorName,
           items: sector.items.length,
         },

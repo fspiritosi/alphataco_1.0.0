@@ -17,6 +17,7 @@ import {
   filterRepairTypeIdsForCompany,
 } from './perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { nextMaintenanceOrderNumber } from '@/features/Mantenimiento/shared/order-numbering';
 import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('OrderManagement/items');
@@ -307,36 +308,31 @@ export async function generateMaintenanceOrderNumber(orderId: string) {
   const profile = await requireServerAuthProfile();
 
   try {
-    // Check if already has a number
-    const existing = await prisma.maintenance_orders.findUnique({
-      where: { id: orderId },
-      select: { order_number: true },
-    });
+    // El número se calcula y se escribe DENTRO de la misma transacción: leerlo afuera dejaba
+    // que dos generaciones simultáneas se llevaran el mismo `OM-…`.
+    const orderNumber = await withMaintenanceActor(profile.id, async (tx) => {
+      const existing = await tx.maintenance_orders.findUnique({
+        where: { id: orderId },
+        select: { order_number: true, company_id: true },
+      });
 
-    if (!existing) throw new Error('Orden no encontrada');
-    if (existing.order_number) return existing.order_number;
+      if (!existing) throw new Error('Orden no encontrada');
+      if (existing.order_number) return existing.order_number;
 
-    // Get next sequence number (global) — count de órdenes que ya tienen número
-    const count = await prisma.maintenance_orders.count({
-      where: { order_number: { not: null } },
-    });
+      const generated = await nextMaintenanceOrderNumber(tx, existing.company_id);
 
-    const nextSeq = count + 1;
-    const paddedSeq = String(nextSeq).padStart(6, '0');
-    const orderNumber = `OM-${paddedSeq}`;
-
-    // Update the order
-    await withMaintenanceActor(profile.id, async (tx) => {
       await tx.maintenance_orders.update({
         where: { id: orderId },
-        data: { order_number: orderNumber },
+        data: { order_number: generated },
       });
       await logActivity(tx, {
         maintenanceOrderId: orderId,
         actionType: ACTIVITY_LOG.ORDER_NUMBER_GENERATED,
         performedBy: profile.id,
-        metadata: { orderNumber },
+        metadata: { orderNumber: generated },
       });
+
+      return generated;
     });
 
     logger.info('Numero de orden generado', { data: { orderId, orderNumber } });
