@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { toDateOnly } from '@/shared/lib/date-only';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 
@@ -153,7 +154,9 @@ export async function searchEmployeeDiagrams(params: {
         // Datos del empleado para enriquecer el export a Excel
         position: emp.company_positions?.name ?? '',
         sector: emp.hierarchy?.name ?? '',
-        dateOfAdmission: emp.date_of_admission ? emp.date_of_admission.toISOString() : null,
+        // `date_of_admission` es `@db.Date`: se serializa como 'YYYY-MM-DD'. Con el ISO
+        // completo (medianoche UTC) el `moment()` del cliente mostraba el dia anterior en UTC-3.
+        dateOfAdmission: toDateOnly(emp.date_of_admission),
         workDiagram: emp.work_diagram?.name ?? '',
         costCenter: emp.cost_center?.name ?? '',
         category: emp.category?.name ?? '',

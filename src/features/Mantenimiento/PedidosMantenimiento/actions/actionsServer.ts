@@ -7,6 +7,7 @@ import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { CACHE_TAGS } from '@/shared/constants/cache';
 import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
+import { toDateOnly } from '@/shared/lib/date-only';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { cacheTag } from 'next/cache';
 import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/items.server';
@@ -586,8 +587,9 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
         previousStatus: previous?.status ?? null,
         newStatus: 'date_confirmed',
         metadata: {
-          // ISO: el historial lo formatea con moment al renderizar
-          scheduled_date: updated.scheduled_date?.toISOString() ?? null,
+          // `scheduled_date` es `@db.Date`: 'YYYY-MM-DD'. El historial lo formatea con moment al
+          // renderizar, y con el ISO completo (medianoche UTC) mostraba el dia anterior en UTC-3.
+          scheduled_date: toDateOnly(updated.scheduled_date),
         },
       });
 

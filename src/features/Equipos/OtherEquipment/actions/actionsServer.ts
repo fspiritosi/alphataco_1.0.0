@@ -12,7 +12,7 @@ import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { pickDuplicateRaceWinner, raceWindowStart } from '@/features/Equipos/EquipoID/lib/duplicate-domain';
 import { buildEquipmentStatusUpdate } from '@/features/Equipos/EquipoID/lib/vehicle-status';
-import { fromDateOnly, toDateOnly } from '@/features/Equipos/lib/date-only';
+import { fromDateOnly, toDateOnly } from '@/shared/lib/date-only';
 import {
   buildOtherEquipmentFilePath,
   extractStoragePath,

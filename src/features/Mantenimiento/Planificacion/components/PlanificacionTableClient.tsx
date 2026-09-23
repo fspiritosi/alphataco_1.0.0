@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { toDateOnly } from '@/shared/lib/date-only';
 import { useQuery } from '@tanstack/react-query';
 import { Settings2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -92,9 +93,11 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           // Asignaciones
           workshopId: item.assigned_workshop_id || null,
           sectorId: item.assigned_sector_id || null,
-          // Columnas `date` de Postgres: llegan como Date y la fila las guarda como ISO.
-          startDate: item.planned_start_date?.toISOString() ?? null,
-          endDate: item.planned_end_date?.toISOString() ?? null,
+          // Columnas `@db.Date` de Postgres: llegan como Date a medianoche UTC y la fila las
+          // guarda como 'YYYY-MM-DD'. Con el ISO completo, el `moment()` que arma el calendario
+          // de `AsignarTallerDialog` caia un dia antes en UTC-3.
+          startDate: toDateOnly(item.planned_start_date),
+          endDate: toDateOnly(item.planned_end_date),
           // Orden de trabajo asociada
           workOrderId: workOrder?.id || item.work_order_id || null,
           workOrderNumber: workOrder?.order_number || null,

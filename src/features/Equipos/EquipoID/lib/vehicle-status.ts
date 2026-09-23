@@ -1,5 +1,5 @@
 import { condition_enum, termination_reason_enum } from '@/generated/prisma/enums';
-import { fromDateOnly } from '@/features/Equipos/lib/date-only';
+import { fromDateOnly } from '@/shared/lib/date-only';
 
 /**
  * Reglas puras del estado de un vehículo: alta/baja (`is_active` + motivo + fecha) y cambios

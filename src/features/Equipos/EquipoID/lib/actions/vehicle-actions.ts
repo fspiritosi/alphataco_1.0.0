@@ -10,7 +10,7 @@ import { getSessionUserId } from '@/shared/lib/session';
 import { callVoid } from '@/shared/lib/sql';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
-import { fromDateOnly, toDateOnly } from '@/features/Equipos/lib/date-only';
+import { fromDateOnly, toDateOnly } from '@/shared/lib/date-only';
 import { pickDuplicateRaceWinner, raceWindowStart } from '../duplicate-domain';
 import { buildVehicleStatusUpdate, canChangeConditionFromHeader } from '../vehicle-status';
 import { vehicleInputSchema, type ParsedVehicleInput, type VehicleInput } from '../../schemas/vehicle';
