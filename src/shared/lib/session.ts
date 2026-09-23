@@ -57,6 +57,29 @@ export const getSessionEmployeeIdClaim = cache(async (): Promise<string | null> 
 });
 
 /**
+ * Nombre para mostrar del usuario de sesión (`user_metadata.fullname`, con fallback a
+ * `user_metadata.employeeName`). Lo escribe el login anónimo del QR de mantenimiento.
+ */
+export const getSessionDisplayName = cache(async (): Promise<string | null> => {
+  // P4: auth
+  const user = await getAuthUser();
+  const fullname = user?.user_metadata?.fullname;
+  if (typeof fullname === 'string' && fullname) return fullname;
+  const employeeName = user?.user_metadata?.employeeName;
+  return typeof employeeName === 'string' && employeeName ? employeeName : null;
+});
+
+/**
+ * `true` si la sesión es anónima (o si no hay sesión): es el caso del operario que entra
+ * por el QR de mantenimiento con su CUIL, sin usuario del dashboard.
+ */
+export const isSessionAnonymous = cache(async (): Promise<boolean> => {
+  // P4: auth
+  const user = await getAuthUser();
+  return user?.is_anonymous ?? true;
+});
+
+/**
  * Sesión decodificada desde la cookie — 0 llamadas de red (`auth.getSession()`).
  * Sólo usar DESPUÉS de que el middleware validó al usuario con `getUser()`.
  * Los consumidores leen `session.user.id` y `session.user.app_metadata.company`; P4 los
