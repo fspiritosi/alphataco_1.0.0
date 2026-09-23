@@ -23,8 +23,6 @@ export function ModeToggle() {
     cookies.set('theme', systemTheme);
   }
 
-  const companyId = cookies.get('actualComp');
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

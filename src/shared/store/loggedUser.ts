@@ -1,4 +1,4 @@
-import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
+import { switchActiveCompany } from '@/shared/actions/company-user.actions';
 import {
   getEmployeeDocumentsByDocumentNumber,
   getSessionBootstrap,
@@ -253,9 +253,10 @@ export const useLoggedUserStore = create<State>((set, get) => {
     set({ actualCompany: company });
     if (!company.id) return;
 
-    cookies.set('actualComp', company.id);
+    // La empresa activa (JWT + cookie `actualComp`, que es httpOnly) la fija el servidor
+    // tras validar la pertenencia; el cliente sólo guarda el rótulo que muestra la UI.
     cookies.set('actualCompName', company.company_name);
-    void setNewCompanyUserMetadata(company.id);
+    void switchActiveCompany(company.id);
     void useCountriesStore.getState().documentTypes(company.id);
     void setActivesEmployees();
     void fetchVehicles();

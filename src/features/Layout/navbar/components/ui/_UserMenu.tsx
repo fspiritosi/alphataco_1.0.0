@@ -15,6 +15,7 @@ import {
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
+import { clearActiveCompany } from '@/shared/actions/company-user.actions';
 import { UploadImage } from '@/shared/components/common/UploadImage';
 import cookie from 'js-cookie';
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
@@ -34,9 +35,9 @@ export function _UserMenu({ user }: UserMenuProps) {
   const logout = async () => {
     const supabase = supabaseBrowser(); // P4: auth
     await supabase.auth.signOut();
-    // P2/Task 13: la cookie de empresa activa todavía la maneja el cliente; el cierre de
-    // sesión sólo la borra. El alta (selector de empresa) pasa a `switchActiveCompany()`.
-    cookie.remove('actualComp');
+    // La cookie de empresa activa es httpOnly: la borra el servidor.
+    await clearActiveCompany();
+    cookie.remove('actualCompName');
     router.push('/login');
   };
   const handleAvatarUpdate = async (imageUrl: string) => {

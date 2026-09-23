@@ -78,6 +78,7 @@ export async function updateSession(req: NextRequest): Promise<UpdateSessionResu
         const cookieOptions = {
           path: '/',
           maxAge: 60 * 60 * 24 * 365, // 1 año
+          httpOnly: true, // sólo el servidor la escribe y la lee (ver `setActiveCompanyCookie`)
           sameSite: 'lax' as const,
           secure: process.env.NODE_ENV === 'production',
         };

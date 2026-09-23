@@ -14,7 +14,7 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { setNewCompanyUserMetadata } from '@/shared/actions/company-user.actions';
+import { switchActiveCompany } from '@/shared/actions/company-user.actions';
 import { CaretSortIcon, CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons';
 import Cookies from 'js-cookie';
 import { Building2 } from 'lucide-react';
@@ -34,12 +34,13 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
 
   const handleNewCompany = async (company: Company) => {
     if (!company.id) return;
-    const result = await setNewCompanyUserMetadata(company.id);
+    // La empresa activa (JWT + cookie `actualComp`) la escribe el servidor tras validar la
+    // pertenencia; acá sólo queda el rótulo que muestra la UI.
+    const result = await switchActiveCompany(company.id);
     if (!result.ok) {
       toast.error(result.error ?? 'No se pudo cambiar de empresa');
       return;
     }
-    Cookies.set('actualComp', company.id);
     Cookies.set('actualCompName', company.company_name);
     setSelectedCompany(company);
     setOpen(false);
