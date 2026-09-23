@@ -509,8 +509,10 @@ export async function getMaintenanceTaskGroupsWithRepairTypes() {
   logger.debug('Obteniendo grupos de tareas con repair_types');
 
   try {
+    const companyId = await getActiveCompanyId();
+
     const groups = await prisma.maintenance_request_groups.findMany({
-      where: { is_active: true },
+      where: { is_active: true, company_id: companyId },
       orderBy: { name: 'asc' },
       select: {
         id: true,

@@ -528,6 +528,7 @@ model company {
   sub_type            sub_type[]
   type                type[]
   types_of_repairs    types_of_repairs[]
+  maintenance_request_groups maintenance_request_groups[]
   vehicles            vehicles[]
   work_orders         work_orders[]
   workshops           workshops[]
@@ -1502,14 +1503,18 @@ model maintenance_orders {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model maintenance_request_groups {
   id                                String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                              String                              @unique
+  name                              String
   description                       String?
   is_active                         Boolean                             @default(true)
   created_at                        DateTime                            @default(now()) @db.Timestamptz(6)
+  company_id                        String                              @db.Uuid
+  company                           company                             @relation(fields: [company_id], references: [id], onDelete: Cascade)
   maintenance_group_type_of_repairs maintenance_group_type_of_repairs[]
   maintenance_order_items           maintenance_order_items[]
   maintenance_request_items         maintenance_request_items[]
 
+  @@unique([company_id, name])
+  @@index([company_id])
   @@schema("public")
 }
 
