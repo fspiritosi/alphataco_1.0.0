@@ -60,8 +60,11 @@ describe('CLIENT_UPLOAD_BUCKETS', () => {
     expect(isClientUploadBucket('contract-documents')).toBe(false);
   });
 
-  it('todo bucket de subida del cliente lleva prefijo de empresa', () => {
-    for (const bucket of CLIENT_UPLOAD_BUCKETS) expect(isCompanyPrefixedBucket(bucket)).toBe(true);
+  it('preparte-img lleva prefijo de empresa; avatar cuelga del perfil', () => {
+    expect(isCompanyPrefixedBucket('preparte-img')).toBe(true);
+    // El avatar es de la persona: colgarlo de la empresa le daba un avatar por empresa a
+    // quien pertenece a varias, y 404 a los compañeros de la otra.
+    expect(isCompanyPrefixedBucket('avatar')).toBe(false);
   });
 });
 

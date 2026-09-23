@@ -10,7 +10,7 @@ import { afterAll, describe, expect, it } from 'vitest';
  * Los tests unitarios no alcanzan para esta capa: lo que puede fallar contra MinIO son
  * justo las cosas que un mock da por buenas —la firma SigV4 con `forcePathStyle`, los
  * checksums que el SDK agrega en `PutObject`, el `CopySource` URL-encodeado del move y que
- * una URL firmada se pueda descargar de verdad por HTTP—.
+ * los buckets sean privados de verdad—.
  *
  * El import es dinámico porque `s3.ts` exige las variables de entorno al construir el cliente.
  */
@@ -47,7 +47,7 @@ describe.skipIf(!process.env.S3_ENDPOINT)('storage (integración contra MinIO)',
     const { storageUpload } = await import('./storage');
     const file = new File([new TextEncoder().encode('otro')], 'informe.pdf', { type: 'application/pdf' });
     const result = await storageUpload(BUCKET, key, file);
-    expect(result).toEqual({ ok: false, error: 'The resource already exists' });
+    expect(result).toEqual({ ok: false, error: 'The resource already exists', code: 'already-exists' });
   });
 
   it('con `upsert: true` pisa el archivo', async () => {
@@ -77,27 +77,34 @@ describe.skipIf(!process.env.S3_ENDPOINT)('storage (integración contra MinIO)',
     await (await import('./storage')).storageRemove(BUCKET, [`${PREFIX}/sub/anidado.txt`]);
   });
 
-  it('firma una URL que se puede descargar por HTTP', async () => {
-    const { storageSignedUrls } = await import('./storage');
-    const signed = await storageSignedUrls(BUCKET, [key], 60);
-    expect(signed.ok).toBe(true);
-    if (!signed.ok) return;
+  it('devuelve la URL de descarga de la app, no una firmada contra MinIO', async () => {
+    const { storageDownloadUrls } = await import('./storage');
+    const links = await storageDownloadUrls(BUCKET, [key]);
+    expect(links.ok).toBe(true);
+    if (!links.ok) return;
 
-    const response = await fetch(signed.data[0].url);
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe('contenido pisado');
+    // Relativa a la app y con `?download=1`: el navegador nunca habla con MinIO, así que no
+    // hay endpoint S3 público que publicar ni firma que pueda vencer.
+    expect(links.data[0].path).toBe(key);
+    expect(links.data[0].url.startsWith(`/api/files/${BUCKET}/`)).toBe(true);
+    expect(links.data[0].url).toContain('?download=1');
+    expect(links.data[0].url).not.toContain('X-Amz-Signature');
   });
 
-  it('el bucket es privado: sin firma, MinIO rechaza el objeto', async () => {
+  it('el bucket es privado: MinIO rechaza el objeto sin credenciales', async () => {
     const endpoint = (process.env.S3_ENDPOINT as string).replace(/\/$/, '');
     const response = await fetch(`${endpoint}/${BUCKET}/${encodeURI(key)}`);
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 
-  it('no firma un archivo que no existe', async () => {
-    const { storageSignedUrls } = await import('./storage');
-    const signed = await storageSignedUrls(BUCKET, [`${PREFIX}/no-existe.pdf`], 60);
-    expect(signed).toEqual({ ok: false, error: 'Alguno de los archivos no existe en el storage' });
+  it('no devuelve enlace de un archivo que no existe', async () => {
+    const { storageDownloadUrls } = await import('./storage');
+    const links = await storageDownloadUrls(BUCKET, [`${PREFIX}/no-existe.pdf`]);
+    expect(links).toEqual({
+      ok: false,
+      error: 'Alguno de los archivos no existe en el storage',
+      code: 'not-found',
+    });
   });
 
   it('mueve el archivo (copia + borra) conservando el contenido', async () => {
@@ -115,7 +122,11 @@ describe.skipIf(!process.env.S3_ENDPOINT)('storage (integración contra MinIO)',
     const file = new File([new TextEncoder().encode('origen')], 'a.txt', { type: 'text/plain' });
     await storageUpload(BUCKET, key, file, { upsert: true });
 
-    expect(await storageMove(BUCKET, key, movedKey)).toEqual({ ok: false, error: 'The resource already exists' });
+    expect(await storageMove(BUCKET, key, movedKey)).toEqual({
+      ok: false,
+      error: 'The resource already exists',
+      code: 'already-exists',
+    });
     expect(await storageMove(BUCKET, key, movedKey, { overwrite: true })).toEqual({
       ok: true,
       data: { path: movedKey },

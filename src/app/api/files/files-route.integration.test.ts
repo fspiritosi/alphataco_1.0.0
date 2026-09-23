@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { buildStorageFileUrl } from '@/shared/lib/storage-url';
 
 /**
  * Integración real de la ruta `/api/files/...` contra el Postgres y el MinIO del compose.
@@ -31,20 +32,39 @@ const CREDENTIAL_ID = '99999999-9999-4999-8999-999999999991';
 const PROFILE_ID = '99999999-9999-4999-8999-999999999992';
 const OTHER_COMPANY = '99999999-9999-4999-8999-999999999993';
 const KEY_SUFFIX = 'logo/__integration__.png';
+/** Nombre con los caracteres que rompían el doble decode: espacio, paréntesis y `%`. */
+const TRICKY_NAME = 'informe (v1) 50%.pdf';
 
 let companyId = '';
 
 /**
+ * Pide un archivo POR SU URL, reproduciendo lo que hace Next antes de llamar al handler:
+ * parte el catch-all en segmentos y **decodifica cada uno**
+ * (`route-matcher.ts`: `match.split('/').map(decode)`).
+ *
+ * Es importante que el test entre por la URL y no por la key: pasarle `key.split('/')`
+ * directamente salteaba justamente el paso que tenía el bug (un segundo `decodeURIComponent`
+ * dentro del handler dejaba inalcanzable todo archivo con `%` en el nombre).
+ *
  * Cada llamada recarga la ruta: `canUseAsActiveCompany` está memoizado con React `cache()`,
  * que fuera de un request no tiene scope por request y arrastraría el resultado anterior.
  */
-async function request(bucket: string, key: string) {
+async function requestUrl(url: string) {
+  const [pathname, query] = url.split('?');
+  const rest = pathname.slice('/api/files/'.length);
+  const encodedSegments = rest.split('/');
+  const bucket = decodeURIComponent(encodedSegments[0]);
+  const path = encodedSegments.slice(1).map((segment) => decodeURIComponent(segment));
+
   vi.resetModules();
   const { GET } = await import('./[bucket]/[...path]/route');
-  return GET(new Request(`http://localhost/api/files/${bucket}/${key}`), {
-    params: Promise.resolve({ bucket, path: key.split('/') }),
+  return GET(new Request(`http://localhost${pathname}${query ? `?${query}` : ''}`), {
+    params: Promise.resolve({ bucket, path }),
   });
 }
+
+/** Atajo para los casos donde la key no tiene nada que codificar. */
+const request = (bucket: string, key: string) => requestUrl(buildStorageFileUrl(bucket, key));
 
 describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => {
   beforeAll(async () => {
@@ -68,12 +88,20 @@ describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => 
     const file = new File([new TextEncoder().encode('bytes del logo')], 'logo.png', { type: 'image/png' });
     await storageUpload('logo', `${companyId}/${KEY_SUFFIX}`, file, { upsert: true });
     await storageUpload('logo', `${OTHER_COMPANY}/${KEY_SUFFIX}`, file, { upsert: true });
+    await storageUpload('logo', `${companyId}/${TRICKY_NAME}`, file, { upsert: true });
+    // Objeto real en un bucket que la ruta NO resuelve: prueba que el default sea negar.
+    await storageUpload('contract-documents', `${companyId}/__integration__.pdf`, file, { upsert: true });
   });
 
   afterAll(async () => {
     const { prisma } = await import('@/shared/lib/prisma');
     const { storageRemove } = await import('@/shared/lib/storage');
-    await storageRemove('logo', [`${companyId}/${KEY_SUFFIX}`, `${OTHER_COMPANY}/${KEY_SUFFIX}`]);
+    await storageRemove('logo', [
+      `${companyId}/${KEY_SUFFIX}`,
+      `${OTHER_COMPANY}/${KEY_SUFFIX}`,
+      `${companyId}/${TRICKY_NAME}`,
+    ]);
+    await storageRemove('contract-documents', [`${companyId}/__integration__.pdf`]);
     await prisma.share_company_users.deleteMany({ where: { profile_id: PROFILE_ID } });
     await prisma.profile.deleteMany({ where: { id: PROFILE_ID } });
   });
@@ -86,11 +114,55 @@ describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => 
     expect(response.headers.get('Content-Type')).toBe('image/png');
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(response.headers.get('Cache-Control')).toContain('private');
+    expect(response.headers.get('ETag')).toBeTruthy();
+  });
+
+  it('ida y vuelta de una key con espacios, paréntesis y `%`', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    const url = buildStorageFileUrl('logo', `${companyId}/${TRICKY_NAME}`);
+    // La URL guardada lleva el `%` escapado; si el handler decodificara de nuevo, el
+    // archivo sería inalcanzable para siempre.
+    expect(url).toContain('50%25');
+    const response = await requestUrl(url);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('bytes del logo');
+  });
+
+  it('`?download=1` responde como adjunto, con el nombre del archivo', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    const { buildStorageDownloadUrl } = await import('@/shared/lib/storage-url');
+    const response = await requestUrl(buildStorageDownloadUrl('logo', `${companyId}/${TRICKY_NAME}`));
+    expect(response.status).toBe(200);
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    expect(disposition).toContain('attachment');
+    expect(disposition).toContain(encodeURIComponent(TRICKY_NAME));
   });
 
   it('404 para el archivo de OTRA empresa, aunque exista en MinIO', async () => {
     sessionUserId.current = CREDENTIAL_ID;
     const response = await request('logo', `${OTHER_COMPANY}/${KEY_SUFFIX}`);
+    expect(response.status).toBe(404);
+  });
+
+  it('404 (no 500) si un id del path no tiene forma de uuid', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    // `other_equipment.id` es `@db.Uuid`: sin la guarda, Prisma lanza P2023 y la ruta
+    // devolvía un 500 con stack en los logs.
+    const response = await request('document-files', 'other-equipment-pictures/no-es-uuid/x.jpg');
+    expect(response.status).toBe(404);
+  });
+
+  it('404 para un bucket sin resolver de dueño, aunque el objeto exista', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    // `contract-documents` se sirve por la ruta sólo si hay una fila que referencie el path;
+    // este objeto no la tiene, así que el default es negar.
+    const response = await request('contract-documents', `${companyId}/__integration__.pdf`);
+    expect(response.status).toBe(404);
+  });
+
+  it('404 para un `document-files` huérfano, sin fila que lo referencie', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    const response = await request('document-files', 'empresa-(30-1)/employee/legajo/doc.pdf');
     expect(response.status).toBe(404);
   });
 
