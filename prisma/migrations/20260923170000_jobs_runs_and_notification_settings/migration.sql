@@ -71,8 +71,20 @@ ALTER TABLE "notification_settings" ADD CONSTRAINT "notification_settings_compan
 -- Default por empresa: el correo de contacto de la propia empresa (`company.contact_email` es
 -- NOT NULL). Es el unico destinatario por empresa que el modelo ya conoce; se cambia editando
 -- la fila. Sin esto la funcionalidad queda muerta hasta que alguien cargue la tabla a mano.
-INSERT INTO "notification_settings" ("company_id", "kind", "recipients")
-SELECT c."id", k."kind", ARRAY[c."contact_email"]
+--
+-- ENTRAN DESACTIVADAS (`is_active = false`), por decision del usuario (23/09/2026). El
+-- `contact_email` de cada empresa es una casilla real de un cliente que hoy NO recibe estos
+-- correos: activarlas por migracion mandaria el primer resumen semanal sin que nadie lo
+-- pidiera, y eso no se puede deshacer. La fila queda creada con el destinatario razonable ya
+-- cargado; encenderla es una decision explicita, empresa por empresa:
+--
+--   UPDATE notification_settings SET is_active = true
+--   WHERE company_id = '<uuid>' AND kind = 'documents_expiry';
+--
+-- El job saltea (status `skipped`) toda empresa sin destinatarios activos y lo deja
+-- registrado en `jobs_runs`, asi que mientras tanto no falla: no hace nada y se ve.
+INSERT INTO "notification_settings" ("company_id", "kind", "recipients", "is_active")
+SELECT c."id", k."kind", ARRAY[c."contact_email"], false
 FROM "company" c
 CROSS JOIN (VALUES ('documents_expiry'::"notification_kind"), ('daily_report_deviations'::"notification_kind")) AS k("kind")
 WHERE c."contact_email" IS NOT NULL AND btrim(c."contact_email") <> ''
