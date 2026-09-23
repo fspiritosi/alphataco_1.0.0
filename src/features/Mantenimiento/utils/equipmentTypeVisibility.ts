@@ -30,10 +30,11 @@ const loadHiddenEquipmentTypeIds = cache(async (): Promise<string[]> => {
   const profile = await getServerAuthProfile();
   if (!profile) return [];
 
-  // Los roles son por empresa: sólo cuentan los de la empresa activa.
-  const companyId = await getActiveCompanyId();
-
   try {
+    // Los roles son por empresa: sólo cuentan los de la empresa activa. Va DENTRO del try
+    // porque `getActiveCompanyId()` lanza si no hay empresa y esta función no lanza nunca.
+    const companyId = await getActiveCompanyId();
+
     // user_roles / user_equipment_type_visibility usan el id de auth (credentialId)
     const [userRoles, userOverrides] = await Promise.all([
       prisma.user_roles.findMany({

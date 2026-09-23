@@ -48,10 +48,12 @@ const loadSupervisorFilterInfo = cache(async (): Promise<SupervisorFilterInfo | 
   // Tabs de operaciones de mantenimiento que usan este filtro
   const operationsTabs = ['maintenance_requests', 'pendientes_ejecutar', 'para_taller'];
 
-  // El rol vale en la empresa donde se otorgó: el permiso se evalúa en la empresa activa.
-  const companyId = await getActiveCompanyId();
-
   try {
+    // El rol vale en la empresa donde se otorgó: el permiso se evalúa en la empresa activa.
+    // Va DENTRO del try porque `getActiveCompanyId()` lanza si no hay empresa y esta función
+    // devuelve `null` ante cualquier error.
+    const companyId = await getActiveCompanyId();
+
     // Verificar permisos basados en rol (role_permissions → roles → user_roles → users)
     const rolePermsCount = await prisma.role_permissions.count({
       where: {

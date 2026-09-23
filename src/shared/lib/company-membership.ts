@@ -35,6 +35,20 @@ export type CompanyTenantInput = CompanyAccessInput & {
  * perimetro de cada feature sigue siendo el suyo (`assertCompanyAccess()` para las
  * acciones del dashboard, `requireClothingOperator()` para el panel de ropa), esto solo
  * decide si un `companyId` puede ser la empresa activa del request.
+ *
+ * Las dos ramas son independientes, y eso importa: un miembro DADO DE BAJA
+ * (`share_company_users.is_active = false`) igual pasa si ademas es empleado de la empresa
+ * — la rama de empleado no mira la membership. Es deliberado: el operario nunca fue miembro,
+ * asi que darlo de baja del dashboard no deberia dejarlo sin su panel. La ventana real es
+ * chica porque dar de baja a un usuario tambien banea su credencial en Auth: solo sobrevive
+ * una sesion ya abierta.
+ *
+ * Decision explicita sobre `employees.is_active`: la rama de empleado NO lo mira. Quien
+ * escribe la cookie en esos flujos (`clothingLogin`, el login del QR) tampoco lo exige, y
+ * `getClothingOperator()` resuelve el operario sin filtrar por activo: chequearlo aca dejaria
+ * a `getActiveCompanyId()` mas estricto que el login que puso el valor, con el panel roto y
+ * el login exitoso. Si alguna vez se decide cerrarle la puerta al empleado dado de baja, el
+ * cambio va en los tres lugares a la vez, no solo aca.
  */
 export function canUseCompanyAsTenant(input: CompanyTenantInput): boolean {
   if (canAccessCompany(input)) return true;

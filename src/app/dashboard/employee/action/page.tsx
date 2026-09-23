@@ -8,7 +8,7 @@ import { EmployeeHeaderContent } from '@/features/Employees/EmpleadoID/component
 import { EmployeeDocumentDetail } from '@/features/Employees/EmpleadoID/components/employee-document-detail';
 import { EmployeeDiagramsSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-diagrams-skeleton';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/session';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -27,9 +27,9 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   const mode = (resolvedSearchParams.action as 'view' | 'edit' | 'new') || 'view';
   const employeeId = resolvedSearchParams.employee_id ?? '';
 
-  // Obtener sesión y companyId
-  const session = await getCachedSession();
-  const companyId: string = (session?.user?.app_metadata?.company as string) ?? '';
+  // Empresa activa del request: el claim crudo dejaba `companyId: ''` en toda sesión que la
+  // resuelve por cookie (panel de ropa, QR), sin que se notara.
+  const companyId = await getActiveCompanyId();
 
   // Cargar empleado: única query bloqueante (cached con React.cache)
   let employee: Awaited<ReturnType<typeof getEmployeeByIdCached>> = null;

@@ -17,6 +17,7 @@ import {
 } from '@/shared/actions/session.server';
 import { buildDocumentBuckets, type StoreDocument } from '@/shared/store/lib/document-buckets';
 import cookies from 'js-cookie';
+import { toast } from 'sonner';
 import { create } from 'zustand';
 import { useCountriesStore } from './countries';
 
@@ -250,15 +251,26 @@ export const useLoggedUserStore = create<State>((set, get) => {
   };
 
   const setActualCompany = async (company: StoreCompany) => {
+    const previous = get().actualCompany;
     set({ actualCompany: company });
     if (!company.id) return;
 
     // La empresa activa (JWT + cookie `actualComp`, que es httpOnly) la fija el servidor
     // tras validar la pertenencia; el cliente sólo guarda el rótulo que muestra la UI.
     cookies.set('actualCompName', company.company_name);
-    // Se espera: hasta que no esté fijada, el servidor no tiene empresa activa y no puede
-    // resolver los permisos del usuario (los roles son por empresa).
-    await switchActiveCompany(company.id);
+
+    // Se espera Y se mira el resultado: hasta que el servidor no la fije no hay empresa
+    // activa (ni permisos, que son por empresa), y si la rechaza hay que volver atrás — si
+    // no, la UI queda mostrando una empresa que el servidor no va a servir.
+    const switched = await switchActiveCompany(company.id);
+    if (!switched.ok) {
+      set({ actualCompany: previous });
+      if (previous?.company_name) cookies.set('actualCompName', previous.company_name);
+      else cookies.remove('actualCompName');
+      toast.error(switched.error ?? 'No se pudo cambiar de empresa');
+      return;
+    }
+
     void useCountriesStore.getState().documentTypes(company.id);
     void setActivesEmployees();
     void fetchVehicles();

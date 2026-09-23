@@ -56,17 +56,19 @@ async function assertCanUpdate(tabSlug: 'gestion-roles' | 'detalle-usuario') {
 export async function getEquipmentTypesForVisibility() {
   logger.debug('Obteniendo tipos de equipamiento para visibilidad');
 
-  // Las server actions son endpoints públicos: sin sesión no se devuelve nada
+  // Las server actions son endpoints públicos: sin sesión no se devuelve nada. La empresa sale
+  // de `getActiveCompanyId()` y no del claim crudo: una sesión que la resuelve por cookie veía
+  // sólo los tipos globales.
   const session = await getCachedSession();
   if (!session?.user) throw new EquipmentTypeVisibilityError('Sesión no válida');
-  const companyId = session.user.app_metadata?.company as string | undefined;
+  const companyId = await getActiveCompanyId();
 
   try {
     const types = await prisma.type.findMany({
       where: {
         applies_to: OTHER_EQUIPMENT,
         is_active: true,
-        OR: companyId ? [{ company_id: companyId }, { company_id: null }] : [{ company_id: null }],
+        OR: [{ company_id: companyId }, { company_id: null }],
       },
       select: { id: true, name: true },
     });
