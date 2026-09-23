@@ -1,6 +1,6 @@
 import { LoginForm } from '@/features/OperatorPanel/components/LoginForm';
 import { prisma } from '@/shared/lib/prisma';
-import { getSessionUserId } from '@/shared/lib/session'; // P4: auth
+import { getSessionUserId } from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 export const metadata = {
@@ -9,12 +9,13 @@ export const metadata = {
 
 export default async function OperatorLoginPage() {
   // Si ya hay sesión con contexto de operario válido, se salta el login.
-  const userId = await getSessionUserId(); // P4: auth
+  const userId = await getSessionUserId();
 
   if (userId) {
-    // `profile.id` es el id del usuario de Auth: el perímetro es la propia sesión.
+    // El profile se resuelve por `credential_id`, igual que en `operatorLogin()`: el perímetro
+    // es la propia sesión.
     const profile = await prisma.profile.findUnique({
-      where: { id: userId },
+      where: { credential_id: userId },
       select: { employee_id: true },
     });
 

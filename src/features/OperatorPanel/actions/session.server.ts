@@ -2,10 +2,12 @@
 
 import { getAssignedSectorsForEmployee, getOperatorIdentity } from '@/features/OperatorPanel/actions/perimeter';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { auth } from '@/shared/lib/auth';
+import { normalizeEmail } from '@/shared/lib/auth-credentials';
 import { prisma } from '@/shared/lib/prisma';
+import { APIError } from 'better-auth/api';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 const logger = new Logger('OperatorPanel/session');
@@ -22,30 +24,35 @@ const SECTOR_COOKIE_OPTIONS = {
 /**
  * Login del operario.
  *
- * El alta de sesión sigue en Supabase Auth (P4 la reemplaza); lo que se migró es todo lo
- * que hay alrededor, que es dato: el `profile`, el empleado y sus sectores asignados.
+ * El alta de sesión la hace Better Auth; alrededor sigue todo igual: el `profile`, el
+ * empleado y sus sectores asignados salen de Prisma. Si el usuario autentica pero no llega a
+ * ser operario, se le cierra la sesión recién abierta: entrar al panel es todo o nada.
  */
 export async function operatorLogin(email: string, password: string) {
-  const supabase = await supabaseServer(); // P4: auth
+  const requestHeaders = await headers();
+  let userId: string;
 
-  const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password }); // P4: auth
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  if (!authData.user) {
+  try {
+    const result = await auth.api.signInEmail({
+      body: { email: normalizeEmail(email), password },
+      headers: requestHeaders,
+    });
+    userId = result.user.id;
+  } catch (error) {
+    if (error instanceof APIError) {
+      return { error: error.body?.message ?? 'Correo o contraseña inválidos' };
+    }
     return { error: 'No se pudo autenticar' };
   }
 
   // `profile.credential_id` es el id de sesión: mismo criterio que `getServerAuthProfile()`.
   const profile = await prisma.profile.findUnique({
-    where: { credential_id: authData.user.id },
+    where: { credential_id: userId },
     select: { employee_id: true },
   });
 
   if (!profile?.employee_id) {
-    await supabase.auth.signOut(); // P4: auth
+    await auth.api.signOut({ headers: requestHeaders });
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
@@ -55,14 +62,14 @@ export async function operatorLogin(email: string, password: string) {
   });
 
   if (!employee?.company_id) {
-    await supabase.auth.signOut(); // P4: auth
+    await auth.api.signOut({ headers: requestHeaders });
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 
   const sectors = await getAssignedSectorsForEmployee(employee.id, employee.company_id);
 
   if (sectors.length === 0) {
-    await supabase.auth.signOut(); // P4: auth
+    await auth.api.signOut({ headers: requestHeaders });
     return { error: 'Tu empleado no tiene sectores de taller asignados. Contacta al administrador.' };
   }
 
@@ -78,8 +85,11 @@ export async function operatorLogin(email: string, password: string) {
 }
 
 export async function operatorLogout() {
-  const supabase = await supabaseServer(); // P4: auth
-  await supabase.auth.signOut(); // P4: auth
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch {
+    // Sin sesión válida el cierre es un no-op.
+  }
 
   // Sólo se borra lo que este panel escribió. La cookie de empresa activa es del dashboard:
   // el operario no la setea, así que tampoco se la lleva puesta al salir.

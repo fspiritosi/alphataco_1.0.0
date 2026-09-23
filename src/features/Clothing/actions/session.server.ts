@@ -1,10 +1,13 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { auth } from '@/shared/lib/auth';
+import { normalizeEmail } from '@/shared/lib/auth-credentials';
 import { prisma } from '@/shared/lib/prisma';
 import { clearActiveCompanyCookie, setActiveCompanyCookie } from '@/shared/lib/tenant';
+import { APIError } from 'better-auth/api';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getClothingOperator, type ClothingOperator } from './perimeter';
 
@@ -19,26 +22,30 @@ const logger = new Logger('features/Clothing/session');
  * cookie, sale del empleado (`perimeter.ts`).
  */
 export async function clothingLogin(email: string, password: string) {
-  const supabase = await supabaseServer(); // P4: auth
+  const requestHeaders = await headers();
+  let userId: string;
 
-  const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password }); // P4: auth
-
-  if (error) {
+  try {
+    const result = await auth.api.signInEmail({
+      body: { email: normalizeEmail(email), password },
+      headers: requestHeaders,
+    });
+    userId = result.user.id;
+  } catch (error) {
     logger.warn('Clothing login auth failed', { data: { email } });
-    return { error: error.message };
-  }
-
-  if (!authData.user) {
+    if (error instanceof APIError) {
+      return { error: error.body?.message ?? 'Correo o contraseña inválidos' };
+    }
     return { error: 'No se pudo autenticar' };
   }
 
   const profile = await prisma.profile.findUnique({
-    where: { credential_id: authData.user.id },
+    where: { credential_id: userId },
     select: { employee_id: true },
   });
 
   if (!profile?.employee_id) {
-    await supabase.auth.signOut(); // P4: auth
+    await auth.api.signOut({ headers: requestHeaders });
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
@@ -48,7 +55,7 @@ export async function clothingLogin(email: string, password: string) {
   });
 
   if (!employee) {
-    await supabase.auth.signOut(); // P4: auth
+    await auth.api.signOut({ headers: requestHeaders });
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 
@@ -58,7 +65,7 @@ export async function clothingLogin(email: string, password: string) {
     await setActiveCompanyCookie(employee.company_id, 60 * 60 * 24 * 365);
   }
 
-  logger.info('Clothing login successful', { data: { userId: authData.user.id } });
+  logger.info('Clothing login successful', { data: { userId } });
   return { success: true };
 }
 
@@ -66,8 +73,11 @@ export async function clothingLogin(email: string, password: string) {
  * Cierra la sesión del panel de ropa y vuelve al login.
  */
 export async function clothingLogout() {
-  const supabase = await supabaseServer(); // P4: auth
-  await supabase.auth.signOut(); // P4: auth
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch {
+    // Sin sesión válida el cierre es un no-op.
+  }
   await clearActiveCompanyCookie();
   revalidatePath('/', 'layout');
   redirect('/clothing/login');
