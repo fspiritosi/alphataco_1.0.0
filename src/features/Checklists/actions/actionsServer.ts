@@ -335,7 +335,9 @@ export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployee
 /**
  * Supervisores de turno de una empresa (usuarios con rol "Administrador Operaciones").
  * Son los usuarios que el chofer puede seleccionar al registrar desvíos.
- * Filtra por la compañía indicada usando share_company_users.
+ * Filtra por la compañía indicada usando share_company_users, exigiendo que la pertenencia
+ * esté activa (mismo criterio que `canAccessCompany()` y `assertSupervisorInCompany()`): un
+ * usuario dado de baja de la empresa no se ofrece como supervisor.
  *
  * FILTRO DE DIAGRAMA LABORALMENTE ACTIVO:
  * - Si el profile tiene employee_id → solo se incluye si tiene un registro en employees_diagram
@@ -364,7 +366,7 @@ async function getSupervisorsForCompany(company_id: string) {
       where: {
         id: { in: userIds },
         share_company_users: {
-          some: { company_id },
+          some: { company_id, is_active: true },
         },
       },
       select: {
