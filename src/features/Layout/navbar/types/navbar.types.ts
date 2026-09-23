@@ -1,3 +1,5 @@
+import type { CurrentUserProfile } from '../actions/actions.navbar';
+
 export type CompanyGroup = {
   label: string;
   teams: {
@@ -8,7 +10,7 @@ export type CompanyGroup = {
 };
 
 export type NavbarClientProps = {
-  user: UserProfile | null;
+  user: CurrentUserProfile;
   companies: {
     sharedCompanies: Company[];
     allCompanies: Company[];
@@ -22,7 +24,8 @@ export type CompanySelectorProps = {
   currentCompany: Company[];
 };
 export type UserMenuProps = {
-  user: UserProfile | null;
+  /** Perfil de la sesión, tipado desde la query de Prisma (no desde `database.types`). */
+  user: CurrentUserProfile;
 };
 
 export interface EmployeeDocumentWithDocumentTypes extends Omit<EmployeeDocument, 'id_document_types' | 'applies'> {

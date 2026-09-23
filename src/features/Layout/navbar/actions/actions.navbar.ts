@@ -1,42 +1,61 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
-import { getCachedSession } from '@/shared/lib/session';
+import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
 
 const logger = new Logger('features/Layout/navbar');
 
-export async function updateProfileAvatar(userId: string, imageUrl: string) {
-  const supabase = await supabaseServer();
+const profileSelect = {
+  id: true,
+  credential_id: true,
+  email: true,
+  avatar: true,
+  fullname: true,
+  role: true,
+  employee_id: true,
+  created_at: true,
+} as const;
+
+/**
+ * Perfil del usuario de la sesión para el menú del navbar.
+ *
+ * Perímetro: el perfil se busca por `credential_id` de la sesión; no hay parámetro que
+ * pueda apuntar a otro usuario.
+ */
+export async function getCurrentUserProfile() {
+  const credentialId = await getSessionUserId();
+  if (!credentialId) return null;
 
   try {
-    const { error } = await supabase.from('profile').update({ avatar: imageUrl }).eq('id', userId);
-
-    if (error) throw error;
-
-    return { success: true };
+    return await prisma.profile.findUnique({ where: { credential_id: credentialId }, select: profileSelect });
   } catch (error) {
-    logger.error('Error al actualizar avatar', { data: { error } });
-    return { success: false, error };
+    logger.error('Error al obtener el perfil del usuario', { data: { error } });
+    return null;
   }
 }
 
-export async function getCurrentUserProfile() {
-  const supabase = await supabaseServer();
-  const session = await getCachedSession();
+export type CurrentUserProfile = Awaited<ReturnType<typeof getCurrentUserProfile>>;
 
-  if (!session?.user?.id) {
-    return null;
+/**
+ * Cambia el avatar del perfil de la SESIÓN.
+ *
+ * Perímetro: antes la action recibía el `userId` a modificar y escribía por ese id, así que
+ * cualquiera podía pisarle el avatar a otro usuario. Ahora el perfil sale de la sesión y el
+ * único dato del cliente es la URL de la imagen.
+ */
+export async function updateProfileAvatar(imageUrl: string): Promise<{ success: boolean }> {
+  const credentialId = await getSessionUserId();
+  if (!credentialId) {
+    logger.warn('Intento de actualizar avatar sin sesión');
+    return { success: false };
   }
 
   try {
-    const { data, error } = await supabase.from('profile').select('*').eq('id', session.user.id).single();
-
-    if (error) throw error;
-
-    return data;
+    await prisma.profile.update({ where: { credential_id: credentialId }, data: { avatar: imageUrl } });
+    return { success: true };
   } catch (error) {
-    logger.error('Error al obtener perfil', { data: { error } });
-    return null;
+    logger.error('Error al actualizar avatar', { data: { error } });
+    return { success: false };
   }
 }

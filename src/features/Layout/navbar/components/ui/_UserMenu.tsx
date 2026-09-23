@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
 import { UploadImage } from '@/shared/components/common/UploadImage';
 import cookie from 'js-cookie';
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
@@ -32,9 +32,10 @@ export function _UserMenu({ user }: UserMenuProps) {
 
   const router = useRouter();
   const logout = async () => {
-    const supabase = supabaseBrowser();
+    const supabase = supabaseBrowser(); // P4: auth
     await supabase.auth.signOut();
-    //Borrar las cookies
+    // P2/Task 13: la cookie de empresa activa todavía la maneja el cliente; el cierre de
+    // sesión sólo la borra. El alta (selector de empresa) pasa a `switchActiveCompany()`.
     cookie.remove('actualComp');
     router.push('/login');
   };
@@ -42,7 +43,8 @@ export function _UserMenu({ user }: UserMenuProps) {
     if (!user?.id) return;
 
     try {
-      await updateProfileAvatar(user.id, imageUrl);
+      // El perfil a modificar sale de la sesión en el servidor: acá sólo viaja la imagen.
+      await updateProfileAvatar(imageUrl);
       form.setValue('profile', imageUrl);
     } catch (error) {
       logger.error('Error al actualizar avatar', { data: { error } });

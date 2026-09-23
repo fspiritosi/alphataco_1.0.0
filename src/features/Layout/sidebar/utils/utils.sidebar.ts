@@ -1,3 +1,7 @@
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('features/Layout/sidebar');
+
 /**
  * Limpia y normaliza una URL para obtener solo el pathname
  *
@@ -48,8 +52,7 @@ export function cleanPath(url: string): string {
     return pathname;
   } catch (error) {
     // Si la URL no es válida, registrar el error y devolver dashboard
-    console.error('Error procesando URL en cleanPath:', error);
-    console.error('URL problemática:', url);
+    logger.error('Error procesando URL en cleanPath', { data: { error, url } });
     return '/dashboard';
   }
 }

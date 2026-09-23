@@ -18,13 +18,15 @@ export function createLinkRegex(href: string): RegExp {
  * @returns Nombre del link con mejor match
  */
 export function findBestMatch(links: Array<NavigationLink & { regex: RegExp }>, pathname: string): string {
-  const bestMatch = links.reduce(
+  type Best = { link: NavigationLink | null; matchLength: number };
+
+  const bestMatch = links.reduce<Best>(
     (best, link) => {
       const match = pathname.match(link.regex);
       const matchLength = match ? match[0].length : 0;
       return matchLength > best.matchLength ? { link, matchLength } : best;
     },
-    { link: null as any, matchLength: 0 }
+    { link: null, matchLength: 0 }
   );
 
   return bestMatch.link?.name || '';

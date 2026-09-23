@@ -2,11 +2,13 @@
 
 import { useMemo } from 'react';
 import { NavigationLink } from '../constants/navigation';
+import { createLinkRegex, findBestMatch } from '../utils/sidebar.utils';
 
 /**
  * Hook para detectar el link activo basándose en el pathname actual
  *
- * Usa regex para encontrar el mejor match (más específico)
+ * El match (regex por link + el más específico gana) vive en `sidebar.utils`, que es
+ * lógica pura con test propio; acá sólo se memoiza.
  *
  * @param links - Array de links del sidebar
  * @param pathname - Pathname actual de la ruta
@@ -14,26 +16,8 @@ import { NavigationLink } from '../constants/navigation';
  */
 export function useActiveLink(links: NavigationLink[], pathname: string): string {
   return useMemo(() => {
-    // Crear regex para cada link
-    const linksWithRegex = links.map((link) => {
-      const href = link.href.toString();
-      const regexPattern = new RegExp(`^${href.replace(/\//g, '\\/')}(\/|$)`);
-      return {
-        ...link,
-        regex: regexPattern,
-      };
-    });
+    const linksWithRegex = links.map((link) => ({ ...link, regex: createLinkRegex(link.href.toString()) }));
 
-    // Encontrar el mejor match (más específico)
-    const bestMatch = linksWithRegex.reduce(
-      (best: { link: any; matchLength: number }, link: any) => {
-        const match = pathname.match(link.regex);
-        const matchLength = match ? match[0].length : 0;
-        return matchLength > best.matchLength ? { link, matchLength } : best;
-      },
-      { link: null, matchLength: 0 }
-    );
-
-    return bestMatch.link?.name || '';
+    return findBestMatch(linksWithRegex, pathname);
   }, [links, pathname]);
 }
