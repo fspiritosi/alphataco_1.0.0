@@ -10,6 +10,14 @@ import {
 
 export const VALIDATION_QUERY_KEY = ['daily-report-deviations'] as const;
 
+/**
+ * Clave del índice de desvíos. Los dos componentes son UUIDs no nulos (los nulos se descartan
+ * al armar el mapa), así que `:` no puede aparecer dentro de ninguno y la clave es unívoca.
+ */
+function deviationKey(resourceId: string, rowId: string): string {
+  return `${resourceId}:${rowId}`;
+}
+
 export function useValidationData(dailyReportId: string, reportDate: string) {
   const { data, isLoading } = useQuery({
     queryKey: [...VALIDATION_QUERY_KEY, dailyReportId, reportDate],
@@ -23,7 +31,11 @@ export function useValidationData(dailyReportId: string, reportDate: string) {
     if (!data?.rows_with_deviations) return map;
     for (const row of data.rows_with_deviations) {
       for (const dev of row.employee_deviations) {
-        map.set(`${dev.employee_id}:${row.row_id}`, dev);
+        // `employee_id` es nullable: con el template literal, TODOS los desvíos sin empleado de
+        // una misma fila caían en la clave `"null:<row_id>"` y se pisaban entre sí. Además esa
+        // entrada es inalcanzable, porque `getEmployeeDeviation` recibe un id no nulo.
+        if (dev.employee_id == null) continue;
+        map.set(deviationKey(dev.employee_id, row.row_id), dev);
       }
     }
     return map;
@@ -34,18 +46,21 @@ export function useValidationData(dailyReportId: string, reportDate: string) {
     if (!data?.rows_with_deviations) return map;
     for (const row of data.rows_with_deviations) {
       for (const dev of row.equipment_deviations) {
-        map.set(`${dev.equipment_id}:${row.row_id}`, dev);
+        // Mismo caso: `equipment_id` es el `COALESCE(equipment_id, other_equipment_id)` del SQL
+        // y puede venir null.
+        if (dev.equipment_id == null) continue;
+        map.set(deviationKey(dev.equipment_id, row.row_id), dev);
       }
     }
     return map;
   }, [data?.rows_with_deviations]);
 
   const getEmployeeDeviation = (employeeId: string, rowId: string): EmployeeDeviation | null => {
-    return employeeDeviationMap.get(`${employeeId}:${rowId}`) ?? null;
+    return employeeDeviationMap.get(deviationKey(employeeId, rowId)) ?? null;
   };
 
   const getEquipmentDeviation = (equipmentId: string, rowId: string): EquipmentDeviation | null => {
-    return equipmentDeviationMap.get(`${equipmentId}:${rowId}`) ?? null;
+    return equipmentDeviationMap.get(deviationKey(equipmentId, rowId)) ?? null;
   };
 
   return {

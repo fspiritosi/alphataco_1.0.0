@@ -220,12 +220,21 @@ export function _ToggleDocTypeDialog({ open, onOpenChange, documentType, onSucce
   const [deactivateOption, setDeactivateOption] = useState<DeactivateOption>('deactivate_keep');
   const [activateOption, setActivateOption] = useState<ActivateOption>('activate_recreate');
 
-  const { data: impact, isLoading } = useQuery({
+  const {
+    data: impact,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['doc-type-impact', documentType.id],
     queryFn: () => analyzeDocumentTypeImpact(documentType.id),
     enabled: open,
     staleTime: 0,
+    // Un tipo global rechaza siempre (`GLOBAL_DOCUMENT_TYPE_READ_ONLY`): reintentar no cambia
+    // nada y sólo demora el mensaje.
+    retry: false,
   });
+
+  const errorMessage = error ? (error instanceof Error ? error.message : 'No se pudo analizar el impacto') : null;
 
   const invalidateAndClose = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['doc-types'] });
@@ -309,6 +318,14 @@ export function _ToggleDocTypeDialog({ open, onOpenChange, documentType, onSucce
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
+          ) : errorMessage ? (
+            // Sin esto el diálogo quedaba VACÍO cuando el análisis fallaba (el caso típico es un
+            // tipo global, que no se edita desde una empresa) y el botón de confirmar seguía
+            // habilitado: el usuario apretaba y sólo veía el toast del error de la mutación.
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            </div>
           ) : impact ? (
             isDeactivating ? (
               <DeactivateContent
@@ -332,9 +349,13 @@ export function _ToggleDocTypeDialog({ open, onOpenChange, documentType, onSucce
 
         <AlertDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isMutationPending}>
-            Cancelar
+            {errorMessage ? 'Cerrar' : 'Cancelar'}
           </Button>
-          <Button variant={confirmVariant} onClick={handleConfirm} disabled={isLoading || isMutationPending}>
+          <Button
+            variant={confirmVariant}
+            onClick={handleConfirm}
+            disabled={isLoading || isMutationPending || errorMessage !== null}
+          >
             {isMutationPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
