@@ -1,4 +1,5 @@
-import { supabaseServer } from '@/lib/supabase/server';
+// P4: auth — ruta de confirmación de email; sólo Supabase Auth, sin lectura de datos.
+import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   redirectTo.searchParams.delete('type');
 
   if (token_hash && type) {
-    const supabase = await supabaseServer();
+    const supabase = await supabaseServer(); // P4: auth
 
     const { error } = await supabase.auth.verifyOtp({
       type,

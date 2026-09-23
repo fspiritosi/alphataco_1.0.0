@@ -1,6 +1,6 @@
 import { LoginForm } from '@/features/OperatorPanel/components/LoginForm';
-import { supabaseServer } from '@/lib/supabase/server';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session'; // P4: auth
 import { redirect } from 'next/navigation';
 
 export const metadata = {
@@ -8,14 +8,15 @@ export const metadata = {
 };
 
 export default async function OperatorLoginPage() {
-  // If already authenticated with valid operator context, redirect
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Si ya hay sesión con contexto de operario válido, se salta el login.
+  const userId = await getSessionUserId(); // P4: auth
 
-  if (user) {
-    const { data: profile } = await supabase.from('profile').select('employee_id').eq('id', user.id).single();
+  if (userId) {
+    // `profile.id` es el id del usuario de Auth: el perímetro es la propia sesión.
+    const profile = await prisma.profile.findUnique({
+      where: { id: userId },
+      select: { employee_id: true },
+    });
 
     if (profile?.employee_id) {
       const assigned = await prisma.employee_workshop_sectors.findFirst({

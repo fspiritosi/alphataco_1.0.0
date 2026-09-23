@@ -1,4 +1,6 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+// P4: auth — verifica el OTP de recuperación; sólo Supabase Auth, sin lectura de datos.
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // P4: auth
+import { type EmailOtpType } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
   redirectTo.searchParams.delete('type');
 
   if ((token_hash || token) && type) {
-    const supabase = createServerClient(
+    const supabase = createServerClient( // P4: auth
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
 
     // Usar token_hash si está disponible, sino usar token como token_hash
     const { error } = await supabase.auth.verifyOtp({
-      type: type as any,
+      type: type as EmailOtpType,
       token_hash: token_hash || token || '',
     });
 

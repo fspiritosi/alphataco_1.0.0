@@ -59,7 +59,8 @@
 //     </section>
 //   )
 // }
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+// P4: auth — intercambia el code del magic link por sesión; sólo Supabase Auth.
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // P4: auth
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
   const cookieStore = await cookies();
 
   if (code) {
-    const supabase = createServerClient(
+    const supabase = createServerClient( // P4: auth
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
