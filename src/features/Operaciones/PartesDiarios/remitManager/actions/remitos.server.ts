@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { storagePublicUrl, storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage';
+import { storagePublicUrl, storageRemove, storageDownloadUrls, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Operaciones/PartesDiarios/remitos');
@@ -363,9 +363,10 @@ export async function getRemitDocumentUrl(documentPath: string): Promise<string>
 }
 
 /**
- * URL firmada para descargar el archivo desde el navegador sin credenciales de storage.
+ * URL para descargar el archivo desde el navegador.
  *
- * Perímetro: el path tiene que corresponder a un documento de la empresa activa.
+ * Perímetro: el path tiene que corresponder a un documento de la empresa activa, y la ruta
+ * que sirve el archivo lo vuelve a verificar.
  */
 export async function getRemitDocumentDownloadUrl(documentPath: string): Promise<string> {
   const companyId = await getActiveCompanyId();
@@ -378,7 +379,7 @@ export async function getRemitDocumentDownloadUrl(documentPath: string): Promise
     throw new Error('El documento no existe o no pertenece a la empresa activa.');
   }
 
-  const signed = await storageSignedUrls(REMIT_BUCKET, [documentPath]);
+  const signed = await storageDownloadUrls(REMIT_BUCKET, [documentPath]);
   if (!signed.ok) {
     throw new Error(signed.error);
   }

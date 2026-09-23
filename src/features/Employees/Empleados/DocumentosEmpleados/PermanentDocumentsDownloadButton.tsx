@@ -61,7 +61,7 @@ export function PermanentDocumentsDownloadButton<TData>({ table }: { table: Tabl
       async () => {
         const zip = new JSZip();
 
-        // URLs firmadas por el servidor: sólo se firman documentos de la empresa activa.
+        // Las resuelve el servidor: sólo devuelve documentos de la empresa activa.
         const paths = presented.map((doc) => doc.document_path).filter((path): path is string => !!path);
         const signedUrls = new Map((await getDocumentDownloadUrls(paths)).map((item) => [item.path, item.url]));
 

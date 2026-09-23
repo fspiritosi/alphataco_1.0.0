@@ -8,10 +8,9 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Logger } from '@/lib/logger';
-import { s3Client, s3PresignClient } from '@/shared/lib/s3';
-import { buildStorageFileUrl } from '@/shared/lib/storage-url';
+import { s3Client } from '@/shared/lib/s3';
+import { buildStorageDownloadUrl, buildStorageFileUrl } from '@/shared/lib/storage-url';
 
 /**
  * Operaciones de storage (MinIO/S3) desde el servidor. Módulo server-only (NO es 'use server'):
@@ -28,11 +27,24 @@ export const DOCUMENT_FILES_BUCKET = 'document-files';
 /** Bucket donde se archivan los documentos vencidos al renovarlos. */
 export const DOCUMENT_FILES_EXPIRED_BUCKET = 'document-files-expired';
 
-export type StorageResult<T> = { ok: true; data: T } | { ok: false; error: string };
+/**
+ * `code` identifica los errores de los que depende la lógica del llamador, para que no
+ * tenga que reconocerlos por el texto del mensaje.
+ */
+export type StorageErrorCode = 'already-exists' | 'not-found' | 'failed';
+
+export type StorageResult<T> = { ok: true; data: T } | { ok: false; error: string; code: StorageErrorCode };
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
+
+function fail(error: string, code: StorageErrorCode = 'failed'): { ok: false; error: string; code: StorageErrorCode } {
+  return { ok: false, error, code };
+}
+
+/** El destino ya existe. Mantiene el texto histórico por si algún log lo compara. */
+const ALREADY_EXISTS = fail('The resource already exists', 'already-exists');
 
 /** `true` si el objeto existe. Cualquier error que no sea 404 se propaga. */
 async function objectExists(bucket: string, path: string): Promise<boolean> {
@@ -66,9 +78,7 @@ export async function storageUpload(
   options: { upsert?: boolean; cacheControl?: string } = {}
 ): Promise<StorageResult<{ path: string }>> {
   try {
-    if (!options.upsert && (await objectExists(bucket, path))) {
-      return { ok: false, error: 'The resource already exists' };
-    }
+    if (!options.upsert && (await objectExists(bucket, path))) return ALREADY_EXISTS;
     const contentType = file instanceof File && file.type ? file.type : ((file as Blob).type ?? undefined);
     await s3Client().send(
       new PutObjectCommand({
@@ -83,35 +93,46 @@ export async function storageUpload(
   } catch (error) {
     const message = errorMessage(error, 'No se pudo subir el archivo');
     logger.error('Error al subir archivo al storage', { data: { bucket, path, message } });
-    return { ok: false, error: message };
+    return fail(message);
   }
 }
 
-/** Borra los objetos indicados. Borrar algo inexistente no es error (igual que en S3). */
+/**
+ * Borra los objetos indicados. Borrar algo inexistente no es error (igual que en S3).
+ *
+ * Se intentan TODOS aunque alguno falle (`allSettled`): con `Promise.all`, el primer
+ * rechazo dejaba los demás borrados a medio camino y el log no decía cuáles.
+ */
 export async function storageRemove(bucket: string, paths: string[]): Promise<StorageResult<null>> {
   if (paths.length === 0) return { ok: true, data: null };
-  try {
-    // Uno por uno en vez de `DeleteObjects`: los lotes acá son de 1–3 archivos y el batch
-    // exige un checksum del cuerpo que no todas las versiones de MinIO aceptan.
-    await Promise.all(paths.map((path) => s3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: path }))));
-    return { ok: true, data: null };
-  } catch (error) {
-    const message = errorMessage(error, 'No se pudieron eliminar los archivos');
-    logger.error('Error al eliminar archivos del storage', { data: { bucket, paths, message } });
-    return { ok: false, error: message };
+  // Uno por uno en vez de `DeleteObjects`: los lotes acá son de 1–3 archivos y el batch
+  // exige un checksum del cuerpo que no todas las versiones de MinIO aceptan.
+  const results = await Promise.allSettled(
+    paths.map((path) => s3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: path })))
+  );
+  const failed = results
+    .map((result, i) => (result.status === 'rejected' ? { path: paths[i], reason: result.reason } : null))
+    .filter((item): item is { path: string; reason: unknown } => item !== null);
+
+  if (failed.length > 0) {
+    logger.error('Error al eliminar archivos del storage', {
+      data: { bucket, failed: failed.map((f) => f.path), total: paths.length },
+    });
+    return fail(errorMessage(failed[0].reason, 'No se pudieron eliminar los archivos'));
   }
+  return { ok: true, data: null };
 }
 
 export async function storageDownload(bucket: string, path: string): Promise<StorageResult<Blob>> {
   try {
     const response = await s3Client().send(new GetObjectCommand({ Bucket: bucket, Key: path }));
-    if (!response.Body) return { ok: false, error: 'Archivo no encontrado' };
+    if (!response.Body) return fail('Archivo no encontrado', 'not-found');
     const bytes = await response.Body.transformToByteArray();
     return { ok: true, data: new Blob([bytes as BlobPart], { type: response.ContentType ?? 'application/octet-stream' }) };
   } catch (error) {
     const message = errorMessage(error, 'Archivo no encontrado');
     logger.error('Error al descargar archivo del storage', { data: { bucket, path, message } });
-    return { ok: false, error: message };
+    return fail(message, 'not-found');
   }
 }
 
@@ -119,8 +140,13 @@ export async function storageDownload(bucket: string, path: string): Promise<Sto
 export type StorageEntry = { name: string };
 
 /**
- * Hijos inmediatos de `prefix` dentro del bucket (equivalente al `list()` de Supabase):
- * devuelve sólo el último segmento, sin recursión.
+ * Hijos inmediatos de `prefix` dentro del bucket: devuelve sólo el último segmento del
+ * nombre, sin recursión.
+ *
+ * DIVERGE del `list()` de Supabase: éste devuelve únicamente ARCHIVOS. Las subcarpetas
+ * (`CommonPrefixes` de S3) no se leen, así que no aparecen en el resultado. El único
+ * llamador (`movePreparteFile`) busca un archivo hermano por nombre, así que no las
+ * necesita; si algún día hace falta navegar carpetas, hay que sumar `CommonPrefixes`.
  */
 export async function storageList(bucket: string, prefix: string): Promise<StorageResult<StorageEntry[]>> {
   const normalized = prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix;
@@ -146,15 +172,20 @@ export async function storageList(bucket: string, prefix: string): Promise<Stora
   } catch (error) {
     const message = errorMessage(error, 'No se pudo listar el bucket');
     logger.error('Error al listar el storage', { data: { bucket, prefix, message } });
-    return { ok: false, error: message };
+    return fail(message);
   }
 }
 
 /**
  * Mueve un objeto dentro del mismo bucket (copiar + borrar: S3 no tiene `move`).
  *
- * `overwrite: false` (el default) falla si el destino existe, con el mismo mensaje que
- * devolvía Supabase (`already exists`), del que depende el reintento de `movePreparteFile`.
+ * `overwrite: false` (el default) falla con `code: 'already-exists'` si el destino existe;
+ * de eso depende el reintento de `movePreparteFile`.
+ *
+ * Si la COPIA salió bien pero el borrado del origen falla, devuelve `ok`: el archivo ya
+ * está en su destino, que es lo que el llamador necesita para guardar la fila. Devolver
+ * error ahí hacía que el llamador descartara un movimiento que en realidad ocurrió. El
+ * origen queda como huérfano y se loguea.
  */
 export async function storageMove(
   bucket: string,
@@ -164,9 +195,7 @@ export async function storageMove(
 ): Promise<StorageResult<{ path: string }>> {
   if (fromPath === toPath) return { ok: true, data: { path: toPath } };
   try {
-    if (!options.overwrite && (await objectExists(bucket, toPath))) {
-      return { ok: false, error: 'The resource already exists' };
-    }
+    if (!options.overwrite && (await objectExists(bucket, toPath))) return ALREADY_EXISTS;
     await s3Client().send(
       new CopyObjectCommand({
         Bucket: bucket,
@@ -175,48 +204,54 @@ export async function storageMove(
         Key: toPath,
       })
     );
-    await s3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: fromPath }));
-    return { ok: true, data: { path: toPath } };
   } catch (error) {
     const message = errorMessage(error, 'No se pudo mover el archivo');
-    logger.error('Error al mover un archivo del storage', { data: { bucket, fromPath, toPath, message } });
-    return { ok: false, error: message };
+    logger.error('Error al copiar un archivo del storage', { data: { bucket, fromPath, toPath, message } });
+    return fail(message);
   }
+
+  try {
+    await s3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: fromPath }));
+  } catch (error) {
+    logger.error('El archivo se copió pero no se pudo borrar el origen: queda huérfano', {
+      data: { bucket, fromPath, toPath, message: errorMessage(error, 'desconocido') },
+    });
+  }
+  return { ok: true, data: { path: toPath } };
 }
 
 /**
- * URLs firmadas (una por path, mismo orden) para que el navegador descargue sin credenciales
- * de storage. Son EFÍMERAS: nunca se guardan en la base, se emiten en cada request desde una
- * action que ya verificó el perímetro.
+ * URLs de descarga (una por path, mismo orden) para que el navegador baje el archivo.
  *
- * Se firman contra el endpoint público de MinIO (ver `s3PresignClient`) y se valida que el
- * objeto exista antes de firmar: S3 firma cualquier key, y el llamador espera que una URL
- * devuelta sea descargable.
+ * Apuntan a la ruta proxy con `?download=1`, igual que `storagePublicUrl` pero con
+ * `Content-Disposition: attachment`. NO son URLs firmadas contra MinIO, y esa es una
+ * decisión deliberada: firmar exigía publicar MinIO en internet bajo su propio dominio con
+ * DNS y TLS, más dos variables de entorno (`S3_PUBLIC_ENDPOINT` y el host del proxy) que
+ * hay que mantener sincronizadas a mano y cuyo desfasaje falla en silencio con
+ * `SignatureDoesNotMatch` en TODA descarga. Con la ruta sirviendo por stream, el ahorro de
+ * sacar los bytes de la app no compensa esa superficie: este es un sistema de gestión
+ * interno, no un CDN. Además el visor de documentos ya servía los mismos PDF por la ruta.
+ *
+ * Se valida que el objeto exista antes de devolver la URL: el llamador espera que una URL
+ * devuelta sea descargable (`getContractDocuments` muestra `url: ''` para las que no).
  */
-export async function storageSignedUrls(
+export async function storageDownloadUrls(
   bucket: string,
-  paths: string[],
-  expiresInSeconds = 60 * 5
+  paths: string[]
 ): Promise<StorageResult<{ path: string; url: string }[]>> {
   if (paths.length === 0) return { ok: true, data: [] };
   try {
     const existing = await Promise.all(paths.map((path) => objectExists(bucket, path)));
     const missing = paths.filter((_, i) => !existing[i]);
     if (missing.length > 0) {
-      logger.error('Algunas URLs no se pudieron firmar', { data: { bucket, failed: missing } });
-      return { ok: false, error: 'Alguno de los archivos no existe en el storage' };
+      logger.error('Se pidieron enlaces de archivos inexistentes', { data: { bucket, failed: missing } });
+      return fail('Alguno de los archivos no existe en el storage', 'not-found');
     }
-    const client = s3PresignClient();
-    const urls = await Promise.all(
-      paths.map((path) =>
-        getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: path }), { expiresIn: expiresInSeconds })
-      )
-    );
-    return { ok: true, data: paths.map((path, i) => ({ path, url: urls[i] })) };
+    return { ok: true, data: paths.map((path) => ({ path, url: buildStorageDownloadUrl(bucket, path) })) };
   } catch (error) {
     const message = errorMessage(error, 'No se pudieron generar los enlaces');
-    logger.error('Error al firmar URLs del storage', { data: { bucket, count: paths.length, message } });
-    return { ok: false, error: message };
+    logger.error('Error al generar los enlaces de descarga', { data: { bucket, count: paths.length, message } });
+    return fail(message);
   }
 }
 

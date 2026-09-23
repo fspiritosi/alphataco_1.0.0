@@ -2,13 +2,3 @@
 	reverse_proxy app:3000
 	encode gzip
 }
-
-# Endpoint S3 publico: sirve las URLs firmadas que emite la app para descargar documentos.
-# Los buckets son privados, asi que sin firma MinIO responde 403.
-#
-# Va en su propio dominio y NO se reescribe el path: la firma SigV4 cubre la ruta completa,
-# de modo que un `handle_path` que le sacara un prefijo invalidaria toda URL firmada.
-{$S3_DOMAIN} {
-	reverse_proxy minio:9000
-	encode gzip
-}

@@ -10,7 +10,7 @@ import {
   DOCUMENT_FILES_EXPIRED_BUCKET,
   storageDownload,
   storageRemove,
-  storageSignedUrls,
+  storageDownloadUrls,
   storageUpload,
 } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
@@ -50,8 +50,8 @@ function fileExtension(file: File): string {
 // ============================================================================
 
 /**
- * URLs firmadas (5 minutos) para descargar documentos desde el navegador.
- * Sólo se firman paths de documentos de la empresa activa; el resto se omite del resultado.
+ * URLs para descargar documentos desde el navegador.
+ * Sólo se resuelven paths de documentos de la empresa activa; el resto se omite del resultado.
  */
 export async function getDocumentDownloadUrls(paths: string[]): Promise<{ path: string; url: string }[]> {
   const companyId = await getActiveCompanyId();
@@ -63,7 +63,7 @@ export async function getDocumentDownloadUrls(paths: string[]): Promise<{ path: 
     });
   }
   if (allowed.length === 0) return [];
-  const result = await storageSignedUrls(DOCUMENT_FILES_BUCKET, allowed);
+  const result = await storageDownloadUrls(DOCUMENT_FILES_BUCKET, allowed);
   if (!result.ok) throw new Error(result.error);
   return result.data;
 }

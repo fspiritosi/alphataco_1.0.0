@@ -3,7 +3,7 @@
 import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage';
+import { storageRemove, storageDownloadUrls, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { errorMessage, fail, ok, type ActionResult } from '../lib/action-result';
@@ -240,11 +240,9 @@ export async function updateCustomerService(
 
 // ───────────────────────────── Documentos de contrato ─────────────────────────────
 
-const SIGNED_URL_SECONDS = 60 * 60;
-
 /**
- * Documentos de un contrato de la empresa activa con URL firmada (1 h). Si el storage no
- * puede firmar alguno, ese documento vuelve con `url: ''` en vez de romper la lista.
+ * Documentos de un contrato de la empresa activa con su URL de descarga. Si alguno no está
+ * en el storage, ese documento vuelve con `url: ''` en vez de romper la lista.
  */
 export async function getContractDocuments(serviceId: string) {
   const companyId = await getActiveCompanyId();
@@ -258,14 +256,15 @@ export async function getContractDocuments(serviceId: string) {
     });
     if (docs.length === 0) return [];
 
-    const signed = await storageSignedUrls(
+    const signed = await storageDownloadUrls(
       CONTRACT_DOCUMENTS_BUCKET,
-      docs.map((d) => d.path),
-      SIGNED_URL_SECONDS
+      docs.map((d) => d.path)
     );
     const urlByPath = new Map(signed.ok ? signed.data.map((item) => [item.path, item.url]) : []);
     if (!signed.ok) {
-      logger.warn('No se pudieron firmar los documentos del contrato', { data: { serviceId, error: signed.error } });
+      logger.warn('No se pudieron resolver los documentos del contrato', {
+        data: { serviceId, error: signed.error },
+      });
     }
 
     return docs.map((doc) => ({ ...doc, url: urlByPath.get(doc.path) ?? '' }));
@@ -357,13 +356,13 @@ export async function deleteContractDocument(documentId: string): Promise<Action
   }
 }
 
-/** URL firmada corta (1 min) para descargar un documento. */
+/** URL de descarga de un documento del contrato. */
 export async function getContractDocumentDownloadUrl(documentId: string): Promise<ActionResult<{ url: string }>> {
   const companyId = await getActiveCompanyId();
   try {
     const doc = await findOwnedDocument(documentId, companyId);
     if (!doc) return fail('Documento no encontrado');
-    const signed = await storageSignedUrls(CONTRACT_DOCUMENTS_BUCKET, [doc.path], 60);
+    const signed = await storageDownloadUrls(CONTRACT_DOCUMENTS_BUCKET, [doc.path]);
     if (!signed.ok) return fail(`Error al generar la URL de descarga: ${signed.error}`);
     return ok({ url: signed.data[0].url });
   } catch (error) {

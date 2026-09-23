@@ -119,7 +119,7 @@ function EquipmentDocumentsDownloadButton({ tableRows }: { tableRows: EquipmentP
       async () => {
         const zip = new JSZip();
 
-        // URLs firmadas por el servidor (solo documentos de la empresa activa)
+        // Las URLs las resuelve el servidor (solo documentos de la empresa activa)
         const paths = downloadableRows.map((doc) => doc.document_path).filter((p): p is string => !!p);
         const signedUrls = new Map((await getDocumentDownloadUrls(paths)).map((item) => [item.path, item.url]));
 

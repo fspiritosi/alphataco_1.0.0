@@ -95,9 +95,25 @@ bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los bucket
 
 `.env.docker` es local y está en `.gitignore` — nunca se versiona.
 
-### Auth y Storage: todavía en Supabase
+### Auth: todavía en Supabase
 
-Este compose reemplaza la **base de datos** (Postgres vía Prisma), pero **Auth y Storage siguen en Supabase** hasta que se completen las tasks P4 (Auth) y P3 (Storage → MinIO) del plan de infra. Mientras tanto `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` siguen apuntando al proyecto Supabase correspondiente (ver tabla de variables arriba).
+Este compose reemplaza la **base de datos** (Postgres vía Prisma) y el **storage** (MinIO, P3). **Auth sigue en Supabase** hasta que se complete la task P4. Mientras tanto `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` siguen apuntando al proyecto Supabase correspondiente.
+
+### Storage (MinIO): variables
+
+| Variable               | Para qué sirve                                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `S3_ACCESS_KEY`        | Usuario de MinIO. Es también el `MINIO_ROOT_USER` del servicio `minio` y lo usa `minio-init` para crear los buckets.        |
+| `S3_SECRET_KEY`        | Contraseña de MinIO (`MINIO_ROOT_PASSWORD`). Mínimo 8 caracteres.                                                            |
+| `S3_REGION`            | Región que firma el SDK. MinIO la ignora, pero el SDK la exige. Default `us-east-1`.                                         |
+| `S3_FORCE_PATH_STYLE`  | `true` (default): el bucket va en el path. MinIO no resuelve buckets por subdominio.                                         |
+| `S3_ENDPOINT`          | Dónde está MinIO. **Sólo lo usa el servidor.** El servicio `app` lo fija a `http://minio:9000`; para `npm run dev` fuera de Docker, apuntarlo al puerto publicado (`MINIO_PORT`). |
+
+**MinIO no se publica en internet ni se proxea por caddy**: el navegador nunca le habla. Todos
+los archivos —imágenes embebidas y descargas— salen por `GET /api/files/<bucket>/<key>` de la
+app, que resuelve a qué empresa (o perfil) pertenece el archivo, valida la sesión contra ese
+dueño y hace stream desde MinIO. No hay URLs firmadas, así que no hay endpoint público que
+publicar ni variables de host que mantener sincronizadas.
 
 ### Levantar la app completa
 

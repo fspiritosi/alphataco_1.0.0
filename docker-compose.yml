@@ -90,11 +90,9 @@ services:
     environment:
       DATABASE_URL: postgresql://alphataco:${POSTGRES_PASSWORD}@postgres:5432/alphataco
       DIRECT_URL: postgresql://alphataco:${POSTGRES_PASSWORD}@postgres:5432/alphataco
-      # Endpoint interno: lo usa la app para subir, bajar y listar.
+      # MinIO solo es alcanzable desde la red del compose: el navegador nunca le habla,
+      # todos los archivos salen por /api/files de la app.
       S3_ENDPOINT: http://minio:9000
-      # Endpoint que abre el NAVEGADOR (URLs firmadas). Tiene que ser el dominio publicado
-      # por caddy: la firma SigV4 incluye el host, no se puede reescribir despues de firmar.
-      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:${MINIO_PORT:-9000}}
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +130,6 @@ services:
       - "${CADDY_HTTPS_PORT:-443}:443"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
-      S3_DOMAIN: ${S3_DOMAIN:-s3.localhost}
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

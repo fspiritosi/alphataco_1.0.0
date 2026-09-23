@@ -5,7 +5,7 @@ import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { DOCUMENT_FILES_BUCKET, storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage';
+import { DOCUMENT_FILES_BUCKET, storageRemove, storageDownloadUrls, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
@@ -199,7 +199,7 @@ export async function deletePreEmployeeDocument(documentId: string) {
 }
 
 /**
- * URL firmada (5 minutos) para ver o descargar un documento del pre legajo.
+ * URL para ver o descargar un documento del pre legajo.
  * Sólo se firman paths de documentos de pre legajos de la empresa activa.
  */
 export async function getPreEmployeeDocumentUrl(documentPath: string) {
@@ -213,7 +213,7 @@ export async function getPreEmployeeDocumentUrl(documentPath: string) {
     throw new Error('Documento no encontrado');
   }
 
-  const signed = await storageSignedUrls(DOCUMENT_FILES_BUCKET, [documentPath]);
+  const signed = await storageDownloadUrls(DOCUMENT_FILES_BUCKET, [documentPath]);
   if (!signed.ok || !signed.data[0]) {
     logger.error('Error al generar la URL del documento', { data: { documentPath } });
     throw new Error('No se pudo generar el enlace del documento');

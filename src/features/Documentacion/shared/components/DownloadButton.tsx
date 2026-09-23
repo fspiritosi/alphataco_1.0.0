@@ -5,7 +5,7 @@ import { DownloadIcon } from '@radix-ui/react-icons';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
-/** Descarga el archivo de un documento vía URL firmada por el servidor. */
+/** Descarga el archivo de un documento por la URL que resuelve el servidor. */
 function DownloadButton({ path, fileName }: { path: string; fileName: string }) {
   const handleDownload = async (path: string, fileName: string) => {
     toast.promise(
