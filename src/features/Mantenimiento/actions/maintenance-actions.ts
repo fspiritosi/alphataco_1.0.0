@@ -214,8 +214,12 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   const employeeName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
 
   // 3) Asegurar el profile (hay FKs que apuntan a profile.id).
-  //    El email es UNIQUE: si ya pertenece a OTRO profile se omite acá y queda solo en el
-  //    user_metadata, para no romper el alta por un choque de unicidad.
+  //    El email es UNIQUE: si ya pertenece a OTRO profile se omite acá, para no romper el alta
+  //    por un choque de unicidad.
+  //    `role` es FK a `roles.name` y va en 'User', que es el default de la columna y el rol sin
+  //    permisos que crea el seed. Antes decía 'Usuario', un nombre que no existe en el catálogo:
+  //    contra una base nueva el upsert violaba la FK y el login del QR fallaba entero. No se
+  //    notaba porque en los datos viejos ese rol existía por arrastre.
   let emailForProfile: string | null = employeeEmail;
   if (emailForProfile) {
     const existing = await prisma.profile.findFirst({
@@ -230,8 +234,8 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   try {
     await prisma.profile.upsert({
       where: { id: user.id },
-      update: { credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'Usuario' },
-      create: { id: user.id, credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'Usuario' },
+      update: { credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'User' },
+      create: { id: user.id, credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'User' },
     });
   } catch (error) {
     deviationsLogger.error('No se pudo crear o actualizar el perfil del operario', { data: { error } });
