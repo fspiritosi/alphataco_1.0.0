@@ -1,8 +1,9 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { callFunction, callScalar } from '@/shared/lib/sql';
 import { getSessionUserId } from '@/shared/lib/session';
+import { callFunction, callScalar } from '@/shared/lib/sql';
+import { getActiveCompanyId, NoActiveCompanyError } from '@/shared/lib/tenant';
 import { cache } from 'react';
 import { z } from 'zod';
 import { findTabDef } from '../lib/permissions-map-utils';
@@ -21,22 +22,45 @@ const logger = new Logger('features/Permissions');
  *
  * Los 4 RPC de `prisma/sql/permissions.sql` (`get_user_permissions`, `check_multiple_permissions`,
  * `user_has_permission`, `get_user_accessible_modules`) se invocan siempre con
- * `p_user_id = await getSessionUserId()`: nunca se acepta un userId del cliente para estas
- * funciones de "permisos del usuario actual". Sin sesión, se devuelve "sin permisos" (no error).
+ * `p_user_id = await getSessionUserId()` y `p_company_id = await getActiveCompanyId()`: nunca se
+ * acepta un userId ni una empresa del cliente para estas funciones de "permisos del usuario
+ * actual". Sin sesión o sin empresa activa, se devuelve "sin permisos" (no error).
+ *
+ * La empresa es parte de la pregunta desde la Task 13a: `user_roles` tiene `company_id`, así que
+ * un rol vale en la empresa donde se otorgó. El mismo usuario puede ser admin en una empresa y
+ * no tener nada en otra.
  *
  * OPTIMIZACIÓN: `getUserPermissionsServer` usa cache de React para memoizar el resultado durante
  * el mismo request — varios componentes/Server Actions del mismo render sólo disparan UNA query.
  */
 
+/**
+ * Empresa activa del request, o `null` si la sesión todavía no tiene una (usuario recién
+ * creado que va a dar de alta su primera empresa, cookie descartada, etc.). Los helpers de
+ * permisos devuelven "sin permisos" en ese caso, no un error.
+ */
+async function getActiveCompanyIdOrNull(): Promise<string | null> {
+  try {
+    return await getActiveCompanyId();
+  } catch (error) {
+    if (error instanceof NoActiveCompanyError) return null;
+    throw error;
+  }
+}
+
 const getCachedUserPermissions = cache(async (): Promise<z.infer<typeof userPermissionRowSchema>[]> => {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    logger.warn('No hay sesión activa para obtener permisos');
+  const [userId, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyIdOrNull()]);
+  if (!userId || !companyId) {
+    logger.warn('No hay sesión activa o empresa activa para obtener permisos');
     return [];
   }
 
   try {
-    return await callFunction('get_user_permissions', [{ uuid: userId }], z.array(userPermissionRowSchema));
+    return await callFunction(
+      'get_user_permissions',
+      [{ uuid: userId }, { uuid: companyId }],
+      z.array(userPermissionRowSchema)
+    );
   } catch (error) {
     logger.error('Error obteniendo permisos del usuario', { data: { error } });
     return [];
@@ -77,9 +101,9 @@ export async function getUserPermissionsMapServer(): Promise<Record<string, bool
 export async function checkMultiplePermissionsServer(
   permissions: Array<{ moduleSlug: string; tabSlug: string; actionSlug: string }>
 ): Promise<Map<string, boolean>> {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    logger.warn('No hay sesión activa para verificar múltiples permisos');
+  const [userId, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyIdOrNull()]);
+  if (!userId || !companyId) {
+    logger.warn('No hay sesión activa o empresa activa para verificar múltiples permisos');
     return new Map();
   }
 
@@ -88,7 +112,7 @@ export async function checkMultiplePermissionsServer(
   try {
     const rows = await callFunction(
       'check_multiple_permissions',
-      [{ uuid: userId }, { json: payload }],
+      [{ uuid: userId }, { uuid: companyId }, { json: payload }],
       z.array(checkMultiplePermissionsRowSchema)
     );
 
@@ -107,14 +131,18 @@ export async function checkMultiplePermissionsServer(
  * Verifica si el usuario de sesión tiene un permiso específico.
  */
 export async function checkPermissionServer(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<boolean> {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    logger.warn('No hay sesión activa para verificar permiso');
+  const [userId, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyIdOrNull()]);
+  if (!userId || !companyId) {
+    logger.warn('No hay sesión activa o empresa activa para verificar permiso');
     return false;
   }
 
   try {
-    return await callScalar('user_has_permission', [{ uuid: userId }, moduleSlug, tabSlug, actionSlug], z.boolean());
+    return await callScalar(
+      'user_has_permission',
+      [{ uuid: userId }, { uuid: companyId }, moduleSlug, tabSlug, actionSlug],
+      z.boolean()
+    );
   } catch (error) {
     logger.error('Error verificando permiso del usuario', { data: { error, moduleSlug, tabSlug, actionSlug } });
     return false;
@@ -145,14 +173,18 @@ export async function canViewServer(moduleSlug: string, tabSlug: string): Promis
  * Obtiene los módulos accesibles (con permiso 'view' en al menos un tab) para el usuario de sesión.
  */
 export async function getUserAccessibleModulesServer() {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    logger.warn('No hay sesión activa para obtener módulos accesibles');
+  const [userId, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyIdOrNull()]);
+  if (!userId || !companyId) {
+    logger.warn('No hay sesión activa o empresa activa para obtener módulos accesibles');
     return [];
   }
 
   try {
-    const rows = await callFunction('get_user_accessible_modules', [{ uuid: userId }], z.array(accessibleModuleRowSchema));
+    const rows = await callFunction(
+      'get_user_accessible_modules',
+      [{ uuid: userId }, { uuid: companyId }],
+      z.array(accessibleModuleRowSchema)
+    );
     // module_slug/module_icon son nullable en BD (modules.slug/icon); los consumidores
     // (sidebar) siempre esperaron string — mismo comportamiento que el RPC de Supabase.
     return rows.map((row) => ({

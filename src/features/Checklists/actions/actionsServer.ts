@@ -348,9 +348,10 @@ async function getSupervisorsForCompany(company_id: string) {
   try {
     const ADMIN_OPERACIONES_ROLE_ID = 20;
 
-    // Paso 1: Obtener los user_ids con rol Administrador Operaciones
+    // Paso 1: Obtener los user_ids con rol Administrador Operaciones EN esta empresa
+    // (el rol es por empresa desde la Task 13a: `user_roles.company_id`).
     const adminUserRoles = await prisma.user_roles.findMany({
-      where: { role_id: ADMIN_OPERACIONES_ROLE_ID },
+      where: { role_id: ADMIN_OPERACIONES_ROLE_ID, company_id },
       select: { user_id: true },
     });
 

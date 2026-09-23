@@ -2,8 +2,9 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
+import { getCachedSession } from '@/shared/lib/session';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { z } from 'zod';
 
 /**
@@ -194,11 +195,14 @@ export async function getUserEquipmentTypeVisibility(userId: string) {
 
   if (!z.string().uuid().safeParse(userId).success) throw new EquipmentTypeVisibilityError('Usuario no válido');
 
+  // Los roles son por empresa: la pantalla muestra los que el usuario tiene en la activa.
+  const companyId = await getActiveCompanyId();
+
   const [allowed, data] = await Promise.all([
     checkPermissionServer('empresa', 'detalle-usuario', 'view'),
     Promise.all([
       prisma.user_roles.findMany({
-        where: { user_id: userId, roles: { is_active: true } },
+        where: { user_id: userId, company_id: companyId, roles: { is_active: true } },
         orderBy: { assigned_at: 'asc' },
         select: {
           roles: {

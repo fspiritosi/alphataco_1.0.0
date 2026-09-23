@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { cache } from 'react';
 
 const logger = new Logger('Mantenimiento/equipmentTypeVisibility');
@@ -29,11 +30,14 @@ const loadHiddenEquipmentTypeIds = cache(async (): Promise<string[]> => {
   const profile = await getServerAuthProfile();
   if (!profile) return [];
 
+  // Los roles son por empresa: sólo cuentan los de la empresa activa.
+  const companyId = await getActiveCompanyId();
+
   try {
     // user_roles / user_equipment_type_visibility usan el id de auth (credentialId)
     const [userRoles, userOverrides] = await Promise.all([
       prisma.user_roles.findMany({
-        where: { user_id: profile.credentialId, roles: { is_active: true } },
+        where: { user_id: profile.credentialId, company_id: companyId, roles: { is_active: true } },
         select: { roles: { select: { role_hidden_equipment_types: { select: { type_id: true } } } } },
       }),
       prisma.user_equipment_type_visibility.findMany({

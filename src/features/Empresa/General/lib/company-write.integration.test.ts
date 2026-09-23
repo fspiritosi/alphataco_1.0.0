@@ -6,10 +6,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
  *   DATABASE_URL=postgresql://alphataco:devpass@127.0.0.1:55432/alphataco npx vitest run src/features/Empresa/General/lib/company-write.integration.test.ts
  *
  * Los dos primeros casos ejecutan la server action REAL `createCompany` (se mockea únicamente la
- * sesión: `getSessionUserId` y el `revalidatePath` de Next) y fijan el grant de rol acotado:
- * `user_roles` no tiene `company_id`, así que todo rol otorgado ahí es GLOBAL. Se otorga `admin`
- * SÓLO en el bootstrap (primera empresa del usuario, sin pertenencias ni roles previos); si el
- * usuario ya pertenecía a otra empresa, crear una nueva NO le suma ningún rol.
+ * sesión: `getSessionUserId` y el `revalidatePath` de Next) y fijan el grant de rol: desde la
+ * Task 13a `user_roles` tiene `company_id`, así que el owner queda `admin` DE LA EMPRESA QUE
+ * CREÓ, siempre — y crear una segunda empresa no toca el rol que tenga en la primera.
  *
  * Los otros casos cubren lo que `check-types` no ve de las demás escrituras de Task 6: los
  * `BigInt` de `workshops.city/province`, el `Decimal` nullable de lat/long, la guarda
@@ -22,35 +21,18 @@ const RUN = Boolean(process.env.DATABASE_URL);
 const sessionCredentialId = randomUUID();
 const sessionProfileId = randomUUID();
 
-/** Usuario que devuelve la sesión mockeada; los casos de carrera lo cambian por uno propio. */
-let activeCredentialId = sessionCredentialId;
-
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/shared/lib/session', () => ({
-  getSessionUserId: vi.fn(async () => activeCredentialId),
-  getSessionUser: vi.fn(async () => ({ id: activeCredentialId, email: 'test@test.com' })),
+  getSessionUserId: vi.fn(async () => sessionCredentialId),
+  getSessionUser: vi.fn(async () => ({ id: sessionCredentialId, email: 'test@test.com' })),
   getSessionCompanyClaim: vi.fn(async () => null),
   getCachedSession: vi.fn(async () => null),
 }));
 
 class Rollback extends Error {}
 
-/** Empresas y perfiles creados por los tests (la server action commitea): se borran en el afterAll. */
+/** Empresas creadas por los tests (la server action commitea): se borran en el afterAll. */
 const createdCompanyIds: string[] = [];
-const createdProfiles: Array<{ profileId: string; credentialId: string }> = [];
-
-/** Crea un profile de prueba y lo deja como usuario de la sesión mockeada. */
-async function useFreshSessionUser(): Promise<{ profileId: string; credentialId: string }> {
-  const { prisma } = await import('@/shared/lib/prisma');
-  const profileId = randomUUID();
-  const credentialId = randomUUID();
-  await prisma.profile.create({
-    data: { id: profileId, credential_id: credentialId, email: `test-${profileId}@test.com`, fullname: 'Test carrera' },
-  });
-  createdProfiles.push({ profileId, credentialId });
-  activeCredentialId = credentialId;
-  return { profileId, credentialId };
-}
 
 /** FormData del formulario de alta de empresa (los campos que valida `parseCompanyForm`). */
 function buildCompanyForm({ cuit, city }: { cuit: string; city: { id: bigint; province_id: bigint } }): FormData {
@@ -88,20 +70,18 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     if (createdCompanyIds.length > 0) {
       await prisma.company.deleteMany({ where: { id: { in: createdCompanyIds } } });
     }
-    const credentialIds = [sessionCredentialId, ...createdProfiles.map((p) => p.credentialId)];
-    const profileIds = [sessionProfileId, ...createdProfiles.map((p) => p.profileId)];
-    await prisma.user_roles.deleteMany({ where: { user_id: { in: credentialIds } } });
-    await prisma.profile.deleteMany({ where: { id: { in: profileIds } } });
+    await prisma.user_roles.deleteMany({ where: { user_id: sessionCredentialId } });
+    await prisma.profile.delete({ where: { id: sessionProfileId } }).catch(() => undefined);
   });
 
-  it('createCompany (primera empresa): crea empresa + pertenencia y otorga el rol admin de bootstrap', async () => {
+  it('createCompany: crea empresa + pertenencia y deja al owner como admin DE ESA empresa', async () => {
     const { prisma } = await import('@/shared/lib/prisma');
     const { createCompany } = await import('../actions/company.server');
 
     const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
     if (!city) throw new Error('La base del compose necesita al menos una ciudad');
 
-    // Estado de partida del bootstrap: sin pertenencias ni roles.
+    // Estado de partida: sin pertenencias ni roles.
     expect(await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } })).toBe(0);
     expect(await prisma.user_roles.count({ where: { user_id: sessionCredentialId } })).toBe(0);
 
@@ -120,7 +100,7 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     });
     const roles = await prisma.user_roles.findMany({
       where: { user_id: sessionCredentialId },
-      select: { roles: { select: { slug: true } } },
+      select: { company_id: true, roles: { select: { slug: true } } },
     });
 
     expect(company).toMatchObject({
@@ -133,20 +113,23 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     expect(Number(company?.city)).toBe(Number(city.id));
     expect(Number(company?.province_id)).toBe(Number(city.province_id));
     expect(membership).not.toBeNull();
-    // Bootstrap: exactamente un rol admin, porque era su primera empresa.
-    expect(roles).toEqual([{ roles: { slug: 'admin' } }]);
+    // Exactamente un rol admin, y acotado a la empresa recién creada.
+    expect(roles).toEqual([{ company_id: result.data.id, roles: { slug: 'admin' } }]);
   });
 
-  it('createCompany (segunda empresa): con pertenencia previa NO suma ningún rol', async () => {
+  it('createCompany (segunda empresa): el rol nuevo es de la empresa nueva y el de la anterior queda intacto', async () => {
     const { prisma } = await import('@/shared/lib/prisma');
     const { createCompany } = await import('../actions/company.server');
 
     const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
     if (!city) throw new Error('La base del compose necesita al menos una ciudad');
 
-    // Este caso corre después del anterior: el usuario ya tiene una empresa (y su rol de bootstrap).
+    // Este caso corre después del anterior: el usuario ya tiene una empresa (y su rol en ella).
     const membershipsBefore = await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } });
-    const rolesBefore = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    const rolesBefore = await prisma.user_roles.findMany({
+      where: { user_id: sessionCredentialId },
+      select: { company_id: true },
+    });
     expect(membershipsBefore).toBeGreaterThan(0);
 
     const result = await createCompany(buildCompanyForm({ cuit: '30712345604', city }));
@@ -154,81 +137,26 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     if (!result.ok) return;
     createdCompanyIds.push(result.data.id);
 
-    const rolesAfter = await prisma.user_roles.count({ where: { user_id: sessionCredentialId } });
+    const rolesAfter = await prisma.user_roles.findMany({
+      where: { user_id: sessionCredentialId },
+      select: { company_id: true, roles: { select: { slug: true } } },
+    });
     const membershipsAfter = await prisma.share_company_users.count({ where: { profile_id: sessionProfileId } });
 
-    // La pertenencia sí se crea; el rol NO (ése era el vector de escalación).
     expect(membershipsAfter).toBe(membershipsBefore + 1);
-    expect(rolesAfter).toBe(rolesBefore);
+    // Ahora hay un rol POR empresa: el viejo sigue donde estaba y el nuevo es de la nueva.
+    expect(rolesAfter).toHaveLength(rolesBefore.length + 1);
+    expect(rolesAfter.filter((r) => r.company_id === result.data.id)).toEqual([
+      { company_id: result.data.id, roles: { slug: 'admin' } },
+    ]);
+    for (const previous of rolesBefore) {
+      expect(rolesAfter.some((r) => r.company_id === previous.company_id)).toBe(true);
+    }
   });
 
-  it('createCompany tolera la carrera del rol: con el rol ya creado, la empresa se crea igual y el rol no se duplica', async () => {
-    const { prisma } = await import('@/shared/lib/prisma');
-    const { createCompany } = await import('../actions/company.server');
-
-    const city = await prisma.cities.findFirst({ select: { id: true, province_id: true } });
-    const adminRole = await prisma.roles.findFirst({ where: { slug: 'admin', is_system: true }, select: { id: true } });
-    if (!city || !adminRole) throw new Error('La base del compose necesita una ciudad y el rol admin (npm run db:seed)');
-
-    // Usuario nuevo con el rol YA otorgado: simula la carrera ganada por la otra transacción.
-    const { profileId, credentialId } = await useFreshSessionUser();
-    await prisma.user_roles.create({ data: { user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId } });
-
-    const result = await createCompany(buildCompanyForm({ cuit: '30712345612', city }));
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    createdCompanyIds.push(result.data.id);
-
-    const membership = await prisma.share_company_users.findFirst({
-      where: { company_id: result.data.id, profile_id: profileId },
-      select: { id: true },
-    });
-    expect(membership).not.toBeNull();
-    // El alta no se revierte y el rol sigue siendo uno solo.
-    expect(await prisma.user_roles.count({ where: { user_id: credentialId } })).toBe(1);
-  });
-
-  it('el grant de bootstrap no aborta la tx si el rol ya existe (createMany skipDuplicates vs create)', async () => {
-    const { prisma } = await import('@/shared/lib/prisma');
-
-    const adminRole = await prisma.roles.findFirst({ where: { slug: 'admin', is_system: true }, select: { id: true } });
-    if (!adminRole) throw new Error('La base del compose necesita el rol admin (npm run db:seed)');
-
-    // Reproduce el estado exacto de la carrera: la otra transacción ya insertó la fila y la nuestra,
-    // que leyó 0 roles, intenta el grant igual. Con `create` esto lanza P2002 y aborta la tx entera
-    // (la empresa no se crearía); con `createMany` + `skipDuplicates` no lanza y la tx continúa.
-    //
-    // Ojo: este caso prueba el MECANISMO, no la action. La ventana de la carrera (contar 0 roles y
-    // que otra tx commitee antes del insert) no es alcanzable llamando a `createCompany` desde
-    // afuera — dos llamadas en paralelo se serializan y la segunda ya ve el rol en su `count`, así
-    // que ningún test end-to-end puede fallar ante esta regresión.
-    const { credentialId } = await useFreshSessionUser();
-    await prisma.user_roles.create({ data: { user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId } });
-
-    let survivedWithSkipDuplicates = false;
-    await prisma
-      .$transaction(async (tx) => {
-        await tx.user_roles.createMany({
-          data: [{ user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId }],
-          skipDuplicates: true,
-        });
-        // La transacción sigue viva después del intento duplicado.
-        survivedWithSkipDuplicates = (await tx.user_roles.count({ where: { user_id: credentialId } })) === 1;
-        throw new Rollback();
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof Rollback)) throw error;
-      });
-
-    await expect(
-      prisma.$transaction(async (tx) => {
-        await tx.user_roles.create({ data: { user_id: credentialId, role_id: adminRole.id, assigned_by: credentialId } });
-      })
-    ).rejects.toThrow();
-
-    expect(survivedWithSkipDuplicates).toBe(true);
-    expect(await prisma.user_roles.count({ where: { user_id: credentialId } })).toBe(1);
-  });
+  // Los dos casos de "carrera del rol" que vivían acá se borraron en la Task 13a: la unique
+  // pasó a ser (user_id, role_id, company_id) y cada alta inserta el rol para la empresa que
+  // acaba de crear, así que dos altas simultáneas ya no pueden chocar entre sí.
 
   it('talleres y sectores: bigint de city/province, Decimal nullable y duplicado case-insensitive', async () => {
     const { prisma } = await import('@/shared/lib/prisma');

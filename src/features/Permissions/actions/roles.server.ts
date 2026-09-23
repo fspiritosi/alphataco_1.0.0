@@ -75,6 +75,10 @@ export type UsersForRoleData = Awaited<ReturnType<typeof getUsersForRoleAssignme
 export async function getAllRolesWithCounts() {
   logger.debug('Obteniendo todos los roles con conteos');
 
+  // El catálogo de roles es global, pero la asignación es por empresa: el conteo cuenta
+  // los usuarios que tienen el rol EN la empresa activa.
+  const companyId = await getActiveCompanyId();
+
   try {
     const roles = await prisma.roles.findMany({
       where: { is_active: true },
@@ -89,7 +93,7 @@ export async function getAllRolesWithCounts() {
         slug: true,
         intern: true,
         _count: {
-          select: { user_roles: true },
+          select: { user_roles: { where: { company_id: companyId } } },
         },
       },
     });
@@ -258,9 +262,9 @@ export async function getUsersForRoleAssignment(roleId: number) {
       },
     });
 
-    // 2. Obtener credential_ids que tienen este rol
+    // 2. Obtener credential_ids que tienen este rol EN esta empresa
     const userRoles = await prisma.user_roles.findMany({
-      where: { role_id: BigInt(roleId) },
+      where: { role_id: BigInt(roleId), company_id: companyId },
       select: { user_id: true },
     });
     const usersWithRole = new Set(userRoles.map((ur) => ur.user_id));
@@ -439,20 +443,24 @@ export async function deleteRoleServer(roleId: number) {
 }
 
 /**
- * Asigna un rol a un usuario.
+ * Asigna un rol a un usuario EN la empresa activa.
+ *
+ * El rol se otorga en la empresa desde la que se está gestionando: el mismo usuario puede
+ * ser admin en una empresa y no tener nada en otra.
  */
 export async function assignRoleToUserServer(userId: string, roleId: number) {
   await assertCanManageUserAssignments();
 
   logger.debug('Asignando rol a usuario', { data: { userId, roleId } });
 
-  const assignedBy = await getSessionUserId();
+  const [assignedBy, companyId] = await Promise.all([getSessionUserId(), getActiveCompanyId()]);
 
   try {
     await prisma.user_roles.create({
       data: {
         user_id: userId,
         role_id: BigInt(roleId),
+        company_id: companyId,
         assigned_by: assignedBy,
       },
     });
@@ -469,18 +477,21 @@ export async function assignRoleToUserServer(userId: string, roleId: number) {
 }
 
 /**
- * Remueve un rol de un usuario.
+ * Remueve un rol de un usuario EN la empresa activa: lo que tenga en otras empresas no se toca.
  */
 export async function removeRoleFromUserServer(userId: string, roleId: number) {
   await assertCanManageUserAssignments();
 
   logger.debug('Removiendo rol de usuario', { data: { userId, roleId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
     await prisma.user_roles.deleteMany({
       where: {
         user_id: userId,
         role_id: BigInt(roleId),
+        company_id: companyId,
       },
     });
 
@@ -507,8 +518,14 @@ export async function getUserPermissionsForUserServer(userId: string) {
 
   logger.debug('Obteniendo permisos del usuario', { data: { userId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
-    return await callFunction('get_user_permissions', [{ uuid: userId }], z.array(userPermissionRowSchema));
+    return await callFunction(
+      'get_user_permissions',
+      [{ uuid: userId }, { uuid: companyId }],
+      z.array(userPermissionRowSchema)
+    );
   } catch (error) {
     logger.error('Error al obtener permisos del usuario', { data: { error, userId } });
     throw error;
@@ -519,16 +536,19 @@ export type UserPermissionsData = Awaited<ReturnType<typeof getUserPermissionsFo
 export type UserPermissionEntry = UserPermissionsData[number];
 
 /**
- * Obtiene los roles asignados a un usuario.
+ * Obtiene los roles asignados a un usuario EN la empresa activa (los de otras empresas no
+ * son asunto de esta pantalla).
  */
 export async function getUserRolesServer(userId: string) {
   await assertCanReadUserData(userId);
 
   logger.debug('Obteniendo roles del usuario', { data: { userId } });
 
+  const companyId = await getActiveCompanyId();
+
   try {
     const userRoles = await prisma.user_roles.findMany({
-      where: { user_id: userId },
+      where: { user_id: userId, company_id: companyId },
       include: {
         roles: {
           select: {
@@ -693,10 +713,14 @@ export async function cleanAllUserPermissionsAndRoles(userId: string) {
 
   logger.debug('Limpiando todos los permisos y roles del usuario', { data: { userId } });
 
+  // Los roles se borran sólo en la empresa activa. `user_permissions` todavía NO tiene
+  // `company_id`, así que ese borrado sigue siendo global (deuda pendiente de esa tabla).
+  const companyId = await getActiveCompanyId();
+
   try {
     await prisma.$transaction([
       prisma.user_permissions.deleteMany({ where: { user_id: userId } }),
-      prisma.user_roles.deleteMany({ where: { user_id: userId } }),
+      prisma.user_roles.deleteMany({ where: { user_id: userId, company_id: companyId } }),
     ]);
 
     return { success: true };

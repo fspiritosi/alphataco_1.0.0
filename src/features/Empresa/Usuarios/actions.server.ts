@@ -98,13 +98,16 @@ export type CompanyUserRow = {
 
 export type CompanyUserListItem = CompanyUserRow;
 
-// ── Helper: carga user_roles para una lista de profile_ids ───────────────────
-async function loadUserRoles(profileIds: string[]): Promise<Map<string, UserRoleWithRole[]>> {
+// ── Helper: carga los user_roles de esta empresa para una lista de profile_ids ──
+// Los roles son por empresa (`user_roles.company_id`): la columna "Rol" de esta tabla
+// muestra lo que el usuario es ACÁ, no lo que sea en otra empresa a la que pertenezca.
+async function loadUserRoles(profileIds: string[], companyId: string): Promise<Map<string, UserRoleWithRole[]>> {
   if (profileIds.length === 0) return new Map();
 
   const userRoles = await prisma.user_roles.findMany({
     where: {
       user_id: { in: profileIds },
+      company_id: companyId,
     },
     select: {
       id: true,
@@ -230,7 +233,7 @@ async function resolveRoleFilter(roleValues: string[], companyId: string): Promi
     const profileIds = allUsersInCompany.map((u) => u.profile_id).filter(Boolean) as string[];
 
     const usersWithRoles = await prisma.user_roles.findMany({
-      where: { user_id: { in: profileIds } },
+      where: { user_id: { in: profileIds }, company_id: companyId },
       select: { user_id: true },
     });
     const profilesWithRoles = new Set(usersWithRoles.map((ur) => ur.user_id));
@@ -240,7 +243,7 @@ async function resolveRoleFilter(roleValues: string[], companyId: string): Promi
   if (!includeNull && realRoleIds.length > 0) {
     // Solo roles específicos
     const usersWithRole = await prisma.user_roles.findMany({
-      where: { role_id: { in: realRoleIds } },
+      where: { role_id: { in: realRoleIds }, company_id: companyId },
       select: { user_id: true },
     });
     return usersWithRole.map((ur) => ur.user_id);
@@ -254,13 +257,13 @@ async function resolveRoleFilter(roleValues: string[], companyId: string): Promi
   const profileIds = allUsersInCompany.map((u) => u.profile_id).filter(Boolean) as string[];
 
   const usersWithAnyRole = await prisma.user_roles.findMany({
-    where: { user_id: { in: profileIds } },
+    where: { user_id: { in: profileIds }, company_id: companyId },
     select: { user_id: true },
   });
   const profilesWithRoles = new Set(usersWithAnyRole.map((ur) => ur.user_id));
 
   const usersWithSpecificRole = await prisma.user_roles.findMany({
-    where: { role_id: { in: realRoleIds } },
+    where: { role_id: { in: realRoleIds }, company_id: companyId },
     select: { user_id: true },
   });
   const profilesWithSpecificRole = new Set(usersWithSpecificRole.map((ur) => ur.user_id));
@@ -305,7 +308,7 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
     if (!ownerProfile) return null;
 
     // Cargar sus user_roles también
-    const rolesMap = await loadUserRoles([company.owner_id]);
+    const rolesMap = await loadUserRoles([company.owner_id], companyId);
     const ownerRoles = rolesMap.get(company.owner_id) ?? [];
 
     return {
@@ -338,10 +341,11 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
 // ── Helper: normaliza filas de share_company_users con user_roles ─────────────
 async function normalizeRows(
   rows: Awaited<ReturnType<typeof prisma.share_company_users.findMany<{ select: typeof SHARE_USER_SELECT }>>>,
+  companyId: string,
   isOwner = false
 ): Promise<CompanyUserRow[]> {
   const profileIds = rows.map((r) => r.profile_id).filter(Boolean) as string[];
-  const rolesMap = await loadUserRoles(profileIds);
+  const rolesMap = await loadUserRoles(profileIds, companyId);
 
   return rows.map((row) => ({
     id: row.id,
@@ -405,7 +409,7 @@ async function getCompanyUsersPaginatedCached(companyId: string, searchParams: D
       getCompanyOwner(companyId),
     ]);
 
-    const normalizedRows = await normalizeRows(rawRows);
+    const normalizedRows = await normalizeRows(rawRows, companyId);
 
     // Agregar owner si no está ya en la lista
     const regularProfileIds = new Set(normalizedRows.map((r) => r.profile_id));
@@ -459,7 +463,7 @@ async function getAllCompanyUsersForExportCached(companyId: string, searchParams
       getCompanyOwner(companyId),
     ]);
 
-    const normalizedRows = await normalizeRows(rawRows);
+    const normalizedRows = await normalizeRows(rawRows, companyId);
 
     const regularProfileIds = new Set(normalizedRows.map((r) => r.profile_id));
     const ownerAlreadyInTable = ownerRow && regularProfileIds.has(ownerRow.profile_id);
@@ -609,7 +613,7 @@ async function getCompanyUserSingleFacetCached(
 
         // Contar user_roles
         const userRolesRows = await prisma.user_roles.findMany({
-          where: { user_id: { in: profileIds } },
+          where: { user_id: { in: profileIds }, company_id: companyId },
           select: { user_id: true, role_id: true },
         });
 

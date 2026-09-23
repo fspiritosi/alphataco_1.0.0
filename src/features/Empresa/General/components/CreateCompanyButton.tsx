@@ -47,7 +47,10 @@ export default function CreateCompanyButton() {
           // El listado de compañías ya no escucha realtime: se invalida su query.
           queryClient.setQueryData(COMPANIES_QUERY_KEY, { allCompanies, sharedCompanies });
           const created = allCompanies.find((company) => company.id === result.data.id);
-          if (created) useLoggedUserStore.getState().setActualCompany(created);
+          // Se espera antes de navegar: la empresa recién creada tiene que quedar como
+          // activa en el servidor, o el dashboard se renderiza sin empresa (y sin permisos,
+          // que ahora son por empresa).
+          if (created) await useLoggedUserStore.getState().setActualCompany(created);
           router.push('/dashboard');
         },
         {

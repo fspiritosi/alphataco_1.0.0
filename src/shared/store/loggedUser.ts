@@ -110,7 +110,7 @@ interface State {
   showMultiplesCompaniesAlert: boolean;
   allCompanies: StoreCompany[];
   actualCompany: StoreCompany | null;
-  setActualCompany: (company: StoreCompany) => void;
+  setActualCompany: (company: StoreCompany) => Promise<void>;
   employees: EmployeeToShow[];
   active_and_inactive_employees: EmployeeToShow[];
   setEmployees: (employees: EmployeeToShow[]) => void;
@@ -249,14 +249,16 @@ export const useLoggedUserStore = create<State>((set, get) => {
     set({ DrawerVehicles: await getVehicleDocumentsByVehicleId(id) });
   };
 
-  const setActualCompany = (company: StoreCompany) => {
+  const setActualCompany = async (company: StoreCompany) => {
     set({ actualCompany: company });
     if (!company.id) return;
 
     // La empresa activa (JWT + cookie `actualComp`, que es httpOnly) la fija el servidor
     // tras validar la pertenencia; el cliente sólo guarda el rótulo que muestra la UI.
     cookies.set('actualCompName', company.company_name);
-    void switchActiveCompany(company.id);
+    // Se espera: hasta que no esté fijada, el servidor no tiene empresa activa y no puede
+    // resolver los permisos del usuario (los roles son por empresa).
+    await switchActiveCompany(company.id);
     void useCountriesStore.getState().documentTypes(company.id);
     void setActivesEmployees();
     void fetchVehicles();
@@ -274,7 +276,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     if (savedCompany) {
       const saved = sharedCompanies.find((sc) => sc.company_id.id === JSON.parse(savedCompany))?.company_id;
       if (saved) {
-        setActualCompany(saved);
+        await setActualCompany(saved);
         return;
       }
     }
@@ -282,17 +284,17 @@ export const useLoggedUserStore = create<State>((set, get) => {
     const byDefault = allCompanies.filter((company) => company.by_defect);
     if (allCompanies.length > 1) {
       if (byDefault.length > 0) {
-        setActualCompany(byDefault[0]);
+        await setActualCompany(byDefault[0]);
       } else {
         set({ showMultiplesCompaniesAlert: true });
       }
     }
     if (allCompanies.length === 1) {
       set({ showMultiplesCompaniesAlert: false });
-      setActualCompany(allCompanies[0]);
+      await setActualCompany(allCompanies[0]);
     }
     if (allCompanies.length === 0 && sharedCompanies.length > 0) {
-      setActualCompany(sharedCompanies[0].company_id);
+      await setActualCompany(sharedCompanies[0].company_id);
     }
     if (allCompanies.length === 0 && sharedCompanies.length === 0) {
       if (typeof window !== 'undefined' && window.location.pathname !== '/dashboard/company/new') return;

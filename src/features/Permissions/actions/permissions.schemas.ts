@@ -5,7 +5,7 @@ import { z } from 'zod';
  * `callFunction`/`callScalar` (`src/shared/lib/sql.ts`). Una fila por función.
  */
 
-/** Fila de `get_user_permissions(p_user_id uuid)`. */
+/** Fila de `get_user_permissions(p_user_id uuid, p_company_id uuid)`. */
 export const userPermissionRowSchema = z.object({
   module_id: z.string(),
   module_slug: z.string(),
@@ -26,7 +26,7 @@ export const userPermissionRowSchema = z.object({
 });
 export type UserPermissionRow = z.infer<typeof userPermissionRowSchema>;
 
-/** Fila de `check_multiple_permissions(p_user_id uuid, p_permissions jsonb)`. */
+/** Fila de `check_multiple_permissions(p_user_id uuid, p_company_id uuid, p_permissions jsonb)`. */
 export const checkMultiplePermissionsRowSchema = z.object({
   module_slug: z.string(),
   tab_slug: z.string(),
@@ -35,7 +35,7 @@ export const checkMultiplePermissionsRowSchema = z.object({
 });
 export type CheckMultiplePermissionsRow = z.infer<typeof checkMultiplePermissionsRowSchema>;
 
-/** Fila de `get_user_accessible_modules(p_user_id uuid)`. */
+/** Fila de `get_user_accessible_modules(p_user_id uuid, p_company_id uuid)`. */
 export const accessibleModuleRowSchema = z.object({
   module_id: z.string(),
   module_slug: z.string().nullable(),

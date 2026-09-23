@@ -1,16 +1,37 @@
--- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
--- Dominio: permissions — 6 objeto(s)
+-- `user_roles.company_id`: el rol se otorga EN una empresa.
+--
+-- Hasta acá `user_roles` sólo tenía (user_id, role_id) y `get_user_permissions` unía sólo por
+-- `user_id`: un rol asignado en una empresa valía en TODAS las del usuario. Por eso el alta de
+-- empresa y el alta de usuario invitado tenían que acotar el grant a un bootstrap ("sólo si el
+-- usuario no tiene ningún rol todavía"), con la consecuencia de producto de que a un invitado
+-- que ya pertenecía a otra empresa no se le podía dar el rol elegido.
+--
+-- Base vacía por decisión de producto: no hay backfill.
+
+-- DropIndex
+DROP INDEX "user_roles_user_id_role_id_key";
+
+-- AlterTable
+ALTER TABLE "user_roles" ADD COLUMN     "company_id" UUID NOT NULL;
+
+-- CreateIndex
+CREATE INDEX "idx_user_roles_company_id" ON "user_roles"("company_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_roles_user_id_role_id_company_id_key" ON "user_roles"("user_id", "role_id", "company_id");
+
+-- AddForeignKey
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ============================================================================
--- FUNCTIONS (4)
+-- Funciones de permisos: pasan a recibir la empresa (cambio doble con
+-- prisma/sql/permissions.sql). Cambian de firma, así que hay que dropearlas primero.
 -- ============================================================================
 
--- `assign_owner_role_on_company_creation()` y su trigger `assign_owner_role_trigger` se
--- eliminaron en la Task 13a de P2: insertaba en `user_roles(user_id)` el `company.owner_id`,
--- que es un `profile.id`, cuando esa columna es FK a `profile.credential_id` — y además
--- salía por el `RAISE WARNING` porque no existe ningún rol `slug = 'owner'` en el seed, así
--- que en la práctica no hacía nada. El alta del owner (pertenencia en `share_company_users`
--- y rol inicial de la empresa) la resuelve `createCompany` en la aplicación.
+DROP FUNCTION IF EXISTS public.check_multiple_permissions(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.get_user_accessible_modules(uuid);
+DROP FUNCTION IF EXISTS public.user_has_permission(uuid, text, text, text);
+DROP FUNCTION IF EXISTS public.get_user_permissions(uuid);
 
 -- function check_multiple_permissions (origen: supabase/migrations/20260202113926_fixing-maintenance-flow.sql)
 -- Task 13a: suma `p_company_id` (los roles pasaron a ser por empresa).
@@ -183,10 +204,3 @@ BEGIN
     RETURN v_has_permission;
 END;
 $function$;
-
--- ============================================================================
--- TRIGGERS (0)
--- ============================================================================
-
--- El único trigger del dominio era `assign_owner_role_trigger ON company`, eliminado en la
--- Task 13a de P2 junto con su función (ver la nota en la sección FUNCTIONS).

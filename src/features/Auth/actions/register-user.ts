@@ -34,29 +34,29 @@ const logger = new Logger('features/Auth/register-user');
 export type RegisterUserResult = { success: true; message: string } | { success: false; error: string };
 
 /**
- * `user_roles` NO tiene `company_id` y `get_user_permissions` une sólo por `user_id`: todo rol
- * asignado acá es GLOBAL, vale en todas las empresas del usuario. Por eso el rol se otorga sólo
- * cuando el usuario todavía no tiene ninguno — el caso real del alta/invitación, donde no hay
- * permisos que pisar. A un usuario que YA tiene rol (porque pertenece a otra empresa) no se le
- * agrega nada: ése sería el vector de escalación (invitar a un usuario de otra empresa y subirlo
- * a admin allá). Task 13 agrega `user_roles.company_id` y esta excepción desaparece.
+ * Otorga el rol elegido EN esta empresa.
+ *
+ * Hasta la Task 13a `user_roles` no tenía `company_id`, así que el rol era global y esto
+ * estaba acotado a un bootstrap ("sólo si el usuario todavía no tiene ningún rol") para que
+ * invitar a un usuario de otra empresa no lo subiera a admin allá. El efecto colateral era
+ * que a un invitado que ya pertenecía a otra empresa NO se le daba el rol elegido: entraba
+ * con los permisos que ya traía. Con `company_id` el rol no sale de esta empresa y el
+ * invitado recibe el que se le eligió, sin excepciones.
+ *
+ * `skipDuplicates`: dos altas simultáneas del mismo usuario chocarían con la unique
+ * (user_id, role_id, company_id) y abortarían la transacción entera.
  */
-async function assignRoleIfUnprivileged(
+async function assignRoleInCompany(
   tx: Prisma.TransactionClient,
   credentialId: string,
   roleId: bigint,
+  companyId: string,
   assignedBy: string
-): Promise<boolean> {
-  const existingRoles = await tx.user_roles.count({ where: { user_id: credentialId } });
-  if (existingRoles > 0) return false;
-
-  // `skipDuplicates`: dos altas simultáneas del mismo usuario leerían 0 roles y la segunda
-  // chocaría con la unique (user_id, role_id), abortando la transacción entera.
+): Promise<void> {
   await tx.user_roles.createMany({
-    data: [{ user_id: credentialId, role_id: roleId, assigned_by: assignedBy }],
+    data: [{ user_id: credentialId, role_id: roleId, company_id: companyId, assigned_by: assignedBy }],
     skipDuplicates: true,
   });
-  return true;
 }
 
 export async function registerUserWithRole(values: RegisterUserInput): Promise<RegisterUserResult> {
@@ -127,12 +127,7 @@ async function addExistingProfileToCompany({
   const credentialId = profile.credential_id;
   await withActor(actor, async (tx) => {
     await tx.share_company_users.create({ data: { company_id: companyId, profile_id: profile.id } });
-    const granted = await assignRoleIfUnprivileged(tx, credentialId, roleId, actor);
-    if (!granted) {
-      logger.warn('El usuario ya tenía un rol asignado: se lo agregó a la empresa sin tocar sus permisos', {
-        data: { profileId: profile.id, companyId },
-      });
-    }
+    await assignRoleInCompany(tx, credentialId, roleId, companyId, actor);
   });
 
   logger.info('Usuario existente agregado a la empresa', { data: { profileId: profile.id, companyId } });
@@ -188,7 +183,7 @@ async function createUserForCompany({
         },
       });
       await tx.share_company_users.create({ data: { company_id: companyId, profile_id: credentialId } });
-      await assignRoleIfUnprivileged(tx, credentialId, role.id, actor);
+      await assignRoleInCompany(tx, credentialId, role.id, companyId, actor);
     });
   } catch (error) {
     // La credencial ya existe en Auth pero no hay perfil: se elimina para no dejar un usuario

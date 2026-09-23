@@ -1,10 +1,11 @@
 -- Smoke test del sistema de permisos: los 3 roles de acceso total tienen la
 -- misma cantidad de role_permissions (ver CLAUDE.md "Permisos: 3 roles de
 -- acceso completo"), existe el rol `User` (default de profile.role), y
--- user_has_permission responde false/true segun exista (y tenga el rol) el usuario.
+-- user_has_permission responde false/true segun exista (y tenga el rol EN esa
+-- empresa) el usuario.
 BEGIN;
 
-SELECT plan(6);
+SELECT plan(7);
 
 -- (0) el seed crea el rol `User`: es el DEFAULT de profile.role (FK a roles.name);
 -- sin el, cualquier INSERT en profile que no fije `role` falla por FK.
@@ -35,12 +36,16 @@ SELECT ok(
 
 -- (ii) usuario inexistente -> false
 SELECT is(
-  user_has_permission('00000000-0000-0000-0000-0000000000ff'::uuid, 'dashboard', 'principal', 'view'),
+  user_has_permission(
+    '00000000-0000-0000-0000-0000000000ff'::uuid,
+    '22222222-2222-2222-2222-222222222222'::uuid,
+    'dashboard', 'principal', 'view'
+  ),
   false,
   'user_has_permission: usuario inexistente no tiene permiso'
 );
 
--- (iii) usuario con rol admin -> true
+-- (iii) usuario con rol admin EN esa empresa -> true
 -- profile.id es NOT NULL sin default; user_roles.user_id referencia
 -- profile.credential_id. Se usa el mismo uuid para id y credential_id.
 -- `role` no se fija: toma el DEFAULT 'User', que el seed garantiza (ver (0)).
@@ -51,15 +56,47 @@ VALUES (
   'pgtap-permissions-test@alphataco.local'
 );
 
-INSERT INTO user_roles (user_id, role_id)
-SELECT '11111111-1111-1111-1111-111111111111'::uuid, r.id
+-- El rol se otorga EN una empresa (user_roles.company_id): hace falta una.
+INSERT INTO company (id, company_name, description, contact_email, contact_phone, address, city, country, industry, company_cuit)
+SELECT
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  'pgTAP permisos', 'empresa de prueba', 'pgtap@alphataco.local', '+542991234567',
+  'Calle 123', c.id, 'argentina', 'Petroleo', '30999999997'
+FROM cities c
+LIMIT 1;
+
+INSERT INTO user_roles (user_id, role_id, company_id)
+SELECT '11111111-1111-1111-1111-111111111111'::uuid, r.id, '22222222-2222-2222-2222-222222222222'::uuid
 FROM roles r
 WHERE r.slug = 'admin';
 
 SELECT is(
-  user_has_permission('11111111-1111-1111-1111-111111111111'::uuid, 'dashboard', 'principal', 'view'),
+  user_has_permission(
+    '11111111-1111-1111-1111-111111111111'::uuid,
+    '22222222-2222-2222-2222-222222222222'::uuid,
+    'dashboard', 'principal', 'view'
+  ),
   true,
-  'user_has_permission: usuario con rol admin tiene permiso dashboard/principal/view'
+  'user_has_permission: usuario con rol admin tiene permiso dashboard/principal/view en su empresa'
+);
+
+-- (iv) el mismo rol NO vale en otra empresa
+INSERT INTO company (id, company_name, description, contact_email, contact_phone, address, city, country, industry, company_cuit)
+SELECT
+  '33333333-3333-3333-3333-333333333333'::uuid,
+  'pgTAP permisos otra', 'otra empresa de prueba', 'pgtap2@alphataco.local', '+542991234567',
+  'Calle 456', c.id, 'argentina', 'Petroleo', '30999999996'
+FROM cities c
+LIMIT 1;
+
+SELECT is(
+  user_has_permission(
+    '11111111-1111-1111-1111-111111111111'::uuid,
+    '33333333-3333-3333-3333-333333333333'::uuid,
+    'dashboard', 'principal', 'view'
+  ),
+  false,
+  'user_has_permission: el rol no vale en otra empresa'
 );
 
 SELECT * FROM finish();
