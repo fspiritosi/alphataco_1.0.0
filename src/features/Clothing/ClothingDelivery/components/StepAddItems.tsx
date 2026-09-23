@@ -9,7 +9,7 @@ import {
   getBrandsForItem,
   getItemsForDelivery,
   getSizesForItemBrand,
-} from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+} from '@/features/Clothing/ClothingDelivery/actions/queries.server';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, Trash2 } from 'lucide-react';
@@ -42,7 +42,7 @@ function ItemRow({ index, item, companyId, onUpdate, onRemove, canRemove }: Item
 
   const { data: items = [], isLoading: loadingItems } = useQuery({
     queryKey: ['clothing-items-for-delivery', companyId],
-    queryFn: () => getItemsForDelivery(companyId),
+    queryFn: () => getItemsForDelivery(),
     staleTime: 60_000,
   });
 

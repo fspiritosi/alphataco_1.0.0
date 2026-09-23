@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { clothingLogin } from '@/features/Clothing/actions/actionsServer';
+import { clothingLogin } from '@/features/Clothing/actions/session.server';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Loader2, Shirt } from 'lucide-react';

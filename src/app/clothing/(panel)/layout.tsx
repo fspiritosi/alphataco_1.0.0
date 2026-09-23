@@ -1,6 +1,6 @@
 import { ClothingLayoutProvider } from '@/app/clothing/clothing-layout-provider';
 import { Skeleton } from '@/components/ui/skeleton';
-import { clothingLogout, getClothingOperatorContext } from '@/features/Clothing/actions/actionsServer';
+import { clothingLogout, getClothingOperatorContext } from '@/features/Clothing/actions/session.server';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ClothingPanelHeader } from './ClothingPanelHeader';

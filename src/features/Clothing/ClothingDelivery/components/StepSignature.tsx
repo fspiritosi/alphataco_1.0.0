@@ -2,7 +2,7 @@
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { uploadSignatureImage } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+import { uploadSignatureImage } from '@/features/Clothing/ClothingDelivery/actions/signature.server';
 import { SignaturePad } from '@/features/Clothing/ClothingDelivery/components/SignaturePad';
 import { Logger } from '@/lib/logger';
 import { AlertTriangle, CheckCircle2, Loader2, Pen } from 'lucide-react';
@@ -11,13 +11,12 @@ import { useCallback, useState } from 'react';
 const logger = new Logger('Clothing/StepSignature');
 
 interface StepSignatureProps {
-  companyId: string;
   signatureUrl: string | null;
   onSave: (url: string) => void;
   onClear: () => void;
 }
 
-export function StepSignature({ companyId, signatureUrl, onSave, onClear }: StepSignatureProps) {
+export function StepSignature({ signatureUrl, onSave, onClear }: StepSignatureProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -28,7 +27,7 @@ export function StepSignature({ companyId, signatureUrl, onSave, onClear }: Step
       logger.debug('Uploading signature');
 
       try {
-        const result = await uploadSignatureImage(dataUrl, companyId);
+        const result = await uploadSignatureImage(dataUrl);
         logger.info('Signature uploaded', { data: { url: result.url } });
         onSave(result.url);
       } catch (err) {
@@ -38,7 +37,7 @@ export function StepSignature({ companyId, signatureUrl, onSave, onClear }: Step
         setIsUploading(false);
       }
     },
-    [companyId, onSave]
+    [onSave]
   );
 
   const handleClear = useCallback(() => {

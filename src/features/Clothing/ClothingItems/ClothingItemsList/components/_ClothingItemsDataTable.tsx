@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { toggleClothingItemActive } from '@/features/Clothing/actions/actionsServer';
+import { toggleClothingItemActive } from '@/features/Clothing/actions/catalog.server';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import {

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ClothingOperatorContext } from '@/features/Clothing/actions/actionsServer';
+import type { ClothingOperatorContext } from '@/features/Clothing/actions/session.server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { toggleClothingSizeActive } from '@/features/Clothing/actions/actionsServer';
+import { toggleClothingSizeActive } from '@/features/Clothing/actions/catalog.server';
 import {
   DataTable,
   type DataTableFacetedFilterConfig,

@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { createClothingBrand, updateClothingBrand } from '@/features/Clothing/actions/actionsServer';
+import { createClothingBrand, updateClothingBrand } from '@/features/Clothing/actions/catalog.server';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';

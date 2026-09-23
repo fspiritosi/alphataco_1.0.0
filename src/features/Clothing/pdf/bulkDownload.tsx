@@ -2,7 +2,7 @@ import { Logger } from '@/lib/logger';
 import { pdf } from '@react-pdf/renderer';
 import JSZip from 'jszip';
 import moment from 'moment';
-import { getDeliveriesForPdfBulk, type DeliveryPdfData } from '../actions/actionsServer';
+import { getDeliveriesForPdfBulk, type DeliveryPdfData } from '../actions/pdf.server';
 import { DeliveryReceiptLayout } from './DeliveryReceiptLayout';
 
 const logger = new Logger('Clothing/bulkDownload');

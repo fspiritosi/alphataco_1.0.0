@@ -8,7 +8,7 @@ import { Download, Eye, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { getDeliveryForPdf, type DeliveryPdfData } from '../actions/actionsServer';
+import { getDeliveryForPdf, type DeliveryPdfData } from '../actions/pdf.server';
 
 // ============================================================================
 // LOGGER

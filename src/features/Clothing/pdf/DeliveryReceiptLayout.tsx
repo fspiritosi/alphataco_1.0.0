@@ -1,230 +1,16 @@
 'use client';
 
-import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { Document, Image, Page, Text, View } from '@react-pdf/renderer';
 import moment from 'moment';
-import type { DeliveryPdfData } from '../actions/actionsServer';
+import type { DeliveryPdfData } from '../actions/pdf.server';
+import { buildReceiptRows, formatCuit } from '../lib/receipt-format';
+import { styles } from './receipt-styles';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const TOTAL_ROWS = 15;
 const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/** Format CUIT with dashes: 30709694363 → 30-70969436-3 */
-function formatCuit(cuit: string): string {
-  const clean = cuit.replace(/\D/g, '');
-  if (clean.length === 11) {
-    return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
-  }
-  return cuit;
-}
-
-// ============================================================================
-// STYLES
-// ============================================================================
-
-const border = '0.75pt solid #000';
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 20,
-    fontSize: 8,
-    fontFamily: 'Helvetica',
-  },
-  // ── Header row 1: Logo | empty | Meta ─────────────────────────────────────
-  headerRow1: {
-    flexDirection: 'row',
-    borderTop: border,
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    minHeight: 42,
-  },
-  logoCell: {
-    width: '18%',
-    borderRight: border,
-    padding: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    width: 75,
-    height: 38,
-    objectFit: 'contain',
-  },
-  headerMiddle: {
-    width: '62%',
-    borderRight: border,
-  },
-  metaCell: {
-    width: '20%',
-    padding: 3,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-  },
-  metaText: {
-    fontSize: 8,
-    textAlign: 'right',
-    marginBottom: 1,
-  },
-  // ── Header row 2: Full-width title ────────────────────────────────────────
-  titleRow: {
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  titleText: {
-    fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-  },
-  // ── Info rows (company, worker, etc.) ─────────────────────────────────────
-  infoRow: {
-    flexDirection: 'row',
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    minHeight: 16,
-  },
-  infoCell: {
-    padding: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoCellBorder: {
-    borderRight: border,
-  },
-  labelBold: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 8,
-  },
-  labelNormal: {
-    fontSize: 8,
-  },
-  labelBoldValue: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 8,
-  },
-  // ── Table ─────────────────────────────────────────────────────────────────
-  tableHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: '#fce4b5',
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    minHeight: 28,
-  },
-  tableDataRow: {
-    flexDirection: 'row',
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    minHeight: 16,
-  },
-  // Column widths — MUST total 100%
-  // 3.5 + 13 + 16 + 5 + 7 + 9 + 3 + 3 + 4 + 10 + 18 + 4 + 4.5 = 100
-  colNum: { width: '3.5%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colProducto: { width: '13%', borderRight: border, padding: 2, justifyContent: 'center', alignItems: 'center' },
-  colTipoModelo: { width: '16%', borderRight: border, padding: 2, justifyContent: 'center', alignItems: 'center' },
-  colTalle: { width: '5%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colCodigo: { width: '7%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colMarca: { width: '9%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colCertSi: { width: '3%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colCertNo: { width: '3%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colCant: { width: '4%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colFecha: { width: '10%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colFirma: { width: '18%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colRepSi: { width: '4%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  colRepNo: { width: '4.5%', borderRight: border, padding: 1, justifyContent: 'center', alignItems: 'center' },
-  // Cert + Rep grouped headers (must match sub-column sums)
-  colCertHeader: {
-    width: '6%', // 3% + 3%
-    borderRight: border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  colRepHeader: {
-    width: '8.5%', // 4% + 4.5%
-    borderRight: border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  subHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    borderTop: border,
-    marginTop: 1,
-    paddingTop: 1,
-  },
-  // ── Text styles ───────────────────────────────────────────────────────────
-  cellText: {
-    fontSize: 7,
-    textAlign: 'center',
-  },
-  cellTextBold: {
-    fontSize: 7,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-  },
-  headerCellText: {
-    fontSize: 7,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-  },
-  // ── Footer / Legal ────────────────────────────────────────────────────────
-  legalSection: {
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    padding: 4,
-  },
-  legalTitle: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 7,
-  },
-  legalText: {
-    fontSize: 6.5,
-    fontStyle: 'italic',
-    lineHeight: 1.4,
-    marginBottom: 1,
-  },
-  observationRow: {
-    flexDirection: 'row',
-    borderLeft: border,
-    borderRight: border,
-    borderBottom: border,
-    padding: 3,
-  },
-  observationText: {
-    fontSize: 6,
-    lineHeight: 1.3,
-    textDecoration: 'underline',
-  },
-  legalFooterText: {
-    fontSize: 6,
-    lineHeight: 1.3,
-  },
-  quedoNotificado: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 8,
-    backgroundColor: '#ffff00',
-    padding: 2,
-  },
-  signatureImage: {
-    width: 55,
-    height: 22,
-    objectFit: 'contain',
-  },
-});
 
 // ============================================================================
 // PROPS
@@ -245,20 +31,8 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
   const isReplacement = data.delivery_type === 'REPLACEMENT';
   const deliveredAtFormatted = moment(data.delivered_at).format('DD/MM/YYYY');
 
-  // Build 15 rows (empty rows for unfilled space)
-  const rows = Array.from({ length: TOTAL_ROWS }, (_, i) => {
-    const item = items[i];
-    if (!item) return null;
-    return {
-      producto: item.clothing_items?.name ?? '',
-      tipoModelo: item.clothing_items?.description ?? '',
-      talle: item.clothing_sizes?.name ?? '',
-      codigo: item.clothing_items?.code ?? '',
-      marca: item.clothing_brands?.name ?? '',
-      cantidad: item.quantity,
-      hasCertificate: item.has_certificate ?? false,
-    };
-  });
+  // Filas del formulario: los artículos entregados + las vacías que completan la hoja.
+  const rows = buildReceiptRows(items);
 
   const cuitFormatted = comp?.company_cuit ? formatCuit(comp.company_cuit) : '';
 

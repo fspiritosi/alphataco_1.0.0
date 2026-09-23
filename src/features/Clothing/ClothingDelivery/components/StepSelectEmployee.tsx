@@ -1,12 +1,13 @@
 'use client';
 
+import { useClothingContext } from '@/app/clothing/clothing-layout-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   getEmployeesForDelivery,
   type EmployeeForDelivery,
-} from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+} from '@/features/Clothing/ClothingDelivery/actions/queries.server';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { Briefcase, CalendarDays, CreditCard, ScrollText, Search, User, X } from 'lucide-react';
@@ -16,12 +17,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const logger = new Logger('Clothing/StepSelectEmployee');
 
 interface StepSelectEmployeeProps {
-  companyId: string;
   value: EmployeeForDelivery | null;
   onChange: (employee: EmployeeForDelivery | null) => void;
 }
 
-export function StepSelectEmployee({ companyId, value, onChange }: StepSelectEmployeeProps) {
+export function StepSelectEmployee({ value, onChange }: StepSelectEmployeeProps) {
+  // Sólo discrimina la caché de React Query: la empresa real la resuelve el servidor.
+  const { companyId } = useClothingContext();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -46,7 +48,7 @@ export function StepSelectEmployee({ companyId, value, onChange }: StepSelectEmp
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['clothing-employees', companyId, debouncedSearch],
-    queryFn: () => getEmployeesForDelivery(companyId, debouncedSearch),
+    queryFn: () => getEmployeesForDelivery(debouncedSearch),
     staleTime: 30_000,
     enabled: isOpen,
   });

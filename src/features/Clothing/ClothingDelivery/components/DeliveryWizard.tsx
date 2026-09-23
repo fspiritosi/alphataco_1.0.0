@@ -3,8 +3,8 @@
 import { useClothingContext } from '@/app/clothing/clothing-layout-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
-import { getEmployeeForDeliveryById } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/queries.server';
+import { getEmployeeForDeliveryById } from '@/features/Clothing/ClothingDelivery/actions/queries.server';
 import { StepAddItems, type WizardItem } from '@/features/Clothing/ClothingDelivery/components/StepAddItems';
 import { StepConfirm } from '@/features/Clothing/ClothingDelivery/components/StepConfirm';
 import { StepDeliveryType } from '@/features/Clothing/ClothingDelivery/components/StepDeliveryType';
@@ -163,7 +163,7 @@ interface DeliveryWizardProps {
 }
 
 export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizardProps) {
-  const { employeeId, companyId } = useClothingContext();
+  const { companyId } = useClothingContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<WizardData>(INITIAL_DATA);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -172,14 +172,14 @@ export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizard
   useEffect(() => {
     if (!initialEmployeeId || data.employee) return;
 
-    getEmployeeForDeliveryById(companyId, initialEmployeeId).then((employee) => {
+    getEmployeeForDeliveryById(initialEmployeeId).then((employee) => {
       if (employee) {
         setData((prev) => ({ ...prev, employee }));
         setCurrentStep(1);
         logger.info('Employee pre-loaded from URL', { data: { employeeId: initialEmployeeId } });
       }
     });
-  }, [initialEmployeeId, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialEmployeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isLastStep = currentStep === STEPS.length - 1;
 
@@ -239,7 +239,7 @@ export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizard
   const currentStepContent = useMemo(() => {
     switch (currentStep) {
       case 0:
-        return <StepSelectEmployee companyId={companyId} value={data.employee} onChange={updateEmployee} />;
+        return <StepSelectEmployee value={data.employee} onChange={updateEmployee} />;
       case 1:
         return <StepDeliveryType value={data.deliveryType} onChange={updateDeliveryType} />;
       case 2:
@@ -247,7 +247,6 @@ export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizard
       case 3:
         return (
           <StepSignature
-            companyId={companyId}
             signatureUrl={data.signatureUrl}
             onSave={updateSignatureUrl}
             onClear={clearSignature}
@@ -263,8 +262,6 @@ export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizard
             notes={data.notes}
             onNotesChange={updateNotes}
             onReset={handleReset}
-            employeeId={employeeId}
-            companyId={companyId}
           />
         ) : null;
       default:
@@ -274,7 +271,6 @@ export function DeliveryWizard({ initialEmployeeId, onComplete }: DeliveryWizard
     currentStep,
     companyId,
     data,
-    employeeId,
     updateEmployee,
     updateDeliveryType,
     updateItems,

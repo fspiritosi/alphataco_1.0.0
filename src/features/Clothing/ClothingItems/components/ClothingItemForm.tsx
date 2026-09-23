@@ -21,7 +21,7 @@ import {
   getItemBrandSizes,
   setItemBrandSizes,
   updateClothingItem,
-} from '@/features/Clothing/actions/actionsServer';
+} from '@/features/Clothing/actions/catalog.server';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

@@ -4,11 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
 import {
   createClothingDelivery,
   type CreateDeliveryInput,
-} from '@/features/Clothing/ClothingDelivery/actions/actionsServer';
+} from '@/features/Clothing/ClothingDelivery/actions/deliveries.server';
+import type { EmployeeForDelivery } from '@/features/Clothing/ClothingDelivery/actions/queries.server';
 import type { WizardItem } from '@/features/Clothing/ClothingDelivery/components/StepAddItems';
 import { clothingDeliveryTypeBadges, clothingDeliveryTypeLabels } from '@/features/Clothing/utils/mappers';
 import type { clothing_delivery_type } from '@/generated/prisma/enums';
@@ -29,8 +29,6 @@ interface StepConfirmProps {
   notes: string;
   onNotesChange: (notes: string) => void;
   onReset: () => void;
-  employeeId: string;
-  companyId: string;
 }
 
 export function StepConfirm({
@@ -41,8 +39,6 @@ export function StepConfirm({
   notes,
   onNotesChange,
   onReset,
-  employeeId,
-  companyId,
 }: StepConfirmProps) {
   const { mutate, isPending } = useMutation({
     mutationFn: (data: CreateDeliveryInput) => createClothingDelivery(data),
@@ -68,12 +64,10 @@ export function StepConfirm({
 
     mutate({
       employeeId: employee.id,
-      deliveredById: employeeId,
       deliveryType,
       signatureUrl: signatureUrl ?? undefined,
       notes: notes.trim() || undefined,
       deliveredAt: new Date().toISOString(),
-      companyId,
       items: items.map((item) => ({
         clothingItemId: item.clothingItemId,
         clothingBrandId: item.clothingBrandId,
@@ -82,7 +76,7 @@ export function StepConfirm({
         hasCertificate: item.hasCertificate,
       })),
     });
-  }, [employee.id, deliveryType, items, signatureUrl, notes, employeeId, companyId, mutate]);
+  }, [employee.id, deliveryType, items, signatureUrl, notes, mutate]);
 
   return (
     <div className="space-y-5">

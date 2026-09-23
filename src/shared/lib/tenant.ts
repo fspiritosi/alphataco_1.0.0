@@ -67,11 +67,11 @@ export const assertCompanyAccess = cache(async (companyId: string): Promise<void
  * anónimo del QR de mantenimiento, donde la empresa sale del legajo/equipo y todavía no
  * está en el JWT. P4 la elimina junto con la sesión de Supabase.
  */
-export async function setActiveCompanyCookie(companyId: string): Promise<void> {
+export async function setActiveCompanyCookie(companyId: string, maxAgeSeconds = 60 * 60): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set('actualComp', companyId, {
     path: '/',
-    maxAge: 60 * 60, // 1 hora
+    maxAge: maxAgeSeconds, // 1 hora por defecto
     httpOnly: false, // el cliente también la lee
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
