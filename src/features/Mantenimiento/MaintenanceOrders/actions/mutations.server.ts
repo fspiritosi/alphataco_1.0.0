@@ -95,7 +95,7 @@ export async function completeExternalWorkOrder(workOrderId: string) {
   }
 
   try {
-    await withMaintenanceActor(profileId, async (tx) => {
+    const maintenanceOrderId = await withMaintenanceActor(profileId, async (tx) => {
       // Completar la OT
       await tx.work_orders.update({
         where: { id: workOrderId },
@@ -122,19 +122,9 @@ export async function completeExternalWorkOrder(workOrderId: string) {
         },
       });
 
-      const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id;
+      const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id ?? null;
 
       if (maintenanceOrderId) {
-        // El historial del pedido filtra por maintenance_order_id, asi que sin este
-        // registro el cierre de una OT de taller EXTERNO no aparecia en el historial
-        // (solo quedaba anotado contra la OT).
-        await logWorkOrderCompletedOnMaintenanceOrder(tx, {
-          workOrderId,
-          finalStatus: 'completed',
-          performedBy: profileId,
-          maintenanceOrderId,
-        });
-
         // Verificar si todas las OTs de la OM están cerradas
         const allItems = await tx.maintenance_order_items.findMany({
           where: { maintenance_order_id: maintenanceOrderId },
@@ -170,7 +160,22 @@ export async function completeExternalWorkOrder(workOrderId: string) {
           });
         }
       }
+
+      return maintenanceOrderId;
     });
+
+    // El historial del pedido filtra por maintenance_order_id, asi que sin este registro el
+    // cierre de una OT de taller EXTERNO no aparecia en el historial (solo quedaba anotado
+    // contra la OT). Va FUERA de la transaccion: es un registro secundario que nunca debe
+    // poder abortar el cierre -- ver el comentario de la funcion.
+    if (maintenanceOrderId) {
+      await logWorkOrderCompletedOnMaintenanceOrder({
+        workOrderId,
+        finalStatus: 'completed',
+        performedBy: profileId,
+        maintenanceOrderId,
+      });
+    }
 
     logger.info('OT externa completada', { data: { workOrderId } });
     await invalidateCacheTags(INVALIDATION_MAP.completeExternalWorkOrder);

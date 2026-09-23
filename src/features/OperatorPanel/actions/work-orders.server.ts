@@ -6,7 +6,7 @@ import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/actio
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
-import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
+import { assertOrderTransition, OrderTransitionError } from '@/features/Mantenimiento/shared/order-transition';
 import { getWorkOrderBlockingStatus } from '@/features/OperatorPanel/actions/blocking';
 import { assertWorkOrderInScope } from '@/features/OperatorPanel/actions/perimeter';
 import { assertOperatorAction, resolveWorkOrderCloseStatus } from '@/features/OperatorPanel/lib/work-order-status';
@@ -103,7 +103,11 @@ async function getOrderTransitionBlock(
     await assertOrderTransition(tx, maintenanceOrderId, 'pending_workshop_validation');
     return null;
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    // Solo se absorbe el rechazo de NEGOCIO. Un error de SQL o de conexion se relanza: la
+    // transaccion ya quedo abortada por Postgres y tragarlo dejaria el COMMIT reventando
+    // sin causa visible, que es el mismo patron que se corrigio en el registro secundario.
+    if (error instanceof OrderTransitionError) return error.message;
+    throw error;
   }
 }
 
@@ -320,7 +324,7 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   // entera, así que el catch se tragaba el error, la callback volvía normal y el COMMIT
   // reventaba igual — el operario perdía el cierre y encima sin el log que lo explicaba.
   // Este registro es secundario: perderlo es cosmético, perder el cierre le traba el turno.
-  await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+  await logWorkOrderCompletedOnMaintenanceOrder({
     workOrderId,
     finalStatus: closed.closeStatus,
     performedBy: operator.profileId,

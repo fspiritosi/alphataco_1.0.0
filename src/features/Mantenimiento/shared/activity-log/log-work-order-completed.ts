@@ -1,12 +1,9 @@
-import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { ACTIVITY_LOG } from './action-types';
 import { logActivity } from './log-activity';
 
 const logger = new Logger('Mantenimiento/activity-log');
-
-type PrismaLike = Prisma.TransactionClient | typeof prisma;
 
 interface LogWorkOrderCompletedInput {
   workOrderId: string;
@@ -27,13 +24,20 @@ interface LogWorkOrderCompletedInput {
  * sin el, el usuario no ve en el historial en que momento se finalizo la OT.
  *
  * Nunca lanza: un fallo al registrar la actividad no debe abortar el cierre de la OT.
+ *
+ * Por eso NO recibe un cliente Prisma y usa siempre el suelto: invocarla con el `tx` de una
+ * transaccion abierta rompia ese contrato sin que se notara. En Postgres un INSERT fallido
+ * aborta la transaccion entera, asi que el catch de abajo se tragaba el error, la callback
+ * volvia normal y el COMMIT reventaba igual con "current transaction is aborted" -- se
+ * perdia el cierre de la OT Y el log que lo explicaba. Este registro es SECUNDARIO (el
+ * evento ya queda anotado contra la OT); perderlo es cosmetico, perder el cierre no.
+ * El caller la invoca DESPUES de cerrar su transaccion.
  */
 export async function logWorkOrderCompletedOnMaintenanceOrder(
-  client: PrismaLike,
   input: LogWorkOrderCompletedInput
 ): Promise<void> {
   try {
-    const workOrder = await client.work_orders.findUnique({
+    const workOrder = await prisma.work_orders.findUnique({
       where: { id: input.workOrderId },
       select: {
         order_number: true,
@@ -45,7 +49,7 @@ export async function logWorkOrderCompletedOnMaintenanceOrder(
 
     if (!maintenanceOrderId) {
       // El pedido se alcanza por work_order_items -> maintenance_order_items
-      const woItem = await client.work_order_items.findFirst({
+      const woItem = await prisma.work_order_items.findFirst({
         where: { work_order_id: input.workOrderId },
         select: {
           maintenance_order_items: { select: { maintenance_order_id: true } },
@@ -61,7 +65,7 @@ export async function logWorkOrderCompletedOnMaintenanceOrder(
       return;
     }
 
-    await logActivity(client, {
+    await logActivity(prisma, {
       maintenanceOrderId,
       actionType: ACTIVITY_LOG.WORK_ORDER_COMPLETED,
       performedBy: input.performedBy,
