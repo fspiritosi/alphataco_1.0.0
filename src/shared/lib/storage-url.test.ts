@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStorageFileUrl, isSafeStorageKey, parseStorageFileUrl } from './storage-url';
+import { buildStorageDownloadUrl, buildStorageFileUrl, isSafeStorageKey, parseStorageFileUrl } from './storage-url';
 
 const COMPANY = '11111111-2222-3333-4444-555555555555';
 
@@ -19,6 +19,29 @@ describe('buildStorageFileUrl', () => {
   });
 });
 
+describe('buildStorageDownloadUrl', () => {
+  it('es la URL de archivo más `?download=1`', () => {
+    expect(buildStorageDownloadUrl('logo', `${COMPANY}/logo/logo.png`)).toBe(
+      `${buildStorageFileUrl('logo', `${COMPANY}/logo/logo.png`)}?download=1`
+    );
+  });
+
+  it('la URL de VER no lleva el parámetro: ver y descargar son cosas distintas', () => {
+    // Servir siempre con `Content-Disposition: attachment` convertía el botón "Ver" en una
+    // descarga y dejaba en blanco el `<embed type="application/pdf">`.
+    expect(buildStorageFileUrl('contract-documents', 'a/b.pdf')).not.toContain('download');
+    expect(buildStorageDownloadUrl('contract-documents', 'a/b.pdf')).toContain('download=1');
+  });
+
+  it('las dos formas se parsean a la misma key', () => {
+    const key = `${COMPANY}/informe (v1) 50%.pdf`;
+    expect(parseStorageFileUrl(buildStorageDownloadUrl('preparte-img', key))).toEqual({
+      bucket: 'preparte-img',
+      path: key,
+    });
+  });
+});
+
 describe('parseStorageFileUrl', () => {
   it('vuelve al bucket y al path decodificados', () => {
     expect(parseStorageFileUrl('/api/files/document-files/empresa%20(30-1)/foto%201.jpg')).toEqual({
@@ -27,7 +50,7 @@ describe('parseStorageFileUrl', () => {
     });
   });
 
-  it('ignora el querystring que rompe la caché del navegador', () => {
+  it('ignora el `?v=` que versiona la imagen del preparte y el logo', () => {
     expect(parseStorageFileUrl(`/api/files/logo/${COMPANY}/logo/logo.png?v=1758585600000`)).toEqual({
       bucket: 'logo',
       path: `${COMPANY}/logo/logo.png`,

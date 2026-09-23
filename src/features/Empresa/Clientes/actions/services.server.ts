@@ -3,7 +3,7 @@
 import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { storageRemove, storageDownloadUrls, storageUpload } from '@/shared/lib/storage';
+import { storageDownloadUrls, storageFileUrls, storageRemove, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { errorMessage, fail, ok, type ActionResult } from '../lib/action-result';
@@ -241,8 +241,13 @@ export async function updateCustomerService(
 // ───────────────────────────── Documentos de contrato ─────────────────────────────
 
 /**
- * Documentos de un contrato de la empresa activa con su URL de descarga. Si alguno no está
- * en el storage, ese documento vuelve con `url: ''` en vez de romper la lista.
+ * Documentos de un contrato de la empresa activa con su URL de VISTA. Si alguno no está en
+ * el storage, ese documento vuelve con `url: ''` en vez de romper la lista.
+ *
+ * Es la URL que consume el panel "Vista previa" (`<embed type="application/pdf">` y `<img>`),
+ * así que va sin `?download=1`: con `Content-Disposition: attachment` el visor queda en
+ * blanco y Chromium dispara una descarga. Para bajar el archivo está
+ * `getContractDocumentDownloadUrl()`.
  */
 export async function getContractDocuments(serviceId: string) {
   const companyId = await getActiveCompanyId();
@@ -256,14 +261,14 @@ export async function getContractDocuments(serviceId: string) {
     });
     if (docs.length === 0) return [];
 
-    const signed = await storageDownloadUrls(
+    const links = await storageFileUrls(
       CONTRACT_DOCUMENTS_BUCKET,
       docs.map((d) => d.path)
     );
-    const urlByPath = new Map(signed.ok ? signed.data.map((item) => [item.path, item.url]) : []);
-    if (!signed.ok) {
+    const urlByPath = new Map(links.ok ? links.data.map((item) => [item.path, item.url]) : []);
+    if (!links.ok) {
       logger.warn('No se pudieron resolver los documentos del contrato', {
-        data: { serviceId, error: signed.error },
+        data: { serviceId, error: links.error },
       });
     }
 

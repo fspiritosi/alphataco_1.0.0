@@ -184,8 +184,13 @@ export async function storageList(bucket: string, prefix: string): Promise<Stora
  *
  * Si la COPIA salió bien pero el borrado del origen falla, devuelve `ok`: el archivo ya
  * está en su destino, que es lo que el llamador necesita para guardar la fila. Devolver
- * error ahí hacía que el llamador descartara un movimiento que en realidad ocurrió. El
- * origen queda como huérfano y se loguea.
+ * error ahí hacía que el llamador descartara un movimiento que en realidad ocurrió.
+ *
+ * CONTRAPARTIDA CONOCIDA: en ese caso el origen queda como basura silenciosa. Se loguea,
+ * pero NO hay job que la limpie; hoy el único llamador es `movePreparteFile` y el origen es
+ * una subida temporal del formulario, que ya podía quedar huérfana si el usuario abandonaba
+ * el alta. Si algún día el storage necesita un barrido de huérfanos, este es uno de los
+ * casos que tiene que cubrir.
  */
 export async function storageMove(
   bucket: string,
@@ -221,23 +226,15 @@ export async function storageMove(
 }
 
 /**
- * URLs de descarga (una por path, mismo orden) para que el navegador baje el archivo.
+ * Verifica que los objetos existan y devuelve una URL por path, en el mismo orden.
  *
- * Apuntan a la ruta proxy con `?download=1`, igual que `storagePublicUrl` pero con
- * `Content-Disposition: attachment`. NO son URLs firmadas contra MinIO, y esa es una
- * decisión deliberada: firmar exigía publicar MinIO en internet bajo su propio dominio con
- * DNS y TLS, más dos variables de entorno (`S3_PUBLIC_ENDPOINT` y el host del proxy) que
- * hay que mantener sincronizadas a mano y cuyo desfasaje falla en silencio con
- * `SignatureDoesNotMatch` en TODA descarga. Con la ruta sirviendo por stream, el ahorro de
- * sacar los bytes de la app no compensa esa superficie: este es un sistema de gestión
- * interno, no un CDN. Además el visor de documentos ya servía los mismos PDF por la ruta.
- *
- * Se valida que el objeto exista antes de devolver la URL: el llamador espera que una URL
- * devuelta sea descargable (`getContractDocuments` muestra `url: ''` para las que no).
+ * El llamador espera que una URL devuelta sea utilizable (`getContractDocuments` muestra
+ * `url: ''` para las que no), así que un solo path faltante invalida el lote.
  */
-export async function storageDownloadUrls(
+async function storageUrls(
   bucket: string,
-  paths: string[]
+  paths: string[],
+  build: (bucket: string, path: string) => string
 ): Promise<StorageResult<{ path: string; url: string }[]>> {
   if (paths.length === 0) return { ok: true, data: [] };
   try {
@@ -247,12 +244,44 @@ export async function storageDownloadUrls(
       logger.error('Se pidieron enlaces de archivos inexistentes', { data: { bucket, failed: missing } });
       return fail('Alguno de los archivos no existe en el storage', 'not-found');
     }
-    return { ok: true, data: paths.map((path) => ({ path, url: buildStorageDownloadUrl(bucket, path) })) };
+    return { ok: true, data: paths.map((path) => ({ path, url: build(bucket, path) })) };
   } catch (error) {
     const message = errorMessage(error, 'No se pudieron generar los enlaces');
-    logger.error('Error al generar los enlaces de descarga', { data: { bucket, count: paths.length, message } });
+    logger.error('Error al generar los enlaces', { data: { bucket, count: paths.length, message } });
     return fail(message);
   }
+}
+
+/**
+ * URLs para VER el archivo: se abren en el navegador (PDF embebido, imagen, pestaña nueva).
+ * Sin `?download=1`, así que el navegador decide según el `Content-Type`.
+ *
+ * Ver y descargar son dos cosas distintas y el llamador tiene que elegir: servir siempre con
+ * `Content-Disposition: attachment` convierte el botón "Ver" en una descarga y deja el
+ * `<embed type="application/pdf">` en blanco.
+ */
+export async function storageFileUrls(
+  bucket: string,
+  paths: string[]
+): Promise<StorageResult<{ path: string; url: string }[]>> {
+  return storageUrls(bucket, paths, buildStorageFileUrl);
+}
+
+/**
+ * URLs para DESCARGAR el archivo: la ruta responde con `Content-Disposition: attachment`.
+ *
+ * NO son URLs firmadas contra MinIO, y esa es una decisión deliberada: firmar exigía
+ * publicar MinIO en internet bajo su propio dominio con DNS y TLS, más dos variables de
+ * entorno que hay que mantener sincronizadas a mano y cuyo desfasaje falla en silencio con
+ * `SignatureDoesNotMatch` en TODA descarga. Con la ruta sirviendo por stream, el ahorro de
+ * sacar los bytes de la app no compensa esa superficie: este es un sistema de gestión
+ * interno, no un CDN. Además el visor de documentos ya servía los mismos PDF por la ruta.
+ */
+export async function storageDownloadUrls(
+  bucket: string,
+  paths: string[]
+): Promise<StorageResult<{ path: string; url: string }[]>> {
+  return storageUrls(bucket, paths, buildStorageDownloadUrl);
 }
 
 /**

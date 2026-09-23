@@ -5,7 +5,7 @@ import { Logger } from '@/lib/logger';
 import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { DOCUMENT_FILES_BUCKET, storageRemove, storageDownloadUrls, storageUpload } from '@/shared/lib/storage';
+import { DOCUMENT_FILES_BUCKET, storageFileUrls, storageRemove, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
@@ -199,8 +199,11 @@ export async function deletePreEmployeeDocument(documentId: string) {
 }
 
 /**
- * URL para ver o descargar un documento del pre legajo.
- * Sólo se firman paths de documentos de pre legajos de la empresa activa.
+ * URL para VER un documento del pre legajo (el botón "Ver" lo abre en una pestaña).
+ *
+ * Sin `?download=1` a propósito: con `Content-Disposition: attachment` el navegador lo baja
+ * en vez de mostrarlo. Sólo se resuelven paths de documentos de la empresa activa, y la
+ * ruta que sirve el archivo lo vuelve a verificar.
  */
 export async function getPreEmployeeDocumentUrl(documentPath: string) {
   const companyId = await getActiveCompanyId();
@@ -213,11 +216,11 @@ export async function getPreEmployeeDocumentUrl(documentPath: string) {
     throw new Error('Documento no encontrado');
   }
 
-  const signed = await storageDownloadUrls(DOCUMENT_FILES_BUCKET, [documentPath]);
-  if (!signed.ok || !signed.data[0]) {
+  const links = await storageFileUrls(DOCUMENT_FILES_BUCKET, [documentPath]);
+  if (!links.ok || !links.data[0]) {
     logger.error('Error al generar la URL del documento', { data: { documentPath } });
     throw new Error('No se pudo generar el enlace del documento');
   }
 
-  return signed.data[0].url;
+  return links.data[0].url;
 }
