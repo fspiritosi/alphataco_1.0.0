@@ -533,7 +533,7 @@ function renderInventory(objects: InventoryObject[], result: ExtractionResult, f
     '',
     '## Objetos portados (en `prisma/sql/<dominio>.sql`)',
     '',
-    'Llamadores: `src (rpc|raw|ref)` = llamada desde `src/` (`rpc(\'x\')`, `x(` en SQL crudo, o el nombre como literal); `edge function` = `supabase/functions/`; `trigger`/`fn`/`vista` = otro objeto vigente; `†` = ese llamador es huérfano o descartado (no cuenta).',
+    'Llamadores: `src (rpc|raw|ref)` = llamada desde `src/` (`rpc(\'x\')`, `x(` en SQL crudo, o el nombre como literal); `edge function` = las edge functions de Deno que P5 reemplazo por `/api/jobs/*` (el directorio `supabase/` ya no existe); `trigger`/`fn`/`vista` = otro objeto vigente; `†` = ese llamador es huérfano o descartado (no cuenta).',
     '',
     '| Nombre | Tipo | Dominio | Tabla | Llamadores | Referencias Supabase |',
     '| --- | --- | --- | --- | --- | --- |',

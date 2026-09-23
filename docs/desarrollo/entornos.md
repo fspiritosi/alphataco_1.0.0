@@ -15,61 +15,116 @@
 | `NEXT_PUBLIC_SHOW_LOGS`         | Pública              | `'true'`/`'false'` — activa el logger custom (`src/lib/logger.ts`).       |
 | `NEXT_PUBLIC_POSTHOG_KEY`       | Pública              | Project API key de PostHog (pública por diseño).                          |
 | `NEXT_PUBLIC_POSTHOG_HOST`      | Pública              | Host de PostHog.                                                          |
-| `SMTP_HOST`                     | Servidor             | Servidor SMTP para envío de emails (`sendEmail.ts`, `api/send/route.ts`). |
+| `JOBS_TOKEN`                    | Servidor             | Token `Bearer` con el que el contenedor `cron` autentica contra `/api/jobs/*`. Generar con `openssl rand -hex 32`. **Vacío = los tres endpoints rechazan todo con 401** y los jobs no corren. |
+| `SMTP_HOST`                     | Servidor             | Servidor SMTP. Único emisor: `src/shared/lib/mail/transport.ts`. Vacío = los mails no se envían y el contenido se loguea (el cron sigue corriendo y anota «no enviado» en `jobs_runs`). |
 | `SMTP_PORT`                     | Servidor             | Puerto SMTP.                                                              |
 | `SMTP_USER`                     | Servidor             | Usuario SMTP.                                                             |
 | `SMTP_PASS`                     | Servidor             | Password SMTP.                                                            |
 | `SMTP_SECURE`                   | Servidor             | `'true'`/`'false'` — TLS en la conexión SMTP.                             |
-| `EMAIL_FROM_NAME`               | Servidor             | Nombre del remitente en `api/send/route.ts`.                              |
-| `RESEND_SUPABASE_API_KEY`       | Servidor             | Reservada para envío de emails vía Resend (no usada actualmente en `src/`). |
+| `SMTP_FROM`                     | Servidor             | Dirección del remitente. Sin ella se usa `SMTP_USER`.                     |
+| `EMAIL_FROM_NAME`               | Servidor             | Nombre del remitente (`fromAddress()` en `src/shared/lib/mail/transport.ts`). |
+| `MAILPIT_SMTP_PORT`             | Servidor             | Puerto SMTP del servicio `mailpit` del compose (perfil `mail`, solo desarrollo). |
+| `MAILPIT_WEB_PORT`              | Servidor             | Puerto de la web/API de `mailpit`.                                        |
 | `TASKAPP_BASE_URL`              | Servidor             | Base URL del backend de tickets (Centro de Ayuda).                        |
 | `TASKAPP_PROJECT_API_KEY`       | Servidor             | API key del proyecto en TaskApp.                                          |
 
 Ninguna variable `NEXT_PUBLIC_*` contiene un secreto: la key de PostHog es pública por diseño (es una clave de proyecto, no una credencial privilegiada). Los secretos de auth (`BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`) son de servidor y nunca se prefijan con `NEXT_PUBLIC_`.
 
-## Secrets de Edge Functions (mecanismo Supabase, vigente sólo hasta P5)
+## Jobs periódicos (`/api/jobs/*`)
 
-Las edge functions `send-documents-expiry-email` y `send-deviations-email` (`supabase/functions/`) NO leen el `.env` de Next.js — usan `Deno.env.get(...)` con secrets configurados aparte en cada proyecto Supabase (`npx supabase secrets set NOMBRE=valor` o desde el dashboard).
+Los tres jobs corren dentro de la app, disparados por el servicio `cron` del compose (busybox
+`crond` + `curl`, `TZ=America/Argentina/Buenos_Aires`). No hay `pg_cron`, `net.http_post` ni
+edge functions: P5 los reemplazó a todos.
 
-Secrets requeridos:
+| Cuándo (hora AR) | Endpoint | Qué hace |
+| ----------------- | --------- | --------- |
+| lunes 08:00        | `GET /api/jobs/documents-expiry`        | Resumen semanal de vencimientos de documentos. Un correo **por empresa**. |
+| todos los días 07:00 | `GET /api/jobs/daily-report-deviations` | Desvíos del parte diario del día. Un correo **por empresa**, solo si hay desvíos. |
+| todos los días 00:30 | `GET /api/jobs/daily-indicators`        | Cierra partes diarios, marca prepartes vencidos y persiste los 11 indicadores del día por empresa en `daily_indicators`. No manda correos. |
 
-| Secret                       | Función                        | Formato                                                        |
-| ----------------------------- | ------------------------------- | ---------------------------------------------------------------- |
-| `DOCUMENTS_EXPIRY_RECIPIENTS` | `send-documents-expiry-email`   | Emails separados por coma. Se usa solo si el body no trae `to`/`emails`/`recipient_email`. |
-| `DEVIATIONS_RECIPIENTS`       | `send-deviations-email`         | Emails separados por coma. Misma regla.                          |
+El crontab (`docker/cron/crontab`) llama con `curl -fsS -H "Authorization: Bearer $JOBS_TOKEN"`.
+Son `GET` porque `curl` sin `-X` manda `GET`; los mismos handlers están expuestos como `POST`
+para dispararlos a mano. `curl -fsS` falla con HTTP ≥ 400, así que un 401 o un 500 quedan en
+el log de `crond` (`docker compose --env-file .env.docker logs cron`). **No hay reintentos
+automáticos**: el siguiente disparo del cron es el reintento.
 
-Si el body no trae destinatarios y el secret correspondiente está vacío o sin configurar, la función responde `400 { "error": "missing recipients" }` en vez de enviar el email.
+### Autenticación
 
-SMTP y otros secrets que ya usan ambas funciones (obtenidos con `grep -n "Deno.env.get" supabase/functions/*/index.ts`):
+`JOBS_TOKEN` (tabla de variables de arriba). La comparación es en tiempo constante
+(`crypto.timingSafeEqual` sobre los SHA-256, en `src/features/Jobs/lib/auth.ts`). Sin token
+configurado **no entra nadie**: la respuesta es siempre `401 {"error":"Unauthorized"}`, sin
+decir si el servidor tiene token o si el presentado es incorrecto.
 
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — cliente admin de Supabase dentro de la función.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE` — envío del email vía `nodemailer`.
-- `APP_URL` (solo `send-documents-expiry-email`) — URL usada en los links del email, default `https://gh-gestion.com`.
-
-## Cron jobs por entorno (mecanismo Supabase, vigente sólo hasta P5)
-
-El job semanal de vencimientos de documentos (`weekly-documents-expiry-email`) NO se versiona con URL/anon key/destinatarios embebidos (la migración `20260512162500_schedule_documents_expiry_cron` que hacía eso pertenece a la BD de Grupo Horizonte y no se puede editar ni borrar; alphataco la neutraliza en runtime con `20260919140000_unschedule_documents_expiry_cron`).
-
-Para cada entorno nuevo, crear el job a mano vía SQL (Supabase SQL editor o `psql`):
-
-```sql
-SELECT cron.schedule('weekly-documents-expiry-email', '0 11 * * 1', $$
-  select net.http_post(
-    url := '<SUPABASE_URL>/functions/v1/send-documents-expiry-email',
-    headers := '{"Authorization":"Bearer <ANON_KEY>","Content-Type":"application/json"}'::jsonb,
-    body := '{"days_ahead":7,"detail_limit":20}',
-    timeout_milliseconds := 5000
-  );
-$$);
+```bash
+# Disparar un job a mano contra el compose
+set -a; source .env.docker; set +a
+curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" http://127.0.0.1:${APP_PORT:-3000}/api/jobs/documents-expiry
 ```
 
-El body **no lleva `to`**: los destinatarios salen del secret `DOCUMENTS_EXPIRY_RECIPIENTS` de la edge function (ver sección anterior). Reemplazar `<SUPABASE_URL>` y `<ANON_KEY>` por los del proyecto Supabase de ese entorno.
+### Destinatarios de los correos
 
-Para cancelar el job: `SELECT cron.unschedule('weekly-documents-expiry-email');`
+Salen de la tabla **`notification_settings`** (`company_id`, `kind`, `recipients text[]`,
+`is_active`), **no de variables de entorno**: estos jobs recorren todas las empresas, y una
+lista global haría que los datos de una empresa llegaran a gente de otra. El seed y la
+migración inicial cargan el `contact_email` de cada empresa como default.
+
+```sql
+-- Ver / cambiar los destinatarios de una empresa
+SELECT c.company_name, ns.kind, ns.recipients, ns.is_active
+FROM notification_settings ns JOIN company c ON c.id = ns.company_id ORDER BY 1, 2;
+
+UPDATE notification_settings SET recipients = ARRAY['uno@empresa.com','dos@empresa.com']
+WHERE company_id = '<uuid>' AND kind = 'documents_expiry';
+```
+
+Una empresa sin fila, inactiva o con la lista vacía se **saltea** y queda registrada; nunca se
+manda "por las dudas".
+
+### Bitácora e idempotencia: `jobs_runs`
+
+Cada corrida deja una fila **por empresa** en `jobs_runs` (`job`, `run_key`, `company_id`,
+`status`, `attempts`, `started_at`, `finished_at`, `error`, `metadata`). La `run_key` es
+`<company_id>:<fecha AR>` y se reclama con `INSERT ... ON CONFLICT` **antes** de trabajar: por
+eso correr un job dos veces el mismo día no manda el correo dos veces. Una corrida en `error`
+(o una `running` colgada hace más de una hora) sí se puede reclamar de nuevo.
+
+Es el único rastro confiable: el `Logger` del repo sólo emite con `NEXT_PUBLIC_SHOW_LOGS=true`.
+
+```sql
+SELECT job, run_key, status, attempts, started_at, finished_at, error, metadata
+FROM jobs_runs ORDER BY started_at DESC LIMIT 20;
+```
+
+### Probar los envíos de verdad (SMTP de prueba)
+
+El compose trae un **Mailpit** detrás del perfil `mail` (no arranca con `up`): captura todo lo
+que se le manda y no reenvía nada.
+
+```bash
+# .env.docker: SMTP_HOST=mailpit, SMTP_PORT=1025, SMTP_SECURE=false, SMTP_FROM=no-reply@alphataco.local
+docker compose --env-file .env.docker --profile mail up -d --wait mailpit
+docker compose --env-file .env.docker up -d --wait app cron
+
+set -a; source .env.docker; set +a
+docker compose --env-file .env.docker exec -T cron sh -c \
+  'curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/documents-expiry'
+
+curl -sS "http://127.0.0.1:${MAILPIT_WEB_PORT:-8025}/api/v1/messages?limit=10"   # o la web en ese puerto
+```
+
+Si `MAILPIT_SMTP_PORT`/`MAILPIT_WEB_PORT` chocan con otro proyecto, cambiarlos en
+`.env.docker` (mismo criterio que el resto de los puertos).
+
+### Tests
+
+`npm run test:jobs` levanta postgres, aplica migraciones y corre la integración de los tres
+jobs (`src/features/Jobs/jobs/jobs.integration.test.ts`) con dos empresas de prueba: verifica
+el token por HTTP, que ningún correo mezcle empresas, la idempotencia corriendo cada job dos
+veces y que `daily_indicators` quede escrita.
 
 ## Levantar con Docker
 
-El compose de la raíz (`docker-compose.yml`) levanta la infraestructura local: `postgres` (16 + pgTAP), `minio` (S3 compatible) + `minio-init` (crea los buckets), `migrate` (aplica las migraciones de Prisma y termina), `app` (Next.js standalone), `cron` (jobs periódicos) y `caddy` (reverse proxy). Servicios, puertos, volúmenes y red están documentados en el propio `docker-compose.yml`.
+El compose de la raíz (`docker-compose.yml`) levanta la infraestructura local: `postgres` (16 + pgTAP), `minio` (S3 compatible) + `minio-init` (crea los buckets), `migrate` (aplica las migraciones de Prisma y termina), `app` (Next.js standalone), `cron` (jobs periódicos) y `caddy` (reverse proxy), más `mailpit` (SMTP de prueba, detrás del perfil `mail`: no arranca con `up`). Servicios, puertos, volúmenes y red están documentados en el propio `docker-compose.yml`.
 
 Orden de arranque (por `depends_on`): `postgres` y `minio` healthy → `migrate` corre `npx prisma migrate deploy` y sale con `Exited (0)` → `app` arranca y pasa a `healthy` cuando `GET /login` responde `< 500` → `cron` y `caddy`. Si `migrate` falla, `app` no se levanta (`service_completed_successfully`). `postgres`, `minio`, `app`, `cron` y `caddy` tienen `restart: unless-stopped`.
 
@@ -96,7 +151,7 @@ La autenticación corre dentro de la app (P4): no hay servicio externo. Las tabl
 | `NEXT_PUBLIC_BASE_URL` | URL base de la app. De ahí salen el callback de OAuth y los enlaces de invitación/recuperación.     |
 | `GOOGLE_CLIENT_ID`     | Opcional. Sin ella el botón "Iniciar sesión con Google" no se muestra.                              |
 | `GOOGLE_CLIENT_SECRET` | Opcional, par de la anterior. Redirect URI a registrar en Google Cloud: `<NEXT_PUBLIC_BASE_URL>/api/auth/callback/google`. |
-| `SMTP_*`               | Invitación de usuario y recuperación de contraseña (`src/shared/lib/mailer.ts`). Vacías = el mail no se envía y el enlace queda en el log. |
+| `SMTP_*`               | Invitación de usuario y recuperación de contraseña (`src/shared/lib/mail/`). Vacías = el mail no se envía y el enlace queda en el log. |
 
 No hay registro abierto: los usuarios se dan de alta por invitación desde Empresa → Usuarios.
 

@@ -4,7 +4,9 @@
  * Este archivo contiene la estructura completa de módulos, tabs y subtabs
  * con tipado fuerte para autocompletado en TypeScript.
  *
- * Basado en: supabase/seeds/seed-modules.sql y seed-tabs-structure.sql
+ * Es la FUENTE de los modulos/tabs/acciones: `scripts/seed-company.ts` los upsertea a partir
+ * de este mapa. (Nacio de los seeds `seed-modules.sql`/`seed-tabs-structure.sql` del directorio
+ * `supabase/`, que P5 borro por historicos.)
  *
  * @example
  * ```tsx
