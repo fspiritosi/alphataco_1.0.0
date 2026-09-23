@@ -81,6 +81,82 @@ export async function getIndustryTypes() {
   return rows.map((r) => ({ id: Number(r.id), name: r.name ?? '' }));
 }
 
+/**
+ * true si el profile de sesión ya está vinculado a alguna empresa (como owner o como miembro
+ * de `share_company_users`). Los formularios de alta/edición lo usan para decidir si mostrar el
+ * cartel de "no tenés ninguna compañía registrada". El profile sale SIEMPRE de la sesión.
+ */
+export async function hasAnyCompanyMembership(): Promise<boolean> {
+  try {
+    const credentialId = await getSessionUserId();
+    if (!credentialId) return false;
+    const profile = await prisma.profile.findUnique({ where: { credential_id: credentialId }, select: { id: true } });
+    if (!profile) return false;
+
+    const [owned, shared] = await Promise.all([
+      prisma.company.count({ where: { owner_id: profile.id } }),
+      prisma.share_company_users.count({ where: { profile_id: profile.id } }),
+    ]);
+    return owned > 0 || shared > 0;
+  } catch (error) {
+    logger.error('Error al verificar las empresas del usuario', { data: { error } });
+    return false;
+  }
+}
+
+/**
+ * Empresa a editar, con ciudad y provincia resueltas, o `null` si el usuario no puede editarla.
+ *
+ * `companyId` llega POR RUTA (`/dashboard/company/[id]`), o sea del caller: sin RLS hay que
+ * validarlo acá o cualquier uuid de empresa sería legible. Se aplica el MISMO perímetro que
+ * `updateCompany`: pertenencia (`assertCompanyAccess`) + owner o permiso `empresa.general.update`.
+ * Así no se puede abrir un formulario de edición que después no se va a poder guardar.
+ */
+export async function getCompanyForEdit(companyId: string) {
+  try {
+    await assertCompanyAccess(companyId);
+    const { profileId } = await requireSessionProfile();
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        owner_id: true,
+        company_name: true,
+        company_cuit: true,
+        website: true,
+        contact_email: true,
+        contact_phone: true,
+        address: true,
+        country: true,
+        industry: true,
+        description: true,
+        cities: { select: { id: true, name: true } },
+        provinces: { select: { id: true, name: true } },
+      },
+    });
+    if (!company) return null;
+
+    const isOwner = company.owner_id === profileId;
+    if (!isOwner && !(await checkPermissionServer('empresa', 'general', 'update'))) {
+      logger.warn('Intento de edición de empresa sin permiso', { data: { companyId } });
+      return null;
+    }
+
+    const { owner_id: _ownerId, cities, provinces, ...rest } = company;
+    return {
+      ...rest,
+      city: cities ? { id: Number(cities.id), name: cities.name } : null,
+      province: provinces ? { id: Number(provinces.id), name: provinces.name } : null,
+    };
+  } catch (error) {
+    logger.error('Error al obtener la empresa a editar', { data: { error, companyId } });
+    return null;
+  }
+}
+
+export type CompanyForEdit = NonNullable<Awaited<ReturnType<typeof getCompanyForEdit>>>;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function requireSessionProfile(): Promise<{ credentialId: string; profileId: string }> {
