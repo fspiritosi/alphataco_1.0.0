@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { operatorLogin } from '@/features/OperatorPanel/actions/actionsServer';
+import { operatorLogin } from '@/features/OperatorPanel/actions/session.server';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, HardHat, Loader2 } from 'lucide-react';

@@ -1,4 +1,4 @@
-import { getOperatorContext } from '@/features/OperatorPanel/actions/actionsServer';
+import { getOperatorContext } from '@/features/OperatorPanel/actions/session.server';
 import { redirect } from 'next/navigation';
 
 export default async function OperatorRootPage() {

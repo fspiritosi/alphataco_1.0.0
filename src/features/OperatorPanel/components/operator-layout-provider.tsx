@@ -1,6 +1,6 @@
 'use client';
 
-import type { OperatorContext } from '@/features/OperatorPanel/actions/actionsServer';
+import type { OperatorContext } from '@/features/OperatorPanel/actions/session.server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 

@@ -1,4 +1,4 @@
-import { getOperatorContext } from '@/features/OperatorPanel/actions/actionsServer';
+import { getOperatorContext } from '@/features/OperatorPanel/actions/session.server';
 import { OperatorHeader } from '@/features/OperatorPanel/components/OperatorHeader';
 import { OperatorLayoutProvider } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { redirect } from 'next/navigation';
