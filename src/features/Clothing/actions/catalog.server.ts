@@ -5,10 +5,10 @@ import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
+  assertBrandSizePairsInCompany,
   assertClothingBrandInCompany,
   assertClothingItemInCompany,
   assertClothingSizeInCompany,
-  filterBrandSizePairsForCompany,
 } from './perimeter';
 
 const logger = new Logger('features/Clothing/catalog');
@@ -198,8 +198,10 @@ export async function getItemBrandSizes(itemId: string) {
 /**
  * Reemplaza en una transacción el set completo de marcas/talles de un artículo.
  *
- * Perímetro: el artículo y cada par marca/talle tienen que ser de la empresa activa; los
- * pares que no lo sean se descartan en vez de colgarse del artículo.
+ * Perímetro: el artículo y TODOS los pares marca/talle tienen que ser de la empresa
+ * activa. Si alguno no lo es, la operación falla entera en vez de guardar una parte: el
+ * formulario sólo ofrece opciones propias, así que un par ajeno es manipulación, y un
+ * guardado parcial dejaría al usuario creyendo que se grabó lo que mandó.
  */
 export async function setItemBrandSizes(itemId: string, entries: { brandId: string; sizeId: string }[]) {
   const companyId = await getActiveCompanyId();
@@ -207,18 +209,12 @@ export async function setItemBrandSizes(itemId: string, entries: { brandId: stri
 
   try {
     await assertClothingItemInCompany(itemId, companyId);
-    const validEntries = await filterBrandSizePairsForCompany(entries, companyId);
-
-    if (validEntries.length !== entries.length) {
-      logger.warn('Se descartaron pares marca/talle de otra empresa', {
-        data: { itemId, received: entries.length, kept: validEntries.length },
-      });
-    }
+    await assertBrandSizePairsInCompany(entries, companyId);
 
     await prisma.$transaction([
       prisma.clothing_item_brand_sizes.deleteMany({ where: { clothing_item_id: itemId } }),
       prisma.clothing_item_brand_sizes.createMany({
-        data: validEntries.map((entry) => ({
+        data: entries.map((entry) => ({
           clothing_item_id: itemId,
           clothing_brand_id: entry.brandId,
           clothing_size_id: entry.sizeId,

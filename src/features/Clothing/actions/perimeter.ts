@@ -113,17 +113,21 @@ export async function assertClothingSizeInCompany(sizeId: string, companyId: str
 }
 
 /**
- * Filtra pares marca/talle dejando sólo los que son de la empresa dada.
+ * Exige que TODOS los pares marca/talle sean de la empresa dada.
  *
- * Lo pide `setItemBrandSizes`, que recibe el set completo desde el formulario: sin este
- * filtro se podían colgar de un artículo marcas o talles de otra empresa (la FK sola no
+ * Lo pide `setItemBrandSizes`, que recibe el set completo desde el formulario: sin esta
+ * guarda se podían colgar de un artículo marcas o talles de otra empresa (la FK sola no
  * distingue de quién es cada uno).
+ *
+ * Lanza en vez de descartar los pares ajenos: el formulario sólo ofrece opciones propias,
+ * así que un par de otra empresa es manipulación, no un error de carga — y guardar el
+ * resto en silencio dejaría al usuario creyendo que se grabó lo que mandó.
  */
-export async function filterBrandSizePairsForCompany(
+export async function assertBrandSizePairsInCompany(
   pairs: readonly { brandId: string; sizeId: string }[],
   companyId: string
-): Promise<{ brandId: string; sizeId: string }[]> {
-  if (pairs.length === 0) return [];
+): Promise<void> {
+  if (pairs.length === 0) return;
 
   const brandIds = [...new Set(pairs.map((pair) => pair.brandId))];
   const sizeIds = [...new Set(pairs.map((pair) => pair.sizeId))];
@@ -133,8 +137,6 @@ export async function filterBrandSizePairsForCompany(
     prisma.clothing_sizes.findMany({ where: { id: { in: sizeIds }, company_id: companyId }, select: { id: true } }),
   ]);
 
-  const validBrands = new Set(brands.map((brand) => brand.id));
-  const validSizes = new Set(sizes.map((size) => size.id));
-
-  return pairs.filter((pair) => validBrands.has(pair.brandId) && validSizes.has(pair.sizeId));
+  if (brands.length !== brandIds.length) throw new Error('Alguna marca de ropa no pertenece a la empresa activa');
+  if (sizes.length !== sizeIds.length) throw new Error('Algún talle de ropa no pertenece a la empresa activa');
 }
