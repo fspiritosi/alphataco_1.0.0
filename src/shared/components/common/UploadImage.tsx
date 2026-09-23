@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { FormDescription, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { handleSupabaseError } from '@/lib/errorHandler';
+import { translateErrorMessage } from '@/lib/errorHandler';
 import { useImageUpload } from '@/shared/hooks/useUploadImage';
 import React, { ChangeEvent, useState } from 'react';
 import { toast } from 'sonner';
@@ -66,7 +66,7 @@ export function UploadImage({
         if (setAvailableToSubmit) setAvailableToSubmit(true);
         setDisabled(true);
       } catch (error) {
-        toast.error(`${handleSupabaseError(error instanceof Error ? error.message : String(error))}`);
+        toast.error(`${translateErrorMessage(error instanceof Error ? error.message : String(error))}`);
       }
     }
   };

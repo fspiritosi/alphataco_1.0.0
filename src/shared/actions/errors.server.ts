@@ -7,7 +7,7 @@ const logger = new Logger('shared/errors');
 
 /**
  * Registra en `handle_errors` un mensaje de error sin traducción conocida, para revisarlo
- * después (lo dispara `handleSupabaseError` desde el cliente, fire-and-forget).
+ * después (lo dispara `translateErrorMessage` desde el cliente, fire-and-forget).
  */
 export async function logHandledError(message: string, path: string): Promise<void> {
   try {

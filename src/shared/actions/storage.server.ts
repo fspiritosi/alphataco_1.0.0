@@ -58,7 +58,7 @@ async function buildKey(bucket: string, fileName: string): Promise<{ ok: true; k
 /**
  * Sube `file` al bucket indicado, en la key que decide el servidor.
  * Devuelve la key guardada y su URL estable, o el mensaje de error del storage (sin lanzar,
- * para que el llamador lo traduzca con `handleSupabaseError`).
+ * para que el llamador lo traduzca con `translateErrorMessage`).
  */
 export async function uploadToStorage(
   bucket: string,

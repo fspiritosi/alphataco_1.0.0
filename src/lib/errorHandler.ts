@@ -1,6 +1,11 @@
 import { logHandledError } from '@/shared/actions/errors.server';
 
-export function handleSupabaseError(error: string): string {
+/**
+ * Traduce al castellano los mensajes de error conocidos (códigos SQLSTATE de Postgres y unos
+ * pocos mensajes de Auth). Se llamaba `handleSupabaseError` cuando el diccionario venía de los
+ * errores de PostgREST/GoTrue; ya no queda nada de Supabase, sólo el diccionario.
+ */
+export function translateErrorMessage(error: string): string {
   const errorMessages: { [code: string]: string } = {
     '22001': 'El valor ingresado está fuera del rango permitido',
     '23502': 'Por favor, completa todos los campos obligatorios',
