@@ -1,0 +1,126 @@
+import 'server-only';
+
+import { prisma } from '@/shared/lib/prisma';
+import { sendMail, type SendMail } from '@/shared/lib/mail';
+import { callScalar } from '@/shared/lib/sql';
+import { argentinaDate } from '../lib/dates';
+import { runForEachCompany } from '../lib/per-company';
+import { getCompanyRecipients } from '../lib/recipients';
+import { summarize, type JobSummary } from '../lib/types';
+import { deviationsResultSchema } from '../schemas/deviations';
+import { renderDeviationsEmail } from '../templates/deviations';
+
+/**
+ * Job diario de las 07:00 (hora argentina) — `GET /api/jobs/daily-report-deviations`.
+ *
+ * Reemplaza a la edge function `send-deviations-email`, que recibía un `daily_report_id` por
+ * el body (o buscaba «el primer parte activo de la fecha», sin mirar de qué empresa era) y
+ * mandaba un único correo a una lista global.
+ *
+ * **Qué hace.** Por cada empresa: busca el parte diario activo de HOY de esa empresa, le pide
+ * los desvíos a `get_daily_report_deviations(daily_report_id, fecha)` y, si hay, manda un
+ * correo a los destinatarios de esa empresa.
+ *
+ * **De dónde saca los datos.** `dailyreport` (para resolver el parte de la empresa) y la
+ * función SQL `get_daily_report_deviations` de `prisma/sql/daily-report.sql`, validada con
+ * Zod. Los destinatarios salen de `notification_settings`.
+ *
+ * **Idempotencia.** La clave `<company_id>:<fecha AR>` de `jobs_runs` se reclama ANTES de
+ * armar el correo; si ya se reclamó y cerró bien, la empresa se saltea. Correr el endpoint
+ * dos veces el mismo día no manda el correo dos veces. Una empresa que falló queda en
+ * `error` y sí se reintenta — sin reenviar el de las que ya salieron.
+ *
+ * **Multi-empresa.** Tres capas:
+ * 1. El parte se busca con `company_id = <empresa>` (y `dailyreport` tiene unique
+ *    `(date, company_id)`, así que hay a lo sumo uno por empresa y día).
+ * 2. La función SQL se llama con el id de ESE parte: sus consultas parten de
+ *    `dailyreportrows.daily_report_id`, que pertenece a una sola empresa.
+ * 3. Los destinatarios se piden con el MISMO `company_id`, y se manda un `sendMail` por
+ *    empresa. No hay ningún acumulador entre iteraciones.
+ * Además el asunto y el encabezado del correo llevan el nombre de la empresa.
+ */
+export interface DeviationsJobDeps {
+  date?: string;
+  /** Emisor inyectable: los tests capturan el correo sin levantar un SMTP. */
+  sendMail?: SendMail;
+}
+
+const JOB = 'daily-report-deviations' as const;
+
+export async function runDailyReportDeviationsJob(deps: DeviationsJobDeps = {}): Promise<JobSummary> {
+  const date = deps.date ?? argentinaDate();
+  const send = deps.sendMail ?? sendMail;
+
+  const companies = await prisma.company.findMany({
+    select: { id: true, company_name: true },
+    orderBy: { company_name: 'asc' },
+  });
+
+  const units = await runForEachCompany({
+    job: JOB,
+    date,
+    companies,
+    work: async (company) => {
+      const report = await prisma.dailyreport.findFirst({
+        where: { company_id: company.id, date: new Date(`${date}T00:00:00Z`), is_active: true },
+        select: { id: true },
+      });
+
+      if (!report) {
+        return { reason: 'sin parte diario activo para la fecha' };
+      }
+
+      const deviations = await callScalar(
+        'get_daily_report_deviations',
+        [{ uuid: report.id }, { date }],
+        deviationsResultSchema
+      );
+
+      if (deviations.rows_with_deviations.length === 0) {
+        return {
+          reason: 'sin desvíos',
+          metadata: { dailyReportId: report.id, rowsWithDeviations: 0 },
+        };
+      }
+
+      // Los destinatarios se resuelven recién acá, ya confirmado que hay algo que informar:
+      // una empresa sin lista configurada pero sin desvíos no tiene por qué figurar como
+      // problema. (Es el mismo orden que tenía la edge function.)
+      const recipients = await getCompanyRecipients(company.id, 'daily_report_deviations');
+
+      if (recipients.length === 0) {
+        return {
+          reason: 'hay desvíos pero la empresa no tiene destinatarios configurados',
+          metadata: { dailyReportId: report.id, rowsWithDeviations: deviations.rows_with_deviations.length },
+        };
+      }
+
+      const email = renderDeviationsEmail({
+        companyName: company.company_name,
+        reportDate: date,
+        dailyReportId: report.id,
+        data: deviations,
+      });
+
+      const emailSent = await send({
+        to: recipients,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+
+      return {
+        reason: emailSent ? 'correo enviado' : 'correo NO enviado (SMTP sin configurar o error de envío)',
+        recipients: recipients.length,
+        emailSent,
+        metadata: {
+          dailyReportId: report.id,
+          rowsWithDeviations: deviations.rows_with_deviations.length,
+          summary: deviations.summary,
+        },
+      };
+    },
+  });
+
+  return summarize(JOB, date, units);
+}
