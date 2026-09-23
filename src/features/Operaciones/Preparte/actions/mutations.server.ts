@@ -497,7 +497,7 @@ export async function movePreparteFile(
 
   if (fromPath !== targetPath) {
     let moved = await storageMove(PREPARTE_BUCKET, fromPath, targetPath);
-    if (!moved.ok && /already exists/i.test(moved.error)) {
+    if (!moved.ok && moved.code === 'already-exists') {
       // El pedido ya tenía una imagen: se reemplaza por la nueva.
       await storageRemove(PREPARTE_BUCKET, [targetPath]);
       moved = await storageMove(PREPARTE_BUCKET, fromPath, targetPath);
@@ -508,5 +508,13 @@ export async function movePreparteFile(
     }
   }
 
-  return buildStorageFileUrl(PREPARTE_BUCKET, targetPath);
+  // La key es determinística (una imagen por pedido, que se PISA al reemplazarla), así que
+  // el string guardado no cambiaría y el navegador serviría la foto vieja de su caché hasta
+  // un día. El `?v=` lo renueva, igual que hace el logo de empresa —el otro caso de key que
+  // se pisa en su lugar—. No se le mete timestamp a la key, como sí hacen `repair-images`,
+  // `tire-discards` y `clothing-signatures`: esos son colecciones donde cada archivo se
+  // suma, y acá reemplazar dejaría la foto anterior huérfana para siempre (no hay job de
+  // limpieza). `parseStorageFileUrl` ignora el querystring, así que el reemplazo siguiente
+  // vuelve a resolver la key sin problema.
+  return `${buildStorageFileUrl(PREPARTE_BUCKET, targetPath)}?v=${Date.now()}`;
 }
