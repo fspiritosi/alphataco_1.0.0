@@ -12,6 +12,19 @@ import { prisma } from '@/shared/lib/prisma';
 type PrismaLike = Prisma.TransactionClient | typeof prisma;
 
 /**
+ * Rechazo de NEGOCIO de la guarda: el pedido esta en un estado que no habilita la
+ * transicion pedida. Tiene clase propia para que un caller pueda decidir seguir sin la
+ * transicion (ver `getOrderTransitionBlock` en OperatorPanel) SIN tragarse tambien un
+ * error de SQL o de conexion, que si tiene que abortar la operacion.
+ */
+export class OrderTransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OrderTransitionError';
+  }
+}
+
+/**
  * Guarda de transición de `maintenance_orders.status`.
  *
  * Es el punto por el que pasan TODAS las actions que cambian el estado del pedido: lee el
@@ -32,18 +45,18 @@ export async function assertOrderTransition(
     select: { status: true },
   });
 
-  if (!order) throw new Error('Pedido de mantenimiento no encontrado');
+  if (!order) throw new OrderTransitionError('Pedido de mantenimiento no encontrado');
 
   const current = order.status;
   if (current === nextStatus) return current;
 
   if (!isMaintenanceOrderStatus(current)) {
-    throw new Error(`El pedido está en un estado desconocido ("${current}")`);
+    throw new OrderTransitionError(`El pedido está en un estado desconocido ("${current}")`);
   }
 
   if (!isValidMaintenanceOrderTransition(current, nextStatus)) {
     const allowed = nextMaintenanceOrderStatuses(current);
-    throw new Error(
+    throw new OrderTransitionError(
       `No se puede pasar el pedido de "${current}" a "${nextStatus}"` +
         (allowed.length > 0 ? ` (estados posibles: ${allowed.join(', ')})` : ' (es un estado final)')
     );
