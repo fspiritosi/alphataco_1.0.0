@@ -11,8 +11,18 @@ import { prisma } from '@/shared/lib/prisma';
  * setea esa variable con `set_config(..., true)` — equivale a `SET LOCAL`, vive sólo dentro de
  * la transacción y, a diferencia de `SET LOCAL`, admite parámetros bindeados.
  *
- * `userId` = `profile.credential_id` del usuario de sesión (hasta P4, el `user.id` de Supabase
- * Auth): ver `getSessionUserId()` en `@/shared/lib/session`.
+ * **Qué `userId` va acá depende del trigger que se vaya a disparar**, porque cada dominio
+ * escribe una FK distinta:
+ *
+ * - Mantenimiento (`log_maintenance_order_activity`, `log_work_order_activity`) llena
+ *   `maintenance_activity_log.performed_by`, FK a **`profile.id`** — ver `withMaintenanceActor`.
+ * - Operaciones (`log_dailyreport_changes` y compañía) llena `dailyreportrows_history.changed_by`,
+ *   FK a **`profile.credential_id`** — ver `withSessionActor`, que pasa `getSessionUserId()`.
+ *
+ * Hoy los dos valores coinciden (el trigger de alta de Supabase creaba
+ * `profile.id = credential_id`), por eso el mismo uuid sirve para ambos. **P4 los separa**: a
+ * partir de ahí cada caller tiene que pasar el que espera su trigger, o el INSERT del trigger
+ * aborta la transacción entera por violación de FK. Detalle en `prisma/sql/README.md`.
  */
 export type ActorTx = Pick<Prisma.TransactionClient, '$executeRaw'>;
 export type ActorClient = { $transaction: typeof prisma.$transaction };
