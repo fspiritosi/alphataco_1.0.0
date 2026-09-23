@@ -9,7 +9,11 @@ Sistema de gestion integral para Grupo Horizonte (GH). Administra empleados, equ
 ## Tech Stack
 
 - **Framework**: Next.js 16 with React 19 (App Router, Server Components)
-- **Database**: PostgreSQL (Docker) vía Prisma; Supabase Auth/Storage sólo hasta P3/P4
+- **Database**: PostgreSQL (Docker) vía Prisma — ya no queda nada de Supabase en `src/`
+- **Auth**: Better Auth sobre el adaptador de Prisma (`src/shared/lib/auth.ts`). Lectura de sesión
+  SIEMPRE por `src/shared/lib/session.ts`; los claims de empresa/legajo sólo los escribe
+  `src/shared/lib/session-claims.ts` (server-only) — ver la invariante en `auth.ts`
+- **Storage**: MinIO (S3) por `src/shared/lib/storage.ts`
 - **State**: Zustand (global), React Query (server state), Jotai (atomic)
 - **UI**: shadcn/ui + Tailwind CSS + Lucide icons
 - **Forms**: React Hook Form + Zod validation
@@ -41,6 +45,7 @@ npx prisma generate      # Regenerate Prisma client
 
 # Testing
 npm test                 # Unit tests (vitest)
+npm run test:auth        # Integracion de auth (claims, credenciales, invitacion) vs. el compose
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
 ```
@@ -178,7 +183,7 @@ src/
 │       └── utils/          # Utilities
 ├── shared/components/      # Shared components (DataTable, etc.)
 ├── components/ui/          # shadcn/ui components
-├── lib/                    # logger.ts, utils.ts, supabase/, prisma
+├── lib/                    # logger.ts, utils.ts, prisma
 └── store/                  # Zustand stores
 ```
 
@@ -187,6 +192,8 @@ src/
 - `src/features/Permissions/permissions-map.ts` — Permissions map
 - `src/features/Permissions/components/PermissionGuard.tsx` — Permission guard
 - `src/lib/logger.ts` — Custom logger
+- `src/shared/lib/auth.ts` — Configuración de Better Auth y la invariante del claim de empresa
+- `src/shared/lib/session.ts` — Única lectura de sesión del sistema
 - `src/shared/components/common/DataTable/DataTable.tsx` — DataTable component
 - `src/shared/components/common/DataTable/DOCS.md` — DataTable docs
 - Module IDs: see `.claude/rules/permissions.md`

@@ -4,9 +4,9 @@
 
 | Variable                       | Pública / Servidor | Para qué                                                                 |
 | ------------------------------- | ------------------- | ------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Pública              | URL del proyecto Supabase.                                                |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Pública              | Anon key de Supabase (pública por diseño, respeta RLS).                   |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Servidor             | Bypassea RLS. Solo la usa `adminSupabaseServer()` (`src/lib/supabase/server.ts`). Nunca exponer como `NEXT_PUBLIC_*`. |
+| `BETTER_AUTH_SECRET`            | Servidor             | Firma las cookies de sesión de Better Auth (`openssl rand -base64 32`). Cambiarla invalida todas las sesiones abiertas. |
+| `GOOGLE_CLIENT_ID`              | Servidor             | OAuth de Google (opcional). Vacía = el botón de Google no se muestra.     |
+| `GOOGLE_CLIENT_SECRET`          | Servidor             | OAuth de Google (opcional).                                               |
 | `DATABASE_URL`                  | Servidor             | Connection string de Prisma (pooler).                                     |
 | `DIRECT_URL`                    | Servidor             | Connection string directa de Prisma (migraciones).                        |
 | `NEXT_PUBLIC_PROJECT_URL`       | Pública              | URL pública del proyecto/app.                                             |
@@ -25,17 +25,7 @@
 | `TASKAPP_BASE_URL`              | Servidor             | Base URL del backend de tickets (Centro de Ayuda).                        |
 | `TASKAPP_PROJECT_API_KEY`       | Servidor             | API key del proyecto en TaskApp.                                          |
 
-Ninguna variable `NEXT_PUBLIC_*` contiene un secreto: la anon key de Supabase y la key de PostHog son públicas por diseño (respetan RLS / son claves de proyecto, no credenciales privilegiadas).
-
-## Verificar que la anon key no es la service key
-
-Antes de cargar el `.env` de un entorno, decodificar el JWT de `NEXT_PUBLIC_SUPABASE_ANON_KEY` y confirmar el claim `role`:
-
-```bash
-node -e "console.log(JSON.parse(Buffer.from(process.argv[1].split('.')[1],'base64').toString()).role)" "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
-```
-
-Esperado: `anon`. Si devuelve `service_role`, esa key es en realidad la service role key: **rotarla en Supabase inmediatamente** (Project Settings → API → Reset) y actualizar el `.env` con la nueva anon key en `NEXT_PUBLIC_SUPABASE_ANON_KEY` y la service key en `SUPABASE_SERVICE_ROLE_KEY`.
+Ninguna variable `NEXT_PUBLIC_*` contiene un secreto: la key de PostHog es pública por diseño (es una clave de proyecto, no una credencial privilegiada). Los secretos de auth (`BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`) son de servidor y nunca se prefijan con `NEXT_PUBLIC_`.
 
 ## Secrets de Edge Functions (mecanismo Supabase, vigente sólo hasta P5)
 
@@ -95,9 +85,23 @@ bash scripts/dev-up.sh   # levanta postgres, minio y minio-init (crea los bucket
 
 `.env.docker` es local y está en `.gitignore` — nunca se versiona.
 
-### Auth: todavía en Supabase
+### Auth (Better Auth): variables
 
-Este compose reemplaza la **base de datos** (Postgres vía Prisma) y el **storage** (MinIO, P3). **Auth sigue en Supabase** hasta que se complete la task P4. Mientras tanto `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` siguen apuntando al proyecto Supabase correspondiente.
+La autenticación corre dentro de la app (P4): no hay servicio externo. Las tablas (`auth_user`,
+`auth_session`, `auth_account`, `auth_verification`) viven en el mismo Postgres del compose.
+
+| Variable               | Para qué sirve                                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`   | Firma las cookies de sesión. Obligatoria. Generar con `openssl rand -base64 32`; cambiarla cierra todas las sesiones abiertas. |
+| `NEXT_PUBLIC_BASE_URL` | URL base de la app. De ahí salen el callback de OAuth y los enlaces de invitación/recuperación.     |
+| `GOOGLE_CLIENT_ID`     | Opcional. Sin ella el botón "Iniciar sesión con Google" no se muestra.                              |
+| `GOOGLE_CLIENT_SECRET` | Opcional, par de la anterior. Redirect URI a registrar en Google Cloud: `<NEXT_PUBLIC_BASE_URL>/api/auth/callback/google`. |
+| `SMTP_*`               | Invitación de usuario y recuperación de contraseña (`src/shared/lib/mailer.ts`). Vacías = el mail no se envía y el enlace queda en el log. |
+
+No hay registro abierto: los usuarios se dan de alta por invitación desde Empresa → Usuarios.
+
+Para probar los cinco flujos de auth contra el compose: `npm run test:auth` (integración) y el spec
+`cypress/e2e/auth/p4-auth-flows.cy.ts` con los datos de `node scripts/seed-auth-fixtures.ts`.
 
 ### Storage (MinIO): variables
 
@@ -141,7 +145,7 @@ Flujo completo para crear o modificar una migración (diff → carpeta → SQL �
 
 ### Variables obligatorias para el build de `app`
 
-`docker compose build app` pasa `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` como build args (Next.js las embebe en el bundle del cliente durante `next build`). Si quedan vacías, completar con los valores reales del Supabase local/dev, o con un placeholder (`http://localhost:54321` + una key ficticia) si el objetivo es solo validar que el build compila.
+Ninguna. `docker compose build app` pasa las `NEXT_PUBLIC_*` como build args (Next.js las embebe en el bundle del cliente durante `next build`), pero todas pueden quedar vacías: con P4 se fueron los placeholders de `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY`, que existían sólo porque `supabaseBrowser()` reventaba al prerenderizar `/maintenance` sin ellas.
 
 ### Tests de base de datos (pgTAP)
 
