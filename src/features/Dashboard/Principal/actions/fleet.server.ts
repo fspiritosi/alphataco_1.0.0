@@ -371,10 +371,12 @@ async function getVehicleFacet(
 }
 
 export async function getAvailableVehiclesPaginated(searchParams: DataTableSearchParams, typeIds?: string[]) {
+  // Fuera del try a propósito: una sesión sin empresa activa es un error de sesión, no
+  // "no hay datos" — el catch de abajo es para fallas de la query.
+  const companyId = await getActiveCompanyId();
   logger.debug('Obteniendo vehículos disponibles paginados', { data: { typeIds } });
 
   try {
-    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
     const where = (await buildAvailableVehiclesWhereClause(companyId, typeIds, state)) as VehicleWhere;
@@ -400,10 +402,10 @@ export async function getAvailableVehiclesPaginated(searchParams: DataTableSearc
 export type AvailableVehicleItem = Awaited<ReturnType<typeof getAvailableVehiclesPaginated>>['data'][number];
 
 export async function getAvailableVehiclesForExport(searchParams: DataTableSearchParams, typeIds?: string[]) {
+  const companyId = await getActiveCompanyId();
   logger.debug('Exportando vehículos disponibles', { data: { typeIds } });
 
   try {
-    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = (await buildAvailableVehiclesWhereClause(companyId, typeIds, state)) as VehicleWhere;
 
@@ -419,10 +421,11 @@ export async function getAvailableVehicleSingleFacet(
   typeIds: string[] | undefined,
   searchParams?: DataTableSearchParams
 ): Promise<{ counts: Map<string, number>; resolvedOptions?: Array<{ id: string; name: string | null }> } | null> {
+  // Fuera del try: sin empresa activa el filtro NO debe verse como "no hay opciones".
+  const companyId = await getActiveCompanyId();
   logger.debug('Obteniendo facet de vehículos disponibles', { data: { columnId } });
 
   try {
-    const companyId = await getActiveCompanyId();
     const parsedState = parseSearchParams(searchParams && Object.keys(searchParams).length > 0 ? searchParams : {});
 
     const result = await getVehicleFacet(columnId, async (excludeColumn) => {
@@ -440,10 +443,10 @@ export async function getAvailableVehicleSingleFacet(
 }
 
 export async function getRepairVehiclesPaginated(searchParams: DataTableSearchParams) {
+  const companyId = await getActiveCompanyId();
   logger.debug('Obteniendo vehículos en reparación paginados');
 
   try {
-    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
     const where = buildRepairVehiclesWhereClause(companyId, state) as VehicleWhere;
@@ -469,10 +472,10 @@ export async function getRepairVehiclesPaginated(searchParams: DataTableSearchPa
 export type RepairVehicleItem = Awaited<ReturnType<typeof getRepairVehiclesPaginated>>['data'][number];
 
 export async function getRepairVehiclesForExport(searchParams: DataTableSearchParams) {
+  const companyId = await getActiveCompanyId();
   logger.debug('Exportando vehículos en reparación');
 
   try {
-    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = buildRepairVehiclesWhereClause(companyId, state) as VehicleWhere;
 
@@ -487,10 +490,11 @@ export async function getRepairVehicleSingleFacet(
   columnId: string,
   searchParams?: DataTableSearchParams
 ): Promise<{ counts: Map<string, number>; resolvedOptions?: Array<{ id: string; name: string | null }> } | null> {
+  // Fuera del try: sin empresa activa el filtro NO debe verse como "no hay opciones".
+  const companyId = await getActiveCompanyId();
   logger.debug('Obteniendo facet de vehículos en reparación', { data: { columnId } });
 
   try {
-    const companyId = await getActiveCompanyId();
     const parsedState = parseSearchParams(searchParams && Object.keys(searchParams).length > 0 ? searchParams : {});
 
     const result = await getVehicleFacet(columnId, (excludeColumn) => {
