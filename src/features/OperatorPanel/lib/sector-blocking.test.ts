@@ -70,6 +70,21 @@ describe('computeWorkOrderBlocking', () => {
     expect(result['ot-2']!.isBlocked).toBe(false);
   });
 
+  it('una OT sin estado bloquea: no se puede dar por terminada', () => {
+    // `workOrderStatus: null` sale de una fila sin OT resuelta. Se trata como bloqueante a
+    // propósito (preserva el `if (!wo) return true` de la versión PostgREST): ante la duda,
+    // el sector siguiente espera en lugar de pisar trabajo que quizá no terminó.
+    const result = computeWorkOrderBlocking(
+      ['ot-2'],
+      [
+        item({ workOrderId: 'ot-1', sequenceOrder: 1, workOrderStatus: null }),
+        item({ workOrderId: 'ot-2', sequenceOrder: 2 }),
+      ]
+    );
+
+    expect(result['ot-2']).toEqual({ isBlocked: true, blockedBySector: 'Sector 1' });
+  });
+
   it('evalúa cada OT en su secuencia mínima', () => {
     // La OT trabaja en la secuencia 1 y en la 3: puede arrancar por la 1.
     const result = computeWorkOrderBlocking(
