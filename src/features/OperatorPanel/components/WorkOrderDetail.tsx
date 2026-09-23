@@ -14,15 +14,9 @@ import { CheckCircle2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { OperatorWorkOrderDetail } from '../actions/queries.server';
-import {
-  completeRepair,
-  pauseWorkOrder,
-  resumeWorkOrder,
-  startWorkOrder,
-  uncompleteRepair,
-  updateTechnicianNotes,
-} from '../actions/actionsServer';
+import { completeRepair, uncompleteRepair, updateTechnicianNotes } from '../actions/actionsServer';
 import { getWorkOrderDetailForOperator } from '../actions/queries.server';
+import { pauseWorkOrder, resumeWorkOrder, startWorkOrder } from '../actions/work-orders.server';
 import { AddTaskDialog } from './AddTaskDialog';
 import { CloseWorkOrderDialog } from './CloseWorkOrderDialog';
 import { ReturnTaskDialog } from './ReturnTaskDialog';

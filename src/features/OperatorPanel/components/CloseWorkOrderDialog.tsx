@@ -12,7 +12,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { closeWorkOrder } from '../actions/actionsServer';
+import { closeWorkOrder } from '../actions/work-orders.server';
 
 const logger = new Logger('CloseWorkOrderDialog');
 
