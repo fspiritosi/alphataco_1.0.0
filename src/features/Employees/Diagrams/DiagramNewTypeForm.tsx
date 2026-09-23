@@ -55,9 +55,6 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
     values.short_description = values.short_description.toUpperCase();
 
     const method = diagramToEdit ? 'PUT' : 'POST';
-    // const url = diagramToEdit
-    //   ? `${URL}/api/employees/diagrams/tipos`
-    //   : `${URL}/api/employees/diagrams/tipos?actual=${company_id}`;
 
     await toast
       .promise(
