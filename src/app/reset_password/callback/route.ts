@@ -1,6 +1,6 @@
 // P4: auth — verifica el OTP de reseteo de contraseña; sólo Supabase Auth.
 import { createServerClient, type CookieOptions } from '@supabase/ssr'; // P4: auth
-import { type EmailOtpType } from '@supabase/supabase-js';
+import { type EmailOtpType } from '@supabase/supabase-js'; // P4: auth
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -15,8 +15,8 @@ export async function GET(request: Request) {
 
   if ((token_hash || token) && type) {
     const supabase = createServerClient( // P4: auth
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!, // P4: auth
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // P4: auth
       {
         cookies: {
           get(name: string) {
@@ -36,13 +36,13 @@ export async function GET(request: Request) {
 
     if (token_hash) {
       // Usar token_hash para PKCE flow
-      verifyResult = await supabase.auth.verifyOtp({
+      verifyResult = await supabase.auth.verifyOtp({ // P4: auth
         token_hash,
         type: type as EmailOtpType,
       });
     } else if (token && email) {
       // Usar token para implicit flow (requiere email)
-      verifyResult = await supabase.auth.verifyOtp({
+      verifyResult = await supabase.auth.verifyOtp({ // P4: auth
         token,
         email,
         type: type as EmailOtpType,

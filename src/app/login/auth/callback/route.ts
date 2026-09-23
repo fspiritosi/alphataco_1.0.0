@@ -72,8 +72,8 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createServerClient( // P4: auth
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!, // P4: auth
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // P4: auth
       {
         cookies: {
           get(name: string) {
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         },
       }
     );
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code); // P4: auth
 
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);

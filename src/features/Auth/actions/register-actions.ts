@@ -25,7 +25,7 @@ export async function signup(formData: FormData, url: string): Promise<string | 
   const { firstname, lastname, email, password } = parsed.data;
 
   const supabase = await supabaseServer(); // P4: auth
-  const { error, data: user } = await supabase.auth.signUp({
+  const { error, data: user } = await supabase.auth.signUp({ // P4: auth
     email,
     password,
     options: { emailRedirectTo: url },

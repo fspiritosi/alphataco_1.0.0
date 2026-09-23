@@ -21,7 +21,7 @@ export async function login(formData: FormData) {
     password: formData.get('password') as string,
   };
 
-  const { error, data: user } = await supabase.auth.signInWithPassword(data);
+  const { error, data: user } = await supabase.auth.signInWithPassword(data); // P4: auth
 
   if (error) {
     return { error: error?.message };
@@ -31,7 +31,7 @@ export async function login(formData: FormData) {
 
 export async function logout() {
   const supabase = await supabaseServer(); // P4: auth
-  await supabase.auth.signOut();
+  await supabase.auth.signOut(); // P4: auth
   await clearActiveCompanyCookie();
   revalidatePath('/', 'layout');
   redirect('/login');
@@ -40,7 +40,7 @@ export async function logout() {
 export async function googleLogin(url: string) {
   const supabase = await supabaseServer(); // P4: auth
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({ // P4: auth
     provider: 'google',
     options: {
       redirectTo: url + '/login/auth/callback',

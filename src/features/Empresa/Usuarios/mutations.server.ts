@@ -74,7 +74,7 @@ async function findScopedShareUser(shareCompanyUserId: string, companyId: string
 /** Sube/baja el ban en Auth. Devuelve el mensaje de error o null. P4: auth */
 async function setAuthBan(credentialId: string, banDuration: string): Promise<string | null> {
   const adminSupabase = await adminSupabaseServer(); // P4: auth
-  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: banDuration });
+  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: banDuration }); // P4: auth
   return error ? error.message : null;
 }
 

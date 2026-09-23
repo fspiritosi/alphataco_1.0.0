@@ -1,7 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from '@supabase/ssr'; // P4: auth
 import Cookies from 'js-cookie';
 import posthog from 'posthog-js';
-import { Database } from '../../../database.types';
+import { Database } from '../../../database.types'; // P4: auth — tipos del cliente Supabase Auth, se van con él
 
 // Interceptor de fetch para loguear peticiones y enviar errores a PostHog
 const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -63,8 +63,8 @@ const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) =>
   }
 };
 
-export const supabaseBrowser = () =>
-  createBrowserClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+export const supabaseBrowser = () => // P4: auth
+  createBrowserClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { // P4: auth
     global: {
       fetch: interceptedFetch,
     },

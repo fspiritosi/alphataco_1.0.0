@@ -34,7 +34,7 @@ export function _UserMenu({ user }: UserMenuProps) {
   const router = useRouter();
   const logout = async () => {
     const supabase = supabaseBrowser(); // P4: auth
-    await supabase.auth.signOut();
+    await supabase.auth.signOut(); // P4: auth
     // La cookie de empresa activa es httpOnly: la borra el servidor.
     await clearActiveCompany();
     cookie.remove('actualCompName');

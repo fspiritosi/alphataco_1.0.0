@@ -217,7 +217,7 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
 
   // 5) Metadata de Auth para la sesión y la UI (nombre/email/etc)
   const admin = await adminSupabaseServer(); // P4: auth
-  const { error: metadataError } = await admin.auth.admin.updateUserById(user.id, {
+  const { error: metadataError } = await admin.auth.admin.updateUserById(user.id, { // P4: auth
     app_metadata: {
       company: companyId,
       employee_id: employeeId,
@@ -406,6 +406,6 @@ export async function getTractorUnitsWithPendingDeviations() {
  */
 export async function signOutMaintenanceSession(): Promise<void> {
   const supabase = await supabaseServer(); // P4: auth
-  await supabase.auth.signOut();
+  await supabase.auth.signOut(); // P4: auth
   await clearActiveCompanyCookie();
 }

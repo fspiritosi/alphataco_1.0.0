@@ -40,7 +40,7 @@ export const switchActiveCompany = async (companyId: string): Promise<SwitchActi
   if ((await getSessionCompanyClaim()) !== companyId) {
     // P4: auth — el claim de empresa vive en el JWT de Supabase hasta que P4 traiga la sesión propia.
     const admin = await adminSupabaseServer(); // P4: auth
-    const { error } = await admin.auth.admin.updateUserById(user.id, {
+    const { error } = await admin.auth.admin.updateUserById(user.id, { // P4: auth
       app_metadata: { company: companyId },
     });
 

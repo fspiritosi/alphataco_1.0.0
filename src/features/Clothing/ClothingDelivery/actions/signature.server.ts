@@ -24,7 +24,7 @@ export async function uploadSignatureImage(base64Data: string) {
 
     const supabase = await supabaseServer(); // P3: storage
 
-    const { error } = await supabase.storage.from('clothing-signatures').upload(fileName, buffer, {
+    const { error } = await supabase.storage.from('clothing-signatures').upload(fileName, buffer, { // P3: storage
       contentType: 'image/png',
       upsert: false,
     });
@@ -34,7 +34,7 @@ export async function uploadSignatureImage(base64Data: string) {
       throw new Error(error.message);
     }
 
-    const { data: urlData } = supabase.storage.from('clothing-signatures').getPublicUrl(fileName);
+    const { data: urlData } = supabase.storage.from('clothing-signatures').getPublicUrl(fileName); // P3: storage
 
     logger.info('Signature uploaded successfully', { data: { url: urlData.publicUrl } });
     return { url: urlData.publicUrl };

@@ -13,7 +13,7 @@ export async function changePassword(newPassword: string) {
   const supabase = await supabaseServer(); // P4: auth
 
   try {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await supabase.auth.updateUser({ password: newPassword }); // P4: auth
 
     if (error) {
       logger.error('Error al cambiar la contraseña', { data: { error } });
@@ -21,7 +21,7 @@ export async function changePassword(newPassword: string) {
     }
 
     // La metadata deja de pedir el cambio de contraseña en el próximo login.
-    const { error: metadataError } = await supabase.auth.updateUser({
+    const { error: metadataError } = await supabase.auth.updateUser({ // P4: auth
       data: { needs_password_change: false },
     });
 

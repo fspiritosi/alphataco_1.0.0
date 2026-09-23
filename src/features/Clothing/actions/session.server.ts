@@ -21,7 +21,7 @@ const logger = new Logger('features/Clothing/session');
 export async function clothingLogin(email: string, password: string) {
   const supabase = await supabaseServer(); // P4: auth
 
-  const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password });
+  const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password }); // P4: auth
 
   if (error) {
     logger.warn('Clothing login auth failed', { data: { email } });

@@ -83,7 +83,7 @@ export function ChecklistPDFDownloadButton({
   // que TypeScript borra en el build y no arrastra el PDF al bundle inicial.
   const [PDFComponent, setPDFComponent] = useState<NormalizedChecklistPDFLayoutComponent | null>(null);
 
-  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
+  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png'; // P3: storage
 
   // Transformar answers al formato que espera el PDF (flat con sufijos _left/_right)
   const flattenedAnswers = flattenAnswers(answers);

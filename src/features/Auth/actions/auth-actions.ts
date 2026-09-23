@@ -16,7 +16,7 @@ export async function resetPasswordAction(email: string) {
   try {
     const supabase = await supabaseServer(); // P4: auth
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { // P4: auth
       redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
     });
 
@@ -38,7 +38,7 @@ export async function updatePasswordAction(password: string) {
   try {
     const supabase = await supabaseServer(); // P4: auth
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({ password }); // P4: auth
 
     if (error) {
       throw new Error(error.message);

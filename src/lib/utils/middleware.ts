@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import type { User } from '@supabase/supabase-js';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // P4: auth
+import type { User } from '@supabase/supabase-js'; // P4: auth
 import { NextResponse, type NextRequest } from 'next/server';
 
 export type UpdateSessionResult = {
@@ -14,9 +14,9 @@ export async function updateSession(req: NextRequest): Promise<UpdateSessionResu
     },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabase = createServerClient( // P4: auth
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, // P4: auth
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // P4: auth
     {
       cookies: {
         get(name: string) {
@@ -62,7 +62,7 @@ export async function updateSession(req: NextRequest): Promise<UpdateSessionResu
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser(); // P4: auth
 
   // Si hay usuario autenticado (no anónimo), asegurar que exista la cookie actualComp
   if (user && !user.is_anonymous) {

@@ -12,7 +12,7 @@ import { styles } from './receipt-styles';
 
 // P3: storage — logo por defecto cuando la empresa no tiene uno cargado; la URL se
 // reemplaza cuando el storage deje de ser Supabase.
-const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
+const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png'; // P3: storage
 
 // ============================================================================
 // PROPS

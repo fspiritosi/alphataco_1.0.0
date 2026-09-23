@@ -156,7 +156,7 @@ async function createUserForCompany({
   const hasPassword = Boolean(password?.trim());
 
   // P4: auth — creación de la credencial auto-verificada.
-  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({ // P4: auth
     email,
     password: hasPassword ? password : undefined,
     email_confirm: true,
@@ -204,7 +204,7 @@ async function createUserForCompany({
   if (!hasPassword) {
     // Invitación: el usuario define su propia contraseña con el flujo nativo de recuperación.
     const supabase = await supabaseServer(); // P4: auth
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { // P4: auth
       redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
     });
     if (error) {
@@ -224,7 +224,7 @@ async function ensureCompanyMetadata(credentialId: string, companyId: string, op
     if (userData?.user?.app_metadata?.company) return;
   }
 
-  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, {
+  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, { // P4: auth
     app_metadata: { company: companyId },
   });
   if (error) throw new Error(`Error al asignar metadata: ${error.message}`);

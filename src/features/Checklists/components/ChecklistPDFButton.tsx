@@ -25,7 +25,7 @@ interface ChecklistPDFButtonProps {
 }
 
 export function ChecklistPDFButton({ templateName, templateCode, sections, date, revision }: ChecklistPDFButtonProps) {
-  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
+  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png'; // P3: storage
 
   return (
     <ChecklistPDFPreviewDialog

@@ -12,7 +12,7 @@ import { cache } from 'react';
  */
 const getAuthUser = cache(async () => {
   const supabase = await supabaseServer(); // P4: auth
-  const { data } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser(); // P4: auth
   return data.user ?? null;
 });
 
@@ -89,6 +89,6 @@ export const getCachedSession = cache(async () => {
   const supabase = await supabaseServer(); // P4: auth
   const {
     data: { session },
-  } = await supabase.auth.getSession();
+  } = await supabase.auth.getSession(); // P4: auth
   return session;
 });

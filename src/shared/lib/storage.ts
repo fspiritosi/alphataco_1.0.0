@@ -26,7 +26,7 @@ export async function storageUpload(
   options: { upsert?: boolean; cacheControl?: string } = {}
 ): Promise<StorageResult<{ path: string }>> {
   const supabase = await supabaseServer(); // P3: storage
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { // P3: storage
     cacheControl: options.cacheControl ?? '3600',
     upsert: options.upsert ?? false,
     ...(file instanceof File ? { contentType: file.type } : {}),
@@ -41,7 +41,7 @@ export async function storageUpload(
 export async function storageRemove(bucket: string, paths: string[]): Promise<StorageResult<null>> {
   if (paths.length === 0) return { ok: true, data: null };
   const supabase = await supabaseServer(); // P3: storage
-  const { error } = await supabase.storage.from(bucket).remove(paths);
+  const { error } = await supabase.storage.from(bucket).remove(paths); // P3: storage
   if (error) {
     logger.error('Error al eliminar archivos del storage', { data: { bucket, paths, message: error.message } });
     return { ok: false, error: error.message };
@@ -51,7 +51,7 @@ export async function storageRemove(bucket: string, paths: string[]): Promise<St
 
 export async function storageDownload(bucket: string, path: string): Promise<StorageResult<Blob>> {
   const supabase = await supabaseServer(); // P3: storage
-  const { data, error } = await supabase.storage.from(bucket).download(path);
+  const { data, error } = await supabase.storage.from(bucket).download(path); // P3: storage
   if (error || !data) {
     logger.error('Error al descargar archivo del storage', { data: { bucket, path, message: error?.message } });
     return { ok: false, error: error?.message ?? 'Archivo no encontrado' };
@@ -67,7 +67,7 @@ export async function storageSignedUrls(
 ): Promise<StorageResult<{ path: string; url: string }[]>> {
   if (paths.length === 0) return { ok: true, data: [] };
   const supabase = await supabaseServer(); // P3: storage
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrls(paths, expiresInSeconds);
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrls(paths, expiresInSeconds); // P3: storage
   if (error || !data) {
     logger.error('Error al firmar URLs del storage', { data: { bucket, count: paths.length, message: error?.message } });
     return { ok: false, error: error?.message ?? 'No se pudieron generar los enlaces' };
@@ -86,5 +86,5 @@ export async function storageSignedUrls(
  */
 export async function storagePublicUrl(bucket: string, path: string): Promise<string> {
   const supabase = await supabaseServer(); // P3: storage
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; // P3: storage
 }

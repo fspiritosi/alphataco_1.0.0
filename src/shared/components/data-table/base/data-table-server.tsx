@@ -53,7 +53,11 @@ function EmptyStateWithReset({ onReset }: EmptyStateWithResetProps) {
   );
 }
 
-interface FilterableColumn<TableName extends keyof Database['public']['Tables'], Query extends string = '*'> {
+// P2 Task 13b: el nombre de tabla era `keyof Database['public']['Tables']` (tipos generados de
+// PostgREST). El destino real, `querySelectDistinct`, ya valida la tabla en runtime contra
+// `DISTINCT_VALUE_TABLES`, y el toolbar y el filtro de este mismo sistema legacy siempre usaron
+// `TableName extends string`: el generic tipado era el único consumidor de `database.types` vivo.
+interface FilterableColumn<TableName extends string, Query extends string = '*'> {
   columnId: string;
   title: string;
   options?: {
@@ -80,7 +84,7 @@ interface SearchableColumn {
 
 // interface ToolbarOptions<
 //   TData,
-//   TableName extends keyof Database['public']['Tables']
+//   TableName extends string
 // > {
 //   filterableColumns?: FilterableColumn<TableName>[]
 //   searchableColumns?: SearchableColumn[]
@@ -88,7 +92,7 @@ interface SearchableColumn {
 //   // … resto de opciones
 // }
 
-interface ToolbarOptions<TData, TableName extends keyof Database['public']['Tables']> {
+interface ToolbarOptions<TData, TableName extends string> {
   filterableColumns?: FilterableColumn<TableName>[];
   searchableColumns?: SearchableColumn[];
   showViewOptions?: boolean;
@@ -103,7 +107,7 @@ interface ToolbarOptions<TData, TableName extends keyof Database['public']['Tabl
 interface DataTableProps<
   TData,
   TValue,
-  TableName extends keyof Database['public']['Tables'],
+  TableName extends string,
   Query extends string = '*',
 > {
   columns: ColumnDef<TData, TValue>[];
@@ -146,7 +150,7 @@ interface DataTableProps<
 export function BaseDataTable<
   TData,
   TValue,
-  TableName extends keyof Database['public']['Tables'] = never,
+  TableName extends string = never,
   Query extends string = '*',
 >({
   columns,

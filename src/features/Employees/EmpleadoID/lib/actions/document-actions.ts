@@ -65,7 +65,7 @@ export async function toggleEmployeeStatus(
 
     if (profile?.credential_id) {
       const adminSupabase = await adminSupabaseServer(); // P4: auth
-      const { error: banError } = await adminSupabase.auth.admin.updateUserById(profile.credential_id, {
+      const { error: banError } = await adminSupabase.auth.admin.updateUserById(profile.credential_id, { // P4: auth
         ban_duration: activate ? 'none' : '876600h',
       });
 

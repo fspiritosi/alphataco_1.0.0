@@ -1,13 +1,13 @@
 'use server';
 import { logger } from '@/lib/logger';
 import { getPostHogServer } from '@/lib/posthog-server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // P4: auth
 import { cookies } from 'next/headers';
-import { Database } from '../../../database.types';
+import { Database } from '../../../database.types'; // P4: auth — tipos del cliente Supabase Auth, se van con él
 
-const supabaseLogger = logger.withScope('Supabase Server');
+const supabaseLogger = logger.withScope('Supabase Server'); // P4: auth
 
-export const supabaseServer = async () => {
+export const supabaseServer = async () => { // P4: auth
   const cookieStore = await cookies();
 
   // Interceptor de fetch para loguear peticiones y enviar errores a PostHog
@@ -76,9 +76,9 @@ export const supabaseServer = async () => {
     }
   };
 
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  return createServerClient<Database>( // P4: auth
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, // P4: auth
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // P4: auth
     {
       global: {
         fetch: interceptedFetch,
@@ -108,10 +108,10 @@ export const supabaseServer = async () => {
   );
 };
 
-export const adminSupabaseServer = async () => {
+export const adminSupabaseServer = async () => { // P4: auth
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { // P4: auth
     auth: {
       autoRefreshToken: false,
       persistSession: false,

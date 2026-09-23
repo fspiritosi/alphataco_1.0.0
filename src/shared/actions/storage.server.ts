@@ -27,7 +27,7 @@ export async function uploadToStorage(
   options: { upsert?: boolean; cacheControl?: string } = {}
 ): Promise<StorageUploadResult> {
   const supabase = await supabaseServer(); // P3: storage
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { // P3: storage
     cacheControl: options.cacheControl ?? '3600',
     upsert: options.upsert ?? false,
     contentType: file.type,

@@ -21,18 +21,18 @@ import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { CompanySelectorProps } from '../../types/navbar.types';
+import { type CompanyRow, CompanySelectorProps } from '../../types/navbar.types';
 
 export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany }: CompanySelectorProps) {
   const [open, setOpen] = useState(false);
   const [showNewTeamDialog, setShowNewTeamDialog] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(
+  const [selectedCompany, setSelectedCompany] = useState<CompanyRow | null>(
     currentCompany?.[0] || allCompanies[0] || null
   );
 
   const totalCompanies = [...sharedCompanies, ...allCompanies];
 
-  const handleNewCompany = async (company: Company) => {
+  const handleNewCompany = async (company: CompanyRow) => {
     if (!company.id) return;
     // La empresa activa (JWT + cookie `actualComp`) la escribe el servidor tras validar la
     // pertenencia; acá sólo queda el rótulo que muestra la UI.

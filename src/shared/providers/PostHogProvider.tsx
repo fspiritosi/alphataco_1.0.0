@@ -36,7 +36,7 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
     const supabase = supabaseBrowser(); // P4: auth
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => { // P4: auth
       if (event === 'SIGNED_IN' && session?.user) {
         // Usar user.id como distinctId (según documentación)
         posthog.identify(session.user.id, {
