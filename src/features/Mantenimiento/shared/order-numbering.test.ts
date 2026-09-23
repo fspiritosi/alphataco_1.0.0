@@ -26,7 +26,7 @@ function fakeTx(rows: { next: bigint }[]) {
 
 describe('nextWorkOrderSequence', () => {
   it('toma el advisory lock antes de leer el máximo', async () => {
-    const { tx, calls } = fakeTx([{ next: 7n }]);
+    const { tx, calls } = fakeTx([{ next: BigInt(7) }]);
 
     await nextWorkOrderSequence(tx, 'empresa-1');
 
@@ -36,7 +36,7 @@ describe('nextWorkOrderSequence', () => {
   });
 
   it('usa una clave de lock propia de la empresa y del tipo de secuencia', async () => {
-    const { tx, calls } = fakeTx([{ next: 1n }]);
+    const { tx, calls } = fakeTx([{ next: BigInt(1) }]);
 
     await nextWorkOrderSequence(tx, 'empresa-1');
 
@@ -44,7 +44,7 @@ describe('nextWorkOrderSequence', () => {
   });
 
   it('acota el máximo a la empresa', async () => {
-    const { tx, calls } = fakeTx([{ next: 1n }]);
+    const { tx, calls } = fakeTx([{ next: BigInt(1) }]);
 
     await nextWorkOrderSequence(tx, 'empresa-1');
 
@@ -53,7 +53,7 @@ describe('nextWorkOrderSequence', () => {
   });
 
   it('devuelve el número como number, no como bigint', async () => {
-    const { tx } = fakeTx([{ next: 42n }]);
+    const { tx } = fakeTx([{ next: BigInt(42) }]);
 
     const result = await nextWorkOrderSequence(tx, 'empresa-1');
 
@@ -70,7 +70,7 @@ describe('nextWorkOrderSequence', () => {
 
 describe('nextMaintenanceOrderNumber', () => {
   it('toma el advisory lock antes de leer el máximo', async () => {
-    const { tx, calls } = fakeTx([{ next: 3n }]);
+    const { tx, calls } = fakeTx([{ next: BigInt(3) }]);
 
     await nextMaintenanceOrderNumber(tx, 'empresa-1');
 
@@ -79,8 +79,8 @@ describe('nextMaintenanceOrderNumber', () => {
   });
 
   it('no comparte la clave del lock con la secuencia de OTs', async () => {
-    const { tx: txOrder, calls: orderCalls } = fakeTx([{ next: 1n }]);
-    const { tx: txWork, calls: workCalls } = fakeTx([{ next: 1n }]);
+    const { tx: txOrder, calls: orderCalls } = fakeTx([{ next: BigInt(1) }]);
+    const { tx: txWork, calls: workCalls } = fakeTx([{ next: BigInt(1) }]);
 
     await nextMaintenanceOrderNumber(txOrder, 'empresa-1');
     await nextWorkOrderSequence(txWork, 'empresa-1');
@@ -89,13 +89,13 @@ describe('nextMaintenanceOrderNumber', () => {
   });
 
   it('formatea con prefijo y seis dígitos', async () => {
-    const { tx } = fakeTx([{ next: 3n }]);
+    const { tx } = fakeTx([{ next: BigInt(3) }]);
 
     await expect(nextMaintenanceOrderNumber(tx, 'empresa-1')).resolves.toBe('OM-000003');
   });
 
   it('no trunca cuando el número supera los seis dígitos', async () => {
-    const { tx } = fakeTx([{ next: 1234567n }]);
+    const { tx } = fakeTx([{ next: BigInt(1234567) }]);
 
     await expect(nextMaintenanceOrderNumber(tx, 'empresa-1')).resolves.toBe('OM-1234567');
   });
@@ -107,7 +107,7 @@ describe('nextMaintenanceOrderNumber', () => {
   });
 
   it('ignora las órdenes sin número al calcular el máximo', async () => {
-    const { tx, calls } = fakeTx([{ next: 1n }]);
+    const { tx, calls } = fakeTx([{ next: BigInt(1) }]);
 
     await nextMaintenanceOrderNumber(tx, 'empresa-1');
 
