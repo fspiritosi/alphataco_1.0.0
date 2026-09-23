@@ -4,8 +4,7 @@ import { CardTitle } from '@/components/ui/card';
 import RenderBanner from '@/features/Auth/components/RenderBanner';
 import Image from 'next/image';
 import Link from 'next/link';
-/** Logo servido desde el bucket público de Supabase Storage. P3: storage */
-const LOGO_URL = 'https://zktcbhhlcksopklpnubj.supabase.co/storage/v1/object/public/logo/24417298440.png'; // P3: storage
+import { BRAND_LOGO } from '@/shared/lib/branding';
 
 export default function PasswordRecovery() {
   return (
@@ -15,7 +14,7 @@ export default function PasswordRecovery() {
         <div className="lg:p-8 relative z-50   md:p-8 pt-7 p-0 flex flex-col justify-center items-center w-full">
           <Link className="relative z-20 lg:hidden items-center font-bold text-2xl flex" href="/">
             <Image
-              src={LOGO_URL}
+              src={BRAND_LOGO}
               alt="Logo de codecontrol"
               className="size-12 mr-4"
               width={120}

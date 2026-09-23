@@ -1,5 +1,6 @@
 'use client';
 
+import { BRAND_LOGO_PDF } from '@/shared/lib/branding';
 import { ChecklistPDFPreviewDialog } from '@/features/Checklists/components/checklist-pdf-preview-dialog';
 
 interface ChecklistPDFButtonProps {
@@ -25,7 +26,7 @@ interface ChecklistPDFButtonProps {
 }
 
 export function ChecklistPDFButton({ templateName, templateCode, sections, date, revision }: ChecklistPDFButtonProps) {
-  const logoUrl = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png'; // P3: storage
+  const logoUrl = BRAND_LOGO_PDF;
 
   return (
     <ChecklistPDFPreviewDialog

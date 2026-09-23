@@ -4,15 +4,13 @@ import { Document, Image, Page, Text, View } from '@react-pdf/renderer';
 import moment from 'moment';
 import type { DeliveryPdfData } from '../actions/pdf.server';
 import { buildReceiptRows, formatCuit } from '../lib/receipt-format';
+import { BRAND_LOGO_PDF } from '@/shared/lib/branding';
 import { styles } from './receipt-styles';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-// P3: storage — logo por defecto cuando la empresa no tiene uno cargado; la URL se
-// reemplaza cuando el storage deje de ser Supabase.
-const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png'; // P3: storage
 
 // ============================================================================
 // PROPS
@@ -44,7 +42,7 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
         {/* ── HEADER ROW 1: Logo | (empty) | Meta ────────────────── */}
         <View style={styles.headerRow1}>
           <View style={styles.logoCell}>
-            <Image style={styles.logo} src={comp?.company_logo || LOGO_URL} />
+            <Image style={styles.logo} src={comp?.company_logo || BRAND_LOGO_PDF} />
           </View>
           <View style={styles.headerMiddle} />
           <View style={styles.metaCell}>
