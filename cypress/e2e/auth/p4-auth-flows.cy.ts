@@ -103,6 +103,30 @@ describe('P4 — flujo 3: QR de mantenimiento', () => {
     cy.getCookie('actualComp').should('exist');
   });
 
+  /**
+   * El operario del QR tiene `profile.employee_id` puesto (es lo que hace que su claim de
+   * empresa cumpla la regla de pertenencia), y eso es exactamente lo que habilita los paneles
+   * de indumentaria y de taller. A esos dos se entra con email y contraseña: una sesión anónima
+   * no puede abrirlos por tener un legajo vinculado.
+   */
+  it('el operario del QR no abre el panel de indumentaria ni el de taller', () => {
+    cy.visit('/maintenance');
+    selectQrEquipment();
+    cy.contains('button', 'Empleado').click();
+    cy.get('input').first().type(QR_CUIL);
+    cy.get('form').submit();
+    cy.location('pathname', { timeout: 30000 }).should('include', '/maintenance/equipment/');
+
+    // Se entra por los LOGIN de cada panel, que son los que saltan al panel cuando la sesión
+    // ya es de un operario. Que se queden en el login es la prueba de que esta sesión no lo es
+    // (y evita el ruido de cliente de visitar una ruta que redirige desde el servidor).
+    cy.visit('/clothing/login');
+    cy.location('pathname', { timeout: 30000 }).should('eq', '/clothing/login');
+
+    cy.visit('/operator/login');
+    cy.location('pathname', { timeout: 30000 }).should('eq', '/operator/login');
+  });
+
   it('el operario anónimo NO puede entrar al dashboard', () => {
     cy.request({ method: 'POST', url: '/api/auth/sign-in/anonymous', headers: { 'content-type': 'application/json' }, body: {} })
       .its('status')
