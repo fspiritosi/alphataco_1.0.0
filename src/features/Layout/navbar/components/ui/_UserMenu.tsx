@@ -14,12 +14,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Logger } from '@/lib/logger';
-import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
-import { clearActiveCompany } from '@/shared/actions/company-user.actions';
+import { logout as serverLogout } from '@/features/Auth/actions/login-actions';
 import { UploadImage } from '@/shared/components/common/UploadImage';
 import cookie from 'js-cookie';
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { updateProfileAvatar } from '../../actions/actions.navbar';
@@ -31,14 +29,11 @@ export function _UserMenu({ user }: UserMenuProps) {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const form = useForm();
 
-  const router = useRouter();
+  // El cierre de sesión es una Server Action: la cookie de Better Auth y la de empresa activa
+  // son httpOnly, así que las dos las borra el servidor (y ahí mismo redirige a /login).
   const logout = async () => {
-    const supabase = supabaseBrowser(); // P4: auth
-    await supabase.auth.signOut(); // P4: auth
-    // La cookie de empresa activa es httpOnly: la borra el servidor.
-    await clearActiveCompany();
     cookie.remove('actualCompName');
-    router.push('/login');
+    await serverLogout();
   };
   const handleAvatarUpdate = async (imageUrl: string) => {
     if (!user?.id) return;

@@ -1,8 +1,8 @@
 'use server';
 
 import { logger } from '@/lib/logger';
-import { adminSupabaseServer } from '@/lib/supabase/server'; // P4: auth
-import { getSessionCompanyClaim, getSessionUser } from '@/shared/lib/session';
+import { getSessionCompanyClaim, getSessionToken, getSessionUser } from '@/shared/lib/session';
+import { writeCompanyClaim } from '@/shared/lib/session-claims';
 import { canUseAsActiveCompany, clearActiveCompanyCookie, setActiveCompanyCookie } from '@/shared/lib/tenant';
 
 export type SwitchActiveCompanyResult = { ok: boolean; error?: string };
@@ -19,10 +19,14 @@ const ACTIVE_COMPANY_MAX_AGE = 60 * 60 * 24 * 365;
  * con `canUseAsActiveCompany()` que el usuario tenga un vínculo real con esa empresa.
  *
  * Escribe las dos caras de la empresa activa, en este orden:
- * 1. `app_metadata.company` del JWT, que es lo que `getActiveCompanyId()` prefiere. Si
- *    esto fallara y sólo se escribiera la cookie, el claim viejo seguiría ganando y el
- *    cambio de empresa sería un no-op silencioso.
- * 2. La cookie `actualComp`, que es de donde sale la empresa mientras el JWT no se refresca.
+ * 1. El claim `company` de la sesión, que es lo que `getActiveCompanyId()` prefiere. Si esto
+ *    fallara y sólo se escribiera la cookie, el claim viejo seguiría ganando y el cambio de
+ *    empresa sería un no-op silencioso.
+ * 2. La cookie `actualComp`, que es la que ven los flujos sin claim.
+ *
+ * Éste es el ÚNICO camino por el que el claim se mueve a pedido del cliente, y por eso la
+ * validación de arriba no es opcional: la escritura de `writeCompanyClaim()` es server-only y
+ * no revalida nada, confía en que el llamador ya lo hizo (ver `shared/lib/session-claims.ts`).
  */
 export const switchActiveCompany = async (companyId: string): Promise<SwitchActiveCompanyResult> => {
   if (!companyId) return { ok: false, error: 'Empresa inválida' };
@@ -38,14 +42,13 @@ export const switchActiveCompany = async (companyId: string): Promise<SwitchActi
   }
 
   if ((await getSessionCompanyClaim()) !== companyId) {
-    // P4: auth — el claim de empresa vive en el JWT de Supabase hasta que P4 traiga la sesión propia.
-    const admin = await adminSupabaseServer(); // P4: auth
-    const { error } = await admin.auth.admin.updateUserById(user.id, { // P4: auth
-      app_metadata: { company: companyId },
-    });
+    const sessionToken = await getSessionToken();
+    if (!sessionToken) return { ok: false, error: 'No hay sesión activa' };
 
-    if (error) {
-      logger.error('Error actualizando app_metadata.company', { data: { userId: user.id, message: error.message } });
+    try {
+      await writeCompanyClaim(sessionToken, companyId);
+    } catch (error) {
+      logger.error('Error actualizando el claim de empresa de la sesión', { data: { userId: user.id, error } });
       return { ok: false, error: 'No se pudo cambiar la empresa activa' };
     }
   }

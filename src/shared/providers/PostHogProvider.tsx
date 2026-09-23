@@ -3,7 +3,7 @@
 // Activa el errorMap de zod en español (side-effect: z.setErrorMap).
 // Se importa acá porque este es un Client Component de raíz — así el side-effect
 // se ejecuta en el bundle del cliente, donde viven los forms con zodResolver.
-import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
+import { authClient } from '@/shared/lib/auth-client';
 import '@/lib/zod-es';
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
@@ -31,27 +31,22 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
 
     initialized.current = true;
 
-    // P4: auth — identifica al usuario en PostHog escuchando los eventos de Supabase Auth;
-    // P4 lo reemplaza por la sesión propia.
-    const supabase = supabaseBrowser(); // P4: auth
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => { // P4: auth
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Usar user.id como distinctId (según documentación)
-        posthog.identify(session.user.id, {
-          email: session.user.email,
-          // Agregar más propiedades del usuario si es necesario
-        });
-      } else if (event === 'SIGNED_OUT') {
-        // Resetear cuando el usuario cierra sesión
+    // Identifica al usuario en PostHog. Antes esto escuchaba `onAuthStateChange` de Supabase;
+    // con Better Auth alcanza con leer la sesión al montar: el login y el logout son Server
+    // Actions que terminan en una navegación, así que el provider se vuelve a montar y esto
+    // corre de nuevo con la sesión ya cambiada.
+    let cancelled = false;
+    void authClient.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (data?.user) {
+        posthog.identify(data.user.id, { email: data.user.email });
+      } else {
         posthog.reset();
       }
     });
 
-    // Cleanup importante para evitar memory leaks
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
     };
   }, []);
 

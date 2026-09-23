@@ -1,51 +1,59 @@
 import { Logger } from '@/lib/logger';
+import { auth } from '@/shared/lib/auth';
+import { resolveDefaultCompanyId, writeCompanyClaim } from '@/shared/lib/session-claims';
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from './lib/utils/middleware';
 
 const logger = new Logger('Proxy');
 
 /**
- * Proxy simplificado para Next.js 16
+ * Proxy de Next.js 16 (el ex-middleware). Corre en runtime Node, así que puede leer la sesión
+ * de Better Auth directamente contra la base — ya no hace falta el cliente SSR de Supabase que
+ * refrescaba el JWT en cada request.
  *
  * Responsabilidades:
  * 1. Verificar autenticación para /dashboard/*
- * 2. Verificar que usuarios autenticados tengan compañía asignada (via JWT claims)
- * 3. Delegar control de permisos granulares a PermissionGuard en componentes
+ * 2. Mandar al operario anónimo (QR) a /maintenance
+ * 3. Verificar que el usuario tenga empresa, por el claim de la sesión
  *
  * Notas:
  * - /maintenance/* NO está protegido (acceso anónimo para empleados con CUIL)
  * - Los permisos por rol se manejan con PermissionGuard y role_permissions en BD
- * - has_company se inyecta en app_metadata via Custom Access Token Hook (0 DB queries)
+ * - Ya NO se siembra la cookie `actualComp` acá: el claim de empresa se resuelve en el alta de
+ *   sesión (`session.create.before`) y `getActiveCompanyId()` lo prefiere sobre la cookie, así
+ *   que sembrarla era redundante.
  */
 export async function proxy(req: NextRequest) {
-  // Actualizar sesión y obtener usuario
-  const { response, user } = await updateSession(req);
+  const session = await auth.api.getSession({ headers: req.headers });
 
   // 1. Verificar autenticación
-  if (!user?.id) {
+  if (!session?.user.id) {
     logger.debug('Usuario no autenticado, redirigiendo a login');
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
   // 2. Usuarios anónimos no pueden acceder a /dashboard, redirigir a /maintenance
-  if (user.is_anonymous) {
+  if (session.user.isAnonymous) {
     logger.debug('Usuario anónimo intentando acceder a dashboard, redirigiendo a maintenance');
     return NextResponse.redirect(new URL('/maintenance', req.url));
   }
 
-  // 3. Verificar si tiene compañía desde JWT claims (0 DB queries)
-  // El Custom Access Token Hook inyecta has_company en app_metadata
-  // Si has_company es undefined (hook no aplicado aun), permitir acceso (backwards-compatible)
-  // Solo redirigir si has_company es EXPLÍCITAMENTE false
-  const hasCompany = user.app_metadata?.has_company;
+  // 3. Empresa: el claim lo estampó el servidor al abrir la sesión. Si está vacío puede ser que
+  //    el usuario no tenga ninguna, o que lo hayan sumado a una DESPUÉS de abrir la sesión: se
+  //    reintenta resolver contra la base y, si aparece, se estampa. Sin este auto-rescate el
+  //    invitado a una empresa quedaría rebotando contra /dashboard/company/new hasta relogearse.
+  if (!session.session.company) {
+    const resolved = await resolveDefaultCompanyId(session.user.id);
 
-  if (hasCompany === false && !req.url.includes('/dashboard/company/new')) {
-    logger.debug('Usuario sin compañía, redirigiendo a crear compañía');
-    return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
+    if (resolved) {
+      await writeCompanyClaim(session.session.token, resolved);
+    } else if (!req.nextUrl.pathname.startsWith('/dashboard/company/new')) {
+      logger.debug('Usuario sin compañía, redirigiendo a crear compañía');
+      return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
+    }
   }
 
   // 4. Usuario autenticado con compañía - permitir acceso
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

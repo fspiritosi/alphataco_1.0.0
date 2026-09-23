@@ -4,7 +4,8 @@ import { checkPermissionServer } from '@/features/Permissions/actions/permission
 import { Logger } from '@/lib/logger';
 import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
-import { getSessionUserId } from '@/shared/lib/session';
+import { getSessionToken, getSessionUserId } from '@/shared/lib/session';
+import { writeCompanyClaim } from '@/shared/lib/session-claims';
 import { storagePublicUrl, storageUpload } from '@/shared/lib/storage';
 import { assertCompanyAccess, getActiveCompanyId, NoActiveCompanyError } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
@@ -271,6 +272,16 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
 
       return company.id;
     });
+
+    // La empresa recién creada pasa a ser la activa de esta sesión. El claim se puede escribir
+    // sin más validación porque quien lo pide ACABA de quedar como `owner_id` unas líneas más
+    // arriba: la pertenencia no se supone, se creó en esta misma transacción. Sin esto, el
+    // usuario que entra sin empresa vuelve al proxy con el claim en null y rebota otra vez a
+    // /dashboard/company/new.
+    const sessionToken = await getSessionToken();
+    if (sessionToken) {
+      await writeCompanyClaim(sessionToken, companyId);
+    }
 
     const logo = logoFile(formData);
     if (logo) {
