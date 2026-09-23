@@ -37,7 +37,6 @@ type TireTypeFormValues = z.infer<typeof tireTypeFormSchema>;
 interface TipoFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  companyId: string;
   tireType?: TireTypeListItem;
   queryKey: string[];
 }
@@ -46,7 +45,7 @@ interface TipoFormProps {
 // COMPONENT
 // ============================================================================
 
-export function TipoForm({ open, onOpenChange, companyId, tireType, queryKey }: TipoFormProps) {
+export function TipoForm({ open, onOpenChange, tireType, queryKey }: TipoFormProps) {
   const queryClient = useQueryClient();
   const isEditing = !!tireType;
 
@@ -86,7 +85,6 @@ export function TipoForm({ open, onOpenChange, companyId, tireType, queryKey }: 
           name: values.name,
           size: values.size,
           tread_type: values.tread_type,
-          company_id: companyId,
         });
         toast.success('Tipo de cubierta creado correctamente');
       }

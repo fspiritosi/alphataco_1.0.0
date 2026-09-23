@@ -1,5 +1,9 @@
 'use server';
 
+import {
+  assertTireTypeInActiveCompany,
+  getVehicleCompanyId,
+} from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { TireTreadType } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
@@ -230,25 +234,22 @@ export async function getTireTypeSingleFacet(
 // CRUD ACTIONS
 // ============================================================================
 
-export async function createTireType(data: {
-  name: string;
-  size: string;
-  tread_type: TireTreadType;
-  company_id: string;
-}) {
+/** Alta de tipo de cubierta: la empresa sale de la sesión, no del formulario. */
+export async function createTireType(data: { name: string; size: string; tread_type: TireTreadType }) {
   logger.debug('Creating tire type', { data: { name: data.name, size: data.size } });
   try {
+    const companyId = await getServerCompanyId();
     const existing = await prisma.tire_types.findFirst({
       where: {
         size: data.size,
         tread_type: data.tread_type,
-        company_id: data.company_id,
+        company_id: companyId,
       },
     });
     if (existing) {
       throw new Error(`Ya existe un tipo de cubierta con medida "${data.size}" y tipo de banda "${data.tread_type}"`);
     }
-    const tireType = await prisma.tire_types.create({ data });
+    const tireType = await prisma.tire_types.create({ data: { ...data, company_id: companyId } });
     return tireType;
   } catch (error) {
     logger.error('Error creating tire type', { data: { error } });
@@ -259,6 +260,8 @@ export async function createTireType(data: {
 export async function updateTireType(id: string, data: { name?: string; size?: string; tread_type?: TireTreadType }) {
   logger.debug('Updating tire type', { data: { id, ...data } });
   try {
+    await assertTireTypeInActiveCompany(id);
+
     const tireType = await prisma.tire_types.update({
       where: { id },
       data,
@@ -273,6 +276,8 @@ export async function updateTireType(id: string, data: { name?: string; size?: s
 export async function toggleTireTypeActive(id: string, isActive: boolean) {
   logger.debug('Toggling tire type active', { data: { id, isActive } });
   try {
+    await assertTireTypeInActiveCompany(id);
+
     const tireType = await prisma.tire_types.update({
       where: { id },
       data: { is_active: isActive },
@@ -288,6 +293,7 @@ export async function toggleTireTypeActive(id: string, isActive: boolean) {
 // SELECT QUERY (for dropdowns in other forms)
 // ============================================================================
 
+/** Tipos de la empresa activa, para los formularios del dashboard. */
 export async function getTireTypesForSelect() {
   logger.debug('Fetching tire types for select');
   try {
@@ -305,6 +311,32 @@ export async function getTireTypesForSelect() {
     return data;
   } catch (error) {
     logger.error('Error fetching tire types for select', { data: { error } });
+    throw error;
+  }
+}
+
+/**
+ * Tipos de la empresa del vehículo atendido, para el alta rápida del asistente de gomería:
+ * ese formulario también corre desde el QR anónimo, donde la empresa no puede salir de la
+ * sesión del operario.
+ */
+export async function getTireTypesForVehicle(vehicleId: string) {
+  logger.debug('Fetching tire types for vehicle', { data: { vehicleId } });
+  try {
+    const companyId = await getVehicleCompanyId(prisma, vehicleId);
+    const data = await prisma.tire_types.findMany({
+      where: { company_id: companyId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        size: true,
+        tread_type: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+    return data;
+  } catch (error) {
+    logger.error('Error fetching tire types for vehicle', { data: { error, vehicleId } });
     throw error;
   }
 }

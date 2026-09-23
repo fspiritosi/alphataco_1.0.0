@@ -52,7 +52,6 @@ interface TiposDataTableProps {
   data: TireTypeListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
-  companyId: string;
   tableId: string;
   permissionsMap: Record<string, boolean>;
   initialColumnVisibility?: Record<string, boolean>;
@@ -67,7 +66,6 @@ export default function _TiposDataTable({
   data,
   totalRows,
   searchParams,
-  companyId,
   tableId,
   permissionsMap,
   initialColumnVisibility,
@@ -240,7 +238,7 @@ export default function _TiposDataTable({
       />
 
       {/* ─── Create form ─────────────────────────────────────────────────── */}
-      <TipoForm open={showCreateForm} onOpenChange={setShowCreateForm} companyId={companyId} queryKey={QUERY_KEY} />
+      <TipoForm open={showCreateForm} onOpenChange={setShowCreateForm} queryKey={QUERY_KEY} />
 
       {/* ─── Edit form ───────────────────────────────────────────────────── */}
       <TipoForm
@@ -248,7 +246,6 @@ export default function _TiposDataTable({
         onOpenChange={(open) => {
           if (!open) setEditTarget(null);
         }}
-        companyId={companyId}
         tireType={editTarget ?? undefined}
         queryKey={QUERY_KEY}
       />

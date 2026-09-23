@@ -17,7 +17,6 @@ const TABLE_ID = 'tire-types';
 
 interface TiposListProps {
   searchParams: Record<string, string | string[] | undefined>;
-  companyId: string;
   permissionsMap: Record<string, boolean>;
 }
 
@@ -25,7 +24,7 @@ interface TiposListProps {
 // SERVER COMPONENT
 // ============================================================================
 
-export default async function TiposList({ searchParams, companyId, permissionsMap }: TiposListProps) {
+export default async function TiposList({ searchParams, permissionsMap }: TiposListProps) {
   // Extract only the params for this table (strip namespace prefix)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, TABLE_ID);
 
@@ -42,7 +41,6 @@ export default async function TiposList({ searchParams, companyId, permissionsMa
           data={data}
           totalRows={total}
           searchParams={tableParams}
-          companyId={companyId}
           tableId={TABLE_ID}
           permissionsMap={permissionsMap}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
