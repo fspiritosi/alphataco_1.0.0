@@ -74,8 +74,15 @@ export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
   }
 }
 
-/** Empresa del equipo elegido en el flujo anónimo: sale del vehículo, nunca de la sesión. */
-export async function getCompanyIdForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
+/**
+ * Fija la empresa activa del request a partir del equipo escaneado (login de invitado).
+ *
+ * La empresa sale del vehículo, nunca de la sesión ni del cliente, y la cookie se escribe
+ * desde el servidor con `setActiveCompanyCookie()` — antes la escribía el cliente con
+ * `js-cookie`, que es el mismo valor pero fuera del único punto de escritura server-side
+ * (y sin los flags `secure`/`sameSite` que el helper aplica).
+ */
+export async function setActiveCompanyForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
 
   const vehicle = await prisma.vehicles.findUnique({
@@ -85,6 +92,12 @@ export async function getCompanyIdForEquipment(equipmentId: string): Promise<Ok<
 
   if (!vehicle?.company_id) {
     return { ok: false, error: 'No se pudo obtener la empresa del equipo seleccionado.' };
+  }
+
+  try {
+    await setActiveCompanyCookie(vehicle.company_id);
+  } catch (error) {
+    deviationsLogger.warn('No se pudo fijar la empresa activa del equipo escaneado', { data: { error } });
   }
 
   return { ok: true, companyId: vehicle.company_id };
