@@ -519,8 +519,10 @@ model company {
   employees           employees[]
   equipment_owners    equipment_owners[]
   guild               guild[]
+  jobs_runs           jobs_runs[]
   kpis                kpis[]
   notifications       notifications[]
+  notification_settings notification_settings[]
   other_equipment     other_equipment[]
   preparte            preparte[]
   service_items       service_items[]
@@ -1335,6 +1337,30 @@ model kpis {
   @@schema("public")
 }
 
+/// Bitacora de los jobs del cron (P5). Es tambien el candado de idempotencia: la clave
+/// `(job, run_key)` se reclama con un INSERT ... ON CONFLICT antes de trabajar, asi una
+/// segunda corrida del mismo dia no vuelve a mandar el correo. `run_key` lleva la empresa
+/// (`<company_id>:<fecha AR>`) en los jobs que corren por empresa, de modo que el fallo de
+/// una empresa no bloquea el reintento de las otras.
+model jobs_runs {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job         String
+  run_key     String
+  company_id  String?        @db.Uuid
+  status      job_run_status @default(running)
+  attempts    Int            @default(1)
+  started_at  DateTime       @default(now()) @db.Timestamptz(6)
+  finished_at DateTime?      @db.Timestamptz(6)
+  error       String?
+  metadata    Json           @default("{}")
+  company     company?       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([job, run_key])
+  @@index([job, started_at])
+  @@index([company_id])
+  @@schema("public")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model maintenance_activity_log {
   id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1669,6 +1695,26 @@ model notifications {
   reference   String?
   company     company?                 @relation(fields: [company_id], references: [id], onDelete: Cascade, map: "public_notifications_company_id_fkey")
 
+  @@schema("public")
+}
+
+/// Destinatarios de los correos automaticos, POR EMPRESA (P5). Es lo que evita que un
+/// correo de una empresa llegue a gente de otra: el job resuelve la lista con el mismo
+/// `company_id` con el que consulto los datos. Sin fila (o con `recipients` vacio) la
+/// empresa se saltea y queda registrada en `jobs_runs`. No hay fallback por variable de
+/// entorno a proposito: una lista global recibiria datos de todas las empresas.
+model notification_settings {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id String            @db.Uuid
+  kind       notification_kind
+  recipients String[]          @default([])
+  is_active  Boolean           @default(true)
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  company    company           @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, kind])
+  @@index([company_id], map: "idx_notification_settings_company_id")
   @@schema("public")
 }
 
@@ -3028,6 +3074,21 @@ enum gender_enum {
   Masculino
   Femenino
   No_Declarado @map("No Declarado")
+
+  @@schema("public")
+}
+
+enum job_run_status {
+  running
+  ok
+  error
+
+  @@schema("public")
+}
+
+enum notification_kind {
+  documents_expiry
+  daily_report_deviations
 
   @@schema("public")
 }

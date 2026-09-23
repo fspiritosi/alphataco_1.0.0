@@ -128,6 +128,20 @@ async function main(): Promise<void> {
       },
     });
 
+    // 2b. Destinatarios de los correos automaticos (P5), POR EMPRESA. Sin fila el job
+    //     registra la empresa como salteada y no manda nada. El default es el correo de
+    //     contacto de la propia empresa: es el unico destinatario que el modelo conoce, y
+    //     deliberadamente NO hay fallback por variable de entorno (una lista global
+    //     recibiria los datos de todas las empresas). `update: {}` para no pisar una lista
+    //     que alguien ya haya editado.
+    for (const kind of ['documents_expiry', 'daily_report_deviations'] as const) {
+      await prisma.notification_settings.upsert({
+        where: { company_id_kind: { company_id: company.id, kind } },
+        update: {},
+        create: { company_id: company.id, kind, recipients: [company.contact_email] },
+      });
+    }
+
     // 3. Catalogo de permisos — GLOBAL, no depende de la empresa creada arriba.
     const actionNames = Object.fromEntries(Object.values(ACTIONS).map((a) => [a.slug, a.name]));
     const { modules, tabs, actions, rolePermissions } = buildPermissionRows(PERMISSIONS, actionNames);
