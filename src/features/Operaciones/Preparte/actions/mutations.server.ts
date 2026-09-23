@@ -2,7 +2,8 @@
 
 import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server'; // P3: storage
+import { storageList, storageMove, storageRemove } from '@/shared/lib/storage';
+import { buildStorageFileUrl, isSafeStorageKey, parseStorageFileUrl } from '@/shared/lib/storage-url';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
@@ -423,112 +424,86 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
 }
 
 // ============================================================================
-// ARCHIVO DE LA IMAGEN DEL PEDIDO (P3: storage)
+// ARCHIVO DE LA IMAGEN DEL PEDIDO
 // ============================================================================
 
+/** Bucket de las imágenes adjuntas a los pedidos. */
+const PREPARTE_BUCKET = 'preparte-img';
+
+/** Nombre de carpeta seguro a partir del nombre del cliente o del contrato. */
+function normalizeFolder(value: string): string {
+  return (
+    value
+      ?.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '-')
+      .toLowerCase() || ''
+  );
+}
+
 /**
- * Mueve la imagen ya subida a su ruta final `<cliente>/<contrato>/<pedido>/<pedido>.<ext>`
- * y devuelve la URL pública final.
+ * El cliente pudo haberle sacado los espacios a la URL al pasarla por el formulario: si la
+ * key no existe tal cual, se busca entre los hermanos uno cuyo nombre sin espacios coincida.
+ */
+async function resolveActualKey(candidate: string): Promise<string> {
+  const parts = candidate.split('/');
+  const name = parts.pop() as string;
+  const parent = parts.join('/');
+  const listed = await storageList(PREPARTE_BUCKET, parent);
+  if (!listed.ok) {
+    logger.warn('No se pudo listar el bucket para resolver el nombre real', { data: { error: listed.error } });
+    return candidate;
+  }
+  const withoutSpaces = (value: string) => value.replace(/\s+/g, '');
+  const match = listed.data.find((entry) => withoutSpaces(entry.name) === withoutSpaces(name));
+  if (!match) return candidate;
+  return parent ? `${parent}/${match.name}` : match.name;
+}
+
+/**
+ * Mueve la imagen ya subida a su ruta final
+ * `<empresa>/<cliente>/<contrato>/<pedido>/<pedido>.<ext>` y devuelve su URL estable.
  *
- * P3: storage — el acceso a Supabase Storage se reemplaza por MinIO conservando la firma.
+ * Perímetro: la URL llega del cliente, así que lo único que se acepta es un archivo del
+ * bucket de preparte que ya esté dentro de la carpeta de la empresa activa —que es donde
+ * `uploadToStorage` deja todo lo que sube el navegador—. El destino se arma acá y también
+ * cuelga de esa carpeta: el pedido no puede sacar el archivo de su empresa ni traerse uno
+ * de otra.
  */
 export async function movePreparteFile(
-  fromPublicUrl: string,
+  fromUrl: string,
   clienteName: string,
   contratoName: string,
   numeroPedido: string
 ): Promise<string> {
-  const supabase = await supabaseServer(); // P3: storage
+  const companyId = await getActiveCompanyId();
 
-  const DEFAULT_BUCKET = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
+  const source = parseStorageFileUrl(fromUrl);
+  if (!source || source.bucket !== PREPARTE_BUCKET || !isSafeStorageKey(source.path)) {
+    throw new Error('La imagen del pedido no es un archivo válido del storage');
+  }
+  if (!source.path.startsWith(`${companyId}/`)) {
+    throw new Error('La imagen del pedido no pertenece a la empresa activa');
+  }
 
-  // Normalizar nombres para la ruta (sólo para carpetas)
-  const normalize = (value: string) =>
-    value
-      ?.normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9]/g, '-')
-      .toLowerCase() || '';
-
-  const empresaDir = normalize(clienteName) || 'empresa';
-  const contratoDir = normalize(contratoName) || 'servicio';
-
-  const baseUrl = process.env.NEXT_PUBLIC_PROJECT_URL as string;
-
-  const detectBucketFromUrl = (): string | null => {
-    try {
-      const url = new URL(fromPublicUrl);
-      const parts = url.pathname.split('/').filter(Boolean);
-      // .../storage/v1/object/public/<bucket>/<resto>
-      const publicIdx = parts.findIndex((part) => part === 'public');
-      if (publicIdx >= 0 && parts[publicIdx + 1]) return parts[publicIdx + 1];
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  const BUCKET = detectBucketFromUrl() || DEFAULT_BUCKET;
-  const prefix = `${baseUrl}/${BUCKET}/`;
-
-  const extractFromPath = (): string => {
-    try {
-      const url = new URL(fromPublicUrl);
-      const parts = url.pathname.split('/').filter(Boolean);
-      const bucketIdx = parts.findIndex((part) => part === BUCKET);
-      if (bucketIdx >= 0) return decodeURIComponent(parts.slice(bucketIdx + 1).join('/'));
-      if (fromPublicUrl.startsWith(prefix)) return decodeURIComponent(fromPublicUrl.slice(prefix.length));
-      const clean = fromPublicUrl.split('?')[0];
-      return decodeURIComponent(clean.split('/').pop() || '');
-    } catch {
-      const clean = fromPublicUrl.split('?')[0];
-      return decodeURIComponent(clean.split('/').pop() || '');
-    }
-  };
-
-  let fromPath = extractFromPath();
-  if (fromPath.startsWith('/')) fromPath = fromPath.slice(1);
-
-  // El cliente puede haber quitado los espacios de la URL: resolver el nombre real.
-  const resolveActualObject = async (candidate: string): Promise<string> => {
-    const parentDir = candidate.includes('/') ? candidate.split('/').slice(0, -1).join('/') : '';
-    const candidateName = candidate.split('/').pop() as string;
-    const withoutSpaces = (value: string) => value.replace(/\s+/g, '');
-    try {
-      const { data: listData, error: listError } = await supabase.storage.from(BUCKET).list(parentDir); // P3: storage
-      if (listError) {
-        logger.warn('No se pudo listar el bucket para resolver el nombre real', {
-          data: { message: listError.message },
-        });
-        return candidate;
-      }
-      const match = listData?.find((file) => withoutSpaces(file.name) === withoutSpaces(candidateName));
-      if (match) return parentDir ? `${parentDir}/${match.name}` : match.name;
-      return candidate;
-    } catch (error) {
-      logger.warn('Error resolviendo el nombre real del objeto', { data: { error } });
-      return candidate;
-    }
-  };
-
-  fromPath = await resolveActualObject(fromPath);
-
+  const fromPath = await resolveActualKey(source.path);
+  const empresaDir = normalizeFolder(clienteName) || 'empresa';
+  const contratoDir = normalizeFolder(contratoName) || 'servicio';
   const currentExt = fromPath.split('.').pop()?.toLowerCase() || 'jpg';
-  const targetPath = `${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
+  const targetPath = `${companyId}/${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
 
   if (fromPath !== targetPath) {
-    let { error } = await supabase.storage.from(BUCKET).move(fromPath, targetPath); // P3: storage
-    if (error && /already exists/i.test(error.message)) {
-      const parent = `${empresaDir}/${contratoDir}/${numeroPedido}`;
-      await supabase.storage.from(BUCKET).remove([`${parent}/${numeroPedido}.${currentExt}`]); // P3: storage
-      const retry = await supabase.storage.from(BUCKET).move(fromPath, targetPath); // P3: storage
-      error = retry.error;
+    let moved = await storageMove(PREPARTE_BUCKET, fromPath, targetPath);
+    if (!moved.ok && /already exists/i.test(moved.error)) {
+      // El pedido ya tenía una imagen: se reemplaza por la nueva.
+      await storageRemove(PREPARTE_BUCKET, [targetPath]);
+      moved = await storageMove(PREPARTE_BUCKET, fromPath, targetPath);
     }
-    if (error) {
-      logger.error('Error moviendo el archivo del pedido', { data: { error } });
-      throw new Error(`No se pudo mover el archivo en Storage: ${error.message}`);
+    if (!moved.ok) {
+      logger.error('Error moviendo el archivo del pedido', { data: { error: moved.error, fromPath, targetPath } });
+      throw new Error(`No se pudo mover el archivo en Storage: ${moved.error}`);
     }
   }
 
-  return `${baseUrl.replace(/\/$/, '')}/${BUCKET}/${targetPath}`;
+  return buildStorageFileUrl(PREPARTE_BUCKET, targetPath);
 }

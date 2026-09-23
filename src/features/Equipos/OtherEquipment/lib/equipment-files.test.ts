@@ -30,13 +30,18 @@ describe('buildOtherEquipmentFilePath', () => {
 });
 
 describe('extractStoragePath', () => {
-  it('extrae el path relativo de una URL pública del bucket (decodificado)', () => {
-    const url = `https://x.supabase.co/storage/v1/object/public/document-files/other-equipment-pictures/${ID}/1_foto%201.jpg`;
+  it('extrae el path relativo de la URL guardada (decodificado)', () => {
+    const url = `/api/files/document-files/other-equipment-pictures/${ID}/1_foto%201.jpg`;
     expect(extractStoragePath(url, 'document-files')).toBe(`other-equipment-pictures/${ID}/1_foto 1.jpg`);
+  });
+  it('tolera el querystring que rompe la caché del navegador', () => {
+    const url = `/api/files/document-files/other-equipment-pictures/${ID}/1_a.jpg?v=123`;
+    expect(extractStoragePath(url, 'document-files')).toBe(`other-equipment-pictures/${ID}/1_a.jpg`);
   });
   it('otra URL o bucket → null', () => {
     expect(extractStoragePath('https://example.com/a.jpg', 'document-files')).toBeNull();
-    expect(extractStoragePath('https://x/storage/v1/object/public/otro/a.jpg', 'document-files')).toBeNull();
+    expect(extractStoragePath('/api/files/otro/a.jpg', 'document-files')).toBeNull();
+    expect(extractStoragePath('https://x/storage/v1/object/public/document-files/a.jpg', 'document-files')).toBeNull();
   });
 });
 

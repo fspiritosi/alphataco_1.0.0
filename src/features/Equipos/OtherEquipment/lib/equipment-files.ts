@@ -1,3 +1,5 @@
+import { parseStorageFileUrl } from '@/shared/lib/storage-url';
+
 /**
  * Reglas puras de los archivos de un equipamiento en el storage (fotos, planos y
  * certificaciones). Los paths tienen la forma `other-equipment-<tipo>/<equipoId>/<ts>_<nombre>`;
@@ -36,16 +38,11 @@ export function buildOtherEquipmentFilePath(
   return `${FOLDER_BY_KIND[kind]}/${equipmentId}/${timestamp}_${sanitizeFileName(fileName)}`;
 }
 
-/** Path relativo del storage a partir de una URL pública del bucket, o null si no es de ese bucket. */
-export function extractStoragePath(publicUrl: string, bucket: string): string | null {
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  try {
-    return decodeURIComponent(publicUrl.substring(idx + marker.length));
-  } catch {
-    return null;
-  }
+/** Path relativo del storage a partir de la URL guardada, o null si no es de ese bucket. */
+export function extractStoragePath(fileUrl: string, bucket: string): string | null {
+  const parsed = parseStorageFileUrl(fileUrl);
+  if (!parsed || parsed.bucket !== bucket) return null;
+  return parsed.path;
 }
 
 /** `true` si `path` es un archivo dentro de la carpeta `<tipo>/<equipoId>/` (sin `..`, sin `/` inicial). */
