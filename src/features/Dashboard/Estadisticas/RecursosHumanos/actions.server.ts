@@ -1,7 +1,10 @@
 'use server';
 
+import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { withCompany } from '@/shared/lib/prisma-tenant';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Dashboard/RRHH');
 
@@ -76,32 +79,37 @@ export interface DepartmentAbsenceSummaryItem {
   data: EmployeeAbsence[];
 }
 
-// ─── Funciones de RPCs via $queryRawUnsafe ────────────────────────────────
+// ─── Funciones SQL del dominio de RRHH ────────────────────────────────────
+//
+// Perímetro: NINGUNA de estas actions recibe ya el `companyId` del caller — lo deriva de
+// la sesión con `getActiveCompanyId()`. Antes la empresa era un parámetro del cliente, y
+// estas funciones devuelven el padrón completo con legajo, nombre, sector y motivo de
+// ausencia: con el uuid de otra empresa salía su nómina entera.
+//
+// El SQL va por `$queryRaw` con `Prisma.sql` (los argumentos se bindean); se reemplazó
+// `$queryRawUnsafe`, que armaba la consulta como string suelto.
 
 /**
  * Obtiene el resumen general de ausentismo para una empresa y rango de fechas.
  * Llama al RPC `hr_get_absenteeism_summary`.
  */
 export async function getAbsenteeismSummary(
-  companyId: string,
   fromDate?: string,
   toDate?: string
 ): Promise<AbsenteeismSummaryResult | null> {
-  logger.debug('Obteniendo resumen de ausentismo', { data: { companyId, fromDate, toDate } });
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo resumen de ausentismo', { data: { fromDate, toDate } });
 
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const result = await prisma.$queryRawUnsafe<[{ hr_get_absenteeism_summary: AbsenteeismSummaryResult }]>(
-      `SELECT hr_get_absenteeism_summary($1::uuid, $2::date, $3::date, false)`,
-      companyId,
-      fromDate ?? today,
-      toDate ?? today
+    const result = await prisma.$queryRaw<[{ hr_get_absenteeism_summary: AbsenteeismSummaryResult }]>(
+      Prisma.sql`SELECT hr_get_absenteeism_summary(${companyId}::uuid, ${fromDate ?? today}::date, ${toDate ?? today}::date, false)`
     );
 
     return result[0]?.hr_get_absenteeism_summary ?? null;
   } catch (error) {
-    logger.error('Error al obtener resumen de ausentismo', { data: { error, companyId } });
+    logger.error('Error al obtener resumen de ausentismo', { data: { error } });
     throw error;
   }
 }
@@ -112,24 +120,18 @@ export type AbsenteeismSummaryData = Awaited<ReturnType<typeof getAbsenteeismSum
  * Obtiene la tendencia de ausentismo en el tiempo.
  * Llama al RPC `hr_get_absenteeism_trend`.
  */
-export async function getAbsenteeismTrend(
-  companyId: string,
-  fromDate?: string,
-  toDate?: string
-): Promise<AbsenteeismTrendItem[]> {
-  logger.debug('Obteniendo tendencia de ausentismo', { data: { companyId, fromDate, toDate } });
+export async function getAbsenteeismTrend(fromDate?: string, toDate?: string): Promise<AbsenteeismTrendItem[]> {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo tendencia de ausentismo', { data: { fromDate, toDate } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<[{ hr_get_absenteeism_trend: AbsenteeismTrendItem[] }]>(
-      `SELECT hr_get_absenteeism_trend($1::uuid, $2::date, $3::date, false)`,
-      companyId,
-      fromDate ?? null,
-      toDate ?? null
+    const result = await prisma.$queryRaw<[{ hr_get_absenteeism_trend: AbsenteeismTrendItem[] }]>(
+      Prisma.sql`SELECT hr_get_absenteeism_trend(${companyId}::uuid, ${fromDate ?? null}::date, ${toDate ?? null}::date, false)`
     );
 
     return result[0]?.hr_get_absenteeism_trend ?? [];
   } catch (error) {
-    logger.error('Error al obtener tendencia de ausentismo', { data: { error, companyId } });
+    logger.error('Error al obtener tendencia de ausentismo', { data: { error } });
     return [];
   }
 }
@@ -140,22 +142,18 @@ export type AbsenteeismTrendData = Awaited<ReturnType<typeof getAbsenteeismTrend
  * Obtiene los empleados ausentes en una fecha determinada.
  * Llama al RPC `hr_get_current_absent_employees`.
  */
-export async function getCurrentAbsentEmployees(
-  companyId: string,
-  date?: string
-): Promise<CurrentAbsentEmployeesResult | null> {
-  logger.debug('Obteniendo empleados ausentes actuales', { data: { companyId, date } });
+export async function getCurrentAbsentEmployees(date?: string): Promise<CurrentAbsentEmployeesResult | null> {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo empleados ausentes actuales', { data: { date } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
-      `SELECT hr_get_current_absent_employees($1::uuid, $2::date, false)`,
-      companyId,
-      date ?? null
+    const result = await prisma.$queryRaw<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
+      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${date ?? null}::date, false)`
     );
 
     return result[0]?.hr_get_current_absent_employees ?? null;
   } catch (error) {
-    logger.error('Error al obtener empleados ausentes actuales', { data: { error, companyId } });
+    logger.error('Error al obtener empleados ausentes actuales', { data: { error } });
     throw error;
   }
 }
@@ -167,23 +165,20 @@ export type CurrentAbsentEmployeesData = Awaited<ReturnType<typeof getCurrentAbs
  * Llama al RPC `hr_get_daily_absence_timeseries`.
  */
 export async function getDailyAbsenceTimeseries(
-  companyId: string,
   fromDate?: string,
   toDate?: string
 ): Promise<DailyAbsenceTimeseriesItem[]> {
-  logger.debug('Obteniendo serie temporal diaria de ausentismo', { data: { companyId, fromDate, toDate } });
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo serie temporal diaria de ausentismo', { data: { fromDate, toDate } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<[{ hr_get_daily_absence_timeseries: DailyAbsenceTimeseriesItem[] }]>(
-      `SELECT hr_get_daily_absence_timeseries($1::uuid, $2::date, $3::date, false)`,
-      companyId,
-      fromDate ?? null,
-      toDate ?? null
+    const result = await prisma.$queryRaw<[{ hr_get_daily_absence_timeseries: DailyAbsenceTimeseriesItem[] }]>(
+      Prisma.sql`SELECT hr_get_daily_absence_timeseries(${companyId}::uuid, ${fromDate ?? null}::date, ${toDate ?? null}::date, false)`
     );
 
     return result[0]?.hr_get_daily_absence_timeseries ?? [];
   } catch (error) {
-    logger.error('Error al obtener serie temporal diaria de ausentismo', { data: { error, companyId } });
+    logger.error('Error al obtener serie temporal diaria de ausentismo', { data: { error } });
     throw error;
   }
 }
@@ -194,20 +189,18 @@ export type DailyAbsenceTimeseriesData = Awaited<ReturnType<typeof getDailyAbsen
  * Obtiene las razones de ausencia agrupadas por departamento para una fecha.
  * Llama al RPC `hr_get_department_absence_reasons`.
  */
-export async function getDepartmentAbsenceReasons(
-  companyId: string,
-  date?: string
-): Promise<DepartmentAbsenceReasonEntry[]> {
-  logger.debug('Obteniendo razones de ausencia por departamento', { data: { companyId, date } });
+export async function getDepartmentAbsenceReasons(date?: string): Promise<DepartmentAbsenceReasonEntry[]> {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo razones de ausencia por departamento', { data: { date } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<
-      [{ hr_get_department_absence_reasons: DepartmentAbsenceReasonEntry[] }]
-    >(`SELECT hr_get_department_absence_reasons($1::uuid, $2::date, false)`, companyId, date ?? null);
+    const result = await prisma.$queryRaw<[{ hr_get_department_absence_reasons: DepartmentAbsenceReasonEntry[] }]>(
+      Prisma.sql`SELECT hr_get_department_absence_reasons(${companyId}::uuid, ${date ?? null}::date, false)`
+    );
 
     return result[0]?.hr_get_department_absence_reasons ?? [];
   } catch (error) {
-    logger.error('Error al obtener razones de ausencia por departamento', { data: { error, companyId } });
+    logger.error('Error al obtener razones de ausencia por departamento', { data: { error } });
     throw error;
   }
 }
@@ -218,20 +211,18 @@ export type DepartmentAbsenceReasonsData = Awaited<ReturnType<typeof getDepartme
  * Obtiene el resumen de ausentismo agrupado por departamento para una fecha.
  * Llama al RPC `hr_get_department_absence_summary`.
  */
-export async function getDepartmentAbsenceSummary(
-  companyId: string,
-  date?: string
-): Promise<DepartmentAbsenceSummaryItem[]> {
-  logger.debug('Obteniendo resumen de ausentismo por departamento', { data: { companyId, date } });
+export async function getDepartmentAbsenceSummary(date?: string): Promise<DepartmentAbsenceSummaryItem[]> {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo resumen de ausentismo por departamento', { data: { date } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<
-      [{ hr_get_department_absence_summary: DepartmentAbsenceSummaryItem[] }]
-    >(`SELECT hr_get_department_absence_summary($1::uuid, $2::date, false)`, companyId, date ?? null);
+    const result = await prisma.$queryRaw<[{ hr_get_department_absence_summary: DepartmentAbsenceSummaryItem[] }]>(
+      Prisma.sql`SELECT hr_get_department_absence_summary(${companyId}::uuid, ${date ?? null}::date, false)`
+    );
 
     return result[0]?.hr_get_department_absence_summary ?? [];
   } catch (error) {
-    logger.error('Error al obtener resumen de ausentismo por departamento', { data: { error, companyId } });
+    logger.error('Error al obtener resumen de ausentismo por departamento', { data: { error } });
     throw error;
   }
 }
@@ -242,22 +233,18 @@ export type DepartmentAbsenceSummaryData = Awaited<ReturnType<typeof getDepartme
  * Obtiene el detalle de ausentismo diario para una fecha específica.
  * Reutiliza el RPC `hr_get_current_absent_employees` filtrado por fecha.
  */
-export async function getDailyAbsenceDetail(
-  companyId: string,
-  date?: string
-): Promise<CurrentAbsentEmployeesResult | null> {
-  logger.debug('Obteniendo detalle de ausentismo diario', { data: { companyId, date } });
+export async function getDailyAbsenceDetail(date?: string): Promise<CurrentAbsentEmployeesResult | null> {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo detalle de ausentismo diario', { data: { date } });
 
   try {
-    const result = await prisma.$queryRawUnsafe<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
-      `SELECT hr_get_current_absent_employees($1::uuid, $2::date, false)`,
-      companyId,
-      date ?? null
+    const result = await prisma.$queryRaw<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
+      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${date ?? null}::date, false)`
     );
 
     return result[0]?.hr_get_current_absent_employees ?? null;
   } catch (error) {
-    logger.error('Error al obtener detalle de ausentismo diario', { data: { error, companyId } });
+    logger.error('Error al obtener detalle de ausentismo diario', { data: { error } });
     throw error;
   }
 }
@@ -269,15 +256,13 @@ export type DailyAbsenceDetailData = Awaited<ReturnType<typeof getDailyAbsenceDe
 /**
  * Obtiene la distribución de empleados activos por género y posición.
  */
-export async function getEmployeesByGenderAndPosition(companyId: string) {
-  logger.debug('Obteniendo empleados por género y posición', { data: { companyId } });
+export async function getEmployeesByGenderAndPosition() {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo empleados por género y posición');
 
   try {
     const data = await prisma.employees.findMany({
-      where: {
-        company_id: companyId,
-        is_active: true,
-      },
+      where: withCompany({ is_active: true }, companyId),
       select: {
         gender: true,
         company_position: true,
@@ -289,7 +274,7 @@ export async function getEmployeesByGenderAndPosition(companyId: string) {
 
     return data;
   } catch (error) {
-    logger.error('Error al obtener empleados por género y posición', { data: { error, companyId } });
+    logger.error('Error al obtener empleados por género y posición', { data: { error } });
     throw error;
   }
 }
@@ -301,16 +286,13 @@ export type EmployeesByGenderAndPositionItem = EmployeesByGenderAndPositionData[
  * Obtiene la distribución de empleados activos por tipo de contrato.
  * Solo incluye empleados que tienen tipo de contrato asignado.
  */
-export async function getEmployeesByContractType(companyId: string) {
-  logger.debug('Obteniendo empleados por tipo de contrato', { data: { companyId } });
+export async function getEmployeesByContractType() {
+  const companyId = await getActiveCompanyId();
+  logger.debug('Obteniendo empleados por tipo de contrato');
 
   try {
     const data = await prisma.employees.findMany({
-      where: {
-        company_id: companyId,
-        is_active: true,
-        type_of_contract: { not: null },
-      },
+      where: withCompany({ is_active: true, type_of_contract: { not: null } }, companyId),
       select: {
         types_of_contract: {
           select: { id: true, name: true },
@@ -320,7 +302,7 @@ export async function getEmployeesByContractType(companyId: string) {
 
     return data;
   } catch (error) {
-    logger.error('Error al obtener empleados por tipo de contrato', { data: { error, companyId } });
+    logger.error('Error al obtener empleados por tipo de contrato', { data: { error } });
     throw error;
   }
 }

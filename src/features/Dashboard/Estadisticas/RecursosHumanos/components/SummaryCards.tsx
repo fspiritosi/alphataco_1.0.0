@@ -1,4 +1,3 @@
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import CardInfo from '@/shared/components/cards/CardInfo';
 import { getAbsenteeismSummary } from '../actions.server';
 
@@ -12,8 +11,7 @@ function getTodayLabel(date = new Date()) {
 }
 
 export async function SummaryCards() {
-  const companyId = await getServerCompanyId();
-  const data = await getAbsenteeismSummary(companyId);
+  const data = await getAbsenteeismSummary();
   return (
     <div className="space-y-2">
       <div className="text-xs text-muted-foreground">Medición del día de hoy: {getTodayLabel()}</div>

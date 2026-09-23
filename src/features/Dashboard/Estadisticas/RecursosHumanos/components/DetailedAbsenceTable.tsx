@@ -10,8 +10,8 @@ function getCurrentMonthYearLabel(date = new Date()) {
 }
 
 export async function DetailedAbsenceTable() {
-  const companyId = await getServerCompanyId();
-  const data = await getDailyAbsenceTimeseries(companyId);
+  // `companyId` sólo discrimina la caché de React Query del detalle por día.
+  const [data, companyId] = await Promise.all([getDailyAbsenceTimeseries(), getServerCompanyId()]);
 
   return (
     <Card>

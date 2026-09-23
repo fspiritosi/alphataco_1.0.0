@@ -62,7 +62,7 @@ export function _DailyAbsenceDataTable({ data, companyId }: Props) {
   // Fetch on-demand: solo se dispara cuando el modal está abierto y hay fecha seleccionada
   const { data: absenceDetail, isLoading: isLoadingDetail } = useQuery({
     queryKey: ['daily-absence-detail', companyId, isoDate],
-    queryFn: () => getCurrentAbsentEmployees(companyId, isoDate!),
+    queryFn: () => getCurrentAbsentEmployees(isoDate!),
     enabled: isOpen && !!isoDate,
     staleTime: 5 * 60 * 1000,
   });

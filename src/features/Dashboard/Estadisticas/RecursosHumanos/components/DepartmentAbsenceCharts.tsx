@@ -1,6 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig } from '@/components/ui/chart';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { DepartmentAbsenceReasonEntry, getDepartmentAbsenceReasons } from '../actions.server';
 import { DepartmentAbsenceChartsComponent } from './charts/department-absence-charts';
 
@@ -13,8 +12,7 @@ const sanitizeKey = (s: string) =>
     .replace(/(^-|-$)/g, '');
 
 export async function DepartmentAbsenceCharts() {
-  const companyId = await getServerCompanyId();
-  const data = await getDepartmentAbsenceReasons(companyId);
+  const data = await getDepartmentAbsenceReasons();
 
   // Filtrar solo departamentos que tengan algún ausente (algún motivo con valor > 0)
   const filteredData: DepartmentAbsenceReasonEntry[] = Array.isArray(data)

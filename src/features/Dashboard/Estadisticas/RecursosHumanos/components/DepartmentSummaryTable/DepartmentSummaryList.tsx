@@ -1,17 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { getDepartmentAbsenceSummary } from '../../actions.server';
 import { _DepartmentSummaryDataTable } from './_DepartmentSummaryDataTable';
 
 const logger = new Logger('features/Dashboard/RRHH/DepartmentSummaryList');
 
 export async function DepartmentSummaryList() {
-  const companyId = await getServerCompanyId();
+  logger.debug('Cargando resumen de ausentismo por sector');
 
-  logger.debug('Cargando resumen de ausentismo por sector', { data: { companyId } });
-
-  const data = await getDepartmentAbsenceSummary(companyId);
+  const data = await getDepartmentAbsenceSummary();
 
   return (
     <Card>

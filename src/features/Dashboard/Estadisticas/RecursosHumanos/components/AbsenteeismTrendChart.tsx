@@ -49,7 +49,7 @@ export function AbsenteeismTrendChart({ companyId }: AbsenteeismTrendChartProps)
 
   const { data = [] } = useQuery({
     queryKey: ['absenteeism-trend', companyId, from, to],
-    queryFn: () => getAbsenteeismTrend(companyId, from, to),
+    queryFn: () => getAbsenteeismTrend(from, to),
     enabled: !!companyId,
   });
 

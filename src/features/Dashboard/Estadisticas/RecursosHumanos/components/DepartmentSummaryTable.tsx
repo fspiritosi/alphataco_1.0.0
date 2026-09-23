@@ -1,11 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { getDepartmentAbsenceSummary } from '../actions.server';
 import { _DepartmentSummaryDataTable } from './DepartmentSummaryTable/_DepartmentSummaryDataTable';
 
 export async function DepartmentSummaryTable() {
-  const companyId = await getServerCompanyId();
-  const data = await getDepartmentAbsenceSummary(companyId);
+  const data = await getDepartmentAbsenceSummary();
 
   return (
     <Card>

@@ -13,11 +13,11 @@ function getCurrentMonthYearLabel(date = new Date()) {
 }
 
 export async function DailyAbsenceList() {
-  const companyId = await getServerCompanyId();
+  logger.debug('Cargando serie temporal diaria de ausentismo');
 
-  logger.debug('Cargando serie temporal diaria de ausentismo', { data: { companyId } });
-
-  const data = await getDailyAbsenceTimeseries(companyId);
+  // `companyId` sólo discrimina la caché de React Query del detalle por día; la empresa
+  // de la consulta la resuelve la action desde la sesión.
+  const [data, companyId] = await Promise.all([getDailyAbsenceTimeseries(), getServerCompanyId()]);
 
   return (
     <Card>

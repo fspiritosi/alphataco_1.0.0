@@ -54,7 +54,7 @@ export function HeadcountTrendChart({ companyId }: HeadcountTrendChartProps) {
 
   const { data: rawData = [] } = useQuery({
     queryKey: ['daily-absence-timeseries', companyId, from, to],
-    queryFn: () => getDailyAbsenceTimeseries(companyId, from, to),
+    queryFn: () => getDailyAbsenceTimeseries(from, to),
     enabled: !!companyId,
   });
 

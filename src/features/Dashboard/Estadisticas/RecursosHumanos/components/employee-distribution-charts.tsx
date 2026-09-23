@@ -1,6 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { getEmployeesByContractType, getEmployeesByGenderAndPosition } from '../actions.server';
 import { EmployeeContractTypeChartComponent } from './charts/employee-contract-type-chart';
 import { EmployeeGenderPositionChartComponent } from './charts/employee-gender-position-chart';
@@ -9,12 +8,10 @@ const logger = new Logger('features/Dashboard/RRHH/EmployeeDistributionCharts');
 
 export default async function EmployeeDistributionCharts() {
   try {
-    const companyId = await getServerCompanyId();
-
     // Obtener datos de ambos gráficos en paralelo
     const [genderPositionData, contractTypeData] = await Promise.all([
-      getEmployeesByGenderAndPosition(companyId),
-      getEmployeesByContractType(companyId),
+      getEmployeesByGenderAndPosition(),
+      getEmployeesByContractType(),
     ]);
 
     return (
