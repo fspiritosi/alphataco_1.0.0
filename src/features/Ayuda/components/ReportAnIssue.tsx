@@ -4,10 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getActiveCompanyDetails } from '@/features/Ayuda/actions/company-details';
+import { sendHelpRequestEmail } from '@/features/Ayuda/actions/help-request';
 import { Logger } from '@/lib/logger';
-import { useLoggedUserStore } from '@/shared/store/loggedUser';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -16,15 +14,7 @@ const logger = new Logger('features/Ayuda/ReportAnIssue');
 export function ReportAnIssue() {
   const [asunto, setAsunto] = useState(''); // Valor inicial para el asunto
   const [descripcion, setDescripcion] = useState(''); // Valor inicial para la descripción
-  const emailUser = useLoggedUserStore((state) => state.credentialUser?.email);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // La empresa la resuelve el servidor desde la sesión: el cliente ya no manda el id.
-  const { data: company } = useQuery({
-    queryKey: ['ayuda', 'active-company-details'],
-    queryFn: () => getActiveCompanyDetails(),
-    staleTime: 5 * 60 * 1000,
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,37 +26,11 @@ export function ReportAnIssue() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: 'info@gh-gestion.com',
-          subject: 'Solicitud de ayuda - Grupo Horizonte',
-          template: 'help',
-          react: 'help',
-          reason: descripcion,
-          userEmail: emailUser,
-          body: {
-            recurso: 'ayuda',
-            document_name: 'Solicitud de ayuda',
-            company_name: company?.company_name || 'Grupo Horizonte',
-            resource_name: 'Soporte',
-            document_number: 'AYUDA-' + Date.now(),
-            companyConfig: {
-              name: company?.company_name || 'Grupo Horizonte',
-              logo: company?.company_logo || 'https://tu-dominio.com/logo-codecontrol.png',
-              website: company?.website || 'https://codecontrol.com.ar',
-              supportEmail: company?.contact_email || 'soporte@codecontrol.com.ar',
-              primaryColor: '#667eea',
-              secondaryColor: '#764ba2',
-            },
-          },
-        }),
-      });
-      if (!response.ok) {
-        throw new Error('Error al enviar la solicitud');
+      // El destinatario, el reporter y los datos de la empresa los resuelve el servidor:
+      // el cliente sólo manda la descripción del problema.
+      const result = await sendHelpRequestEmail(descripcion);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Error al enviar la solicitud');
       }
 
       toast.success('Solicitud enviada correctamente');

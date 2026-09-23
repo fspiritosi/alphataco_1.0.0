@@ -24,12 +24,23 @@ const transporter = nodemailer.createTransport({
 });
 
 // Tipos necesarios
+type CompanyConfig = {
+  name: string;
+  logo: string;
+  website: string;
+  supportEmail: string;
+  primaryColor: string;
+  secondaryColor: string;
+};
+
 type EmailInfo = {
   recurso: string;
   document_name: string;
   company_name: string;
   resource_name: string;
   document_number: string;
+  /** Marca de la empresa para la plantilla (logo, sitio, colores). */
+  companyConfig?: CompanyConfig;
 };
 
 type EmailOptions = {
