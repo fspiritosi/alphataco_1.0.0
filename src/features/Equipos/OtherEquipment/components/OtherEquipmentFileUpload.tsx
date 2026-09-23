@@ -71,7 +71,7 @@ export function OtherEquipmentFileUpload({
   // ─── Mutation: agregar archivo ────────────────────────────────────────────
 
   // La subida, el path del storage y la actualización del array viven en la server action
-  // (P3: storage): el cliente sólo manda el archivo y recibe el array final de la base.
+  // el cliente sólo manda el archivo y recibe el array final de la base.
   const addMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();

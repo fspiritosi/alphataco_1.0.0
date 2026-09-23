@@ -3,7 +3,7 @@
 import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage'; // P3: storage
+import { storageRemove, storageSignedUrls, storageUpload } from '@/shared/lib/storage';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { errorMessage, fail, ok, type ActionResult } from '../lib/action-result';
@@ -262,7 +262,7 @@ export async function getContractDocuments(serviceId: string) {
       CONTRACT_DOCUMENTS_BUCKET,
       docs.map((d) => d.path),
       SIGNED_URL_SECONDS
-    ); // P3: storage
+    );
     const urlByPath = new Map(signed.ok ? signed.data.map((item) => [item.path, item.url]) : []);
     if (!signed.ok) {
       logger.warn('No se pudieron firmar los documentos del contrato', { data: { serviceId, error: signed.error } });
@@ -302,7 +302,7 @@ export async function uploadContractDocument(formData: FormData): Promise<Action
     fileName: file.name,
   });
 
-  const uploaded = await storageUpload(CONTRACT_DOCUMENTS_BUCKET, path, file, { upsert: true }); // P3: storage
+  const uploaded = await storageUpload(CONTRACT_DOCUMENTS_BUCKET, path, file, { upsert: true });
   if (!uploaded.ok) return fail(`Error al subir el archivo: ${uploaded.error}`);
 
   try {
@@ -322,7 +322,7 @@ export async function uploadContractDocument(formData: FormData): Promise<Action
     return ok({ id: created.id });
   } catch (error) {
     logger.error('Error al guardar metadatos del documento; se limpia el archivo', { data: { error, path } });
-    await storageRemove(CONTRACT_DOCUMENTS_BUCKET, [path]); // P3: storage
+    await storageRemove(CONTRACT_DOCUMENTS_BUCKET, [path]);
     return fail(errorMessage(error, 'Error al guardar los metadatos del documento'));
   }
 }
@@ -343,7 +343,7 @@ export async function deleteContractDocument(documentId: string): Promise<Action
     if (!doc) return fail('Documento no encontrado');
 
     await prisma.documents_contracts.delete({ where: { id: documentId } });
-    const removed = await storageRemove(CONTRACT_DOCUMENTS_BUCKET, [doc.path]); // P3: storage
+    const removed = await storageRemove(CONTRACT_DOCUMENTS_BUCKET, [doc.path]);
     if (!removed.ok) {
       logger.warn('El registro fue eliminado pero el archivo no se pudo borrar del storage', {
         data: { documentId, path: doc.path, error: removed.error },
@@ -363,7 +363,7 @@ export async function getContractDocumentDownloadUrl(documentId: string): Promis
   try {
     const doc = await findOwnedDocument(documentId, companyId);
     if (!doc) return fail('Documento no encontrado');
-    const signed = await storageSignedUrls(CONTRACT_DOCUMENTS_BUCKET, [doc.path], 60); // P3: storage
+    const signed = await storageSignedUrls(CONTRACT_DOCUMENTS_BUCKET, [doc.path], 60);
     if (!signed.ok) return fail(`Error al generar la URL de descarga: ${signed.error}`);
     return ok({ url: signed.data[0].url });
   } catch (error) {

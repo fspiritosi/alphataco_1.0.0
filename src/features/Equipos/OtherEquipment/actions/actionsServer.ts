@@ -455,7 +455,7 @@ function getFormFile(formData: FormData, key: string): File | null {
 /** Sube un archivo del equipamiento al bucket y devuelve su URL pública. El path se arma acá. */
 async function uploadEquipmentFile(kind: OtherEquipmentFileKind, equipmentId: string, file: File): Promise<string> {
   const path = buildOtherEquipmentFilePath(kind, equipmentId, file.name, Date.now());
-  const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, path, file); // P3: storage
+  const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, path, file);
   if (!uploaded.ok) throw new Error(`Error al subir el archivo: ${uploaded.error}`);
   return storagePublicUrl(DOCUMENT_FILES_BUCKET, uploaded.data.path);
 }
@@ -469,7 +469,7 @@ async function removeEquipmentFile(kind: OtherEquipmentFileKind, equipmentId: st
     });
     return;
   }
-  const removed = await storageRemove(DOCUMENT_FILES_BUCKET, [path]); // P3: storage
+  const removed = await storageRemove(DOCUMENT_FILES_BUCKET, [path]);
   if (!removed.ok) {
     logger.warn('No se pudo eliminar el archivo del storage', { data: { path, error: removed.error } });
   }

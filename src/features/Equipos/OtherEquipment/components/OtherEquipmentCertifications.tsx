@@ -77,7 +77,7 @@ export function OtherEquipmentCertifications({ equipmentId, initialData }: Other
     },
   });
 
-  // El archivo viaja en el FormData y lo sube la server action (P3: storage); la fecha va
+  // El archivo viaja en el FormData y lo sube la server action; la fecha va
   // como 'YYYY-MM-DD' formateada en el navegador para no correr el día por la zona horaria.
   const createMutation = useMutation({
     mutationFn: async (data: CertificationFormData) => {

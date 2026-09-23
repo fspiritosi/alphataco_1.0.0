@@ -83,7 +83,7 @@ function AddCompanyDocumentForm({
         async () => {
           if (!file) throw new Error('No se ha subido el archivo');
           // El archivo, el tipo, la validez y el período viajan al servidor: la empresa y el usuario
-          // salen de la sesión (nunca del cliente) y el storage se toca en el servidor (P3: storage).
+          // salen de la sesión (nunca del cliente) y el storage se toca en el servidor.
           const formData = new FormData();
           formData.set('file', file);
           formData.set('documentTypeId', data.id_document_types);

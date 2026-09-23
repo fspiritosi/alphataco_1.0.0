@@ -13,7 +13,7 @@ import moment from 'moment';
 /**
  * Subida de un documento de EMPRESA (`documents_company`). Antes el navegador tocaba el storage
  * y la tabla por PostgREST; ahora el archivo viaja en un `FormData`, se sube en el servidor
- * (P3: storage) y la fila se escribe con Prisma dentro de `withActor`.
+ * y la fila se escribe con Prisma dentro de `withActor`.
  *
  * FormData: `file`, `documentTypeId`, `validity?` (YYYY-MM-DD), `period?` (YYYY-MM).
  * Perímetro: la fila es siempre la de la empresa activa (`applies`), el tipo tiene que aplicar a
@@ -73,7 +73,7 @@ export async function uploadCompanyDocument(formData: FormData): Promise<UploadC
     const validitySegment = validityMoment ? validityMoment.format('YYYY-MM-DD') : 'v0';
     const path = `${companyFolder}/empresa/${formatDocumentTypeName(docType.name)}-(${validitySegment}).${extension}`;
 
-    const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, path, file); // P3: storage
+    const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, path, file);
     if (!uploaded.ok) {
       return {
         ok: false,
@@ -99,7 +99,7 @@ export async function uploadCompanyDocument(formData: FormData): Promise<UploadC
         }
       });
     } catch (dbError) {
-      await storageRemove(DOCUMENT_FILES_BUCKET, [uploaded.data.path]); // compensación (P3: storage)
+      await storageRemove(DOCUMENT_FILES_BUCKET, [uploaded.data.path]); // compensación
       throw dbError;
     }
 

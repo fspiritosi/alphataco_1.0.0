@@ -129,7 +129,7 @@ export function logoExtension(fileName: string): string | null {
   return LOGO_EXTENSIONS.has(ext) ? ext : null;
 }
 
-/** Path del logo dentro del bucket `logo`: `<companyId>/logo/logo.<ext>` (P3: storage). */
+/** Path del logo dentro del bucket `logo`: `<companyId>/logo/logo.<ext>`. */
 export function buildLogoPath(companyId: string, fileName: string): string {
   const ext = logoExtension(fileName);
   if (!ext) throw new Error('El logo debe ser una imagen (jpg, png, gif, bmp, tif, webp o svg)');

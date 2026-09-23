@@ -7,7 +7,7 @@ import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('features/Operaciones/PartesDiarios/remitos');
 
-/** Bucket de los archivos de remitos. P3: storage — se reemplaza por MinIO. */
+/** Bucket de los archivos de remitos. */
 const REMIT_BUCKET = 'daily-reports';
 
 /**
@@ -343,8 +343,22 @@ export async function unlinkRemito(remitId: string) {
 // ARCHIVOS
 // ============================================================================
 
-/** URL pública del archivo (bucket público). P3: storage. */
-export async function getRemitDocumentUrl(documentPath: string) {
+/**
+ * URL estable del archivo, para mostrarlo embebido.
+ *
+ * Perímetro: el path llega del cliente, así que tiene que corresponder a un documento de
+ * la empresa activa. La ruta `/api/files/...` lo vuelve a validar al servir el archivo,
+ * pero la action no devuelve la URL de un documento ajeno ni para confirmar que existe.
+ */
+export async function getRemitDocumentUrl(documentPath: string): Promise<string> {
+  const companyId = await getActiveCompanyId();
+  const document = await prisma.remito_documents.findFirst({
+    where: { document_path: documentPath, remitos: rowScope(companyId) },
+    select: { id: true },
+  });
+  if (!document) {
+    throw new Error('El documento no existe o no pertenece a la empresa activa.');
+  }
   return storagePublicUrl(REMIT_BUCKET, documentPath);
 }
 

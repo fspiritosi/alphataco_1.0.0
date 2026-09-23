@@ -43,7 +43,7 @@ interface SimpleDocumentForm {
  *
  * Única vía de subida: `uploadMultiResourceDocument` (N=1 para un recurso; todos los recursos
  * activos si el tipo es multirecurso). El servidor arma el nombre del archivo, verifica que el
- * recurso pertenezca a la empresa activa y toca el storage (P3: storage).
+ * recurso pertenezca a la empresa activa y toca el storage.
  */
 export default function SimpleDocument({
   resource,

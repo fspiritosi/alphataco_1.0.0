@@ -131,7 +131,6 @@ export async function uploadPreEmployeeDocument(formData: FormData): Promise<Upl
     fileExtension,
   });
 
-  // P3: storage
   const uploaded = await storageUpload(DOCUMENT_FILES_BUCKET, documentPath, file, { cacheControl: '0', upsert: true });
   if (!uploaded.ok) {
     logger.error('Error al subir el documento del pre legajo al storage', { data: { error: uploaded.error, documentPath } });
@@ -190,7 +189,7 @@ export async function deletePreEmployeeDocument(documentId: string) {
   try {
     await prisma.documents_pre_employees.delete({ where: { id: documentId, company_id: companyId } });
 
-    await storageRemove(DOCUMENT_FILES_BUCKET, [document.document_path]); // P3: storage
+    await storageRemove(DOCUMENT_FILES_BUCKET, [document.document_path]);
 
     revalidatePath('/dashboard/employee/pre-legajo');
   } catch (error) {
@@ -214,7 +213,7 @@ export async function getPreEmployeeDocumentUrl(documentPath: string) {
     throw new Error('Documento no encontrado');
   }
 
-  const signed = await storageSignedUrls(DOCUMENT_FILES_BUCKET, [documentPath]); // P3: storage
+  const signed = await storageSignedUrls(DOCUMENT_FILES_BUCKET, [documentPath]);
   if (!signed.ok || !signed.data[0]) {
     logger.error('Error al generar la URL del documento', { data: { documentPath } });
     throw new Error('No se pudo generar el enlace del documento');

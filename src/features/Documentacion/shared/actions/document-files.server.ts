@@ -26,7 +26,7 @@ import {
  * Operaciones sobre el ARCHIVO de un documento ya cargado (descargar, eliminar, reemplazar,
  * renovar). Antes: el cliente tocaba el storage y las tablas por PostgREST directamente.
  * Ahora todo pasa por acá: el archivo se verifica contra la empresa activa (perímetro sin RLS),
- * el storage se toca en el servidor (P3: storage) y las filas se escriben con Prisma dentro de
+ * el storage se toca en el servidor y las filas se escriben con Prisma dentro de
  * `withActor` (triggers de status/logs).
  */
 const logger = new Logger('Documentacion/document-files');

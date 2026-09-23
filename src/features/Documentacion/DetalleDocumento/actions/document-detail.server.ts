@@ -75,6 +75,6 @@ export async function getDocumentDetail(id: string, resourceParam?: string): Pro
   if (!detail) return null;
 
   const documentPath = detail.document.document_path ?? '';
-  const fileUrl = documentPath ? await storagePublicUrl(DOCUMENT_FILES_BUCKET, documentPath) : ''; // P3: storage
+  const fileUrl = documentPath ? await storagePublicUrl(DOCUMENT_FILES_BUCKET, documentPath) : '';
   return { ...detail, fileUrl };
 }

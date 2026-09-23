@@ -19,7 +19,7 @@ import { buildLogoPath, parseCompanyForm, type CompanyFormValues } from '../lib/
  */
 const logger = new Logger('features/Empresa/General/company');
 
-/** Bucket público con los logos de empresa (P3: storage). */
+/** Bucket (privado) con los logos de empresa; se sirven por `/api/files/logo/...`. */
 const LOGO_BUCKET = 'logo';
 
 export type CompanyMutationResult =
@@ -185,9 +185,9 @@ function logoFile(formData: FormData): File | null {
  */
 async function saveCompanyLogo(companyId: string, file: File): Promise<{ ok: true } | { ok: false; error: string }> {
   const path = buildLogoPath(companyId, file.name);
-  const uploaded = await storageUpload(LOGO_BUCKET, path, file, { upsert: true, cacheControl: '60' }); // P3: storage
+  const uploaded = await storageUpload(LOGO_BUCKET, path, file, { upsert: true, cacheControl: '60' });
   if (!uploaded.ok) return { ok: false, error: 'No se pudo subir el logo' };
-  const publicUrl = await storagePublicUrl(LOGO_BUCKET, uploaded.data.path); // P3: storage
+  const publicUrl = await storagePublicUrl(LOGO_BUCKET, uploaded.data.path);
   await prisma.company.update({
     where: { id: companyId },
     data: { company_logo: `${publicUrl}?v=${Date.now()}` },

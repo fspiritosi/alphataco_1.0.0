@@ -26,7 +26,7 @@ function formString(formData: FormData, key: string): string | undefined {
 
 /**
  * Única vía de subida de documentos de empleados/equipos (`SimpleDocument` con N=1 y los
- * formularios multirecurso con N recursos). Sube el archivo al storage (P3: storage) y persiste
+ * formularios multirecurso con N recursos). Sube el archivo al storage y persiste
  * las filas en una transacción con actor por (recurso, tipo, período): actualiza las `pendiente`/
  * rechazadas/vencidas/archivadas de ese período, crea las ausentes e IGNORA las ya presentadas o
  * aprobadas con archivo para ese período (ver `lib/plan-writes.ts`). Si la transacción falla, borra

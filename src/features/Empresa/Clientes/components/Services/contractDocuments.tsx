@@ -36,7 +36,7 @@ interface ContractDocumentsProps {
 
 /**
  * Documentos de un contrato. El archivo viaja en un FormData a la server action, que lo sube
- * al storage y registra los metadatos (P3: storage); el cliente nunca toca el bucket.
+ * al storage y registra los metadatos; el cliente nunca toca el bucket.
  */
 export default function ContractDocuments({ id }: ContractDocumentsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
