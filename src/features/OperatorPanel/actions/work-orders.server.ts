@@ -11,6 +11,7 @@ import { getWorkOrderBlockingStatus } from '@/features/OperatorPanel/actions/blo
 import { assertWorkOrderInScope } from '@/features/OperatorPanel/actions/perimeter';
 import { assertOperatorAction, resolveWorkOrderCloseStatus } from '@/features/OperatorPanel/lib/work-order-status';
 import { Logger } from '@/lib/logger';
+import { prisma } from '@/shared/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 const logger = new Logger('OperatorPanel/work-orders');
@@ -163,15 +164,17 @@ export async function resumeWorkOrder(workOrderId: string) {
 /**
  * Cierra la OT y, si era la última del pedido, manda el pedido a validación del taller.
  *
- * Todo pasa en UNA transacción: el estado de la OT, el del pedido y las dos entradas de
- * historial. Antes eran cinco viajes sueltos y un cierre a medias dejaba el pedido colgado
- * en `in_workshop` con todas las OTs cerradas.
+ * En UNA transacción va lo que define el cierre: el estado de la OT, el del pedido y la
+ * entrada de historial del evento. Antes eran cinco viajes sueltos y un cierre a medias
+ * dejaba el pedido colgado en `in_workshop` con todas las OTs cerradas.
+ *
+ * El registro SECUNDARIO contra el pedido queda FUERA, ver abajo.
  */
 export async function closeWorkOrder(workOrderId: string, notes?: string) {
   const { operator, workOrder } = await assertWorkOrderInScope(workOrderId);
   assertOperatorAction(workOrder.status, 'close');
 
-  const finalStatus = await withMaintenanceActor(operator.profileId, async (tx) => {
+  const closed = await withMaintenanceActor(operator.profileId, async (tx) => {
     const current = await tx.work_orders.findUniqueOrThrow({ where: { id: workOrderId }, select: { status: true } });
     assertOperatorAction(current.status, 'close');
 
@@ -230,20 +233,26 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
       metadata: { status: closeStatus },
     });
 
-    // El cierre también se registra contra el PEDIDO: el historial del pedido filtra por
-    // maintenance_order_id, así que sin esto el evento sólo se veía dentro de la OT.
-    await logWorkOrderCompletedOnMaintenanceOrder(tx, {
-      workOrderId,
-      finalStatus: closeStatus,
-      performedBy: operator.profileId,
-      notes: notes ?? null,
-      maintenanceOrderId,
-    });
-
-    return closeStatus;
+    return { closeStatus, maintenanceOrderId };
   });
 
-  logger.info('OT cerrada', { data: { workOrderId, finalStatus } });
+  // El cierre también se registra contra el PEDIDO: el historial del pedido filtra por
+  // maintenance_order_id, así que sin esto el evento sólo se veía dentro de la OT.
+  //
+  // Va FUERA de la transacción a propósito. El helper promete "nunca lanza" con un
+  // try/catch, y eso sólo vale afuera: adentro, un INSERT fallido aborta la transacción
+  // entera, así que el catch se tragaba el error, la callback volvía normal y el COMMIT
+  // reventaba igual — el operario perdía el cierre y encima sin el log que lo explicaba.
+  // Este registro es secundario: perderlo es cosmético, perder el cierre le traba el turno.
+  await logWorkOrderCompletedOnMaintenanceOrder(prisma, {
+    workOrderId,
+    finalStatus: closed.closeStatus,
+    performedBy: operator.profileId,
+    notes: notes ?? null,
+    maintenanceOrderId: closed.maintenanceOrderId,
+  });
+
+  logger.info('OT cerrada', { data: { workOrderId, finalStatus: closed.closeStatus } });
 
   revalidatePath('/operator');
 }
