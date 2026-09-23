@@ -183,6 +183,11 @@ describe.skipIf(!RUN)('claims de sesión: la invariante del perímetro (integrac
     expect((await readSessionRow(cookie))?.session.company).toBe(foreignCompanyId);
   });
 
+  it('escribir el claim sobre una sesión que ya no existe FALLA en vez de mentir', async () => {
+    // El modo de falla silencioso: `updateMany` sobre un token inexistente devuelve 0 sin error.
+    await expect(writeCompanyClaim('token-que-no-existe', ownCompanyId)).rejects.toThrow();
+  });
+
   it('un usuario baneado no llega a tener sesión (el corte está en session.create.before)', async () => {
     await prisma.user.update({ where: { id: userId }, data: { banned: true } });
 

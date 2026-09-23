@@ -3,7 +3,7 @@
 import { getAssignedSectorsForEmployee, getOperatorIdentity } from '@/features/OperatorPanel/actions/perimeter';
 import { Logger } from '@/lib/logger';
 import { auth } from '@/shared/lib/auth';
-import { normalizeEmail } from '@/shared/lib/auth-credentials';
+import { normalizeEmail, rejectLogin } from '@/shared/lib/auth-credentials';
 import { prisma } from '@/shared/lib/prisma';
 import { APIError } from 'better-auth/api';
 import { revalidatePath } from 'next/cache';
@@ -31,6 +31,7 @@ const SECTOR_COOKIE_OPTIONS = {
 export async function operatorLogin(email: string, password: string) {
   const requestHeaders = await headers();
   let userId: string;
+  let sessionToken: string;
 
   try {
     const result = await auth.api.signInEmail({
@@ -38,6 +39,7 @@ export async function operatorLogin(email: string, password: string) {
       headers: requestHeaders,
     });
     userId = result.user.id;
+    sessionToken = result.token;
   } catch (error) {
     if (error instanceof APIError) {
       return { error: error.body?.message ?? 'Correo o contraseña inválidos' };
@@ -52,7 +54,7 @@ export async function operatorLogin(email: string, password: string) {
   });
 
   if (!profile?.employee_id) {
-    await auth.api.signOut({ headers: requestHeaders });
+    await rejectLogin(sessionToken, requestHeaders);
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
@@ -62,14 +64,14 @@ export async function operatorLogin(email: string, password: string) {
   });
 
   if (!employee?.company_id) {
-    await auth.api.signOut({ headers: requestHeaders });
+    await rejectLogin(sessionToken, requestHeaders);
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 
   const sectors = await getAssignedSectorsForEmployee(employee.id, employee.company_id);
 
   if (sectors.length === 0) {
-    await auth.api.signOut({ headers: requestHeaders });
+    await rejectLogin(sessionToken, requestHeaders);
     return { error: 'Tu empleado no tiene sectores de taller asignados. Contacta al administrador.' };
   }
 

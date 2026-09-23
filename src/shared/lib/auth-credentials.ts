@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { Prisma } from '@/generated/prisma/client';
+import { auth } from '@/shared/lib/auth';
 import { prisma } from '@/shared/lib/prisma';
 import { hashPassword } from 'better-auth/crypto';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -160,4 +161,21 @@ export async function createPasswordSetupLink(
 
   const baseURL = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
   return `${baseURL}/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(callbackPath)}`;
+}
+
+/**
+ * Deshace un login que autenticó pero no habilitó nada.
+ *
+ * Los logins de panel (indumentaria, taller) validan la contraseña primero y recién después
+ * chequean que el usuario sea operario; cuando no lo es, la sesión recién abierta tiene que
+ * desaparecer. Hacen falta las dos mitades:
+ *
+ * - `auth.api.signOut()` borra la COOKIE de la respuesta. Corre con los headers del REQUEST,
+ *   que todavía no traen la cookie recién creada, así que no encuentra la sesión en la base.
+ * - Por eso además se borra la FILA por su token, que es el que devolvió el login. Sin esto
+ *   quedaba una sesión viva en `auth_session` hasta su vencimiento, sin dueño.
+ */
+export async function rejectLogin(token: string, requestHeaders: Headers): Promise<void> {
+  await prisma.session.deleteMany({ where: { token } });
+  await auth.api.signOut({ headers: requestHeaders }).catch(() => undefined);
 }

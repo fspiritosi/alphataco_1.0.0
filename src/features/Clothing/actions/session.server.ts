@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { auth } from '@/shared/lib/auth';
-import { normalizeEmail } from '@/shared/lib/auth-credentials';
+import { normalizeEmail, rejectLogin } from '@/shared/lib/auth-credentials';
 import { prisma } from '@/shared/lib/prisma';
 import { clearActiveCompanyCookie, setActiveCompanyCookie } from '@/shared/lib/tenant';
 import { APIError } from 'better-auth/api';
@@ -24,6 +24,7 @@ const logger = new Logger('features/Clothing/session');
 export async function clothingLogin(email: string, password: string) {
   const requestHeaders = await headers();
   let userId: string;
+  let sessionToken: string;
 
   try {
     const result = await auth.api.signInEmail({
@@ -31,6 +32,7 @@ export async function clothingLogin(email: string, password: string) {
       headers: requestHeaders,
     });
     userId = result.user.id;
+    sessionToken = result.token;
   } catch (error) {
     logger.warn('Clothing login auth failed', { data: { email } });
     if (error instanceof APIError) {
@@ -45,7 +47,7 @@ export async function clothingLogin(email: string, password: string) {
   });
 
   if (!profile?.employee_id) {
-    await auth.api.signOut({ headers: requestHeaders });
+    await rejectLogin(sessionToken, requestHeaders);
     return { error: 'Tu usuario no tiene un empleado vinculado. Contacta al administrador.' };
   }
 
@@ -55,7 +57,7 @@ export async function clothingLogin(email: string, password: string) {
   });
 
   if (!employee) {
-    await auth.api.signOut({ headers: requestHeaders });
+    await rejectLogin(sessionToken, requestHeaders);
     return { error: 'No se encontro el empleado vinculado. Contacta al administrador.' };
   }
 

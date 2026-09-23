@@ -113,7 +113,14 @@ export async function writeCompanyClaim(sessionToken: string, companyId: string 
   if (companyId !== null && !UUID_RE.test(companyId)) {
     throw new Error('companyId debe ser un uuid');
   }
-  await prisma.session.updateMany({ where: { token: sessionToken }, data: { company: companyId } });
+  const { count } = await prisma.session.updateMany({
+    where: { token: sessionToken },
+    data: { company: companyId },
+  });
+  // Si el token ya no existe (sesión vencida o cerrada entre la lectura y la escritura) el
+  // `updateMany` devuelve 0 sin error: sin este chequeo el llamador reportaría éxito con el
+  // claim sin escribir, que es el modo de falla más silencioso que puede tener el perímetro.
+  if (count === 0) throw new Error('La sesión ya no existe: no se pudo fijar la empresa activa');
 }
 
 /**
@@ -131,8 +138,9 @@ export async function writeMaintenanceClaims(
   if (!UUID_RE.test(claims.companyId) || !UUID_RE.test(claims.employeeId)) {
     throw new Error('Los claims de mantenimiento deben ser uuids');
   }
-  await prisma.session.updateMany({
+  const { count } = await prisma.session.updateMany({
     where: { token: sessionToken },
     data: { company: claims.companyId, employeeId: claims.employeeId },
   });
+  if (count === 0) throw new Error('La sesión ya no existe: no se pudieron fijar los claims');
 }

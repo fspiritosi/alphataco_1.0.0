@@ -149,6 +149,9 @@ describe('P4 — flujo 4: panel de indumentaria', () => {
 
     cy.contains(/empleado vinculado/i, { timeout: 20000 }).should('exist');
     cy.getCookie('better-auth.session_token').should('not.exist');
+    // Y la sesión tampoco quedó viva del lado del servidor: /dashboard sigue mandando a /login.
+    cy.visit('/dashboard', { failOnStatusCode: false });
+    cy.location('pathname', { timeout: 30000 }).should('eq', '/login');
   });
 });
 
@@ -173,6 +176,8 @@ describe('P4 — flujo 5: panel del operario de taller', () => {
 
     cy.contains(/sectores de taller/i, { timeout: 20000 }).should('exist');
     cy.getCookie('better-auth.session_token').should('not.exist');
+    cy.visit('/dashboard', { failOnStatusCode: false });
+    cy.location('pathname', { timeout: 30000 }).should('eq', '/login');
   });
 });
 
