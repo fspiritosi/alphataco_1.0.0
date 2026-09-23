@@ -338,6 +338,17 @@ export async function rejectMaintenanceRequest(input: RejectRequestInput) {
           rejected_at: new Date(),
         },
       });
+
+      // Mismo hueco que tenía `rejectMaintenanceRequestItems`: el rechazo completo tampoco
+      // dejaba registro de actividad.
+      await logActivity(tx, {
+        maintenanceRequestId: input.requestId,
+        actionType: ACTIVITY_LOG.REJECTED,
+        performedBy: profile.id,
+        newStatus: 'rejected',
+        rejectionReason: input.reason,
+        notes: 'Solicitud rechazada',
+      });
     });
 
     serverLogger.info('Solicitud rechazada exitosamente', { data: { requestId: input.requestId } });
@@ -395,37 +406,61 @@ export async function rejectMaintenanceRequestItems(input: { requestId: string; 
   // --- END PREVENTIVE BRANCH ---
 
   try {
-    // Actualizar solo los items seleccionados como rechazados
-    await prisma.maintenance_request_items.updateMany({
-      where: { id: { in: input.itemIds }, maintenance_request_id: input.requestId },
-      data: {
-        status: 'rejected',
-        rejection_reason: input.reason,
-      },
-    });
-
-    // Verificar si quedan items pendientes en la solicitud
-    const remainingItems = await prisma.maintenance_request_items.findMany({
-      where: { maintenance_request_id: input.requestId },
-      select: { id: true, status: true },
-    });
-
-    const pendingItems = remainingItems.filter((item) => item.status === 'pending');
-    const allRejected = remainingItems.length > 0 && remainingItems.every((item) => item.status === 'rejected');
-
-    // Si todos los items están rechazados, actualizar el estado de la solicitud
-    if (allRejected) {
-      await assertRequestTransition(prisma, input.requestId, 'rejected');
-      await prisma.maintenance_requests.update({
-        where: { id: input.requestId },
+    // La rama no preventiva escribía con `prisma` plano y sin registro de actividad: el rechazo
+    // de ítems no aparecía en el historial del pedido (la rama preventiva de arriba sí lo
+    // registra). Pasa a la misma transacción con actor que el resto del circuito.
+    const { pendingItems, allRejected } = await withMaintenanceActor(profile.id, async (tx) => {
+      // Actualizar solo los items seleccionados como rechazados
+      await tx.maintenance_request_items.updateMany({
+        where: { id: { in: input.itemIds }, maintenance_request_id: input.requestId },
         data: {
           status: 'rejected',
           rejection_reason: input.reason,
-          rejected_by: profile.id,
-          rejected_at: new Date(),
         },
       });
-    }
+
+      // Verificar si quedan items pendientes en la solicitud
+      const remainingItems = await tx.maintenance_request_items.findMany({
+        where: { maintenance_request_id: input.requestId },
+        select: { id: true, status: true },
+      });
+
+      const pending = remainingItems.filter((item) => item.status === 'pending');
+      const everyRejected = remainingItems.length > 0 && remainingItems.every((item) => item.status === 'rejected');
+
+      // Si todos los items están rechazados, actualizar el estado de la solicitud
+      if (everyRejected) {
+        await assertRequestTransition(tx, input.requestId, 'rejected');
+        await tx.maintenance_requests.update({
+          where: { id: input.requestId },
+          data: {
+            status: 'rejected',
+            rejection_reason: input.reason,
+            rejected_by: profile.id,
+            rejected_at: new Date(),
+          },
+        });
+      }
+
+      await logActivity(tx, {
+        maintenanceRequestId: input.requestId,
+        actionType: ACTIVITY_LOG.REJECTED,
+        performedBy: profile.id,
+        newStatus: everyRejected ? 'rejected' : null,
+        rejectionReason: input.reason,
+        notes: everyRejected
+          ? `${input.itemIds.length} ítem(s) rechazado(s): no quedan ítems aprobables`
+          : `${input.itemIds.length} ítem(s) rechazado(s)`,
+        metadata: {
+          rejected_item_ids: input.itemIds,
+          rejected_count: input.itemIds.length,
+          pending_count: pending.length,
+          all_rejected: everyRejected,
+        },
+      });
+
+      return { pendingItems: pending, allRejected: everyRejected };
+    });
 
     serverLogger.info('Items rechazados exitosamente', {
       data: {
