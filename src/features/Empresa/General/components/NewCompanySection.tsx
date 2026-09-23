@@ -6,13 +6,21 @@ import CreateCompanyButton from '@/features/Empresa/General/components/CreateCom
 import { cn } from '@/lib/utils';
 import { getProvinces } from '@/shared/actions/countries.server';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
+import { connection } from 'next/server';
 
 /**
  * Alta de compañía. Todo lo que toca la base pasa por server actions de la feature: el cartel de
  * "todavía no tenés compañía" sale de `hasAnyCompanyMembership()` (profile de sesión, nunca un id
  * del cliente) y los catálogos de `getProvinces` / `getIndustryTypes`.
+ *
+ * `connection()` la marca como dinámica: con `cacheComponents` activo, el `Promise.all` arranca
+ * los catálogos (consultas a Prisma) ANTES de que se resuelva la lectura de sesión, y el
+ * prerender del build fallaba con "used `new Date()` before accessing Request data". La página
+ * es de un usuario logueado: no tiene nada que prerenderizar.
  */
 export default async function NewCompanySection() {
+  await connection();
+
   const [hasCompany, provinces, industryTypes] = await Promise.all([
     hasAnyCompanyMembership(),
     getProvinces(),
