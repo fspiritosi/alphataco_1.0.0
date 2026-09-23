@@ -1,221 +1,99 @@
 'use server';
 
-import { logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import type { Prisma } from '@/generated/prisma/client';
+import { buildFullname, registerUserSchema, type RegisterUserInput } from '@/features/Auth/schemas/register-user';
+import { checkPermissionServer } from '@/features/Permissions/actions/permissions.server';
+import { Logger } from '@/lib/logger';
+import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
+import { withActor } from '@/shared/lib/actor';
+import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 
-export async function registerUserWithRole(values: any) {
-  const supabase = await supabaseServer();
-  const adminSupabase = await adminSupabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
+/**
+ * Alta de usuario de la empresa activa (tab Empresa → Usuarios).
+ *
+ * Dos caminos: si el email ya tiene `profile`, se lo agrega a la empresa activa; si no, se crea la
+ * credencial en Auth y después el perfil, la pertenencia y el rol.
+ *
+ * Perímetro sin RLS (esto es un endpoint público):
+ * - La empresa sale SIEMPRE de `getActiveCompanyId()`; el caller no manda `companyId` ni se lee la
+ *   cookie `actualComp` a mano.
+ * - Exige `empresa.usuarios-empleados.create`, el mismo permiso que ya guardaba el botón en la UI.
+ *   Sin esto cualquier usuario logueado podía crear usuarios y asignarles el rol que quisiera.
+ * - `customer_id` salía de `values.customer`, un uuid del cliente que nadie validaba (y que ningún
+ *   llamador mandaba): se eliminó del contrato.
+ *
+ * Las llamadas `auth.*` se conservan y están marcadas `// P4: auth` (P4 las reemplaza por Better
+ * Auth); lo que es dato ya va por Prisma.
+ */
+const logger = new Logger('features/Auth/register-user');
 
-  if (!company_id) throw new Error('No hay compani id');
+export type RegisterUserResult = { success: true; message: string } | { success: false; error: string };
+
+/**
+ * `user_roles` NO tiene `company_id` y `get_user_permissions` une sólo por `user_id`: todo rol
+ * asignado acá es GLOBAL, vale en todas las empresas del usuario. Por eso el rol se otorga sólo
+ * cuando el usuario todavía no tiene ninguno — el caso real del alta/invitación, donde no hay
+ * permisos que pisar. A un usuario que YA tiene rol (porque pertenece a otra empresa) no se le
+ * agrega nada: ése sería el vector de escalación (invitar a un usuario de otra empresa y subirlo
+ * a admin allá). Task 13 agrega `user_roles.company_id` y esta excepción desaparece.
+ */
+async function assignRoleIfUnprivileged(
+  tx: Prisma.TransactionClient,
+  credentialId: string,
+  roleId: bigint,
+  assignedBy: string
+): Promise<boolean> {
+  const existingRoles = await tx.user_roles.count({ where: { user_id: credentialId } });
+  if (existingRoles > 0) return false;
+
+  // `skipDuplicates`: dos altas simultáneas del mismo usuario leerían 0 roles y la segunda
+  // chocaría con la unique (user_id, role_id), abortando la transacción entera.
+  await tx.user_roles.createMany({
+    data: [{ user_id: credentialId, role_id: roleId, assigned_by: assignedBy }],
+    skipDuplicates: true,
+  });
+  return true;
+}
+
+export async function registerUserWithRole(values: RegisterUserInput): Promise<RegisterUserResult> {
+  const parsed = registerUserSchema.safeParse(values);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
+  }
+  const { email, password, role } = parsed.data;
+  const fullname = buildFullname(parsed.data);
 
   try {
-    // 1. Verificar si el usuario ya existe
-    const { data: profile, error: profileError } = await supabase
-      .from('profile')
-      .select('*')
-      .eq('email', values.email)
-      .single();
+    const [companyId, actor] = await Promise.all([getActiveCompanyId(), getSessionUserId()]);
+    if (!actor) return { success: false, error: 'Sesión requerida' };
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      throw new Error(profileError.message);
+    if (!(await checkPermissionServer('empresa', 'usuarios-empleados', 'create'))) {
+      return { success: false, error: 'No tenés permiso para crear usuarios en esta empresa' };
     }
 
-    let userId: string;
+    const roleRow = await prisma.roles.findFirst({
+      where: { id: BigInt(role), is_active: true },
+      select: { id: true, name: true },
+    });
+    if (!roleRow) return { success: false, error: 'El rol seleccionado no existe' };
 
-    // 2. Si el perfil existe, verificar acceso a la empresa
+    const profile = await prisma.profile.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true, credential_id: true },
+    });
+
     if (profile) {
-      userId = profile.id;
-
-      const { data: existingAccess, error: accessError } = await supabase
-        .from('share_company_users')
-        .select('*')
-        .eq('profile_id', profile.id)
-        .eq('company_id', company_id);
-
-      if (accessError) throw new Error(accessError.message);
-      if (existingAccess && existingAccess.length > 0) {
-        throw new Error('El usuario ya tiene acceso a esta empresa');
-      }
-
-      // Asignar company en app_metadata si no lo tiene
-      const { data: userData } = await adminSupabase.auth.admin.getUserById(profile.credential_id!);
-      if (!userData?.user?.app_metadata?.company) {
-        await adminSupabase.auth.admin.updateUserById(profile.credential_id!, {
-          app_metadata: {
-            company: company_id,
-          },
-        });
-      }
-
-      // Compartir la empresa con el usuario existente
-      const { error: shareError } = await supabase.from('share_company_users').insert([
-        {
-          company_id: company_id,
-          profile_id: profile.id,
-          customer_id: values.customer || null,
-        },
-      ]);
-
-      if (shareError) {
-        logger.error('Error insertando en share_company_users', { data: { error: shareError } });
-        throw new Error(shareError.message);
-      }
-
-      // Asignar rol en el sistema de permisos para usuario existente
-      const roleId = Number(values.role);
-
-      if (!isNaN(roleId)) {
-        // Verificar si ya tiene el rol asignado
-        const { data: existingRole } = await supabase
-          .from('user_roles')
-          .select('id')
-          .eq('user_id', profile.id)
-          .eq('role_id', roleId)
-          .single();
-
-        if (!existingRole) {
-          const { error: userRoleError } = await supabase.from('user_roles').insert([
-            {
-              user_id: profile.id,
-              role_id: roleId,
-            },
-          ]);
-
-          if (userRoleError) {
-            logger.error('Error asignando rol al usuario existente', { data: { error: userRoleError } });
-          }
-        }
-      }
+      await addExistingProfileToCompany({ profile, companyId, roleId: roleRow.id, actor });
     } else {
-      // 3. Si no existe el perfil, invitar nuevo usuario usando Supabase Auth
-      const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
-
-      // Crear usuario auto-verificado (sin necesidad de confirmar email)
-      const hasPassword = values.password && values.password.trim().length > 0;
-      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-        email: values.email,
-        password: hasPassword ? values.password : undefined,
-        email_confirm: true,
-        user_metadata: {
-          fullname: fullname,
-          needs_password_change: !hasPassword,
-        },
-      });
-
-      if (authError) {
-        logger.error('Error creando usuario', { data: { error: authError } });
-        throw new Error(`Error al crear usuario: ${authError.message}`);
-      }
-
-      // Si no se proporcionó contraseña (invitación), enviar email de recuperación
-      // para que el usuario pueda establecer su propia contraseña
-      if (!hasPassword) {
-        await supabase.auth.resetPasswordForEmail(values.email, {
-          redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
-        });
-      }
-
-      userId = authData.user?.id;
-      if (!userId) {
-        logger.error('No se pudo obtener el ID del usuario');
-        throw new Error('No se pudo obtener el ID del usuario');
-      }
-
-      // Obtener el nombre del rol para el campo legacy profile.role
-      const roleId = Number(values.role);
-      let roleName = 'User'; // Default
-
-      if (!isNaN(roleId)) {
-        const { data: roleData } = await supabase.from('roles').select('name').eq('id', roleId).single();
-
-        if (roleData) {
-          roleName = roleData.name;
-        }
-      }
-
-      // Crear perfil
-      const { error: profileCreateError } = await adminSupabase.from('profile').insert([
-        {
-          id: userId,
-          email: values.email,
-          fullname: fullname,
-          role: roleName, // Usar el nombre del rol, no el ID
-          credential_id: userId,
-        },
-      ]);
-
-      if (profileCreateError) {
-        logger.error('Error creando perfil', { data: { error: profileCreateError } });
-        // ROLLBACK: Eliminar usuario si falla la creación del perfil
-        await adminSupabase.auth.admin.deleteUser(userId);
-
-        throw new Error(`Error al crear perfil: ${profileCreateError.message}`);
-      }
-
-      // Asignar company en app_metadata
-      const { error: metadataError } = await adminSupabase.auth.admin.updateUserById(userId, {
-        app_metadata: {
-          company: company_id,
-        },
-      });
-
-      if (metadataError) {
-        logger.error('Error asignando metadata', { data: { error: metadataError } });
-        // ROLLBACK: Eliminar usuario y perfil si falla la asignación de metadata
-        await adminSupabase.from('profile').delete().eq('id', userId);
-        await adminSupabase.auth.admin.deleteUser(userId);
-
-        throw new Error(`Error al asignar metadata: ${metadataError.message}`);
-      }
-
-      // Compartir empresa
-      const { error: shareError } = await adminSupabase.from('share_company_users').insert([
-        {
-          company_id: company_id,
-          profile_id: userId,
-          customer_id: values.customer || null,
-        },
-      ]);
-
-      if (shareError) {
-        logger.error('Error compartiendo empresa', { data: { error: shareError } });
-        // ROLLBACK: Eliminar usuario y perfil si falla la asignación de empresa
-        await adminSupabase.from('profile').delete().eq('id', userId);
-        await adminSupabase.auth.admin.deleteUser(userId);
-
-        throw new Error(`Error al compartir empresa: ${shareError.message}`);
-      }
+      await createUserForCompany({ email, password, fullname, companyId, role: roleRow, actor });
     }
 
-    // 4. Asignar rol en el sistema de permisos (user_roles)
-    const roleId = Number(values.role);
-
-    if (!isNaN(roleId)) {
-      // Asignar el rol al usuario
-      const { error: userRoleError } = await supabase.from('user_roles').insert([
-        {
-          user_id: userId,
-          role_id: roleId,
-        },
-      ]);
-
-      if (userRoleError) {
-        logger.error('Error asignando rol al usuario', { data: { error: userRoleError } });
-        // No hacer rollback, el usuario ya fue creado exitosamente
-        // El rol se puede asignar manualmente después
-      }
-    } else {
-      logger.warn('El rol proporcionado no es un ID válido', { data: { role: values.role } });
-    }
-
-    return {
-      success: true,
-      message: 'Usuario creado exitosamente',
-    };
+    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+    return { success: true, message: 'Usuario creado exitosamente' };
   } catch (error) {
     logger.error('Error en registerUserWithRole', { data: { error } });
     return {
@@ -223,4 +101,133 @@ export async function registerUserWithRole(values: any) {
       error: error instanceof Error ? error.message : 'Error al procesar la solicitud',
     };
   }
+}
+
+/** Alta de la pertenencia (y del rol) de un perfil que ya existe en otra empresa. */
+async function addExistingProfileToCompany({
+  profile,
+  companyId,
+  roleId,
+  actor,
+}: {
+  profile: { id: string; credential_id: string | null };
+  companyId: string;
+  roleId: bigint;
+  actor: string;
+}): Promise<void> {
+  const existingAccess = await prisma.share_company_users.findFirst({
+    where: { profile_id: profile.id, company_id: companyId },
+    select: { id: true },
+  });
+  if (existingAccess) throw new Error('El usuario ya tiene acceso a esta empresa');
+
+  if (!profile.credential_id) throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
+  await ensureCompanyMetadata(profile.credential_id, companyId); // P4: auth
+
+  const credentialId = profile.credential_id;
+  await withActor(actor, async (tx) => {
+    await tx.share_company_users.create({ data: { company_id: companyId, profile_id: profile.id } });
+    const granted = await assignRoleIfUnprivileged(tx, credentialId, roleId, actor);
+    if (!granted) {
+      logger.warn('El usuario ya tenía un rol asignado: se lo agregó a la empresa sin tocar sus permisos', {
+        data: { profileId: profile.id, companyId },
+      });
+    }
+  });
+
+  logger.info('Usuario existente agregado a la empresa', { data: { profileId: profile.id, companyId } });
+}
+
+/** Alta completa: credencial en Auth + perfil, pertenencia y rol en la base. */
+async function createUserForCompany({
+  email,
+  password,
+  fullname,
+  companyId,
+  role,
+  actor,
+}: {
+  email: string;
+  password: string | undefined;
+  fullname: string;
+  companyId: string;
+  role: { id: bigint; name: string };
+  actor: string;
+}): Promise<void> {
+  const adminSupabase = await adminSupabaseServer(); // P4: auth
+  const hasPassword = Boolean(password?.trim());
+
+  // P4: auth — creación de la credencial auto-verificada.
+  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+    email,
+    password: hasPassword ? password : undefined,
+    email_confirm: true,
+    user_metadata: { fullname, needs_password_change: !hasPassword },
+  });
+
+  if (authError) {
+    logger.error('Error creando usuario', { data: { error: authError } });
+    throw new Error(`Error al crear usuario: ${authError.message}`);
+  }
+
+  const credentialId = authData.user?.id;
+  if (!credentialId) throw new Error('No se pudo obtener el ID del usuario');
+
+  try {
+    // La empresa activa del nuevo usuario va en el JWT: sin esto entra sin empresa.
+    await ensureCompanyMetadata(credentialId, companyId, { force: true }); // P4: auth
+
+    await withActor(actor, async (tx) => {
+      await tx.profile.create({
+        data: {
+          id: credentialId,
+          email,
+          fullname,
+          role: role.name, // columna legacy: FK a roles.name
+          credential_id: credentialId,
+        },
+      });
+      await tx.share_company_users.create({ data: { company_id: companyId, profile_id: credentialId } });
+      await assignRoleIfUnprivileged(tx, credentialId, role.id, actor);
+    });
+  } catch (error) {
+    // La credencial ya existe en Auth pero no hay perfil: se elimina para no dejar un usuario
+    // huérfano que pueda loguearse sin empresa.
+    logger.error('Error creando el perfil del usuario, rollback de la credencial en Auth', { data: { error } });
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(credentialId); // P4: auth
+    if (deleteError) {
+      logger.error('CRITICO: no se pudo eliminar la credencial huérfana en Auth', {
+        data: { deleteError, credentialId },
+      });
+    }
+    throw error;
+  }
+
+  if (!hasPassword) {
+    // Invitación: el usuario define su propia contraseña con el flujo nativo de recuperación.
+    const supabase = await supabaseServer(); // P4: auth
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
+    });
+    if (error) {
+      logger.warn('Usuario creado pero no se pudo enviar el email de invitación', { data: { error, email } });
+    }
+  }
+
+  logger.info('Usuario creado y agregado a la empresa', { data: { credentialId, companyId } });
+}
+
+/** Deja `app_metadata.company` apuntando a la empresa activa. P4: auth */
+async function ensureCompanyMetadata(credentialId: string, companyId: string, options?: { force: boolean }): Promise<void> {
+  const adminSupabase = await adminSupabaseServer(); // P4: auth
+
+  if (!options?.force) {
+    const { data: userData } = await adminSupabase.auth.admin.getUserById(credentialId); // P4: auth
+    if (userData?.user?.app_metadata?.company) return;
+  }
+
+  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, {
+    app_metadata: { company: companyId },
+  });
+  if (error) throw new Error(`Error al asignar metadata: ${error.message}`);
 }

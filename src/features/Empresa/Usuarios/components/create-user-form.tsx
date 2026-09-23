@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
 import { registerUserWithRole } from '@/features/Auth/actions/register-user';
+import { passwordSchema } from '@/features/Auth/schemas/register-user';
 import { Logger } from '@/lib/logger';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,21 +18,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useAllRoles } from '../hooks/useUserRoles';
-
-const passwordSchema = z
-  .string()
-  .min(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
-  .max(50, { message: 'La contraseña debe tener menos de 50 caracteres.' })
-  .regex(/[A-Z]/, {
-    message: 'La contraseña debe tener al menos una mayúscula.',
-  })
-  .regex(/[a-z]/, {
-    message: 'La contraseña debe tener al menos una minúscula.',
-  })
-  .regex(/[0-9]/, { message: 'La contraseña debe tener al menos un número.' })
-  .regex(/[^A-Za-z0-9]/, {
-    message: 'La contraseña debe tener al menos un carácter especial.',
-  });
 
 const createUserSchema = (isInvite: boolean) =>
   z
