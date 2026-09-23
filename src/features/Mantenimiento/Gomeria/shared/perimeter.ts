@@ -43,11 +43,7 @@ export async function getVehicleCompanyId(client: PrismaLike, vehicleId: string)
 }
 
 /** Lanza si el vehículo no pertenece a `companyId`. */
-export async function assertVehicleInCompany(
-  client: PrismaLike,
-  vehicleId: string,
-  companyId: string
-): Promise<void> {
+export async function assertVehicleInCompany(client: PrismaLike, vehicleId: string, companyId: string): Promise<void> {
   const vehicle = await client.vehicles.findFirst({
     where: { id: vehicleId, company_id: companyId },
     select: { id: true },

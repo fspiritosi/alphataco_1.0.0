@@ -328,11 +328,7 @@ export default function _TiresDataTable({
       />
 
       {/* ─── Create single tire form ─────────────────────────────────────── */}
-      <TireForm
-        open={showCreateForm}
-        onOpenChange={setShowCreateForm}
-        queryKey={['tires-catalog']}
-      />
+      <TireForm open={showCreateForm} onOpenChange={setShowCreateForm} queryKey={['tires-catalog']} />
 
       {/* ─── Edit tire form (conditional mount to reset useForm defaults) ── */}
       {editingTire !== null && (
@@ -347,11 +343,7 @@ export default function _TiresDataTable({
       )}
 
       {/* ─── Bulk create form ────────────────────────────────────────────── */}
-      <TireBulkForm
-        open={showBulkForm}
-        onOpenChange={setShowBulkForm}
-        queryKey={['tires-catalog']}
-      />
+      <TireBulkForm open={showBulkForm} onOpenChange={setShowBulkForm} queryKey={['tires-catalog']} />
 
       {/* ─── Delete confirmation dialog ──────────────────────────────────── */}
       <AlertDialog

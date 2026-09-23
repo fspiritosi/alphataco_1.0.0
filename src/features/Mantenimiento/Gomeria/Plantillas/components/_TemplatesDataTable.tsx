@@ -184,11 +184,7 @@ export default function _TemplatesDataTable({
       />
 
       {/* ─── Create template form ───────────────────────────────────────── */}
-      <TemplateForm
-        open={showCreateForm}
-        onOpenChange={setShowCreateForm}
-        queryKey={['tire-templates']}
-      />
+      <TemplateForm open={showCreateForm} onOpenChange={setShowCreateForm} queryKey={['tire-templates']} />
 
       {/* ─── Edit template form ─────────────────────────────────────────── */}
       <TemplateForm

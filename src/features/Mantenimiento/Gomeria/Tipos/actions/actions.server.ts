@@ -1,9 +1,6 @@
 'use server';
 
-import {
-  assertTireTypeInActiveCompany,
-  getVehicleCompanyId,
-} from '@/features/Mantenimiento/Gomeria/shared/perimeter';
+import { assertTireTypeInActiveCompany, getVehicleCompanyId } from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { TireTreadType } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';

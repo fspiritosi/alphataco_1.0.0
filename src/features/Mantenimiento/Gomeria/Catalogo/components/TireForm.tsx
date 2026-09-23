@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { tireRetreadLabels, tireTreadTypeLabels } from '@/features/Mantenimiento/Gomeria/shared/tire-mappers';
+import { getTireTypesForSelect } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
 import { TireRetreadLevel } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +16,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { getTireTypesForSelect } from '@/features/Mantenimiento/Gomeria/Tipos/actions/actions.server';
 import { createTire, getTireBrandsForSelect, updateTire, type TireListItem } from '../actions/actions.server';
 
 const logger = new Logger('TireForm');
