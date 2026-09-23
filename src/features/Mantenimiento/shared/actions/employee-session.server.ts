@@ -49,3 +49,34 @@ export async function getMaintenanceEmployeeSessionData(): Promise<MaintenanceEm
     return EMPTY;
   }
 }
+
+/**
+ * Legajo del operario logueado, acotado a la empresa DEL EQUIPO de la ruta.
+ *
+ * Es la variante de `getMaintenanceEmployeeSessionData()` para las pantallas del QR
+ * (`/maintenance/equipment/[id]/**`): ahí no hay empresa activa en la sesión, así que la
+ * empresa sale del vehículo. El `employee_id` sigue saliendo sólo del claim de la sesión,
+ * nunca del cliente, y un legajo de otra empresa no se devuelve.
+ */
+export async function getMaintenanceEmployeeForEquipment(equipmentId: string) {
+  const employeeId = await getSessionEmployeeIdClaim();
+  if (!employeeId || !UUID_RE.test(employeeId)) return null;
+
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: equipmentId },
+      select: { company_id: true },
+    });
+    if (!vehicle?.company_id) return null;
+
+    return await prisma.employees.findFirst({
+      where: { id: employeeId, company_id: vehicle.company_id },
+      select: { id: true, firstname: true, lastname: true, cuil: true, file: true },
+    });
+  } catch (error) {
+    logger.error('Error al obtener el legajo del operario para el equipo', { data: { error, equipmentId } });
+    return null;
+  }
+}
+
+export type MaintenanceEmployeeForEquipment = Awaited<ReturnType<typeof getMaintenanceEmployeeForEquipment>>;

@@ -206,10 +206,8 @@ function toEquipmentForChecklist<T extends EquipmentForChecklistRow>({
  * Filtra directamente en la base de datos por los tipos y subtipos permitidos por el
  * checklist (si existen) y por la empresa activa.
  */
-export const fetchFilteredEquipmentForChecklist = async (templateId: string) => {
+const listFilteredEquipmentForChecklist = async (templateId: string, company_id: string) => {
   try {
-    const company_id = await getActiveCompanyId();
-
     const template = await prisma.checklist_templates.findFirst({
       where: withCompany({ id: templateId }, company_id),
       select: {
@@ -250,7 +248,51 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string) => 
   }
 };
 
+export const fetchFilteredEquipmentForChecklist = async (templateId: string) => {
+  try {
+    return await listFilteredEquipmentForChecklist(templateId, await getActiveCompanyId());
+  } catch (error) {
+    logger.error('Error al obtener equipos para el checklist', { data: { error, templateId } });
+    return [];
+  }
+};
+
+/**
+ * Misma lista, con la empresa derivada DEL EQUIPO de la ruta (flujo QR anónimo).
+ *
+ * `fetchFilteredEquipmentForChecklist()` no sirve acá: ahí no hay empresa activa y la
+ * cookie puede apuntar a otra empresa que la del equipo escaneado.
+ */
+export const fetchFilteredEquipmentForChecklistByEquipment = async (templateId: string, equipmentId: string) => {
+  try {
+    return await listFilteredEquipmentForChecklist(templateId, await resolveCompanyId(equipmentId));
+  } catch (error) {
+    logger.error('Error al obtener equipos para el checklist del equipo', { data: { error, templateId, equipmentId } });
+    return [];
+  }
+};
+
 export type EquipmentForChecklist = Awaited<ReturnType<typeof fetchFilteredEquipmentForChecklist>>[number];
+
+/**
+ * Kilometraje y horómetro del equipo escaneado, para los valores por defecto del checklist.
+ * Devuelve `null` si el equipo no existe o no tiene empresa: es la comprobación de
+ * existencia del equipo en el flujo QR, donde el id llega del caller anónimo.
+ */
+export const fetchEquipmentUsageForChecklist = async (equipmentId: string) => {
+  try {
+    const vehicle = await prisma.vehicles.findUnique({
+      where: { id: equipmentId },
+      select: { company_id: true, kilometer: true, engine_hours: true },
+    });
+    if (!vehicle?.company_id) return null;
+
+    return { kilometer: vehicle.kilometer, engine_hours: vehicle.engine_hours };
+  } catch (error) {
+    logger.error('Error al obtener el uso del equipo para el checklist', { data: { error, equipmentId } });
+    return null;
+  }
+};
 
 /**
  * Obtiene una respuesta específica de checklist por su ID (empresa activa).
