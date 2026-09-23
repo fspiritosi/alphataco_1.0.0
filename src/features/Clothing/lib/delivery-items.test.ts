@@ -41,18 +41,28 @@ describe('normalizeDeliveryItems', () => {
     ]);
   });
 
-  it('suma las filas repetidas del mismo artículo, marca y talle', () => {
+  it('NO fusiona las filas repetidas: entran tal como las cargó el operario', () => {
     const items: RawDeliveryItem[] = [
       { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 2 },
       { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 3, hasCertificate: true },
     ];
 
     expect(normalizeDeliveryItems(items)).toEqual([
-      { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 5, hasCertificate: true },
+      { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 2, hasCertificate: false },
+      { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 3, hasCertificate: true },
     ]);
   });
 
-  it('no mezcla el mismo artículo con marcas o talles distintos', () => {
+  it('el certificado es por fila: una sin certificado no contagia a la otra', () => {
+    const items: RawDeliveryItem[] = [
+      { clothingItemId: 'item-1', quantity: 1, hasCertificate: false },
+      { clothingItemId: 'item-1', quantity: 1, hasCertificate: true },
+    ];
+
+    expect(normalizeDeliveryItems(items).map((item) => item.hasCertificate)).toEqual([false, true]);
+  });
+
+  it('mantiene separadas las filas del mismo artículo con marcas o talles distintos', () => {
     const items: RawDeliveryItem[] = [
       { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's1', quantity: 1 },
       { clothingItemId: 'item-1', clothingBrandId: 'b1', clothingSizeId: 's2', quantity: 1 },

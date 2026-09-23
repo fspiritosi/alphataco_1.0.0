@@ -42,37 +42,33 @@ function normalizeId(value: string | null | undefined): string | null {
  * Deja sólo las filas utilizables de una entrega:
  * - descarta las que no tienen artículo (el asistente arranca con una fila vacía);
  * - descarta las de cantidad no positiva o no entera;
- * - normaliza marca/talle vacíos a `null` y `hasCertificate` ausente a `false`;
- * - suma las cantidades de las filas repetidas (mismo artículo + marca + talle), porque la
- *   tabla pivote tiene esa combinación como única y un `createMany` duplicado se perdería.
+ * - normaliza marca/talle vacíos a `null` y `hasCertificate` ausente a `false`.
+ *
+ * **NO deduplica.** `clothing_delivery_items` no tiene ninguna restricción de unicidad
+ * sobre artículo + marca + talle, así que dos filas iguales entran como dos filas, igual
+ * que antes de esta migración. Fusionarlas obligaría además a decidir qué pasa con
+ * `has_certificate`, y cualquier criterio (OR, AND) falsearía el dato: la constancia RG
+ * 12-4 es un registro de entrega de elementos de seguridad, y ahí "2 unidades
+ * certificadas" tiene que ser exactamente lo que el operario cargó. Si alguna vez se
+ * quiere deduplicar, es una decisión de producto y la clave tiene que incluir
+ * `hasCertificate`.
  */
 export function normalizeDeliveryItems(items: readonly RawDeliveryItem[]): NormalizedDeliveryItem[] {
-  const merged = new Map<string, NormalizedDeliveryItem>();
+  const normalized: NormalizedDeliveryItem[] = [];
 
   for (const item of items) {
     const clothingItemId = normalizeId(item.clothingItemId);
     if (!clothingItemId) continue;
     if (!Number.isInteger(item.quantity) || item.quantity < 1) continue;
 
-    const clothingBrandId = normalizeId(item.clothingBrandId);
-    const clothingSizeId = normalizeId(item.clothingSizeId);
-    const key = `${clothingItemId}|${clothingBrandId ?? ''}|${clothingSizeId ?? ''}`;
-
-    const existing = merged.get(key);
-    if (existing) {
-      existing.quantity += item.quantity;
-      existing.hasCertificate = existing.hasCertificate || item.hasCertificate === true;
-      continue;
-    }
-
-    merged.set(key, {
+    normalized.push({
       clothingItemId,
-      clothingBrandId,
-      clothingSizeId,
+      clothingBrandId: normalizeId(item.clothingBrandId),
+      clothingSizeId: normalizeId(item.clothingSizeId),
       quantity: item.quantity,
       hasCertificate: item.hasCertificate === true,
     });
   }
 
-  return [...merged.values()];
+  return normalized;
 }
