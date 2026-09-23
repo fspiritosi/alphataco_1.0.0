@@ -1,12 +1,20 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { clearActiveCompanyCookie } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+/**
+ * Login, logout y OAuth. Son llamadas `auth.*`: se conservan tal cual y las reemplaza P4
+ * (Better Auth). Acá no queda acceso a datos.
+ *
+ * El flujo propio de recuperación de contraseña (`password_reset_tokens`, `verifyResetToken`,
+ * `markTokenAsUsed`) se eliminó: quedó sin llamadores cuando se borraron sus rutas API y el
+ * flujo vigente es el nativo (`resetPasswordAction` en `auth-actions.ts`).
+ */
 export async function login(formData: FormData) {
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
 
   const data = {
     email: formData.get('email') as string,
@@ -17,24 +25,22 @@ export async function login(formData: FormData) {
 
   if (error) {
     return { error: error?.message };
-  } else {
-    return user;
   }
+  return user;
 }
 
 export async function logout() {
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
   await supabase.auth.signOut();
-  const cookiesStore = await cookies();
-  cookiesStore.delete('actualComp');
+  await clearActiveCompanyCookie();
   revalidatePath('/', 'layout');
   redirect('/login');
 }
 
 export async function googleLogin(url: string) {
-  const supabase = await supabaseServer();
+  const supabase = await supabaseServer(); // P4: auth
 
-  let { data, error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: url + '/login/auth/callback',
@@ -50,72 +56,5 @@ export async function googleLogin(url: string) {
   }
   if (data.url) {
     redirect(data.url); // use the redirect API for your server framework
-  }
-}
-
-export async function verifyResetToken(token: string, email: string) {
-  const supabase = await supabaseServer();
-
-  try {
-    // Verificar que el token existe y es válido
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('password_reset_tokens' as any)
-      .select(
-        `
-        *,
-        profile:profile_id (email)
-      `
-      )
-      .eq('token', token)
-      .eq('used', false)
-      .gt('expires', new Date().toISOString())
-      .single();
-
-    if (tokenError || !tokenData) {
-      return {
-        success: false,
-        error: 'Token inválido o expirado',
-      };
-    }
-
-    // Verificar que el email coincide
-    if (tokenData.profile.email !== email) {
-      return {
-        success: false,
-        error: 'Token no coincide con el email',
-      };
-    }
-
-    return {
-      success: true,
-      profileId: tokenData.profile_id,
-    };
-  } catch (error) {
-    console.error('Error verificando token:', error);
-    return {
-      success: false,
-      error: 'Error al verificar el token',
-    };
-  }
-}
-
-export async function markTokenAsUsed(token: string) {
-  const supabase = await supabaseServer();
-
-  try {
-    const { error } = await supabase
-      .from('password_reset_tokens' as any)
-      .update({ used: true })
-      .eq('token', token);
-
-    if (error) {
-      console.error('Error marcando token como usado:', error);
-      return { success: false };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error marcando token como usado:', error);
-    return { success: false };
   }
 }
