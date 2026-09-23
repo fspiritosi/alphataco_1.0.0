@@ -217,8 +217,8 @@ function toCompanyData(values: CompanyFormValues) {
 /**
  * Alta de empresa. `FormData` con los campos del formulario (+ `logo` opcional).
  * - `owner_id` = profile de sesión; se crea también la pertenencia en `share_company_users`.
- * - El trigger `assign_owner_role_trigger` (prisma/sql/permissions.sql) sólo actúa si existe el rol
- *   `slug='owner'`; el seed no lo crea, así que la pertenencia se inserta acá (sin duplicarla).
+ *   (el trigger `assign_owner_role_trigger`, que en teoría hacía esto en SQL y nunca llegó a
+ *   hacerlo, se eliminó en la Task 13a: el alta del owner vive acá).
  *
  * - Rol: `user_roles` NO tiene `company_id` y `get_user_permissions` une sólo por `user_id`, así que
  *   todo rol asignado acá es GLOBAL (valdría en todas las empresas del usuario). Por eso el grant se

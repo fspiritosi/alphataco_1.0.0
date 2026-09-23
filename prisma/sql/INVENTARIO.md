@@ -20,7 +20,6 @@ Llamadores: `src (rpc|raw|ref)` = llamada desde `src/` (`rpc('x')`, `x(` en SQL 
 | `actualizar_estado_daily_reports` | function | daily-report | — | fn: after_dailyreportrows_update†, after_dailyreportrows_update_optimized | no | — |
 | `add_to_companies_employees` | function | misc | — | trigger: after_employee_insert ON employees | no | — |
 | `after_dailyreportrows_update_optimized` | function | daily-report | — | trigger: tr_after_dailyreportrows_update_optimized ON dailyreportrows | no | — |
-| `assign_owner_role_on_company_creation` | function | permissions | — | trigger: assign_owner_role_trigger ON company | no | Sin `SECURITY DEFINER` (era el bypass de RLS de Supabase; ya no hay RLS). |
 | `build_employee_where_alias` | function | misc | — | fn: controlar_alertas_documentos_single_employee, controlar_alertas_single_document_all_employees | no | — |
 | `build_vehicle_where_alias` | function | misc | — | fn: controlar_alertas_documentos_single_vehicle, controlar_alertas_single_document_all_vehicles | no | — |
 | `check_diagram_conflicts_with_operations_v2` | function | diagrams | — | — | no | Sin consumidor desde P2 Task 3 (la app usaba la sobrecarga de 5 args no portada; reemplazada por `src/features/Employees/Diagrams/lib/massive-diagrams.ts`) — candidata a retirar en P6. |
@@ -84,7 +83,6 @@ Llamadores: `src (rpc|raw|ref)` = llamada desde `src/` (`rpc('x')`, `x(` en SQL 
 | `marcar_prepartes_vencidos` | function | daily-report | — | job P5 (antes cron de Supabase) | no | Portada desde `objects.json` (huérfana) sin cambios; global a todas las empresas (marca `preparte.status = 'vencido'` por fecha). |
 | `run_daily_indicators_for_all_companies` | function | kpis | — | job P5 (antes cron de Supabase) | no | Portada desde `objects.json` (huérfana) sin cambios. Recorre `company` y persiste 11 indicadores con `save_to_table => true` (no depende de `cron.`/`net.`). Ubicada en `kpis.sql` porque llama a funciones de diagrams/daily-report/kpis. |
 | `equipments_with_pending_deviations` | view | daily-report | — | src (ref): src/features/Mantenimiento/actions/maintenance-actions.ts:582 | no | — |
-| `assign_owner_role_trigger` | trigger | permissions | company | — | no | — |
 | `update_company_by_defect_trigger` | trigger | misc | company | — | no | — |
 | `after_service_update` | trigger | misc | customer_services | — | no | — |
 | `tr_dailyreport_customer_equipment_relations_history` | trigger | daily-report | dailyreport_customer_equipment_relations | — | no | — |
@@ -133,7 +131,7 @@ Llamadores: `src (rpc|raw|ref)` = llamada desde `src/` (`rpc('x')`, `x(` en SQL 
 
 | Dominio | Funciones | Vistas | Triggers |
 | --- | --- | --- | --- |
-| permissions | 5 | 0 | 1 |
+| permissions | 4 | 0 | 0 |
 | documents | 14 | 0 | 14 |
 | diagrams | 12 | 0 | 1 |
 | daily-report | 7 | 1 | 8 |
