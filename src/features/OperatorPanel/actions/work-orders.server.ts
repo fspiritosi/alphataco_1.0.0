@@ -218,93 +218,99 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   const { operator, workOrder } = await assertWorkOrderInScope(workOrderId);
   assertOperatorAction(workOrder.status, 'close');
 
-  const closed = await withMaintenanceActor(operator.profileId, async (tx) => {
-    const current = await tx.work_orders.findUniqueOrThrow({ where: { id: workOrderId }, select: { status: true } });
-    assertOperatorAction(current.status, 'close');
+  const closed = await withMaintenanceActor(
+    operator.profileId,
+    async (tx) => {
+      const current = await tx.work_orders.findUniqueOrThrow({ where: { id: workOrderId }, select: { status: true } });
+      assertOperatorAction(current.status, 'close');
 
-    const repairs = await tx.work_order_item_repairs.findMany({
-      where: { work_order_items: { work_order_id: workOrderId } },
-      select: { status: true },
-    });
-
-    const closeStatus = resolveWorkOrderCloseStatus(repairs.map((repair) => repair.status));
-
-    // El pedido se alcanza por work_order_items → maintenance_order_items. Se resuelve y se
-    // lockea ANTES de escribir la OT: mismo orden que `assertNoSiblingInProgress`, para que
-    // un cierre y un arranque simultáneos no se esperen en cruz.
-    const workOrderItem = await tx.work_order_items.findFirst({
-      where: { work_order_id: workOrderId },
-      select: { maintenance_order_items: { select: { maintenance_order_id: true } } },
-    });
-    const maintenanceOrderId = workOrderItem?.maintenance_order_items?.maintenance_order_id ?? null;
-
-    if (maintenanceOrderId) await lockMaintenanceOrder(tx, maintenanceOrderId);
-
-    await tx.work_orders.update({
-      where: { id: workOrderId },
-      data: {
-        status: closeStatus,
-        completed_at: new Date(),
-        completed_by: operator.profileId,
-        notes: notes || null,
-      },
-    });
-
-    // Aviso para el operario si el pedido no pudo avanzar. No es un error del cierre.
-    let orderAdvanceWarning: string | null = null;
-
-    if (maintenanceOrderId) {
-      const siblings = await tx.work_orders.findMany({
-        where: { maintenance_order_items: { some: { maintenance_order_id: maintenanceOrderId } } },
+      const repairs = await tx.work_order_item_repairs.findMany({
+        where: { work_order_items: { work_order_id: workOrderId } },
         select: { status: true },
       });
 
-      if (areAllWorkOrdersClosed(siblings.map((sibling) => sibling.status))) {
-        // La guarda de transición del pedido, en la misma transacción que la escritura:
-        // el estado se escribía a mano y se podía saltar el circuito.
-        //
-        // Pero si la guarda rechaza, el cierre de la OT NO se revierte: el trabajo del
-        // operario está hecho y él no controla en qué estado quedó el pedido. Se registra
-        // a nivel `error` para que lo destrabe quien puede, y al operario se le devuelve
-        // un aviso con algo que hacer.
-        //
-        // Sólo se captura el throw de la guarda, que es un error de JS sobre un `SELECT`
-        // que ya salió bien: si fallara el `update`, el error es de SQL y aborta la
-        // transacción, así que no hay nada que tragarse.
-        const blocked = await getOrderTransitionBlock(tx, maintenanceOrderId);
+      const closeStatus = resolveWorkOrderCloseStatus(repairs.map((repair) => repair.status));
 
-        if (blocked) {
-          logger.error('El pedido quedó en un estado que impide avanzarlo a validación del taller', {
-            data: { workOrderId, maintenanceOrderId, reason: blocked },
-          });
-          orderAdvanceWarning =
-            'La OT se cerró, pero el pedido quedó en un estado que impide avanzarlo a validación del taller. ' +
-            'Avisá al jefe de taller.';
-        } else {
-          await tx.maintenance_orders.update({
-            where: { id: maintenanceOrderId },
-            data: { status: 'pending_workshop_validation' },
-          });
+      // El pedido se alcanza por work_order_items → maintenance_order_items. Se resuelve y se
+      // lockea ANTES de escribir la OT: mismo orden que `assertNoSiblingInProgress`, para que
+      // un cierre y un arranque simultáneos no se esperen en cruz.
+      const workOrderItem = await tx.work_order_items.findFirst({
+        where: { work_order_id: workOrderId },
+        select: { maintenance_order_items: { select: { maintenance_order_id: true } } },
+      });
+      const maintenanceOrderId = workOrderItem?.maintenance_order_items?.maintenance_order_id ?? null;
 
-          logger.info('Pedido listo para validación del taller', { data: { maintenanceOrderId } });
+      if (maintenanceOrderId) await lockMaintenanceOrder(tx, maintenanceOrderId);
+
+      await tx.work_orders.update({
+        where: { id: workOrderId },
+        data: {
+          status: closeStatus,
+          completed_at: new Date(),
+          completed_by: operator.profileId,
+          notes: notes || null,
+        },
+      });
+
+      // Aviso para el operario si el pedido no pudo avanzar. No es un error del cierre.
+      let orderAdvanceWarning: string | null = null;
+
+      if (maintenanceOrderId) {
+        const siblings = await tx.work_orders.findMany({
+          where: { maintenance_order_items: { some: { maintenance_order_id: maintenanceOrderId } } },
+          select: { status: true },
+        });
+
+        if (areAllWorkOrdersClosed(siblings.map((sibling) => sibling.status))) {
+          // La guarda de transición del pedido, en la misma transacción que la escritura:
+          // el estado se escribía a mano y se podía saltar el circuito.
+          //
+          // Pero si la guarda rechaza, el cierre de la OT NO se revierte: el trabajo del
+          // operario está hecho y él no controla en qué estado quedó el pedido. Se registra
+          // a nivel `error` para que lo destrabe quien puede, y al operario se le devuelve
+          // un aviso con algo que hacer.
+          //
+          // Sólo se captura el throw de la guarda, que es un error de JS sobre un `SELECT`
+          // que ya salió bien: si fallara el `update`, el error es de SQL y aborta la
+          // transacción, así que no hay nada que tragarse.
+          const blocked = await getOrderTransitionBlock(tx, maintenanceOrderId);
+
+          if (blocked) {
+            logger.error('El pedido quedó en un estado que impide avanzarlo a validación del taller', {
+              data: { workOrderId, maintenanceOrderId, reason: blocked },
+            });
+            orderAdvanceWarning =
+              'La OT se cerró, pero el pedido quedó en un estado que impide avanzarlo a validación del taller. ' +
+              'Avisá al jefe de taller.';
+          } else {
+            await tx.maintenance_orders.update({
+              where: { id: maintenanceOrderId },
+              data: { status: 'pending_workshop_validation' },
+            });
+
+            logger.info('Pedido listo para validación del taller', { data: { maintenanceOrderId } });
+          }
         }
+      } else {
+        logger.warn('OT sin pedido asociado', { data: { workOrderId } });
       }
-    } else {
-      logger.warn('OT sin pedido asociado', { data: { workOrderId } });
-    }
 
-    await logActivity(tx, {
-      workOrderId,
-      actionType: ACTIVITY_LOG.WO_CLOSED,
-      performedBy: operator.profileId,
-      previousStatus: current.status,
-      newStatus: closeStatus,
-      notes: notes ?? null,
-      metadata: { status: closeStatus },
-    });
+      await logActivity(tx, {
+        workOrderId,
+        actionType: ACTIVITY_LOG.WO_CLOSED,
+        performedBy: operator.profileId,
+        previousStatus: current.status,
+        newStatus: closeStatus,
+        notes: notes ?? null,
+        metadata: { status: closeStatus },
+      });
 
-    return { closeStatus, maintenanceOrderId, orderAdvanceWarning };
-  });
+      return { closeStatus, maintenanceOrderId, orderAdvanceWarning };
+    },
+    // El cierre hace ~10 viajes dentro de la transacción (estado, tareas, pedido, hermanas,
+    // historial) y el default de Prisma son 5 s: con el taller cargado, abortaba por timeout.
+    { timeout: 15000 }
+  );
 
   // El cierre también se registra contra el PEDIDO: el historial del pedido filtra por
   // maintenance_order_id, así que sin esto el evento sólo se veía dentro de la OT.
