@@ -2,7 +2,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Activity, ClipboardList, Container, Truck, Users } from 'lucide-react';
-import { getChecklistMissingIndicator, getDashboardKpis } from '../actions/actions.server';
+import { getChecklistMissingIndicator } from '../actions/checklists.server';
+import { getDashboardKpis } from '../actions/kpis.server';
 import { ChecklistMissingCard } from './ChecklistMissingCard';
 
 export async function KpiCardsRow() {

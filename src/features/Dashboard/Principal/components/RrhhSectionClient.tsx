@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import * as React from 'react';
 import { Cell, Label, Pie, PieChart } from 'recharts';
-import type { DiagramIndicatorResult } from '../actions/actions.server';
+import type { DiagramIndicatorResult } from '../actions/types';
 import { CookieFilter } from '../shared/CookieFilter';
 import { IndicatorStats } from '../shared/IndicatorStats';
 import { RadialGauge } from '../shared/RadialGauge';

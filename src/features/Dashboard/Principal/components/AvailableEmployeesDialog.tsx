@@ -20,7 +20,7 @@ import {
   getAvailableEmployeeSingleFacet,
   getAvailableEmployeesPaginated,
   type AvailableEmployeeListItem,
-} from '../actions/actions.server';
+} from '../actions/rrhh.server';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

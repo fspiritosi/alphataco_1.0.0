@@ -16,7 +16,7 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useCallback, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { getServicesDetailByClient } from '../actions/actions.server';
+import { getServicesDetailByClient } from '../actions/services.server';
 
 interface Props {
   open: boolean;

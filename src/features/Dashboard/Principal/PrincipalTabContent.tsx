@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getServicesSummary } from './actions/actions.server';
+import { getServicesSummary } from './actions/services.server';
 // import { ChecklistDeviationsDashboard } from './components/ChecklistDeviationsDashboard';
 import { EquipmentFleetSection } from './components/EquipmentFleetSection';
 import { EquipmentOperationSection } from './components/EquipmentOperationSection';

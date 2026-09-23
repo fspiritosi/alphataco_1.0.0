@@ -31,7 +31,7 @@ export interface KpiChartPoint {
 /**
  * Serie de un KPI en un rango de fechas.
  *
- * Envuelve la función SQL `get_kpi_range` con `callFunction` (antes era `supabase.rpc`).
+ * Envuelve la función SQL `get_kpi_range` con `callFunction` (antes era una RPC de PostgREST).
  * Perímetro: la empresa sale de `getActiveCompanyId()`, no de la cookie leída a mano ni de
  * un parámetro del cliente.
  */

@@ -11,8 +11,8 @@ import moment from 'moment';
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { Cell, Label, Pie, PieChart } from 'recharts';
-import type { ServicesSummaryResult } from '../actions/actions.server';
-import { getServicesDetailByClient } from '../actions/actions.server';
+import { getServicesDetailByClient } from '../actions/services.server';
+import type { ServicesSummaryResult } from '../actions/types';
 
 const ServicesDetailDialog = dynamic(() => import('./ServicesDetailDialog'), { ssr: false });
 

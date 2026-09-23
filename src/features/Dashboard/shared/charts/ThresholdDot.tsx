@@ -12,7 +12,7 @@ interface RechartsDotProps {
 
 /**
  * Render prop `dot` para las series del dashboard: punto rojo si el valor supera el
- * umbral esperado, verde si no. Reemplaza tres copias con `(props: any)`.
+ * umbral esperado, verde si no. Reemplaza tres copias con el render prop sin tipar.
  */
 export function makeThresholdDot(dataKey: string, threshold: number) {
   return function ThresholdDot(props: RechartsDotProps): ReactElement<SVGElement> {

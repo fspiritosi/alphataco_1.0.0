@@ -1,6 +1,6 @@
 import moment from 'moment';
 import { cookies } from 'next/headers';
-import { getAllPositions, getDiagramIndicators, getEmployeeIndicators } from '../actions/actions.server';
+import { getAllPositions, getDiagramIndicators, getEmployeeIndicators } from '../actions/rrhh.server';
 import { RrhhSectionClient } from './RrhhSectionClient';
 
 export async function RrhhSection() {

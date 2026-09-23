@@ -21,7 +21,7 @@ import {
   getAvailableVehiclesForExport,
   getAvailableVehiclesPaginated,
   type AvailableVehicleItem,
-} from '../actions/actions.server';
+} from '../actions/fleet.server';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers — builders para FacetResult (reduce boilerplate)

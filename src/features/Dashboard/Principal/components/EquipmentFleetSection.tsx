@@ -1,4 +1,4 @@
-import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/actions.server';
+import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/fleet.server';
 import { EquipmentFleetClient } from './EquipmentFleetClient';
 
 const MOTOR_UNIT_TYPES = ['chasis', 'tractor'];

@@ -1,7 +1,7 @@
 import moment from 'moment';
 import { cookies } from 'next/headers';
-import type { EquipmentIndicatorResult } from '../actions/actions.server';
-import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/actions.server';
+import type { EquipmentIndicatorResult } from '../actions/types';
+import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/fleet.server';
 import { EquipmentOperationClient } from './EquipmentOperationClient';
 
 export async function EquipmentOperationSection() {
