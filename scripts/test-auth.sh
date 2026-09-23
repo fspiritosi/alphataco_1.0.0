@@ -37,4 +37,11 @@ echo "==> Corriendo los tests de integracion de auth..."
 npx vitest run \
   src/shared/lib/auth-claims.integration.test.ts \
   src/shared/lib/auth-credentials.integration.test.ts \
-  src/features/Auth/actions/register-user.integration.test.ts
+  src/features/Auth/actions/register-user.integration.test.ts \
+  src/features/Auth/actions/register-user.invitation.integration.test.ts
+
+echo
+echo "Los otros cuatro flujos (login del dashboard, QR, indumentaria y taller) van por la UI:"
+echo "  docker compose --env-file .env.docker up -d --wait app"
+echo "  node scripts/seed-auth-fixtures.ts"
+echo "  npx cypress run --spec 'cypress/e2e/auth/p4-auth-flows.cy.ts'" 
