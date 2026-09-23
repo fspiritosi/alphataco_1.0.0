@@ -2358,7 +2358,7 @@ model types_of_repairs {
   description                         String
   criticity                           String?
   is_active                           Boolean                               @default(true)
-  company_id                          String?                               @db.Uuid
+  company_id                          String                                @db.Uuid
   type_of_maintenance                 type_of_maintenance_ENUM?
   id                                  String                                @id @unique(map: "types_of_repairs_id-2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   multi_equipment                     Boolean                               @default(false)
@@ -2369,7 +2369,7 @@ model types_of_repairs {
   maintenance_order_items             maintenance_order_items[]
   maintenance_request_items           maintenance_request_items[]
   sector_repair_types                 sector_repair_types[]
-  company                             company?                              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company                             company                               @relation(fields: [company_id], references: [id], onDelete: Cascade)
   work_order_item_repairs             work_order_item_repairs[]
 
   @@schema("public")
