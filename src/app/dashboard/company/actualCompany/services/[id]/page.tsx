@@ -5,192 +5,109 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { supabaseBrowser } from '@/lib/supabase/browser'; // Asegúrate de tener configurado tu cliente de Supabase
+import { getMeasureUnits } from '@/features/Empresa/Clientes/actions/measure-units.server';
+import {
+  getServiceItemsByContract,
+  updateServiceItem,
+  type ServiceItemRow,
+} from '@/features/Empresa/Clientes/actions/service-items.server';
+import type { ServiceItemFormValues } from '@/features/Empresa/Clientes/schemas/service-item';
+import { Logger } from '@/lib/logger';
 import BackButton from '@/shared/components/common/BackButton';
 import EditModal from '@/shared/components/common/EditModal';
-import cookies from 'js-cookie';
-import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { use, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-interface Item {
-  id: string;
-  item_name: string;
-  item_description: string;
-  item_measure_units: { id: string; unit: string };
-  item_price: number;
-  is_active: boolean;
-  customer_id: { id: string; name: string };
-  customer_service_id: { customer_id: { id: string; name: string } };
-  company_id: string;
-}
-interface UpdatedFields {
-  item_name?: string;
-  item_description?: string;
-  item_price?: number;
-  item_measure_units?: number;
-  is_active?: boolean;
-}
-interface MeasureUnits {
-  id: string;
-  unit: string;
-  simbol: string;
-  tipo: string;
+const logger = new Logger('dashboard/company/services/items');
+
+/** El formulario de items pide todos los campos: los que el modal no edita se mandan tal cual venían. */
+function toFormValues(item: ServiceItemRow, overrides: Partial<ServiceItemFormValues> = {}): ServiceItemFormValues {
+  return {
+    item_name: item.item_name,
+    item_description: item.item_description,
+    code_item: item.code_item,
+    item_number: item.item_number,
+    item_price: item.item_price,
+    item_measure_units: String(item.item_measure_units),
+    is_active: item.is_active ?? true,
+    needs_personnel: item.needs_personnel,
+    needs_equipment: item.needs_equipment,
+    ...overrides,
+  };
 }
 
-const ServiceItemsPage = ({ params }: { params: any }) => {
-  const supabase = supabaseBrowser();
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingService, setEditingService] = useState<Item | null>(null);
+const ServiceItemsPage = ({ params }: { params: Promise<{ id: string }> }) => {
+  const { id: customerServiceId } = use(params);
+  const queryClient = useQueryClient();
+  const [editingService, setEditingService] = useState<ServiceItemRow | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   // Bloquea los botones del modal mientras la peticion esta en curso
   const [isSaving, setIsSaving] = useState(false);
-  // const [customers, setCustomers] = useState<any[]>([]);
-  // const [customers_services, setCustomerServices] = useState<any[]>([]);
-  // const [selectedClient, setSelectedClient] = useState('');
-  const company_id = cookies.get('actualComp');
-  const modified_company_id = company_id?.replace(/"/g, '');
-  // const modified_editing_service_id = params.id?.replace(/"/g, '');
-  const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [isActiveFilter, setIsActiveFilter] = useState(true);
-  const [measure_unit, setMeasureUnit] = useState<MeasureUnits[] | null>(null);
 
-  useEffect(() => {
-    filterServices();
-  }, [isActiveFilter, items]);
+  const itemsQueryKey = ['service-items', customerServiceId];
 
-  const filterServices = () => {
-    const filtered = items?.filter((item) => item.is_active === isActiveFilter);
-    setFilteredItems(filtered);
-  };
+  // La empresa la resuelve el servidor desde la sesion: la pagina ya no manda company_id.
+  const { data: items = [], isPending: isLoadingItems } = useQuery({
+    queryKey: itemsQueryKey,
+    queryFn: () => getServiceItemsByContract(customerServiceId),
+  });
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        // Obtener items
-        const itemsResponse = await fetch(
-          `${URL}/api/services/items?actual=${modified_company_id}&service=${params.id}`
-        );
-        if (!itemsResponse.ok) {
-          throw new Error('Error al obtener los items');
-        }
-        const responseData = await itemsResponse.json();
-        const items = Array.isArray(responseData) ? responseData : responseData.items;
-        setItems(items);
+  const { data: measure_unit = [], isPending: isLoadingUnits } = useQuery({
+    queryKey: ['measure-units'],
+    queryFn: () => getMeasureUnits(),
+    staleTime: 5 * 60 * 1000,
+  });
 
-        // Obtener measure units
-        const measureUnitsResponse = await fetch(`${URL}/api/meassure`);
-        if (!measureUnitsResponse.ok) {
-          throw new Error('Error al obtener las unidades de medida');
-        }
-        const responseMeasureUnits = await measureUnitsResponse.json();
-        const measureUnits = Array.isArray(responseMeasureUnits) ? responseMeasureUnits : responseMeasureUnits.data;
-        setMeasureUnit(measureUnits);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchItems();
+  const filteredItems = useMemo(
+    () => items.filter((item) => (item.is_active ?? true) === isActiveFilter),
+    [items, isActiveFilter]
+  );
 
-    const channel = supabase
-      .channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_items' }, async (payload) => {
-        fetchItems();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  if (loading) {
+  if (isLoadingItems || isLoadingUnits) {
     return <div className="center-screen">Cargando...</div>;
   }
 
-  const modified_editing_item_service_id = editingService?.id.toString().replace(/"/g, '');
-  const handleEditClick = (service_items: Item) => {
+  const handleEditClick = (service_items: ServiceItemRow) => {
     setEditingService(service_items);
     setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
-    if (isSaving) return;
-    if (editingService) {
-      setIsSaving(true);
-      try {
-        const updatedFields: UpdatedFields = {};
-
-        if (editingService.item_name) updatedFields.item_name = editingService.item_name;
-        if (editingService.item_description) updatedFields.item_description = editingService.item_description;
-        if (editingService.item_price) updatedFields.item_price = editingService.item_price;
-        if (editingService.item_measure_units)
-          updatedFields.item_measure_units = Number(editingService.item_measure_units.id);
-        if (editingService.is_active !== undefined) updatedFields.is_active = editingService.is_active;
-
-        const response = await fetch(`/api/services/items?id=${editingService.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatedFields),
-        });
-
-        if (response.ok) {
-          // Actualizar la lista de items con el item editado
-          const updatedItem = await response.json();
-          setItems((prevItems) => prevItems.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
-          toast.success('Item actualizado correctamente');
-          setIsModalOpen(false);
-        } else {
-          const errorText = await response.text();
-          console.error('Error al actualizar el item:', errorText);
-          toast.error('Error al actualizar el item');
-        }
-      } catch (error) {
-        console.error('Error al actualizar el item:', error);
-        toast.error('Error al actualizar el item');
-      } finally {
-        setIsSaving(false);
+  const applyUpdate = async (
+    overrides: Partial<ServiceItemFormValues>,
+    successMessage: string,
+    errorMessage: string
+  ) => {
+    if (isSaving || !editingService) return;
+    setIsSaving(true);
+    try {
+      const result = await updateServiceItem(editingService.id, toFormValues(editingService, overrides));
+      if (!result.ok) {
+        toast.error(result.error || errorMessage);
+        return;
       }
+      await queryClient.invalidateQueries({ queryKey: itemsQueryKey });
+      toast.success(successMessage);
+      setIsModalOpen(false);
+    } catch (error) {
+      logger.error(errorMessage, { data: { error, itemId: editingService.id } });
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDeactivateItem = async () => {
-    if (isSaving) return;
-    if (editingService) {
-      setIsSaving(true);
-      try {
-        const newActiveState = !editingService.is_active;
+  const handleSave = () => applyUpdate({}, 'Item actualizado correctamente', 'Error al actualizar el item');
 
-        const response = await fetch(`/api/services/items/?id=${modified_editing_item_service_id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ is_active: newActiveState }),
-        });
-
-        if (response.ok) {
-          // Actualizar la lista de items con el item desactivado
-          const updatedItem = await response.json();
-          setFilteredItems((prevItems) => prevItems.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
-          toast.success(`Item ${newActiveState ? 'activado' : 'desactivado'} correctamente`);
-          setIsModalOpen(false);
-        } else {
-          console.error('Error al desactivar el item');
-          toast.error('Error al desactivar el item');
-        }
-      } catch (error) {
-        console.error('Error al desactivar el item:', error);
-        toast.error('Error al desactivar el item');
-      } finally {
-        setIsSaving(false);
-      }
-    }
+  const handleDeactivateItem = () => {
+    if (!editingService) return;
+    const newActiveState = !(editingService.is_active ?? true);
+    return applyUpdate(
+      { is_active: newActiveState },
+      `Item ${newActiveState ? 'activado' : 'desactivado'} correctamente`,
+      'Error al desactivar el item'
+    );
   };
 
   return (
@@ -261,13 +178,13 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
                         {item.item_description}
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {item.item_measure_units?.unit}
+                        {item.measure_units?.unit}
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         ${item.item_price}
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {item.customer_service_id?.customer_id?.name}
+                        {item.customer_services?.customers?.name}
                       </TableCell>
                       <TableCell>
                         <Button onClick={() => handleEditClick(item)}>Editar</Button>
@@ -290,7 +207,7 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
             </label>
             <Input
               value={editingService.item_name}
-              onChange={(e: any) => setEditingService({ ...editingService, item_name: e.target.value })}
+              onChange={(e) => setEditingService({ ...editingService, item_name: e.target.value })}
               className="w-full p-2 mb-2 border border-gray-300 dark:border-gray-700 rounded"
             />
             <label htmlFor="item_description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -298,7 +215,7 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
             </label>
             <Input
               value={editingService.item_description}
-              onChange={(e: any) => setEditingService({ ...editingService, item_description: e.target.value })}
+              onChange={(e) => setEditingService({ ...editingService, item_description: e.target.value })}
               className="w-full p-2 mb-2 border border-gray-300 dark:border-gray-700 rounded"
             />
             <label htmlFor="item_price" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -307,7 +224,7 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
             <Input
               type="text"
               value={editingService.item_price}
-              onChange={(e: any) => setEditingService({ ...editingService, item_price: e.target.value })}
+              onChange={(e) => setEditingService({ ...editingService, item_price: Number(e.target.value) })}
               className="w-full p-2 mb-2 border border-gray-300 dark:border-gray-700 rounded"
             />
             <label htmlFor="unit_of_measure" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -317,20 +234,17 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
               onValueChange={(value) => {
                 setEditingService({
                   ...editingService,
-                  item_measure_units: {
-                    ...editingService.item_measure_units,
-                    id: value,
-                  },
+                  item_measure_units: Number(value),
                 });
               }}
-              value={String(editingService.item_measure_units.id)}
+              value={String(editingService.item_measure_units)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Elegir unidad de medida" />
               </SelectTrigger>
 
               <SelectContent>
-                {measure_unit?.map((measure: MeasureUnits) => (
+                {measure_unit.map((measure) => (
                   <SelectItem value={measure.id.toString()} key={measure.id}>
                     {measure.unit}
                   </SelectItem>
@@ -346,10 +260,10 @@ const ServiceItemsPage = ({ params }: { params: any }) => {
               </Button>
               <Button
                 onClick={handleDeactivateItem}
-                variant={editingService.is_active ? 'destructive' : 'success'}
+                variant={(editingService.is_active ?? true) ? 'destructive' : 'success'}
                 disabled={isSaving}
               >
-                {editingService.is_active ? 'Dar de Baja' : 'Dar de Alta'}
+                {(editingService.is_active ?? true) ? 'Dar de Baja' : 'Dar de Alta'}
               </Button>
             </div>
           </div>
