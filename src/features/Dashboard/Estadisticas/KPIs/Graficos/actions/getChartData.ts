@@ -5,7 +5,6 @@ import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
-import moment from 'moment';
 
 const logger = new Logger('features/Dashboard/KPIs/Graficos');
 
@@ -23,6 +22,15 @@ export type IndicatorFunction = Extract<
   | 'hr_get_department_absence_reasons'
   | 'hr_get_department_absence_summary'
 >;
+
+/**
+ * `snapshot_date` es `@db.Date`: Prisma la devuelve a medianoche UTC, así que se recorta el
+ * ISO en vez de formatearla con `moment` — formatear aplicaría la zona del proceso y en un
+ * server con `TZ` al oeste de UTC el eje X se correría un día.
+ */
+function toDateOnly(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
 
 export interface DailyIndicatorPoint {
   /** `YYYY-MM-DD`: los gráficos lo usan como eje X y para ordenar. */
@@ -50,7 +58,7 @@ export async function getDailyIndicators(source: IndicatorFunction): Promise<Dai
     });
 
     return rows.map((row) => ({
-      snapshot_date: moment(row.snapshot_date).format('YYYY-MM-DD'),
+      snapshot_date: toDateOnly(row.snapshot_date),
       metrics: row.metrics,
       created_at: row.created_at.toISOString(),
     }));

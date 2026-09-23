@@ -3,7 +3,6 @@
 import { Logger } from '@/lib/logger';
 import { callFunction } from '@/shared/lib/sql';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
-import moment from 'moment';
 import { z } from 'zod';
 
 const logger = new Logger('features/Dashboard/KPIs/Graficos');
@@ -20,6 +19,15 @@ const kpiRangeRowSchema = z.object({
   snapshot_date: z.coerce.date(),
   indicator: z.coerce.number().nullable(),
 });
+
+/**
+ * `snapshot_date` viene de una columna `date`: se recorta el ISO en vez de formatearla con
+ * `moment`, que aplicaría la zona del proceso y correría el eje X un día en un server con
+ * `TZ` al oeste de UTC.
+ */
+function toDateOnly(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
 
 export interface KpiChartPoint {
   /** `YYYY-MM-DD`: los gráficos lo usan como eje X y para ordenar. */
@@ -49,7 +57,7 @@ export async function getKpiChartData(kpiCode: KpiCode, fromDate: Date, toDate: 
 
     return rows
       .map((row) => ({
-        snapshot_date: moment(row.snapshot_date).format('YYYY-MM-DD'),
+        snapshot_date: toDateOnly(row.snapshot_date),
         metrics: { indicator: row.indicator ?? 0 },
         created_at: createdAt,
       }))
