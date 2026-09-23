@@ -488,27 +488,61 @@ export async function createServiceOrder(data: {
 // CLOSE SERVICE ORDER
 // ============================================================================
 
+/** Cierre de la orden, una vez que el llamador validó el perímetro que le corresponde. */
+async function markServiceOrderClosed(id: string) {
+  return prisma.tire_service_orders.update({
+    where: { id },
+    data: {
+      status: 'CLOSED' as TireServiceOrderStatus,
+      closed_at: new Date(),
+    },
+  });
+}
+
 /**
- * Finaliza una orden. La cierra tanto el dashboard como el asistente del QR, así que el
- * perímetro es el de la orden (tiene que existir), no el de la empresa activa: el operario
- * del QR no es miembro de la empresa y la sesión no sirve para validarlo.
+ * Finaliza una orden desde el dashboard: la orden tiene que ser de la empresa activa.
+ *
+ * Antes era una sola función para el dashboard y el QR, y el único chequeo era que la
+ * orden existiera: cualquier usuario autenticado que conociera el uuid cerraba la orden de
+ * otra empresa. El QR no necesitaba ese permiso tan amplio, tiene su propia variante
+ * (`closeServiceOrderForVehicle`), igual que `createTire`/`createTireForVehicle`.
  */
 export async function closeServiceOrder(id: string) {
   logger.debug('Closing service order', { data: { id } });
 
   try {
-    await getServiceOrderCompanyId(prisma, id);
-
-    const order = await prisma.tire_service_orders.update({
-      where: { id },
-      data: {
-        status: 'CLOSED' as TireServiceOrderStatus,
-        closed_at: new Date(),
-      },
-    });
-    return order;
+    await assertServiceOrderInActiveCompany(id);
+    return await markServiceOrderClosed(id);
   } catch (error) {
     logger.error('Error closing service order', { data: { error, id } });
+    throw error;
+  }
+}
+
+/**
+ * Finaliza la orden del asistente de gomería (alcanzable desde el QR anónimo): la empresa
+ * sale del vehículo que se está atendiendo y no de la sesión, porque el operario del QR no
+ * es miembro de la empresa.
+ *
+ * El vehículo es el de la ruta escaneada, así que exigir que la orden sea de ese vehículo
+ * acota el cierre a la orden que el asistente tiene abierta: un uuid de orden ajeno ya no
+ * alcanza.
+ */
+export async function closeServiceOrderForVehicle(id: string, vehicleId: string) {
+  logger.debug('Closing service order for vehicle', { data: { id, vehicleId } });
+
+  try {
+    const companyId = await getVehicleCompanyId(prisma, vehicleId);
+
+    const order = await prisma.tire_service_orders.findFirst({
+      where: { id, vehicle_id: vehicleId, company_id: companyId },
+      select: { id: true },
+    });
+    if (!order) throw new Error('La orden de gomería no pertenece al equipo que se está atendiendo');
+
+    return await markServiceOrderClosed(id);
+  } catch (error) {
+    logger.error('Error closing service order for vehicle', { data: { error, id, vehicleId } });
     throw error;
   }
 }

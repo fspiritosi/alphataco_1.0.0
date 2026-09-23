@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import {
   closeServiceOrder,
+  closeServiceOrderForVehicle,
   createServiceOrder,
   getVehicleTypeInfo,
   searchCompatibleHitchVehicles,
@@ -117,6 +118,12 @@ export function ServiceOrderWizard({
   const closeMutation = useMutation({
     mutationFn: () => {
       if (!serviceOrderId) throw new Error('No hay orden activa');
+      // El QR corre con el operario anónimo: ahí la orden se valida contra el equipo
+      // escaneado, no contra la empresa activa (que esa sesión no tiene).
+      if (mode === 'qr') {
+        if (!activeVehicleId) throw new Error('No hay un equipo activo');
+        return closeServiceOrderForVehicle(serviceOrderId, activeVehicleId);
+      }
       return closeServiceOrder(serviceOrderId);
     },
     onSuccess: () => {
