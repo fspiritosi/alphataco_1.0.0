@@ -41,6 +41,13 @@ export function EmployeeInfoCard({ employee }: { employee: DocumentEmployee }) {
                 <TableRow>
                   <TableCell>
                     <CardDescription>
+                      <span className="font-bold">Legajo:</span> {employee.file}
+                    </CardDescription>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>
+                    <CardDescription>
                       <span className="font-bold">DNI:</span> {employee.document_number}
                     </CardDescription>
                   </TableCell>
