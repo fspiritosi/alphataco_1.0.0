@@ -7,8 +7,17 @@ import { anonymous } from 'better-auth/plugins/anonymous';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/shared/lib/prisma';
 import { Logger } from '@/lib/logger';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import { sendPasswordResetEmail } from '@/shared/lib/mailer';
+import {
+  clearAttempts,
+  consumeAttempt,
+  LOGIN_BY_EMAIL,
+  LOGIN_BY_IP,
+  RESET_BY_EMAIL,
+  RESET_BY_IP,
+  type RateLimitRule,
+} from '@/shared/lib/login-rate-limit';
 import { resolveDefaultCompanyId } from '@/shared/lib/session-claims';
 
 /**
@@ -62,6 +71,12 @@ const googleClientSecret = requiredEnv('GOOGLE_CLIENT_SECRET');
 /** `true` si el login con Google está configurado (lo mira la UI para mostrar el botón). */
 export const isGoogleLoginEnabled = Boolean(googleClientId && googleClientSecret);
 
+/** Endpoints con tope de intentos, y con qué presupuesto. */
+const RATE_LIMITED_PATHS: Record<string, { byEmail: RateLimitRule; byIp: RateLimitRule }> = {
+  '/sign-in/email': { byEmail: LOGIN_BY_EMAIL, byIp: LOGIN_BY_IP },
+  '/request-password-reset': { byEmail: RESET_BY_EMAIL, byIp: RESET_BY_IP },
+};
+
 export const auth = betterAuth({
   appName: 'alphataco',
   baseURL: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -87,6 +102,10 @@ export const auth = betterAuth({
       await sendPasswordResetEmail({ to: user.email, name: user.name, url });
     },
     resetPasswordTokenExpiresIn: 60 * 60 * 24, // 24 h: alcanza para una invitación por mail
+    // El default es `false`: quien recupera su contraseña porque le robaron la cuenta dejaría
+    // vivas las sesiones del atacante. `setCredentialPassword()` ya las cierra en el cambio
+    // desde adentro; esto empareja el camino del mail.
+    revokeSessionsOnPasswordReset: true,
   },
 
   socialProviders: isGoogleLoginEnabled
@@ -163,6 +182,59 @@ export const auth = betterAuth({
         },
       },
     },
+  },
+
+  /**
+   * Freno de fuerza bruta. Va acá, y no en cada Server Action, porque los hooks del pipeline
+   * corren tanto para el router (`/api/auth/*`) como para `auth.api.*` — que es por donde
+   * entran los cinco logins del sistema y donde el limitador propio de Better Auth (que vive
+   * en el `onRequest` del router) no llega. Ver `shared/lib/login-rate-limit.ts`.
+   */
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      const rules = RATE_LIMITED_PATHS[ctx.path];
+      if (!rules) return;
+
+      const email = typeof ctx.body?.email === 'string' ? ctx.body.email.toLowerCase() : null;
+      const ip = getIP(ctx.headers ?? new Headers(), ctx.context.options);
+
+      const checks = [
+        email ? { key: `${ctx.path}:email:${email}`, rule: rules.byEmail } : null,
+        ip ? { key: `${ctx.path}:ip:${ip}`, rule: rules.byIp } : null,
+      ].filter((check): check is { key: string; rule: RateLimitRule } => check !== null);
+
+      for (const check of checks) {
+        const result = consumeAttempt(check.key, check.rule);
+        if (!result.allowed) {
+          logger.warn('Intentos bloqueados por rate limit', { data: { path: ctx.path, hasEmail: Boolean(email) } });
+          throw new APIError('TOO_MANY_REQUESTS', {
+            message: 'Demasiados intentos. Esperá unos minutos y volvé a probar.',
+            code: 'TOO_MANY_REQUESTS',
+          });
+        }
+      }
+    }),
+    /**
+     * Sólo cuentan los intentos FALLIDOS: un login exitoso limpia el contador del email.
+     *
+     * Ojo: este hook corre IGUAL cuando el endpoint falla — `api/dispatch.mjs` atrapa el
+     * `APIError`, lo deja en `ctx.context.returned` y sigue con el pipeline. Por eso hay que
+     * mirar lo que devolvió y no asumir que llegar acá significa éxito; si se asume, cada
+     * intento fallido se limpia a sí mismo y el tope no corta nunca.
+     *
+     * El contador por IP NO se limpia: si se limpiara, un atacante con una credencial válida
+     * propia se blanquearía el presupuesto de su IP entre tanda y tanda de intentos.
+     */
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== '/sign-in/email') return;
+
+      const returned = ctx.context.returned;
+      const signedIn = Boolean(returned && typeof returned === 'object' && 'user' in returned);
+      if (!signedIn) return;
+
+      const email = typeof ctx.body?.email === 'string' ? ctx.body.email.toLowerCase() : null;
+      if (email) clearAttempts(`${ctx.path}:email:${email}`);
+    }),
   },
 
   plugins: [

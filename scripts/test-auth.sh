@@ -37,6 +37,7 @@ echo "==> Corriendo los tests de integracion de auth..."
 npx vitest run \
   src/shared/lib/auth-claims.integration.test.ts \
   src/shared/lib/auth-credentials.integration.test.ts \
+  src/shared/lib/auth-rate-limit.integration.test.ts \
   src/features/Auth/actions/register-user.integration.test.ts \
   src/features/Auth/actions/register-user.invitation.integration.test.ts
 
