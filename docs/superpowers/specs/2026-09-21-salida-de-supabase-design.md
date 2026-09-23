@@ -58,6 +58,14 @@ Secrets sólo en el `.env` del compose. Nunca en migraciones.
 - Subida desde el cliente: server action emite `getSignedUploadUrl` → `PUT` directo → server action registra la fila.
 - Carga multirecurso: una key, N filas; compensación con `storage.delete` si falla la transacción.
 
+> **Lo que P3 implementó, y por qué difiere de esta sección** (2026-09-23):
+>
+> - **La costura es `src/shared/lib/storage.ts`**, no una interfaz nueva en `src/lib/storage/`: ya existía y 39 puntos del código pasaban por ella, así que reimplementarla sobre S3 migró casi todo sin tocar a los llamadores.
+> - **Son 10 buckets, no 6.** Al relevar el código aparecieron `document-files-expired`, `repair-images`, `tire-discards`, `preparte-img` y `avatar`; y sobraba `employee-documents`, cuyo único usuario (`/api/upload`) ya se había borrado.
+> - **No hay presigned URLs ni `getSignedUploadUrl`.** Todo se lee por `GET /api/files/<bucket>/<key>`, una ruta de la app que resuelve el dueño del archivo, valida la sesión contra él y hace stream desde MinIO. Motivos: (a) la base guarda la URL en ~10 columnas, no la key —esta sección lo daba por resuelto y no lo estaba—, así que una firma con vencimiento dejaría el registro roto; (b) firmar obliga a publicar MinIO en internet con dominio, DNS y TLS propios y dos variables sincronizadas a mano cuyo desfasaje rompe todas las descargas en silencio. Con la ruta, MinIO no se expone. La subida sigue siendo por Server Action con el archivo en un FormData, no por `PUT` directo.
+> - **`images.remotePatterns` no hizo falta**: las URLs son del mismo origen que la app.
+> - **Persistir la key en vez de la URL sigue pendiente** (ver el JSDoc de `src/shared/lib/storage-url.ts`): es una migración con backfill de esas ~10 columnas.
+
 ## 5. Jobs y email
 
 - `src/lib/mail/`: `sendMail({ to, subject, html, text? })` con nodemailer (`SMTP_HOST/PORT/USER/PASS/SECURE/FROM`). Plantillas en `templates/` como funciones TS (portadas de las edge functions y de `Auth/utils/emailTemplates.ts`).
