@@ -489,8 +489,11 @@ export async function movePreparteFile(
   const fromPath = await resolveActualKey(source.path);
   const empresaDir = normalizeFolder(clienteName) || 'empresa';
   const contratoDir = normalizeFolder(contratoName) || 'servicio';
-  const currentExt = fromPath.split('.').pop()?.toLowerCase() || 'jpg';
-  const targetPath = `${companyId}/${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
+  // El número de pedido también se normaliza: llega del formulario y entra en la key, que
+  // ahora queda PERSISTIDA en `preparte.preparteImage`. Un carácter raro ahí es permanente.
+  const pedidoDir = normalizeFolder(numeroPedido) || 'pedido';
+  const currentExt = fromPath.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const targetPath = `${companyId}/${empresaDir}/${contratoDir}/${pedidoDir}/${pedidoDir}.${currentExt}`;
 
   if (fromPath !== targetPath) {
     let moved = await storageMove(PREPARTE_BUCKET, fromPath, targetPath);
