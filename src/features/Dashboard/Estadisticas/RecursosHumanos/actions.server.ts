@@ -88,6 +88,31 @@ export interface DepartmentAbsenceSummaryItem {
 //
 // El SQL va por `$queryRaw` con `Prisma.sql` (los argumentos se bindean); se reemplazó
 // `$queryRawUnsafe`, que armaba la consulta como string suelto.
+//
+// TODO (P2, seguimiento): estas 6 funciones SQL (`hr_get_absenteeism_summary`,
+// `hr_get_absenteeism_trend`, `hr_get_current_absent_employees`,
+// `hr_get_daily_absence_timeseries`, `hr_get_department_absence_reasons`,
+// `hr_get_department_absence_summary` — definidas en `prisma/sql/diagrams.sql:366-1162`)
+// deberían pasar por `callFunction`/`callScalar` de `src/shared/lib/sql.ts`, como el resto
+// del sistema. Lo concreto que se pierde hoy: `callFunction` valida las fechas con
+// `ISO_DATE_RE` y arma el cast `::date` él mismo. Acá eso se cubre a mano con
+// `assertIsoDate`; lo que falta es la validación Zod del JSON de vuelta, que es el otro
+// beneficio del helper.
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Valida una fecha que llega del cliente antes de bindearla como `::date`.
+ *
+ * No es una defensa contra inyección (los argumentos ya van bindeados): sin esto, un
+ * string cualquiera llega a Postgres y vuelve como error 500 de la base en vez de como
+ * error de dominio. Mismo criterio que `ISO_DATE_RE` en `shared/lib/sql.ts`.
+ */
+function assertIsoDate(value: string | undefined, field: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (!ISO_DATE_RE.test(value)) throw new Error(`Fecha inválida en ${field}: se espera YYYY-MM-DD`);
+  return value;
+}
 
 /**
  * Obtiene el resumen general de ausentismo para una empresa y rango de fechas.
@@ -102,9 +127,11 @@ export async function getAbsenteeismSummary(
 
   try {
     const today = new Date().toISOString().split('T')[0];
+    const from = assertIsoDate(fromDate, 'fromDate') ?? today;
+    const to = assertIsoDate(toDate, 'toDate') ?? today;
 
     const result = await prisma.$queryRaw<[{ hr_get_absenteeism_summary: AbsenteeismSummaryResult }]>(
-      Prisma.sql`SELECT hr_get_absenteeism_summary(${companyId}::uuid, ${fromDate ?? today}::date, ${toDate ?? today}::date, false)`
+      Prisma.sql`SELECT hr_get_absenteeism_summary(${companyId}::uuid, ${from}::date, ${to}::date, false)`
     );
 
     return result[0]?.hr_get_absenteeism_summary ?? null;
@@ -126,7 +153,7 @@ export async function getAbsenteeismTrend(fromDate?: string, toDate?: string): P
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_absenteeism_trend: AbsenteeismTrendItem[] }]>(
-      Prisma.sql`SELECT hr_get_absenteeism_trend(${companyId}::uuid, ${fromDate ?? null}::date, ${toDate ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_absenteeism_trend(${companyId}::uuid, ${assertIsoDate(fromDate, 'fromDate')}::date, ${assertIsoDate(toDate, 'toDate')}::date, false)`
     );
 
     return result[0]?.hr_get_absenteeism_trend ?? [];
@@ -148,7 +175,7 @@ export async function getCurrentAbsentEmployees(date?: string): Promise<CurrentA
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
-      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${date ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${assertIsoDate(date, 'date')}::date, false)`
     );
 
     return result[0]?.hr_get_current_absent_employees ?? null;
@@ -173,7 +200,7 @@ export async function getDailyAbsenceTimeseries(
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_daily_absence_timeseries: DailyAbsenceTimeseriesItem[] }]>(
-      Prisma.sql`SELECT hr_get_daily_absence_timeseries(${companyId}::uuid, ${fromDate ?? null}::date, ${toDate ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_daily_absence_timeseries(${companyId}::uuid, ${assertIsoDate(fromDate, 'fromDate')}::date, ${assertIsoDate(toDate, 'toDate')}::date, false)`
     );
 
     return result[0]?.hr_get_daily_absence_timeseries ?? [];
@@ -195,7 +222,7 @@ export async function getDepartmentAbsenceReasons(date?: string): Promise<Depart
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_department_absence_reasons: DepartmentAbsenceReasonEntry[] }]>(
-      Prisma.sql`SELECT hr_get_department_absence_reasons(${companyId}::uuid, ${date ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_department_absence_reasons(${companyId}::uuid, ${assertIsoDate(date, 'date')}::date, false)`
     );
 
     return result[0]?.hr_get_department_absence_reasons ?? [];
@@ -217,7 +244,7 @@ export async function getDepartmentAbsenceSummary(date?: string): Promise<Depart
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_department_absence_summary: DepartmentAbsenceSummaryItem[] }]>(
-      Prisma.sql`SELECT hr_get_department_absence_summary(${companyId}::uuid, ${date ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_department_absence_summary(${companyId}::uuid, ${assertIsoDate(date, 'date')}::date, false)`
     );
 
     return result[0]?.hr_get_department_absence_summary ?? [];
@@ -239,7 +266,7 @@ export async function getDailyAbsenceDetail(date?: string): Promise<CurrentAbsen
 
   try {
     const result = await prisma.$queryRaw<[{ hr_get_current_absent_employees: CurrentAbsentEmployeesResult }]>(
-      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${date ?? null}::date, false)`
+      Prisma.sql`SELECT hr_get_current_absent_employees(${companyId}::uuid, ${assertIsoDate(date, 'date')}::date, false)`
     );
 
     return result[0]?.hr_get_current_absent_employees ?? null;
