@@ -3366,3 +3366,116 @@ model external_api_access_logs {
   @@index([created_at], map: "idx_external_api_access_logs_created_at")
   @@schema("public")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Better Auth (P4). Las cuatro tablas del nucleo viven en la misma base que el
+// resto del dominio: por eso el alta de un usuario puede ir en una transaccion
+// junto con su `profile`, y ya no existe la "credencial huerfana" que dejaba el
+// Auth externo cuando la base fallaba despues de crear la credencial.
+//
+// Nombres de campo en camelCase a proposito: son los que espera el adaptador de
+// Prisma de Better Auth. Las columnas si van en snake_case (`@map`), como el
+// resto del esquema. Las tablas llevan prefijo `auth_` para que se lean como lo
+// que son: el almacen de la libreria, no modelos del dominio.
+//
+// Los ids son uuid (los genera `advanced.database.generateId` en
+// `shared/lib/auth.ts`, no `@default`): `user.id` es el valor que viaja como
+// `profile.credential_id` y como `app.user_id` de los triggers de auditoria, y
+// `withActor()` exige uuid.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Credencial de acceso. NO es el perfil del dominio: ese es `profile`, y se
+/// vincula por `profile.credential_id = user.id` (ver `shared/lib/actor.ts`).
+/// A proposito NO hay FK entre las dos: `profile.credential_id` es el destino de
+/// siete FKs `ON UPDATE NO ACTION` (`user_roles`, `user_permissions`, ...), asi
+/// que ponerlo en NULL al borrar la credencial las violaria. La consistencia la
+/// da el alta transaccional de `registerUserWithRole`.
+model user {
+  id                  String    @id @db.Uuid
+  name                String
+  email               String    @unique
+  emailVerified       Boolean   @default(false) @map("email_verified")
+  image               String?
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// Plugin `anonymous()`: el operario que entra por el QR de mantenimiento.
+  isAnonymous         Boolean   @default(false) @map("is_anonymous")
+  /// El alta con contrasena temporal pide cambiarla en el primer ingreso.
+  needsPasswordChange Boolean   @default(false) @map("needs_password_change")
+  /// Baja de usuario (tab Empresa -> Usuarios). Lo chequea el hook
+  /// `session.create.before`: un usuario baneado no llega a tener sesion.
+  banned              Boolean   @default(false)
+  banReason           String?   @map("ban_reason")
+  banExpires          DateTime? @map("ban_expires") @db.Timestamptz(6)
+
+  accounts account[]
+  sessions session[]
+
+  @@map("auth_user")
+  @@schema("public")
+}
+
+/// Sesion activa. `company` y `employeeId` son los CLAIMS del perimetro
+/// multi-empresa: viven aca (y no en el usuario) porque se resuelven contra la
+/// base en cada alta de sesion. Son `input: false` en la config de Better Auth
+/// —ningun endpoint los acepta del cliente— y solo los escribe
+/// `shared/lib/session-claims.ts`, siempre despues de validar la pertenencia.
+model session {
+  id         String   @id @db.Uuid
+  token      String   @unique
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  /// Empresa activa de la sesion. Equivale al viejo `app_metadata.company`.
+  company    String?  @db.Uuid
+  /// Legajo del operario del QR. Equivale al viejo `app_metadata.employee_id`.
+  employeeId String?  @map("employee_id") @db.Uuid
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_auth_session_user_id")
+  @@map("auth_session")
+  @@schema("public")
+}
+
+/// Credenciales por proveedor: `providerId = 'credential'` guarda el hash de la
+/// contrasena; los demas son OAuth (Google).
+model account {
+  id                    String    @id @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id") @db.Uuid
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_auth_account_user_id")
+  @@index([providerId, accountId], map: "idx_auth_account_provider")
+  @@map("auth_account")
+  @@schema("public")
+}
+
+/// Tokens de un solo uso: verificacion de email y recuperacion de contrasena.
+model verification {
+  id         String   @id @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier], map: "idx_auth_verification_identifier")
+  @@map("auth_verification")
+  @@schema("public")
+}
