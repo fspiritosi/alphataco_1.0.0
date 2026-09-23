@@ -20,7 +20,6 @@ interface UploadImageProps {
   field?: { onChange?: (event: ChangeEvent<HTMLInputElement>) => void };
   setAvailableToSubmit?: (value: boolean) => void;
   disabledInput?: boolean;
-  companyId: string;
 }
 
 export function UploadImage({
@@ -33,7 +32,6 @@ export function UploadImage({
   imageBucket,
   setAvailableToSubmit,
   field,
-  companyId,
 }: UploadImageProps) {
   const { uploadImage, loading } = useImageUpload();
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -59,15 +57,10 @@ export function UploadImage({
   const handleUpload = async () => {
     if (imageFile) {
       try {
-        const fileExtension = 'jpg';
-        const renamedFile = new File([imageFile], `${companyId.replace(/\s/g, '')}.${fileExtension}`, {
-          type: `image/${fileExtension}`,
-        });
-
-        // La URL la devuelve el servidor: la carpeta del archivo es la de la empresa activa
-        // y el cliente no la conoce. El `?timestamp` sólo rompe la caché del navegador
-        // cuando se pisa la imagen anterior.
-        const uploadedImageUrl = await uploadImage(renamedFile, imageBucket);
+        // La key y la URL las decide el servidor (la identidad del archivo sale de la
+        // sesión, no de una prop). El `?timestamp` sólo rompe la caché del navegador,
+        // porque la imagen anterior se pisa en la misma key.
+        const uploadedImageUrl = await uploadImage(imageFile, imageBucket);
         onImageChange(`${uploadedImageUrl}?timestamp=${Date.now()}`);
 
         if (setAvailableToSubmit) setAvailableToSubmit(true);

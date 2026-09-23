@@ -122,7 +122,6 @@ export function _UserMenu({ user }: UserMenuProps) {
                           </Avatar>
                         </div>
                         <UploadImage
-                          companyId={user?.id || ''}
                           labelInput="Cambiar avatar"
                           imageBucket="avatar"
                           desciption="Sube una imagen para tu perfil"
