@@ -1,3 +1,4 @@
+import { getSessionRoleForEquipment } from '@/features/Mantenimiento/EquipmentDashboard/actions/equipment-access.server';
 import EquipmentDashboardClient from '@/features/Mantenimiento/EquipmentDashboard/components/equipment-dashboard-client';
 import { supabaseServer } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
@@ -11,7 +12,6 @@ export default async function EquipmentDashboardPage({
 }) {
   const resolvedParams = await params;
   const supabase = await supabaseServer();
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const {
     data: { user },
@@ -38,16 +38,9 @@ export default async function EquipmentDashboardPage({
     redirect('/maintenance?error=equipment_not_found');
   }
 
-  // Obtener role si es usuario
-  let role: string | undefined;
-  if (user?.id) {
-    const { shared_user } = await fetch(
-      `${URL}/api/shared_company_role?company_id=${equipmentData.company_id}&profile_id=${user.id}`
-    )
-      .then((e) => e.json())
-      .catch(() => ({ shared_user: null }));
-    role = shared_user?.[0]?.role;
-  }
+  // Obtener role si es usuario. La empresa la deriva la action del equipo de la ruta:
+  // el flujo QR corre sin empresa activa en la sesión y el caller no la manda.
+  const role = user?.id ? await getSessionRoleForEquipment(resolvedParams.id) : null;
 
   const isGuest = role === 'Invitado';
 
