@@ -2,7 +2,6 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actions/permissions.server';
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
@@ -11,7 +10,7 @@ import { callScalar } from '@/shared/lib/sql';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { z } from 'zod';
-import { BAN_FOREVER, NO_BAN, planUserStatusChange, type UserStatusPlan } from './lib/user-status';
+import { planUserStatusChange, type UserStatusPlan } from './lib/user-status';
 
 /**
  * Mutaciones de la tab Usuarios: baja/reactivación (ban de Auth + `share_company_users.is_active`
@@ -19,8 +18,13 @@ import { BAN_FOREVER, NO_BAN, planUserStatusChange, type UserStatusPlan } from '
  *
  * Perímetro sin RLS: toda fila de `share_company_users` se busca por `{ id, company_id: activa }`;
  * los legajos se escriben acotados a la empresa activa; las mutaciones exigen
- * `empresa.usuarios-empleados.update|delete`. El único contacto con Supabase es el ban/unban de
- * Auth (`// P4: auth`); `update_employee_diagram_status` va por `callScalar` (antes `.rpc`).
+ * `empresa.usuarios-empleados.update|delete`. `update_employee_diagram_status` va por
+ * `callScalar` (antes `.rpc`).
+ *
+ * El ban de la credencial vive ahora en la MISMA base (`auth_user.banned`), así que entra en la
+ * misma transacción que la pertenencia y el legajo: se fue el "ban primero, base después" con su
+ * rollback compensatorio, que podía dejar el ban puesto y la base sin tocar (se logueaba como
+ * CRÍTICO y nadie lo reconciliaba).
  */
 const logger = new Logger('Empresa/Usuarios/mutations');
 
@@ -71,17 +75,10 @@ async function findScopedShareUser(shareCompanyUserId: string, companyId: string
   return { id: shareUser.id, credentialId: shareUser.profile.credential_id, linkedEmployee: shareUser.profile.employees };
 }
 
-/** Sube/baja el ban en Auth. Devuelve el mensaje de error o null. P4: auth */
-async function setAuthBan(credentialId: string, banDuration: string): Promise<string | null> {
-  const adminSupabase = await adminSupabaseServer(); // P4: auth
-  const { error } = await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: banDuration }); // P4: auth
-  return error ? error.message : null;
-}
-
 /**
- * Aplica un `UserStatusPlan`: primero el ban en Auth (fuera de la tx), después `is_active` de la
- * pertenencia y el legajo (con sus diagramas) dentro de `withActor`. Si la transacción falla se
- * revierte el ban en Auth.
+ * Aplica un `UserStatusPlan` en UNA transacción: el ban de la credencial, `is_active` de la
+ * pertenencia y el legajo (con sus diagramas). Al banear también se borran las sesiones abiertas
+ * del usuario — si no, el baneado seguiría adentro hasta que venciera su sesión.
  */
 async function applyUserStatusPlan(
   plan: UserStatusPlan,
@@ -89,14 +86,16 @@ async function applyUserStatusPlan(
   companyId: string,
   actor: string
 ): Promise<void> {
-  const banError = await setAuthBan(shareUser.credentialId, plan.banDuration);
-  if (banError) {
-    logger.error('Error actualizando el ban del usuario en Auth', { data: { banError, credentialId: shareUser.credentialId } });
-    throw new Error(`Error al ${plan.membershipActive ? 'reactivar' : 'banear'} usuario: ${banError}`);
-  }
-
   try {
     await withActor(actor, async (tx) => {
+      await tx.user.update({
+        where: { id: shareUser.credentialId },
+        data: { banned: plan.banned, banReason: plan.banned ? 'Baja de usuario de la empresa' : null, updatedAt: new Date() },
+      });
+      if (plan.banned) {
+        await tx.session.deleteMany({ where: { userId: shareUser.credentialId } });
+      }
+
       await tx.share_company_users.update({ where: { id: shareUser.id }, data: { is_active: plan.membershipActive } });
 
       if (plan.employee) {
@@ -121,14 +120,8 @@ async function applyUserStatusPlan(
       }
     });
   } catch (txError) {
-    // Rollback del ban en Auth si la base falla
-    logger.error('Error actualizando la base, rollback del ban en Auth', { data: { txError } });
-    const rollbackError = await setAuthBan(shareUser.credentialId, plan.membershipActive ? BAN_FOREVER : NO_BAN);
-    if (rollbackError) {
-      logger.error('CRITICO: rollback del ban en Auth falló', {
-        data: { rollbackError, credentialId: shareUser.credentialId, shareCompanyUserId: shareUser.id },
-      });
-    }
+    // Una sola transacción: si falla no queda nada aplicado, ni el ban ni la base.
+    logger.error('Error aplicando el cambio de estado del usuario', { data: { txError } });
     throw txError;
   }
 

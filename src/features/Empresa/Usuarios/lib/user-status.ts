@@ -2,14 +2,15 @@ import { toTerminationReason } from '@/features/Employees/EmpleadoID/lib/termina
 import type { reason_for_termination_enum } from '@/generated/prisma/client';
 
 /**
- * Lógica pura de dar de baja / reactivar un usuario de la empresa: qué pasa con el ban de Auth,
- * con `share_company_users.is_active` y con el legajo vinculado. Las server actions ejecutan el
- * plan; acá no hay acceso a la base.
+ * Lógica pura de dar de baja / reactivar un usuario de la empresa: qué pasa con el ban de la
+ * credencial, con `share_company_users.is_active` y con el legajo vinculado. Las server actions
+ * ejecutan el plan; acá no hay acceso a la base.
+ *
+ * El ban dejó de ser una duración (`ban_duration` de Supabase Auth) y pasó a ser el booleano
+ * `auth_user.banned`, que corta el alta de sesión en el hook `session.create.before` de
+ * `shared/lib/auth.ts` — vale para contraseña, Google y sesión anónima por igual.
  */
 
-/** ~100 años: el "ban permanente" que entiende Supabase Auth (`ban_duration`). */
-export const BAN_FOREVER = '876600h';
-export const NO_BAN = 'none';
 
 export interface LinkedEmployee {
   id: string;
@@ -28,7 +29,8 @@ export interface EmployeeStatusChange {
 }
 
 export interface UserStatusPlan {
-  banDuration: typeof BAN_FOREVER | typeof NO_BAN;
+  /** `true` = la credencial queda baneada (no puede abrir sesión). */
+  banned: boolean;
   membershipActive: boolean;
   /** Cambio a aplicar sobre el legajo vinculado, o null si no se toca. */
   employee: EmployeeStatusChange | null;
@@ -40,7 +42,7 @@ export function planUserStatusChange(input: UserStatusInput): UserStatusPlan {
   if (input.action === 'ban') {
     const shouldTerminate = Boolean(employee?.is_active && input.employeeTermination);
     return {
-      banDuration: BAN_FOREVER,
+      banned: true,
       membershipActive: false,
       employee:
         shouldTerminate && employee && input.employeeTermination
@@ -56,7 +58,7 @@ export function planUserStatusChange(input: UserStatusInput): UserStatusPlan {
 
   const shouldReactivate = Boolean(employee && !employee.is_active && input.reactivateEmployee);
   return {
-    banDuration: NO_BAN,
+    banned: false,
     membershipActive: true,
     employee:
       shouldReactivate && employee

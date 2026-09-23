@@ -1,7 +1,6 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
@@ -64,34 +63,29 @@ export async function toggleEmployeeStatus(
     });
 
     if (profile?.credential_id) {
-      const adminSupabase = await adminSupabaseServer(); // P4: auth
-      const { error: banError } = await adminSupabase.auth.admin.updateUserById(profile.credential_id, { // P4: auth
-        ban_duration: activate ? 'none' : '876600h',
+      const credentialId = profile.credential_id;
+
+      // El ban de la credencial y la pertenencia viven en la misma base: van juntos. Al banear
+      // se borran además las sesiones abiertas, para que la baja tenga efecto inmediato.
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: credentialId },
+          data: {
+            banned: !activate,
+            banReason: activate ? null : 'Baja del legajo vinculado',
+            updatedAt: new Date(),
+          },
+        });
+        if (!activate) {
+          await tx.session.deleteMany({ where: { userId: credentialId } });
+        }
+        await tx.share_company_users.updateMany({ where: { profile_id: profile.id }, data: { is_active: activate } });
       });
 
-      if (banError) {
-        logger.warn('No se pudo actualizar ban del usuario', {
-          data: { error: banError, employeeId, activate },
-        });
-      } else {
-        logger.info(`Usuario ${activate ? 'desbaneado' : 'baneado'} exitosamente`, {
-          data: { employeeId, credentialId: profile.credential_id },
-        });
-
-        // Sincronizar share_company_users.is_active con el estado del ban
-        try {
-          await prisma.share_company_users.updateMany({
-            where: { profile_id: profile.id },
-            data: { is_active: activate },
-          });
-
-          await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
-        } catch (syncErr) {
-          logger.warn('No se pudo sincronizar is_active en share_company_users', {
-            data: { error: syncErr, profileId: profile.id, activate },
-          });
-        }
-      }
+      await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+      logger.info(`Usuario ${activate ? 'desbaneado' : 'baneado'} exitosamente`, {
+        data: { employeeId, credentialId },
+      });
     }
   } catch (banErr) {
     logger.error('Error en proceso de ban/unban', { data: { error: banErr, employeeId } });

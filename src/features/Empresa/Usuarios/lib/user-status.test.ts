@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAN_FOREVER, NO_BAN, planUserStatusChange } from './user-status';
+import { planUserStatusChange } from './user-status';
 
 const activeEmployee = { id: 'emp-1', is_active: true };
 const inactiveEmployee = { id: 'emp-1', is_active: false };
@@ -8,12 +8,12 @@ const termination = { reason: 'Despido sin causa', date: new Date('2026-09-01T00
 describe('planUserStatusChange — ban', () => {
   it('sin empleado vinculado: banea y desactiva la pertenencia, sin tocar legajo', () => {
     const plan = planUserStatusChange({ action: 'ban', linkedEmployee: null });
-    expect(plan).toEqual({ banDuration: BAN_FOREVER, membershipActive: false, employee: null });
+    expect(plan).toEqual({ banned: true, membershipActive: false, employee: null });
   });
 
   it('con empleado activo y datos de baja: da de baja el legajo con motivo (enum) y fecha', () => {
     const plan = planUserStatusChange({ action: 'ban', linkedEmployee: activeEmployee, employeeTermination: termination });
-    expect(plan.banDuration).toBe(BAN_FOREVER);
+    expect(plan.banned).toBe(true);
     expect(plan.membershipActive).toBe(false);
     expect(plan.employee).toEqual({
       id: 'emp-1',
@@ -47,7 +47,7 @@ describe('planUserStatusChange — ban', () => {
 describe('planUserStatusChange — unban', () => {
   it('sin empleado: quita el ban y reactiva la pertenencia', () => {
     const plan = planUserStatusChange({ action: 'unban', linkedEmployee: null });
-    expect(plan).toEqual({ banDuration: NO_BAN, membershipActive: true, employee: null });
+    expect(plan).toEqual({ banned: false, membershipActive: true, employee: null });
   });
 
   it('con empleado inactivo y reactivateEmployee: reactiva el legajo limpiando motivo y fecha', () => {
