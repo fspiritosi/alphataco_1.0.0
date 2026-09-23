@@ -9,6 +9,7 @@ import {
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
+import { employeeIdsLinkedToUsers } from '@/shared/lib/employee-profile';
 import { prisma } from '@/shared/lib/prisma';
 import { assertCompanyAccess, getActiveCompanyId } from '@/shared/lib/tenant';
 import { cacheLife, cacheTag } from 'next/cache';
@@ -515,12 +516,10 @@ export async function searchEmployeesForLink(query: string) {
   const companyId = await getActiveCompanyId();
 
   try {
-    // Obtener employee_ids ya vinculados a algún profile
-    const linkedProfiles = await prisma.profile.findMany({
-      where: { employee_id: { not: null } },
-      select: { employee_id: true },
-    });
-    const linkedEmployeeIds = linkedProfiles.map((p) => p.employee_id).filter(Boolean) as string[];
+    // Legajos ya vinculados a un USUARIO. Los profiles de las sesiones anónimas del QR también
+    // llevan `employee_id`, y contarlos sacaba del buscador a todo empleado que alguna vez
+    // escaneó un QR.
+    const linkedEmployeeIds = await employeeIdsLinkedToUsers();
 
     const employees = await prisma.employees.findMany({
       where: {

@@ -25,10 +25,32 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Empresa por defecto de un usuario, resuelta CONTRA LA BASE.
  *
  * La usa el hook `session.create.before` para estampar el claim inicial de toda sesión nueva
- * (login con contraseña, Google, y el invitado del QR). El criterio es el mismo de
- * `canUseCompanyAsTenant()`: empresa propia, membresía activa, o la empresa del legajo
- * vinculado al profile. Devuelve `null` si el usuario no tiene ninguna —entonces la sesión
- * arranca sin claim y `getActiveCompanyId()` cae a la cookie, que sí se revalida.
+ * (login con contraseña, Google, y el invitado del QR). Devuelve `null` si el usuario no tiene
+ * ninguna —entonces la sesión arranca sin claim y `getActiveCompanyId()` cae a la cookie, que
+ * sí se revalida.
+ *
+ * ── POR QUÉ EL CLAIM ES CONFIABLE: esto es un subconjunto de `canUseCompanyAsTenant()` ────
+ *
+ * `getActiveCompanyId()` (tenant.ts) prefiere el claim y NO lo revalida; a la cookie, en
+ * cambio, la pasa por `canUseAsActiveCompany()`. Que eso sea seguro no depende de que el
+ * claim lo escriba el servidor —eso hace falta pero no alcanza—, sino de que **todo valor
+ * que el servidor escribe como claim también habría pasado la regla de la cookie**. Sin esa
+ * equivalencia, el claim sería una puerta más permisiva que la cookie y el perímetro
+ * dependería de cuál de las dos ganó.
+ *
+ * Las tres ramas de acá se corresponden una a una con las de `canUseCompanyAsTenant()`:
+ *
+ *   | acá                                   | `canUseCompanyAsTenant()`                     |
+ *   | ------------------------------------- | --------------------------------------------- |
+ *   | `company.owner_id === profile.id`     | `canAccessCompany()`, rama owner              |
+ *   | `share_company_users.is_active`       | `canAccessCompany()`, rama membresía activa   |
+ *   | empresa del legajo del profile        | `hasEmployeeInCompany`                        |
+ *
+ * **Si alguien agrega una rama acá, tiene que existir la equivalente allá** (y viceversa), o
+ * la invariante deja de valer sin que se rompa ningún test. Lo mismo para los otros dos
+ * escritores de claims: `switchActiveCompany()` llama a `canUseAsActiveCompany()` de frente,
+ * y el QR (`writeMaintenanceClaims()`) escribe además `profile.employee_id`, que es
+ * justamente lo que hace que su claim caiga en la rama de empleado.
  *
  * Prioriza la empresa de la que es owner, después la membresía activa más vieja (orden
  * estable: el usuario entra siempre a la misma empresa) y por último la del legajo.
@@ -104,10 +126,12 @@ export async function canUserUseCompany(userId: string, companyId: string): Prom
 /**
  * Escribe el claim de empresa en la sesión identificada por su `token`.
  *
- * **El llamador tiene que haber validado la pertenencia**: `switchActiveCompany()` lo hace con
- * `canUseAsActiveCompany()`. Acá sólo se valida la forma del uuid, porque hay un llamador
- * legítimo que no puede usar esa regla: el login del QR, donde la empresa sale del legajo del
- * CUIL y el operario no es miembro de nada todavía (usa `writeMaintenanceClaims()`).
+ * **El llamador tiene que haber validado la pertenencia**, y acá sólo se valida la forma del
+ * uuid. Los tres llamadores la validan de maneras distintas pero equivalentes:
+ * `switchActiveCompany()` con `canUseAsActiveCompany()`, `createCompany()` porque el usuario
+ * acaba de quedar como `owner_id` en la misma transacción, y los logins de panel con el legajo
+ * de la sesión. Ya no hay excepciones: el login del QR, que antes era la única, ahora escribe
+ * también `profile.employee_id` y cae en la rama de empleado de `canUseCompanyAsTenant()`.
  */
 export async function writeCompanyClaim(sessionToken: string, companyId: string | null): Promise<void> {
   if (companyId !== null && !UUID_RE.test(companyId)) {
@@ -127,9 +151,10 @@ export async function writeCompanyClaim(sessionToken: string, companyId: string 
  * Escribe los dos claims del QR de mantenimiento: empresa y legajo.
  *
  * Sólo lo llama `completeMaintenanceEmployeeAnonymousSession()`, DESPUÉS de comprobar que la
- * sesión es anónima y que el CUIL corresponde a un empleado activo. El `employeeId` es el que
- * atribuye las respuestas de checklist, así que va por el mismo camino server-only que la
- * empresa y no por un campo que el cliente pueda proponer.
+ * sesión es anónima, que el CUIL corresponde a un empleado activo y que ese empleado tiene
+ * empresa asignada — la empresa sale SIEMPRE del legajo, nunca del vehículo escaneado. El
+ * `employeeId` es el que atribuye las respuestas de checklist, así que va por el mismo camino
+ * server-only que la empresa y no por un campo que el cliente pueda proponer.
  */
 export async function writeMaintenanceClaims(
   sessionToken: string,

@@ -22,8 +22,13 @@ vi.mock('@/shared/lib/session', () => ({
   isSessionAnonymous: vi.fn(),
 }));
 
-const writeMaintenanceClaims = vi.hoisted(() => vi.fn());
-vi.mock('@/shared/lib/session-claims', () => ({ writeMaintenanceClaims }));
+const claimsMock = vi.hoisted(() => ({
+  writeMaintenanceClaims: vi.fn(),
+  writeCompanyClaim: vi.fn(),
+  canUserUseCompany: vi.fn(async () => false),
+}));
+vi.mock('@/shared/lib/session-claims', () => claimsMock);
+const { writeMaintenanceClaims } = claimsMock;
 
 vi.mock('@/shared/lib/auth', () => ({ auth: { api: { signOut: vi.fn() } } }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
@@ -85,6 +90,49 @@ describe('completeMaintenanceEmployeeAnonymousSession', () => {
     expect(tenantMock.setActiveCompanyCookie).not.toHaveBeenCalled();
   });
 
+  /**
+   * El claim que escribe este flujo tiene que ser uno que `canUseCompanyAsTenant()` aceptaría, y
+   * lo que lo hace caer en la rama de empleado es `profile.employee_id`. Sin esto, el del QR
+   * sería el único claim del sistema que no pasa la regla con la que se valida la cookie.
+   */
+  it('el profile del operario queda vinculado al legajo', async () => {
+    await completeMaintenanceEmployeeAnonymousSession({ cuil: '20-12345678-9', equipmentId: EQUIPMENT });
+
+    expect(prismaMock.profile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ employee_id: 'emp-1' }),
+        create: expect.objectContaining({ employee_id: 'emp-1' }),
+      })
+    );
+  });
+
+  /**
+   * Antes, un legajo sin empresa caía a la empresa del VEHÍCULO escaneado, que sale de un
+   * buscador público y no es la pertenencia de nadie: quien conociera ese CUIL se estampaba
+   * como claim de confianza la empresa de cualquier equipo del sistema.
+   */
+  it('un legajo sin empresa NO cae a la empresa del equipo: se rechaza', async () => {
+    prismaMock.employees.findFirst.mockResolvedValue({
+      id: 'emp-1',
+      firstname: 'Juan',
+      lastname: 'Perez',
+      email: null,
+      phone: null,
+      company_id: null,
+      is_active: true,
+    });
+
+    const result = await completeMaintenanceEmployeeAnonymousSession({
+      cuil: '20-12345678-9',
+      equipmentId: EQUIPMENT,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(writeMaintenanceClaims).not.toHaveBeenCalled();
+    expect(prismaMock.vehicles.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.profile.upsert).not.toHaveBeenCalled();
+  });
+
   it('rechaza sin sesión', async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
 
@@ -99,6 +147,7 @@ describe('setActiveCompanyForEquipment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSessionUser).mockResolvedValue({ id: 'user-1', email: null });
+    claimsMock.canUserUseCompany.mockResolvedValue(false);
     prismaMock.vehicles.findUnique.mockResolvedValue({ company_id: COMPANY_A });
   });
 
@@ -107,6 +156,29 @@ describe('setActiveCompanyForEquipment', () => {
 
     expect(result).toMatchObject({ ok: true, companyId: COMPANY_A });
     expect(tenantMock.setActiveCompanyCookie).toHaveBeenCalledWith(COMPANY_A);
+  });
+
+  /**
+   * La cookie es una propuesta que se revalida al leerla; el claim NO se revalida. Por eso el
+   * invitado del QR sólo se lleva el claim si tiene un vínculo real con la empresa del equipo:
+   * si no, escribir ahí la empresa de un vehículo elegido en un buscador público sería
+   * exactamente el agujero que la invariante impide.
+   */
+  it('sin pertenencia real NO escribe el claim, sólo la cookie', async () => {
+    claimsMock.canUserUseCompany.mockResolvedValue(false);
+
+    await setActiveCompanyForEquipment(EQUIPMENT);
+
+    expect(tenantMock.setActiveCompanyCookie).toHaveBeenCalledWith(COMPANY_A);
+    expect(claimsMock.writeCompanyClaim).not.toHaveBeenCalled();
+  });
+
+  it('con pertenencia real escribe el claim, que es el que le gana a la cookie', async () => {
+    claimsMock.canUserUseCompany.mockResolvedValue(true);
+
+    await setActiveCompanyForEquipment(EQUIPMENT);
+
+    expect(claimsMock.writeCompanyClaim).toHaveBeenCalledWith('session-token', COMPANY_A);
   });
 
   it('sin sesión no escribe la cookie', async () => {
