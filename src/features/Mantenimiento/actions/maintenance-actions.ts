@@ -4,7 +4,7 @@ import { Logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { getSessionUser } from '@/shared/lib/session';
+import { getSessionUser, isSessionAnonymous } from '@/shared/lib/session';
 import {
   clearActiveCompanyCookie,
   getActiveCompanyId,
@@ -81,9 +81,19 @@ export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
  * desde el servidor con `setActiveCompanyCookie()` — antes la escribía el cliente con
  * `js-cookie`, que es el mismo valor pero fuera del único punto de escritura server-side
  * (y sin los flags `secure`/`sameSite` que el helper aplica).
+ *
+ * OJO: este es el llamador de `setActiveCompanyCookie()` que NO puede validar la pertenencia
+ * —el invitado del QR entra a la empresa del equipo que escaneó, y todavía no sabemos si es
+ * miembro—. La cookie que escribe es una PROPUESTA: `getActiveCompanyId()` la vuelve a
+ * validar con `canUseAsActiveCompany()` antes de entregarla, así que por sí sola no da
+ * acceso a nada. Lo único que se exige acá es que haya sesión (el login de invitado ya
+ * corrió) para no dejar un endpoint que escribe cookies a cualquiera.
  */
 export async function setActiveCompanyForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
+
+  const user = await getSessionUser(); // P4: auth
+  if (!user?.id) return { ok: false, error: 'No hay sesión activa. Reintenta iniciar sesión.' };
 
   const vehicle = await prisma.vehicles.findUnique({
     where: { id: equipmentId },
@@ -107,6 +117,15 @@ export async function setActiveCompanyForEquipment(equipmentId: string): Promise
  * Completa la sesión anónima del operario: valida el CUIL contra el legajo, asegura el
  * profile y deja la empresa del EMPLEADO (o, si no tiene, la del equipo) en la cookie y
  * en el metadata de Auth.
+ *
+ * SÓLO corre sobre una sesión ANÓNIMA, y eso es parte del perímetro, no una formalidad:
+ * más abajo escribe con el admin client `app_metadata.company` —el claim que
+ * `getActiveCompanyId()` trata como de confianza y NO vuelve a validar— y
+ * `app_metadata.employee_id`, que es el claim con el que se atribuyen las respuestas de
+ * checklist. Sin el chequeo, un usuario logueado del dashboard podía llamarla con el CUIL
+ * de un empleado de otra empresa (el `equipmentId` lo da `searchEquipmentByDomain`, que es
+ * público a propósito) y plantarse esa empresa como empresa activa de su propia cuenta —
+ * además de pisarse su propio profile con el upsert de más abajo.
  */
 export async function completeMaintenanceEmployeeAnonymousSession(params: {
   cuil: string;
@@ -128,6 +147,14 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   const user = await getSessionUser(); // P4: auth
   if (!user?.id) {
     return { ok: false, error: 'No hay sesión activa. Reintenta iniciar sesión.' };
+  }
+
+  // El flujo del QR arranca con `signInAnonymously()`; una sesión de dashboard acá es una
+  // llamada directa a la action (ver el comentario de la función).
+  if (!(await isSessionAnonymous())) {
+    // P4: auth
+    deviationsLogger.warn('Sesión no anónima intentando completar el login del QR', { data: { userId: user.id } });
+    return { ok: false, error: 'Cerrá la sesión actual antes de entrar por el QR de mantenimiento.' };
   }
 
   // 1) Buscar empleado por CUIL (normalizado y, si no aparece, tal cual lo tipearon)

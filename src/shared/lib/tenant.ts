@@ -125,8 +125,13 @@ export const assertCompanyAccess = cache(async (companyId: string): Promise<void
  * ropa—, donde la empresa sale del legajo/equipo y todavía no está en el JWT.
  * P4 la elimina junto con la sesión de Supabase.
  *
- * El valor que recibe tiene que venir ya validado por quien llama (el empleado del legajo,
- * el vehículo escaneado o `canUseAsActiveCompany()`).
+ * El valor que recibe lo resuelve SIEMPRE el servidor (nunca llega tal cual desde el
+ * cliente), pero no todos los llamadores pueden validar la pertenencia: el login de ropa y
+ * el del operario del QR la derivan del empleado de la sesión y `switchActiveCompany()` la
+ * valida con `canUseAsActiveCompany()`, mientras que el invitado del QR
+ * (`setActiveCompanyForEquipment`) sólo sabe qué equipo escaneó. Por eso la cookie es una
+ * PROPUESTA y la garantía vive del lado de la lectura: `getActiveCompanyId()` la revalida
+ * con `canUseAsActiveCompany()` antes de entregarla.
  */
 export async function setActiveCompanyCookie(companyId: string, maxAgeSeconds = 60 * 60): Promise<void> {
   const cookieStore = await cookies();
