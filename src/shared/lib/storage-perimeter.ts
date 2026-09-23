@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { prisma } from '@/shared/lib/prisma';
-import { companyIdFromKey, isCompanyPrefixedBucket, type StorageBucket } from '@/shared/lib/storage-buckets';
+import { UUID_RE, companyIdFromKey, isCompanyPrefixedBucket, type StorageBucket } from '@/shared/lib/storage-buckets';
 
 /**
  * ¿De qué empresa es este archivo?
@@ -10,11 +10,17 @@ import { companyIdFromKey, isCompanyPrefixedBucket, type StorageBucket } from '@
  * resolviera el dueño, cualquier sesión podría leer el archivo de cualquier empresa
  * adivinando la ruta. Es el mismo agujero que P2 cerró en cada action, aplicado al storage.
  *
- * Dos estrategias según el bucket:
+ * Tres estrategias según el bucket:
  *
  * 1. Buckets con prefijo de empresa (`<companyId>/...`): el dueño sale del path, sin base.
- * 2. Buckets con paths heredados (documentos, remitos): el dueño se resuelve en la base
- *    por la fila que referencia ese path. Un archivo sin fila que lo referencie NO se sirve.
+ * 2. `avatar`: el dueño es un PERFIL, no una empresa (ver `resolveStorageObjectOwner`).
+ * 3. Buckets con paths heredados (documentos, remitos, contratos): el dueño se resuelve en
+ *    la base por la fila que referencia ese path. Un archivo sin fila que lo referencie NO
+ *    se sirve.
+ *
+ * Todo id que se extrae del path se valida contra `UUID_RE` antes de llegar a Prisma: las
+ * columnas son `@db.Uuid` y un valor con otra forma hace que Prisma lance `P2023`, que la
+ * ruta traduciría en un 500 en vez del 404 que promete.
  *
  * Devuelve `null` cuando no se puede probar la pertenencia: la ruta responde 404.
  */
@@ -29,7 +35,7 @@ const OTHER_EQUIPMENT_FOLDERS: Record<string, true> = {
 /** Empresa de un archivo de equipamiento: `other-equipment-<tipo>/<equipoId>/<archivo>`. */
 async function otherEquipmentCompany(path: string): Promise<string | null> {
   const [folder, equipmentId] = path.split('/');
-  if (!folder || !OTHER_EQUIPMENT_FOLDERS[folder] || !equipmentId) return null;
+  if (!folder || !OTHER_EQUIPMENT_FOLDERS[folder] || !equipmentId || !UUID_RE.test(equipmentId)) return null;
   const equipment = await prisma.other_equipment.findUnique({
     where: { id: equipmentId },
     select: { company_id: true },
@@ -63,22 +69,64 @@ async function remitDocumentCompany(path: string): Promise<string | null> {
 }
 
 /**
- * Empresa dueña de `bucket/path`, o `null` si no se puede probar.
+ * Empresa del adjunto de un contrato: la del cliente dueño del contrato.
+ *
+ * Son dos consultas porque `documents_contracts.contract_id` es un `String` suelto, sin
+ * relación declarada en el schema. Es el mismo camino que usa `findOwnedDocument()` en
+ * `services.server.ts`.
+ */
+async function contractDocumentCompany(path: string): Promise<string | null> {
+  const document = await prisma.documents_contracts.findFirst({ where: { path }, select: { contract_id: true } });
+  if (!document?.contract_id || !UUID_RE.test(document.contract_id)) return null;
+  const service = await prisma.customer_services.findUnique({
+    where: { id: document.contract_id },
+    select: { customers: { select: { company_id: true } } },
+  });
+  return service?.customers?.company_id ?? null;
+}
+
+/**
+ * Dueño de `bucket/path`:
+ * - `{ kind: 'company' }` → el archivo es de esa empresa.
+ * - `{ kind: 'profile' }` → el archivo es de ese perfil (avatares).
+ * - `null` → no se puede probar; la ruta responde 404.
+ *
  * `path` ya tiene que venir validado con `isSafeStorageKey`.
  *
- * `contract-documents` y `document-files-expired` no están: sus archivos no se sirven por
- * la ruta proxy (sólo por URL firmada desde una action que ya verificó el perímetro), así
- * que el default es negar.
+ * `document-files-expired` no está: es un archivo histórico que no se sirve por URL, sólo
+ * se escribe al renovar un documento. El default es negar.
  */
-export async function resolveStorageObjectCompany(bucket: StorageBucket, path: string): Promise<string | null> {
-  if (isCompanyPrefixedBucket(bucket)) return companyIdFromKey(path);
+export type StorageObjectOwner = { kind: 'company'; companyId: string } | { kind: 'profile'; profileId: string };
 
-  switch (bucket) {
-    case 'document-files':
-      return (await otherEquipmentCompany(path)) ?? (await documentCompany(path));
-    case 'daily-reports':
-      return remitDocumentCompany(path);
-    default:
-      return null;
+export async function resolveStorageObjectOwner(
+  bucket: StorageBucket,
+  path: string
+): Promise<StorageObjectOwner | null> {
+  if (bucket === 'avatar') {
+    // `<profileId>.<ext>`: el avatar es de la persona, no de una empresa. Si colgara de la
+    // empresa, el mismo usuario en dos empresas tendría un avatar por empresa y los
+    // compañeros de la otra recibirían 404.
+    const profileId = path.split('/')[0]?.split('.')[0];
+    return profileId && UUID_RE.test(profileId) ? { kind: 'profile', profileId } : null;
   }
+
+  if (isCompanyPrefixedBucket(bucket)) {
+    const companyId = companyIdFromKey(path);
+    return companyId ? { kind: 'company', companyId } : null;
+  }
+
+  const companyId = await (async () => {
+    switch (bucket) {
+      case 'document-files':
+        return (await otherEquipmentCompany(path)) ?? (await documentCompany(path));
+      case 'daily-reports':
+        return remitDocumentCompany(path);
+      case 'contract-documents':
+        return contractDocumentCompany(path);
+      default:
+        return null;
+    }
+  })();
+
+  return companyId ? { kind: 'company', companyId } : null;
 }

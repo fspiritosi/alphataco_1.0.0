@@ -38,10 +38,12 @@ export function isStorageBucket(value: unknown): value is StorageBucket {
  * Buckets cuya key empieza SIEMPRE por el uuid de la empresa dueña del archivo
  * (`<companyId>/...`). El perímetro de lectura y de escritura sale del propio path, sin
  * consultar la base.
+ *
+ * `avatar` NO está: su dueño es un perfil, no una empresa. Colgarlo de la empresa le daba
+ * un avatar por empresa a quien pertenece a varias, y 404 a los compañeros de la otra.
  */
 export const COMPANY_PREFIXED_BUCKETS: readonly StorageBucket[] = [
   'logo',
-  'avatar',
   'clothing-signatures',
   'repair-images',
   'tire-discards',
@@ -55,7 +57,7 @@ export function isCompanyPrefixedBucket(bucket: string): bucket is StorageBucket
 /**
  * Buckets a los que el cliente puede pedir una subida por `uploadToStorage` (el archivo
  * viaja en un FormData desde el navegador). El resto sólo se escribe desde actions que
- * arman el path ellas mismas.
+ * arman el path ellas mismas. En ambos casos la key la decide el servidor, nunca el cliente.
  */
 export const CLIENT_UPLOAD_BUCKETS: readonly StorageBucket[] = ['avatar', 'preparte-img'];
 
@@ -63,7 +65,11 @@ export function isClientUploadBucket(bucket: string): bucket is StorageBucket {
   return (CLIENT_UPLOAD_BUCKETS as readonly string[]).includes(bucket);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Forma de un uuid. Todo id que se saca de una key del storage se valida con esto antes de
+ * llegar a Prisma: las columnas son `@db.Uuid` y un valor con otra forma lanza `P2023`.
+ */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Empresa dueña de una key `<companyId>/...`, o `null` si el primer segmento no es un uuid. */
 export function companyIdFromKey(path: string): string | null {
