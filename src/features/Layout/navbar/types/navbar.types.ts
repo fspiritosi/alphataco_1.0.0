@@ -24,7 +24,7 @@ export type CompanySelectorProps = {
   currentCompany: Company[];
 };
 export type UserMenuProps = {
-  /** Perfil de la sesión, tipado desde la query de Prisma (no desde `database.types`). */
+  /** Perfil de la sesión, tipado desde la query de Prisma (no desde los tipos generados por Supabase). */
   user: CurrentUserProfile;
 };
 
