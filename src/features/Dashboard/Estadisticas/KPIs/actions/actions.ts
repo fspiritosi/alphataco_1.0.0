@@ -62,8 +62,20 @@ const KPI_REVISION_SELECT = {
 
 type KpiRevisionRow = Prisma.kpi_revisionsGetPayload<{ select: typeof KPI_REVISION_SELECT }>;
 
-/** `date`/`timestamptz` de Postgres → ISO, que es lo que consumen los componentes. */
-function toIso(value: Date | null | undefined, fallback?: string): string | null {
+/**
+ * Columna `@db.Date` de Postgres → `YYYY-MM-DD`.
+ *
+ * Prisma devuelve esas columnas como `Date` a medianoche UTC. Si sale el ISO completo, el
+ * modal (que corre en el navegador y formatea con `moment`) la interpreta en la zona local
+ * y en UTC-3 muestra el día anterior. Misma convención que `Mantenimiento/utils/dateFormat`.
+ */
+function toDateOnly(value: Date | null | undefined): string | null {
+  if (!value) return null;
+  return value.toISOString().slice(0, 10);
+}
+
+/** Columna `timestamptz` → ISO completo: acá la hora sí es parte del dato. */
+function toTimestamp(value: Date | null | undefined, fallback?: string): string | null {
   if (!value) return fallback ?? null;
   return value.toISOString();
 }
@@ -76,14 +88,14 @@ function mapKPIRowToKPI(row: KpiRow): KPI {
     name: row.name,
     code: row.code,
     number: row.number,
-    validity_date: row.validity_date.toISOString(),
+    validity_date: toDateOnly(row.validity_date) as string,
     calculation_formula: row.calculation_formula,
     technical_support: row.technical_support ?? true,
     improvement_opportunities: row.improvement_opportunities,
     filters: (row.filters ?? null) as Record<string, unknown> | null,
     is_active: row.is_active ?? true,
-    created_at: toIso(row.created_at, new Date().toISOString()) as string,
-    updated_at: toIso(row.updated_at, new Date().toISOString()) as string,
+    created_at: toTimestamp(row.created_at, new Date().toISOString()) as string,
+    updated_at: toTimestamp(row.updated_at, new Date().toISOString()) as string,
   };
 }
 
@@ -93,12 +105,12 @@ function mapKPIRevisionRowToKPIRevision(row: KpiRevisionRow): KPIRevision {
     kpi_id: row.kpi_id,
     previous_number: row.previous_number,
     new_number: row.new_number,
-    previous_validity_date: toIso(row.previous_validity_date),
-    new_validity_date: toIso(row.new_validity_date),
+    previous_validity_date: toDateOnly(row.previous_validity_date),
+    new_validity_date: toDateOnly(row.new_validity_date),
     change_reason: row.change_reason,
     changed_by: row.changed_by,
     is_active: row.is_active ?? true,
-    created_at: toIso(row.created_at, new Date().toISOString()) as string,
+    created_at: toTimestamp(row.created_at, new Date().toISOString()) as string,
   };
 }
 
