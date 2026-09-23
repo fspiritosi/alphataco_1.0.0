@@ -1,6 +1,6 @@
 'use server';
 
-import type { Prisma } from '@/generated/prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
@@ -114,9 +114,15 @@ function mapKPIRevisionRowToKPIRevision(row: KpiRevisionRow): KPIRevision {
   };
 }
 
-/** `filters` del formulario → `Prisma.InputJsonValue` (o `DbNull` si no hay). */
+/**
+ * `filters` del formulario → valor para la columna `jsonb`.
+ *
+ * Sin filtros va `Prisma.DbNull`, que escribe NULL. Devolver `undefined` haría que Prisma
+ * OMITA el campo, así que un `filters: null` no podría limpiar lo guardado — y PostgREST
+ * sí escribía NULL. Hoy el tipo del input no admite null, pero la trampa queda cerrada.
+ */
 function toFiltersInput(filters: Record<string, unknown> | null | undefined) {
-  return filters ? (filters as Prisma.InputJsonValue) : undefined;
+  return filters ? (filters as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
 /**
