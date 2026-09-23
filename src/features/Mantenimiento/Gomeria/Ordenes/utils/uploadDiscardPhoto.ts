@@ -1,6 +1,6 @@
 'use server';
 
-import { sanitizeFileName } from '@/features/Mantenimiento/shared/utils/repair-images';
+import { assertValidImageFile, sanitizeFileName } from '@/features/Mantenimiento/shared/utils/repair-images';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { storagePublicUrl, storageUpload } from '@/shared/lib/storage'; // P3: storage
@@ -19,9 +19,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  * contra la empresa activa antes de escribir.
  */
 export async function uploadDiscardPhoto(file: File, vehicleId: string): Promise<string> {
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error('El archivo supera el tamaño máximo permitido (10 MB)');
-  }
+  // Tipo y tamaño se validan en el servidor: el `accept` del input no es una garantía.
+  assertValidImageFile(file, MAX_FILE_SIZE);
 
   const companyId = await getActiveCompanyId();
 

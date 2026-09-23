@@ -5,7 +5,7 @@ import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-c
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { storagePublicUrl, storageUpload } from '@/shared/lib/storage'; // P3: storage
-import { MAX_REPAIR_IMAGE_SIZE, REPAIR_IMAGES_BUCKET, sanitizeFileName } from './repair-images';
+import { MAX_REPAIR_IMAGE_SIZE, REPAIR_IMAGES_BUCKET, assertValidImageFile, sanitizeFileName } from './repair-images';
 
 const logger = new Logger('features/Mantenimiento/uploadRepairImages');
 
@@ -19,12 +19,11 @@ const logger = new Logger('features/Mantenimiento/uploadRepairImages');
 export async function uploadRepairImages(files: File[], equipmentId: string): Promise<string[]> {
   if (files.length === 0) return [];
 
-  // El tamaño se valida antes de subir nada: si un archivo no entra, no tiene
-  // sentido haber subido los anteriores. (El formulario ya lo valida al elegir
-  // el archivo; esto es la red de seguridad del lado de la subida.)
-  const tooBig = files.find((file) => file.size > MAX_REPAIR_IMAGE_SIZE);
-  if (tooBig) {
-    throw new Error(`La imagen "${tooBig.name}" supera el tamaño máximo permitido (10 MB)`);
+  // Tipo y tamaño se validan antes de subir nada: si un archivo no pasa, no tiene
+  // sentido haber subido los anteriores. (El `accept` del formulario es cosmético; la
+  // Server Action recibe cualquier archivo, así que la validación real va acá.)
+  for (const file of files) {
+    assertValidImageFile(file, MAX_REPAIR_IMAGE_SIZE);
   }
 
   const companyId = await getResourceCompanyId(prisma, 'vehicle', equipmentId);
