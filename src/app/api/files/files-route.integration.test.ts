@@ -31,6 +31,13 @@ vi.mock('next/headers', () => ({
 const CREDENTIAL_ID = '99999999-9999-4999-8999-999999999991';
 const PROFILE_ID = '99999999-9999-4999-8999-999999999992';
 const OTHER_COMPANY = '99999999-9999-4999-8999-999999999993';
+const CUSTOMER_ID = '99999999-9999-4999-8999-999999999994';
+const CONTRACT_ID = '99999999-9999-4999-8999-999999999995';
+/** La key lleva el `<timestamp>_` que antepone `buildContractDocumentPath`. */
+const CONTRACT_KEY_NAME = '1758581201234_contrato-anual.pdf';
+/** El nombre que el usuario cargó y con el que espera guardar el archivo. */
+const CONTRACT_DISPLAY_NAME = 'Contrato Anual 2026.pdf';
+let contractKey = '';
 const KEY_SUFFIX = 'logo/__integration__.png';
 /** Nombre con los caracteres que rompían el doble decode: espacio, paréntesis y `%`. */
 const TRICKY_NAME = 'informe (v1) 50%.pdf';
@@ -89,8 +96,33 @@ describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => 
     await storageUpload('logo', `${companyId}/${KEY_SUFFIX}`, file, { upsert: true });
     await storageUpload('logo', `${OTHER_COMPANY}/${KEY_SUFFIX}`, file, { upsert: true });
     await storageUpload('logo', `${companyId}/${TRICKY_NAME}`, file, { upsert: true });
-    // Objeto real en un bucket que la ruta NO resuelve: prueba que el default sea negar.
+    // Objeto real SIN fila que lo referencie: prueba que el default sea negar.
     await storageUpload('contract-documents', `${companyId}/__integration__.pdf`, file, { upsert: true });
+
+    // Adjunto de contrato con su fila: la ruta tiene que resolver la empresa por el cliente
+    // dueño del contrato y ofrecer el archivo con el nombre de la BASE, no con el de la key.
+    contractKey = `${companyId}/${CUSTOMER_ID}/${CONTRACT_ID}/${CONTRACT_KEY_NAME}`;
+    await prisma.customers.upsert({
+      where: { id: CUSTOMER_ID },
+      create: { id: CUSTOMER_ID, name: '__integration__', cuit: BigInt(30999999991), company_id: companyId },
+      update: { company_id: companyId },
+    });
+    await prisma.customer_services.upsert({
+      where: { id: CONTRACT_ID },
+      create: { id: CONTRACT_ID, customer_id: CUSTOMER_ID },
+      update: { customer_id: CUSTOMER_ID },
+    });
+    await prisma.documents_contracts.deleteMany({ where: { contract_id: CONTRACT_ID } });
+    await prisma.documents_contracts.create({
+      data: {
+        name: CONTRACT_DISPLAY_NAME,
+        type: 'pdf',
+        size: '15 B',
+        path: contractKey,
+        contract_id: CONTRACT_ID,
+      },
+    });
+    await storageUpload('contract-documents', contractKey, file, { upsert: true });
   });
 
   afterAll(async () => {
@@ -101,7 +133,10 @@ describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => 
       `${OTHER_COMPANY}/${KEY_SUFFIX}`,
       `${companyId}/${TRICKY_NAME}`,
     ]);
-    await storageRemove('contract-documents', [`${companyId}/__integration__.pdf`]);
+    await storageRemove('contract-documents', [`${companyId}/__integration__.pdf`, contractKey]);
+    await prisma.documents_contracts.deleteMany({ where: { contract_id: CONTRACT_ID } });
+    await prisma.customer_services.deleteMany({ where: { id: CONTRACT_ID } });
+    await prisma.customers.deleteMany({ where: { id: CUSTOMER_ID } });
     await prisma.share_company_users.deleteMany({ where: { profile_id: PROFILE_ID } });
     await prisma.profile.deleteMany({ where: { id: PROFILE_ID } });
   });
@@ -136,6 +171,33 @@ describe.skipIf(!RUN)('GET /api/files/[bucket]/[...path] (integración)', () => 
     const disposition = response.headers.get('Content-Disposition') ?? '';
     expect(disposition).toContain('attachment');
     expect(disposition).toContain(encodeURIComponent(TRICKY_NAME));
+  });
+
+  it('SIN `?download=1` NO manda Content-Disposition: el archivo se ve, no se baja', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    // Es lo que rompía "Ver" en pre-empleados y el `<embed type="application/pdf">` de
+    // contratos: con `attachment` el navegador descarga en vez de renderizar.
+    const response = await request('logo', `${companyId}/${KEY_SUFFIX}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Disposition')).toBeNull();
+  });
+
+  it('el adjunto de contrato se descarga con el nombre de la base, no con el de la key', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    const { buildStorageDownloadUrl } = await import('@/shared/lib/storage-url');
+    const response = await requestUrl(buildStorageDownloadUrl('contract-documents', contractKey));
+    expect(response.status).toBe(200);
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    expect(disposition).toContain(encodeURIComponent(CONTRACT_DISPLAY_NAME));
+    // El `<timestamp>_` de la key no llega a la carpeta de descargas del usuario.
+    expect(disposition).not.toContain('1758581201234');
+  });
+
+  it('el adjunto de contrato también se puede VER (resuelve por el cliente del contrato)', async () => {
+    sessionUserId.current = CREDENTIAL_ID;
+    const response = await request('contract-documents', contractKey);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Disposition')).toBeNull();
   });
 
   it('404 para el archivo de OTRA empresa, aunque exista en MinIO', async () => {
