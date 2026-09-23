@@ -161,7 +161,14 @@ export async function assertWorkOrderInScope(workOrderId: string): Promise<Opera
 
 export interface OperatorRepairScope {
   operator: OperatorIdentity;
-  repair: { id: string; status: string; work_order_id: string; work_order_status: string };
+  repair: {
+    id: string;
+    status: string;
+    work_order_id: string;
+    work_order_status: string;
+    /** Nombre del tipo de reparación: lo usan las cuatro actions para el historial. */
+    repair_type_name: string;
+  };
 }
 
 /**
@@ -187,6 +194,7 @@ export async function assertRepairInScope(repairId: string): Promise<OperatorRep
     select: {
       id: true,
       status: true,
+      types_of_repairs: { select: { name: true } },
       work_order_items: { select: { work_order_id: true, work_orders: { select: { status: true } } } },
     },
   });
@@ -200,6 +208,7 @@ export async function assertRepairInScope(repairId: string): Promise<OperatorRep
       status: repair.status,
       work_order_id: repair.work_order_items.work_order_id,
       work_order_status: repair.work_order_items.work_orders.status,
+      repair_type_name: repair.types_of_repairs.name,
     },
   };
 }

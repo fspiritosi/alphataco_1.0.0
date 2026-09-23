@@ -76,10 +76,9 @@ const criticityOrder: Record<string, number> = {
   low: 3,
 };
 
-/** Normaliza la relacion, que Supabase puede devolver como objeto o como array */
+/** Item del pedido que origino la tarea, o null si no llego. */
 function getItemData(item: WorkOrderItemData): MaintenanceOrderItemData | null {
-  const raw = item.maintenance_order_items;
-  return (Array.isArray(raw) ? (raw[0] as MaintenanceOrderItemData | undefined) : raw) ?? null;
+  return item.maintenance_order_items ?? null;
 }
 
 export function TaskList({

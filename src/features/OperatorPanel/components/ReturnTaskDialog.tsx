@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { returnTask } from '../actions/actionsServer';
+import { returnTask } from '../actions/repairs.server';
 
 const logger = new Logger('ReturnTaskDialog');
 

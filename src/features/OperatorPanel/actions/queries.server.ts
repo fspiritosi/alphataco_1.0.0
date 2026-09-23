@@ -184,9 +184,9 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
               maintenance_order_item_repair_types: {
                 select: { types_of_repairs: { select: { id: true, name: true } } },
               },
-              // El grupo de reparaciones ahora viaja en la misma consulta: con los tipos
-              // generados de Prisma ya no hace falta la consulta aparte que había que
-              // hacer porque `database.types.ts` no conocía `maintenance_group_id`.
+              // El grupo de reparaciones viaja en la misma consulta: ya no hace falta la
+              // segunda consulta que hacía falta cuando los tipos generados de Supabase no
+              // conocían `maintenance_group_id`.
               maintenance_request_groups: { select: { name: true } },
               maintenance_request_items: {
                 select: {

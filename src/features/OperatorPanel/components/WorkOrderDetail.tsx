@@ -14,7 +14,7 @@ import { CheckCircle2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { OperatorWorkOrderDetail } from '../actions/queries.server';
-import { completeRepair, uncompleteRepair, updateTechnicianNotes } from '../actions/actionsServer';
+import { completeRepair, uncompleteRepair, updateTechnicianNotes } from '../actions/repairs.server';
 import { getWorkOrderDetailForOperator } from '../actions/queries.server';
 import { pauseWorkOrder, resumeWorkOrder, startWorkOrder } from '../actions/work-orders.server';
 import { AddTaskDialog } from './AddTaskDialog';
@@ -138,13 +138,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
 
   // Numero de la orden de mantenimiento: se lee del primer item, que es el unico
   // dato de la OM que necesita el encabezado
-  const firstItem = workOrderItems[0];
-  const maintenanceOrderItem = Array.isArray(firstItem?.maintenance_order_items)
-    ? firstItem.maintenance_order_items[0]
-    : firstItem?.maintenance_order_items;
-  const maintenanceOrders = Array.isArray(maintenanceOrderItem?.maintenance_orders)
-    ? maintenanceOrderItem.maintenance_orders[0]
-    : maintenanceOrderItem?.maintenance_orders;
+  const maintenanceOrders = workOrderItems[0]?.maintenance_order_items?.maintenance_orders;
   const maintenanceOrderId = maintenanceOrders?.id || '';
 
   // Ticket 596: la OT apunta a un vehiculo O a un equipamiento. Se lee de la
@@ -187,9 +181,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     // Grupo de reparaciones del que salio el item (lo resuelve la server action)
     group_name: item.group_name,
     work_order_item_repairs: item.work_order_item_repairs,
-    maintenance_order_items: Array.isArray(item.maintenance_order_items)
-      ? item.maintenance_order_items[0] || null
-      : item.maintenance_order_items,
+    maintenance_order_items: item.maintenance_order_items,
   }));
 
   return (

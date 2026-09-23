@@ -33,7 +33,7 @@ import {
   getAllRepairTypes,
   getRepairTypesForSector,
   requestTaskForOtherSector,
-} from '../actions/actionsServer';
+} from '../actions/tasks.server';
 
 const logger = new Logger('AddTaskDialog');
 

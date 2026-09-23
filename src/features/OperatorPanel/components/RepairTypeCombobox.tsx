@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
-import type { OperatorRepairType } from '../actions/actionsServer';
+import type { OperatorRepairType } from '../actions/tasks.server';
 
 interface RepairTypeComboboxProps {
   id?: string;
