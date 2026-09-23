@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { getWorkOrdersForOperator } from '@/features/OperatorPanel/actions/actionsServer';
+import { getWorkOrdersForOperator } from '@/features/OperatorPanel/actions/queries.server';
 import { operatorLogout, setActiveOperatorSector } from '@/features/OperatorPanel/actions/session.server';
 import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';

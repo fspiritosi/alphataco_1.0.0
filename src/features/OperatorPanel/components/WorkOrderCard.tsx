@@ -9,7 +9,7 @@ import {
   getResourceKindLabel,
   getResourceLabel,
 } from '@/features/Mantenimiento/shared/maintenance-resource';
-import type { OperatorWorkOrder } from '@/features/OperatorPanel/actions/actionsServer';
+import type { OperatorWorkOrder } from '@/features/OperatorPanel/actions/queries.server';
 import { ChevronRight, Clock, Lock, Stethoscope } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';

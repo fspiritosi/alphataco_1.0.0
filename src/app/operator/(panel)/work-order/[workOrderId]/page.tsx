@@ -1,4 +1,4 @@
-import { getWorkOrderDetailForOperator } from '@/features/OperatorPanel/actions/actionsServer';
+import { getWorkOrderDetailForOperator } from '@/features/OperatorPanel/actions/queries.server';
 import { getOperatorContext } from '@/features/OperatorPanel/actions/session.server';
 import { WorkOrderDetail } from '@/features/OperatorPanel/components/WorkOrderDetail';
 import { redirect } from 'next/navigation';

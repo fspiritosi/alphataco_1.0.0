@@ -112,7 +112,8 @@ interface WorkOrderHeaderProps {
   maintenanceOrderNumber: string;
   status: string;
   priority: string | null;
-  plannedStartDate: string | null;
+  /** Prisma devuelve `Date` para las columnas de fecha; moment acepta las dos formas. */
+  plannedStartDate: string | Date | null;
   resource: WorkOrderResource | null;
   completedCount: number;
   totalCount: number;

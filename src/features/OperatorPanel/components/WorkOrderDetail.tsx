@@ -13,16 +13,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { OperatorWorkOrderDetail } from '../actions/actionsServer';
+import type { OperatorWorkOrderDetail } from '../actions/queries.server';
 import {
   completeRepair,
-  getWorkOrderDetailForOperator,
   pauseWorkOrder,
   resumeWorkOrder,
   startWorkOrder,
   uncompleteRepair,
   updateTechnicianNotes,
 } from '../actions/actionsServer';
+import { getWorkOrderDetailForOperator } from '../actions/queries.server';
 import { AddTaskDialog } from './AddTaskDialog';
 import { CloseWorkOrderDialog } from './CloseWorkOrderDialog';
 import { ReturnTaskDialog } from './ReturnTaskDialog';

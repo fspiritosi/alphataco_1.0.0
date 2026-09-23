@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { OperatorWorkOrder } from '@/features/OperatorPanel/actions/actionsServer';
+import type { OperatorWorkOrder } from '@/features/OperatorPanel/actions/queries.server';
 import {
   getCompletedWorkOrdersForOperator,
   getWorkOrdersForOperator,
-} from '@/features/OperatorPanel/actions/actionsServer';
+} from '@/features/OperatorPanel/actions/queries.server';
 import { useOperatorContext } from '@/features/OperatorPanel/components/operator-layout-provider';
 import { Logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
