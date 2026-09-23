@@ -1,5 +1,6 @@
 'use server';
 
+import { Prisma } from '@/generated/prisma/client';
 import type { work_order_status } from '@/generated/prisma/enums';
 import { getWorkOrderBlockingStatus } from '@/features/OperatorPanel/actions/blocking';
 import { assertAssignedSector } from '@/features/OperatorPanel/actions/perimeter';
@@ -12,6 +13,9 @@ import { prisma } from '@/shared/lib/prisma';
  * operario de la sesión (`assertAssignedSector`): sin RLS, el id solo no alcanza. El
  * `company_id` del `where` sale de la sesión, nunca del caller.
  */
+
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
 
 const OPEN_STATUSES: work_order_status[] = ['pending', 'in_progress', 'paused'];
 const CLOSED_STATUSES: work_order_status[] = ['completed', 'completed_partial'];
@@ -88,11 +92,18 @@ export type OperatorWorkOrder = Awaited<ReturnType<typeof getWorkOrdersForOperat
 /**
  * OTs cerradas del sector, paginadas y de la más reciente a la más vieja.
  *
- * La página y el total salen de la MISMA transacción: con dos consultas sueltas, un cierre
- * entre una y otra dejaba el `totalPages` desfasado de lo que se está mostrando.
+ * La página y el total salen de la misma transacción y con `RepeatableRead`: las dos ven el
+ * mismo snapshot, así un cierre en el medio no deja el `totalPages` desfasado de lo que se
+ * está mostrando. Con el `READ COMMITTED` por defecto no alcanzaría con la transacción —
+ * cada statement toma su propio snapshot y el commit del medio sigue siendo visible.
  */
 export async function getCompletedWorkOrdersForOperator(sectorId: string, page: number = 0, pageSize: number = 10) {
   const operator = await assertAssignedSector(sectorId);
+
+  // `page` y `pageSize` llegan del cliente: un `page` negativo hace que Prisma lance y un
+  // `pageSize` enorme se trae el histórico entero del sector de una.
+  const safePage = Math.max(0, Math.trunc(page) || 0);
+  const safePageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(pageSize) || DEFAULT_PAGE_SIZE));
 
   const where = {
     sector_id: sectorId,
@@ -100,16 +111,19 @@ export async function getCompletedWorkOrdersForOperator(sectorId: string, page: 
     status: { in: CLOSED_STATUSES },
   };
 
-  const [rows, totalCount] = await prisma.$transaction([
-    prisma.work_orders.findMany({
-      where,
-      select: WORK_ORDER_LIST_SELECT,
-      orderBy: { completed_at: 'desc' },
-      skip: page * pageSize,
-      take: pageSize,
-    }),
-    prisma.work_orders.count({ where }),
-  ]);
+  const [rows, totalCount] = await prisma.$transaction(
+    [
+      prisma.work_orders.findMany({
+        where,
+        select: WORK_ORDER_LIST_SELECT,
+        orderBy: { completed_at: 'desc' },
+        skip: safePage * safePageSize,
+        take: safePageSize,
+      }),
+      prisma.work_orders.count({ where }),
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }
+  );
 
   return {
     data: rows.map((workOrder) => ({
@@ -119,9 +133,9 @@ export async function getCompletedWorkOrdersForOperator(sectorId: string, page: 
       blocked_by_sector: null as string | null,
     })),
     totalCount,
-    page,
-    pageSize,
-    totalPages: Math.ceil(totalCount / pageSize),
+    page: safePage,
+    pageSize: safePageSize,
+    totalPages: Math.ceil(totalCount / safePageSize),
   };
 }
 

@@ -32,9 +32,37 @@ const logger = new Logger('OperatorPanel/work-orders');
  */
 
 /**
+ * Toma el lock de la fila del pedido hasta que termina la transacción.
+ *
+ * Es lo que serializa de verdad a dos sectores operando sobre el mismo pedido: estar dentro
+ * de una transacción no alcanza, porque bajo `READ COMMITTED` las dos leen "no hay ninguna
+ * en progreso" y las dos escriben.
+ *
+ * TODAS las escrituras de este módulo que tocan el pedido lo toman PRIMERO, antes de escribir
+ * la OT. El orden importa: si una ruta lockeara la OT antes que el pedido, dos transacciones
+ * podrían quedar esperándose en cruz.
+ */
+async function lockMaintenanceOrder(tx: Prisma.TransactionClient, maintenanceOrderId: string): Promise<void> {
+  await tx.$executeRaw`SELECT id FROM maintenance_orders WHERE id = ${maintenanceOrderId}::uuid FOR UPDATE`;
+}
+
+/** Pedido al que pertenece la OT, o `null` si la OT no cuelga de ninguno. */
+async function findMaintenanceOrderIdByWorkOrder(
+  tx: Prisma.TransactionClient,
+  workOrderId: string
+): Promise<string | null> {
+  const orderItem = await tx.maintenance_order_items.findFirst({
+    where: { work_order_id: workOrderId },
+    select: { maintenance_order_id: true },
+  });
+
+  return orderItem?.maintenance_order_id ?? null;
+}
+
+/**
  * "Uno a la vez": ninguna OTRA OT del mismo pedido puede estar en progreso.
  *
- * Corre dentro de la transacción de la escritura, así el chequeo y el `update` no pueden
+ * Lockea el pedido ANTES de mirar, así el chequeo y el `update` que viene después no pueden
  * cruzarse con otro sector arrancando al mismo tiempo.
  */
 async function assertNoSiblingInProgress(
@@ -42,18 +70,17 @@ async function assertNoSiblingInProgress(
   workOrderId: string,
   verb: 'iniciar' | 'reanudar'
 ): Promise<void> {
-  const orderItem = await tx.maintenance_order_items.findFirst({
-    where: { work_order_id: workOrderId },
-    select: { maintenance_order_id: true },
-  });
+  const maintenanceOrderId = await findMaintenanceOrderIdByWorkOrder(tx, workOrderId);
 
-  if (!orderItem) return;
+  if (!maintenanceOrderId) return;
+
+  await lockMaintenanceOrder(tx, maintenanceOrderId);
 
   const active = await tx.work_orders.findFirst({
     where: {
       id: { not: workOrderId },
       status: 'in_progress',
-      maintenance_order_items: { some: { maintenance_order_id: orderItem.maintenance_order_id } },
+      maintenance_order_items: { some: { maintenance_order_id: maintenanceOrderId } },
     },
     select: { workshop_sectors: { select: { name: true } } },
   });
@@ -202,6 +229,17 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
 
     const closeStatus = resolveWorkOrderCloseStatus(repairs.map((repair) => repair.status));
 
+    // El pedido se alcanza por work_order_items → maintenance_order_items. Se resuelve y se
+    // lockea ANTES de escribir la OT: mismo orden que `assertNoSiblingInProgress`, para que
+    // un cierre y un arranque simultáneos no se esperen en cruz.
+    const workOrderItem = await tx.work_order_items.findFirst({
+      where: { work_order_id: workOrderId },
+      select: { maintenance_order_items: { select: { maintenance_order_id: true } } },
+    });
+    const maintenanceOrderId = workOrderItem?.maintenance_order_items?.maintenance_order_id ?? null;
+
+    if (maintenanceOrderId) await lockMaintenanceOrder(tx, maintenanceOrderId);
+
     await tx.work_orders.update({
       where: { id: workOrderId },
       data: {
@@ -211,13 +249,6 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
         notes: notes || null,
       },
     });
-
-    // El pedido se alcanza por work_order_items → maintenance_order_items.
-    const workOrderItem = await tx.work_order_items.findFirst({
-      where: { work_order_id: workOrderId },
-      select: { maintenance_order_items: { select: { maintenance_order_id: true } } },
-    });
-    const maintenanceOrderId = workOrderItem?.maintenance_order_items?.maintenance_order_id ?? null;
 
     // Aviso para el operario si el pedido no pudo avanzar. No es un error del cierre.
     let orderAdvanceWarning: string | null = null;
