@@ -1,10 +1,6 @@
 'use server';
 
-import {
-  getAssignedSectorsForEmployee,
-  getOperatorIdentity,
-  type OperatorAssignedSector,
-} from '@/features/OperatorPanel/actions/perimeter';
+import { getAssignedSectorsForEmployee, getOperatorIdentity } from '@/features/OperatorPanel/actions/perimeter';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
 import { prisma } from '@/shared/lib/prisma';
@@ -23,8 +19,6 @@ const SECTOR_COOKIE_OPTIONS = {
   maxAge: 60 * 60 * 24 * 365,
   sameSite: 'lax',
 } as const;
-
-export type { OperatorAssignedSector };
 
 /**
  * Login del operario.
@@ -142,3 +136,4 @@ export async function getOperatorContext() {
 }
 
 export type OperatorContext = NonNullable<Awaited<ReturnType<typeof getOperatorContext>>>;
+export type OperatorAssignedSector = OperatorContext['sectors'][number];
