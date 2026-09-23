@@ -1,4 +1,4 @@
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { AbsenteeismTrendChart } from './components/AbsenteeismTrendChart';
 import { DepartmentAbsenceCharts } from './components/DepartmentAbsenceCharts';
 import { DepartmentSummaryTable } from './components/DepartmentSummaryTable';
@@ -9,7 +9,7 @@ import { EmployeeAbsenceTable } from './components/employee-absence-table';
 import EmployeeDistributionCharts from './components/employee-distribution-charts';
 
 export async function AbsenteeismDashboard() {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   return (
     <div className="space-y-8">

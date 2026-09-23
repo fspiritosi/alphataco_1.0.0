@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -192,7 +192,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // ============================================================================
 
 export async function getAllDeliveriesPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -235,7 +235,7 @@ export async function getAllDeliveriesPaginated(searchParams: DataTableSearchPar
 // ============================================================================
 
 export async function getAllDeliveriesForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -269,7 +269,7 @@ export async function getAllDeliveriesSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {

@@ -2,7 +2,7 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -201,7 +201,7 @@ async function buildWhereClause(
 // ============================================================================
 
 export async function getEmployeePermanentDocumentsPaginated(searchParams: DataTableSearchParams, employeeId?: string) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -251,7 +251,7 @@ export async function getAllEmployeePermanentDocumentsForExport(
   searchParams: DataTableSearchParams,
   employeeId?: string
 ) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -286,7 +286,7 @@ export async function getEmployeePermanentDocumentsSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {

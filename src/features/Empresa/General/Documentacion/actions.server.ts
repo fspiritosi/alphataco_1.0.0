@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -137,7 +137,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // ============================================================================
 
 export async function getCompanyDocsPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -184,7 +184,7 @@ export async function getCompanyDocsPaginated(searchParams: DataTableSearchParam
 // ============================================================================
 
 export async function getAllCompanyDocsForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -229,7 +229,7 @@ function toFacetMap(rows: { key: string | null | undefined; count: number }[]): 
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
 export async function getCompanyDocsFacets(searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { applies: companyId, is_active: true };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;

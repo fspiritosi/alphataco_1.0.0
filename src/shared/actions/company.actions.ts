@@ -7,13 +7,6 @@ import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 const logger = new Logger('shared/company');
 
-/**
- * Obtiene el company_id del contexto actual.
- */
-export const getServerCompanyId = async (): Promise<string> => {
-  return getActiveCompanyId();
-};
-
 const companyRowSelect = {
   id: true,
   company_name: true,
@@ -49,7 +42,7 @@ function toCompanyRow<T extends CompanyRowRaw>({ city, province_id, ...rest }: T
 /** Empresa activa (array de 0/1 elementos, shape legacy de `select('*')`). */
 export const fetchCurrentCompany = async () => {
   try {
-    const company_id = await getServerCompanyId();
+    const company_id = await getActiveCompanyId();
     const rows = await prisma.company.findMany({ where: { id: company_id }, select: companyRowSelect });
     return rows.map(toCompanyRow);
   } catch (error) {

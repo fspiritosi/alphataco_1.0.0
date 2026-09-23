@@ -7,7 +7,7 @@ import {
   work_order_status,
 } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 import { UNKNOWN_SOURCE_KEY } from '../chart-constants';
@@ -57,7 +57,7 @@ const TERMINAL_WORK_ORDER_STATUSES: work_order_status[] = [
  * con `getMaintenanceCategoryVehicles` cuando se abre cada acordeon.
  */
 export async function getMaintenanceMonthSummary(monthKey: string): Promise<MaintenanceMonthSummary> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching maintenance month summary', { data: { companyId, monthKey } });
 
   try {
@@ -209,7 +209,7 @@ export async function getMaintenanceCategoryVehicles(
   monthKey: string,
   category: OwnershipCategory
 ): Promise<MaintenanceVehicle[]> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching maintenance category vehicles', { data: { companyId, monthKey, category } });
 
   try {
@@ -352,7 +352,7 @@ export type MaintenanceByTypeGroup = {
  * por cantidad de equipos desc.
  */
 export async function getMaintenanceByTypeForMonth(monthKey: string): Promise<MaintenanceByTypeGroup[]> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching maintenance by type for month', { data: { companyId, monthKey } });
 
   try {
@@ -452,7 +452,7 @@ export async function getMaintenanceRequestSourceStats(
   granularity: PeriodGranularity,
   anchor: string
 ): Promise<RequestSourceStats> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching maintenance request source stats', { data: { companyId, granularity, anchor } });
 
   try {
@@ -530,7 +530,7 @@ export async function getMaintenanceKindStats(
   granularity: PeriodGranularity,
   anchor: string
 ): Promise<MaintenanceKindStats> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   logger.debug('Fetching maintenance kind stats', { data: { companyId, granularity, anchor } });
 
   try {

@@ -3,7 +3,7 @@
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -109,7 +109,7 @@ export async function getEmployeeExpiringDocsPaginated(searchParams: DataTableSe
   logger.debug('Obteniendo documentos de empleados por vencer');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
@@ -176,7 +176,7 @@ export async function getAllEmployeeExpiringDocsForExport(searchParams: DataTabl
   logger.debug('Exportando documentos de empleados por vencer');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = await buildWhereClause(companyId, state);
 
@@ -232,7 +232,7 @@ export async function getEmployeeExpiringDocsSingleFacet(
   logger.debug('Obteniendo facet de documentos de empleados por vencer', { data: { columnId } });
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const nextMonth = moment().add(EXPIRY_WINDOW_DAYS, 'days').endOf('day').toDate();
 
     const baseWhere: Prisma.documents_employeesWhereInput = {

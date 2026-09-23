@@ -3,7 +3,7 @@
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -158,7 +158,7 @@ export async function getVehicleExpiringDocsPaginated(searchParams: DataTableSea
   logger.debug('Obteniendo documentos de vehículos por vencer');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
@@ -229,7 +229,7 @@ export async function getAllVehicleExpiringDocsForExport(searchParams: DataTable
   logger.debug('Exportando documentos de vehículos por vencer');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = await buildWhereClause(companyId, state);
 
@@ -289,7 +289,7 @@ export async function getVehicleExpiringDocsSingleFacet(
   logger.debug('Obteniendo facet de documentos de vehículos por vencer', { data: { columnId } });
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const canViewPrivate = await checkPermissionServer('documentacion', 'documentos-de-equipos', 'view_private');
     const nextMonth = moment().add(EXPIRY_WINDOW_DAYS, 'days').endOf('day').toDate();
 

@@ -1,7 +1,6 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
 import type { DataTableSearchParams, FacetResult } from '@/shared/components/common/DataTable';
 import {
   NULL_FILTER_VALUE,
@@ -316,7 +315,7 @@ export async function getActiveEquipmentTypes() {
  */
 export async function getActiveChecklistsForSubType() {
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const data = await prisma.checklist_templates.findMany({
       where: { is_active: true, company_id: companyId },
       select: { id: true, name: true, code: true, description: true },

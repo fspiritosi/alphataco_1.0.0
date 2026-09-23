@@ -2,7 +2,7 @@
 
 import { assertTireBrandInActiveCompany } from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   NULL_FILTER_VALUE,
   buildDateRangeFiltersWhere,
@@ -66,7 +66,7 @@ export async function getTireBrandsPaginated(searchParams: DataTableSearchParams
   logger.debug('Fetching tire brands paginated');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
     const where = buildTireBrandsWhereClause(state, companyId);
@@ -112,7 +112,7 @@ export async function getTireBrandsForExport(searchParams: DataTableSearchParams
   logger.debug('Exporting tire brands');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = buildTireBrandsWhereClause(state, companyId);
 
@@ -148,7 +148,7 @@ export async function getTireBrandSingleFacet(
 } | null> {
   let companyId: string;
   try {
-    companyId = await getServerCompanyId();
+    companyId = await getActiveCompanyId();
   } catch {
     return null;
   }
@@ -214,7 +214,7 @@ export async function getTireBrandSingleFacet(
 export async function createTireBrand(data: { name: string }) {
   logger.debug('Creating tire brand', { data: { name: data.name } });
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const existing = await prisma.tire_brands.findFirst({
       where: { name: data.name, company_id: companyId },
     });

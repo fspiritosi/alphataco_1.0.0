@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -228,7 +228,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // ============================================================================
 
 export async function getInactiveOtherEquipmentPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -279,7 +279,7 @@ export type InactiveOtherEquipmentListItem = Awaited<
 // ============================================================================
 
 export async function getAllInactiveOtherEquipmentForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -318,7 +318,7 @@ export async function getInactiveOtherEquipmentSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: { value: string; label: string }[];
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { company_id: companyId, is_active: false as const };
 
   // Parsear filtros activos (si los hay)

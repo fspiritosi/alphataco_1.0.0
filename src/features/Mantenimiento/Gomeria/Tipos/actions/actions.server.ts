@@ -3,7 +3,7 @@
 import { assertTireTypeInActiveCompany, getVehicleCompanyId } from '@/features/Mantenimiento/Gomeria/shared/perimeter';
 import { TireTreadType } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   NULL_FILTER_VALUE,
   buildDateRangeFiltersWhere,
@@ -67,7 +67,7 @@ export async function getTireTypesPaginated(searchParams: DataTableSearchParams)
   logger.debug('Fetching tire types paginated');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
     const where = buildTireTypesWhereClause(state, companyId);
@@ -118,7 +118,7 @@ export async function getTireTypesForExport(searchParams: DataTableSearchParams)
   logger.debug('Exporting tire types');
 
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const state = parseSearchParams(searchParams);
     const where = buildTireTypesWhereClause(state, companyId);
 
@@ -157,7 +157,7 @@ export async function getTireTypeSingleFacet(
 } | null> {
   let companyId: string;
   try {
-    companyId = await getServerCompanyId();
+    companyId = await getActiveCompanyId();
   } catch {
     return null;
   }
@@ -235,7 +235,7 @@ export async function getTireTypeSingleFacet(
 export async function createTireType(data: { name: string; size: string; tread_type: TireTreadType }) {
   logger.debug('Creating tire type', { data: { name: data.name, size: data.size } });
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const existing = await prisma.tire_types.findFirst({
       where: {
         size: data.size,
@@ -294,7 +294,7 @@ export async function toggleTireTypeActive(id: string, isActive: boolean) {
 export async function getTireTypesForSelect() {
   logger.debug('Fetching tire types for select');
   try {
-    const companyId = await getServerCompanyId();
+    const companyId = await getActiveCompanyId();
     const data = await prisma.tire_types.findMany({
       where: { company_id: companyId, is_active: true },
       select: {

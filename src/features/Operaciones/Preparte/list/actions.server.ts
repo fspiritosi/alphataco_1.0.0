@@ -2,7 +2,7 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -235,7 +235,7 @@ function serializePreparte(item: PreparteQueryItem): PreparteListItem {
 export async function getPrepartesPaginated(
   searchParams: DataTableSearchParams
 ): Promise<{ data: PreparteListItem[]; total: number }> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = sanitizeState(parseSearchParams(searchParams));
@@ -256,7 +256,7 @@ export async function getPrepartesPaginated(
 }
 
 export async function getAllPrepartesForExport(searchParams: DataTableSearchParams): Promise<PreparteListItem[]> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = sanitizeState(parseSearchParams(searchParams));
@@ -300,7 +300,7 @@ function hasCredentialId(profile: { credential_id: string | null; fullname: stri
 }
 
 export async function getPreparteFacets(searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const parsedState = searchParams ? sanitizeState(parseSearchParams(searchParams)) : null;

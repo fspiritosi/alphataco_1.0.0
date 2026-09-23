@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { prisma } from '@/shared/lib/prisma';
 import { DEFAULT_TRACKING_STATUSES } from '../../../WorkshopTracking/statuses';
 import { resourceCompanyCondition, visibleEquipmentTypeCondition } from '../../../shared/maintenance-resource';
@@ -22,7 +22,7 @@ const logger = new Logger('Pipeline/Operaciones/counts');
 export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
   try {
     const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
-      getServerCompanyId(),
+      getActiveCompanyId(),
       getSupervisorFilterInfo(),
       getHiddenEquipmentTypeIds(),
     ]);

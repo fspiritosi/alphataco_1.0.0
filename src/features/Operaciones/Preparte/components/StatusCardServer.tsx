@@ -1,4 +1,4 @@
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import CardInfo from '@/shared/components/cards/CardInfo';
 import { prisma } from '@/shared/lib/prisma';
 
@@ -17,7 +17,7 @@ interface StatusCardServerProps {
  * se siguen contando, mismo criterio que el resto del módulo).
  */
 export async function StatusCardServer({ status, label, color }: StatusCardServerProps) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const count = await prisma.preparte.count({
     where: {
       OR: [{ company_id: companyId }, { company_id: null }],

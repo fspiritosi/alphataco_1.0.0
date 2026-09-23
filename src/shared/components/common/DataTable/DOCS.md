@@ -1060,7 +1060,7 @@ Filtro activo: brand=Toyota
 
 ```typescript
 export async function getEntityFacets(searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { company_id: companyId, is_active: true };
 
   // Parse active filters

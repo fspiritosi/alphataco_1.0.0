@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -98,7 +98,7 @@ const DAILY_REPORT_SELECT = {
 // ============================================================================
 
 export async function getDailyReportsPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -149,7 +149,7 @@ export type DailyReportListItem = Awaited<ReturnType<typeof getDailyReportsPagin
 // ============================================================================
 
 export async function getAllDailyReportsForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -179,7 +179,7 @@ export async function getAllDailyReportsForExport(searchParams: DataTableSearchP
  * mostrando cuántos registros tendría cada opción si se cambiara solo ese filtro.
  */
 export async function getDailyReportFacets(searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { company_id: companyId };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;

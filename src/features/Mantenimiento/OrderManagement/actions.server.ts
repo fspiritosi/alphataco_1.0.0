@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -262,7 +262,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
 // ============================================================================
 
 export async function getOrderManagementPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -310,7 +310,7 @@ export type OrderManagementListItem = Awaited<ReturnType<typeof getOrderManageme
 // ============================================================================
 
 export async function getAllOrderManagementForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -341,7 +341,7 @@ export async function getAllOrderManagementForExport(searchParams: DataTableSear
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
 export async function getOrderManagementFacets(searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const supervisorFilter = await getSupervisorFilterInfo();
 
   const supervisorCondition: Record<string, unknown> = {};

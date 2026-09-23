@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -299,7 +299,7 @@ async function buildWhereClause(companyId: string, state: ReturnType<typeof pars
 // ============================================================================
 
 export async function getVehiclesPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -348,7 +348,7 @@ export type VehicleListItem = Awaited<ReturnType<typeof getVehiclesPaginated>>['
 // ============================================================================
 
 export async function getAllVehiclesForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -387,7 +387,7 @@ export async function getVehicleSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: { value: string; label: string }[];
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { company_id: companyId, is_active: true as const, type_of_vehicle: 1 };
 
   // Parsear filtros activos (si los hay)

@@ -2,7 +2,7 @@
 
 import { generateClientCredentials, hashSecret } from '@/features/ExternalApi/lib/hash';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
 import { createExternalApiClientSchema, type CreateExternalApiClientValues } from './schemas';
@@ -39,7 +39,7 @@ async function getCurrentProfileId(): Promise<string | null> {
 }
 
 export async function getExternalApiClients() {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   if (!companyId) return [];
 
   try {
@@ -69,7 +69,7 @@ export async function createExternalApiClient(
 ): Promise<CreatedExternalApiClient> {
   const parsed = createExternalApiClientSchema.parse(values);
 
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   if (!companyId) throw new Error('No se pudo determinar la empresa actual');
 
   const profileId = await getCurrentProfileId();
@@ -105,7 +105,7 @@ export async function createExternalApiClient(
  * cambiar la contrasena, no toda su configuracion.
  */
 export async function rotateExternalApiClientSecret(id: string): Promise<CreatedExternalApiClient> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   if (!companyId) throw new Error('No se pudo determinar la empresa actual');
 
   const existing = await prisma.external_api_clients.findFirst({
@@ -140,7 +140,7 @@ export async function rotateExternalApiClientSecret(id: string): Promise<Created
  * integrarse, se emite una credencial nueva y queda el rastro de las dos.
  */
 export async function revokeExternalApiClient(id: string): Promise<void> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   if (!companyId) throw new Error('No se pudo determinar la empresa actual');
 
   const profileId = await getCurrentProfileId();

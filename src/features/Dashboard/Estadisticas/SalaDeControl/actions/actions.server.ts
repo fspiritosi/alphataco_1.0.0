@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
@@ -88,7 +88,7 @@ export type DeviationsChartData = {
  * estado actual de la base haria que el historico cambie solo con el tiempo.
  */
 export async function getDeviationsChartData(): Promise<DeviationsChartData> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   // 24 meses: la vista mensual ya abarca 12, y navegar hacia atras desde ahi
   // dejaria el grafico vacio si el fetch cortara justo en ese limite.
   const since = moment().subtract(24, 'months').startOf('month').toDate();

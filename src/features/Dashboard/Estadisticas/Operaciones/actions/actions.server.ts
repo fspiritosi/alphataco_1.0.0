@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 
@@ -36,7 +36,7 @@ export type OperationsChartData = {
 // ---------------------------------------------------------------------------
 
 export async function getOperationsChartData(): Promise<OperationsChartData> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const since = moment().subtract(12, 'months').startOf('month').format('YYYY-MM-DD');
 
   logger.debug('Fetching operations chart data', { data: { companyId, since } });

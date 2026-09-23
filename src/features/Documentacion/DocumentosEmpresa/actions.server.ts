@@ -2,7 +2,7 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   NULL_FILTER_VALUE,
   buildDateRangeFiltersWhere,
@@ -220,7 +220,7 @@ async function buildWhereClause(
 // ============================================================================
 
 export async function getCompanyDocsPaginated(searchParams: DataTableSearchParams, isMonthly: boolean) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -265,7 +265,7 @@ export async function getCompanyDocsPaginated(searchParams: DataTableSearchParam
 // ============================================================================
 
 export async function getAllCompanyDocsForExport(searchParams: DataTableSearchParams, isMonthly: boolean) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -310,7 +310,7 @@ function toFacetMap(rows: { key: string | null | undefined; count: number }[]): 
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
 export async function getCompanyDocsFacets(isMonthly: boolean, searchParams?: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {

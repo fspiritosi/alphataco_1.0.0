@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { getDailyAbsenceTimeseries } from '../../actions.server';
 import { _DailyAbsenceDataTable } from './_DailyAbsenceDataTable';
 
@@ -17,7 +17,7 @@ export async function DailyAbsenceList() {
 
   // `companyId` sólo discrimina la caché de React Query del detalle por día; la empresa
   // de la consulta la resuelve la action desde la sesión.
-  const [data, companyId] = await Promise.all([getDailyAbsenceTimeseries(), getServerCompanyId()]);
+  const [data, companyId] = await Promise.all([getDailyAbsenceTimeseries(), getActiveCompanyId()]);
 
   return (
     <Card>

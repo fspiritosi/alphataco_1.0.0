@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -141,7 +141,7 @@ function toFacetMap(rows: { key: string | null | undefined; count: number }[]): 
 // ============================================================================
 
 export async function getExternalApiClientsPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -174,7 +174,7 @@ export type ExternalApiClientListItem = Awaited<ReturnType<typeof getExternalApi
 // ============================================================================
 
 export async function getAllExternalApiClientsForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -207,7 +207,7 @@ export async function getExternalApiClientsSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
   const baseWhere = { company_id: companyId };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;

@@ -2,7 +2,7 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildFiltersWhere,
   buildSearchWhere,
@@ -279,7 +279,7 @@ async function buildDataset(companyId: string, state: ReturnType<typeof parseSea
 // ============================================================================
 
 export async function getEquipmentsWithDeviationsPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -300,7 +300,7 @@ export async function getEquipmentsWithDeviationsPaginated(searchParams: DataTab
 // ============================================================================
 
 export async function getAllEquipmentsWithDeviationsForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -329,7 +329,7 @@ export async function getEquipmentsWithDeviationsSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: { value: string; label: string }[];
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const perVehicle = await getPendingDeviationsAggregateByVehicle(companyId);

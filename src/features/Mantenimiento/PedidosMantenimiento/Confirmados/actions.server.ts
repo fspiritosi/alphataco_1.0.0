@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -317,7 +317,7 @@ async function buildBaseWhere(
 // ============================================================================
 
 export async function getConfirmedOrdersPaginated(searchParams: DataTableSearchParams) {
-  const [companyId, hiddenTypeIds] = await Promise.all([getServerCompanyId(), getHiddenEquipmentTypeIds()]);
+  const [companyId, hiddenTypeIds] = await Promise.all([getActiveCompanyId(), getHiddenEquipmentTypeIds()]);
 
   try {
     const state = parseSearchParams(searchParams);
@@ -366,7 +366,7 @@ export type ConfirmedOrderListItem = Awaited<ReturnType<typeof getConfirmedOrder
 // ============================================================================
 
 export async function getAllConfirmedOrdersForExport(searchParams: DataTableSearchParams) {
-  const [companyId, hiddenTypeIds] = await Promise.all([getServerCompanyId(), getHiddenEquipmentTypeIds()]);
+  const [companyId, hiddenTypeIds] = await Promise.all([getActiveCompanyId(), getHiddenEquipmentTypeIds()]);
 
   try {
     const state = parseSearchParams(searchParams);
@@ -407,7 +407,7 @@ export async function getConfirmedOrdersSingleFacet(
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
   const [companyId, supervisorFilter, hiddenTypeIds] = await Promise.all([
-    getServerCompanyId(),
+    getActiveCompanyId(),
     getSupervisorFilterInfo(),
     getHiddenEquipmentTypeIds(),
   ]);

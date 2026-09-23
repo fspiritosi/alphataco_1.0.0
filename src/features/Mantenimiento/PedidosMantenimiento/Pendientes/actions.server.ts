@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -161,7 +161,7 @@ export async function getPendingOrdersPaginated(searchParams: DataTableSearchPar
 
   try {
     const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
-      getServerCompanyId(),
+      getActiveCompanyId(),
       getSupervisorFilterInfo(),
       getHiddenEquipmentTypeIds(),
     ]);
@@ -211,7 +211,7 @@ export async function getAllPendingOrdersForExport(searchParams: DataTableSearch
 
   try {
     const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
-      getServerCompanyId(),
+      getActiveCompanyId(),
       getSupervisorFilterInfo(),
       getHiddenEquipmentTypeIds(),
     ]);
@@ -247,7 +247,7 @@ export async function getPendingOrdersSingleFacet(
 
   try {
     const [companyId, filterInfo, hiddenTypeIds] = await Promise.all([
-      getServerCompanyId(),
+      getActiveCompanyId(),
       getSupervisorFilterInfo(),
       getHiddenEquipmentTypeIds(),
     ]);

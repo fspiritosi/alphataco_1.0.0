@@ -1,7 +1,7 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -296,7 +296,7 @@ function parseTableState(searchParams?: DataTableSearchParams) {
 // ============================================================================
 
 export async function getWorkshopTrackingPaginated(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseTableState(searchParams);
@@ -341,7 +341,7 @@ export type WorkshopTrackingListItem = Awaited<ReturnType<typeof getWorkshopTrac
 // ============================================================================
 
 export async function getAllWorkshopTrackingForExport(searchParams: DataTableSearchParams) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseTableState(searchParams);
@@ -380,7 +380,7 @@ export async function getWorkshopTrackingSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseTableState(searchParams);

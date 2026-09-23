@@ -2,7 +2,7 @@
 
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
-import { getServerCompanyId } from '@/shared/actions/company.actions';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
@@ -306,7 +306,7 @@ async function buildWhereClause(
 // ============================================================================
 
 export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTableSearchParams, employeeId?: string) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -357,7 +357,7 @@ export async function getAllMonthlyEmployeeDocumentsForExport(
   searchParams: DataTableSearchParams,
   employeeId?: string
 ) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
@@ -384,7 +384,7 @@ export async function getAllMonthlyEmployeeDocumentsForExport(
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
 export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTableSearchParams, employeeId?: string) {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   const baseDocumentTypesWhere = {
     is_it_montlhy: true,
@@ -646,7 +646,7 @@ export async function getMonthlyEmployeeDocumentsSingleFacet(
   counts: Map<string, number>;
   resolvedOptions?: Array<{ id: string; name: string | null }>;
 } | null> {
-  const companyId = await getServerCompanyId();
+  const companyId = await getActiveCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
   if (searchParams && Object.keys(searchParams).length > 0) {
