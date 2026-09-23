@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+
 /**
  * Login, logout y OAuth del dashboard, sobre Better Auth. Acá no hay acceso a datos.
  *
@@ -54,7 +55,13 @@ export async function login(formData: FormData): Promise<LoginResult> {
   return { success: true };
 }
 
-export async function logout() {
+/**
+ * Cierra la sesión y limpia la empresa activa. NO redirige: su único llamador es el menú de
+ * usuario, un Client Component que navega solo. Un `redirect()` acá lanzaría `NEXT_REDIRECT`
+ * dentro de un handler del cliente y quedaría como promesa rechazada sin atrapar en cada
+ * logout.
+ */
+export async function logout(): Promise<void> {
   try {
     await auth.api.signOut({ headers: await headers() });
   } catch {
@@ -62,7 +69,6 @@ export async function logout() {
   }
   await clearActiveCompanyCookie();
   revalidatePath('/', 'layout');
-  redirect('/login');
 }
 
 /**

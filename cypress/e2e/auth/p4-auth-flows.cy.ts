@@ -60,6 +60,22 @@ describe('P4 — flujo 1: login del dashboard (email + contraseña)', () => {
     cy.getCookie('better-auth.session_token').should('not.exist');
   });
 
+  it('el logout del menú de usuario cierra la sesión del servidor', () => {
+    cy.visit('/login');
+    cy.get('[data-testid=login-email-input]').type(ADMIN);
+    cy.get('[data-testid=login-password-input]').type(PASSWORD);
+    cy.get('[data-testid=login-submit-button]').click();
+    cy.location('pathname', { timeout: 30000 }).should('include', '/dashboard');
+
+    // La cookie de sesión y la de empresa activa son httpOnly: las borra el servidor.
+    cy.get('[data-testid=user-menu-trigger]').click();
+    cy.get('[data-testid=user-menu-logout]').click();
+
+    cy.location('pathname', { timeout: 30000 }).should('eq', '/login');
+    cy.getCookie('better-auth.session_token').should('not.exist');
+    cy.getCookie('actualComp').should('not.exist');
+  });
+
   it('sin sesión, /dashboard redirige a /login', () => {
     cy.visit('/dashboard', { failOnStatusCode: false });
     cy.location('pathname', { timeout: 30000 }).should('eq', '/login');

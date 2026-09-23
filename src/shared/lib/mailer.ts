@@ -20,9 +20,10 @@ import nodemailer, { type Transporter } from 'nodemailer';
  * Cuando P5 traiga esa infraestructura, `sendMail()` es el único punto a redirigir: los dos
  * llamadores de arriba no conocen nada de SMTP.
  *
- * Si SMTP no está configurado (`SMTP_HOST` vacío) el envío no explota: se loguea con el enlace
- * para poder completar el flujo a mano en desarrollo. Es lo que permite probar la invitación
- * contra el compose sin un servidor de mail.
+ * Si SMTP no está configurado (`SMTP_HOST` vacío) el envío no explota: se loguea el mensaje
+ * completo —con el enlace— para poder terminar el flujo a mano en desarrollo. El logger emite
+ * sólo con `NEXT_PUBLIC_SHOW_LOGS=true`; sin eso el enlace también se puede sacar de
+ * `auth_verification` (el token va en `identifier`, como `reset-password:<token>`).
  */
 const logger = new Logger('shared/mailer');
 

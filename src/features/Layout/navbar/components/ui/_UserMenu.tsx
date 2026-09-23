@@ -18,6 +18,7 @@ import { logout as serverLogout } from '@/features/Auth/actions/login-actions';
 import { UploadImage } from '@/shared/components/common/UploadImage';
 import cookie from 'js-cookie';
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { updateProfileAvatar } from '../../actions/actions.navbar';
@@ -28,12 +29,15 @@ const logger = new Logger('UserMenu');
 export function _UserMenu({ user }: UserMenuProps) {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const form = useForm();
+  const router = useRouter();
 
   // El cierre de sesión es una Server Action: la cookie de Better Auth y la de empresa activa
-  // son httpOnly, así que las dos las borra el servidor (y ahí mismo redirige a /login).
+  // son httpOnly, así que las dos las borra el servidor. La navegación la hace el cliente.
   const logout = async () => {
     cookie.remove('actualCompName');
     await serverLogout();
+    router.push('/login');
+    router.refresh();
   };
   const handleAvatarUpdate = async (imageUrl: string) => {
     if (!user?.id) return;
@@ -58,7 +62,7 @@ export function _UserMenu({ user }: UserMenuProps) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger className="cursor-pointer outline-none" asChild>
-          <Avatar className="size-9 hover:opacity-80 transition-opacity">
+          <Avatar className="size-9 hover:opacity-80 transition-opacity" data-testid="user-menu-trigger">
             <AvatarImage src={user?.avatar || ''} />
             <AvatarFallback className="bg-muted">{initials}</AvatarFallback>
           </Avatar>
@@ -81,6 +85,7 @@ export function _UserMenu({ user }: UserMenuProps) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
+            data-testid="user-menu-logout"
             onSelect={async () => {
               await logout();
             }}
