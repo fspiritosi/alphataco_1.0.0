@@ -2,6 +2,7 @@
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { CartesianGrid, LabelList, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { makeThresholdDot } from '@/features/Dashboard/shared/charts/ThresholdDot';
 
 interface TrendData {
   date: string;
@@ -80,20 +81,7 @@ export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }
           type="monotone"
           stroke="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
           strokeWidth={2}
-          dot={(props: any) => {
-            const { cx, cy, payload } = props;
-            const isAboveExpected = payload.percentage > EXPECTED_ABSENTEEISM_PERCENTAGE;
-            return (
-              <circle
-                cx={cx}
-                cy={cy}
-                r={5}
-                fill={isAboveExpected ? 'hsl(0 84.2% 60.2%)' : 'hsl(142.1 76.2% 36.3%)'}
-                stroke="white"
-                strokeWidth={2}
-              />
-            );
-          }}
+          dot={makeThresholdDot('percentage', EXPECTED_ABSENTEEISM_PERCENTAGE)}
           activeDot={{
             r: 7,
           }}

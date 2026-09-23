@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import moment from 'moment';
-import { getKpiChartData } from '../actions/getKpiChartData';
+import { getKpiChartData, type KpiCode } from '../actions/getKpiChartData';
 
-type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
+export type { KpiCode };
 
 export function useKpiChartData(kpiCode: KpiCode, fromDate: Date, toDate: Date) {
   const fromStr = moment(fromDate).format('YYYY-MM-DD');

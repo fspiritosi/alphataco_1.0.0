@@ -22,6 +22,7 @@ import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useChartData } from '../hooks/useChartData';
+import { makeThresholdDot } from '@/features/Dashboard/shared/charts/ThresholdDot';
 
 // Constante para el porcentaje esperado del indicador
 const EXPECTED_INDICATOR_PERCENTAGE = 60;
@@ -282,20 +283,7 @@ export function EmployeeUsageChart() {
               type="monotone"
               stroke="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
               strokeWidth={2}
-              dot={(props: any) => {
-                const { cx, cy, payload } = props;
-                const isAboveExpected = payload.indicator > EXPECTED_INDICATOR_PERCENTAGE;
-                return (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={5}
-                    fill={isAboveExpected ? 'hsl(0 84.2% 60.2%)' : 'hsl(142.1 76.2% 36.3%)'}
-                    stroke="white"
-                    strokeWidth={2}
-                  />
-                );
-              }}
+              dot={makeThresholdDot('indicator', EXPECTED_INDICATOR_PERCENTAGE)}
               activeDot={{
                 r: 7,
               }}

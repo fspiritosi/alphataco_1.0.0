@@ -1,253 +1,254 @@
 'use server';
 
+import type { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
+import { callScalar } from '@/shared/lib/sql';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
+import { z } from 'zod';
 import type { CreateKPIInput, KPI, KPIRevision, UpdateKPIInput, UpdateKPINumberInput } from '../types';
-
-type KPIRow = Database['public']['Tables']['kpis']['Row'];
-type KPIRevisionRow = Database['public']['Tables']['kpi_revisions']['Row'];
 
 const logger = new Logger('KPIs/actions');
 
-// Helper para mapear datos de la BD a tipos TypeScript
-function mapKPIRowToKPI(row: KPIRow): KPI {
+/**
+ * Perímetro de los KPIs.
+ *
+ * La empresa sale SIEMPRE de `getActiveCompanyId()`; antes cada action leía a mano la
+ * cookie de empresa. Los ids de KPI llegan del cliente, así que todas las lecturas y
+ * escrituras van acotadas a la empresa activa: sin esto, con el uuid de un KPI ajeno se
+ * podía leer, editar o dar de baja el indicador de otra empresa.
+ */
+async function assertKpiInActiveCompany(kpiId: string): Promise<string> {
+  const companyId = await getActiveCompanyId();
+
+  const kpi = await prisma.kpis.findFirst({ where: { id: kpiId, company_id: companyId }, select: { id: true } });
+  if (!kpi) throw new Error('El KPI no pertenece a la empresa activa');
+
+  return companyId;
+}
+
+const KPI_SELECT = {
+  id: true,
+  company_id: true,
+  name: true,
+  code: true,
+  number: true,
+  validity_date: true,
+  calculation_formula: true,
+  technical_support: true,
+  improvement_opportunities: true,
+  filters: true,
+  is_active: true,
+  created_at: true,
+  updated_at: true,
+} as const;
+
+type KpiRow = Prisma.kpisGetPayload<{ select: typeof KPI_SELECT }>;
+
+const KPI_REVISION_SELECT = {
+  id: true,
+  kpi_id: true,
+  previous_number: true,
+  new_number: true,
+  previous_validity_date: true,
+  new_validity_date: true,
+  change_reason: true,
+  changed_by: true,
+  is_active: true,
+  created_at: true,
+} as const;
+
+type KpiRevisionRow = Prisma.kpi_revisionsGetPayload<{ select: typeof KPI_REVISION_SELECT }>;
+
+/** `date`/`timestamptz` de Postgres → ISO, que es lo que consumen los componentes. */
+function toIso(value: Date | null | undefined, fallback?: string): string | null {
+  if (!value) return fallback ?? null;
+  return value.toISOString();
+}
+
+/** Fila de Prisma → DTO de la UI. */
+function mapKPIRowToKPI(row: KpiRow): KPI {
   return {
     id: row.id,
     company_id: row.company_id,
     name: row.name,
     code: row.code,
     number: row.number,
-    validity_date: row.validity_date,
+    validity_date: row.validity_date.toISOString(),
     calculation_formula: row.calculation_formula,
     technical_support: row.technical_support ?? true,
     improvement_opportunities: row.improvement_opportunities,
-    filters: row.filters as Record<string, unknown> | null,
+    filters: (row.filters ?? null) as Record<string, unknown> | null,
     is_active: row.is_active ?? true,
-    created_at: row.created_at || new Date().toISOString(),
-    updated_at: row.updated_at || new Date().toISOString(),
+    created_at: toIso(row.created_at, new Date().toISOString()) as string,
+    updated_at: toIso(row.updated_at, new Date().toISOString()) as string,
   };
 }
 
-// Helper para mapear revisiones
-function mapKPIRevisionRowToKPIRevision(row: KPIRevisionRow): KPIRevision {
+function mapKPIRevisionRowToKPIRevision(row: KpiRevisionRow): KPIRevision {
   return {
     id: row.id,
     kpi_id: row.kpi_id,
     previous_number: row.previous_number,
     new_number: row.new_number,
-    previous_validity_date: row.previous_validity_date,
-    new_validity_date: row.new_validity_date,
+    previous_validity_date: toIso(row.previous_validity_date),
+    new_validity_date: toIso(row.new_validity_date),
     change_reason: row.change_reason,
     changed_by: row.changed_by,
     is_active: row.is_active ?? true,
-    created_at: row.created_at || new Date().toISOString(),
+    created_at: toIso(row.created_at, new Date().toISOString()) as string,
   };
 }
 
-export async function fetchAllKPIs(): Promise<KPI[]> {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('kpis')
-    .select('*')
-    .eq('company_id', company_id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    logger.error('Error fetching KPIs', { data: { error } });
-    return [];
-  }
-
-  return (data || []).map(mapKPIRowToKPI);
+/** `filters` del formulario → `Prisma.InputJsonValue` (o `DbNull` si no hay). */
+function toFiltersInput(filters: Record<string, unknown> | null | undefined) {
+  return filters ? (filters as Prisma.InputJsonValue) : undefined;
 }
 
-export async function fetchKPIById(id: string): Promise<KPI | null> {
-  const supabase = await supabaseServer();
-  const { data, error } = await supabase.from('kpis').select('*').eq('id', id).single();
-
-  if (error) {
-    logger.error('Error fetching KPI by id', { data: { error, id } });
-    return null;
-  }
-
-  return data ? mapKPIRowToKPI(data) : null;
-}
-
+/**
+ * Revisiones activas de un KPI, de la más nueva a la más vieja.
+ * Perímetro: el KPI tiene que ser de la empresa activa.
+ */
 export async function fetchKPIRevisions(kpi_id: string): Promise<KPIRevision[]> {
-  const supabase = await supabaseServer();
-  const { data, error } = await supabase
-    .from('kpi_revisions')
-    .select('*')
-    .eq('kpi_id', kpi_id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+  try {
+    await assertKpiInActiveCompany(kpi_id);
 
-  if (error) {
+    const rows = await prisma.kpi_revisions.findMany({
+      where: { kpi_id, is_active: true },
+      select: KPI_REVISION_SELECT,
+      orderBy: { created_at: 'desc' },
+    });
+
+    return rows.map(mapKPIRevisionRowToKPIRevision);
+  } catch (error) {
     logger.error('Error fetching KPI revisions', { data: { error, kpi_id } });
     return [];
   }
-
-  return (data || []).map(mapKPIRevisionRowToKPIRevision);
 }
 
+/**
+ * Crea un KPI en la empresa activa.
+ * El código lo genera la función SQL `generate_kpi_code(company_uuid)` (vía `callScalar`).
+ */
 export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | null; error: unknown }> {
-  const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
+  try {
+    const companyId = await getActiveCompanyId();
 
-  if (!company_id) {
-    return { data: null, error: { message: 'No company selected' } };
-  }
+    const generatedCode = await callScalar('generate_kpi_code', [{ uuid: companyId }], z.string().nullable());
 
-  // Generar código automáticamente usando la función RPC
-  const { data: codeData, error: codeError } = await supabase.rpc('generate_kpi_code', {
-    company_uuid: company_id,
-  });
+    const created = await prisma.kpis.create({
+      data: {
+        company_id: companyId,
+        name: input.name,
+        code: generatedCode || 'KPI-0001',
+        number: input.number || null,
+        validity_date: new Date(input.validity_date),
+        calculation_formula: input.calculation_formula,
+        technical_support: input.technical_support ?? true,
+        improvement_opportunities: null,
+        filters: toFiltersInput(input.filters),
+        is_active: input.is_active ?? true,
+      },
+      select: KPI_SELECT,
+    });
 
-  if (codeError) {
-    logger.error('Error generating KPI code', { data: { codeError } });
-    return { data: null, error: codeError };
-  }
-
-  // La función RPC devuelve el resultado directamente como string
-  const generatedCode = typeof codeData === 'string' ? codeData : `KPI-0001`;
-
-  const { data, error } = await supabase
-    .from('kpis')
-    .insert({
-      company_id,
-      name: input.name,
-      code: generatedCode || `KPI-0001`,
-      number: input.number || null,
-      validity_date: input.validity_date,
-      calculation_formula: input.calculation_formula,
-      technical_support: input.technical_support ?? true,
-      improvement_opportunities: null,
-      filters: input.filters || null,
-      is_active: input.is_active ?? true,
-    })
-    .select()
-    .single();
-
-  if (error) {
+    revalidatePath('/dashboard');
+    return { data: mapKPIRowToKPI(created), error: null };
+  } catch (error) {
     logger.error('Error creating KPI', { data: { error } });
     return { data: null, error };
   }
-
-  revalidatePath('/dashboard');
-  return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
+/** Campos que el formulario de edición puede tocar. */
+const UPDATABLE_FIELDS = [
+  'name',
+  'number',
+  'calculation_formula',
+  'technical_support',
+  'improvement_opportunities',
+  'filters',
+  'is_active',
+] as const satisfies readonly (keyof UpdateKPIInput)[];
+
+/**
+ * Edita un KPI de la empresa activa (sólo los campos presentes en el input).
+ */
 export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | null; error: unknown }> {
-  const supabase = await supabaseServer();
+  try {
+    await assertKpiInActiveCompany(input.id);
 
-  // Construir objeto de actualización solo con campos definidos
-  const updateData: Partial<Database['public']['Tables']['kpis']['Update']> = {};
-
-  // Lista de campos actualizables
-  const updatableFields: Array<keyof UpdateKPIInput> = [
-    'name',
-    'number',
-    'calculation_formula',
-    'technical_support',
-    'improvement_opportunities',
-    'filters',
-    'is_active',
-  ];
-
-  // Solo agregar campos que están definidos en el input
-  updatableFields.forEach((field) => {
-    if (input[field] !== undefined) {
-      (updateData as Record<string, unknown>)[field] = input[field];
+    const updateData: Prisma.kpisUpdateInput = {};
+    for (const field of UPDATABLE_FIELDS) {
+      const value = input[field];
+      if (value === undefined) continue;
+      if (field === 'filters') {
+        updateData.filters = toFiltersInput(value as Record<string, unknown>);
+      } else {
+        Object.assign(updateData, { [field]: value });
+      }
     }
-  });
 
-  const { data, error } = await supabase.from('kpis').update(updateData).eq('id', input.id).select().single();
+    const updated = await prisma.kpis.update({ where: { id: input.id }, data: updateData, select: KPI_SELECT });
 
-  if (error) {
+    revalidatePath('/dashboard');
+    return { data: mapKPIRowToKPI(updated), error: null };
+  } catch (error) {
     logger.error('Error updating KPI', { data: { error, id: input.id } });
     return { data: null, error };
   }
-
-  revalidatePath('/dashboard');
-  return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
+/**
+ * Cambia número y vigencia de un KPI y deja la revisión correspondiente.
+ *
+ * La actualización y la revisión van en una transacción: antes la revisión se insertaba
+ * después y, si fallaba, el KPI quedaba cambiado sin rastro de quién lo hizo.
+ */
 export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ data: KPI | null; error: unknown }> {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const credentialId = await getSessionUserId();
+    if (!credentialId) return { data: null, error: { message: 'User not authenticated' } };
 
-  if (!user) {
-    return { data: null, error: { message: 'User not authenticated' } };
+    await assertKpiInActiveCompany(input.kpi_id);
+
+    const currentKPI = await prisma.kpis.findUnique({
+      where: { id: input.kpi_id },
+      select: { number: true, validity_date: true },
+    });
+    if (!currentKPI) return { data: null, error: { message: 'KPI not found' } };
+
+    const newValidityDate = new Date(input.new_validity_date);
+
+    const updatedKPI = await prisma.$transaction(async (tx) => {
+      const updated = await tx.kpis.update({
+        where: { id: input.kpi_id },
+        data: { number: input.new_number, validity_date: newValidityDate },
+        select: KPI_SELECT,
+      });
+
+      await tx.kpi_revisions.create({
+        data: {
+          kpi_id: input.kpi_id,
+          previous_number: currentKPI.number,
+          new_number: input.new_number,
+          previous_validity_date: currentKPI.validity_date,
+          new_validity_date: newValidityDate,
+          change_reason: input.change_reason,
+          // FK a `profile.credential_id`: es el id de sesión, no `profile.id`.
+          changed_by: credentialId,
+        },
+      });
+
+      return updated;
+    });
+
+    revalidatePath('/dashboard');
+    return { data: mapKPIRowToKPI(updatedKPI), error: null };
+  } catch (error) {
+    logger.error('Error updating KPI number', { data: { error, kpi_id: input.kpi_id } });
+    return { data: null, error };
   }
-
-  // Obtener el KPI actual para guardar los valores anteriores
-  const { data: currentKPI, error: fetchError } = await supabase
-    .from('kpis')
-    .select('number, validity_date')
-    .eq('id', input.kpi_id)
-    .single();
-
-  if (fetchError || !currentKPI) {
-    return { data: null, error: fetchError || { message: 'KPI not found' } };
-  }
-
-  // Actualizar el KPI
-  const { data: updatedKPI, error: updateError } = await supabase
-    .from('kpis')
-    .update({
-      number: input.new_number,
-      validity_date: input.new_validity_date,
-    })
-    .eq('id', input.kpi_id)
-    .select()
-    .single();
-
-  if (updateError) {
-    logger.error('Error updating KPI number', { data: { updateError, kpi_id: input.kpi_id } });
-    return { data: null, error: updateError };
-  }
-
-  // Crear la revisión
-  const { error: revisionError } = await supabase.from('kpi_revisions').insert({
-    kpi_id: input.kpi_id,
-    previous_number: currentKPI.number,
-    new_number: input.new_number,
-    previous_validity_date: currentKPI.validity_date,
-    new_validity_date: input.new_validity_date,
-    change_reason: input.change_reason,
-    changed_by: user.id,
-  });
-
-  if (revisionError) {
-    logger.warn('Error creating revision (KPI already updated)', { data: { revisionError, kpi_id: input.kpi_id } });
-    // No retornamos error aquí porque el KPI ya se actualizó
-  }
-
-  revalidatePath('/dashboard');
-  return { data: updatedKPI ? mapKPIRowToKPI(updatedKPI) : null, error: null };
-}
-
-export async function deleteKPI(id: string): Promise<{ error: unknown }> {
-  const supabase = await supabaseServer();
-
-  const { error } = await supabase.from('kpis').update({ is_active: false }).eq('id', id);
-
-  if (error) {
-    logger.error('Error deleting KPI', { data: { error, id } });
-    return { error };
-  }
-
-  revalidatePath('/dashboard');
-  return { error: null };
 }

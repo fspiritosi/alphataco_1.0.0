@@ -8,7 +8,7 @@ export interface KPI {
   calculation_formula: string;
   technical_support: boolean;
   improvement_opportunities: string | null;
-  filters: Record<string, any> | null;
+  filters: Record<string, unknown> | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -33,7 +33,7 @@ export interface CreateKPIInput {
   validity_date: string;
   calculation_formula: string;
   technical_support?: boolean;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   is_active?: boolean;
 }
 
@@ -45,7 +45,7 @@ export interface UpdateKPIInput {
   calculation_formula?: string;
   technical_support?: boolean;
   improvement_opportunities?: string;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   is_active?: boolean;
 }
 
