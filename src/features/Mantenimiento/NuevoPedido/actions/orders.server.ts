@@ -12,6 +12,7 @@ import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
 import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertSupervisorInCompany } from '@/features/Mantenimiento/shared/supervisor-perimeter';
 
 const serverLogger = new Logger('Mantenimiento/NuevoPedido/orders');
 
@@ -205,6 +206,8 @@ export async function createMaintenanceOrderFromDeviations(input: {
 
   const profile = await requireServerAuthProfile();
   const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
+  // El supervisor llega del cliente: tiene que ser de la empresa del recurso.
+  await assertSupervisorInCompany(input.supervisorId, companyId);
 
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 

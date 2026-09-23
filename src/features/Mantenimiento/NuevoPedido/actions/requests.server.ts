@@ -13,6 +13,7 @@ import { prisma } from '@/shared/lib/prisma';
 import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import type { CreateDeviationFromNuevoPedido } from './orders.server';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { assertSupervisorInCompany } from '@/features/Mantenimiento/shared/supervisor-perimeter';
 
 const serverLogger = new Logger('Mantenimiento/NuevoPedido/requests');
 
@@ -65,6 +66,8 @@ export async function createMaintenanceRequestPendingApproval(input: {
 
   const profile = await requireServerAuthProfile();
   const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
+  // El supervisor llega del cliente: tiene que ser de la empresa del recurso.
+  await assertSupervisorInCompany(input.supervisorId, companyId);
 
   const isPreventive = input.source === 'preventive' && input.preventiveType;
 
@@ -410,6 +413,8 @@ export async function createManualMaintenanceRequest(input: {
 
   const profile = await requireServerAuthProfile();
   const companyId = await getResourceCompanyId(prisma, input.resourceKind, input.equipmentId);
+  // El supervisor llega del cliente: tiene que ser de la empresa del recurso.
+  await assertSupervisorInCompany(input.supervisorId, companyId);
 
   const autoApprove = input.autoApprove === true;
 
