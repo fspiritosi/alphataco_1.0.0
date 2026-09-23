@@ -659,6 +659,6 @@ Ninguna. No tocamos la BD de Supabase. La feature solo lee del backend Go.
 - [ ] `/dashboard/help` renderiza el nuevo `HelpCenter` con form y lista.
 - [ ] Crear un ticket end-to-end con el backend levantado y vars configuradas funciona, y el ticket aparece en la lista al instante.
 - [ ] Sin la API key, la app no crashea: muestra estado vacío + toast informativo si se intenta enviar.
-- [ ] `ReportAnIssue.tsx` y `/api/send` siguen existiendo intactos (no se borra nada, según pedido del usuario).
+- [ ] ~~`ReportAnIssue.tsx` y `/api/send` siguen existiendo intactos (no se borra nada, según pedido del usuario).~~ **Anulado el 23/09/2026 por alphataco (Task 11a de la salida de Supabase), con autorización del usuario.** `/api/send` se borró y `ReportAnIssue.tsx` pasó a una server action. El handler aceptaba `to`, `subject` y `html` del cliente: era un relay de correo abierto. `ReportAnIssue.tsx` no tenía ningún importador desde que entró el sistema de tickets, así que el borrado no afecta a nadie. La tabla `sent_emails` que el handler escribía nunca estuvo modelada en Prisma y no se repone (decisión del usuario).
 - [ ] Sin `console.*`, sin `:any`, sin `useEffect` para fetching, sin rutas API nuevas (todo server actions).
 - [ ] Cypress E2E del flujo principal pasa.
