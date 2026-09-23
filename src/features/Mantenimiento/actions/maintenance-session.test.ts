@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Perímetro de las dos actions que fijan la empresa activa del flujo del QR.
  *
- * `completeMaintenanceEmployeeAnonymousSession` escribe el claim `app_metadata.company`, que
+ * `completeMaintenanceEmployeeAnonymousSession` escribe el claim `company` de la sesión, que
  * `getActiveCompanyId()` trata como de confianza y NO revalida: que la sesión sea anónima es
  * lo que impide que un usuario del dashboard se plante la empresa de otro en su propia cuenta.
  */
@@ -12,13 +12,21 @@ const prismaMock = vi.hoisted(() => ({
   employees: { findFirst: vi.fn() },
   vehicles: { findUnique: vi.fn() },
   profile: { upsert: vi.fn(), findFirst: vi.fn() },
+  user: { update: vi.fn() },
 }));
 vi.mock('@/shared/lib/prisma', () => ({ prisma: prismaMock }));
 
 vi.mock('@/shared/lib/session', () => ({
   getSessionUser: vi.fn(),
+  getSessionToken: vi.fn(async () => 'session-token'),
   isSessionAnonymous: vi.fn(),
 }));
+
+const writeMaintenanceClaims = vi.hoisted(() => vi.fn());
+vi.mock('@/shared/lib/session-claims', () => ({ writeMaintenanceClaims }));
+
+vi.mock('@/shared/lib/auth', () => ({ auth: { api: { signOut: vi.fn() } } }));
+vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 
 const tenantMock = vi.hoisted(() => ({
   setActiveCompanyCookie: vi.fn(),
@@ -26,12 +34,6 @@ const tenantMock = vi.hoisted(() => ({
   getActiveCompanyId: vi.fn(),
 }));
 vi.mock('@/shared/lib/tenant', () => tenantMock);
-
-const updateUserById = vi.hoisted(() => vi.fn(async () => ({ error: null })));
-vi.mock('@/lib/supabase/server', () => ({
-  adminSupabaseServer: async () => ({ auth: { admin: { updateUserById } } }),
-  supabaseServer: async () => ({ auth: { signOut: vi.fn() } }),
-}));
 
 import { getSessionUser, isSessionAnonymous } from '@/shared/lib/session';
 import {
@@ -64,10 +66,10 @@ describe('completeMaintenanceEmployeeAnonymousSession', () => {
     const result = await completeMaintenanceEmployeeAnonymousSession({ cuil: '20-12345678-9', equipmentId: EQUIPMENT });
 
     expect(result).toMatchObject({ ok: true, companyId: COMPANY_A, employeeId: 'emp-1' });
-    expect(updateUserById).toHaveBeenCalledWith(
-      'user-1',
-      expect.objectContaining({ app_metadata: expect.objectContaining({ company: COMPANY_A }) })
-    );
+    expect(writeMaintenanceClaims).toHaveBeenCalledWith('session-token', {
+      companyId: COMPANY_A,
+      employeeId: 'emp-1',
+    });
   });
 
   it('rechaza una sesión de dashboard: no escribe el claim de empresa ni el de empleado', async () => {
@@ -76,7 +78,7 @@ describe('completeMaintenanceEmployeeAnonymousSession', () => {
     const result = await completeMaintenanceEmployeeAnonymousSession({ cuil: '20-12345678-9', equipmentId: EQUIPMENT });
 
     expect(result.ok).toBe(false);
-    expect(updateUserById).not.toHaveBeenCalled();
+    expect(writeMaintenanceClaims).not.toHaveBeenCalled();
     // Tampoco llega al upsert que pisaría el profile del usuario de dashboard.
     expect(prismaMock.profile.upsert).not.toHaveBeenCalled();
     expect(prismaMock.employees.findFirst).not.toHaveBeenCalled();
@@ -89,7 +91,7 @@ describe('completeMaintenanceEmployeeAnonymousSession', () => {
     const result = await completeMaintenanceEmployeeAnonymousSession({ cuil: '20-12345678-9', equipmentId: EQUIPMENT });
 
     expect(result.ok).toBe(false);
-    expect(updateUserById).not.toHaveBeenCalled();
+    expect(writeMaintenanceClaims).not.toHaveBeenCalled();
   });
 });
 

@@ -1,15 +1,17 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { auth } from '@/shared/lib/auth';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
-import { getSessionUser, isSessionAnonymous } from '@/shared/lib/session';
+import { getSessionToken, getSessionUser, isSessionAnonymous } from '@/shared/lib/session';
+import { writeMaintenanceClaims } from '@/shared/lib/session-claims';
 import {
   clearActiveCompanyCookie,
   getActiveCompanyId,
   setActiveCompanyCookie,
 } from '@/shared/lib/tenant';
+import { headers } from 'next/headers';
 
 const deviationsLogger = new Logger('Mantenimiento/deviations');
 
@@ -92,7 +94,7 @@ export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
 export async function setActiveCompanyForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
 
-  const user = await getSessionUser(); // P4: auth
+  const user = await getSessionUser();
   if (!user?.id) return { ok: false, error: 'No hay sesión activa. Reintenta iniciar sesión.' };
 
   const vehicle = await prisma.vehicles.findUnique({
@@ -115,17 +117,21 @@ export async function setActiveCompanyForEquipment(equipmentId: string): Promise
 
 /**
  * Completa la sesión anónima del operario: valida el CUIL contra el legajo, asegura el
- * profile y deja la empresa del EMPLEADO (o, si no tiene, la del equipo) en la cookie y
- * en el metadata de Auth.
+ * profile y deja la empresa del EMPLEADO (o, si no tiene, la del equipo) en la cookie y en
+ * los claims de la sesión.
  *
  * SÓLO corre sobre una sesión ANÓNIMA, y eso es parte del perímetro, no una formalidad:
- * más abajo escribe con el admin client `app_metadata.company` —el claim que
- * `getActiveCompanyId()` trata como de confianza y NO vuelve a validar— y
- * `app_metadata.employee_id`, que es el claim con el que se atribuyen las respuestas de
- * checklist. Sin el chequeo, un usuario logueado del dashboard podía llamarla con el CUIL
- * de un empleado de otra empresa (el `equipmentId` lo da `searchEquipmentByDomain`, que es
- * público a propósito) y plantarse esa empresa como empresa activa de su propia cuenta —
- * además de pisarse su propio profile con el upsert de más abajo.
+ * más abajo escribe los claims `company` y `employee_id` de la sesión —el primero es el que
+ * `getActiveCompanyId()` trata como de confianza y NO vuelve a validar, el segundo es con el
+ * que se atribuyen las respuestas de checklist—. Sin el chequeo, un usuario logueado del
+ * dashboard podía llamarla con el CUIL de un empleado de otra empresa (el `equipmentId` lo da
+ * `searchEquipmentByDomain`, que es público a propósito) y plantarse esa empresa como empresa
+ * activa de su propia cuenta — además de pisarse su propio profile con el upsert de más abajo.
+ *
+ * Este es EL flujo que motiva la invariante del claim, y por eso la escritura pasa por
+ * `writeMaintenanceClaims()` (`shared/lib/session-claims.ts`, `server-only`) y no por ningún
+ * endpoint de Better Auth: los dos campos son `input: false`, así que ni siquiera existe un
+ * camino HTTP por el que el cliente pueda proponerlos.
  */
 export async function completeMaintenanceEmployeeAnonymousSession(params: {
   cuil: string;
@@ -144,15 +150,14 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   if (!cuil) return { ok: false, error: 'El CUIL es requerido.' };
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
 
-  const user = await getSessionUser(); // P4: auth
-  if (!user?.id) {
+  const [user, sessionToken] = await Promise.all([getSessionUser(), getSessionToken()]);
+  if (!user?.id || !sessionToken) {
     return { ok: false, error: 'No hay sesión activa. Reintenta iniciar sesión.' };
   }
 
   // El flujo del QR arranca con `signInAnonymously()`; una sesión de dashboard acá es una
   // llamada directa a la action (ver el comentario de la función).
   if (!(await isSessionAnonymous())) {
-    // P4: auth
     deviationsLogger.warn('Sesión no anónima intentando completar el login del QR', { data: { userId: user.id } });
     return { ok: false, error: 'Cerrá la sesión actual antes de entrar por el QR de mantenimiento.' };
   }
@@ -206,7 +211,6 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
 
   const employeeId = employee.id;
   const employeeEmail = employee.email ?? null;
-  const employeePhone = employee.phone ?? null;
   const employeeName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
 
   // 3) Asegurar el profile (hay FKs que apuntan a profile.id).
@@ -242,26 +246,16 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
     deviationsLogger.warn('No se pudo fijar la empresa activa desde el servidor', { data: { error } });
   }
 
-  // 5) Metadata de Auth para la sesión y la UI (nombre/email/etc)
-  const admin = await adminSupabaseServer(); // P4: auth
-  const { error: metadataError } = await admin.auth.admin.updateUserById(user.id, { // P4: auth
-    app_metadata: {
-      company: companyId,
-      employee_id: employeeId,
-      maintenance_login: true,
-    },
-    user_metadata: {
-      login_type: 'empleado',
-      employee_id: employeeId,
-      cuil: normalized,
-      fullname: employeeName,
-      email: employeeEmail,
-      phone: employeePhone,
-    },
-  });
-
-  if (metadataError) {
-    return { ok: false, error: `No se pudo completar la sesión del empleado: ${metadataError.message}` };
+  // 5) Claims de la sesión: la empresa y el legajo ya validados contra el CUIL.
+  //    Es la escritura server-only de `session-claims.ts` — el cliente no tiene forma de
+  //    proponer estos dos valores (ver el bloque de la invariante en `shared/lib/auth.ts`).
+  try {
+    await writeMaintenanceClaims(sessionToken, { companyId, employeeId });
+    // El nombre para mostrar del operario sale del legajo, no de lo que tipeó.
+    await prisma.user.update({ where: { id: user.id }, data: { name: employeeName || 'Operario' } });
+  } catch (error) {
+    deviationsLogger.error('No se pudieron escribir los claims de la sesión del operario', { data: { error } });
+    return { ok: false, error: 'No se pudo completar la sesión del empleado.' };
   }
 
   return { ok: true, companyId, employeeId, employeeName, employeeEmail };
@@ -428,11 +422,14 @@ export async function getTractorUnitsWithPendingDeviations() {
 /**
  * Cierra la sesión del operario en el flujo de mantenimiento.
  *
- * Vive en una Server Action (y no en el cliente con `supabaseBrowser`) para que el único
- * punto de contacto con Auth siga siendo el servidor. P4 reemplaza el cuerpo.
+ * Vive en una Server Action (y no en el cliente) para que el único punto de contacto con Auth
+ * siga siendo el servidor.
  */
 export async function signOutMaintenanceSession(): Promise<void> {
-  const supabase = await supabaseServer(); // P4: auth
-  await supabase.auth.signOut(); // P4: auth
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch {
+    // Sin sesión válida el cierre es un no-op.
+  }
   await clearActiveCompanyCookie();
 }

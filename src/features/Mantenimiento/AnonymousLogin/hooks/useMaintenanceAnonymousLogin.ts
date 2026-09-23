@@ -3,9 +3,10 @@
 import {
   completeMaintenanceEmployeeAnonymousSession,
   setActiveCompanyForEquipment,
+  signOutMaintenanceSession,
 } from '@/features/Mantenimiento/actions/maintenance-actions';
-import { handleSupabaseError } from '@/lib/errorHandler';
-import { supabaseBrowser } from '@/lib/supabase/browser'; // P4: auth
+import { maintenanceGuestLogin } from '@/features/Mantenimiento/actions/maintenance-session.server';
+import { authClient } from '@/shared/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -16,26 +17,27 @@ import type { CredentialsValues, MaintenanceLoginType } from '../utils/login-sch
  *
  * Dos caminos: el invitado entra con email y contraseña, el empleado con una sesión anónima
  * validada contra su CUIL. En los dos casos la empresa activa la fija el SERVIDOR desde el
- * equipo escaneado o desde el legajo — el cliente ya no escribe la cookie `actualComp`.
+ * equipo escaneado o desde el legajo — el cliente ni escribe la cookie `actualComp` ni puede
+ * proponer el claim de empresa (`input: false` en `shared/lib/auth.ts`).
  *
- * El contacto con Supabase Auth es lo único que queda acá (P4 lo reemplaza).
+ * Lo único que hace el cliente con Auth es abrir la sesión ANÓNIMA, que no lleva ninguna
+ * decisión de perímetro: el operario entra sin empresa y sin legajo, y los dos claims se los
+ * escribe el servidor recién cuando `completeMaintenanceEmployeeAnonymousSession()` valida el
+ * CUIL contra la base.
  */
 export function useMaintenanceAnonymousLogin(equipmentId: string | null) {
   const router = useRouter();
-  const supabase = supabaseBrowser(); // P4: auth
 
   // Si se llega al QR con una sesión de dashboard abierta, se cierra: el flujo de
   // mantenimiento corre siempre con la sesión del operario o del invitado.
   useEffect(() => {
     const clearDashboardSession = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser(); // P4: auth
-      if (user && !user.is_anonymous) {
-        await supabase.auth.signOut(); // P4: auth
+      const { data } = await authClient.getSession();
+      if (data?.user && !data.user.isAnonymous) {
+        await signOutMaintenanceSession();
       }
     };
-    clearDashboardSession();
+    void clearDashboardSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -48,19 +50,19 @@ export function useMaintenanceAnonymousLogin(equipmentId: string | null) {
           }
 
           if (loginType === 'invitado' && email && password) {
-            const { error } = await supabase.auth.signInWithPassword({ email, password }); // P4: auth
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
+            const result = await maintenanceGuestLogin(email, password);
+            if ('error' in result) {
+              throw new Error(result.error);
             }
             // La empresa activa sale del equipo escaneado y la cookie la escribe el servidor.
             await setActiveCompanyForEquipment(equipmentId);
           } else {
-            const { error: anonError } = await supabase.auth.signInAnonymously(); // P4: auth
+            const { error: anonError } = await authClient.signIn.anonymous();
             if (anonError) {
-              throw new Error(handleSupabaseError(anonError.message));
+              throw new Error(anonError.message ?? 'No se pudo iniciar la sesión de mantenimiento.');
             }
 
-            // Valida el CUIL contra el legajo y fija la empresa activa server-side.
+            // Valida el CUIL contra el legajo y escribe los claims server-side.
             const res = await completeMaintenanceEmployeeAnonymousSession({
               cuil: cuil || '',
               equipmentId,
