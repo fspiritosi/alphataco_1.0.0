@@ -1,8 +1,8 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { getCachedSession } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
+import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 
 const logger = new Logger('features/Employees/Diagrams');
@@ -24,8 +24,9 @@ export async function searchEmployeeDiagrams(params: {
   page: number;
   pageSize: number;
 }) {
-  const session = await getCachedSession();
-  const companyId = session?.user?.app_metadata?.company as string;
+  // La empresa sale de la sesión validada, no del claim crudo: con `undefined` el
+  // `where` de Prisma se ignora y la búsqueda devolvía los empleados de todas las empresas.
+  const companyId = await getActiveCompanyId();
 
   logger.debug('Searching employee diagrams', { data: { params } });
 
@@ -201,8 +202,7 @@ export type DiagramEmployee = DiagramSearchResult['data'][number];
  * Each filter type loads independently to avoid loading all catalogs upfront.
  */
 export async function getDiagramFilterOptions(filterType: string) {
-  const session = await getCachedSession();
-  const companyId = session?.user?.app_metadata?.company as string;
+  const companyId = await getActiveCompanyId();
 
   logger.debug('Loading filter options', { data: { filterType } });
 
@@ -210,16 +210,19 @@ export async function getDiagramFilterOptions(filterType: string) {
     switch (filterType) {
       case 'positions':
         return prisma.company_positions.findMany({
+          where: { company_id: companyId },
           select: { id: true, name: true },
           orderBy: { name: 'asc' },
         });
       case 'workflows':
         return prisma.work_diagram.findMany({
+          where: { company_id: companyId },
           select: { id: true, name: true },
           orderBy: { name: 'asc' },
         });
       case 'costCenters':
         return prisma.cost_center.findMany({
+          where: { company_id: companyId },
           select: { id: true, name: true },
           orderBy: { name: 'asc' },
         });
@@ -236,8 +239,9 @@ export async function getDiagramFilterOptions(filterType: string) {
           orderBy: { name: 'asc' },
         });
       case 'categories':
+        // `category` no tiene `company_id`: cuelga del convenio, que sí es de una empresa.
         return prisma.category.findMany({
-          where: { is_active: true },
+          where: { is_active: true, covenant: { company_id: companyId } },
           select: {
             id: true,
             name: true,
