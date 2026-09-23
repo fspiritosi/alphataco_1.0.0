@@ -83,6 +83,13 @@ describe('isPdfUrl', () => {
     expect(isPdfUrl('https://host/bucket/archivo.PDF')).toBe(true);
   });
 
+  it('ignora el `?v=` de las URLs versionadas', () => {
+    // Las keys que se pisan en su lugar (logo de empresa, imagen del preparte) guardan la
+    // URL con un parámetro de versión para romper la caché del navegador.
+    expect(isPdfUrl('/api/files/document-files/a/archivo.pdf?v=1758585600000')).toBe(true);
+    expect(isPdfUrl('/api/files/logo/a/imagen.png?v=1')).toBe(false);
+  });
+
   it('descarta otras extensiones', () => {
     expect(isPdfUrl('https://host/bucket/archivo.png')).toBe(false);
     expect(isPdfUrl('')).toBe(false);

@@ -66,7 +66,11 @@ export function denyReasonBadgeVariant(state: string | null | undefined): 'destr
 
 /** true si la URL del archivo apunta a un PDF (se embebe a pantalla completa). */
 export function isPdfUrl(url: string): boolean {
-  return url.split('.').pop()?.toLocaleLowerCase() === 'pdf';
+  // El querystring se descarta antes de mirar la extensión: las URLs de archivos que se
+  // pisan en su lugar llevan `?v=<ts>` para romper la caché del navegador (el logo de
+  // empresa, la imagen del preparte), y con él `split('.').pop()` devolvía `pdf?v=123`.
+  const withoutQuery = url.split('?')[0].split('#')[0];
+  return withoutQuery.split('.').pop()?.toLocaleLowerCase() === 'pdf';
 }
 
 /** Vencimiento del documento según el tipo: fecha de validez o "no vence". */
