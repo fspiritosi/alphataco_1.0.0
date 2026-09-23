@@ -12,6 +12,7 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany, assertWorkOrderInActiveCompany } from './order-perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { lockMaintenanceOrder } from '@/features/Mantenimiento/shared/order-lock';
 import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('MaintenanceOrders/mutations');
@@ -96,6 +97,21 @@ export async function completeExternalWorkOrder(workOrderId: string) {
 
   try {
     const maintenanceOrderId = await withMaintenanceActor(profileId, async (tx) => {
+      // Orden de locks pedido → OT (`lockMaintenanceOrder`): el pedido se resuelve y se lockea
+      // ANTES de tocar la OT. Antes esta ruta escribía la OT primero y llegaba al pedido al
+      // final, o sea al revés que `OperatorPanel`: un cierre externo y un cierre de operario
+      // sobre el mismo pedido podían quedar esperándose en cruz.
+      const woItem = await tx.work_order_items.findFirst({
+        where: { work_order_id: workOrderId },
+        select: {
+          maintenance_order_items: { select: { maintenance_order_id: true } },
+        },
+      });
+
+      const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id ?? null;
+
+      if (maintenanceOrderId) await lockMaintenanceOrder(tx, maintenanceOrderId);
+
       // Completar la OT
       await tx.work_orders.update({
         where: { id: workOrderId },
@@ -113,16 +129,6 @@ export async function completeExternalWorkOrder(workOrderId: string) {
         newStatus: 'completed',
         metadata: { closedAt: new Date().toISOString() },
       });
-
-      // Obtener el maintenance_order_id a través de work_order_items → maintenance_order_items
-      const woItem = await tx.work_order_items.findFirst({
-        where: { work_order_id: workOrderId },
-        select: {
-          maintenance_order_items: { select: { maintenance_order_id: true } },
-        },
-      });
-
-      const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id ?? null;
 
       if (maintenanceOrderId) {
         // Verificar si todas las OTs de la OM están cerradas

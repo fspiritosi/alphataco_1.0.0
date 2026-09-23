@@ -6,6 +6,7 @@ import { ACTIVITY_LOG } from '@/features/Mantenimiento/shared/activity-log/actio
 import { logActivity } from '@/features/Mantenimiento/shared/activity-log/log-activity';
 import { logWorkOrderCompletedOnMaintenanceOrder } from '@/features/Mantenimiento/shared/activity-log/log-work-order-completed';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { lockMaintenanceOrder } from '@/features/Mantenimiento/shared/order-lock';
 import { assertOrderTransition, OrderTransitionError } from '@/features/Mantenimiento/shared/order-transition';
 import { getWorkOrderBlockingStatus } from '@/features/OperatorPanel/actions/blocking';
 import { assertWorkOrderInScope } from '@/features/OperatorPanel/actions/perimeter';
@@ -31,20 +32,9 @@ const logger = new Logger('OperatorPanel/work-orders');
  * `profile.id`; ahora va el `profile.id` del operario.
  */
 
-/**
- * Toma el lock de la fila del pedido hasta que termina la transacción.
- *
- * Es lo que serializa de verdad a dos sectores operando sobre el mismo pedido: estar dentro
- * de una transacción no alcanza, porque bajo `READ COMMITTED` las dos leen "no hay ninguna
- * en progreso" y las dos escriben.
- *
- * TODAS las escrituras de este módulo que tocan el pedido lo toman PRIMERO, antes de escribir
- * la OT. El orden importa: si una ruta lockeara la OT antes que el pedido, dos transacciones
- * podrían quedar esperándose en cruz.
- */
-async function lockMaintenanceOrder(tx: Prisma.TransactionClient, maintenanceOrderId: string): Promise<void> {
-  await tx.$executeRaw`SELECT id FROM maintenance_orders WHERE id = ${maintenanceOrderId}::uuid FOR UPDATE`;
-}
+// El lock del pedido vive en `Mantenimiento/shared/order-lock.ts` (Task 13b): el orden
+// pedido → OT que la Task 9c unificó DENTRO de este módulo ahora es el criterio compartido por
+// los tres que escriben pedido y OT en la misma transacción. Ver el comentario de esa función.
 
 /** Pedido al que pertenece la OT, o `null` si la OT no cuelga de ninguno. */
 async function findMaintenanceOrderIdByWorkOrder(

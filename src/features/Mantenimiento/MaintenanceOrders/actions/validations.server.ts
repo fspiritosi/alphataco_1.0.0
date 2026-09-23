@@ -11,9 +11,26 @@ import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
 import { revalidatePath } from 'next/cache';
 import { assertOrderInActiveCompany } from './order-perimeter';
 import { withMaintenanceActor } from '@/features/Mantenimiento/shared/maintenance-actor';
+import { lockMaintenanceOrder } from '@/features/Mantenimiento/shared/order-lock';
 import { assertOrderTransition } from '@/features/Mantenimiento/shared/order-transition';
 
 const logger = new Logger('MaintenanceOrders/validations');
+
+/**
+ * Orden de locks de este archivo: **pedido → OT**, el mismo criterio que `OperatorPanel` y que
+ * `mutations.server.ts` (ver `lockMaintenanceOrder`).
+ *
+ * Son 11 puntos de escritura: 8 sobre `maintenance_orders` (uno por transacción) y 3 sobre
+ * `work_orders` (`workshopChiefReturnOrder`, `workshopChiefRejectItems` y la rama `agree` de
+ * `workshopChiefHandleOperationsRejection`). Dos de esos tres escribían la OT ANTES del pedido,
+ * o sea al revés que el panel del operario, que lockea el pedido primero: un jefe de taller
+ * rechazando ítems y un operario cerrando su OT sobre el mismo pedido podían quedar
+ * esperándose en cruz.
+ *
+ * Por eso TODAS las transacciones de acá abren con `lockMaintenanceOrder`. En las que sólo
+ * escriben el pedido el lock ya lo tomaba el `update`; hacerlo explícito y primero deja el
+ * invariante a la vista y lo vuelve inmune a que alguien reordene las escrituras.
+ */
 
 /**
  * Workshop chief validates order and sends to operations.
@@ -29,6 +46,8 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
 
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       // El taller cierra el circuito: Operaciones ya no valida.
       // El cliente lo pidio explicitamente ("operaciones ya no tiene que dar mas el
       // ok de esto... ese paso se va, porque ellos mismos no lo hacen"): la orden
@@ -131,6 +150,8 @@ export async function workshopChiefReturnOrder(orderId: string, reason: string) 
 
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       // 1. Actualizar estado de la orden a in_workshop
       await assertOrderTransition(tx, orderId, 'in_workshop');
       await tx.maintenance_orders.update({
@@ -192,6 +213,8 @@ export async function operationsValidateOrder(orderId: string, notes?: string) {
 
   try {
     await withMaintenanceActor(profile.id, async (tx) => {
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       // Obtener equipment_id antes de actualizar
       const order = await tx.maintenance_orders.findUnique({
         where: { id: orderId },
@@ -269,6 +292,8 @@ export async function operationsRejectOrder(orderId: string, reason: string) {
 
   try {
     await withMaintenanceActor(profile?.id ?? null, async (tx) => {
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       await assertOrderTransition(tx, orderId, 'pending_workshop_validation');
       await tx.maintenance_orders.update({
         where: { id: orderId },
@@ -350,6 +375,10 @@ export async function workshopChiefRejectItems(orderId: string, rejections: Reje
     if (validRejections.length === 0) throw new Error('Ningún ítem seleccionado pertenece a esta orden');
 
     await withMaintenanceActor(profile.id, async (tx) => {
+      // Orden invertido hasta la Task 13b: esta ruta escribía las reparaciones y las OTs y
+      // recién al final el pedido, mientras `OperatorPanel` lockea el pedido primero.
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       // 2. Marcar cada repair como rechazado con comentario individual
       for (const rejection of validRejections) {
         await tx.work_order_item_repairs.update({
@@ -461,6 +490,8 @@ export async function operationsRejectItems(orderId: string, rejections: Rejecti
     if (validRejections.length === 0) throw new Error('Ningún ítem seleccionado pertenece a esta orden');
 
     await withMaintenanceActor(profile.id, async (tx) => {
+      await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
       // 2. Cambiar estado de la orden a operations_rejected
       await assertOrderTransition(tx, orderId, 'operations_rejected');
       await tx.maintenance_orders.update({
@@ -533,6 +564,10 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
       const repairIds = rejectedItems.map((item) => item.repair_id);
 
       await withMaintenanceActor(profile.id, async (tx) => {
+        // Mismo caso que `workshopChiefRejectItems`: escribía reparaciones y OTs antes del
+        // pedido. El lock del pedido va primero (ver nota de locks arriba).
+        await lockMaintenanceOrder(tx, orderId);
+
         // Marcar repairs como rechazados
         for (const item of rejectedItems) {
           await tx.work_order_item_repairs.update({
@@ -588,6 +623,8 @@ export async function workshopChiefHandleOperationsRejection(orderId: string, ag
       if (!comment?.trim()) throw new Error('Debe indicar el motivo de desacuerdo');
 
       await withMaintenanceActor(profile.id, async (tx) => {
+        await lockMaintenanceOrder(tx, orderId); // pedido → OT (ver nota de locks arriba)
+
         await assertOrderTransition(tx, orderId, 'pending_operations_validation');
         await tx.maintenance_orders.update({
           where: { id: orderId },
