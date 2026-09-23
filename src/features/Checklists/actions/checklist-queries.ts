@@ -265,7 +265,22 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string) => 
  */
 export const fetchFilteredEquipmentForChecklistByEquipment = async (templateId: string, equipmentId: string) => {
   try {
-    return await listFilteredEquipmentForChecklist(templateId, await resolveCompanyId(equipmentId));
+    const companyId = await resolveCompanyId(equipmentId);
+    const equipment = await listFilteredEquipmentForChecklist(templateId, companyId);
+
+    if (equipment.some((item) => item.id === equipmentId)) return equipment;
+
+    // El equipo escaneado va SIEMPRE en la lista, aunque esté inactivo o no aplique a la
+    // plantilla: el combo lo muestra como seleccionado y de él cuelga el panel con marca,
+    // modelo y serie. Sin esta unión, escanear un equipo dado de baja — que es el caso
+    // típico de un equipo en mantenimiento — dejaba el campo en el placeholder y el panel
+    // vacío. Se acota a la empresa del propio equipo, así que no abre perímetro.
+    const scanned = await prisma.vehicles.findFirst({
+      where: withCompany({ id: equipmentId }, companyId),
+      select: equipmentForChecklistSelect,
+    });
+
+    return scanned ? [toEquipmentForChecklist(scanned), ...equipment] : equipment;
   } catch (error) {
     logger.error('Error al obtener equipos para el checklist del equipo', { data: { error, templateId, equipmentId } });
     return [];
