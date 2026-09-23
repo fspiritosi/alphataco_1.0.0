@@ -305,6 +305,9 @@ BEGIN
     FROM combined_results
     WHERE save_to_table = true AND p_company_id IS NOT NULL
     GROUP BY p_company_id
+    -- P5: idempotencia del job diario (ver get_company_counts_indicator en kpis.sql).
+    ON CONFLICT (company_id, snapshot_date, source)
+    DO UPDATE SET metrics = EXCLUDED.metrics, created_at = NOW()
     RETURNING id
   )
   

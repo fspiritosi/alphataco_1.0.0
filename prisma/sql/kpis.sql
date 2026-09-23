@@ -1,6 +1,8 @@
 -- Generado por scripts/sql/extract-sql-objects.ts — editar a mano SOLO en la revisión de Task 4
 -- Dominio: kpis — 7 objeto(s)
 -- Revisado a mano en la Task 4 (P1): + run_daily_indicators_for_all_companies (job P5).
+-- P5: esa funcion se reemplazo por run_daily_indicators_for_company(uuid) — el bucle de
+-- empresas lo hace el job, que registra una corrida por empresa en `jobs_runs`.
 
 -- ============================================================================
 -- FUNCTIONS (7)
@@ -75,7 +77,13 @@ BEGIN
                 'total_count', v_total_count
             ),
             'get_company_counts_indicator'::public.indicator_function
-        WHERE save_to_table = true AND p_company_id IS NOT NULL;
+        WHERE save_to_table = true AND p_company_id IS NOT NULL
+        -- P5: el job puede correr dos veces el mismo dia (reintento del cron, reinicio del
+        -- contenedor, llamada a mano). Sin este ON CONFLICT la unique
+        -- (company_id, snapshot_date, source) aborta el bloque entero de la empresa y los
+        -- indicadores que venian despues no se recalculan.
+        ON CONFLICT (company_id, snapshot_date, source)
+        DO UPDATE SET metrics = EXCLUDED.metrics, created_at = NOW();
     END IF;
     
     -- Retornar los resultados
@@ -163,6 +171,9 @@ AS $function$BEGIN
             'get_employee_usage_indicator'::public.indicator_function
         FROM final_calculations fc
         WHERE save_to_table = true AND p_company_id IS NOT NULL
+        -- P5: idempotencia del job diario (ver get_company_counts_indicator).
+        ON CONFLICT (company_id, snapshot_date, source)
+        DO UPDATE SET metrics = EXCLUDED.metrics, created_at = NOW()
         RETURNING id
     )
     
@@ -680,7 +691,10 @@ BEGIN
         LEFT JOIN used_counts uc 
             ON vt.type_id = uc.type_id 
             AND COALESCE(vt.subtype_id, '00000000-0000-0000-0000-000000000000'::uuid) = COALESCE(uc.subtype_id, '00000000-0000-0000-0000-000000000000'::uuid)
-        GROUP BY p_company_id;
+        GROUP BY p_company_id
+        -- P5: idempotencia del job diario (ver get_company_counts_indicator).
+        ON CONFLICT (company_id, snapshot_date, source)
+        DO UPDATE SET metrics = EXCLUDED.metrics, created_at = NOW();
     END IF;
 
     -- 🔚 Limpiar temporales
@@ -691,94 +705,96 @@ BEGIN
 END;
 $function$;
 
--- function run_daily_indicators_for_all_companies (origen: prisma/migrations/20260819120100_add_daily_report_deviations_snapshot/migration.sql)
--- Task 4: portada desde objects.json (era huerfana: la llamaba el cron de Supabase). Llamador: job P5.
--- Va en kpis.sql (y no en daily-report.sql) porque llama a funciones de diagrams, daily-report y kpis:
--- en el orden de concatenacion del baseline todas existen antes. No depende de pg_cron ni pg_net: recorre `company`
--- y persiste cada indicador con save_to_table => true.
-CREATE OR REPLACE FUNCTION public.run_daily_indicators_for_all_companies()
+-- function run_daily_indicators_for_company (origen: prisma/migrations/20260923180000_daily_indicators_idempotent/migration.sql)
+-- P5: reemplaza a `run_daily_indicators_for_all_companies()`, que la Task 4 de P1 porto desde
+-- el cron de Supabase y que nunca llego a tener llamador. El recorrido de empresas se mudo al
+-- job `/api/jobs/daily-indicators`, que reclama una fila de `jobs_runs` POR EMPRESA: asi el
+-- fallo de una empresa queda registrado, es reintentable y no arrastra a las demas.
+--
+-- Y aca NO va `EXCEPTION WHEN OTHERS`, que es lo que tenia la version anterior: convertia
+-- cualquier error en un `RAISE WARNING` que nadie veia (el endpoint habria devuelto 200 y el
+-- `curl -fsS` del cron lo habria dado por bueno) y ademas abortaba los indicadores que venian
+-- despues del que fallo. El error sube al job, que lo persiste y devuelve 500.
+CREATE OR REPLACE FUNCTION public.run_daily_indicators_for_company(p_company_id uuid)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-  company_record RECORD;
   v_today date := (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
 BEGIN
-  FOR company_record IN SELECT id FROM company LOOP
-    BEGIN
-      PERFORM public.get_employee_usage_indicator(
-        position_uuids => NULL::uuid[],
-        save_to_table => true,
-        p_company_id => company_record.id
-      );
+  IF p_company_id IS NULL THEN
+    RAISE EXCEPTION 'run_daily_indicators_for_company requiere p_company_id';
+  END IF;
 
-      PERFORM public.get_employee_diagram_count_by_day(
-        p_day => EXTRACT(DAY FROM v_today)::integer,
-        p_month => EXTRACT(MONTH FROM v_today)::integer,
-        p_year => EXTRACT(YEAR FROM v_today)::integer,
-        p_company_position_ids => NULL,
-        save_to_table => true,
-        p_company_id => company_record.id
-      );
+  PERFORM public.get_employee_usage_indicator(
+    position_uuids => NULL::uuid[],
+    save_to_table => true,
+    p_company_id => p_company_id
+  );
 
-      PERFORM public.get_vehicle_usage_indicator(
-        p_vehicle_type_ids => ARRAY[]::uuid[],
-        p_company_id => company_record.id,
-        save_to_table => true
-      );
+  PERFORM public.get_employee_diagram_count_by_day(
+    p_day => EXTRACT(DAY FROM v_today)::integer,
+    p_month => EXTRACT(MONTH FROM v_today)::integer,
+    p_year => EXTRACT(YEAR FROM v_today)::integer,
+    p_company_position_ids => NULL,
+    save_to_table => true,
+    p_company_id => p_company_id
+  );
 
-      PERFORM public.get_company_counts_indicator(
-        p_company_id => company_record.id,
-        save_to_table => true
-      );
+  PERFORM public.get_vehicle_usage_indicator(
+    p_vehicle_type_ids => ARRAY[]::uuid[],
+    p_company_id => p_company_id,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_absenteeism_summary(
-        p_company_id => company_record.id,
-        p_from => v_today,
-        p_to => v_today,
-        save_to_table => true
-      );
+  PERFORM public.get_company_counts_indicator(
+    p_company_id => p_company_id,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_absenteeism_trend(
-        p_company_id => company_record.id,
-        p_from => v_today,
-        p_to => v_today,
-        save_to_table => true
-      );
+  PERFORM public.hr_get_absenteeism_summary(
+    p_company_id => p_company_id,
+    p_from => v_today,
+    p_to => v_today,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_current_absent_employees(
-        p_company_id => company_record.id,
-        p_date => v_today,
-        save_to_table => true
-      );
+  PERFORM public.hr_get_absenteeism_trend(
+    p_company_id => p_company_id,
+    p_from => v_today,
+    p_to => v_today,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_daily_absence_timeseries(
-        p_company_id => company_record.id,
-        p_from => v_today,
-        p_to => v_today,
-        save_to_table => true
-      );
+  PERFORM public.hr_get_current_absent_employees(
+    p_company_id => p_company_id,
+    p_date => v_today,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_department_absence_reasons(
-        p_company_id => company_record.id,
-        p_date => v_today,
-        save_to_table => true
-      );
+  PERFORM public.hr_get_daily_absence_timeseries(
+    p_company_id => p_company_id,
+    p_from => v_today,
+    p_to => v_today,
+    save_to_table => true
+  );
 
-      PERFORM public.hr_get_department_absence_summary(
-        p_company_id => company_record.id,
-        p_date => v_today,
-        save_to_table => true
-      );
+  PERFORM public.hr_get_department_absence_reasons(
+    p_company_id => p_company_id,
+    p_date => v_today,
+    save_to_table => true
+  );
 
-      PERFORM public.get_daily_report_deviations_indicator(
-        p_company_id => company_record.id,
-        p_date => v_today,
-        save_to_table => true
-      );
-    EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Error al ejecutar indicadores para company_id %: %', company_record.id, SQLERRM;
-    END;
-  END LOOP;
+  PERFORM public.hr_get_department_absence_summary(
+    p_company_id => p_company_id,
+    p_date => v_today,
+    save_to_table => true
+  );
+
+  PERFORM public.get_daily_report_deviations_indicator(
+    p_company_id => p_company_id,
+    p_date => v_today,
+    save_to_table => true
+  );
 END;
 $function$;
