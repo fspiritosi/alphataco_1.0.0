@@ -754,7 +754,7 @@
 //   `
 // }
 
-interface CompanyConfig {
+export interface CompanyConfig {
   name: string;
   logo: string;
   website: string;
@@ -763,7 +763,7 @@ interface CompanyConfig {
   secondaryColor: string;
 }
 
-interface EmailInfo {
+export interface EmailInfo {
   recurso: string;
   document_name: string;
   company_name: string;
@@ -775,7 +775,7 @@ interface EmailInfo {
 interface HelpEmailOptions {
   userEmail: string;
   reason?: string;
-  body?: any; // o un tipo más específico según lo que necesites
+  body?: EmailInfo;
 }
 
 // Configuración por defecto

@@ -1,6 +1,6 @@
 'use server';
 
-import { sendEmail } from '@/features/Auth/actions/sendEmail';
+import { sendEmail } from '@/features/Auth/lib/email';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('sendErrorReport');
