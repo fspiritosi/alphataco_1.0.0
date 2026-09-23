@@ -154,9 +154,12 @@ describe.skipIf(!RUN)('escrituras de empresa y talleres (integración)', () => {
     }
   });
 
-  // Los dos casos de "carrera del rol" que vivían acá se borraron en la Task 13a: la unique
-  // pasó a ser (user_id, role_id, company_id) y cada alta inserta el rol para la empresa que
-  // acaba de crear, así que dos altas simultáneas ya no pueden chocar entre sí.
+  // Los dos casos de "carrera del rol" que vivían acá se fueron en la Task 13a: la unique pasó
+  // a ser (user_id, role_id, company_id) y cada alta inserta el rol para la empresa que acaba
+  // de crear, así que dos altas simultáneas ya no pueden chocar ENTRE SÍ. El mecanismo
+  // (`createMany` + `skipDuplicates` vs `create`) sigue siendo load-bearing en el alta de
+  // usuario, donde la empresa ya existe: se prueba en
+  // `src/features/Auth/actions/register-user.integration.test.ts`.
 
   it('talleres y sectores: bigint de city/province, Decimal nullable y duplicado case-insensitive', async () => {
     const { prisma } = await import('@/shared/lib/prisma');

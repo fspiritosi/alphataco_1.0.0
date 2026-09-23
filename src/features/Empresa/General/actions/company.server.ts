@@ -254,9 +254,11 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
       // mostraría ningún módulo y no existe todavía ningún admin que pueda darle permisos.
       const adminRole = await tx.roles.findFirst({ where: { slug: 'admin', is_system: true }, select: { id: true } });
       if (adminRole) {
-        // `createMany` + `skipDuplicates`: un P2002 contra la unique
-        // (user_id, role_id, company_id) abortaría la transacción entera y la empresa no se
-        // crearía. El rol no se duplica y el alta sigue adelante.
+        // La unique es (user_id, role_id, company_id) y la empresa se acaba de crear en esta
+        // misma transacción, así que acá el duplicado NO puede ocurrir: `createMany` +
+        // `skipDuplicates` queda como seguro barato. Donde la carrera sí es alcanzable es en
+        // `assignRoleInCompany` (Auth/actions/register-user.ts), sobre una empresa que ya
+        // existe — ver `register-user.integration.test.ts`.
         await tx.user_roles.createMany({
           data: [{ user_id: credentialId, role_id: adminRole.id, company_id: company.id, assigned_by: credentialId }],
           skipDuplicates: true,
