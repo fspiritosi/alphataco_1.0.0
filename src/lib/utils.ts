@@ -2,14 +2,11 @@
 import { formatDocumentTypeName, formatPathSegment } from '@/shared/utils/legacy-mappers';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Logger } from './logger';
-import { DOCUMENT_FILES_BUCKET, uploadToStorage } from '@/shared/actions/storage.server';
 
 // Persistencia de documentos (Prisma) y rol del usuario en la empresa: server actions.
 export { getActualRole } from '@/shared/actions/shared-users.server';
 export { getAllDocumentsByIdDocumentTypeCientSide, uploadDocument } from '@/shared/actions/documents.server';
 
-const documentsLogger = new Logger('lib/utils/documents');
 // eslint-disable-next-line react-hooks/rules-of-hooks
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -60,16 +57,6 @@ export function calculateNameOFDocument(
 
   return `${formatedCompanyName}-(${company_cuit})/${resource}/${formatedAppliesName}/${formatedDocumentTypeName}-(${formatedVersion}).${formatedFileExtension}`;
 }
-/** Sube el archivo de un documento al storage (P3: storage). Lanza si el storage rechaza el archivo. */
-export const uploadDocumentFile = async (file: File, path: string, upsert = false) => {
-  const result = await uploadToStorage(DOCUMENT_FILES_BUCKET, path, file, { upsert });
-  if (!result.ok) {
-    documentsLogger.error('Error al subir el archivo del documento al storage', { data: { error: result.error, path } });
-    // Propagar el error para que el formulario no cierre el modal como si hubiera funcionado
-    throw new Error(result.error || 'No se pudo subir el archivo del documento');
-  }
-  return { path: result.path };
-};
 
 /** Shape mínimo de equipo que acepta `mapEquipmentToChecklistFormat` (PostgREST legacy o `fetchAllEquipment`). */
 export type ChecklistEquipmentInput = {

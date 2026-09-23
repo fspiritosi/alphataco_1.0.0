@@ -39,7 +39,6 @@ export function UploadImage({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [base64Image, setBase64Image] = useState<string>('');
   const [disabled, setDisabled] = useState<boolean>(false);
-  const url = process.env.NEXT_PUBLIC_PROJECT_URL;
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
@@ -65,17 +64,12 @@ export function UploadImage({
           type: `image/${fileExtension}`,
         });
 
+        // La URL la devuelve el servidor: la carpeta del archivo es la de la empresa activa
+        // y el cliente no la conoce. El `?timestamp` sólo rompe la caché del navegador
+        // cuando se pisa la imagen anterior.
         const uploadedImageUrl = await uploadImage(renamedFile, imageBucket);
+        onImageChange(`${uploadedImageUrl}?timestamp=${Date.now()}`);
 
-        const companyImage = `${url}/${imageBucket}/${companyId.replace(
-          /\s/g,
-          ''
-        )}.${fileExtension}?timestamp=${Date.now()}`.replace(/\s/g, '');
-        // Llamar a la función de cambio de imagen con la URL
-        onImageChange(companyImage);
-
-        // Llamar a la función de éxito de carga con la URL
-        // onUploadSuccess(uploadedImageUrl)
         if (setAvailableToSubmit) setAvailableToSubmit(true);
         setDisabled(true);
       } catch (error) {
