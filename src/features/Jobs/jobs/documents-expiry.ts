@@ -4,9 +4,9 @@ import { prisma } from '@/shared/lib/prisma';
 import { sendMail, type SendMail } from '@/shared/lib/mail';
 import { callScalar } from '@/shared/lib/sql';
 import { argentinaDate } from '../lib/dates';
-import { runForEachCompany } from '../lib/per-company';
+import { runForEachCompany, runJobWithBitacora } from '../lib/per-company';
 import { getCompanyRecipients } from '../lib/recipients';
-import { summarize, type JobSummary } from '../lib/types';
+import type { JobSummary } from '../lib/types';
 import { expirySummarySchema } from '../schemas/documents-expiry';
 import { renderDocumentsExpiryEmail } from '../templates/documents-expiry';
 
@@ -56,56 +56,60 @@ export async function runDocumentsExpiryJob(deps: DocumentsExpiryJobDeps = {}): 
   const detailLimit = deps.detailLimit ?? DEFAULT_DETAIL_LIMIT;
   const send = deps.sendMail ?? sendMail;
 
-  const companies = await prisma.company.findMany({
-    select: { id: true, company_name: true },
-    orderBy: { company_name: 'asc' },
+  // Todo va DENTRO de la bitácora: si el `findMany` falla (base caída, pool agotado), la fila
+  // `corrida:<fecha>` ya está abierta y el error queda registrado.
+  return runJobWithBitacora(JOB, date, async () => {
+    const companies = await prisma.company.findMany({
+      select: { id: true, company_name: true },
+      orderBy: { company_name: 'asc' },
+    });
+
+    return runForEachCompany({
+      job: JOB,
+      date,
+      companies,
+      work: async (company) => {
+        const recipients = await getCompanyRecipients(company.id, 'documents_expiry');
+
+        if (recipients.length === 0) {
+          // `skipped`: la clave queda reclamable para el mismo día, así cargar la lista y
+          // redisparar alcanza. Con `ok` la empresa quedaba afuera hasta el lunes siguiente.
+          return { skipped: true, reason: 'la empresa no tiene destinatarios configurados' };
+        }
+
+        const summary = await callScalar(
+          'get_documents_expiry_summary',
+          [daysAhead, detailLimit, { uuid: company.id }],
+          expirySummarySchema
+        );
+
+        const email = renderDocumentsExpiryEmail({ companyName: company.company_name, data: summary });
+
+        const emailSent = await send({
+          to: recipients,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        });
+
+        const totals = {
+          expiringSoon:
+            summary.expiring_soon.employees.total +
+            summary.expiring_soon.equipment.total +
+            summary.expiring_soon.company.total,
+          expired:
+            summary.expired_counts.employees + summary.expired_counts.equipment + summary.expired_counts.company,
+          pending:
+            summary.pending_counts.employees + summary.pending_counts.equipment + summary.pending_counts.company,
+        };
+
+        return {
+          reason: emailSent ? 'correo enviado' : 'correo NO enviado (SMTP sin configurar o error de envío)',
+          recipients: recipients.length,
+          emailSent,
+          metadata: { daysAhead, totals },
+        };
+      },
+    });
   });
-
-  const units = await runForEachCompany({
-    job: JOB,
-    date,
-    companies,
-    work: async (company) => {
-      const recipients = await getCompanyRecipients(company.id, 'documents_expiry');
-
-      if (recipients.length === 0) {
-        return { reason: 'la empresa no tiene destinatarios configurados' };
-      }
-
-      const summary = await callScalar(
-        'get_documents_expiry_summary',
-        [daysAhead, detailLimit, { uuid: company.id }],
-        expirySummarySchema
-      );
-
-      const email = renderDocumentsExpiryEmail({ companyName: company.company_name, data: summary });
-
-      const emailSent = await send({
-        to: recipients,
-        subject: email.subject,
-        html: email.html,
-        text: email.text,
-      });
-
-      const totals = {
-        expiringSoon:
-          summary.expiring_soon.employees.total +
-          summary.expiring_soon.equipment.total +
-          summary.expiring_soon.company.total,
-        expired:
-          summary.expired_counts.employees + summary.expired_counts.equipment + summary.expired_counts.company,
-        pending:
-          summary.pending_counts.employees + summary.pending_counts.equipment + summary.pending_counts.company,
-      };
-
-      return {
-        reason: emailSent ? 'correo enviado' : 'correo NO enviado (SMTP sin configurar o error de envío)',
-        recipients: recipients.length,
-        emailSent,
-        metadata: { daysAhead, totals },
-      };
-    },
-  });
-
-  return summarize(JOB, date, units);
 }

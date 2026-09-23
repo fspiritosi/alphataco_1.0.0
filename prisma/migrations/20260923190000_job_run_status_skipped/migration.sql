@@ -1,0 +1,13 @@
+-- P5 (ronda 1): estado `skipped` para `jobs_runs`.
+--
+-- `runForEachCompany` cerraba como `ok` tambien las corridas en las que NO hubo trabajo (la
+-- empresa no tiene parte diario del dia, o no tiene destinatarios configurados). Eso
+-- contradecia el contrato documentado en `src/features/Jobs/lib/types.ts` y, sobre todo,
+-- dejaba la clave `(job, <company_id>:<fecha>)` tomada como exitosa: si un admin cargaba los
+-- destinatarios a media manana y volvia a disparar el job, la empresa quedaba salteada hasta
+-- el dia siguiente.
+--
+-- Con `skipped` la corrida queda registrada (observabilidad) y ademas vuelve a ser
+-- reclamable, igual que `error` — ver la condicion del ON CONFLICT en
+-- `src/features/Jobs/lib/runs.ts`.
+ALTER TYPE "job_run_status" ADD VALUE IF NOT EXISTS 'skipped';

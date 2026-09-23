@@ -67,6 +67,21 @@ function mentions(html: string | undefined, marker: string): boolean {
   return (html ?? '').toLowerCase().includes(marker.toLowerCase());
 }
 
+/**
+ * Envejece una corrida moviendo `started_at` hacia atrás CON SQL.
+ *
+ * Tiene que ser SQL: escribir un `Date` de JS en una columna `timestamptz` por Prisma guarda
+ * el valor corrido por el offset de la sesión (medido: +3 h con TimeZone -03), así que una
+ * fila "de hace 2 horas" terminaba grabada en el futuro y el test no probaba nada.
+ */
+async function moveStartedAt(id: string, interval: string): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    `UPDATE jobs_runs SET started_at = NOW() - $1::interval WHERE id = $2::uuid`,
+    interval,
+    id
+  );
+}
+
 /** Emisor de prueba: captura los mensajes en vez de mandarlos. */
 function makeMailCapture() {
   const sent: MailMessage[] = [];
@@ -81,7 +96,27 @@ function makeMailCapture() {
 
 async function cleanup(): Promise<void> {
   const companies = [COMPANY_A, COMPANY_B];
-  await prisma.jobs_runs.deleteMany({ where: { OR: [{ company_id: { in: companies } }, { run_key: { contains: TEST_DATE } }] } });
+  // Sólo las filas de las empresas del test y las claves globales que el test fabrica. Un
+  // `run_key contains '<fecha>'` alcanzaría filas de empresas reales con esa misma fecha.
+  await prisma.jobs_runs.deleteMany({
+    where: {
+      OR: [
+        { company_id: { in: companies } },
+        {
+          run_key: {
+            in: [
+              `${COMPANY_A}:${TEST_DATE}`,
+              `${COMPANY_B}:${TEST_DATE}`,
+              `fallo-simulado:${TEST_DATE}`,
+              // Claves globales que fabrican los propios jobs con la fecha del test.
+              `corrida:${TEST_DATE}`,
+              `mantenimiento:${TEST_DATE}`,
+            ],
+          },
+        },
+      ],
+    },
+  });
   await prisma.dailyreportemployeerelations.deleteMany({
     where: { dailyreportrows: { daily_report_id: { in: [REPORT_A, REPORT_B] } } },
   });
@@ -483,10 +518,17 @@ describe.skipIf(!RUN)('jobs de P5 (integración contra el compose)', () => {
       const summary = await runDailyReportDeviationsJob({ date: TEST_DATE, sendMail: capture.sendMail });
 
       const unitA = summary.units.find((unit) => unit.companyId === COMPANY_A);
-      expect(unitA?.status).toBe('ok');
+      // `skipped`, no `ok`: la clave queda reclamable para que un redisparo del mismo día
+      // la reintente si alguien carga los destinatarios a media mañana.
+      expect(unitA?.status).toBe('skipped');
       expect(unitA?.emailSent).toBe(false);
       expect(unitA?.reason).toContain('destinatarios');
       expect(capture.sent.some((message) => message.subject.includes(NAME_A))).toBe(false);
+
+      const storedA = await prisma.jobs_runs.findUnique({
+        where: { job_run_key: { job: 'daily-report-deviations', run_key: `${COMPANY_A}:${TEST_DATE}` } },
+      });
+      expect(storedA?.status).toBe('skipped');
 
       await prisma.notification_settings.update({
         where: { company_id_kind: { company_id: COMPANY_A, kind: 'daily_report_deviations' } },
@@ -542,35 +584,115 @@ describe.skipIf(!RUN)('jobs de P5 (integración contra el compose)', () => {
   // Observabilidad
   // ────────────────────────────────────────────────────────────────────────────
   describe('observabilidad', () => {
-    it('un fallo de una empresa se persiste y hace que el endpoint devuelva 500', async () => {
-      // Se rompe el dato mínimo del que depende el job: sin `notification_settings` el job
-      // no falla (lo saltea), así que se fuerza un error real dejando la empresa B con un
-      // parte diario apuntando a un id de reporte inexistente no es posible por la FK —
-      // en su lugar se elimina la función SQL del scope llamándola con una empresa borrada.
+    it('el ciclo error -> reintento -> ok -> bloqueado del candado de jobs_runs', async () => {
+      // NOTA: el 500 ante fallo parcial se prueba en `src/features/Jobs/lib/handler.test.ts`,
+      // que construye la Request y mira el status. Acá se prueba el candado contra la base.
       const { claimRun, finishRun, lastRun } = await import('../lib/runs');
+      const KEY = `fallo-simulado:${TEST_DATE}`;
 
-      const claim = await claimRun({ job: 'daily-indicators', runKey: `fallo-simulado:${TEST_DATE}`, companyId: null });
+      const claim = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
       expect(claim).not.toBeNull();
       await finishRun({ id: claim!.id, status: 'error', error: 'boom' });
 
-      const stored = await lastRun('daily-indicators', `fallo-simulado:${TEST_DATE}`);
+      const stored = await lastRun('daily-indicators', KEY);
       expect(stored?.status).toBe('error');
       expect(stored?.error).toBe('boom');
 
-      // Y una corrida en `error` se puede volver a reclamar (es reintentable).
-      const retry = await claimRun({ job: 'daily-indicators', runKey: `fallo-simulado:${TEST_DATE}`, companyId: null });
+      // Una corrida en `error` se puede volver a reclamar (es reintentable).
+      const retry = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
       expect(retry).not.toBeNull();
       expect(retry?.attempts).toBe(2);
       await finishRun({ id: retry!.id, status: 'ok' });
 
       // Una corrida en `ok` NO se puede reclamar de nuevo: es el candado de idempotencia.
-      const blocked = await claimRun({
-        job: 'daily-indicators',
-        runKey: `fallo-simulado:${TEST_DATE}`,
-        companyId: null,
-      });
-      expect(blocked).toBeNull();
+      expect(await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null })).toBeNull();
     }, 60_000);
+
+    it('una corrida `skipped` SÍ se vuelve a reclamar: el motivo puede corregirse el mismo día', async () => {
+      const { claimRun, finishRun } = await import('../lib/runs');
+      const KEY = `skipped-simulado:${TEST_DATE}`;
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+
+      const first = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
+      await finishRun({ id: first!.id, status: 'skipped' });
+
+      const second = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
+      expect(second).not.toBeNull();
+      expect(second?.attempts).toBe(2);
+
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+    }, 60_000);
+
+    it('una corrida `running` RECIENTE no se puede reclamar: dos disparos simultáneos no duplican', async () => {
+      const { claimRun } = await import('../lib/runs');
+      const KEY = `running-reciente:${TEST_DATE}`;
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+
+      const first = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
+      expect(first).not.toBeNull();
+
+      // Queda `running` desde hace 5 minutos: alguien la está haciendo ahora mismo.
+      // El desfase se aplica con SQL (`NOW() - interval`), no con un `Date` de JS: escribir un
+      // timestamptz desde JavaScript por Prisma en este repo guarda el valor corrido por el
+      // offset de la sesión (ver el comentario de `finishRun`), y el test probaría otra cosa.
+      await moveStartedAt(first!.id, '5 minutes');
+
+      expect(await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null })).toBeNull();
+
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+    }, 60_000);
+
+    it('una corrida `running` COLGADA hace más de una hora sí se puede reclamar', async () => {
+      // Sin esta rama, un proceso que muere a mitad de camino dejaría la clave trabada para
+      // siempre y esa empresa no volvería a recibir el correo nunca.
+      const { claimRun } = await import('../lib/runs');
+      const KEY = `running-colgada:${TEST_DATE}`;
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+
+      const first = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
+      await moveStartedAt(first!.id, '2 hours');
+
+      const reclaimed = await claimRun({ job: 'daily-indicators', runKey: KEY, companyId: null });
+      expect(reclaimed).not.toBeNull();
+      expect(reclaimed?.attempts).toBe(2);
+
+      await prisma.jobs_runs.deleteMany({ where: { job: 'daily-indicators', run_key: KEY } });
+    }, 60_000);
+
+    it('la corrida entera deja fila de bitácora, incluso si el job aborta antes del bucle', async () => {
+      // Es el agujero que tapa `runJobWithBitacora`: con la base caída, el `findMany` de
+      // empresas lanzaba ANTES de que existiera ninguna fila, y el rastro era cero.
+      const { runJobWithBitacora } = await import('../lib/per-company');
+      const { lastRun } = await import('../lib/runs');
+      const KEY = `corrida:${TEST_DATE}`;
+
+      await expect(
+        runJobWithBitacora('daily-indicators', TEST_DATE, async () => {
+          throw new Error('la base no responde');
+        })
+      ).rejects.toThrow('la base no responde');
+
+      const row = await lastRun('daily-indicators', KEY);
+      expect(row?.status).toBe('error');
+      expect(row?.error).toBe('la base no responde');
+      expect(row?.finished_at).not.toBeNull();
+    }, 60_000);
+
+    it('la duración registrada es real: finished_at no queda corrido por la zona horaria', async () => {
+      // Regresión: `finishRun` escribía `finished_at: new Date()` por Prisma y el valor se
+      // guardaba 3 horas adelante, así que un job de 5 ms figuraba como `03:00:00.005`. Hoy
+      // lo calcula Postgres con NOW().
+      const [row] = await prisma.$queryRawUnsafe<Array<{ duracion_segundos: number }>>(
+        `SELECT EXTRACT(EPOCH FROM (finished_at - started_at))::float8 AS duracion_segundos
+           FROM jobs_runs
+          WHERE job = 'documents-expiry' AND run_key = $1 AND finished_at IS NOT NULL`,
+        `${COMPANY_B}:${TEST_DATE}`
+      );
+
+      expect(row).toBeDefined();
+      expect(row.duracion_segundos).toBeGreaterThanOrEqual(0);
+      expect(row.duracion_segundos).toBeLessThan(120);
+    });
 
     it('cada corrida deja en jobs_runs cuántos destinatarios recibieron el correo', async () => {
       const run = await prisma.jobs_runs.findUnique({

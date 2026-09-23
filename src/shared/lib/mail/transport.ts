@@ -55,8 +55,13 @@ export interface MailMessage {
   cc?: readonly string[];
   bcc?: readonly string[];
   subject: string;
-  text: string;
-  html: string;
+  /**
+   * Al menos uno de `text`/`html` tiene que venir. Van como opcionales para poder OMITIR la
+   * parte que no hay: mandar `''` produce un multipart con una parte vacía, que algunos
+   * clientes muestran como un mensaje en blanco.
+   */
+  text?: string;
+  html?: string;
 }
 
 /** Firma del emisor, para poder inyectar un doble en los tests de los jobs. */
@@ -85,9 +90,17 @@ export const sendMail: SendMail = async (message) => {
 
   const transport = getTransport();
 
+  const text = message.text?.trim() ? message.text : undefined;
+  const html = message.html?.trim() ? message.html : undefined;
+
+  if (!text && !html) {
+    logger.warn('Mail sin contenido: no se envía', { data: { to, subject: message.subject } });
+    return false;
+  }
+
   if (!transport) {
     logger.warn('SMTP sin configurar: el mail no se envía (desarrollo)', {
-      data: { to, subject: message.subject, text: message.text },
+      data: { to, subject: message.subject, text: text ?? html },
     });
     return false;
   }
@@ -99,8 +112,8 @@ export const sendMail: SendMail = async (message) => {
       cc: joinAddresses(message.cc),
       bcc: joinAddresses(message.bcc),
       subject: message.subject,
-      text: message.text,
-      html: message.html,
+      text,
+      html,
     });
     logger.info('Mail enviado', { data: { to, subject: message.subject } });
     return true;

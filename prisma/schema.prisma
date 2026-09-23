@@ -3082,6 +3082,10 @@ enum job_run_status {
   running
   ok
   error
+  /// Se reclamó la corrida pero no había trabajo que hacer (sin parte diario, sin
+  /// destinatarios configurados). Queda registrada Y vuelve a ser reclamable: si el motivo
+  /// se corrige durante el día, el siguiente disparo la reintenta en vez de esperar a mañana.
+  skipped
 
   @@schema("public")
 }

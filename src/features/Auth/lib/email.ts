@@ -62,12 +62,9 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     .map((address) => address.trim())
     .filter((address) => address.length > 0);
 
-  const sent = await sendMail({
-    to: recipients,
-    subject,
-    html: emailHtml ?? '',
-    text: text ?? '',
-  });
+  // `undefined`, no `''`: el emisor omite la parte que no hay (el código viejo hacía lo
+  // mismo). Con `''` el mensaje sale con una parte vacía.
+  const sent = await sendMail({ to: recipients, subject, html: emailHtml, text });
 
   return sent ? { success: true } : { success: false, error: 'No se pudo enviar el correo (ver el log de shared/mail)' };
 }

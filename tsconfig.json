@@ -34,5 +34,5 @@
     "src/app/dashboard/employee/page.tsx1",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "supabase/functions"]
+  "exclude": ["node_modules"]
 }

@@ -3,8 +3,8 @@ import 'server-only';
 import { callVoid } from '@/shared/lib/sql';
 import { prisma } from '@/shared/lib/prisma';
 import { argentinaDate } from '../lib/dates';
-import { runForEachCompany, runGlobalStep } from '../lib/per-company';
-import { summarize, type JobSummary, type JobUnitOutcome } from '../lib/types';
+import { runForEachCompany, runGlobalStep, runJobWithBitacora } from '../lib/per-company';
+import type { JobSummary, JobUnitOutcome } from '../lib/types';
 
 /**
  * Job diario de las 00:30 (hora argentina) — `GET /api/jobs/daily-indicators`.
@@ -40,6 +40,15 @@ import { summarize, type JobSummary, type JobUnitOutcome } from '../lib/types';
  * cualquier empresa) y no producen ninguna salida cruzada: escriben estados en las propias
  * filas, no agregan datos de varias empresas en un mismo lugar.
  *
+ * **Actor de las escrituras automáticas.** Los dos pasos de mantenimiento se llaman con el
+ * `prisma` global, SIN `withActor`, así que las filas de `dailyreportrows_history` que genere
+ * el cierre de partes quedan con `changed_by = NULL`. Es una decisión, no un olvido
+ * (`shared/lib/sql.ts` advierte explícitamente sobre esto): no hay usuario detrás de un job
+ * del cron, e inventar uno —un "usuario sistema"— pondría en el historial un actor que no
+ * existe y que alguien podría confundir con una persona. `NULL` es el dato honesto: «lo hizo
+ * el sistema». Si en algún momento hace falta distinguir qué job lo hizo, el lugar es una
+ * columna nueva del historial, no un `app.user_id` falso.
+ *
  * Este job NO manda correos.
  */
 export interface DailyIndicatorsDeps {
@@ -51,42 +60,47 @@ const JOB = 'daily-indicators' as const;
 
 export async function runDailyIndicatorsJob(deps: DailyIndicatorsDeps = {}): Promise<JobSummary> {
   const date = deps.date ?? argentinaDate();
-  const units: JobUnitOutcome[] = [];
 
-  units.push(
-    await runGlobalStep({
-      job: JOB,
-      runKey: `mantenimiento:${date}`,
-      label: 'Mantenimiento de estados (partes y prepartes)',
-      work: async () => {
-        await callVoid('actualizar_estado_daily_reports', []);
-        await callVoid('marcar_prepartes_vencidos', []);
-        return { reason: 'partes diarios cerrados y prepartes vencidos marcados' };
-      },
-    })
-  );
+  // El `findMany` de empresas y todo lo demás va DENTRO de la bitácora: si la base está
+  // caída, la fila `corrida:<fecha>` ya existe y el fallo queda registrado.
+  return runJobWithBitacora(JOB, date, async () => {
+    const units: JobUnitOutcome[] = [];
 
-  const companies = await prisma.company.findMany({
-    select: { id: true, company_name: true },
-    orderBy: { company_name: 'asc' },
+    units.push(
+      await runGlobalStep({
+        job: JOB,
+        runKey: `mantenimiento:${date}`,
+        label: 'Mantenimiento de estados (partes y prepartes)',
+        work: async () => {
+          await callVoid('actualizar_estado_daily_reports', []);
+          await callVoid('marcar_prepartes_vencidos', []);
+          return { reason: 'partes diarios cerrados y prepartes vencidos marcados' };
+        },
+      })
+    );
+
+    const companies = await prisma.company.findMany({
+      select: { id: true, company_name: true },
+      orderBy: { company_name: 'asc' },
+    });
+
+    units.push(
+      ...(await runForEachCompany({
+        job: JOB,
+        date,
+        companies,
+        work: async (company) => {
+          await callVoid('run_daily_indicators_for_company', [{ uuid: company.id }]);
+
+          const saved = await prisma.daily_indicators.count({
+            where: { company_id: company.id, snapshot_date: new Date(`${date}T00:00:00Z`) },
+          });
+
+          return { reason: `${saved} indicador(es) persistidos`, metadata: { indicators: saved } };
+        },
+      }))
+    );
+
+    return units;
   });
-
-  units.push(
-    ...(await runForEachCompany({
-      job: JOB,
-      date,
-      companies,
-      work: async (company) => {
-        await callVoid('run_daily_indicators_for_company', [{ uuid: company.id }]);
-
-        const saved = await prisma.daily_indicators.count({
-          where: { company_id: company.id, snapshot_date: new Date(`${date}T00:00:00Z`) },
-        });
-
-        return { reason: `${saved} indicador(es) persistidos`, metadata: { indicators: saved } };
-      },
-    }))
-  );
-
-  return summarize(JOB, date, units);
 }

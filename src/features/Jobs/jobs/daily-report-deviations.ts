@@ -4,9 +4,9 @@ import { prisma } from '@/shared/lib/prisma';
 import { sendMail, type SendMail } from '@/shared/lib/mail';
 import { callScalar } from '@/shared/lib/sql';
 import { argentinaDate } from '../lib/dates';
-import { runForEachCompany } from '../lib/per-company';
+import { runForEachCompany, runJobWithBitacora } from '../lib/per-company';
 import { getCompanyRecipients } from '../lib/recipients';
-import { summarize, type JobSummary } from '../lib/types';
+import type { JobSummary } from '../lib/types';
 import { deviationsResultSchema } from '../schemas/deviations';
 import { renderDeviationsEmail } from '../templates/deviations';
 
@@ -51,76 +51,85 @@ export async function runDailyReportDeviationsJob(deps: DeviationsJobDeps = {}):
   const date = deps.date ?? argentinaDate();
   const send = deps.sendMail ?? sendMail;
 
-  const companies = await prisma.company.findMany({
-    select: { id: true, company_name: true },
-    orderBy: { company_name: 'asc' },
-  });
+  // Todo va DENTRO de la bitácora: si el `findMany` falla (base caída, pool agotado), la fila
+  // `corrida:<fecha>` ya está abierta y el error queda registrado. Sin esto, el modo de falla
+  // más probable no dejaba ninguna fila en `jobs_runs`.
+  return runJobWithBitacora(JOB, date, async () => {
+    const companies = await prisma.company.findMany({
+      select: { id: true, company_name: true },
+      orderBy: { company_name: 'asc' },
+    });
 
-  const units = await runForEachCompany({
-    job: JOB,
-    date,
-    companies,
-    work: async (company) => {
-      const report = await prisma.dailyreport.findFirst({
-        where: { company_id: company.id, date: new Date(`${date}T00:00:00Z`), is_active: true },
-        select: { id: true },
-      });
+    return runForEachCompany({
+      job: JOB,
+      date,
+      companies,
+      work: async (company) => {
+        const report = await prisma.dailyreport.findFirst({
+          where: { company_id: company.id, date: new Date(`${date}T00:00:00Z`), is_active: true },
+          select: { id: true },
+        });
 
-      if (!report) {
-        return { reason: 'sin parte diario activo para la fecha' };
-      }
+        if (!report) {
+          // `skipped`, no `ok`: la clave queda reclamable por si el parte se crea más tarde.
+          return { skipped: true, reason: 'sin parte diario activo para la fecha' };
+        }
 
-      const deviations = await callScalar(
-        'get_daily_report_deviations',
-        [{ uuid: report.id }, { date }],
-        deviationsResultSchema
-      );
+        const deviations = await callScalar(
+          'get_daily_report_deviations',
+          [{ uuid: report.id }, { date }],
+          deviationsResultSchema
+        );
 
-      if (deviations.rows_with_deviations.length === 0) {
-        return {
-          reason: 'sin desvíos',
-          metadata: { dailyReportId: report.id, rowsWithDeviations: 0 },
-        };
-      }
+        if (deviations.rows_with_deviations.length === 0) {
+          // Sí es `ok`: el trabajo se hizo y el resultado es "no hay nada que informar".
+          // Volver a mirarlo más tarde no cambiaría la decisión de no mandar el correo.
+          return {
+            reason: 'sin desvíos',
+            metadata: { dailyReportId: report.id, rowsWithDeviations: 0 },
+          };
+        }
 
-      // Los destinatarios se resuelven recién acá, ya confirmado que hay algo que informar:
-      // una empresa sin lista configurada pero sin desvíos no tiene por qué figurar como
-      // problema. (Es el mismo orden que tenía la edge function.)
-      const recipients = await getCompanyRecipients(company.id, 'daily_report_deviations');
+        // Los destinatarios se resuelven recién acá, ya confirmado que hay algo que informar:
+        // una empresa sin lista configurada pero sin desvíos no tiene por qué figurar como
+        // problema. (Es el mismo orden que tenía la edge function.)
+        const recipients = await getCompanyRecipients(company.id, 'daily_report_deviations');
 
-      if (recipients.length === 0) {
-        return {
-          reason: 'hay desvíos pero la empresa no tiene destinatarios configurados',
-          metadata: { dailyReportId: report.id, rowsWithDeviations: deviations.rows_with_deviations.length },
-        };
-      }
+        if (recipients.length === 0) {
+          // `skipped`: si un admin carga los destinatarios a media mañana y redispara, la
+          // empresa se reintenta. Con `ok` quedaba salteada hasta el día siguiente.
+          return {
+            skipped: true,
+            reason: 'hay desvíos pero la empresa no tiene destinatarios configurados',
+            metadata: { dailyReportId: report.id, rowsWithDeviations: deviations.rows_with_deviations.length },
+          };
+        }
 
-      const email = renderDeviationsEmail({
-        companyName: company.company_name,
-        reportDate: date,
-        dailyReportId: report.id,
-        data: deviations,
-      });
-
-      const emailSent = await send({
-        to: recipients,
-        subject: email.subject,
-        html: email.html,
-        text: email.text,
-      });
-
-      return {
-        reason: emailSent ? 'correo enviado' : 'correo NO enviado (SMTP sin configurar o error de envío)',
-        recipients: recipients.length,
-        emailSent,
-        metadata: {
+        const email = renderDeviationsEmail({
+          companyName: company.company_name,
+          reportDate: date,
           dailyReportId: report.id,
-          rowsWithDeviations: deviations.rows_with_deviations.length,
-          summary: deviations.summary,
-        },
-      };
-    },
-  });
+          data: deviations,
+        });
 
-  return summarize(JOB, date, units);
+        const emailSent = await send({
+          to: recipients,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        });
+
+        return {
+          reason: emailSent ? 'correo enviado' : 'correo NO enviado (SMTP sin configurar o error de envío)',
+          recipients: recipients.length,
+          emailSent,
+          metadata: {
+            dailyReportId: report.id,
+            rowsWithDeviations: deviations.rows_with_deviations.length,
+            summary: deviations.summary,
+          },
+        };
+      },
+    });
+  });
 }

@@ -1,4 +1,10 @@
 # min hora dia mes dow  comando (TZ del contenedor: America/Argentina/Buenos_Aires)
-0 8 * * 1   curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/documents-expiry
-0 7 * * *   curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-report-deviations
-30 0 * * *  curl -fsS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-indicators
+#
+# `--fail-with-body` (no `-f`): falla con exit != 0 ante HTTP >= 400 PERO imprime el cuerpo.
+# Con `-f` a secas curl descarta la respuesta ("fail silently: no output at all on server
+# errors") y en el log de crond solo quedaria `curl: (22)`, sin decir que empresa fallo ni
+# por que. Los endpoints devuelven un JSON con el detalle por empresa justamente para que
+# aparezca ahi: `docker compose --env-file .env.docker logs cron`.
+0 8 * * 1   curl --fail-with-body -sS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/documents-expiry
+0 7 * * *   curl --fail-with-body -sS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-report-deviations
+30 0 * * *  curl --fail-with-body -sS -H "Authorization: Bearer $JOBS_TOKEN" $APP_URL/api/jobs/daily-indicators
