@@ -15,6 +15,11 @@ const logger = new Logger('features/ExternalApi/handler');
 /**
  * Fabrica de endpoints de listado de la API externa.
  *
+ * Estos endpoints (`/api/external/v1/*`) son la otra excepcion legitima a la regla
+ * "Server Actions, no API routes": los consume software de terceros por HTTP, no la app.
+ * No tienen consumidores dentro del repo justamente por eso; borrarlos romperia
+ * integraciones externas que no se ven desde el codigo.
+ *
  * Los cinco recursos comparten exactamente el mismo ciclo —autenticar,
  * validar parametros, consultar, registrar el acceso— y solo se diferencian en
  * la consulta y en el mapeo del resultado. Centralizarlo evita que un endpoint

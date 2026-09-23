@@ -4,6 +4,18 @@ import { Logger } from '@/lib/logger';
 
 const logger = new Logger('api/taskapp/events');
 
+/**
+ * Proxy SSE de los eventos de tickets de TaskApp.
+ *
+ * NO convertir a Server Action: es la excepción legítima a la regla "Server Actions, no
+ * API routes" del repo. Las Server Actions devuelven un valor y terminan; acá se devuelve
+ * el `ReadableStream` de la respuesta upstream para que el `EventSource` del navegador
+ * (`features/Ayuda/hooks/useSupportTicketsRealtimeSync.ts`) lo consuma abierto. Sin route
+ * handler no hay forma de streamear.
+ *
+ * Perímetro: la identidad del reporter sale de la sesión (`getReporterEmail()`), nunca de
+ * la query, y la API key de TaskApp jamás llega al navegador.
+ */
 export async function GET(req: NextRequest) {
   const reporter = await getReporterEmail();
   if (!reporter) {
