@@ -1,6 +1,7 @@
 import { getSessionRoleForEquipment } from '@/features/Mantenimiento/EquipmentDashboard/actions/equipment-access.server';
 import { fetchEquipmentForDashboard } from '@/features/Mantenimiento/EquipmentDashboard/actions/equipment-dashboard.server';
 import EquipmentDashboardClient from '@/features/Mantenimiento/EquipmentDashboard/components/equipment-dashboard-client';
+import { getMaintenanceEmployeeForEquipment } from '@/features/Mantenimiento/shared/actions/employee-session.server';
 import {
   getSessionDisplayName,
   getSessionEmployeeIdClaim,
@@ -29,19 +30,23 @@ export async function EquipmentDashboardServer({ equipmentId }: { equipmentId: s
   }
 
   // El rol se resuelve contra la empresa DEL EQUIPO, no contra la de la sesión.
-  const [role, empleadoName, isAnonymous] = await Promise.all([
+  const [role, displayName, isAnonymous, employee] = await Promise.all([
     userId ? getSessionRoleForEquipment(equipmentId) : Promise.resolve(null),
     getSessionDisplayName(), // P4: auth
     isSessionAnonymous(), // P4: auth
+    getMaintenanceEmployeeForEquipment(equipmentId),
   ]);
 
+  // El encabezado recibe el legajo resuelto acá. Si no se lo pasáramos, caería a su hook
+  // de cliente, que deriva la empresa de la SESIÓN — y en el QR la empresa sale del equipo.
   return (
     <EquipmentDashboardClient
       equipment={equipment}
       equipmentId={equipmentId}
       isGuest={role === 'Invitado'}
       isAnonymous={isAnonymous}
-      empleadoName={empleadoName ?? undefined}
+      employeeName={employee ? `${employee.firstname} ${employee.lastname}` : (displayName ?? null)}
+      employeeCuil={employee?.cuil ?? null}
     />
   );
 }

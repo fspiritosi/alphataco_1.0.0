@@ -23,9 +23,16 @@ type Checklist = {
 interface ChecklistsListClientProps {
   equipmentId: string;
   checklists: Checklist[];
+  employeeName?: string | null;
+  employeeCuil?: string | null;
 }
 
-export default function ChecklistsListClient({ equipmentId, checklists }: ChecklistsListClientProps) {
+export default function ChecklistsListClient({
+  equipmentId,
+  checklists,
+  employeeName,
+  employeeCuil,
+}: ChecklistsListClientProps) {
   const router = useRouter();
 
   const formatDate = (dateStr: string) => {
@@ -38,7 +45,13 @@ export default function ChecklistsListClient({ equipmentId, checklists }: Checkl
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <MaintenanceHeader title="Checklists" showBack backHref={`/maintenance/equipment/${equipmentId}`} />
+      <MaintenanceHeader
+        title="Checklists"
+        showBack
+        backHref={`/maintenance/equipment/${equipmentId}`}
+        employeeName={employeeName}
+        employeeCuil={employeeCuil}
+      />
 
       <main className="flex-1 p-4 pb-24">
         <div className="mb-4">

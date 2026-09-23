@@ -2,8 +2,11 @@ import { MaintenanceLayoutProvider } from '@/features/Mantenimiento/shared/compo
 import TanstackQueryInicializador from '@/shared/providers/TanstackQueryInicializador';
 
 export default function MaintenanceLayout({ children }: { children: React.ReactNode }) {
-  // Employee data is resolved client-side by MaintenanceHeader via useEmployeeDataMaintenance() hook.
-  // This avoids calling cookies()/supabase in the layout, which breaks Next.js 16 prerendering.
+  // El layout no resuelve el legajo: llamar a cookies() acá rompe el prerender de Next 16.
+  // Lo resuelve cada página con `getMaintenanceEmployeeForEquipment(equipmentId)` y se lo
+  // pasa a `MaintenanceHeader` por props. El hook de cliente del header queda como último
+  // recurso para las pantallas del dashboard, que sí tienen empresa activa; en el QR no
+  // sirve, porque deriva la empresa de la sesión y acá sale del equipo de la ruta.
   return (
     <TanstackQueryInicializador>
       <MaintenanceLayoutProvider employeeName={null} employeeCuil={null}>

@@ -1,5 +1,6 @@
 import { fetchChecklistTemplatesForEquipment } from '@/features/Checklists/actions/checklist-queries';
 import ChecklistsListClient from '@/features/Mantenimiento/Checklists/components/checklists-list-client';
+import { getMaintenanceEmployeeForEquipment } from '@/features/Mantenimiento/shared/actions/employee-session.server';
 import { getSessionEmployeeIdClaim, getSessionUserId } from '@/shared/lib/session'; // P4: auth
 import { redirect } from 'next/navigation';
 
@@ -26,9 +27,15 @@ export async function ChecklistsListServer({ equipmentId }: { equipmentId: strin
     redirect(`/maintenance/equipment/${equipmentId}?error=checklists_unavailable`);
   }
 
+  // El encabezado recibe el legajo resuelto acá. Si no se lo pasáramos, caería a su hook de
+  // cliente, que deriva la empresa de la SESIÓN — y en el QR la empresa sale del equipo.
+  const employee = await getMaintenanceEmployeeForEquipment(equipmentId);
+
   return (
     <ChecklistsListClient
       equipmentId={equipmentId}
+      employeeName={employee ? `${employee.firstname} ${employee.lastname}` : null}
+      employeeCuil={employee?.cuil ?? null}
       checklists={result.templates.map((checklist) => ({
         id: checklist.id,
         name: checklist.name,

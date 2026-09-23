@@ -42,7 +42,8 @@ interface EquipmentDashboardClientProps {
   equipmentId: string;
   isGuest: boolean;
   isAnonymous: boolean;
-  empleadoName?: string;
+  employeeName?: string | null;
+  employeeCuil?: string | null;
 }
 
 export default function EquipmentDashboardClient({
@@ -50,7 +51,8 @@ export default function EquipmentDashboardClient({
   equipmentId,
   isGuest,
   isAnonymous,
-  empleadoName,
+  employeeName,
+  employeeCuil,
 }: EquipmentDashboardClientProps) {
   const router = useRouter();
 
@@ -76,7 +78,7 @@ export default function EquipmentDashboardClient({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <MaintenanceHeader title="Acciones" />
+      <MaintenanceHeader title="Acciones" employeeName={employeeName} employeeCuil={employeeCuil} />
 
       <main className="flex-1 p-4 space-y-6 pb-24">
         {/* Equipment Info Card */}
