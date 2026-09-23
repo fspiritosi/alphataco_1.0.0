@@ -1,12 +1,21 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { formatCompanyName } from '@/lib/utils';
-import { company } from '@/shared/types/legacy';
+import type { StoreCompany } from '@/shared/actions/session.server';
 import React, { useState } from 'react';
 import Modal from 'react-modal';
+
+// react-modal necesita saber cuál es el nodo de la app para el manejo de foco/aria. Antes lo
+// seteaba la página dentro de un `useEffect`; vive acá para que el modal se baste solo.
+if (typeof document !== 'undefined') {
+  Modal.setAppElement('body');
+}
+
 type ModalCompanyProps = {
   isOpen: boolean;
   onClose: () => void;
-  selectedCard: company | null;
+  selectedCard: StoreCompany | null;
 };
 
 const ModalCompany: React.FC<ModalCompanyProps> = ({ isOpen, onClose, selectedCard }) => {
@@ -33,7 +42,7 @@ const ModalCompany: React.FC<ModalCompanyProps> = ({ isOpen, onClose, selectedCa
               </div>
               <div className="w-1/3  p-4">
                 <img
-                  src={selectedCard.company_logo}
+                  src={selectedCard.company_logo ?? undefined}
                   className="max-w-full h-auto"
                   alt="Company Logo"
                   width={150}

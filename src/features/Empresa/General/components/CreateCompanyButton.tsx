@@ -1,8 +1,10 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { createCompany } from '@/features/Empresa/General/actions/company.server';
+import { COMPANIES_QUERY_KEY } from '@/features/Empresa/General/hooks/useCompanyData';
 import { getStoreCompanies } from '@/shared/actions/session.server';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +20,7 @@ import { showCompanyFieldErrors } from './company-field-errors';
  */
 export default function CreateCompanyButton() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [logo, setLogo] = useState<File | null>(null);
   // Bloquea el boton mientras la peticion esta en curso para evitar registros duplicados
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +44,8 @@ export default function CreateCompanyButton() {
 
           const { allCompanies, sharedCompanies } = await getStoreCompanies();
           useLoggedUserStore.setState({ allCompanies, sharedCompanies });
+          // El listado de compañías ya no escucha realtime: se invalida su query.
+          queryClient.setQueryData(COMPANIES_QUERY_KEY, { allCompanies, sharedCompanies });
           const created = allCompanies.find((company) => company.id === result.data.id);
           if (created) useLoggedUserStore.getState().setActualCompany(created);
           router.push('/dashboard');

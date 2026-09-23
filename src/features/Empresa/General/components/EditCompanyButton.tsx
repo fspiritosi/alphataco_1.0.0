@@ -1,6 +1,8 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { updateCompany } from '@/features/Empresa/General/actions/company.server';
+import { COMPANIES_QUERY_KEY } from '@/features/Empresa/General/hooks/useCompanyData';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -20,6 +22,7 @@ interface EditCompanyButtonProps {
  */
 export default function EditCompanyButton({ companyId }: EditCompanyButtonProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [logo, setLogo] = useState<File | null>(null);
   // Bloquea el boton mientras la peticion esta en curso para evitar ediciones duplicadas
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,6 +43,9 @@ export default function EditCompanyButton({ companyId }: EditCompanyButtonProps)
             if (result.fieldErrors) showCompanyFieldErrors(formData, result.fieldErrors);
             throw new Error(result.error);
           }
+          // Reemplaza al canal realtime que refrescaba el listado de compañías al cambiar
+          // la tabla `company` o el logo en storage.
+          await queryClient.invalidateQueries({ queryKey: COMPANIES_QUERY_KEY });
           router.refresh();
         },
         {
