@@ -122,6 +122,9 @@ async function addExistingProfileToCompany({
   if (existingAccess) throw new Error('El usuario ya tiene acceso a esta empresa');
 
   if (!profile.credential_id) throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
+  // Sin `force` a propósito (a diferencia de `createUserForCompany`): este usuario ya existía y
+  // puede tener otra empresa activa en su JWT; sumarlo a una nueva no es motivo para sacarlo de
+  // donde estaba. El `force` del alta completa es correcto porque ahí no hay nada que pisar.
   await ensureCompanyMetadata(profile.credential_id, companyId); // P4: auth
 
   const credentialId = profile.credential_id;

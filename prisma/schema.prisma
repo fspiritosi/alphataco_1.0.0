@@ -1750,7 +1750,6 @@ model other_equipment_certifications {
   @@schema("public")
 }
 
-
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model preparte {
   id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
