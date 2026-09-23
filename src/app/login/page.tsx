@@ -8,7 +8,16 @@ import RenderBanner from '@/features/Auth/components/RenderBanner';
 import { isGoogleLoginEnabled } from '@/shared/lib/auth';
 import Image from 'next/image';
 import Link from 'next/link';
-export default async function Login() {
+
+/**
+ * `googleLogin()` manda a `/login?error=oauth` cuando el callback de Google falla. Con
+ * `disableSignUp` activo, el caso más común es un mail de Google que todavía no tiene usuario
+ * en el sistema: sin este cartel el usuario volvía al login sin ninguna explicación y
+ * reintentaba en loop.
+ */
+export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
       <div className="container relative flex-col grid-cols-1 justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0  md:px-2 p-0">
@@ -25,6 +34,12 @@ export default async function Login() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {error === 'oauth' && (
+                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+                  No pudimos iniciar sesión con Google. Si es la primera vez que entrás, pedile a un
+                  administrador de tu empresa que te dé de alta: el sistema no crea cuentas solo.
+                </div>
+              )}
               <form className="space-y-8 flex flex-col w-full">
                 <div className="w-full space-y-2">
                   <Label htmlFor="email" className="text-lg">

@@ -86,12 +86,29 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
   }
 }
 
+/**
+ * Escapa lo que se interpola en el HTML del mail. Por acá entran el nombre de la empresa y el
+ * nombre del invitado, que salen de la base y los escribe un usuario: sin esto, un
+ * `company_name` con `<script>` o con un `</a><a href="...">` viaja tal cual en el mail.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function layout(title: string, body: string, action: { url: string; label: string }): string {
+  // La URL la arma el servidor (baseURL + token), pero se escapa igual: es lo que entra en un
+  // atributo y no cuesta nada.
+  const url = escapeHtml(action.url);
   return `<!doctype html><html lang="es"><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;line-height:1.5">
-  <h2 style="color:#111827">${title}</h2>
-  <p>${body}</p>
-  <p><a href="${action.url}" style="display:inline-block;padding:10px 18px;background:#ea580c;color:#fff;text-decoration:none;border-radius:6px">${action.label}</a></p>
-  <p style="font-size:12px;color:#6b7280">Si el botón no funciona, copiá este enlace en tu navegador:<br>${action.url}</p>
+  <h2 style="color:#111827">${escapeHtml(title)}</h2>
+  <p>${escapeHtml(body)}</p>
+  <p><a href="${url}" style="display:inline-block;padding:10px 18px;background:#ea580c;color:#fff;text-decoration:none;border-radius:6px">${escapeHtml(action.label)}</a></p>
+  <p style="font-size:12px;color:#6b7280">Si el botón no funciona, copiá este enlace en tu navegador:<br>${url}</p>
 </body></html>`;
 }
 

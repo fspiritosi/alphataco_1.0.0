@@ -19,10 +19,13 @@ import { prisma } from '@/shared/lib/prisma';
  * - Operaciones (`log_dailyreport_changes` y compañía) llena `dailyreportrows_history.changed_by`,
  *   FK a **`profile.credential_id`** — ver `withSessionActor`, que pasa `getSessionUserId()`.
  *
- * Hoy los dos valores coinciden (el trigger de alta de Supabase creaba
- * `profile.id = credential_id`), por eso el mismo uuid sirve para ambos. **P4 los separa**: a
- * partir de ahí cada caller tiene que pasar el que espera su trigger, o el INSERT del trigger
- * aborta la transacción entera por violación de FK. Detalle en `prisma/sql/README.md`.
+ * Los dos valores COINCIDEN y eso es una decisión, no una casualidad heredada: el alta de
+ * usuario (`features/Auth/actions/register-user.ts`) y el login del QR crean el `profile` con
+ * `id = credential_id = auth_user.id`, que es un uuid. P4 evaluó separarlos y decidió que no —
+ * si difirieran, `maintenance_activity_log.performed_by` (FK a `profile.id`) rompería con el
+ * uuid que `withActor()` deja en `app.user_id`, y cada caller tendría que saber cuál de los dos
+ * espera su trigger. Si alguna vez se separan, hay que revisar los dos caminos de la tabla de
+ * arriba. Detalle en `prisma/sql/README.md`.
  */
 export type ActorTx = Pick<Prisma.TransactionClient, '$executeRaw'>;
 export type ActorClient = { $transaction: typeof prisma.$transaction };

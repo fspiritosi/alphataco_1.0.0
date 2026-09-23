@@ -6,7 +6,7 @@
  *  - admin@p4.test      usuario del dashboard, owner de la empresa y admin
  *  - ropa@p4.test       usuario con legajo vinculado (panel de indumentaria)
  *  - taller@p4.test     usuario con legajo + sector de taller (panel de operario)
- *  - un legajo SIN usuario con CUIL 20111111119 (el operario que entra por el QR)
+ *  - un legajo SIN usuario con CUIL 20111111112 (el operario que entra por el QR)
  *  - un vehiculo con dominio P4QR01 (el equipo que se escanea)
  * Todos con la contrasena `P4-verificacion-123`.
  *
