@@ -7,7 +7,7 @@ import {
   getSessionEmployeeIdClaim,
   getSessionUserId,
   isSessionAnonymous,
-} from '@/shared/lib/session'; // P4: auth
+} from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 /**
@@ -17,7 +17,7 @@ import { redirect } from 'next/navigation';
  * es anónima o de un invitado) y ninguna lectura puede depender de `getActiveCompanyId()`.
  */
 export async function EquipmentDashboardServer({ equipmentId }: { equipmentId: string }) {
-  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]); // P4: auth
+  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]);
 
   if (!employeeId && !userId) {
     redirect('/maintenance');
@@ -32,8 +32,8 @@ export async function EquipmentDashboardServer({ equipmentId }: { equipmentId: s
   // El rol se resuelve contra la empresa DEL EQUIPO, no contra la de la sesión.
   const [role, displayName, isAnonymous, employee] = await Promise.all([
     userId ? getSessionRoleForEquipment(equipmentId) : Promise.resolve(null),
-    getSessionDisplayName(), // P4: auth
-    isSessionAnonymous(), // P4: auth
+    getSessionDisplayName(),
+    isSessionAnonymous(),
     getMaintenanceEmployeeForEquipment(equipmentId),
   ]);
 

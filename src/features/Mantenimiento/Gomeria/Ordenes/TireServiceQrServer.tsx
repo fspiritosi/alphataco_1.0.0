@@ -1,7 +1,7 @@
 import { fetchTireServiceContextForEquipment } from '@/features/Mantenimiento/Gomeria/Ordenes/actions/tire-service-qr.server';
 import TireServiceQrClient from '@/features/Mantenimiento/Gomeria/Ordenes/components/TireServiceQrClient';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
-import { getSessionUserId } from '@/shared/lib/session'; // P4: auth
+import { getSessionUserId } from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 /**
@@ -12,7 +12,7 @@ import { redirect } from 'next/navigation';
  * diagrama que mostrar, así que se vuelve al dashboard del equipo.
  */
 export async function TireServiceQrServer({ equipmentId }: { equipmentId: string }) {
-  const userId = await getSessionUserId(); // P4: auth
+  const userId = await getSessionUserId();
 
   if (!userId) {
     redirect('/maintenance');

@@ -3,7 +3,7 @@
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
-import { getCachedSession } from '@/shared/lib/session';
+import { getSessionUserId } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { z } from 'zod';
 
@@ -59,8 +59,7 @@ export async function getEquipmentTypesForVisibility() {
   // Las server actions son endpoints públicos: sin sesión no se devuelve nada. La empresa sale
   // de `getActiveCompanyId()` y no del claim crudo: una sesión que la resuelve por cookie veía
   // sólo los tipos globales.
-  const session = await getCachedSession();
-  if (!session?.user) throw new EquipmentTypeVisibilityError('Sesión no válida');
+  if (!(await getSessionUserId())) throw new EquipmentTypeVisibilityError('Sesión no válida');
   const companyId = await getActiveCompanyId();
 
   try {

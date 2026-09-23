@@ -3,7 +3,7 @@ import { NuevoPedidoChecklistForm } from '@/features/Mantenimiento/NuevoPedido/c
 import { getMaintenanceEmployeeForEquipment } from '@/features/Mantenimiento/shared/actions/employee-session.server';
 import { getEquipmentCompanyIdOrNull } from '@/features/Mantenimiento/shared/actions/equipment-company.server';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
-import { getSessionUserId } from '@/shared/lib/session'; // P4: auth
+import { getSessionUserId } from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 /**
@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
  * activa en la sesión y la cookie puede apuntar a otra.
  */
 export async function MaintenanceRequestServer({ equipmentId }: { equipmentId: string }) {
-  const userId = await getSessionUserId(); // P4: auth
+  const userId = await getSessionUserId();
 
   if (!userId) {
     redirect('/maintenance');

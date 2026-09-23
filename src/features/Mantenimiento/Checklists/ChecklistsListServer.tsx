@@ -1,7 +1,7 @@
 import { fetchChecklistTemplatesForEquipment } from '@/features/Checklists/actions/checklist-queries';
 import ChecklistsListClient from '@/features/Mantenimiento/Checklists/components/checklists-list-client';
 import { getMaintenanceEmployeeForEquipment } from '@/features/Mantenimiento/shared/actions/employee-session.server';
-import { getSessionEmployeeIdClaim, getSessionUserId } from '@/shared/lib/session'; // P4: auth
+import { getSessionEmployeeIdClaim, getSessionUserId } from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 /**
@@ -11,7 +11,7 @@ import { redirect } from 'next/navigation';
  * flujo corre sin empresa activa.
  */
 export async function ChecklistsListServer({ equipmentId }: { equipmentId: string }) {
-  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]); // P4: auth
+  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]);
 
   if (!employeeId && !userId) {
     redirect('/maintenance');

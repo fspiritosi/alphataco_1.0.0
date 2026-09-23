@@ -9,7 +9,7 @@ import { getCurrentProfile } from '@/features/Formularios/actions/form-actions';
 import { getMaintenanceEmployeeForEquipment } from '@/features/Mantenimiento/shared/actions/employee-session.server';
 import { MaintenanceHeader } from '@/features/Mantenimiento/shared/components/maintenance-header';
 import { mapEquipmentToChecklistFormat } from '@/lib/utils';
-import { getSessionEmployeeIdClaim, getSessionUserId } from '@/shared/lib/session'; // P4: auth
+import { getSessionEmployeeIdClaim, getSessionUserId } from '@/shared/lib/session';
 import { redirect } from 'next/navigation';
 
 interface ChecklistFormServerProps {
@@ -26,7 +26,7 @@ interface ChecklistFormServerProps {
  * `getActiveCompanyId()` no se usa: en este flujo no hay empresa activa.
  */
 export async function ChecklistFormServer({ equipmentId, checklistId }: ChecklistFormServerProps) {
-  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]); // P4: auth
+  const [userId, employeeId] = await Promise.all([getSessionUserId(), getSessionEmployeeIdClaim()]);
 
   if (!employeeId && !userId) {
     redirect('/maintenance');

@@ -3,7 +3,7 @@
 import { generateClientCredentials, hashSecret } from '@/features/ExternalApi/lib/hash';
 import { Logger } from '@/lib/logger';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
-import { getCachedSession } from '@/shared/lib/session';
+import { getSessionUserId } from '@/shared/lib/session';
 import { prisma } from '@/shared/lib/prisma';
 import { createExternalApiClientSchema, type CreateExternalApiClientValues } from './schemas';
 
@@ -34,8 +34,7 @@ const CLIENT_SELECT = {
 } as const;
 
 async function getCurrentProfileId(): Promise<string | null> {
-  const session = await getCachedSession();
-  return session?.user?.id ?? null;
+  return getSessionUserId();
 }
 
 export async function getExternalApiClients() {

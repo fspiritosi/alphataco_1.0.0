@@ -26,7 +26,7 @@ vi.mock('@/shared/lib/session', () => ({
   getSessionUserId: vi.fn(async () => sessionCredentialId),
   getSessionUser: vi.fn(async () => ({ id: sessionCredentialId, email: 'test@test.com' })),
   getSessionCompanyClaim: vi.fn(async () => null),
-  getCachedSession: vi.fn(async () => null),
+  getSessionToken: vi.fn(async () => null),
 }));
 
 class Rollback extends Error {}
