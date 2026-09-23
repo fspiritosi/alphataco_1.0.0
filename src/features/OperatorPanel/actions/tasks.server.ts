@@ -34,9 +34,16 @@ export async function getRepairTypesForSector(sectorId: string) {
   const rows = await prisma.sector_repair_types.findMany({
     where: {
       workshop_sector_id: sectorId,
-      types_of_repairs: { company_id: operator.companyId, id: { not: DIAGNOSTICO_REPAIR_TYPE_ID } },
+      types_of_repairs: {
+        company_id: operator.companyId,
+        // Mismos filtros y mismo orden que `getAllRepairTypes`: un tipo dado de baja seguía
+        // apareciendo en el combo del sector.
+        is_active: true,
+        id: { not: DIAGNOSTICO_REPAIR_TYPE_ID },
+      },
     },
     select: { types_of_repairs: { select: REPAIR_TYPE_SELECT } },
+    orderBy: { types_of_repairs: { name: 'asc' } },
   });
 
   return rows.map((row) => row.types_of_repairs);
