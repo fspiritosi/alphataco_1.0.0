@@ -18,23 +18,18 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-interface PasswordChangeAlertProps {
-  /** `user_metadata` del usuario de sesión (P4: auth); sólo se lee `needs_password_change`. */
-  userMetadata: { needs_password_change?: boolean } | null | undefined;
-}
-
-export function PasswordChangeAlert({ userMetadata }: PasswordChangeAlertProps) {
+/**
+ * Cartel de cambio de contraseña obligatorio. Quién lo ve lo decide el servidor
+ * (`PasswordChangeAlertWrapper`), que lee `needsPasswordChange` de la sesión: acá ya no llega
+ * metadata del usuario que el cliente pudiera manipular.
+ */
+export function PasswordChangeAlert() {
   const [open, setOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
-  // Si el usuario no necesita cambiar contraseña, no mostrar nada
-  if (!userMetadata?.needs_password_change) {
-    return null;
-  }
 
   const handleChangePassword = async () => {
     // Validaciones

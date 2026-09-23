@@ -2,8 +2,10 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import GoogleButton from '@/features/Auth/components/GoogleButton';
 import { LoginButton } from '@/features/Auth/components/LoginButton';
 import RenderBanner from '@/features/Auth/components/RenderBanner';
+import { isGoogleLoginEnabled } from '@/shared/lib/auth';
 import Image from 'next/image';
 import Link from 'next/link';
 export default async function Login() {
@@ -60,15 +62,14 @@ export default async function Login() {
                 </div>
                 <div className="flex w-full justify-center flex-col items-center gap-2">
                   <LoginButton />
-                  {/* <Link href="/register" className="text-md">
-                    ¿No tienes una cuenta? <span className="text-gh_orange ml-1 ">Créate una aquí</span>
-                  </Link> */}
                 </div>
                 <Separator orientation="horizontal" className="my-2 w-[70%] self-center" />
                 <Link href="/reset_password" className="text-md m-auto">
                   ¿Olvidaste tu contraseña? <span className="text-gh_orange ml-1 ">restablecela aquí </span>
                 </Link>
-                {/* <GoogleButton /> */}
+                {/* Sin GOOGLE_CLIENT_ID/SECRET el proveedor no está configurado y el botón no
+                    tendría a dónde redirigir: por eso se muestra sólo si está habilitado. */}
+                {isGoogleLoginEnabled && <GoogleButton />}
               </form>
             </CardContent>
           </div>

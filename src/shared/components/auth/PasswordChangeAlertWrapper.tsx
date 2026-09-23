@@ -1,13 +1,10 @@
-import { getCachedSession } from '@/shared/lib/session';
+import { getSessionNeedsPasswordChange } from '@/shared/lib/session';
 import { PasswordChangeAlert } from './PasswordChangeAlert';
 
 export async function PasswordChangeAlertWrapper() {
-  const session = await getCachedSession();
-  const user = session?.user;
+  // `needsPasswordChange` es un campo propio del usuario de Better Auth, `input: false`: lo
+  // pone el alta con contraseña temporal y lo baja `changePassword()`. El cliente no lo escribe.
+  if (!(await getSessionNeedsPasswordChange())) return null;
 
-  if (!user) {
-    return null;
-  }
-
-  return <PasswordChangeAlert userMetadata={user.user_metadata} />;
+  return <PasswordChangeAlert />;
 }

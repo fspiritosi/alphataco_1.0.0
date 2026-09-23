@@ -5,14 +5,12 @@ import { googleLogin } from '@/features/Auth/actions/login-actions';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 
+/**
+ * Login con Google. El servidor arma la URL del proveedor y redirige; el `callbackURL` es una
+ * ruta relativa de la app, no la manda el navegador.
+ */
 function GoogleButton() {
   const { pending } = useFormStatus();
-
-  let url = '';
-
-  if (typeof window !== 'undefined') {
-    url = window.location.origin;
-  }
 
   return (
     <Button
@@ -21,9 +19,9 @@ function GoogleButton() {
       className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg mb-7"
       disabled={pending}
       formAction={async () => {
-        const error = await googleLogin(url);
-        if (error) {
-          toast.error('Error al iniciar sesión. Por favor, intenta de nuevo.');
+        const result = await googleLogin('/dashboard');
+        if (result?.error) {
+          toast.error(result.error);
         }
       }}
     >

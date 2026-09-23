@@ -1,40 +1,35 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server'; // P4: auth
+import { setCredentialPassword } from '@/shared/lib/auth-credentials';
+import { getSessionToken, getSessionUserId } from '@/shared/lib/session';
 
 /**
- * Cambio de contraseña del usuario de sesión (cartel "tenés que cambiar la contraseña").
- * Sólo `auth.*`: sin acceso a datos. P4 lo reemplaza.
+ * Cambio de contraseña del usuario de sesión (cartel "tenés que cambiar la contraseña", que
+ * aparece cuando el alta se hizo con una contraseña temporal).
+ *
+ * El perímetro es la propia sesión: se escribe sobre el usuario de `getSessionUserId()` y
+ * nunca sobre un id que venga del cliente. `setCredentialPassword()` usa el mismo hasher que
+ * Better Auth y, de paso, cierra las demás sesiones abiertas del usuario.
+ *
+ * No se usa `auth.api.changePassword()` porque exige la contraseña actual y este cartel
+ * históricamente sólo pide la nueva; cambiar eso sería cambiar el flujo de la UI.
  */
 const logger = new Logger('features/Auth/change-password');
 
 export async function changePassword(newPassword: string) {
-  const supabase = await supabaseServer(); // P4: auth
+  if (!newPassword || newPassword.length < 8) {
+    return { success: false, error: 'La contraseña debe tener al menos 8 caracteres' };
+  }
+
+  const [userId, sessionToken] = await Promise.all([getSessionUserId(), getSessionToken()]);
+  if (!userId) return { success: false, error: 'Sesión requerida' };
 
   try {
-    const { error } = await supabase.auth.updateUser({ password: newPassword }); // P4: auth
-
-    if (error) {
-      logger.error('Error al cambiar la contraseña', { data: { error } });
-      return { success: false, error: error.message };
-    }
-
-    // La metadata deja de pedir el cambio de contraseña en el próximo login.
-    const { error: metadataError } = await supabase.auth.updateUser({ // P4: auth
-      data: { needs_password_change: false },
-    });
-
-    if (metadataError) {
-      logger.error('Error actualizando la metadata del usuario', { data: { metadataError } });
-    }
-
+    await setCredentialPassword(userId, newPassword, sessionToken ?? undefined);
     return { success: true, message: 'Contraseña actualizada exitosamente' };
   } catch (error) {
-    logger.error('Error inesperado al cambiar la contraseña', { data: { error } });
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error al cambiar la contraseña',
-    };
+    logger.error('Error al cambiar la contraseña', { data: { error } });
+    return { success: false, error: 'Error al cambiar la contraseña' };
   }
 }
