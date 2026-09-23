@@ -3,12 +3,16 @@
 import { ServiceOrderWizard } from '@/features/Mantenimiento/Gomeria/Ordenes/components/ServiceOrderWizard';
 import { useRouter } from 'next/navigation';
 
-interface TireServiceClientProps {
+interface TireServiceQrClientProps {
   vehicleId: string;
   companyId: string;
 }
 
-export default function TireServiceClient({ vehicleId, companyId }: TireServiceClientProps) {
+/**
+ * Operación de gomería desde el QR del equipo: el vehículo ya viene fijado por la ruta,
+ * así que el asistente salta el paso de búsqueda.
+ */
+export default function TireServiceQrClient({ vehicleId, companyId }: TireServiceQrClientProps) {
   const router = useRouter();
 
   const handleClose = () => {

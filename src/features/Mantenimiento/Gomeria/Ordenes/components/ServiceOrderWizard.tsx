@@ -98,11 +98,11 @@ export function ServiceOrderWizard({
   const createMutation = useMutation({
     mutationFn: () => {
       if (!activeVehicleId) throw new Error('No se ha seleccionado un vehículo');
+      // La empresa de la orden la deriva el servidor del vehículo, no viaja desde acá.
       return createServiceOrder({
         vehicle_id: activeVehicleId,
         trailer_vehicle_id: hasTrailer ? selectedTrailer?.id ?? null : null,
         kilometer: kilometer || null,
-        company_id: companyId,
       });
     },
     onSuccess: (order) => {
@@ -193,7 +193,6 @@ export function ServiceOrderWizard({
               {hasTrailer && activeVehicleId && (
                 <TrailerSearchSection
                   tractorId={activeVehicleId}
-                  companyId={companyId}
                   selectedTrailer={selectedTrailer}
                   onSelect={handleTrailerSelect}
                 />
@@ -371,17 +370,16 @@ function VehicleSearchSection({ companyId, selectedVehicle, onSelect }: VehicleS
 
 interface TrailerSearchSectionProps {
   tractorId: string;
-  companyId: string;
   selectedTrailer: VehicleSearchResult | null;
   onSelect: (vehicle: VehicleSearchResult) => void;
 }
 
-function TrailerSearchSection({ tractorId, companyId, selectedTrailer, onSelect }: TrailerSearchSectionProps) {
+function TrailerSearchSection({ tractorId, selectedTrailer, onSelect }: TrailerSearchSectionProps) {
   const [query, setQuery] = useState('');
 
   const { data: results = [], isFetching } = useQuery({
-    queryKey: ['compatible-hitch-search', tractorId, companyId, query],
-    queryFn: () => searchCompatibleHitchVehicles(tractorId, query, companyId),
+    queryKey: ['compatible-hitch-search', tractorId, query],
+    queryFn: () => searchCompatibleHitchVehicles(tractorId, query),
     enabled: query.trim().length >= 1,
     staleTime: 10 * 1000,
   });

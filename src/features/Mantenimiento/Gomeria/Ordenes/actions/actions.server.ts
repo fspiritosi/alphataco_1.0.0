@@ -1,6 +1,7 @@
 'use server';
 
 import { checkVehicleTireReadiness } from '@/features/Mantenimiento/Gomeria/shared/check-vehicle-tire-readiness';
+import { getResourceCompanyId } from '@/features/Mantenimiento/shared/resource-company';
 import { resolveVehicleTireTemplateId } from '@/features/Mantenimiento/Gomeria/shared/resolve-template';
 import type { DiagramAxle } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
 import { calculatePositions } from '@/features/Mantenimiento/Gomeria/shared/tire-diagram-utils';
@@ -348,16 +349,24 @@ export async function getServiceOrderById(id: string) {
 // CREATE SERVICE ORDER
 // ============================================================================
 
+/**
+ * Abre una orden de gomería para un vehículo.
+ *
+ * La empresa la deriva el SERVIDOR del vehículo (`getResourceCompanyId`) y no llega más
+ * como parámetro: este flujo también corre desde el QR anónimo, donde no hay empresa
+ * activa, y un `company_id` de parámetro permitía abrir órdenes en cualquier empresa.
+ */
 export async function createServiceOrder(data: {
   vehicle_id: string;
   trailer_vehicle_id?: string | null;
   kilometer?: string | null;
-  company_id: string;
 }) {
   const profile = await requireServerAuthProfile();
   logger.debug('Creating service order', { data: { vehicle_id: data.vehicle_id } });
 
   try {
+    const companyId = await getResourceCompanyId(prisma, 'vehicle', data.vehicle_id);
+
     // Validar readiness del vehículo
     const vehicleData = await prisma.vehicles.findUnique({
       where: { id: data.vehicle_id },
@@ -432,7 +441,7 @@ export async function createServiceOrder(data: {
         kilometer: data.kilometer ?? null,
         service_date: new Date(),
         created_by: profile.id,
-        company_id: data.company_id,
+        company_id: companyId,
         axle_snapshot: Array.from(axleMap.values()),
         positions_snapshot: positionsSnapshot,
       },
@@ -1079,23 +1088,28 @@ export async function getVehicleTypeInfo(vehicleId: string) {
  * Search compatible hitch vehicles for a given tractor unit.
  * Uses type_hitch_types junction table to filter by compatible types.
  */
-export async function searchCompatibleHitchVehicles(tractorId: string, domain: string, companyId: string) {
-  logger.debug('Searching compatible hitch vehicles', { data: { tractorId, domain, companyId } });
+export async function searchCompatibleHitchVehicles(tractorId: string, domain: string) {
+  logger.debug('Searching compatible hitch vehicles', { data: { tractorId, domain } });
 
   try {
-    // 1. Get the tractor's type
+    // 1. Get the tractor's type — la empresa sale del propio tractor, no del cliente:
+    //    este buscador también corre desde el QR anónimo, sin empresa activa.
     const tractor = await prisma.vehicles.findUnique({
       where: { id: tractorId },
       select: {
+        company_id: true,
         type_vehicles_typeTotype: {
           select: { id: true, is_tractor_unit: true, has_hitch: true },
         },
       },
     });
 
-    if (!tractor?.type_vehicles_typeTotype?.is_tractor_unit || !tractor.type_vehicles_typeTotype.has_hitch) {
+    if (!tractor?.company_id) return [];
+    if (!tractor.type_vehicles_typeTotype?.is_tractor_unit || !tractor.type_vehicles_typeTotype.has_hitch) {
       return [];
     }
+
+    const companyId = tractor.company_id;
 
     // 2. Get compatible type IDs from type_hitch_types
     const hitchTypes = await prisma.type_hitch_types.findMany({
