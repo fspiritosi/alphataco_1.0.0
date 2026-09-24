@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { prisma } from '@/shared/lib/prisma';
-import { getSessionUserId } from '@/shared/lib/session';
+import { getSessionUserId, isSessionAnonymous } from '@/shared/lib/session';
 import { cache } from 'react';
 
 /**
@@ -41,6 +41,13 @@ export interface ClothingOperator {
 export const getClothingOperator = cache(async (): Promise<ClothingOperator | null> => {
   const credentialId = await getSessionUserId();
   if (!credentialId) return null;
+
+  // La sesión ANÓNIMA del QR de mantenimiento también tiene un profile con `employee_id`
+  // (ver `completeMaintenanceEmployeeAnonymousSession`), pero no es un usuario: a este panel
+  // se entra con email y contraseña. Sin este corte, escanear un QR y tipear un CUIL abriría
+  // el panel de otra persona.
+  if (await isSessionAnonymous()) return null;
+
 
   const profile = await prisma.profile.findUnique({
     where: { credential_id: credentialId },

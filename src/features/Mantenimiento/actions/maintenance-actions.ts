@@ -5,7 +5,7 @@ import { auth } from '@/shared/lib/auth';
 import { prisma } from '@/shared/lib/prisma';
 import { withCompany } from '@/shared/lib/prisma-tenant';
 import { getSessionToken, getSessionUser, isSessionAnonymous } from '@/shared/lib/session';
-import { writeMaintenanceClaims } from '@/shared/lib/session-claims';
+import { canUserUseCompany, writeCompanyClaim, writeMaintenanceClaims } from '@/shared/lib/session-claims';
 import {
   clearActiveCompanyCookie,
   getActiveCompanyId,
@@ -84,12 +84,19 @@ export async function searchEquipmentByDomain(domainOrSerie: string): Promise<
  * `js-cookie`, que es el mismo valor pero fuera del único punto de escritura server-side
  * (y sin los flags `secure`/`sameSite` que el helper aplica).
  *
- * OJO: este es el llamador de `setActiveCompanyCookie()` que NO puede validar la pertenencia
- * —el invitado del QR entra a la empresa del equipo que escaneó, y todavía no sabemos si es
- * miembro—. La cookie que escribe es una PROPUESTA: `getActiveCompanyId()` la vuelve a
- * validar con `canUseAsActiveCompany()` antes de entregarla, así que por sí sola no da
- * acceso a nada. Lo único que se exige acá es que haya sesión (el login de invitado ya
- * corrió) para no dejar un endpoint que escribe cookies a cualquiera.
+ * Escribe las dos caras, con reglas distintas:
+ *
+ * - La COOKIE, siempre. Es una PROPUESTA: `getActiveCompanyId()` la revalida con
+ *   `canUseAsActiveCompany()` antes de entregarla, así que por sí sola no da acceso a nada.
+ * - El CLAIM, sólo si el invitado tiene un vínculo real con la empresa del equipo
+ *   (`canUserUseCompany()`). Hace falta porque el claim le GANA a la cookie: el hook de alta de
+ *   sesión ya estampó la empresa por defecto del invitado, así que sin esto la cookie del
+ *   equipo escaneado no se usaba nunca. Y hace falta validarlo porque el claim no se revalida
+ *   al leerlo: escribir ahí la empresa de un vehículo elegido en un buscador público sería
+ *   exactamente el agujero que la invariante impide.
+ *
+ * Lo único que se exige siempre es que haya sesión (el login de invitado ya corrió) para no
+ * dejar un endpoint que escribe cookies a cualquiera.
  */
 export async function setActiveCompanyForEquipment(equipmentId: string): Promise<Ok<{ companyId: string }> | Err> {
   if (!equipmentId) return { ok: false, error: 'No se ha seleccionado un equipo.' };
@@ -110,6 +117,18 @@ export async function setActiveCompanyForEquipment(equipmentId: string): Promise
     await setActiveCompanyCookie(vehicle.company_id);
   } catch (error) {
     deviationsLogger.warn('No se pudo fijar la empresa activa del equipo escaneado', { data: { error } });
+  }
+
+  // El claim sólo si la pertenencia es real; si no, queda la del hook de alta de sesión.
+  if (await canUserUseCompany(user.id, vehicle.company_id)) {
+    const sessionToken = await getSessionToken();
+    if (sessionToken) {
+      try {
+        await writeCompanyClaim(sessionToken, vehicle.company_id);
+      } catch (error) {
+        deviationsLogger.warn('No se pudo fijar el claim de empresa del equipo escaneado', { data: { error } });
+      }
+    }
   }
 
   return { ok: true, companyId: vehicle.company_id };
@@ -193,20 +212,17 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
     return { ok: false, error: 'El empleado no se encuentra activo.' };
   }
 
-  // 2) Empresa: la del empleado (prioridad) o la del equipo (fallback)
-  let companyId: string | null = employee.company_id ?? null;
-
+  // 2) Empresa: SIEMPRE la del legajo.
+  //
+  //    Antes había un fallback a la empresa del VEHÍCULO cuando el empleado no tenía empresa
+  //    asignada, y eso rompía la invariante: el claim de empresa es de confianza porque el
+  //    servidor lo escribe después de validar la pertenencia, y la empresa de un vehículo
+  //    elegido en un buscador público (`searchEquipmentByDomain`) no es una pertenencia de
+  //    nadie. Quien conociera el CUIL de un empleado sin empresa podía estamparse como claim
+  //    la empresa de cualquier equipo del sistema. Un legajo sin empresa no entra por el QR.
+  const companyId = employee.company_id;
   if (!companyId) {
-    const vehicle = await prisma.vehicles.findUnique({
-      where: { id: equipmentId },
-      select: { company_id: true },
-    });
-
-    if (!vehicle?.company_id) {
-      return { ok: false, error: 'El empleado no tiene empresa asignada y el equipo no tiene empresa asignada.' };
-    }
-
-    companyId = vehicle.company_id;
+    return { ok: false, error: 'El empleado no tiene empresa asignada. Contacta al administrador.' };
   }
 
   const employeeId = employee.id;
@@ -214,6 +230,16 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   const employeeName = `${employee.firstname ?? ''} ${employee.lastname ?? ''}`.trim();
 
   // 3) Asegurar el profile (hay FKs que apuntan a profile.id).
+  //
+  //    `employee_id` se escribe a propósito: es lo que hace que el claim de empresa que se
+  //    escribe abajo satisfaga `canUseCompanyAsTenant()` por la rama de empleado. Sin eso, el
+  //    claim del QR era el ÚNICO del sistema que no habría pasado la regla de pertenencia con
+  //    la que se valida la cookie — la invariante valdría para todos los flujos menos justo el
+  //    que la motivó. Ojo: estos profiles son de una sesión ANÓNIMA y se crea uno por login,
+  //    así que las lecturas inversas por `employee_id` tienen que descartarlos
+  //    (`shared/lib/employee-profile.ts`), y los paneles de indumentaria y taller exigen que la
+  //    sesión NO sea anónima (`Clothing/actions/perimeter.ts`, `OperatorPanel/actions/perimeter.ts`).
+  //
   //    El email es UNIQUE: si ya pertenece a OTRO profile se omite acá, para no romper el alta
   //    por un choque de unicidad.
   //    `role` es FK a `roles.name` y va en 'User', que es el default de la columna y el rol sin
@@ -234,8 +260,15 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   try {
     await prisma.profile.upsert({
       where: { id: user.id },
-      update: { credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'User' },
-      create: { id: user.id, credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'User' },
+      update: { credential_id: user.id, email: emailForProfile, fullname: employeeName, role: 'User', employee_id: employeeId },
+      create: {
+        id: user.id,
+        credential_id: user.id,
+        email: emailForProfile,
+        fullname: employeeName,
+        role: 'User',
+        employee_id: employeeId,
+      },
     });
   } catch (error) {
     deviationsLogger.error('No se pudo crear o actualizar el perfil del operario', { data: { error } });

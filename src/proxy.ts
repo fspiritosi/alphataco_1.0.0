@@ -45,7 +45,16 @@ export async function proxy(req: NextRequest) {
     const resolved = await resolveDefaultCompanyId(session.user.id);
 
     if (resolved) {
-      await writeCompanyClaim(session.session.token, resolved);
+      try {
+        await writeCompanyClaim(session.session.token, resolved);
+      } catch {
+        // La sesión desapareció entre el `getSession()` de arriba y esta escritura: logout en
+        // otra pestaña, un ban que borra sesiones, un cambio de contraseña que cierra las
+        // demás. `writeCompanyClaim` lanza a propósito (no queremos éxitos silenciosos), pero
+        // acá eso sería un 500 en todo /dashboard/* en vez de mandar a iniciar sesión.
+        logger.debug('La sesión desapareció mientras se estampaba el claim, redirigiendo a login');
+        return NextResponse.redirect(new URL('/login', req.url));
+      }
     } else if (!req.nextUrl.pathname.startsWith('/dashboard/company/new')) {
       logger.debug('Usuario sin compañía, redirigiendo a crear compañía');
       return NextResponse.redirect(new URL('/dashboard/company/new', req.url));

@@ -1,3 +1,4 @@
+import { ensureCity } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -35,7 +36,7 @@ describe.skipIf(!RUN)('claims de sesión: la invariante del perímetro (integrac
   let foreignCompanyId: string;
 
   async function createCompany(suffix: string): Promise<string> {
-    const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
+    const city = await ensureCity(prisma);
     const company = await prisma.company.create({
       data: {
         company_name: `Claims ${suffix}`,

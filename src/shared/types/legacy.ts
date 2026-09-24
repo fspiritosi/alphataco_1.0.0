@@ -1,26 +1,6 @@
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
 
-export type LoggedUser = {
-  session: null | string;
-  user: {
-    app_metadata: {
-      provider: string;
-      providers: string[];
-    };
-    aud: string;
-    confirmation_sent_at: string;
-    created_at: string;
-    email: string;
-    id: string;
-    identities: unknown[];
-    phone: string;
-    role: string;
-    updated_at: string;
-    user_metadata: Record<string, unknown>;
-  } | null;
-};
-
 export type DocumentInsert = {
   date: string;
   allocated_to: string;

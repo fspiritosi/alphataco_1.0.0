@@ -4,6 +4,8 @@ import { Logger } from '@/lib/logger';
 import { auth } from '@/shared/lib/auth';
 import { normalizeEmail, rejectLogin } from '@/shared/lib/auth-credentials';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionToken } from '@/shared/lib/session';
+import { writeCompanyClaim } from '@/shared/lib/session-claims';
 import { clearActiveCompanyCookie, setActiveCompanyCookie } from '@/shared/lib/tenant';
 import { APIError } from 'better-auth/api';
 import { revalidatePath } from 'next/cache';
@@ -62,6 +64,15 @@ export async function clothingLogin(email: string, password: string) {
   }
 
   if (employee.company_id) {
+    // La empresa activa tiene que ser la DEL LEGAJO, y para eso hay que escribir el claim: el
+    // hook de alta de sesión ya estampó uno resolviendo owner → membresía → legajo, así que un
+    // operario que además es miembro de otra empresa abría el panel en la equivocada. El claim
+    // le gana a la cookie en `getActiveCompanyId()`, así que escribir sólo la cookie no
+    // alcanzaba. La pertenencia está validada: la empresa sale del legajo vinculado al profile
+    // de la sesión, que es la rama de empleado de `canUseCompanyAsTenant()`.
+    const sessionToken = await getSessionToken();
+    if (sessionToken) await writeCompanyClaim(sessionToken, employee.company_id);
+
     // El panel de ropa es un puesto fijo: la cookie dura un año como antes, no la hora
     // por defecto del helper (si expirara, los listados del panel se quedarían sin empresa).
     await setActiveCompanyCookie(employee.company_id, 60 * 60 * 24 * 365);

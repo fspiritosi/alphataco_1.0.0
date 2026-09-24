@@ -181,6 +181,18 @@ La autenticación corre dentro de la app (P4): no hay servicio externo. Las tabl
 
 No hay registro abierto: los usuarios se dan de alta por invitación desde Empresa → Usuarios.
 
+**Tope de intentos**: el login y la recuperación de contraseña tienen un freno de fuerza bruta
+por email y por IP (`src/shared/lib/login-rate-limit.ts`). Vive en un hook del pipeline de
+endpoints y no en el router, porque los cinco logins entran por `auth.api.*` desde Server
+Actions y ahí el limitador propio de Better Auth no llega. El almacén es **en memoria del
+proceso**: frena el ataque real en un despliegue de un solo contenedor, pero se reinicia con
+cada deploy y no se comparte entre instancias. Si la app pasa a correr replicada, hay que
+moverlo a la base.
+
+**`jose` es dependencia directa a propósito**: es `peerDependency` de `@better-auth/core` y npm
+no la sube al nivel raíz por su cuenta. No se usa en `src/`, pero sacarla rompe el build con
+`Cannot find package 'jose'`.
+
 Para probar los cinco flujos de auth contra el compose: `npm run test:auth` (integración) y el spec
 `cypress/e2e/auth/p4-auth-flows.cy.ts` con los datos de `node scripts/seed-auth-fixtures.ts`.
 

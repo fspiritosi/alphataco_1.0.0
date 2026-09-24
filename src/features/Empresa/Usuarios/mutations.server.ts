@@ -4,6 +4,7 @@ import { checkPermissionServer } from '@/features/Permissions/actions/permission
 import { Logger } from '@/lib/logger';
 import { COMPANY_USERS_INVALIDATION } from '@/shared/constants/cache-invalidation-map';
 import { withActor } from '@/shared/lib/actor';
+import { findUserProfileByEmployee } from '@/shared/lib/employee-profile';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
 import { callScalar } from '@/shared/lib/sql';
@@ -196,7 +197,10 @@ export async function linkEmployeeToProfile(profileId: string, employeeId: strin
     if (employeeId) {
       const [employee, alreadyLinked] = await Promise.all([
         prisma.employees.findFirst({ where: { id: employeeId, company_id: companyId }, select: { id: true } }),
-        prisma.profile.findFirst({ where: { employee_id: employeeId, NOT: { id: profileId } }, select: { id: true } }),
+        // "Ya vinculado a otro USUARIO": los profiles de las sesiones anónimas del QR también
+        // llevan `employee_id` y no cuentan (si contaran, un legajo que usó el QR no se podría
+        // vincular nunca a su usuario del dashboard).
+        findUserProfileByEmployee(employeeId, { excludeProfileId: profileId }),
       ]);
       if (!employee) throw new Error('El empleado no pertenece a la empresa activa');
       if (alreadyLinked) throw new Error('El empleado ya está vinculado a otro usuario');

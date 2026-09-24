@@ -280,7 +280,16 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
     // /dashboard/company/new.
     const sessionToken = await getSessionToken();
     if (sessionToken) {
-      await writeCompanyClaim(sessionToken, companyId);
+      try {
+        await writeCompanyClaim(sessionToken, companyId);
+      } catch (claimError) {
+        // La empresa YA está creada y commiteada: si la sesión se cerró mientras tanto, esto no
+        // puede volverse "no se pudo registrar la compañía". El próximo login se la asigna
+        // igual, porque `resolveDefaultCompanyId()` la encuentra por `owner_id`.
+        logger.warn('Empresa creada pero no se pudo fijarla como activa de la sesión', {
+          data: { companyId, claimError },
+        });
+      }
     }
 
     const logo = logoFile(formData);

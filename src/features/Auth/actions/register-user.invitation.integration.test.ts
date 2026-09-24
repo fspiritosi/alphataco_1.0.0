@@ -1,3 +1,4 @@
+import { ensureCity } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -54,7 +55,7 @@ describe.skipIf(!RUN)('registerUserWithRole: invitación a una empresa (integrac
     ({ auth } = await import('@/shared/lib/auth'));
     ({ registerUserWithRole } = await import('./register-user'));
 
-    const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
+    const city = await ensureCity(prisma);
     await prisma.company.create({
       data: {
         id: COMPANY,
@@ -187,8 +188,6 @@ describe.skipIf(!RUN)('registerUserWithRole: invitación a una empresa (integrac
   });
 
   it('un mail que ya es usuario de la empresa se rechaza sin tocar nada', async () => {
-    const before = await prisma.user.count();
-
     const result = await registerUserWithRole({
       email: invitedEmail,
       firstname: 'Ana',
@@ -197,7 +196,10 @@ describe.skipIf(!RUN)('registerUserWithRole: invitación a una empresa (integrac
     } as never);
 
     expect(result).toMatchObject({ success: false });
-    expect(await prisma.user.count()).toBe(before);
+    // Acotado a ESTE mail a propósito: un `count()` global de `auth_user` se vuelve flaky
+    // apenas otra suite de integración corre en paralelo contra la misma base.
+    expect(await prisma.user.count({ where: { email: invitedEmail.toLowerCase() } })).toBe(1);
+    expect(await prisma.share_company_users.count({ where: { company_id: COMPANY } })).toBe(2);
   });
 
   it('un rol inexistente se rechaza antes de escribir nada', async () => {
