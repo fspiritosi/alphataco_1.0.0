@@ -19,7 +19,7 @@ interface EditCompanySectionProps {
 /**
  * Edición de compañía.
  *
- * El `companyId` viene de la URL (`/dashboard/company/[id]`): sin RLS, la validación de perímetro
+ * El `companyId` viene de la URL (`/dashboard/configuration/companies/[id]`): sin RLS, la validación de perímetro
  * es responsabilidad de `getCompanyForEdit`, que exige pertenencia + owner o permiso
  * `empresa.general.update` — el mismo criterio que `updateCompany`. Si no hay acceso no se
  * renderiza el formulario (antes la página traía la empresa filtrando por `owner_id` y, cuando no

@@ -182,7 +182,7 @@ function UserRow({
         <p className="text-sm font-medium truncate">{user.userName}</p>
         <p className="text-xs text-muted-foreground truncate">{user.userEmail}</p>
       </div>
-      <Link href={`/dashboard/company/actualCompany/user/${user.userId}`} target="_blank">
+      <Link href={`/dashboard/configuration/user/${user.userId}`} target="_blank">
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
           <ExternalLink className="h-4 w-4" />
         </Button>

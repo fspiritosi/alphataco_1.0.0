@@ -41,7 +41,7 @@ describe('getUserPermissionsForUserServer / getUserRolesServer — perímetro', 
     await expect(getUserPermissionsForUserServer('u2')).resolves.toEqual([]);
     await expect(getUserRolesServer('u2')).resolves.toEqual([]);
 
-    expect(checkPermissionServerMock).toHaveBeenCalledWith('empresa', 'detalle-usuario', 'view');
+    expect(checkPermissionServerMock).toHaveBeenCalledWith('configuracion', 'detalle-usuario', 'view');
   });
 
   it('lanza sin permiso ni dato propio (fail-closed, sin datos)', async () => {
@@ -66,7 +66,7 @@ describe('getRolePermissionsServer — perímetro', () => {
 
     await expect(getRolePermissionsServer(1)).resolves.toEqual([]);
 
-    expect(checkPermissionServerMock).toHaveBeenCalledWith('empresa', 'gestion-roles', 'view');
+    expect(checkPermissionServerMock).toHaveBeenCalledWith('configuracion', 'gestion-roles', 'view');
   });
 
   it('lanza sin permiso gestion-roles:view (fail-closed, sin datos)', async () => {

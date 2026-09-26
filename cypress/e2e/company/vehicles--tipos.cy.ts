@@ -1,7 +1,7 @@
 /**
  * Test: Empresa - Vehicles - Tipos de Unidad
  * Tab: vehicles | Subtab: tipos
- * URL: /dashboard/company/actualCompany?tab=vehicles&subtab=tipos
+ * URL: /dashboard/configuration?tab=vehicles&subtab=tipos
  *
  * Estado: A IMPLEMENTAR
  */
@@ -11,7 +11,7 @@ describe('Company - Vehicles - Tipos', () => {
     const email = Cypress.env('TEST_EMAIL') || 'testing@e2e.com';
     const password = Cypress.env('TEST_PASSWORD') || 'Testing123!';
     cy.login(email, password);
-    cy.visit('/dashboard/company/actualCompany?tab=vehicles&subtab=tipos');
+    cy.visit('/dashboard/configuration?tab=vehicles&subtab=tipos');
   });
 
   it('should navigate to tipos tab', () => {

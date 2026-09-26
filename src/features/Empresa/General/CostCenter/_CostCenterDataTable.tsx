@@ -59,8 +59,8 @@ export default function _CostCenterDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'cost-center', 'create') ||
-    permissions.hasPermission('empresa', 'cost-center', 'update');
+    permissions.hasPermission('configuracion', 'cost-center', 'create') ||
+    permissions.hasPermission('configuracion', 'cost-center', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setCostCenter = useCostCenterStore((state) => state.setCostCenter);

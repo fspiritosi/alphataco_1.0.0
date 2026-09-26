@@ -495,7 +495,7 @@ export async function createEquipmentSubType(input: EquipmentSubTypeInput) {
       return subType;
     });
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return created;
   } catch (error) {
     logger.error('Error al crear subtipo de equipo', { data: { error } });
@@ -549,7 +549,7 @@ export async function updateEquipmentSubType(input: EquipmentSubTypeInput & { id
       return subType;
     });
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return updated;
   } catch (error) {
     logger.error('Error al actualizar subtipo de equipo', { data: { error } });

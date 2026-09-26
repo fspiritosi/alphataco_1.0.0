@@ -20,8 +20,8 @@ interface CompanyFormFieldsProps {
 }
 
 /**
- * Campos del formulario de empresa, compartidos por el alta (`/dashboard/company/new`) y la
- * edición (`/dashboard/company/[id]`). Sólo pinta los inputs con sus `name`: el submit lo hace
+ * Campos del formulario de empresa, compartidos por el alta (`/dashboard/configuration/companies/new`) y la
+ * edición (`/dashboard/configuration/companies/[id]`). Sólo pinta los inputs con sus `name`: el submit lo hace
  * el botón de cada pantalla (`CreateCompanyButton` / `EditCompanyButton`), que arma el `FormData`
  * y lo valida con `parseCompanyForm`.
  */

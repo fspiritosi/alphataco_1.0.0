@@ -1,7 +1,7 @@
 /**
  * Test: Empresa - General - Usuarios
  * Tab: general | Subtab: users
- * URL: /dashboard/company/actualCompany?tab=general&subtab=users
+ * URL: /dashboard/configuration?tab=general&subtab=users
  *
  * Estado: A IMPLEMENTAR
  */
@@ -11,7 +11,7 @@ describe('Company - General - Users', () => {
     const email = Cypress.env('TEST_EMAIL') || 'testing@e2e.com';
     const password = Cypress.env('TEST_PASSWORD') || 'Testing123!';
     cy.login(email, password);
-    cy.visit('/dashboard/company/actualCompany?tab=general&subtab=users');
+    cy.visit('/dashboard/configuration?tab=general&subtab=users');
   });
 
   it('should navigate to users tab', () => {

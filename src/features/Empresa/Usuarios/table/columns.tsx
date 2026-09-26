@@ -119,8 +119,8 @@ function RoleCell({ row }: { row: CompanyUserListItem }) {
 
 // ── Columnas de la tabla ──────────────────────────────────────────────────────
 export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<CompanyUserListItem>[] {
-  const canDelete = permissions.hasPermission('empresa', 'usuarios-empleados', 'delete');
-  const canUpdate = permissions.hasPermission('empresa', 'usuarios-empleados', 'update');
+  const canDelete = permissions.hasPermission('configuracion', 'usuarios-empleados', 'delete');
+  const canUpdate = permissions.hasPermission('configuracion', 'usuarios-empleados', 'update');
 
   return [
     // ── Nombre + Avatar ────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
         return (
           <div className="flex items-center gap-2">
             {avatarElement}
-            <Link href={`/dashboard/company/actualCompany/user/${id}`} className="hover:underline font-medium">
+            <Link href={`/dashboard/configuration/user/${id}`} className="hover:underline font-medium">
               {fullname}
             </Link>
           </div>

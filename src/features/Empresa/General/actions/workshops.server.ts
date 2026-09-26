@@ -31,7 +31,7 @@ async function activeCompanyOrNull(): Promise<string | null> {
 }
 
 async function assertPermission(tab: 'talleres' | 'sectores_taller', action: 'create' | 'update'): Promise<void> {
-  if (!(await checkPermissionServer('empresa', tab, action))) {
+  if (!(await checkPermissionServer('configuracion', tab, action))) {
     throw new Error('No tenés permiso para realizar esta acción');
   }
 }

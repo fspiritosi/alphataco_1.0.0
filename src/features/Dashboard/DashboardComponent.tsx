@@ -1,6 +1,6 @@
 import PrincipalSkeleton from '@/features/Dashboard/Principal/components/PrincipalSkeleton';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
+import { SectionManagerServer } from '@/features/TabsManager';
 import { BarChart3, FileText, Home } from 'lucide-react';
 import { Suspense } from 'react';
 import DocumentsTabContent from './Documentacion/DocumentsTabContent';
@@ -18,11 +18,10 @@ export default async function DashboardComponent({
   return (
     <div>
       {/* Main Tabs con TabsManagerServer */}
-      <TabsManagerServer
+      <SectionManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="principal"
-        dependentParams={['subtab']} // Limpia 'subtab' al cambiar de tab principal
         permissions={permissions} // ← Pasar permisos explícitamente como prop
         tabs={[
           {

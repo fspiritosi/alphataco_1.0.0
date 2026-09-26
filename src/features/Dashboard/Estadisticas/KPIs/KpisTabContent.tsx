@@ -28,7 +28,7 @@ export default async function KpisTabContent({
               Indicadores
             </span>
           ),
-          moduleSlug: 'dashboard',
+          moduleSlug: 'configuracion',
           tabSlug: 'indicadores',
           content: (
             <Suspense fallback={<KpisIndicadoresSkeleton />}>
@@ -44,7 +44,7 @@ export default async function KpisTabContent({
               Gráficos
             </span>
           ),
-          moduleSlug: 'dashboard',
+          moduleSlug: 'configuracion',
           tabSlug: 'graficos',
           content: (
             <Suspense fallback={<GraficosGridSkeleton />}>

@@ -58,8 +58,8 @@ export default function _PositionsDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'positions', 'create') ||
-    permissions.hasPermission('empresa', 'positions', 'update');
+    permissions.hasPermission('configuracion', 'positions', 'create') ||
+    permissions.hasPermission('configuracion', 'positions', 'update');
 
   // ── Estado de edición ─────────────────────────────────────────────────────
   const [selectedPosition, setSelectedPosition] = useState<PositionListItem | null>(null);

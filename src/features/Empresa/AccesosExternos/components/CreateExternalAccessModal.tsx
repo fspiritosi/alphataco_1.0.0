@@ -112,7 +112,7 @@ export function CreateExternalAccessModal() {
             <DialogDescription>
               {createdClient
                 ? `Entregale estos datos al responsable de ${createdClient.name}.`
-                : 'Generá un usuario y una clave para que un sistema externo pueda consultar información de Grupo Horizonte.'}
+                : 'Generá un usuario y una clave para que un sistema externo pueda consultar información de tu empresa.'}
             </DialogDescription>
           </DialogHeader>
 

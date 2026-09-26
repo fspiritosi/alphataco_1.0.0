@@ -18,7 +18,7 @@ import type { EmployeeFormData } from '../schemas/employee-schema';
  * serializables, y `tx` no lo es.
  *
  * La comparten dos flujos: el alta normal de empleado (`createEmployee`) y la conversion
- * de un pre legajo en legajo (`approvePreEmployee`, ticket 505). Asi ambos caminos crean
+ * de un candidato en legajo (`approvePreEmployee`, ticket 505). Asi ambos caminos crean
  * al empleado exactamente igual.
  */
 export async function createEmployeeCore(

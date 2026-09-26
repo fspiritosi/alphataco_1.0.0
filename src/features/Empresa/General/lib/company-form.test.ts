@@ -10,11 +10,11 @@ function formData(entries: Record<string, string | undefined>): FormData {
 }
 
 const VALID = {
-  company_name: '  Grupo Horizonte ',
+  company_name: '  Empresa Demo ',
   company_cuit: '30-71234567-1',
   description: 'Servicios petroleros',
-  website: 'www.gh.com',
-  contact_email: 'Contacto@GH.com',
+  website: 'www.demo.com',
+  contact_email: 'Contacto@Demo.com',
   contact_phone: '+54 (299) 123-4567',
   address: 'Ruta 22 km 1234',
   country: 'argentina',
@@ -52,11 +52,11 @@ describe('parseCompanyForm', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data).toEqual({
-      company_name: 'Grupo Horizonte',
+      company_name: 'Empresa Demo',
       company_cuit: '30712345671',
       description: 'Servicios petroleros',
-      website: 'www.gh.com',
-      contact_email: 'contacto@gh.com',
+      website: 'www.demo.com',
+      contact_email: 'contacto@demo.com',
       contact_phone: '+542991234567',
       address: 'Ruta 22 km 1234',
       country: 'argentina',

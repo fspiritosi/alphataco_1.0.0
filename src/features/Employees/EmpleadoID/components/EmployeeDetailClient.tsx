@@ -30,7 +30,7 @@ import { EmployeeWorkDataForm } from './forms/employee-work-data-form';
 const logger = new Logger('EmployeeDetailClient');
 
 // ─── Fields agrupados por tab (para derivar errores sin useEffect) ───────────
-// Personales y contacto se derivan de los schemas compartidos con el pre legajo:
+// Personales y contacto se derivan de los schemas compartidos con el candidato:
 // si se agrega un campo alla, el indicador de errores de la tab lo toma solo.
 const PERSONAL_DATA_FIELDS: (keyof EmployeeFormData)[] = PERSONAL_DATA_FIELD_NAMES;
 
@@ -328,7 +328,7 @@ export function EmployeeDetailClient({
   // ─── Bloque de tabs (común a ambos modos) ────────────────────────────────
   const tabsBlock = (
     <div className="px-6 pb-6">
-      <TabsManagerClientSide<'empresa' | 'empleados' | 'documentacion'>
+      <TabsManagerClientSide<'configuracion' | 'empleados' | 'documentacion'>
         paramName="tab"
         defaultTab="personalData"
         tabs={tabs}

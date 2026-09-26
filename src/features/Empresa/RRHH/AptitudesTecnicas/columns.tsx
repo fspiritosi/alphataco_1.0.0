@@ -30,7 +30,7 @@ export function getColumns(
   permissions: Permissions,
   onEdit: (item: AptitudTecnicaListItem) => void
 ): ColumnDef<AptitudTecnicaListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'aptitudes', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'aptitudes', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

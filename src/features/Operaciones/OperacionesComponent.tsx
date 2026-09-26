@@ -1,5 +1,5 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
+import { SectionManagerServer } from '@/features/TabsManager';
 import { ClipboardList, Package } from 'lucide-react';
 import { Suspense } from 'react';
 import PartesDiariosTabContent from './PartesDiarios/PartesDiariosTabContent';
@@ -17,7 +17,7 @@ export default async function OperacionesComponent({
 
   return (
     <div>
-      <TabsManagerServer
+      <SectionManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="preparte"

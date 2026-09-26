@@ -38,7 +38,7 @@ export interface CreateDocumentTypeInput {
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
-  /** Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo */
+  /** Ticket 505: habilita el tipo en el checklist de documentos de un candidato */
   available_for_pre_file?: boolean;
   description?: string;
   conditions?: Prisma.JsonValue[];
@@ -98,7 +98,7 @@ export interface UpdateDocumentTypeInput {
   is_it_montlhy?: boolean;
   private?: boolean;
   down_document?: boolean;
-  /** Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo */
+  /** Ticket 505: habilita el tipo en el checklist de documentos de un candidato */
   available_for_pre_file?: boolean;
   description?: string | null;
   conditions?: Prisma.JsonValue[];

@@ -1,9 +1,9 @@
 'use client';
 
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { CredentialsStep } from './components/CredentialsStep';
@@ -59,7 +59,7 @@ export function MaintenanceLoginCard() {
       <Card className="w-full max-w-md shadow-lg h-full">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Image src="/gh_logo.png" alt="Logo de Grupo Horizonte" width={240} height={60} className="h-15" />
+            <span className="text-brand text-3xl font-bold tracking-tight lowercase">{BRAND_NAME}</span>
           </div>
           <CardDescription className="text-center text-gray-600">
             Sistema de Checklist y Mantenimiento de Equipos

@@ -59,8 +59,8 @@ export default function _EquipmentBrandDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'marcas', 'create') ||
-    permissions.hasPermission('empresa', 'marcas', 'update');
+    permissions.hasPermission('configuracion', 'marcas', 'create') ||
+    permissions.hasPermission('configuracion', 'marcas', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setEquipmentBrand = useEquipmentBrandStore((state) => state.setEquipmentBrand);

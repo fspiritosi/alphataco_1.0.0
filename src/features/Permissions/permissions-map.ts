@@ -101,29 +101,6 @@ export const PERMISSIONS = {
             parent: 'estadisticas',
             allowedActions: ['view'],
           },
-          kpis: {
-            slug: 'kpis',
-            name: 'KPIs',
-            tabId: '10000000-0000-0000-0000-000000000004',
-            parent: 'estadisticas',
-            allowedActions: ['view', 'create', 'update'],
-            subtabs: {
-              indicadores: {
-                slug: 'indicadores',
-                name: 'Indicadores',
-                tabId: '10000000-0000-0000-0000-000000000041',
-                parent: 'kpis',
-                allowedActions: ['view', 'create', 'update'],
-              },
-              graficos: {
-                slug: 'graficos',
-                name: 'Gráficos',
-                tabId: '10000000-0000-0000-0000-000000000042',
-                parent: 'kpis',
-                allowedActions: ['view'],
-              },
-            },
-          },
           mantenimiento: {
             slug: 'mantenimiento',
             name: 'Mantenimiento',
@@ -146,9 +123,13 @@ export const PERMISSIONS = {
   // ============================================
   // 2. EMPRESA
   // ============================================
-  empresa: {
-    slug: 'empresa',
-    name: 'Empresa',
+  // El modulo se llamaba "Empresa". Paso a "Configuracion" porque es lo que realmente contiene:
+  // los catalogos que configuran el sistema (tipos de documento, puestos, diagramas, aptitudes,
+  // tipos de equipo, marcas, modelos...). El `moduleId` NO cambia: `role_permissions` y
+  // `user_permissions` apuntan por UUID, asi que ningun permiso asignado se pierde con el rename.
+  configuracion: {
+    slug: 'configuracion',
+    name: 'Configuración',
     moduleId: 'e0478383-1287-4b5e-a727-985baf867173',
     tabs: {
       general: {
@@ -216,35 +197,38 @@ export const PERMISSIONS = {
               },
             },
           },
+          // Venia de Dashboard > Estadisticas. Definir los KPIs es configurar que se mide;
+          // el Dashboard los MUESTRA, que es otra cosa. El `tabId` ya tenia el prefijo del
+          // modulo Configuracion (10000000-...), senal de que nacio aca.
+          kpis: {
+            slug: 'kpis',
+            name: 'KPIs',
+            tabId: '10000000-0000-0000-0000-000000000004',
+            parent: 'general',
+            allowedActions: ['view', 'create', 'update'],
+            subtabs: {
+              indicadores: {
+                slug: 'indicadores',
+                name: 'Indicadores',
+                tabId: '10000000-0000-0000-0000-000000000041',
+                parent: 'kpis',
+                allowedActions: ['view', 'create', 'update'],
+              },
+              graficos: {
+                slug: 'graficos',
+                name: 'Gráficos',
+                tabId: '10000000-0000-0000-0000-000000000042',
+                parent: 'kpis',
+                allowedActions: ['view'],
+              },
+            },
+          },
           documentacion: {
             slug: 'documentacion',
             name: 'Documentación',
             tabId: '10000000-0000-0000-0000-000000000015',
             parent: 'general',
             allowedActions: ['view', 'create'],
-          },
-          'empresa-mantenimiento': {
-            slug: 'empresa_mantenimiento',
-            name: 'Mantenimiento',
-            tabId: '10000000-0000-0000-0000-000000000016',
-            parent: 'general',
-            allowedActions: ['view'],
-            subtabs: {
-              talleres: {
-                slug: 'talleres',
-                name: 'Talleres',
-                tabId: '10000000-0000-0000-0000-000000000161',
-                parent: 'empresa-mantenimiento',
-                allowedActions: ['view', 'create', 'update', 'delete'],
-              },
-              'sectores-taller': {
-                slug: 'sectores_taller',
-                name: 'Sectores',
-                tabId: '10000000-0000-0000-0000-000000000162',
-                parent: 'empresa-mantenimiento',
-                allowedActions: ['view', 'create', 'update', 'delete'],
-              },
-            },
           },
         },
       },
@@ -380,6 +364,83 @@ export const PERMISSIONS = {
           },
         },
       },
+      // Era subtab de `general`. Sube a primer nivel: configura talleres y sectores, que no
+      // tienen nada que ver con los datos generales de la empresa. El `tabId` no cambia.
+      mantenimiento: {
+        slug: 'mantenimiento',
+        name: 'Mantenimiento',
+        tabId: '10000000-0000-0000-0000-000000000016',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
+          talleres: {
+            slug: 'talleres',
+            name: 'Talleres',
+            tabId: '10000000-0000-0000-0000-000000000161',
+            parent: 'mantenimiento',
+            allowedActions: ['view', 'create', 'update', 'delete'],
+          },
+          sectores_taller: {
+            slug: 'sectores_taller',
+            name: 'Sectores',
+            tabId: '10000000-0000-0000-0000-000000000162',
+            parent: 'mantenimiento',
+            allowedActions: ['view', 'create', 'update', 'delete'],
+          },
+          // Venian de la seccion "Taller", que se fusiono con esta: configurar un taller y
+          // configurar las reparaciones que ese taller hace es lo mismo. Sus `tabId` no
+          // cambiaron, asi que los permisos ya asignados siguen valiendo.
+          type_of_repair: {
+            slug: 'type_of_repair',
+            name: 'Tipos de Reparación',
+            tabId: '60000000-0000-0000-0000-000000000012',
+            parent: 'mantenimiento',
+            allowedActions: ['view', 'create', 'update'],
+          },
+          maintenance_groups: {
+            slug: 'maintenance_groups',
+            name: 'Grupos',
+            tabId: '60000000-0000-0000-0000-000000000014',
+            parent: 'mantenimiento',
+            allowedActions: ['view', 'create', 'update'],
+          },
+        },
+      },
+      // Venia de Documentacion > Tipos de Documentos. Ojo: esta tab la MONTAN tambien Equipos
+      // y Empleados, que declaran `moduleSlug: 'configuracion'` para heredar este permiso en
+      // vez de tener uno propio. Si se mueve o renombra de nuevo, hay que tocar esos dos
+      // lugares (`EquiposComponent`, `app/dashboard/employee/page.tsx`) y los sub-items del
+      // sidebar que la declaran con `permissionModuleSlug`.
+      documentos: {
+        slug: 'documentos',
+        name: 'Documentos',
+        tabId: '50000000-0000-0000-0000-000000000004',
+        parent: null,
+        allowedActions: ['view', 'create'], // create para el botón de crear
+        subtabs: {
+          'tipos-docs-personas': {
+            slug: 'tipos-docs-personas',
+            name: 'Personas',
+            tabId: '60000000-0000-0000-0000-000000000006',
+            parent: 'documentos',
+            allowedActions: ['view', 'update', 'create', 'view_private'],
+          },
+          'tipos-docs-equipos': {
+            slug: 'tipos-docs-equipos',
+            name: 'Equipos',
+            tabId: '60000000-0000-0000-0000-000000000007',
+            parent: 'documentos',
+            allowedActions: ['view', 'update', 'create', 'view_private'],
+          },
+          'tipos-docs-empresa': {
+            slug: 'tipos-docs-empresa',
+            name: 'Empresa',
+            tabId: '60000000-0000-0000-0000-000000000018',
+            parent: 'documentos',
+            allowedActions: ['view', 'update', 'create', 'view_private'],
+          },
+        },
+      },
     },
   },
 
@@ -411,29 +472,6 @@ export const PERMISSIONS = {
             tabId: '20000000-0000-0000-0000-000000000012',
             parent: 'employees',
             allowedActions: ['view'],
-          },
-        },
-      },
-      'documentos-de-empleados': {
-        slug: 'documentos-de-empleados',
-        name: 'Documentos de Empleados',
-        tabId: '20000000-0000-0000-0000-000000000002',
-        parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {
-          'docs-empleados-permanentes': {
-            slug: 'docs-empleados-permanentes',
-            name: 'Permanentes',
-            tabId: '20000000-0000-0000-0000-000000000021',
-            parent: 'documentos-de-empleados',
-            allowedActions: ['view', 'update'],
-          },
-          'docs-empleados-mensuales': {
-            slug: 'docs-empleados-mensuales',
-            name: 'Mensuales',
-            tabId: '20000000-0000-0000-0000-000000000022',
-            parent: 'documentos-de-empleados',
-            allowedActions: ['view', 'update'],
           },
         },
       },
@@ -477,24 +515,6 @@ export const PERMISSIONS = {
       // 'tipos-de-documentos': HEREDA permisos de 'documentacion/tipos-de-documentos'
       // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
       // Ver implementación en: src/app/dashboard/employee/page.tsx
-      'pre-legajos': {
-        slug: 'pre-legajos',
-        name: 'Pre Legajos',
-        tabId: '20000000-0000-0000-0000-000000000007',
-        parent: null,
-        // 'approve' habilita aprobar y rechazar: es la decisión de gerencia,
-        // separada de la carga y edición que hace RRHH con 'create'/'update'.
-        allowedActions: ['view', 'create', 'update', 'approve'],
-        subtabs: {},
-      },
-      covenant: {
-        slug: 'covenant',
-        name: 'CCT',
-        tabId: '20000000-0000-0000-0000-000000000005',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {},
-      },
       'detalle-empleado': {
         slug: 'detalle-empleado',
         name: 'Detalle de Empleado',
@@ -893,36 +913,6 @@ export const PERMISSIONS = {
           },
         },
       },
-      'tipos-de-documentos': {
-        slug: 'tipos-de-documentos',
-        name: 'Tipos de Documentos',
-        tabId: '50000000-0000-0000-0000-000000000004',
-        parent: null,
-        allowedActions: ['view', 'create'], // create para el botón de crear
-        subtabs: {
-          'tipos-docs-personas': {
-            slug: 'tipos-docs-personas',
-            name: 'Personas',
-            tabId: '60000000-0000-0000-0000-000000000006',
-            parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create', 'view_private'],
-          },
-          'tipos-docs-equipos': {
-            slug: 'tipos-docs-equipos',
-            name: 'Equipos',
-            tabId: '60000000-0000-0000-0000-000000000007',
-            parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create', 'view_private'],
-          },
-          'tipos-docs-empresa': {
-            slug: 'tipos-docs-empresa',
-            name: 'Empresa',
-            tabId: '60000000-0000-0000-0000-000000000018',
-            parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update', 'create', 'view_private'],
-          },
-        },
-      },
       'detalle-de-documento': {
         slug: 'detalle-de-documento',
         name: 'Detalle de Documento',
@@ -1144,29 +1134,6 @@ export const PERMISSIONS = {
         },
       },
       // Tab 3: Configuración
-      maint_configuracion: {
-        slug: 'maint_configuracion',
-        name: 'Configuración',
-        tabId: '60000000-0000-0000-0000-000000000050',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {
-          type_of_repair: {
-            slug: 'type_of_repair',
-            name: 'Tipos de Reparación',
-            tabId: '60000000-0000-0000-0000-000000000012',
-            parent: 'maint_configuracion',
-            allowedActions: ['view', 'create', 'update'],
-          },
-          maintenance_groups: {
-            slug: 'maintenance_groups',
-            name: 'Grupos',
-            tabId: '60000000-0000-0000-0000-000000000014',
-            parent: 'maint_configuracion',
-            allowedActions: ['view', 'create', 'update'],
-          },
-        },
-      },
     },
   },
 
@@ -1287,6 +1254,35 @@ export const PERMISSIONS = {
       },
     },
   },
+  // ============================================
+  // 11. SELECCION
+  // ============================================
+  // Era la tab "Candidatos" del modulo Empleados. Se saca a modulo propio porque no es una
+  // vista mas del legajo: es un circuito con estados (carga -> documentacion -> aprobacion o
+  // rechazo -> conversion en legajo) con su maquina de estados, su checklist de documentos y
+  // su pantalla de detalle.
+  //
+  // El `tabId` viaja sin cambiar, asi que los permisos ya asignados siguen valiendo. Conserva
+  // el prefijo `20000000-` del modulo Empleados, donde nacio; no se renumera porque renumerar
+  // un id es justamente lo que romperia esos permisos.
+  seleccion: {
+    slug: 'seleccion',
+    name: 'Selección',
+    moduleId: 'cbe0ae38-37ab-48cd-bfeb-f39582d8043b',
+    tabs: {
+      candidatos: {
+        slug: 'candidatos',
+        name: 'Candidatos',
+        tabId: '20000000-0000-0000-0000-000000000007',
+        parent: null,
+        // 'approve' habilita aprobar y rechazar: es la decisión de gerencia,
+        // separada de la carga y edición que hace RRHH con 'create'/'update'.
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+    },
+  },
+
 } as const;
 
 // ============================================

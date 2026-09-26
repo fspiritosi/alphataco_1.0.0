@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Schemas de los datos de una persona compartidos entre el legajo de empleado
- * y el pre legajo (ticket 505). Son la unica fuente de verdad de esos campos:
+ * y el candidato (ticket 505). Son la unica fuente de verdad de esos campos:
  * si cambia una validacion o un mensaje, cambia para ambos formularios.
  *
  * La obligatoriedad vive aca (capa de aplicacion), no en el DDL: en la base

@@ -67,8 +67,8 @@ export default function _AptitudesDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'aptitudes', 'create') ||
-    permissions.hasPermission('empresa', 'aptitudes', 'update');
+    permissions.hasPermission('configuracion', 'aptitudes', 'create') ||
+    permissions.hasPermission('configuracion', 'aptitudes', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setAptitud = useAptitudesStore((state) => state.setAptitud);

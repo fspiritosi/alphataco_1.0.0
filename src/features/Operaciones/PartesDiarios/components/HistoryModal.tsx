@@ -255,7 +255,7 @@ export default function HistoryModal({
                                       <span className="text-slate-700 dark:text-slate-300">{item.user.name}</span>
                                       {item.user.id && (
                                         <a
-                                          href={`/dashboard/company/actualCompany?tab=general&subtab=users`}
+                                          href={`/dashboard/configuration?tab=general&subtab=users`}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="inline-flex ml-1"

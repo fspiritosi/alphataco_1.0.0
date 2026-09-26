@@ -59,8 +59,8 @@ export default function _ContractTypeDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'contract-types', 'create') ||
-    permissions.hasPermission('empresa', 'contract-types', 'update');
+    permissions.hasPermission('configuracion', 'contract-types', 'create') ||
+    permissions.hasPermission('configuracion', 'contract-types', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setContractType = useContractTypeStore((state) => state.setContractType);

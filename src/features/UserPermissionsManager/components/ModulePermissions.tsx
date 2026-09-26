@@ -31,24 +31,9 @@ import {
   type UserRolesData,
 } from '@/features/UserPermissionsManager/actions.server';
 import { Logger } from '@/lib/logger';
-import { HandshakeIcon } from '@/shared/components/common/Icons';
+import { getModuleIcon } from '@/shared/constants/module-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Building2,
-  Calendar,
-  ClipboardList,
-  Eraser,
-  Eye,
-  FileText,
-  HelpCircle,
-  LayoutDashboard,
-  Pencil,
-  Plus,
-  Trash2,
-  Truck,
-  Users,
-  Wrench,
-} from 'lucide-react';
+import { Eraser, Eye, HelpCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { UserEquipmentTypesSection } from './UserEquipmentTypesSection';
 
@@ -84,19 +69,6 @@ const ACTION_COLORS: Record<string, string> = {
   create: 'text-green-600',
   update: 'text-yellow-600',
   delete: 'text-red-600',
-};
-
-const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  dashboard: LayoutDashboard,
-  empresa: Building2,
-  empleados: Users,
-  equipos: Truck,
-  comercial: HandshakeIcon,
-  documentacion: FileText,
-  operaciones: Calendar,
-  mantenimiento: Wrench,
-  formularios: ClipboardList,
-  ayuda: HelpCircle,
 };
 
 export function ModulePermissions({
@@ -697,7 +669,7 @@ export function ModulePermissions({
 
               const moduleSelected = isModuleFullySelected(module);
               const modulePartiallySelected = moduleCounts.selected > 0 && !moduleSelected;
-              const ModuleIcon = MODULE_ICONS[module.slug ?? ''] || Building2;
+              const ModuleIcon = getModuleIcon(module.slug);
 
               return (
                 <AccordionItem

@@ -1,6 +1,6 @@
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import RepairTypes from '@/features/Mantenimiento/TiposReparaciones/RepairTypes';
-import { TabsManagerServer } from '@/features/TabsManager';
+import { SectionManagerServer } from '@/features/TabsManager';
 import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
@@ -16,11 +16,10 @@ export default async function EquiposComponent({
 }) {
   return (
     <div>
-      <TabsManagerServer
+      <SectionManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="equipos"
-        dependentParams={['subtab', 'inactive_subtab']}
         permissions={permissions}
         tabs={[
           {
@@ -55,9 +54,9 @@ export default async function EquiposComponent({
                 Tipos de Documentos
               </span>
             ),
-            // Hereda permisos de documentacion/tipos-de-documentos
-            moduleSlug: 'documentacion',
-            tabSlug: 'tipos-de-documentos',
+            // Hereda el permiso de configuracion/documentos, que es donde vive la tab.
+            moduleSlug: 'configuracion',
+            tabSlug: 'documentos',
             content: (
               <Suspense fallback={<DataTableSkeleton columns={4} />}>
                 <TiposDocumentosTabContent

@@ -152,7 +152,7 @@ function RoleCard({
       <div className="flex gap-2">
         {/* Roles de sistema: solo botón de asignar */}
         {role.is_system ? (
-          <PermissionGuard module="empresa" tab="gestion-roles" action="update">
+          <PermissionGuard module="configuracion" tab="gestion-roles" action="update">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onManageUsers(role)}>
               <Users className="h-4 w-4 mr-2" />
               Asignar Usuarios
@@ -161,18 +161,18 @@ function RoleCard({
         ) : (
           /* Roles personalizados: editar, asignar y eliminar */
           <>
-            <PermissionGuard module="empresa" tab="gestion-roles" action="update">
+            <PermissionGuard module="configuracion" tab="gestion-roles" action="update">
               <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)}>
                 <Pencil className="h-3 w-3 mr-2" />
                 Editar
               </Button>
             </PermissionGuard>
-            <PermissionGuard module="empresa" tab="gestion-roles" action="update">
+            <PermissionGuard module="configuracion" tab="gestion-roles" action="update">
               <Button variant="outline" size="sm" onClick={() => onManageUsers(role)} title="Asignar usuarios">
                 <Users className="h-3 w-3" />
               </Button>
             </PermissionGuard>
-            <PermissionGuard module="empresa" tab="gestion-roles" action="delete">
+            <PermissionGuard module="configuracion" tab="gestion-roles" action="delete">
               <Button
                 variant={canDelete ? 'destructive' : 'outline'}
                 size="sm"
@@ -510,7 +510,7 @@ export function RoleManager({ initialRoles, initialRolePermissions, initialModul
               <p className="text-sm text-muted-foreground mt-1">Crea y gestiona roles con permisos predefinidos</p>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <PermissionGuard module="empresa" tab="gestion-roles" action="create">
+              <PermissionGuard module="configuracion" tab="gestion-roles" action="create">
                 <DialogTrigger asChild>
                   <Button onClick={handleCreateRole}>
                     <Plus className="h-4 w-4 mr-2" />

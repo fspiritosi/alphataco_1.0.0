@@ -60,8 +60,8 @@ export function _EquipmentOwnerDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'titulares', 'create') ||
-    permissions.hasPermission('empresa', 'titulares', 'update');
+    permissions.hasPermission('configuracion', 'titulares', 'create') ||
+    permissions.hasPermission('configuracion', 'titulares', 'update');
 
   // ── Estado local para edición y vista de equipos ──────────────────────────
   const [editingOwner, setEditingOwner] = useState<EquipmentOwnerListItem | null>(null);

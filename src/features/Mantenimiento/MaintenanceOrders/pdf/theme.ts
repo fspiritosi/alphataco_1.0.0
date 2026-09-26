@@ -49,8 +49,9 @@ export const PROSE_WIDTH = 340;
 // ============================================================================
 
 /**
- * Paleta derivada del logo institucional (`public/gh_logo.png`): gris calido
- * `#4C4948` y naranja `#E67819`.
+ * Paleta propia del documento impreso: gris calido `#4C4948` y naranja `#E67819`.
+ * NO sigue el theme de la app (`src/app/globals.css`): react-pdf no lee variables CSS
+ * y este documento se disena para papel, no para pantalla.
  *
  * El documento es **monocromo**. El naranja se usa solo como filete y marca de
  * folio, nunca como texto: sobre blanco da ~2.4:1 de contraste.

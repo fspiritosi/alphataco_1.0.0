@@ -66,7 +66,7 @@ export default function _EquipmentTypeDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'tipos', 'create') || permissions.hasPermission('empresa', 'tipos', 'update');
+    permissions.hasPermission('configuracion', 'tipos', 'create') || permissions.hasPermission('configuracion', 'tipos', 'update');
 
   // ── Store de edición ──────────────────────────────────────────────────────
   const setEquipmentType = useEquipmentTypeStore((state) => state.setEquipmentType);

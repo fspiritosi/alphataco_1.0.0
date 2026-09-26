@@ -31,7 +31,7 @@ export function getColumns(
   permissions: Permissions,
   onEdit: (item: WorkDiagramListItem) => void
 ): ColumnDef<WorkDiagramListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'listado', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'listado', 'update');
 
   return [
     // ── Nombre ────────────────────────────────────────────────────────────────

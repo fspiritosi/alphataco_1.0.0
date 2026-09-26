@@ -44,6 +44,36 @@ const nextConfig = {
       }
     ]
   },
+  async redirects() {
+    // El modulo "Empresa" paso a llamarse "Configuracion" y se mudo de /dashboard/company a
+    // /dashboard/configuration. Estos redirects son para los links que la gente ya tiene
+    // guardados: favoritos, mails de alertas viejos, y la pestana que alguien dejo abierta.
+    // Permanentes (308) para que el navegador deje de pedir la vieja.
+    return [
+      {
+        // "Pre Legajos" salio de Empleados a su propio modulo, Seleccion.
+        source: '/dashboard/employee/pre-legajo',
+        destination: '/dashboard/recruitment/detail',
+        permanent: true
+      },
+      {
+        source: '/dashboard/company/actualCompany/:path*',
+        destination: '/dashboard/configuration/:path*',
+        permanent: true
+      },
+      {
+        source: '/dashboard/company/new',
+        destination: '/dashboard/configuration/companies/new',
+        permanent: true
+      },
+      {
+        // El listado y la edicion por id. Va despues de /new para no comerselo.
+        source: '/dashboard/company/:path*',
+        destination: '/dashboard/configuration/companies/:path*',
+        permanent: true
+      }
+    ]
+  },
   async rewrites() {
     return [
       {

@@ -1,5 +1,5 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
+import { SectionManagerServer } from '@/features/TabsManager';
 import { Store } from 'lucide-react';
 import ComerceTabContent from './Comerce/ComerceTabContent';
 
@@ -13,11 +13,10 @@ export default async function ComercialComponent({
 
   return (
     <div>
-      <TabsManagerServer
+      <SectionManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="comerce"
-        dependentParams={['subtab']}
         permissions={permissions}
         tabs={[
           {

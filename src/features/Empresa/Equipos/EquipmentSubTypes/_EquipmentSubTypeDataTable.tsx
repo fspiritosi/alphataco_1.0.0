@@ -158,8 +158,8 @@ export default function _EquipmentSubTypeDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'subtipos', 'create') ||
-    permissions.hasPermission('empresa', 'subtipos', 'update');
+    permissions.hasPermission('configuracion', 'subtipos', 'create') ||
+    permissions.hasPermission('configuracion', 'subtipos', 'update');
 
   // ── Estado de edición ─────────────────────────────────────────────────────
   const [editingItem, setEditingItem] = useState<EquipmentSubTypeListItem | null>(null);

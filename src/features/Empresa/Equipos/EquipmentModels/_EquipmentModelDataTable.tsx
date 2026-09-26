@@ -58,8 +58,8 @@ export default function _EquipmentModelDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'modelos', 'create') ||
-    permissions.hasPermission('empresa', 'modelos', 'update');
+    permissions.hasPermission('configuracion', 'modelos', 'create') ||
+    permissions.hasPermission('configuracion', 'modelos', 'update');
 
   // ── Estado de edición ─────────────────────────────────────────────────────
   const [editingItem, setEditingItem] = useState<EquipmentModelListItem | null>(null);

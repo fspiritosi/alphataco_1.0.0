@@ -63,8 +63,8 @@ export default function _WorkDiagramDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'listado', 'create') ||
-    permissions.hasPermission('empresa', 'listado', 'update');
+    permissions.hasPermission('configuracion', 'listado', 'create') ||
+    permissions.hasPermission('configuracion', 'listado', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setWorkDiagram = useWorkDiagramStore((state) => state.setWorkDiagram);

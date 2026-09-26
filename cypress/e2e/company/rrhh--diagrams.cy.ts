@@ -1,7 +1,7 @@
 /**
  * Test: Empresa - RRHH - Tipos de Novedades
  * Tab: rrhh | Subtab: diagrams
- * URL: /dashboard/company/actualCompany?tab=rrhh&subtab=diagrams
+ * URL: /dashboard/configuration?tab=rrhh&subtab=diagrams
  *
  * Estado: A IMPLEMENTAR
  */
@@ -11,7 +11,7 @@ describe('Company - RRHH - Tipos de Novedades', () => {
     const email = Cypress.env('TEST_EMAIL') || 'testing@e2e.com';
     const password = Cypress.env('TEST_PASSWORD') || 'Testing123!';
     cy.login(email, password);
-    cy.visit('/dashboard/company/actualCompany?tab=rrhh&subtab=diagrams');
+    cy.visit('/dashboard/configuration?tab=rrhh&subtab=diagrams');
   });
 
   it('should navigate to diagrams tab', () => {

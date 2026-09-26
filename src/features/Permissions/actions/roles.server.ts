@@ -21,14 +21,14 @@ const logger = new Logger('features/Permissions/roles');
 class PermissionDeniedError extends Error {}
 
 async function assertCanManageRoles(): Promise<void> {
-  const allowed = await checkPermissionServer('empresa', 'gestion-roles', 'update');
+  const allowed = await checkPermissionServer('configuracion', 'gestion-roles', 'update');
   if (!allowed) throw new PermissionDeniedError('No tienes permisos para gestionar roles');
 }
 
 async function assertCanManageUserAssignments(): Promise<void> {
   const [canManageRoles, canManageUserDetail] = await Promise.all([
-    checkPermissionServer('empresa', 'gestion-roles', 'update'),
-    checkPermissionServer('empresa', 'detalle-usuario', 'update'),
+    checkPermissionServer('configuracion', 'gestion-roles', 'update'),
+    checkPermissionServer('configuracion', 'detalle-usuario', 'update'),
   ]);
   if (!canManageRoles && !canManageUserDetail) {
     throw new PermissionDeniedError('No tienes permisos para gestionar la asignación de roles del usuario');
@@ -36,26 +36,26 @@ async function assertCanManageUserAssignments(): Promise<void> {
 }
 
 async function assertCanManageUserDetail(): Promise<void> {
-  const allowed = await checkPermissionServer('empresa', 'detalle-usuario', 'update');
+  const allowed = await checkPermissionServer('configuracion', 'detalle-usuario', 'update');
   if (!allowed) throw new PermissionDeniedError('No tienes permisos para modificar los permisos de este usuario');
 }
 
 // Lecturas por id arbitrario: mismo criterio fail-closed que las escrituras. `userId` es
 // SIEMPRE el propio dato del usuario (permiso implícito: ver lo propio) o requiere permiso
 // explícito de lectura sobre 'detalle-usuario' (contexto donde se consumen estas dos lecturas
-// — ver `UserPermissionsManager.tsx` y `app/dashboard/company/actualCompany/user/[id]/page.tsx`).
+// — ver `UserPermissionsManager.tsx` y `app/dashboard/configuration/user/[id]/page.tsx`).
 async function assertCanReadUserData(userId: string): Promise<void> {
   const sessionUserId = await getSessionUserId();
   if (sessionUserId && sessionUserId === userId) return;
 
-  const allowed = await checkPermissionServer('empresa', 'detalle-usuario', 'view');
+  const allowed = await checkPermissionServer('configuracion', 'detalle-usuario', 'view');
   if (!allowed) throw new PermissionDeniedError('Sin permiso');
 }
 
 // `getRolePermissionsServer` no tiene noción de "propio dato" (es el detalle de un ROL, no
 // de un usuario): sólo gestión de roles puede leerlo.
 async function assertCanReadRolePermissions(): Promise<void> {
-  const allowed = await checkPermissionServer('empresa', 'gestion-roles', 'view');
+  const allowed = await checkPermissionServer('configuracion', 'gestion-roles', 'view');
   if (!allowed) throw new PermissionDeniedError('Sin permiso');
 }
 

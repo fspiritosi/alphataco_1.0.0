@@ -92,7 +92,7 @@ export function SectoresTable({
   const [showActive, setShowActive] = useState(true);
   const filteredData = useMemo(() => filterByActiveFlag(sectorsData, 'is_active', showActive), [sectorsData, showActive]);
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('empresa', 'sectores_taller', 'update');
+  const canEdit = hasPermission('configuracion', 'sectores_taller', 'update');
 
   const names = createFilterOptions(filteredData, (sector) => sector.name);
 

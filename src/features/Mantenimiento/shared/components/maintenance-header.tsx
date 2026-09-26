@@ -1,10 +1,10 @@
 'use client';
 
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMaintenanceLayout } from '@/features/Mantenimiento/shared/components/maintenance-layout-provider';
 import { ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEmployeeDataMaintenance } from './use-employee-data-maintenance';
 
@@ -71,16 +71,7 @@ export function MaintenanceHeader({
             </Button>
           )}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="h-8 w-8 rounded-lg overflow-hidden shrink-0">
-              <Image
-                src="/gh_logo.png"
-                alt="Grupo Horizonte"
-                width={32}
-                height={32}
-                className="h-full w-full object-contain"
-                priority
-              />
-            </div>
+            <span className="text-brand text-base font-bold tracking-tight lowercase shrink-0">{BRAND_NAME}</span>
             {title && <h1 className="text-lg font-semibold text-foreground truncate min-w-0">{title}</h1>}
           </div>
         </div>

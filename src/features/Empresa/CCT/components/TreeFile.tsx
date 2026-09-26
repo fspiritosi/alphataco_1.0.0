@@ -45,17 +45,17 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
 
           <div>
             {node.type === 'sindicatoPadre' && (
-              <PermissionGuard module="empresa" tab="convenios" action="create">
+              <PermissionGuard module="configuracion" tab="convenios" action="create">
                 <AddGuildModal />
               </PermissionGuard>
             )}
             {node.type === 'sindicato' && (
-              <PermissionGuard module="empresa" tab="convenios" action="create">
+              <PermissionGuard module="configuracion" tab="convenios" action="create">
                 <AddCovenantModal guildInfo={{ name: node.name, id: node.id }} />
               </PermissionGuard>
             )}
             {node.type === 'convenio' && (
-              <PermissionGuard module="empresa" tab="convenios" action="create">
+              <PermissionGuard module="configuracion" tab="convenios" action="create">
                 <AddCategoryModal covenantInfo={{ name: node.name, id: node.id }} />
               </PermissionGuard>
             )}

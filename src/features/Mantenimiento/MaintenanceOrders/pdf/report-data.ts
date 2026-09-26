@@ -71,10 +71,10 @@ const DOCUMENT_REVISION = '1';
  * El PNG con canal alpha se maqueta mal en react-pdf (proporcion equivocada y
  * hueco de altura), asi que la pantalla usa el PNG y el papel este archivo.
  */
-const LOGO_SRC = '/gh_logo-pdf.jpg';
+const LOGO_SRC: string | undefined = undefined;
 
 /** Nombre de empresa de respaldo cuando el recurso no tiene empresa resuelta. */
-const FALLBACK_COMPANY_NAME = 'Grupo Horizonte';
+const FALLBACK_COMPANY_NAME = 'alphataco';
 
 /**
  * Circuito de la orden, en el orden en que ocurre.

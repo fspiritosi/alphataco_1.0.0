@@ -52,7 +52,7 @@ const formSchema = z.object({
   is_it_montlhy: z.boolean(),
   private: z.boolean(),
   down_document: z.boolean(),
-  // Ticket 505: habilita el tipo en el checklist de documentos de un pre legajo
+  // Ticket 505: habilita el tipo en el checklist de documentos de un candidato
   available_for_pre_file: z.boolean(),
   multiresource: z.boolean(),
   has_policy_number: z.boolean(),
@@ -305,7 +305,7 @@ export function _DocumentTypeFormModal({
         is_it_montlhy: values.is_it_montlhy,
         private: values.private,
         down_document: values.down_document,
-        // Solo tiene sentido en documentos de personas (el pre legajo es de un postulante)
+        // Solo tiene sentido en documentos de personas (el candidato es de un postulante)
         available_for_pre_file: values.applies === 'Persona' ? values.available_for_pre_file : false,
         description: values.description || undefined,
         conditions: conditionsPayload as Parameters<typeof createDocumentType>[0]['conditions'],
@@ -489,7 +489,7 @@ export function _DocumentTypeFormModal({
                           )}
                         />
 
-                        {/* Ticket 505: habilita el tipo en el checklist de un pre legajo */}
+                        {/* Ticket 505: habilita el tipo en el checklist de un candidato */}
                         {applies === 'Persona' && (
                           <FormField
                             control={form.control}
@@ -500,7 +500,7 @@ export function _DocumentTypeFormModal({
                                   <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                                 </FormControl>
                                 <FormLabel className="font-normal text-sm">
-                                  Puede cargarse desde un pre legajo
+                                  Puede cargarse desde un candidato
                                 </FormLabel>
                               </FormItem>
                             )}

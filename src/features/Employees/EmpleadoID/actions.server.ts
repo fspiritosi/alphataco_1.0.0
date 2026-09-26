@@ -484,7 +484,7 @@ export async function createEmployee(data: EmployeeFormData) {
 
   try {
     // La creacion vive en createEmployeeCore para que la comparta la conversion de un
-    // pre legajo en legajo (ticket 505) y ambos flujos creen al empleado igual.
+    // candidato en legajo (ticket 505) y ambos flujos creen al empleado igual.
     // withActor: los triggers de documentos/alertas leen app.user_id.
     const employee = await withActor(actor, (tx) => createEmployeeCore(tx, data, company_id));
 

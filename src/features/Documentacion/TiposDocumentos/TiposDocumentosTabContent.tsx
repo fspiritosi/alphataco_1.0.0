@@ -45,7 +45,7 @@ export default async function TiposDocumentosTabContent({
           Personas
         </span>
       ),
-      moduleSlug: 'documentacion' as const,
+      moduleSlug: 'configuracion' as const,
       tabSlug: 'tipos-docs-personas' as const,
       content: (
         <Suspense fallback={<TiposDocumentosSkeleton />}>
@@ -64,7 +64,7 @@ export default async function TiposDocumentosTabContent({
           Equipos
         </span>
       ),
-      moduleSlug: 'documentacion' as const,
+      moduleSlug: 'configuracion' as const,
       tabSlug: 'tipos-docs-equipos' as const,
       content: (
         <Suspense fallback={<TiposDocumentosSkeleton />}>
@@ -83,7 +83,7 @@ export default async function TiposDocumentosTabContent({
           Empresa
         </span>
       ),
-      moduleSlug: 'documentacion' as const,
+      moduleSlug: 'configuracion' as const,
       tabSlug: 'tipos-docs-empresa' as const,
       content: (
         <Suspense fallback={<TiposDocumentosSkeleton />}>
@@ -108,7 +108,7 @@ export default async function TiposDocumentosTabContent({
       defaultTab={defaultTab}
       permissions={permissions}
       actions={
-        <PermissionGuardServer module="documentacion" tab="tipos-de-documentos" action="create">
+        <PermissionGuardServer module="configuracion" tab="documentos" action="create">
           <_CreateDocumentTypeButton />
         </PermissionGuardServer>
       }

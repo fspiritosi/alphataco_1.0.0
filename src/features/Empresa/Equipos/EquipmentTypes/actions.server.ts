@@ -439,7 +439,7 @@ export async function createEquipmentType(formData: EquipmentTypeFormData) {
       });
     }
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return { success: true, id: created.id };
   } catch (error) {
     logger.error('Error al crear tipo de equipo', { data: { error } });
@@ -504,7 +504,7 @@ export async function updateEquipmentType(formData: EquipmentTypeFormData & { id
       });
     }
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return { success: true };
   } catch (error) {
     logger.error('Error al actualizar tipo de equipo', { data: { error } });

@@ -31,7 +31,7 @@ export function getColumns(
   permissions: Permissions,
   onEdit: (item: DiagramTypeListItem) => void
 ): ColumnDef<DiagramTypeListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'diagrams', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'diagrams', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

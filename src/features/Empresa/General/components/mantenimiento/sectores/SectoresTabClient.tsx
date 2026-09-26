@@ -25,7 +25,7 @@ export function SectoresTabClient({
 
   // Verificar si tiene permisos de crear o editar
   const canCreateOrUpdate =
-    hasPermission('empresa', 'sectores_taller', 'create') || hasPermission('empresa', 'sectores_taller', 'update');
+    hasPermission('configuracion', 'sectores_taller', 'create') || hasPermission('configuracion', 'sectores_taller', 'update');
 
   return (
     <div className="w-full">

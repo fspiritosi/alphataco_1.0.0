@@ -308,8 +308,7 @@ export const sampleMaintenanceOrderReport: MaintenanceOrderReportData = {
     },
   ],
 
-  companyName: 'Grupo Horizonte S.R.L.',
-  logoSrc: 'public/gh_logo-pdf.jpg',
+  companyName: 'Empresa Demo S.R.L.',
   documentCode: 'RG MT-08',
   documentRevision: '1',
 

@@ -63,7 +63,7 @@ export function _UsersDataTable({
     [permissionsMap]
   );
 
-  const canCreate = permissionsMap['empresa:usuarios-empleados:create'] === true;
+  const canCreate = permissionsMap['configuracion:usuarios-empleados:create'] === true;
 
   // ── Columnas (con permisos) ───────────────────────────────────────────────
   const columns = useMemo(() => getCompanyUsersColumns(permissions), [permissions]);
@@ -167,7 +167,7 @@ export function _UsersDataTable({
 
   // ── Boton de crear usuario ────────────────────────────────────────────────
   const toolbarActions = canCreate ? (
-    <PermissionGuard module="empresa" tab="usuarios-empleados" action="create">
+    <PermissionGuard module="configuracion" tab="usuarios-empleados" action="create">
       <CreateUserModal />
     </PermissionGuard>
   ) : undefined;

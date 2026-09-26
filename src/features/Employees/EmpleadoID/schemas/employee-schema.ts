@@ -7,13 +7,13 @@ import { contactDataSchema, personalDataSchema } from '../../shared/schemas/pers
  * Viven fuera de `components/forms/employee-form.tsx` (que es `'use client'`) para que
  * tambien puedan usarse desde el servidor: si se importa un schema Zod desde un modulo
  * de cliente, Next lo entrega como referencia de cliente y `.parse()` no existe en el
- * servidor (falla en runtime, no en `check-types`). La conversion de un pre legajo en
+ * servidor (falla en runtime, no en `check-types`). La conversion de un candidato en
  * legajo (ticket 505) valida con estos schemas del lado del servidor.
  */
 
 /**
  * Datos Laborales del legajo. Se exporta por separado porque la conversion de un
- * pre legajo en empleado reutiliza exactamente esta seccion: son los campos que se
+ * candidato en empleado reutiliza exactamente esta seccion: son los campos que se
  * completan recien al dar el OK.
  */
 export const employeeWorkDataSchema = z.object({
@@ -36,7 +36,7 @@ export const employeeWorkDataSchema = z.object({
 
 export type EmployeeWorkDataValues = z.infer<typeof employeeWorkDataSchema>;
 
-// Datos personales y de contacto se comparten con el pre legajo — unica fuente de verdad
+// Datos personales y de contacto se comparten con el candidato — unica fuente de verdad
 // en shared/schemas/person-data-schemas.ts
 export const employeeFormSchema = personalDataSchema.merge(contactDataSchema).merge(employeeWorkDataSchema);
 

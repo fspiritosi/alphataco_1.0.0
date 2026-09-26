@@ -1,5 +1,5 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
+import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { FileText } from 'lucide-react';
 import { Suspense } from 'react';
@@ -16,7 +16,7 @@ export default async function FormulariosComponent({
 
   return (
     <div>
-      <TabsManagerServer
+      <SectionManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="formularios"

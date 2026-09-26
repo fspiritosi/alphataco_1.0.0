@@ -30,7 +30,7 @@ export function getColumns(
   permissions: Permissions,
   onEdit: (item: HierarchyListItem) => void
 ): ColumnDef<HierarchyListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'organigrama', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'organigrama', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

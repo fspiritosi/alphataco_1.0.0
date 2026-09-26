@@ -50,7 +50,7 @@ export function withCompany<T extends object>(where: T | undefined, companyId: s
  * 2. Los modelos sin `company_id` se acotan por su relación dueña, en los módulos de perímetro
  *    de cada feature (`MaintenanceOrders/actions/order-perimeter`, `Gomeria/shared/perimeter`,
  *    `Clothing/actions/perimeter`, …), no en cada action suelta.
- * 3. Cuando el id de empresa llega por ruta o por props (`/dashboard/company/[id]`), la action
+ * 3. Cuando el id de empresa llega por ruta o por props (`/dashboard/configuration/companies/[id]`), la action
  *    valida pertenencia con `assertCompanyAccess()` antes de tocar la base.
  * 4. El chequeo mecánico es sobre las FIRMAS, no sobre los `where`: ninguna Server Action
  *    exportada acepta `companyId` / `company_id` del caller sin `assertCompanyAccess()`. Eso se

@@ -41,7 +41,7 @@
     },
     {
       "name": "Company",
-      "path": "/dashboard/company",
+      "path": "/dashboard/configuration/companies",
       "tabs": []
     },
     {

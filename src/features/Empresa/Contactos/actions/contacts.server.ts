@@ -19,7 +19,7 @@ import { revalidatePath } from 'next/cache';
  */
 const logger = new Logger('features/Empresa/Contactos');
 
-const COMPANY_PATH = '/dashboard/company/actualCompany';
+const COMPANY_PATH = '/dashboard/configuration';
 
 export type ContactMutationResult = { status: 200 | 201 | 400 | 404 | 500; body: string };
 

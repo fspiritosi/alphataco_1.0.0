@@ -66,7 +66,7 @@ function CustomerGuests({ customerId }: { customerId: string }) {
 }
 
 /**
- * Página `/dashboard/company/actualCompany/customers/action`: alta de cliente (sin `id`) o
+ * Página `/dashboard/configuration/customers/action`: alta de cliente (sin `id`) o
  * ficha completa (con `id`), reutilizando `CustomerDetail`.
  */
 export default function CustomerComponent({
@@ -86,7 +86,7 @@ export default function CustomerComponent({
         <CardTitle className="text-4xl mb-3">Registrar Cliente</CardTitle>
         <CardDescription>Completa este formulario con los datos de tu nuevo Cliente</CardDescription>
         <div className="mt-6 w-full">
-          <CustomerForm onSuccess={() => router.push('/dashboard/company/actualCompany')} />
+          <CustomerForm onSuccess={() => router.push('/dashboard/configuration')} />
         </div>
       </Card>
     );
@@ -111,7 +111,7 @@ export default function CustomerComponent({
         sectors={sectors}
         measureUnits={measureUnits}
         preferences={preferences}
-        onClose={() => router.push('/dashboard/company/actualCompany')}
+        onClose={() => router.push('/dashboard/configuration')}
       />
       <CustomerGuests customerId={customer.id} />
     </section>

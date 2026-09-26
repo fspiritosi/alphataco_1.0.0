@@ -7,27 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import type { ModulesWithTabsData } from '@/features/UserPermissionsManager/actions.server';
 import { getModulesWithTabsServer } from '@/features/UserPermissionsManager/actions.server';
-import { HandshakeIcon } from '@/shared/components/common/Icons';
+import { getModuleIcon } from '@/shared/constants/module-icons';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Building2,
-  Calendar,
-  ClipboardList,
-  Eye,
-  EyeOff,
-  FileText,
-  HelpCircle,
-  LayoutDashboard,
-  Pencil,
-  Plus,
-  Trash2,
-  Truck,
-  Upload,
-  UserCog,
-  Users,
-  UsersRound,
-  Wrench,
-} from 'lucide-react';
+import { Eye, EyeOff, Pencil, Plus, Trash2, Upload, UserCog, UsersRound } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -77,19 +59,6 @@ const ACTION_COLORS: Record<string, string> = {
   view_private: 'text-indigo-600',
   upload_private: 'text-teal-600',
   assign_resources: 'text-cyan-600',
-};
-
-const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  dashboard: LayoutDashboard,
-  empresa: Building2,
-  empleados: Users,
-  equipos: Truck,
-  comercial: HandshakeIcon,
-  documentacion: FileText,
-  operaciones: Calendar,
-  mantenimiento: Wrench,
-  formularios: ClipboardList,
-  ayuda: HelpCircle,
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -341,7 +310,7 @@ export function RolePermissionsEditor({
             { total: 0, selected: 0 }
           );
 
-          const ModuleIcon = MODULE_ICONS[module.slug ?? ''] ?? Building2;
+          const ModuleIcon = getModuleIcon(module.slug);
 
           return (
             <AccordionItem

@@ -16,7 +16,7 @@ export async function AccesosExternosTabContent({
   searchParams: DataTableSearchParams;
   permissionsMap: Record<string, boolean>;
 }) {
-  const canCreate = await checkPermissionServer('empresa', 'accesos-externos', 'create');
+  const canCreate = await checkPermissionServer('configuracion', 'accesos-externos', 'create');
 
   return (
     <div className="space-y-4">
@@ -24,7 +24,7 @@ export async function AccesosExternosTabContent({
         <div className="space-y-1">
           <h2 className="text-lg font-medium">Accesos externos</h2>
           <p className="text-sm text-muted-foreground">
-            Credenciales que le permiten a un sistema de terceros consultar información de Grupo Horizonte. El acceso es
+            Credenciales que le permiten a un sistema de terceros consultar información de tu empresa. El acceso es
             de solo lectura: no pueden modificar nada.
           </p>
         </div>

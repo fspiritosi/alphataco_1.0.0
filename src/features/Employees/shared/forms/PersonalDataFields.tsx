@@ -15,13 +15,13 @@ import { getAllCountryOptions } from '../../EmpleadoID/actions.server';
 import type { PersonalDataValues } from '../schemas/person-data-schemas';
 
 interface PersonalDataFieldsProps {
-  /** Oculta el bloque de foto (el pre legajo no la carga). */
+  /** Oculta el bloque de foto (el candidato no la carga). */
   hidePicture?: boolean;
 }
 
 /**
  * Campos de datos personales de una persona. Los consume tanto el legajo de empleado
- * como el pre legajo: toma el form del contexto (`<Form {...form}>` de shadcn ya es un
+ * como el candidato: toma el form del contexto (`<Form {...form}>` de shadcn ya es un
  * FormProvider), asi que ambos formularios comparten estos campos sin duplicar JSX.
  */
 export function PersonalDataFields({ hidePicture = false }: PersonalDataFieldsProps) {

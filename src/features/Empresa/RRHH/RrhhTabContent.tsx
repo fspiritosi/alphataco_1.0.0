@@ -39,11 +39,11 @@ export default function RrhhTabContent({
                 Tipos de Diagramas
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'listado',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Tipos de Diagramas</CardTitle>
                   <CardDescription>Gestión de tipos de diagramas</CardDescription>
                 </CardHeader>
@@ -63,11 +63,11 @@ export default function RrhhTabContent({
                 Tipos de Novedades
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'diagrams',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Tipos de Novedades</CardTitle>
                   <CardDescription>Gestión de tipos de novedades</CardDescription>
                 </CardHeader>
@@ -87,11 +87,11 @@ export default function RrhhTabContent({
                 CCT
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'convenios',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Convenios Colectivos de Trabajo</CardTitle>
                   <CardDescription>Gestión de CCT</CardDescription>
                 </CardHeader>
@@ -111,11 +111,11 @@ export default function RrhhTabContent({
                 Tipos de Contrato
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'contract-types',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Tipos de Contrato</CardTitle>
                   <CardDescription>Gestión de tipos de contrato</CardDescription>
                 </CardHeader>
@@ -135,11 +135,11 @@ export default function RrhhTabContent({
                 Puestos
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'positions',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Puestos</CardTitle>
                   <CardDescription>Gestión de puestos de trabajo</CardDescription>
                 </CardHeader>
@@ -159,11 +159,11 @@ export default function RrhhTabContent({
                 APT
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'aptitudes',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Aptitudes Técnicas</CardTitle>
                   <CardDescription>Gestión de aptitudes técnicas</CardDescription>
                 </CardHeader>
@@ -183,11 +183,11 @@ export default function RrhhTabContent({
                 Artículos
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'listado_maestro_articulos',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Listado Maestro de Artículos</CardTitle>
                   <CardDescription>Gestión del catálogo de indumentaria y EPP</CardDescription>
                 </CardHeader>

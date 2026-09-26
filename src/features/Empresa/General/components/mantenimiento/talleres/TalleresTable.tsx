@@ -108,7 +108,7 @@ export function TalleresTable({
   const [showActive, setShowActive] = useState(true);
   const filteredData = useMemo(() => filterByActiveFlag(workshopsData, 'is_active', showActive), [workshopsData, showActive]);
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('empresa', 'talleres', 'update');
+  const canEdit = hasPermission('configuracion', 'talleres', 'update');
 
   const names = createFilterOptions(filteredData, (workshop) => workshop.name);
 

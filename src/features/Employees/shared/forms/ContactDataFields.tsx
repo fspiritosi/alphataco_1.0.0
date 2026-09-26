@@ -15,7 +15,7 @@ import type { ContactDataValues } from '../schemas/person-data-schemas';
 
 /**
  * Campos de datos de contacto de una persona (domicilio, telefono, email).
- * Compartidos entre el legajo de empleado y el pre legajo: toman el form del contexto
+ * Compartidos entre el legajo de empleado y el candidato: toman el form del contexto
  * (`<Form {...form}>` de shadcn ya es un FormProvider).
  */
 export function ContactDataFields() {

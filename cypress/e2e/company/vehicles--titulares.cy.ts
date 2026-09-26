@@ -1,7 +1,7 @@
 /**
  * Test: Empresa - Vehicles - Titulares
  * Tab: vehicles | Subtab: titulares
- * URL: /dashboard/company/actualCompany?tab=vehicles&subtab=titulares
+ * URL: /dashboard/configuration?tab=vehicles&subtab=titulares
  *
  * Estado: A IMPLEMENTAR
  */
@@ -11,7 +11,7 @@ describe('Company - Vehicles - Titulares', () => {
     const email = Cypress.env('TEST_EMAIL') || 'testing@e2e.com';
     const password = Cypress.env('TEST_PASSWORD') || 'Testing123!';
     cy.login(email, password);
-    cy.visit('/dashboard/company/actualCompany?tab=vehicles&subtab=titulares');
+    cy.visit('/dashboard/configuration?tab=vehicles&subtab=titulares');
   });
 
   it('should navigate to titulares tab', () => {

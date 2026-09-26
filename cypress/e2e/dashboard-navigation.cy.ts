@@ -30,7 +30,7 @@ describe('Dashboard Navigation Tests', () => {
   });
 
   it('should verify company page loads', () => {
-    cy.visit('/dashboard/company');
+    cy.visit('/dashboard/configuration/companies');
     cy.wait(2000);
     cy.checkNoErrors();
   });

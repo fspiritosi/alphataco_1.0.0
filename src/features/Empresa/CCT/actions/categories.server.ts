@@ -55,7 +55,7 @@ export async function createCategory(input: { name: string; covenant_id: string 
       select: { id: true },
     });
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return { ok: true, id: created.id };
   } catch (error) {
     logger.error('Error al crear categoría', { data: { error } });

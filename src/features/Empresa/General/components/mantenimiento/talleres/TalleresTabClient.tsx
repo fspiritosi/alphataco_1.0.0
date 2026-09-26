@@ -19,7 +19,7 @@ export function TalleresTabClient({ workshops, savedVisibility, savedFilter }: T
 
   // Verificar si tiene permisos de crear o editar
   const canCreateOrUpdate =
-    hasPermission('empresa', 'talleres', 'create') || hasPermission('empresa', 'talleres', 'update');
+    hasPermission('configuracion', 'talleres', 'create') || hasPermission('configuracion', 'talleres', 'update');
 
   return (
     <div className="w-full">

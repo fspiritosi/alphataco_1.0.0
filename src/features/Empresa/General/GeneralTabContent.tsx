@@ -1,5 +1,7 @@
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import KpisTabContent from '@/features/Dashboard/Estadisticas/KPIs/KpisTabContent';
 import { _CreateDocumentTypeButton } from '@/features/Documentacion/TiposDocumentos/components/_CreateDocumentTypeButton';
 import CompanyDocsList from '@/features/Empresa/General/Documentacion/components/CompanyDocsList';
 import { CompanyDocsTableSkeleton } from '@/features/Empresa/General/Documentacion/fallback/CompanyDocsTableSkeleton';
@@ -7,7 +9,7 @@ import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { document_applies } from '@/generated/prisma/enums';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
-import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
+import { Building2, ChartColumn, DollarSign, FileText, Network, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
@@ -16,9 +18,8 @@ import { CostCenterTableSkeleton } from './CostCenter/fallback/CostCenterTableSk
 import HierarchyList from './Hierarchy/HierarchyList';
 import { HierarchyTableSkeleton } from './Hierarchy/fallback/HierarchyTableSkeleton';
 import CompanyComponent from './components/company/CompanyComponent';
-import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
 import { CompanySkeleton } from './fallback/CompanySkeleton';
-import { MantenimientoSubtabSkeleton, TableSubtabSkeleton } from './fallback/SubtabSkeletons';
+import { TableSubtabSkeleton } from './fallback/SubtabSkeletons';
 
 export default async function GeneralTabContent({
   searchParams,
@@ -45,19 +46,19 @@ export default async function GeneralTabContent({
                 Empresa
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'company',
             content: (
               <Card>
-                <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="flex flex-row items-start bg-surface dark:bg-muted/50 border-b-2">
                   <div className="flex-1">
                     <CardTitle>Empresa</CardTitle>
                     <CardDescription>Información de la empresa</CardDescription>
                   </div>
-                  <PermissionGuardServer module="empresa" tab="general" action="update">
+                  <PermissionGuardServer module="configuracion" tab="general" action="update">
                     <Link
-                      href={`/dashboard/company/${company_id}`}
-                      className={buttonVariants({ variant: 'gh_orange' })}
+                      href={`/dashboard/configuration/companies/${company_id}`}
+                      className={buttonVariants({ variant: 'brand' })}
                     >
                       Editar Empresa
                     </Link>
@@ -79,11 +80,11 @@ export default async function GeneralTabContent({
                 Centro de Costos
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'cost-center',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Centro de Costos</CardTitle>
                   <CardDescription>Gestión de centros de costos</CardDescription>
                 </CardHeader>
@@ -103,11 +104,11 @@ export default async function GeneralTabContent({
                 Organigrama
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'organigrama',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Organigrama</CardTitle>
                   <CardDescription>Estructura organizacional</CardDescription>
                 </CardHeader>
@@ -127,11 +128,27 @@ export default async function GeneralTabContent({
                 Usuarios
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'users',
             content: (
               <Suspense fallback={<TableSubtabSkeleton />}>
                 <UsersTabComponent searchParams={searchParams} permissions={permissions} />
+              </Suspense>
+            ),
+          },
+          {
+            value: 'kpis',
+            label: (
+              <span className="flex items-center gap-2">
+                <ChartColumn className="h-4 w-4" />
+                KPIs
+              </span>
+            ),
+            moduleSlug: 'configuracion',
+            tabSlug: 'kpis',
+            content: (
+              <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
+                <KpisTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
             ),
           },
@@ -143,11 +160,11 @@ export default async function GeneralTabContent({
                 Documentación
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'documentacion',
             content: (
               <div className="">
-                <PermissionGuardServer module="empresa" tab="documentacion" action="create">
+                <PermissionGuardServer module="configuracion" tab="documentacion" action="create">
                   <_CreateDocumentTypeButton defaultApplies={document_applies.Empresa} />
                 </PermissionGuardServer>
                 <Card className="mt-4">
@@ -158,30 +175,6 @@ export default async function GeneralTabContent({
                   </CardContent>
                 </Card>
               </div>
-            ),
-          },
-          {
-            value: 'mantenimiento',
-            label: (
-              <span className="flex items-center gap-2">
-                <Wrench className="h-4 w-4" />
-                Mantenimiento
-              </span>
-            ),
-            moduleSlug: 'empresa',
-            tabSlug: 'empresa-mantenimiento',
-            content: (
-              <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-                  <CardTitle>Mantenimiento</CardTitle>
-                  <CardDescription>Gestión de talleres y sectores</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <Suspense fallback={<MantenimientoSubtabSkeleton />}>
-                    <MantenimientoTab />
-                  </Suspense>
-                </CardContent>
-              </Card>
             ),
           },
         ]}

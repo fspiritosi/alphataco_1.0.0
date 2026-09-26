@@ -31,7 +31,7 @@ export function getColumns(
   permissions: Permissions,
   onEdit: (item: PositionListItem) => void
 ): ColumnDef<PositionListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'positions', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'positions', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

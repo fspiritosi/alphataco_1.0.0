@@ -87,8 +87,8 @@ export function _ExternalApiClientsDataTable({
   initialFilterVisibility,
 }: Props) {
   // ─── Permisos: construidos desde el map del servidor, nunca re-fetcheados ──
-  const canUpdate = permissionsMap['empresa:accesos-externos:update'] === true;
-  const canDelete = permissionsMap['empresa:accesos-externos:delete'] === true;
+  const canUpdate = permissionsMap['configuracion:accesos-externos:update'] === true;
+  const canDelete = permissionsMap['configuracion:accesos-externos:delete'] === true;
 
   const columns = useMemo(() => getColumns({ canUpdate, canDelete }), [canUpdate, canDelete]);
 

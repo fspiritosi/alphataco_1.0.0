@@ -77,7 +77,7 @@ export async function createGuild(input: { name: string }): Promise<CctMutationR
       select: { id: true },
     });
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return { ok: true, id: created.id };
   } catch (error) {
     logger.error('Error al crear sindicato', { data: { error } });

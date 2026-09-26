@@ -31,7 +31,7 @@ export default function UsersTabComponent({
               Usuarios
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'usuarios-empleados',
           content: (
             <Suspense fallback={<UsersTableSkeleton />}>
@@ -47,7 +47,7 @@ export default function UsersTabComponent({
               Gestión de Roles
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'gestion-roles',
           content: (
             <Suspense fallback={<RoleManagerSkeleton />}>
@@ -63,7 +63,7 @@ export default function UsersTabComponent({
               Accesos Externos
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'accesos-externos',
           content: (
             <Suspense fallback={<ExternalApiClientsTableSkeleton />}>

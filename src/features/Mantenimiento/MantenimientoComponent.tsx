@@ -3,11 +3,9 @@ import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposCon
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import GomeriaTabContent from '@/features/Mantenimiento/Gomeria/GomeriaTabContent';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
-import MaintenanceGroupsWrapper from '@/features/Mantenimiento/TiposReparaciones/MaintenanceGroupsWrapper';
-import RepairTypeFormWrapper from '@/features/Mantenimiento/TiposReparaciones/RepairTypeFormWrapper';
 import { WorkshopSectorsSkeleton, WorkshopViewTabContent } from '@/features/Mantenimiento/WorkshopView';
-import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, Building2, CircleDot, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
+import { SectionManagerServer } from '@/features/TabsManager';
+import { AlertTriangle, Building2, CircleDot, ClipboardList, Plus, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import { OperacionesPipelineContent } from './Pipeline/OperacionesPipeline/OperacionesPipelineContent';
 import { OperacionesPipelineSkeleton } from './Pipeline/OperacionesPipeline/fallback/OperacionesPipelineSkeleton';
@@ -31,12 +29,11 @@ interface MantenimientoComponentProps {
  */
 export default async function MantenimientoComponent({ searchParams, permissions }: MantenimientoComponentProps) {
   return (
-    <TabsManagerServer
+    <SectionManagerServer
       paramName="tab"
       searchParams={searchParams}
       defaultTab="maint_operaciones"
       permissions={permissions}
-      dependentParams={['gomeria_tab', 'config_subtab']}
       tabs={[
         // ============================================
         // TAB: OPERACIONES (Pipeline visual)
@@ -154,60 +151,6 @@ export default async function MantenimientoComponent({ searchParams, permissions
         // ============================================
         // TAB: CONFIGURACIÓN
         // ============================================
-        {
-          value: 'maint_configuracion',
-          label: (
-            <span className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Configuración
-            </span>
-          ),
-          moduleSlug: 'mantenimiento',
-          tabSlug: 'maint_configuracion',
-          content: (
-            <TabsManagerServer
-              paramName="subtab"
-              searchParams={searchParams}
-              defaultTab="type_of_repair"
-              permissions={permissions}
-              dependentParams={['config_subtab']}
-              tabs={[
-                {
-                  value: 'type_of_repair',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      Tipos de Reparación
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'type_of_repair',
-                  content: (
-                    <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-                      <RepairTypeFormWrapper />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'maintenance_groups',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Grupos
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'maintenance_groups',
-                  content: (
-                    <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-                      <MaintenanceGroupsWrapper />
-                    </Suspense>
-                  ),
-                },
-              ]}
-            />
-          ),
-        },
       ]}
     />
   );

@@ -224,7 +224,7 @@ export function PreparteDetailModal({
                   <div className="mt-3 pt-3 border-t border-amber-200 text-amber-800 text-sm flex items-center gap-1.5">
                     <span className="font-medium">{reason.actorLabel}:</span>
                     <Link
-                      href={`/dashboard/company/actualCompany?subtab=users&company-users__search=${encodeURIComponent(
+                      href={`/dashboard/configuration?subtab=users&company-users__search=${encodeURIComponent(
                         reason.actor
                       )}`}
                       className="inline-flex items-center gap-1 text-amber-900 hover:text-amber-700 hover:underline"

@@ -49,7 +49,7 @@ export async function createCovenant(input: { name: string; guild_id: string }):
       select: { id: true },
     });
 
-    revalidatePath('/dashboard/company/actualCompany');
+    revalidatePath('/dashboard/configuration');
     return { ok: true, id: created.id };
   } catch (error) {
     logger.error('Error al crear convenio', { data: { error } });

@@ -31,7 +31,7 @@ export function getEquipmentOwnerColumns(
   onEdit: (item: EquipmentOwnerListItem) => void,
   onViewEquipment: (item: EquipmentOwnerListItem) => void
 ): ColumnDef<EquipmentOwnerListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'titulares', 'update');
+  const canUpdate = permissions.hasPermission('configuracion', 'titulares', 'update');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

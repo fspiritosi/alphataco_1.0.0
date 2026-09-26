@@ -34,7 +34,7 @@ const USERS_TAB = 'usuarios-empleados';
 const diagramStatusResultSchema = z.object({ success: z.boolean(), affected_rows: z.coerce.number().optional() });
 
 async function assertUsersPermission(action: 'update' | 'delete'): Promise<void> {
-  if (!(await checkPermissionServer('empresa', USERS_TAB, action))) {
+  if (!(await checkPermissionServer('configuracion', USERS_TAB, action))) {
     throw new Error('No tenés permiso para realizar esta acción');
   }
 }
@@ -42,8 +42,8 @@ async function assertUsersPermission(action: 'update' | 'delete'): Promise<void>
 /** El nombre se edita desde la tabla (`usuarios-empleados`) o desde el detalle (`detalle-usuario`). */
 async function assertCanEditProfileName(): Promise<void> {
   const [fromList, fromDetail] = await Promise.all([
-    checkPermissionServer('empresa', USERS_TAB, 'update'),
-    checkPermissionServer('empresa', 'detalle-usuario', 'update'),
+    checkPermissionServer('configuracion', USERS_TAB, 'update'),
+    checkPermissionServer('configuracion', 'detalle-usuario', 'update'),
   ]);
   if (!fromList && !fromDetail) throw new Error('No tenés permiso para realizar esta acción');
 }

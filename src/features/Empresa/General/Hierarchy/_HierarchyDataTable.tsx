@@ -59,8 +59,8 @@ export default function _HierarchyDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'organigrama', 'create') ||
-    permissions.hasPermission('empresa', 'organigrama', 'update');
+    permissions.hasPermission('configuracion', 'organigrama', 'create') ||
+    permissions.hasPermission('configuracion', 'organigrama', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setHierarchy = useHierarchyStore((state) => state.setHierarchy);

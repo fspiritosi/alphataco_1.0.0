@@ -32,7 +32,7 @@ const EMPTY_VALUES: ContactFormValues = {
 
 /**
  * Alta / edición / vista de un contacto de la empresa activa
- * (`/dashboard/company/actualCompany/contact/action?action=edit|view&id=...`).
+ * (`/dashboard/configuration/contact/action?action=edit|view&id=...`).
  * Clientes y contacto se piden por server action (React Query); la empresa la resuelve el servidor.
  */
 export default function ContactRegister({ id }: { id: string }) {
@@ -89,7 +89,7 @@ export default function ContactRegister({ id }: { id: string }) {
     if (response.status === 201 || response.status === 200) {
       toast.success(response.body, { id: toastId });
       queryClient.invalidateQueries({ queryKey: ['contact', id] });
-      router.push('/dashboard/company/actualCompany');
+      router.push('/dashboard/configuration');
     } else {
       toast.error(response.body, { id: toastId });
     }

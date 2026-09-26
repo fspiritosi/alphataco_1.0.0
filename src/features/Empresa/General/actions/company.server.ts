@@ -108,7 +108,7 @@ export async function hasAnyCompanyMembership(): Promise<boolean> {
 /**
  * Empresa a editar, con ciudad y provincia resueltas, o `null` si el usuario no puede editarla.
  *
- * `companyId` llega POR RUTA (`/dashboard/company/[id]`), o sea del caller: sin RLS hay que
+ * `companyId` llega POR RUTA (`/dashboard/configuration/companies/[id]`), o sea del caller: sin RLS hay que
  * validarlo acá o cualquier uuid de empresa sería legible. Se aplica el MISMO perímetro que
  * `updateCompany`: pertenencia (`assertCompanyAccess`) + owner o permiso `empresa.general.update`.
  * Así no se puede abrir un formulario de edición que después no se va a poder guardar.
@@ -139,7 +139,7 @@ export async function getCompanyForEdit(companyId: string) {
     if (!company) return null;
 
     const isOwner = company.owner_id === profileId;
-    if (!isOwner && !(await checkPermissionServer('empresa', 'general', 'update'))) {
+    if (!isOwner && !(await checkPermissionServer('configuracion', 'general', 'update'))) {
       logger.warn('Intento de edición de empresa sin permiso', { data: { companyId } });
       return null;
     }
@@ -277,7 +277,7 @@ export async function createCompany(formData: FormData): Promise<CompanyMutation
     // sin más validación porque quien lo pide ACABA de quedar como `owner_id` unas líneas más
     // arriba: la pertenencia no se supone, se creó en esta misma transacción. Sin esto, el
     // usuario que entra sin empresa vuelve al proxy con el claim en null y rebota otra vez a
-    // /dashboard/company/new.
+    // /dashboard/configuration/companies/new.
     const sessionToken = await getSessionToken();
     if (sessionToken) {
       try {
@@ -324,7 +324,7 @@ export async function updateCompany(companyId: string, formData: FormData): Prom
     const company = await prisma.company.findUnique({ where: { id: companyId }, select: { owner_id: true } });
     if (!company) return { ok: false, error: 'Empresa no encontrada' };
     const isOwner = company.owner_id === profileId;
-    if (!isOwner && !(await checkPermissionServer('empresa', 'general', 'update'))) {
+    if (!isOwner && !(await checkPermissionServer('configuracion', 'general', 'update'))) {
       return { ok: false, error: 'No tenés permiso para editar esta empresa' };
     }
 

@@ -1,33 +1,11 @@
-import { MonthlyEmployeeDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/fallback/MonthlyEmployeeDocumentsSkeleton';
-import { MonthlyEmployeeDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/MonthlyEmployeeDocumentsList';
-import { EmployeePermanentDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/EmployeePermanentDocumentsList';
-import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
-import DocumentNav from '@/features/Documentacion/shared/components/DocumentNav';
-import { TiposDocumentosSkeleton } from '@/features/Documentacion/TiposDocumentos/fallback/TiposDocumentosSkeleton';
-import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import EmployeesDiagram from '@/features/Employees/Diagrams/EmployeesDiagram';
 import { DiagramsSkeleton } from '@/features/Employees/Diagrams/fallback/DiagramsSkeleton';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
-import { PreEmployeeTableSkeleton } from '@/features/Employees/PreLegajos/components/PreEmployeeList/fallback/PreEmployeeTableSkeleton';
-import PreLegajosTabContent from '@/features/Employees/PreLegajos/PreLegajosTabContent';
-import CovenantTreeFileWrapper from '@/features/Empresa/CCT/components/CovenantTreeFileWrapper';
-import { CovenantTreeSkeleton } from '@/features/Empresa/CCT/fallback/CovenantTreeSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
-import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
-import { TabsManagerServer } from '@/features/TabsManager';
-import {
-  Calendar,
-  FileArchive,
-  FileCheck,
-  FileText,
-  FileType,
-  GitBranch,
-  UserCheck,
-  UserPlus,
-  Users,
-  UserX,
-} from 'lucide-react';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
+import { SectionManagerServer, TabsManagerServer } from '@/features/TabsManager';
+import { GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 
@@ -59,13 +37,11 @@ export default async function EmployeePage({
   const resolvedSearchParams = await searchParams;
 
   return (
-    <TabsManagerServer
+    <SectionManagerServer
       paramName="tab"
       searchParams={resolvedSearchParams}
       defaultTab="employees"
-      dependentParams={['subtab']}
       permissions={permissions}
-      // variant="line"
       tabs={[
         {
           value: 'employees',
@@ -121,80 +97,6 @@ export default async function EmployeePage({
           ),
         },
         {
-          value: 'pre-legajos',
-          label: (
-            <span className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Pre Legajos
-            </span>
-          ),
-          moduleSlug: 'empleados' as const,
-          tabSlug: 'pre-legajos' as const,
-          content: (
-            <Suspense fallback={<PreEmployeeTableSkeleton />}>
-              <PreLegajosTabContent searchParams={resolvedSearchParams} />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'documentos-de-empleados',
-          label: (
-            <span className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Documentos de Empleados
-            </span>
-          ),
-          moduleSlug: 'empleados',
-          tabSlug: 'documentos-de-empleados',
-          content: (
-            <TabsManagerServer
-              paramName="subtab"
-              searchParams={resolvedSearchParams}
-              defaultTab="docs-empleados-permanentes"
-              permissions={permissions}
-              actions={
-                <PermissionGuardServer module="empleados" tab="documentos-de-empleados" action="create">
-                  <DocumentNav onlyEmployees />
-                </PermissionGuardServer>
-              }
-              tabs={[
-                {
-                  value: 'docs-empleados-permanentes',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <FileArchive className="h-4 w-4" />
-                      Documentos Permanentes
-                    </span>
-                  ),
-                  moduleSlug: 'empleados',
-                  tabSlug: 'docs-empleados-permanentes',
-                  content: (
-                    <Suspense fallback={<EmployeePermanentDocumentsSkeleton />}>
-                      <EmployeePermanentDocumentsList searchParams={resolvedSearchParams} />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'docs-empleados-mensuales',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Documentos Mensuales
-                    </span>
-                  ),
-                  moduleSlug: 'empleados',
-                  tabSlug: 'docs-empleados-mensuales',
-                  content: (
-                    <Suspense fallback={<MonthlyEmployeeDocumentsSkeleton />}>
-                      <MonthlyEmployeeDocumentsList searchParams={resolvedSearchParams} />
-                    </Suspense>
-                  ),
-                },
-              ]}
-            />
-          ),
-        },
-        {
           value: 'diagrams',
           label: (
             <span className="flex items-center gap-2">
@@ -207,42 +109,6 @@ export default async function EmployeePage({
           content: (
             <Suspense fallback={<DiagramsSkeleton />}>
               <EmployeesDiagram searchParams={resolvedSearchParams} permissions={permissions} />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'tipos-de-documentos',
-          label: (
-            <span className="flex items-center gap-2">
-              <FileType className="h-4 w-4" />
-              Tipos de Documentos
-            </span>
-          ),
-          moduleSlug: 'documentacion' as const,
-          tabSlug: 'tipos-de-documentos' as const,
-          content: (
-            <Suspense fallback={<TiposDocumentosSkeleton />}>
-              <TiposDocumentosTabContent
-                searchParams={resolvedSearchParams}
-                showOnlyPersonas={true}
-                permissions={permissions}
-              />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'covenant',
-          label: (
-            <span className="flex items-center gap-2">
-              <FileCheck className="h-4 w-4" />
-              CCT
-            </span>
-          ),
-          moduleSlug: 'empleados' as const,
-          tabSlug: 'covenant' as const,
-          content: (
-            <Suspense fallback={<CovenantTreeSkeleton />}>
-              <CovenantTreeFileWrapper />
             </Suspense>
           ),
         },

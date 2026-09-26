@@ -36,11 +36,11 @@ export default function EquipmentsTabContent({
                 Tipos de Unidad
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'tipos',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Tipos de Unidad</CardTitle>
                   <CardDescription>Gestión de tipos de unidades</CardDescription>
                 </CardHeader>
@@ -60,11 +60,11 @@ export default function EquipmentsTabContent({
                 Marcas
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'marcas',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Marcas</CardTitle>
                   <CardDescription>Gestión de marcas de equipos</CardDescription>
                 </CardHeader>
@@ -84,11 +84,11 @@ export default function EquipmentsTabContent({
                 Modelos
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'modelos',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Modelos</CardTitle>
                   <CardDescription>Gestión de modelos de equipos</CardDescription>
                 </CardHeader>
@@ -108,11 +108,11 @@ export default function EquipmentsTabContent({
                 Subtipos
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'subtipos',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Subtipos</CardTitle>
                   <CardDescription>Gestión de subtipos de equipos</CardDescription>
                 </CardHeader>
@@ -132,11 +132,11 @@ export default function EquipmentsTabContent({
                 Titulares
               </span>
             ),
-            moduleSlug: 'empresa',
+            moduleSlug: 'configuracion',
             tabSlug: 'titulares',
             content: (
               <Card>
-                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
                   <CardTitle>Titulares</CardTitle>
                   <CardDescription>Gestión de titulares de equipos</CardDescription>
                 </CardHeader>

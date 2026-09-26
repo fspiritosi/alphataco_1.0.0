@@ -26,7 +26,7 @@ import type { EmployeeWorkDataValues } from './employee-form';
 
 /**
  * Datos laborales del legajo. Toma el form del contexto para poder reutilizarse tal cual
- * en dos lugares: la ficha del empleado y la aprobación de un pre legajo (ticket 505),
+ * en dos lugares: la ficha del empleado y la aprobación de un candidato (ticket 505),
  * donde son exactamente los campos que se completan al dar el OK.
  */
 export function EmployeeWorkDataForm() {

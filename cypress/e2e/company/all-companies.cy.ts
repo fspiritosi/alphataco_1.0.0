@@ -1,6 +1,6 @@
 /**
  * Test: Todas las Compañías
- * URL: /dashboard/company
+ * URL: /dashboard/configuration/companies
  *
  * Estado: A IMPLEMENTAR
  */
@@ -10,11 +10,11 @@ describe('Company - All Companies', () => {
     const email = Cypress.env('TEST_EMAIL') || 'testing@e2e.com';
     const password = Cypress.env('TEST_PASSWORD') || 'Testing123!';
     cy.login(email, password);
-    cy.visit('/dashboard/company');
+    cy.visit('/dashboard/configuration/companies');
   });
 
   it('should load all companies view', () => {
     // A IMPLEMENTAR
-    cy.url().should('include', '/dashboard/company');
+    cy.url().should('include', '/dashboard/configuration/companies');
   });
 });

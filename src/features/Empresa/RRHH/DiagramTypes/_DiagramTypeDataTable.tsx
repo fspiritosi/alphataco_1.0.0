@@ -59,8 +59,8 @@ export default function _DiagramTypeDataTable({
   );
 
   const canCreateOrUpdate =
-    permissions.hasPermission('empresa', 'diagrams', 'create') ||
-    permissions.hasPermission('empresa', 'diagrams', 'update');
+    permissions.hasPermission('configuracion', 'diagrams', 'create') ||
+    permissions.hasPermission('configuracion', 'diagrams', 'update');
 
   // ── Store de edición ─────────────────────────────────────────────────────
   const setDiagramType = useDiagramTypeStore((state) => state.setDiagramType);

@@ -1,5 +1,4 @@
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import MantenimientoTabContent from '@/features/Dashboard/Estadisticas/Mantenimiento/MantenimientoTabContent';
 import { MantenimientoChartsSkeleton } from '@/features/Dashboard/Estadisticas/Mantenimiento/fallback/MantenimientoChartsSkeleton';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
@@ -8,9 +7,8 @@ import SalaDeControlTabContent from '@/features/Dashboard/Estadisticas/SalaDeCon
 import { SalaDeControlSkeleton } from '@/features/Dashboard/Estadisticas/SalaDeControl/fallback/SalaDeControlSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
-import { BarChart3, Calendar, MonitorDot, Users, Wrench } from 'lucide-react';
+import { Calendar, MonitorDot, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
-import KpisTabContent from './KPIs/KpisTabContent';
 import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
 
 function EstadisticasTabComponent({
@@ -59,22 +57,6 @@ function EstadisticasTabComponent({
               <Card className="grid grid-cols-1 gap-3 mb-4 p-4">
                 <AbsenteeismDashboard />
               </Card>
-            ),
-          },
-          {
-            value: 'kpis',
-            label: (
-              <span className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                KPIs
-              </span>
-            ),
-            moduleSlug: 'dashboard',
-            tabSlug: 'kpis',
-            content: (
-              <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
-                <KpisTabContent searchParams={searchParams} permissions={permissions} />
-              </Suspense>
             ),
           },
           {

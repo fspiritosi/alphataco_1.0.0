@@ -40,7 +40,7 @@ class EquipmentTypeVisibilityError extends Error {}
  * y la página de detalle de usuario (`detalle-usuario`).
  */
 async function assertCanUpdate(tabSlug: 'gestion-roles' | 'detalle-usuario') {
-  const allowed = await checkPermissionServer('empresa', tabSlug, 'update');
+  const allowed = await checkPermissionServer('configuracion', tabSlug, 'update');
   if (!allowed) {
     throw new EquipmentTypeVisibilityError('No tienes permisos para modificar la visibilidad de tipos de equipamiento');
   }
@@ -96,7 +96,7 @@ export async function getRoleHiddenEquipmentTypeIds(roleId: number) {
 
   // El chequeo de permiso corre en paralelo con la lectura: no bloquea la query
   const [allowed, rows] = await Promise.all([
-    checkPermissionServer('empresa', 'gestion-roles', 'view'),
+    checkPermissionServer('configuracion', 'gestion-roles', 'view'),
     prisma.role_hidden_equipment_types
       .findMany({ where: { role_id: BigInt(roleId) }, select: { type_id: true } })
       .catch((error: unknown) => {
@@ -200,7 +200,7 @@ export async function getUserEquipmentTypeVisibility(userId: string) {
   const companyId = await getActiveCompanyId();
 
   const [allowed, data] = await Promise.all([
-    checkPermissionServer('empresa', 'detalle-usuario', 'view'),
+    checkPermissionServer('configuracion', 'detalle-usuario', 'view'),
     Promise.all([
       prisma.user_roles.findMany({
         where: { user_id: userId, company_id: companyId, roles: { is_active: true } },
