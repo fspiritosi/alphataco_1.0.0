@@ -1,8 +1,9 @@
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { getMyTicketsWithUnread } from '@/features/Ayuda/actions/support-tickets';
 import { SupportTicketsRealtimeProvider } from '@/features/Ayuda/components/SupportTicketsRealtimeProvider';
 import { MY_TICKETS_WITH_UNREAD_QUERY_KEY } from '@/features/Ayuda/hooks/queryKeys';
-import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
-import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
+import { DashboardHeader } from '@/features/Layout/header/DashboardHeader';
+import { AppSidebar } from '@/features/Layout/sidebar/AppSidebar';
 import { PasswordChangeAlertWrapper } from '@/shared/components/auth/PasswordChangeAlertWrapper';
 import TanstackQueryInicializador from '@/shared/providers/TanstackQueryInicializador';
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
@@ -12,10 +13,16 @@ import { Suspense } from 'react';
  * DashboardLayout - Layout principal del dashboard
  *
  * Estructura para soportar Next.js 16 + cacheComponents:
- * - El shell (sidebar, navbar, content) se renderiza inmediato como fallback del Suspense.
+ * - El shell (sidebar, header, content) se renderiza inmediato como fallback del Suspense.
  * - En paralelo, DashboardWithHydration hace prefetch server-side de los tickets sin leer
  *   y rehidrata el QueryClient. Cuando termina, el badge aparece sin nuevo fetch en cliente.
  * - Sin el Suspense, el `await prefetchQuery` bloquearía la navegación (Next.js 16 lo prohíbe).
+ *
+ * El sidebar arranca abierto en cada carga. `SidebarProvider` guarda el estado en la cookie
+ * `sidebar_state`, pero sólo la respeta si se la pasan como `defaultOpen` en el render inicial,
+ * y leerla acá con `cookies()` vuelve bloqueante a todo el layout: con `cacheComponents` activo
+ * el build falla con "Uncached data was accessed outside of <Suspense>". El sidebar anterior
+ * (zustand, sin persistencia) tampoco recordaba el estado, así que no se pierde nada.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -49,20 +56,16 @@ async function DashboardWithHydration({ children }: { children: React.ReactNode 
 function DashboardLayoutShell({ children }: { children: React.ReactNode }) {
   return (
     <SupportTicketsRealtimeProvider>
-      <div className="grid grid-rows-[auto_1fr] grid-cols-[auto_1fr]" suppressHydrationWarning>
-        <div className="row-span-2">
-          <SidebarFeat />
-        </div>
-        <div className="border-r border-b border-muted/50 dark:bg-slate-950 mb-2">
-          <NavbarFeat />
-        </div>
-        <div className="min-h-0 overflow-y-auto">
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset className="min-w-0">
+          <DashboardHeader />
           <Suspense fallback={null}>
             <PasswordChangeAlertWrapper />
           </Suspense>
-          <div className="px-6 pb-4">{children}</div>
-        </div>
-      </div>
+          <div className="min-w-0 flex-1 px-6 pb-4">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
     </SupportTicketsRealtimeProvider>
   );
 }

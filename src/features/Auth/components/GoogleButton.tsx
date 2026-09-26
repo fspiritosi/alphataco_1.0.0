@@ -16,7 +16,7 @@ function GoogleButton() {
     <Button
       variant="outline"
       type="submit"
-      className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg mb-7"
+      className="w-full"
       disabled={pending}
       formAction={async () => {
         const result = await googleLogin('/dashboard');

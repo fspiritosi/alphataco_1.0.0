@@ -40,7 +40,7 @@ export async function proxy(req: NextRequest) {
   // 3. Empresa: el claim lo estampó el servidor al abrir la sesión. Si está vacío puede ser que
   //    el usuario no tenga ninguna, o que lo hayan sumado a una DESPUÉS de abrir la sesión: se
   //    reintenta resolver contra la base y, si aparece, se estampa. Sin este auto-rescate el
-  //    invitado a una empresa quedaría rebotando contra /dashboard/company/new hasta relogearse.
+  //    invitado a una empresa quedaría rebotando contra /dashboard/configuration/companies/new hasta relogearse.
   if (!session.session.company) {
     const resolved = await resolveDefaultCompanyId(session.user.id);
 
@@ -55,9 +55,9 @@ export async function proxy(req: NextRequest) {
         logger.debug('La sesión desapareció mientras se estampaba el claim, redirigiendo a login');
         return NextResponse.redirect(new URL('/login', req.url));
       }
-    } else if (!req.nextUrl.pathname.startsWith('/dashboard/company/new')) {
+    } else if (!req.nextUrl.pathname.startsWith('/dashboard/configuration/companies/new')) {
       logger.debug('Usuario sin compañía, redirigiendo a crear compañía');
-      return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
+      return NextResponse.redirect(new URL('/dashboard/configuration/companies/new', req.url));
     }
   }
 

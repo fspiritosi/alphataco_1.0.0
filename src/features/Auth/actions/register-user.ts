@@ -76,7 +76,7 @@ export async function registerUserWithRole(values: RegisterUserInput): Promise<R
     const [companyId, actor] = await Promise.all([getActiveCompanyId(), getSessionUserId()]);
     if (!actor) return { success: false, error: 'Sesión requerida' };
 
-    if (!(await checkPermissionServer('empresa', 'usuarios-empleados', 'create'))) {
+    if (!(await checkPermissionServer('configuracion', 'usuarios-empleados', 'create'))) {
       return { success: false, error: 'No tenés permiso para crear usuarios en esta empresa' };
     }
 

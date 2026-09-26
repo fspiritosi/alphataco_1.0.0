@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { BRAND_NAME } from '@/shared/lib/branding';
 import Link from 'next/link';
 
 function AutenticationLight() {
@@ -10,14 +10,7 @@ function AutenticationLight() {
         </div>
       </div>
       <Link className="relative z-20 flex items-center font-bold text-2xl dark:text-white" href="/">
-        <Image
-          src="/gh_logo.png"
-          alt="Logo de codecontrol"
-          className="mr-4 relative z-40 w-40"
-          width={100}
-          height={100}
-        />
-        Grupo Horizonte
+        <span className="text-brand lowercase">{BRAND_NAME}</span>
       </Link>
       <div className=" z-20 mt-auto h-auto">
         <blockquote className="space-y-2">
@@ -25,7 +18,7 @@ function AutenticationLight() {
             Combinamos control de procesos, desarrollo de software y consultoría organizacional para ofrecerte
             soluciones integrales que generan resultados reales.
           </p>
-          <footer className="text-md dark:text-white">Grupo Horizonte</footer>
+          <footer className="text-md dark:text-white">{BRAND_NAME}</footer>
         </blockquote>
       </div>
     </div>

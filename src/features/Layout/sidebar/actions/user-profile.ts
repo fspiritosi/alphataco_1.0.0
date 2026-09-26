@@ -4,7 +4,7 @@ import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getSessionUserId } from '@/shared/lib/session';
 
-const logger = new Logger('features/Layout/navbar');
+const logger = new Logger('features/Layout/sidebar');
 
 const profileSelect = {
   id: true,
@@ -18,7 +18,7 @@ const profileSelect = {
 } as const;
 
 /**
- * Perfil del usuario de la sesión para el menú del navbar.
+ * Perfil del usuario de la sesión para el menú de usuario del sidebar.
  *
  * Perímetro: el perfil se busca por `credential_id` de la sesión; no hay parámetro que
  * pueda apuntar a otro usuario.

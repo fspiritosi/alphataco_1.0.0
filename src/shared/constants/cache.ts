@@ -56,5 +56,5 @@ export const CACHE_TAGS = {
   PIPELINE_TALLER: 'maint:pipe:taller',
 
   // ── Empresa / Usuarios ──
-  COMPANY_USERS: 'empresa:users',
+  COMPANY_USERS: 'configuracion:users',
 } as const;

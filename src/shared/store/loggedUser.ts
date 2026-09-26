@@ -309,7 +309,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
       await setActualCompany(sharedCompanies[0].company_id);
     }
     if (allCompanies.length === 0 && sharedCompanies.length === 0) {
-      if (typeof window !== 'undefined' && window.location.pathname !== '/dashboard/company/new') return;
+      if (typeof window !== 'undefined' && window.location.pathname !== '/dashboard/configuration/companies/new') return;
       set({ showNoCompanyAlert: true });
     }
   };

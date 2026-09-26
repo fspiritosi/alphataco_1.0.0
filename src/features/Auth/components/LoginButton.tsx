@@ -70,7 +70,7 @@ export const LoginButton = () => {
   };
   return (
     <Button
-      className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg"
+      className="w-full"
       formAction={(formData) => clientAccion(formData)}
       disabled={pending}
       data-testid="login-submit-button"

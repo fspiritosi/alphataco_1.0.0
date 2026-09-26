@@ -1,95 +1,24 @@
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import GoogleButton from '@/features/Auth/components/GoogleButton';
-import { LoginButton } from '@/features/Auth/components/LoginButton';
-import RenderBanner from '@/features/Auth/components/RenderBanner';
-import { isGoogleLoginEnabled } from '@/shared/lib/auth';
-import Image from 'next/image';
+import { LoginForm } from '@/features/Auth/components/LoginForm';
+import { BRAND_NAME } from '@/shared/lib/branding';
 import Link from 'next/link';
 
 /**
- * `googleLogin()` manda a `/login?error=oauth` cuando el callback de Google falla. Con
- * `disableSignUp` activo, el caso más común es un mail de Google que todavía no tiene usuario
- * en el sistema: sin este cartel el usuario volvía al login sin ninguna explicación y
- * reintentaba en loop.
+ * Pantalla de ingreso — bloque `login-03` de shadcn: tarjeta centrada sobre fondo `muted`.
+ *
+ * Reemplaza al layout partido con el banner lateral (`RenderBanner`), que sigue en pie en las
+ * pantallas de recupero de contraseña.
  */
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
 
   return (
-    <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
-      <div className="container relative flex-col grid-cols-1 justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0  md:px-2 p-0">
-        <RenderBanner />
-        <div className="lg:p-8 relative z-50   md:p-8 pt-7 p-0 flex flex-col justify-center items-center w-full">
-          <Link className="relative z-20 lg:hidden items-center font-bold text-2xl flex" href="/">
-            <Image src="/gh_logo.png" alt="Logo de codecontrol" className=" mr-4" width={120} height={120} />
-            Grupo Horizonte
-          </Link>
-          <div className="w-full overflow-y-auto ">
-            <CardHeader>
-              <CardTitle className="text-3xl font-semibold tracking-tight lg:text-left text-center">
-                ¡Es un placer verte de nuevo!
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {error === 'oauth' && (
-                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-                  No pudimos iniciar sesión con Google. Si es la primera vez que entrás, pedile a un
-                  administrador de tu empresa que te dé de alta: el sistema no crea cuentas solo.
-                </div>
-              )}
-              <form className="space-y-8 flex flex-col w-full">
-                <div className="w-full space-y-2">
-                  <Label htmlFor="email" className="text-lg">
-                    Email
-                  </Label>
-                  <Input
-                    placeholder="ejemplo@correo.com"
-                    autoComplete="email"
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="text-lg"
-                    data-testid="login-email-input"
-                  />
-                  <CardDescription className="text-lg" id="email_error">
-                    Por favor ingresa tu correo.
-                  </CardDescription>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-lg">
-                    Contraseña
-                  </Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="mi contraseña segura"
-                    className="text-lg"
-                    autoComplete="current-password"
-                    data-testid="login-password-input"
-                  />
-                  <CardDescription className="text-lg" id="password_error">
-                    Por favor ingresa tu contraseña.
-                  </CardDescription>
-                </div>
-                <div className="flex w-full justify-center flex-col items-center gap-2">
-                  <LoginButton />
-                </div>
-                <Separator orientation="horizontal" className="my-2 w-[70%] self-center" />
-                <Link href="/reset_password" className="text-md m-auto">
-                  ¿Olvidaste tu contraseña? <span className="text-gh_orange ml-1 ">restablecela aquí </span>
-                </Link>
-                {/* Sin GOOGLE_CLIENT_ID/SECRET el proveedor no está configurado y el botón no
-                    tendría a dónde redirigir: por eso se muestra sólo si está habilitado. */}
-                {isGoogleLoginEnabled && <GoogleButton />}
-              </form>
-            </CardContent>
-          </div>
-        </div>
+    <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <Link href="/" className="flex items-center gap-2 self-center font-medium">
+          <span className="text-brand text-2xl font-bold tracking-tight lowercase">{BRAND_NAME}</span>
+        </Link>
+        <LoginForm error={error} />
       </div>
-    </section>
+    </div>
   );
 }

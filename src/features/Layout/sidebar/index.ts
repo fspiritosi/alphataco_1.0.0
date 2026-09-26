@@ -3,24 +3,17 @@
  */
 
 // Componentes
-export { default as SidebarFeat } from './SidebarFeat';
-export { Sidebar } from './components/Sidebar';
-export { SidebarLink } from './components/SidebarLink';
-
-// Hooks
-export { useActiveLink } from './hooks/useActiveLink';
-export { useSidebarLinks } from './hooks/useSidebarLinks';
-
-// Store
-export { useSidebarStore } from './store/useSidebarStore';
+export { AppSidebar } from './AppSidebar';
+export { DashboardBreadcrumb } from './components/DashboardBreadcrumb';
+export { NavMain } from './components/NavMain';
 
 // Constants
-export { navigationLinks } from './constants/navigation';
-export type { NavigationLink } from './constants/navigation';
+export { navigationLinks, SUB_ITEM_ICONS } from './constants/navigation';
+export type { NavigationLink, NavigationSubLink } from './constants/navigation';
 
 // Types
-export type { AccessibleModule, SidebarProps } from './types/types';
+export type { AccessibleModule, CompanyRow } from './types/types';
 
 // Utils
-export { createLinkRegex, findBestMatch } from './utils/sidebar.utils';
-export { cleanPath } from './utils/utils.sidebar';
+export { buildSidebarItems, createLinkRegex, findBestMatch, resolveActiveTab } from './utils/sidebar.utils';
+export { resolveVisibleTabs } from './utils/tabs-visibility';
