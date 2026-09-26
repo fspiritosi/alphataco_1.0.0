@@ -150,7 +150,7 @@ ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 ```typescript
 const MODULE_IDS = {
   dashboard: '91ed9ae4-6713-41ac-a87e-6b156e079948',
-  empresa: 'e0478383-1287-4b5e-a727-985baf867173',
+  configuracion: 'e0478383-1287-4b5e-a727-985baf867173',
   empleados: '3c54a757-162c-4afc-8ea5-dca462f92e0c',
   equipos: '34d7f9e5-7c01-4def-9446-6b3f52d761a0',
   operaciones: '5563157e-fc3e-470f-b90b-dadd7cc38417',

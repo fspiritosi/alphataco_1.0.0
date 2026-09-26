@@ -48,7 +48,7 @@ http://localhost:3000
 | Partes Diarios     | Operaciones > Tab "Partes Diarios"    | `/dashboard/operations?tab=dailyreportstable` | -           |
 | Empleados          | "Empleados"                           | `/dashboard/employee`                         | -           |
 | Equipos            | "Equipos"                             | `/dashboard/equipment`                        | -           |
-| Empresa            | "Empresa"                             | `/dashboard/company`                          | -           |
+| Configuracion      | "Configuración"                       | `/dashboard/configuration`                                    | -           |
 | Documentacion      | "Documentacion"                       | `/dashboard/document`                         | -           |
 | Mantenimiento      | "Mantenimiento"                       | `/dashboard/maintenance`                      | -           |
 
