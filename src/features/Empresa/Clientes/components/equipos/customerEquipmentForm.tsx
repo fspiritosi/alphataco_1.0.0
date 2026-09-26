@@ -159,7 +159,7 @@ function CustomerEquipmentForm({ customers, mode, setMode, selectedEquipment, se
           />
 
           <div className="flex gap-4">
-            <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+            <Button type="submit" variant="brand" disabled={form.formState.isSubmitting}>
               {mode === 'create' ? 'Crear' : 'Actualizar'}
             </Button>
             <Button type="button" variant="outline" onClick={handleCancel}>

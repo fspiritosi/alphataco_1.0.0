@@ -59,7 +59,7 @@ export function WorkflowPipelineChevrons({ steps, counts, activeStep, onStepClic
                 // el indicador tiene que dibujarse hacia adentro.
                 'outline-none',
                 isActive
-                  ? 'bg-gh_orange text-white focus-visible:shadow-[inset_0_0_0_3px_var(--color-background)]'
+                  ? 'bg-brand text-white focus-visible:shadow-[inset_0_0_0_3px_var(--color-background)]'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer focus-visible:shadow-[inset_0_0_0_3px_var(--color-foreground)]'
               )}
               aria-current={isActive ? 'step' : undefined}
@@ -82,7 +82,7 @@ export function WorkflowPipelineChevrons({ steps, counts, activeStep, onStepClic
                 <span
                   className={cn(
                     'shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[24px] tabular-nums',
-                    isActive ? 'bg-card text-gh_orange' : 'bg-gh_orange text-white'
+                    isActive ? 'bg-card text-brand' : 'bg-brand text-white'
                   )}
                 >
                   {count}

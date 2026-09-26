@@ -205,7 +205,7 @@ export default function _ServiceOrdersDataTable({
 
   // ─── Toolbar actions ──────────────────────────────────────────────────────
   const toolbarActions = canCreate ? (
-    <Button variant="gh_orange" size="sm" onClick={() => setShowWizard(true)}>
+    <Button variant="brand" size="sm" onClick={() => setShowWizard(true)}>
       <Plus className="mr-2 size-4" />
       Nueva Orden
     </Button>

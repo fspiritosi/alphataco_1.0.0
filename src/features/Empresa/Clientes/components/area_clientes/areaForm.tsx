@@ -300,7 +300,7 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
           )}
 
           <div className="flex gap-4 pt-2">
-            <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+            <Button type="submit" variant="brand" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {mode === 'create' ? 'Crear' : 'Actualizar'}
             </Button>

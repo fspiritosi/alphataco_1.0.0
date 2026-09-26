@@ -275,7 +275,7 @@ export function KpiForm() {
         />
 
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant={'gh_orange'} disabled={isSubmitting}>
+          <Button type="submit" variant={'brand'} disabled={isSubmitting}>
             {isSubmitting ? (isEditing ? 'Actualizando...' : 'Creando...') : isEditing ? 'Actualizar' : 'Crear'}
           </Button>
           {isEditing && (

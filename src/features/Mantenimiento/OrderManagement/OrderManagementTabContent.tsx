@@ -20,7 +20,7 @@ interface Props {
 export async function OrderManagementTabContent({ searchParams }: Props) {
   return (
     <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+      <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
         <CardTitle>Gestion de Ordenes</CardTitle>
         <CardDescription>Asignar items de reparacion a sectores del taller con orden de secuencia</CardDescription>
       </CardHeader>

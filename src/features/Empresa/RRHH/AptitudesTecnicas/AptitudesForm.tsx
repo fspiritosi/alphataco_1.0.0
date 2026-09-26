@@ -215,7 +215,7 @@ export function AptitudesForm({ positions, queryKey }: AptitudesFormProps) {
         />
 
         <div className="flex gap-2 mt-6">
-          <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+          <Button type="submit" variant="brand" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting
               ? isEditing
                 ? 'Actualizando...'

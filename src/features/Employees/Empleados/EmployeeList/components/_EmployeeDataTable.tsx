@@ -394,7 +394,7 @@ export default function _EmployeeDataTable({
   // ─── Botón de creación protegido por permisos (solo en tab activos) ─────────
   const toolbarActions = isActive ? (
     <PermissionGuard module="empleados" tab="employees" action="create">
-      <Button asChild variant="gh_orange" size="sm">
+      <Button asChild variant="brand" size="sm">
         <Link href="/dashboard/employee/action?action=new">
           <Plus className="mr-2 size-4" />
           Agregar empleado

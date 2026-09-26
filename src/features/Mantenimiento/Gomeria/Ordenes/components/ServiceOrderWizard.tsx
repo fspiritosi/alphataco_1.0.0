@@ -272,7 +272,7 @@ export function ServiceOrderWizard({
           <Check className="h-4 w-4 text-green-600" />
           {interventionCount} intervención{interventionCount !== 1 ? 'es' : ''} en esta sesión
         </div>
-        <Button variant="gh_orange" onClick={() => closeMutation.mutate()} disabled={closeMutation.isPending}>
+        <Button variant="brand" onClick={() => closeMutation.mutate()} disabled={closeMutation.isPending}>
           {closeMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

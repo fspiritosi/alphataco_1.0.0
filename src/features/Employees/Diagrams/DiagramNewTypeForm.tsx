@@ -245,13 +245,13 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
 
         {!diagramToEdit ? (
           <div className="flex gap-x-4">
-            <Button variant="gh_orange" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
+            <Button variant="brand" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
               Crear
             </Button>
           </div>
         ) : (
           <div className="flex gap-x-4">
-            <Button variant="gh_orange" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
+            <Button variant="brand" className="mt-4" type="submit" disabled={form.formState.isSubmitting}>
               Actualizar
             </Button>
             <Button variant="outline" className="mt-4" type="button" onClick={() => cleanForm()}>

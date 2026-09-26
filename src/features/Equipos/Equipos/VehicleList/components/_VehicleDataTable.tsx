@@ -449,7 +449,7 @@ export function _VehicleDataTable({
   // ─── Botón "Nuevo vehículo" protegido por permisos ────────────────────────
   const toolbarActions = (
     <PermissionGuard module="equipos" tab="vehicles" action="create">
-      <Button asChild variant="gh_orange" size="sm">
+      <Button asChild variant="brand" size="sm">
         <Link href="/dashboard/equipment/action?action=new">
           <Plus className="mr-2 size-4" />
           Agregar vehículo

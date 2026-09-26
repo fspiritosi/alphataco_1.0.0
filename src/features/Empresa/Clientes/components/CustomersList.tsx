@@ -88,7 +88,7 @@ export function CustomersList({ customers, savedVisibility, savedFilters, onSele
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <PermissionGuard module="comercial" tab="customers" action="create">
             <DialogTrigger asChild>
-              <Button variant="gh_orange">Registrar Cliente</Button>
+              <Button variant="brand">Registrar Cliente</Button>
             </DialogTrigger>
           </PermissionGuard>
           <DialogContent className="max-w-4xl">

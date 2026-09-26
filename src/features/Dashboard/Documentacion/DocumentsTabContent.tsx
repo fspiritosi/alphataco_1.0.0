@@ -18,7 +18,7 @@ function DocumentsTabContent({
       <section>
         <Card className="flex flex-col justify-between overflow-hidden">
           <div>
-            <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
+            <CardHeader className="flex flex-row items-start bg-surface dark:bg-muted/50 border-b-2">
               <div className="gap-1">
                 <CardTitle className="flex items-center text-lg">Proximos vencimientos</CardTitle>
                 <CardDescription className="capitalize">Documentos que vencen en los proximos 30 dias</CardDescription>
@@ -82,7 +82,7 @@ function DocumentsTabContent({
               />
             </div>
           </div>
-          <CardFooter className="flex flex-row items-center border-t bg-gh dark:bg-muted/50 px-6 py-3"></CardFooter>
+          <CardFooter className="flex flex-row items-center border-t bg-surface dark:bg-muted/50 px-6 py-3"></CardFooter>
         </Card>
       </section>
     </section>

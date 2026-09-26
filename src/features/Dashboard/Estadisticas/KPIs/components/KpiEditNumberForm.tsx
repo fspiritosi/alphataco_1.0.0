@@ -128,7 +128,7 @@ export function KpiEditNumberForm({ kpi, onSuccess }: KpiEditNumberFormProps) {
           />
 
           <div className="flex gap-2">
-            <Button type="submit" variant="gh_orange" disabled={isSubmitting}>
+            <Button type="submit" variant="brand" disabled={isSubmitting}>
               {isSubmitting ? 'Guardando...' : 'Actualizar'}
             </Button>
             <Button

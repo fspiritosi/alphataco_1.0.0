@@ -126,7 +126,7 @@ export function WorkflowPipeline({
                 index > 0 && '-ml-3',
                 isActive ? 'z-10' : 'z-0 hover:z-5',
                 isActive
-                  ? 'bg-gh_orange text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80 cursor-pointer',
               )}
               aria-current={isActive ? 'step' : undefined}
@@ -159,8 +159,8 @@ export function WorkflowPipeline({
                   className={cn(
                     'shrink-0 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[24px]',
                     isActive
-                      ? 'bg-white text-gh_orange'
-                      : 'bg-gh_orange text-white',
+                      ? 'bg-white text-brand'
+                      : 'bg-brand text-white',
                   )}
                 >
                   {count}

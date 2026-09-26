@@ -19,7 +19,7 @@ export function CustomerDetailTab({ customer }: CustomerDetailTabProps) {
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-semibold">Información del Cliente</h3>
         <PermissionGuard module="comercial" tab="detalle-cliente" action="update">
-          <Button variant="gh_orange" onClick={() => setIsEditing((prev) => !prev)}>
+          <Button variant="brand" onClick={() => setIsEditing((prev) => !prev)}>
             {isEditing ? 'Deshabilitar edición' : 'Habilitar edición'}
           </Button>
         </PermissionGuard>

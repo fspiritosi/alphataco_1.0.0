@@ -184,7 +184,7 @@ export default function ServiceItemsTable({
         <Card>
           <div className="flex flex-col p-4">
             <div className="flex space-x-4 justify-end mb-2">
-              <Button variant="gh_orange" onClick={() => setShowInactive((prev) => !prev)}>
+              <Button variant="brand" onClick={() => setShowInactive((prev) => !prev)}>
                 {showInactive ? 'Ver Activos' : 'Ver Inactivos'}
               </Button>
             </div>

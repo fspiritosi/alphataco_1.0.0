@@ -34,7 +34,7 @@ export async function PlanificacionTabContent() {
 
   return (
     <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+      <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
         <CardTitle>Planificación de Mantenimiento</CardTitle>
         <CardDescription>Desvíos pendientes de asignación de taller, sector y período de fecha</CardDescription>
       </CardHeader>

@@ -208,7 +208,7 @@ export default function ServiceTable({
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           {showCreateButton && (
             <DialogTrigger asChild>
-              <Button size="sm" variant="gh_orange" className="mb-4">
+              <Button size="sm" variant="brand" className="mb-4">
                 Crear Contrato
               </Button>
             </DialogTrigger>
@@ -223,22 +223,22 @@ export default function ServiceTable({
       {selectedService ? (
         <Tabs defaultValue="detail" key={selectedService.id}>
           <div className="flex justify-between items-center mr-3">
-            <TabsList className="flex gap-1 bg-gh_contrast/50">
+            <TabsList className="flex gap-1 bg-surface-muted/50">
               {/* Hereda permisos de comercial/service/detalle-contrato */}
               <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
-                <TabsTrigger value="detail" className="text-gh_orange font-semibold">
+                <TabsTrigger value="detail" className="text-brand font-semibold">
                   Detalle
                 </TabsTrigger>
               </PermissionGuard>
               {/* Hereda permisos de comercial/service/documentos-contrato */}
               <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
-                <TabsTrigger value="documents" className="text-gh_orange font-semibold">
+                <TabsTrigger value="documents" className="text-brand font-semibold">
                   Documentos
                 </TabsTrigger>
               </PermissionGuard>
               {/* Hereda permisos de comercial/service/items-contrato */}
               <PermissionGuard module="comercial" tab="items-contrato" action="view">
-                <TabsTrigger value="items" className="text-gh_orange font-semibold">
+                <TabsTrigger value="items" className="text-brand font-semibold">
                   Items del Servicio
                 </TabsTrigger>
               </PermissionGuard>

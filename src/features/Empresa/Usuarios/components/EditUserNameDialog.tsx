@@ -137,7 +137,7 @@ export function EditUserNameDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+              <Button type="submit" variant="brand" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Guardando...' : 'Guardar'}
               </Button>
             </DialogFooter>

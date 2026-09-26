@@ -258,7 +258,7 @@ export default function _TiresDataTable({
         <Layers className="mr-2 size-4" />
         Alta masiva
       </Button>
-      <Button variant="gh_orange" size="sm" onClick={() => setShowCreateForm(true)}>
+      <Button variant="brand" size="sm" onClick={() => setShowCreateForm(true)}>
         <Plus className="mr-2 size-4" />
         Agregar cubierta
       </Button>

@@ -217,7 +217,7 @@ export function CustomerForm({ customer, onSuccess, readOnly = false }: Customer
         </div>
         {!readOnly && (
           <div className="flex justify-end space-x-4">
-            <Button type="submit" variant="gh_orange" disabled={form.formState.isSubmitting}>
+            <Button type="submit" variant="brand" disabled={form.formState.isSubmitting}>
               {isEditing ? 'Actualizar Cliente' : 'Crear Cliente'}
             </Button>
           </div>

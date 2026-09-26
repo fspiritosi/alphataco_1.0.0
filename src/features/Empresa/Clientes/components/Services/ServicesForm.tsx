@@ -317,7 +317,7 @@ export default function ServicesForm({
                   disabled={readOnly || form.formState.isSubmitting}
                   className="mt-4"
                   type="submit"
-                  variant="gh_orange"
+                  variant="brand"
                 >
                   {isEditing ? 'Editar' : 'Crear'}
                 </Button>

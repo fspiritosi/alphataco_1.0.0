@@ -364,7 +364,7 @@ export function _OtherEquipmentDataTable({
   // ─── Botón "Nuevo equipo" protegido por permisos ───────────────────────────
   const toolbarActions = (
     <PermissionGuard module="equipos" tab="others" action="create">
-      <Button asChild variant="gh_orange" size="sm">
+      <Button asChild variant="brand" size="sm">
         <Link href="/dashboard/equipment/action?action=new&type=other">
           <Plus className="mr-2 size-4" />
           Nuevo equipo

@@ -136,7 +136,7 @@ export function AssignmentDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="gh_orange">{triggerLabel}</Button>
+        <Button variant="brand">{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -198,7 +198,7 @@ export function AssignmentDialog({
                   Cancelar
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={form.formState.isSubmitting || disabled} variant="gh_orange">
+              <Button type="submit" disabled={form.formState.isSubmitting || disabled} variant="brand">
                 Guardar cambios
               </Button>
             </DialogFooter>

@@ -174,7 +174,7 @@ function SectorForm({ customers, mode, setMode, selectedSector, setSelectedSecto
           />
 
           <div className="flex gap-4">
-            <Button type="submit" variant="gh_orange" disabled={isPending}>
+            <Button type="submit" variant="brand" disabled={isPending}>
               {isPending ? 'Guardando...' : mode === 'create' ? 'Crear' : 'Actualizar'}
             </Button>
             <Button type="button" variant="outline" onClick={handleCancel}>

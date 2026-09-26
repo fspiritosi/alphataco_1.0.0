@@ -280,7 +280,7 @@ export default function PositionsFormNew({ selectedPosition, onDone }: Positions
           />
 
           <div className="flex gap-2 mt-6">
-            <Button variant="gh_orange" type="submit" disabled={form.formState.isSubmitting}>
+            <Button variant="brand" type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? 'Guardando...' : isEditing ? 'Actualizar' : 'Crear'}
             </Button>
             <Button type="button" onClick={handleCancel} variant="outline">

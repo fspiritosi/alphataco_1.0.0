@@ -18,7 +18,7 @@ interface VerActivosButtonProps {
  */
 export function VerActivosButton({ showActive, onToggle }: VerActivosButtonProps) {
   return (
-    <Button variant="gh_orange" onClick={() => onToggle(!showActive)}>
+    <Button variant="brand" onClick={() => onToggle(!showActive)}>
       {showActive ? 'Ver inactivos' : 'Ver activos'}
     </Button>
   );

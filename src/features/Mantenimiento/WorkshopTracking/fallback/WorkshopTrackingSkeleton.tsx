@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function WorkshopTrackingSkeleton() {
   return (
     <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+      <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
         <CardTitle>Seguimiento en Taller</CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
