@@ -199,3 +199,15 @@ export interface TabsManagerClientProps<M extends ModuleSlug = ModuleSlug> {
    */
   actions?: React.ReactNode;
 }
+
+/**
+ * Props de `SectionManagerServer`: las mismas que `TabsManagerServer` menos lo que describe una
+ * barra de pestañas que ya no existe (`variant`, `dependentParams`).
+ *
+ * `dependentParams` no hace falta porque el sidebar navega con `?tab=<value>` y nada más: el
+ * href descarta el resto de los parámetros, así que un `subtab` viejo no sobrevive al cambio de
+ * sección. Antes había que limpiarlo a mano porque el cambio de tab era un `replaceState` sobre
+ * la URL existente.
+ */
+export interface SectionManagerServerProps<M extends ModuleSlug = ModuleSlug>
+  extends Omit<TabsManagerServerProps<M>, 'variant' | 'dependentParams'> {}

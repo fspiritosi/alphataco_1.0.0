@@ -1,4 +1,5 @@
-import { PERMISSIONS, type ModuleSlug } from '@/features/Permissions/permissions-map';
+import { createTabVisibilityChecker } from '@/features/Permissions/lib/tab-visibility';
+import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { TabsManagerClient } from './TabsManagerClient';
 import type { TabsManagerServerProps } from './types';
 
@@ -51,70 +52,15 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   // En Next.js 16, searchParams es una Promise, necesitamos hacer await
   const resolvedSearchParams = await searchParams;
 
-  // Convertir el objeto plano de permisos a Map para acceso O(1)
-  // Los permisos son obligatorios, no hay fallback
-  const permissionMap = new Map<string, boolean>();
-  if (providedPermissions && typeof providedPermissions === 'object' && !Array.isArray(providedPermissions)) {
-    const entries = Object.entries(providedPermissions);
-    entries.forEach(([key, value]) => {
-      permissionMap.set(key, value);
-    });
-  }
+  // La regla de "¿esta tab se ve?" (view explícito o inferido desde una subtab) es compartida:
+  // la misma que usan el sidebar para ofrecer la sección y `SectionManagerServer` para montarla.
+  // Antes vivía acá duplicada, con helpers tipados `any`.
+  const isTabVisible = createTabVisibilityChecker(providedPermissions ?? {});
 
-  // Helper para verificar visibilidad inferida (si tiene acceso a alguna subtab)
-  const checkInferredVisibility = (moduleSlug: string, tabSlug: string): boolean => {
-    const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
-    if (!moduleDef) return false;
-
-    // Helper para encontrar la definición del tab
-    const findTabDef = (tabs: any): any => {
-      if (tabs[tabSlug]) return tabs[tabSlug];
-      for (const key in tabs) {
-        if (tabs[key].subtabs) {
-          const found = findTabDef(tabs[key].subtabs);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const tabDef = findTabDef(moduleDef.tabs);
-    if (!tabDef || !tabDef.subtabs) return false;
-
-    // Helper para verificar si alguna subtab tiene permiso de 'view'
-    const hasAnySubtabPermission = (subtabs: any): boolean => {
-      for (const key in subtabs) {
-        const subtab = subtabs[key];
-        // Verificar si esta subtab tiene permiso de 'view'
-        const permissionKey = `${moduleSlug}:${subtab.slug}:view`;
-        if (permissionMap.get(permissionKey)) return true;
-
-        // Recursivamente verificar sus subtabs
-        if (subtab.subtabs && hasAnySubtabPermission(subtab.subtabs)) return true;
-      }
-      return false;
-    };
-
-    return hasAnySubtabPermission(tabDef.subtabs);
-  };
-
-  // Filtrar tabs basándose en permisos usando el Map cacheado
   const filteredTabs = tabs.filter((tab) => {
-    // Si no tiene moduleSlug/tabSlug, mostrar siempre (sin restricción)
-    if (!tab.moduleSlug || !tab.tabSlug) {
-      return true;
-    }
-
-    const moduleSlug = String(tab.moduleSlug);
-    const tabSlug = String(tab.tabSlug);
-
-    // 1. Verificar permiso explícito de 'view' usando el Map (acceso O(1))
-    const key = `${moduleSlug}:${tabSlug}:view`;
-    if (permissionMap.get(key)) return true;
-
-    // 2. Verificar visibilidad inferida (si tiene acceso a alguna subtab)
-    // Esto permite que tabs padre sean visibles si el usuario tiene acceso a alguna de sus subtabs
-    return checkInferredVisibility(moduleSlug, tabSlug);
+    // Sin moduleSlug/tabSlug no hay permiso que verificar: se muestra siempre.
+    if (!tab.moduleSlug || !tab.tabSlug) return true;
+    return isTabVisible(String(tab.moduleSlug), String(tab.tabSlug));
   });
 
   // Si no hay tabs visibles, mostrar mensaje

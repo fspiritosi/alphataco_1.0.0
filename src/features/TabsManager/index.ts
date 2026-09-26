@@ -5,8 +5,15 @@
  * Soporta anidamiento, limpieza automática de parámetros y futura validación de roles.
  */
 
+export { SectionManagerServer } from './SectionManagerServer';
 export { TabsManagerClient } from './TabsManagerClient';
 export { TabsManagerClientSide } from './TabsManagerClientSide';
 export { TabsManagerServer } from './TabsManagerServer';
 export { TabsManagerServerWithPermissions } from './TabsManagerServerWithPermissions';
-export type { TabDefinition, TabsManagerClientProps, TabsManagerServerProps, TabsManagerVariant } from './types';
+export type {
+  SectionManagerServerProps,
+  TabDefinition,
+  TabsManagerClientProps,
+  TabsManagerServerProps,
+  TabsManagerVariant,
+} from './types';
