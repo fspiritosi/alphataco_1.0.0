@@ -236,7 +236,7 @@ export default function _ClothingItemsDataTable({
   // ─── Toolbar actions ──────────────────────────────────────────────────────
   const toolbarActions = useMemo(
     () => (
-      <PermissionGuard module="empresa" tab="articulos_indumentaria" action="create">
+      <PermissionGuard module="configuracion" tab="articulos_indumentaria" action="create">
         <Button size="sm" onClick={handleCreateNew} className="h-8">
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Artículo

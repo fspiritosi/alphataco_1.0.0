@@ -8,10 +8,10 @@ import { getReporterEmail } from './getReporterEmail';
 const logger = new Logger('features/Ayuda/help-request');
 
 /** Casilla de soporte. Es fija: el caller nunca elige el destinatario. */
-const SUPPORT_MAILBOX = 'info@gh-gestion.com';
-const SUPPORT_SUBJECT = 'Solicitud de ayuda - Grupo Horizonte';
+const SUPPORT_MAILBOX = 'soporte@codecontrol.com.ar';
+const SUPPORT_SUBJECT = 'Solicitud de ayuda - alphataco';
 
-const FALLBACK_COMPANY_NAME = 'Grupo Horizonte';
+const FALLBACK_COMPANY_NAME = 'alphataco';
 const FALLBACK_LOGO = 'https://tu-dominio.com/logo-codecontrol.png';
 const FALLBACK_WEBSITE = 'https://codecontrol.com.ar';
 const FALLBACK_SUPPORT_EMAIL = 'soporte@codecontrol.com.ar';

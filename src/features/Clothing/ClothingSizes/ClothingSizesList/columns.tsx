@@ -33,8 +33,8 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = ['created_at'];
 // ============================================================================
 
 export function getColumns(permissions: Permissions, callbacks: ColumnCallbacks): ColumnDef<ClothingSizeListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'talles_indumentaria', 'update');
-  const canDelete = permissions.hasPermission('empresa', 'talles_indumentaria', 'delete');
+  const canUpdate = permissions.hasPermission('configuracion', 'talles_indumentaria', 'update');
+  const canDelete = permissions.hasPermission('configuracion', 'talles_indumentaria', 'delete');
 
   return [
     // ── Nombre ──────────────────────────────────────────────────────────────

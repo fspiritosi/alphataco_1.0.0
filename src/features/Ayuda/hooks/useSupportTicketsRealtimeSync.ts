@@ -11,7 +11,7 @@ import { Logger } from '@/lib/logger';
 const logger = new Logger('features/Ayuda/realtime-sync');
 
 /**
- * Abre un EventSource al proxy SSE de gh_gestion. Cada evento relevante
+ * Abre un EventSource al proxy SSE de la app. Cada evento relevante
  * invalida el caché de tickets para forzar un refetch silencioso.
  *
  * EventSource reconecta automáticamente; cualquier error dispara también

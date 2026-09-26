@@ -1,5 +1,6 @@
 'use client';
 
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,6 @@ import { clothingLogin } from '@/features/Clothing/actions/session.server';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Loader2, Shirt } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -66,8 +66,7 @@ export function ClothingLoginForm() {
     <div className="flex flex-col gap-6">
       {/* Company branding */}
       <div className="flex items-center gap-2.5 self-center font-medium">
-        <Image src="/gh_logo.png" alt="Logo de Grupo Horizonte" width={36} height={36} className="rounded-md" />
-        <span className="text-lg font-semibold">Grupo Horizonte</span>
+        <span className="text-brand text-xl font-bold tracking-tight lowercase">{BRAND_NAME}</span>
       </div>
 
       {/* Login card */}

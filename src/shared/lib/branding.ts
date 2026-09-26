@@ -1,16 +1,19 @@
 /**
- * Assets de marca servidos desde `public/`.
+ * Identidad de la plataforma. Único punto a tocar cuando se rehaga la marca.
  *
- * Antes estas imágenes se cargaban desde el Storage de dos proyectos Supabase de Grupo
- * Horizonte que este producto no controla: al apagarlos, las pantallas de login y los PDF
- * quedaban con un 404. Son assets propios del repo, no archivos de una empresa, así que no
- * pasan por el storage ni por el perímetro: van en el bundle.
+ * Hoy la marca es puramente tipográfica: no hay archivo de logo. Las pantallas
+ * (login, QR, recupero de contraseña) y los PDF muestran `BRAND_NAME` con el color
+ * `brand`, que a su vez sigue a `--primary` del theme (`src/app/globals.css`).
  *
- * Único punto a tocar cuando se rehaga el branding.
+ * Antes de esto el producto mostraba el logo del cliente para el que se escribió el
+ * sistema original. Cuando haya un logo propio, se agrega acá: uno para pantalla
+ * (PNG con transparencia) y otro para PDF (JPG con fondo blanco — `@react-pdf/renderer`
+ * maqueta mal el canal alfa y estira la imagen).
+ *
+ * Ojo: el logo de la EMPRESA que usa el sistema es otra cosa. Vive en `company.company_logo`,
+ * se sirve por `/api/files` y tiene prioridad sobre la marca en los documentos que emite
+ * esa empresa (constancias de entrega, checklists).
  */
 
-/** Logo para pantallas (login, registro, recupero de contraseña). */
-export const BRAND_LOGO = '/gh_logo.png';
-
-/** Logo para los PDF: fondo blanco y sin transparencia. Sólo se usa como respaldo cuando la empresa no cargó el suyo. */
-export const BRAND_LOGO_PDF = '/gh_logo-pdf.jpg';
+/** Nombre del producto, tal como se escribe en la interfaz. */
+export const BRAND_NAME = 'alphataco';

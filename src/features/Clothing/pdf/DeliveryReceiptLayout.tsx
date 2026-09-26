@@ -4,7 +4,7 @@ import { Document, Image, Page, Text, View } from '@react-pdf/renderer';
 import moment from 'moment';
 import type { DeliveryPdfData } from '../actions/pdf.server';
 import { buildReceiptRows, formatCuit } from '../lib/receipt-format';
-import { BRAND_LOGO_PDF } from '@/shared/lib/branding';
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { styles } from './receipt-styles';
 
 // ============================================================================
@@ -42,7 +42,13 @@ export function DeliveryReceiptLayout({ data }: DeliveryReceiptLayoutProps) {
         {/* ── HEADER ROW 1: Logo | (empty) | Meta ────────────────── */}
         <View style={styles.headerRow1}>
           <View style={styles.logoCell}>
-            <Image style={styles.logo} src={comp?.company_logo || BRAND_LOGO_PDF} />
+            {/* El logo de la EMPRESA manda. Sin logo cargado cae a la marca, que hoy es
+                tipografica: `react-pdf` no entiende clases, asi que el estilo va inline. */}
+            {comp?.company_logo ? (
+              <Image style={styles.logo} src={comp.company_logo} />
+            ) : (
+              <Text style={styles.brandFallback}>{BRAND_NAME}</Text>
+            )}
           </View>
           <View style={styles.headerMiddle} />
           <View style={styles.metaCell}>

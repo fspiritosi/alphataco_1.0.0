@@ -167,10 +167,10 @@ export default function _ClothingSizesDataTable({
   );
 
   // ─── Toolbar actions ───────────────────────────────────────────────────────
-  const canCreate = permissions.hasPermission('empresa', 'talles_indumentaria', 'create');
+  const canCreate = permissions.hasPermission('configuracion', 'talles_indumentaria', 'create');
 
   const toolbarActions = canCreate ? (
-    <Button variant="gh_orange" size="sm" onClick={handleCreate}>
+    <Button variant="brand" size="sm" onClick={handleCreate}>
       <Plus className="mr-2 h-4 w-4" />
       Nuevo Talle
     </Button>

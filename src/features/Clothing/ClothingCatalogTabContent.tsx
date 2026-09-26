@@ -26,7 +26,7 @@ export default async function ClothingCatalogTabContent({ searchParams, permissi
               Artículos
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'articulos_indumentaria',
           content: <ClothingItemsTabContent searchParams={searchParams} permissions={permissions} />,
         },
@@ -38,7 +38,7 @@ export default async function ClothingCatalogTabContent({ searchParams, permissi
               Marcas
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'marcas_indumentaria',
           content: <ClothingBrandsTabContent searchParams={searchParams} permissions={permissions} />,
         },
@@ -50,7 +50,7 @@ export default async function ClothingCatalogTabContent({ searchParams, permissi
               Talles
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'talles_indumentaria',
           content: <ClothingSizesTabContent searchParams={searchParams} permissions={permissions} />,
         },
@@ -62,7 +62,7 @@ export default async function ClothingCatalogTabContent({ searchParams, permissi
               Reportes
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'configuracion',
           tabSlug: 'reportes_indumentaria',
           content: <ClothingReportsTabContent searchParams={searchParams} />,
         },

@@ -10,7 +10,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { logger } from '@/lib/logger';
-import { BRAND_LOGO_PDF } from '@/shared/lib/branding';
 import { pdf } from '@react-pdf/renderer';
 import { Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -84,8 +83,6 @@ export function ChecklistPDFDownloadButton({
   // que TypeScript borra en el build y no arrastra el PDF al bundle inicial.
   const [PDFComponent, setPDFComponent] = useState<NormalizedChecklistPDFLayoutComponent | null>(null);
 
-  const logoUrl = BRAND_LOGO_PDF;
-
   // Transformar answers al formato que espera el PDF (flat con sufijos _left/_right)
   const flattenedAnswers = flattenAnswers(answers);
 
@@ -111,7 +108,6 @@ export function ChecklistPDFDownloadButton({
         <NormalizedChecklistPDFLayout
           templateName={templateName}
           templateCode={templateCode}
-          logoUrl={logoUrl}
           sections={sections}
           dominio={dominio}
           tipoEquipo={tipoEquipo}
@@ -168,7 +164,6 @@ export function ChecklistPDFDownloadButton({
               <PDFComponent
                 templateName={templateName}
                 templateCode={templateCode}
-                logoUrl={logoUrl}
                 sections={sections}
                 dominio={dominio}
                 tipoEquipo={tipoEquipo}

@@ -25,7 +25,7 @@ import type { RenderedEmail } from './deviations';
  * mini-enlaces por recurso que abren la tabla ya filtrada, el detalle de los que vencen en la
  * ventana, y el hero "Todo al día" cuando no hay nada. Lo que cambia: los tipos salen de Zod,
  * el logo remoto de Supabase se fue, el encabezado lleva el nombre de la empresa, y las URLs
- * se arman sobre `NEXT_PUBLIC_BASE_URL` en vez del `gh-gestion.com` hardcodeado.
+ * se arman sobre `NEXT_PUBLIC_BASE_URL` en vez del dominio hardcodeado que traia el original.
  */
 
 // IDs de tabla y subtab de las tablas permanentes en /dashboard/document.

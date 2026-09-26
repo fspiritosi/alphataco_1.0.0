@@ -2,6 +2,7 @@
 
 import { isSideValidationItem } from '@/features/Checklists/lib/checklist-evaluation';
 import { logger } from '@/lib/logger';
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { Document, Image, Page, Text, View } from '@react-pdf/renderer';
 
 // Estructura de datos que viene del sistema (desde checklist_template_sections + checklist_template_items)
@@ -548,7 +549,13 @@ export const NormalizedChecklistPDFLayout = ({
         {/* Header principal */}
         <View style={styles.headerContainer}>
           {/* Logo */}
-          <View style={styles.logoContainer}>{logoUrl && <Image style={styles.logo} src={logoUrl} />}</View>
+          <View style={styles.logoContainer}>
+            {logoUrl ? (
+              <Image style={styles.logo} src={logoUrl} />
+            ) : (
+              <Text style={{ fontSize: 11, fontWeight: 700 }}>{BRAND_NAME}</Text>
+            )}
+          </View>
 
           {/* Título central */}
           <View style={styles.titleContainer}>

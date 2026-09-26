@@ -33,8 +33,8 @@ type ActionsHandlers = {
 // ============================================================================
 
 export function getColumns(permissions: Permissions, handlers: ActionsHandlers): ColumnDef<ClothingItemListItem>[] {
-  const canUpdate = permissions.hasPermission('empresa', 'articulos_indumentaria', 'update');
-  const canDelete = permissions.hasPermission('empresa', 'articulos_indumentaria', 'delete');
+  const canUpdate = permissions.hasPermission('configuracion', 'articulos_indumentaria', 'update');
+  const canDelete = permissions.hasPermission('configuracion', 'articulos_indumentaria', 'delete');
 
   const cols: ColumnDef<ClothingItemListItem>[] = [
     // ── Name ──────────────────────────────────────────────────────────────────

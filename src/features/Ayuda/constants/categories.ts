@@ -1,11 +1,11 @@
 import {
-  Building2,
   Calendar,
   ClipboardList,
   FileText,
   HandHelping,
   LayoutDashboard,
   MoreHorizontal,
+  Settings,
   Truck,
   Users,
   Wrench,
@@ -14,7 +14,7 @@ import {
 
 export type CategorySlug =
   | 'dashboard'
-  | 'empresa'
+  | 'configuracion'
   | 'empleados'
   | 'equipos'
   | 'comercial'
@@ -32,7 +32,7 @@ export interface CategoryDef {
 
 export const CATEGORIES: CategoryDef[] = [
   { slug: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { slug: 'empresa', label: 'Empresa', icon: Building2 },
+  { slug: 'configuracion', label: 'Configuración', icon: Settings },
   { slug: 'empleados', label: 'Empleados', icon: Users },
   { slug: 'equipos', label: 'Equipos', icon: Truck },
   { slug: 'comercial', label: 'Comercial', icon: HandHelping },
@@ -47,9 +47,27 @@ export const CATEGORY_BY_SLUG: Record<CategorySlug, CategoryDef> = Object.fromEn
   CATEGORIES.map((c) => [c.slug, c])
 ) as Record<CategorySlug, CategoryDef>;
 
-const CATEGORY_BY_LABEL: Record<string, CategoryDef> = Object.fromEntries(
-  CATEGORIES.map((c) => [c.label, c])
-);
+/**
+ * Labels que usaron los tickets ya creados y hoy no existen más.
+ *
+ * La categoría viaja a TaskApp dentro del título (`[Empresa] No puedo...`) y se resuelve de
+ * vuelta POR LABEL, así que renombrar una categoría deja huérfanos a los tickets viejos: el
+ * chip desaparece y el filtro por categoría deja de encontrarlos. El título de un ticket ya
+ * enviado no se reescribe, así que el alias se queda.
+ */
+const LEGACY_CATEGORY_LABELS: Record<string, CategorySlug> = {
+  Empresa: 'configuracion',
+};
+
+const CATEGORY_BY_LABEL: Record<string, CategoryDef> = {
+  ...Object.fromEntries(CATEGORIES.map((c) => [c.label, c])),
+  ...Object.fromEntries(
+    Object.entries(LEGACY_CATEGORY_LABELS).map(([label, slug]) => [
+      label,
+      CATEGORIES.find((c) => c.slug === slug)!,
+    ])
+  ),
+};
 
 const CATEGORY_PREFIX_RE = /^\[([^\]]+)\]\s*(.*)$/;
 

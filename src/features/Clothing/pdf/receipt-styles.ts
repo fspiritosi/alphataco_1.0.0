@@ -35,6 +35,11 @@ export const styles = StyleSheet.create({
     height: 38,
     objectFit: 'contain',
   },
+  /** Respaldo tipografico cuando la empresa no cargo su logo. */
+  brandFallback: {
+    fontSize: 11,
+    fontWeight: 700,
+  },
   headerMiddle: {
     width: '62%',
     borderRight: border,

@@ -37,7 +37,7 @@ import { TicketPrioritySelect } from './TicketPrioritySelect';
 const formSchema = z.object({
   category: z.enum([
     'dashboard',
-    'empresa',
+    'configuracion',
     'empleados',
     'equipos',
     'comercial',

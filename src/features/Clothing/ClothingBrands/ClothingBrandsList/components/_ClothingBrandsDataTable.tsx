@@ -220,7 +220,7 @@ export default function _ClothingBrandsDataTable({
   // ─── Toolbar actions ──────────────────────────────────────────────────────
   const toolbarActions = useMemo(
     () => (
-      <PermissionGuard module="empresa" tab="marcas_indumentaria" action="create">
+      <PermissionGuard module="configuracion" tab="marcas_indumentaria" action="create">
         <Button size="sm" onClick={handleCreateNew} className="h-8">
           <Plus className="mr-2 h-4 w-4" />
           Nueva Marca

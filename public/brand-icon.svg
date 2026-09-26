@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="alphataco">
+  <!--
+    Marca mínima de alphataco: la inicial sobre el color de marca.
+    El color es el equivalente sRGB de `--primary` del theme (oklch(0.508 0.118 165.612) = #007956);
+    un SVG servido como archivo no puede leer las variables CSS de la app, así que si se
+    cambia el theme hay que actualizar este valor a mano. Sin esquinas redondeadas, igual
+    que el resto de la interfaz (`--radius: 0`).
+  -->
+  <rect width="64" height="64" fill="#007956" />
+  <text
+    x="32"
+    y="33"
+    fill="#ffffff"
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    font-size="42"
+    font-weight="700"
+    text-anchor="middle"
+    dominant-baseline="central"
+  >a</text>
+</svg>

@@ -12,19 +12,19 @@ const popinsFont = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'Grupo Horizonte',
+  title: 'alphataco',
   description: 'Gestión para las empresas',
   icons: {
-    icon: '/gh_logo.png',
-    shortcut: '/gh_logo.png',
-    apple: '/gh_logo.png',
+    icon: '/brand-icon.svg',
+    shortcut: '/brand-icon.svg',
+    apple: '/brand-icon.svg',
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${popinsFont.className} bg-gh_contrast dark:bg-slate-900`}>
+      <body className={`${popinsFont.className} bg-surface-muted dark:bg-slate-900`}>
         <PostHogProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <Toaster />

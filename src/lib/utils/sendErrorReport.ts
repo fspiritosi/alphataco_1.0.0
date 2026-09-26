@@ -1,6 +1,7 @@
 'use server';
 
 import { sendEmail } from '@/features/Auth/lib/email';
+import { BRAND_NAME } from '@/shared/lib/branding';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('sendErrorReport');
@@ -65,7 +66,7 @@ function buildErrorEmailHtml(params: ErrorReportParams): string {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Reporte de Error - GH Gestion</h1>
+          <h1>Reporte de Error - ${BRAND_NAME}</h1>
           <p>Origen: ${source} | ${timestamp}</p>
         </div>
         <div class="content">
@@ -143,7 +144,9 @@ export async function sendErrorReport(params: ErrorReportParams) {
     const result = await sendEmail({
       to: ERROR_REPORT_RECIPIENTS,
       subject,
-      userEmail: 'sistema@ghgestion.com',
+      // `sendEmail` ignora `userEmail` cuando se le pasa `html` (solo lo usan los
+      // templates), pero el tipo lo exige. Dominio `.invalid`: nadie debe responder aca.
+      userEmail: 'sistema@alphataco.invalid',
       html,
     });
 

@@ -1,9 +1,8 @@
 // src/app/reset_password/confirm/page.tsx
 import { CardTitle } from '@/components/ui/card';
 import RenderBanner from '@/features/Auth/components/RenderBanner';
-import Image from 'next/image';
 import Link from 'next/link';
-import { BRAND_LOGO } from '@/shared/lib/branding';
+import { BRAND_NAME } from '@/shared/lib/branding';
 
 interface PageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -19,14 +18,7 @@ export default function ConfirmUserPassword({ searchParams }: PageProps) {
         <RenderBanner />
         <div className="lg:p-8 relative z-50 md:p-8 pt-7 p-0 flex flex-col justify-center items-center w-full">
           <Link className="relative z-20 lg:hidden items-center font-bold text-2xl flex" href="/">
-            <Image
-              src={BRAND_LOGO}
-              alt="Logo de codecontrol"
-              className="size-12 mr-4"
-              width={120}
-              height={120}
-            />
-            Grupo Horizonte
+            <span className="text-brand lowercase">{BRAND_NAME}</span>
           </Link>
           <div className="w-full overflow-y-auto">
             <CardTitle className="text-3xl font-semibold tracking-tight lg:text-left text-center mb-2">
