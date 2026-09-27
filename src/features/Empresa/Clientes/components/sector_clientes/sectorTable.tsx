@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
@@ -8,33 +7,25 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { useMemo } from 'react';
-import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { SectorRow } from '../../actions/sectors.server';
+import { SectorFormDialog } from './SectorFormDialog';
 
 interface SectorTableProps {
-  contractorSectors: SectorCustomerRow[];
-  setSelectedSector: (sector: SectorCustomerRow | null) => void;
-  setMode: (mode: 'create' | 'edit') => void;
+  contractorSectors: SectorRow[];
+  /** Cliente de la ficha: se le pasa al diálogo de edición para no volver a preguntarlo. */
+  customerId: string;
 }
 
 function includesValue(value: unknown, filter: unknown): boolean {
   return Array.isArray(filter) && filter.includes(value);
 }
 
-export function getSectorColumns(
-  handleEdit: (sector: SectorCustomerRow) => void,
-  canEdit: boolean
-): ColumnDef<SectorCustomerRow>[] {
-  const columns: ColumnDef<SectorCustomerRow>[] = [
+export function getSectorColumns(customerId: string, canEdit: boolean): ColumnDef<SectorRow>[] {
+  const columns: ColumnDef<SectorRow>[] = [
     {
       id: 'Nombre',
       accessorFn: (row) => row.sectors.name,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
-      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
-    },
-    {
-      id: 'Cliente',
-      accessorFn: (row) => row.customers.name,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
       filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
@@ -50,9 +41,7 @@ export function getSectorColumns(
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
       cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => handleEdit(row.original)}>
-          Editar
-        </Button>
+        <SectorFormDialog customerId={customerId} sector={row.original} triggerLabel="Editar" triggerVariant="link" />
       ),
     });
   }
@@ -70,33 +59,22 @@ function readCookieJson<T>(name: string, fallback: T): T {
   }
 }
 
-function SectorTable({ contractorSectors, setSelectedSector, setMode }: SectorTableProps) {
+function SectorTable({ contractorSectors, customerId }: SectorTableProps) {
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('comercial', 'sector', 'update');
+  const canEdit = hasPermission('comercial', 'sectores-cliente', 'update');
 
   const savedVisibility = readCookieJson<VisibilityState>('comercial-sector-table', {});
   const savedFilters = readCookieJson<string[]>('comercial-sector-table-filters', []);
 
-  const columns = useMemo(
-    () =>
-      getSectorColumns((sector) => {
-        setSelectedSector(sector);
-        setMode('edit');
-      }, canEdit),
-    [canEdit, setSelectedSector, setMode]
-  );
+  const columns = useMemo(() => getSectorColumns(customerId, canEdit), [customerId, canEdit]);
 
   const filterOptions = useMemo(
-    () => ({
-      names: createFilterOptions(contractorSectors, (sector) => sector.sectors.name),
-      clients: createFilterOptions(contractorSectors, (sector) => sector.customers.name),
-    }),
+    () => ({ names: createFilterOptions(contractorSectors, (sector) => sector.sectors.name) }),
     [contractorSectors]
   );
 
   return (
     <div className="p-4 pt-0">
-      <h2 className="text-xl font-bold mb-4">Sectores </h2>
       <BaseDataTable
         columns={columns}
         data={contractorSectors}
@@ -106,7 +84,6 @@ function SectorTable({ contractorSectors, setSelectedSector, setMode }: SectorTa
           initialVisibleFilters: savedFilters,
           filterableColumns: [
             { columnId: 'Nombre', title: 'Nombre', options: filterOptions.names },
-            { columnId: 'Cliente', title: 'Cliente', options: filterOptions.clients },
           ],
         }}
       />

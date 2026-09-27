@@ -59,6 +59,30 @@ export async function getCustomerEquipments() {
 
 export type CustomerEquipmentRow = Awaited<ReturnType<typeof getCustomerEquipments>>[number];
 
+/** Equipos de UN cliente de la empresa activa (la ficha del cliente). */
+export async function getCustomerEquipmentsByCustomer(customerId: string) {
+  if (!customerId) return [];
+  const companyId = await getActiveCompanyId();
+  try {
+    const rows = await prisma.equipos_clientes.findMany({
+      where: { customer_id: customerId, customers: { company_id: companyId } },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        customer_id: true,
+        created_at: true,
+        customers: { select: { id: true, name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return rows.map((row) => ({ ...row, type: toTypeLabel(row.type) }));
+  } catch (error) {
+    logger.error('Error al obtener equipos del cliente', { data: { error, customerId } });
+    throw error;
+  }
+}
+
 async function assertCustomerOwned(customerId: string, companyId: string): Promise<void> {
   const customer = await prisma.customers.findFirst({ where: { id: customerId, company_id: companyId }, select: { id: true } });
   if (!customer) throw new Error('Cliente no encontrado');

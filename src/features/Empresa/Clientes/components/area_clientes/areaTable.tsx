@@ -1,7 +1,6 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
@@ -11,11 +10,13 @@ import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { useMemo } from 'react';
 import type { AreaRow } from '../../actions/areas.server';
+import { AreaFormDialog, type ProvinceOption } from './AreaFormDialog';
 
 interface AreaTableProps {
   areas: AreaRow[];
-  setSelectedArea: (area: AreaRow | null) => void;
-  setMode: (mode: 'create' | 'edit') => void;
+  /** Cliente de la ficha: se le pasa al diálogo de edición para no volver a preguntarlo. */
+  customerId: string;
+  provinces: ProvinceOption[];
   savedFilters: string[];
 }
 
@@ -27,18 +28,16 @@ function provinceNames(area: AreaRow): string[] {
   return area.area_province.map((ap) => ap.provinces.name);
 }
 
-export function getAreaColumns(handleEdit: (area: AreaRow) => void, canEdit: boolean): ColumnDef<AreaRow>[] {
+export function getAreaColumns(
+  customerId: string,
+  provinces: ProvinceOption[],
+  canEdit: boolean
+): ColumnDef<AreaRow>[] {
   const columns: ColumnDef<AreaRow>[] = [
     {
       accessorKey: 'nombre',
       id: 'Nombre',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
-      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
-    },
-    {
-      id: 'Cliente',
-      accessorFn: (row) => row.customers.name,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
       filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
@@ -87,9 +86,13 @@ export function getAreaColumns(handleEdit: (area: AreaRow) => void, canEdit: boo
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
       cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => handleEdit(row.original)}>
-          Editar
-        </Button>
+        <AreaFormDialog
+          customerId={customerId}
+          provinces={provinces}
+          area={row.original}
+          triggerLabel="Editar"
+          triggerVariant="link"
+        />
       ),
     });
   }
@@ -107,9 +110,9 @@ function readCookieJson<T>(name: string, fallback: T): T {
   }
 }
 
-function AreaTable({ areas, savedFilters, setSelectedArea, setMode }: AreaTableProps) {
+function AreaTable({ areas, customerId, provinces, savedFilters }: AreaTableProps) {
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('comercial', 'areas', 'update');
+  const canEdit = hasPermission('comercial', 'areas-cliente', 'update');
 
   const savedVisibility = readCookieJson<VisibilityState>('areaTable', {});
   const savedFiltersFromCookie = readCookieJson<string[]>('areaTable-filters', savedFilters);
@@ -117,7 +120,6 @@ function AreaTable({ areas, savedFilters, setSelectedArea, setMode }: AreaTableP
   const filterOptions = useMemo(
     () => ({
       names: createFilterOptions(areas, (area) => area.nombre),
-      clients: createFilterOptions(areas, (area) => area.customers.name),
       provinces: createFilterOptions(
         areas.flatMap((area) => provinceNames(area)),
         (name) => name
@@ -127,18 +129,12 @@ function AreaTable({ areas, savedFilters, setSelectedArea, setMode }: AreaTableP
   );
 
   const columns = useMemo(
-    () =>
-      getAreaColumns((area) => {
-        setSelectedArea(area);
-        setMode('edit');
-      }, canEdit),
-    [canEdit, setSelectedArea, setMode]
+    () => getAreaColumns(customerId, provinces, canEdit),
+    [customerId, provinces, canEdit]
   );
 
   return (
     <div className="flex flex-col gap-4 p-4 pt-0">
-      <h2 className="text-xl font-bold ">Areas</h2>
-
       <BaseDataTable
         columns={columns}
         data={areas}
@@ -148,7 +144,6 @@ function AreaTable({ areas, savedFilters, setSelectedArea, setMode }: AreaTableP
           initialVisibleFilters: savedFiltersFromCookie,
           filterableColumns: [
             { columnId: 'Nombre', title: 'Nombre', options: filterOptions.names },
-            { columnId: 'Cliente', title: 'Cliente', options: filterOptions.clients },
             { columnId: 'Provincias', title: 'Provincias', options: filterOptions.provinces },
           ],
         }}

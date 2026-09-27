@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
@@ -9,11 +8,12 @@ import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { useMemo } from 'react';
 import type { CustomerEquipmentRow } from '../../actions/customer-equipment.server';
+import { CustomerEquipmentFormDialog } from './CustomerEquipmentFormDialog';
 
 interface CustomerEquipmentTableProps {
   customerEquipments: CustomerEquipmentRow[];
-  setSelectedCustomerEquipment: (customerEquipment: CustomerEquipmentRow | null) => void;
-  setMode: (mode: 'create' | 'edit') => void;
+  /** Cliente de la ficha: se le pasa al diálogo de edición para no volver a preguntarlo. */
+  customerId: string;
 }
 
 function includesValue(value: unknown, filter: unknown): boolean {
@@ -21,7 +21,7 @@ function includesValue(value: unknown, filter: unknown): boolean {
 }
 
 export function getCustomerEquipmentColumns(
-  handleEdit: (equipment: CustomerEquipmentRow) => void,
+  customerId: string,
   canEdit: boolean
 ): ColumnDef<CustomerEquipmentRow>[] {
   const columns: ColumnDef<CustomerEquipmentRow>[] = [
@@ -29,12 +29,6 @@ export function getCustomerEquipmentColumns(
       accessorKey: 'name',
       id: 'Nombre',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
-      filterFn: (row, id, value) => includesValue(row.getValue(id), value),
-    },
-    {
-      id: 'Cliente',
-      accessorFn: (row) => row.customers.name,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
       filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
     {
@@ -50,9 +44,12 @@ export function getCustomerEquipmentColumns(
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
       cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => handleEdit(row.original)}>
-          Editar
-        </Button>
+        <CustomerEquipmentFormDialog
+          customerId={customerId}
+          equipment={row.original}
+          triggerLabel="Editar"
+          triggerVariant="link"
+        />
       ),
     });
   }
@@ -70,26 +67,18 @@ function readCookieJson<T>(name: string, fallback: T): T {
   }
 }
 
-function CustomerEquipmentTable({ customerEquipments, setSelectedCustomerEquipment, setMode }: CustomerEquipmentTableProps) {
+function CustomerEquipmentTable({ customerEquipments, customerId }: CustomerEquipmentTableProps) {
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('comercial', 'equipment', 'update');
+  const canEdit = hasPermission('comercial', 'equipos-cliente', 'update');
 
   const savedVisibility = readCookieJson<VisibilityState>('comercial-equipment-table', {});
   const savedFilters = readCookieJson<string[]>('comercial-equipment-table-filters', []);
 
-  const columns = useMemo(
-    () =>
-      getCustomerEquipmentColumns((equipment) => {
-        setSelectedCustomerEquipment(equipment);
-        setMode('edit');
-      }, canEdit),
-    [canEdit, setSelectedCustomerEquipment, setMode]
-  );
+  const columns = useMemo(() => getCustomerEquipmentColumns(customerId, canEdit), [customerId, canEdit]);
 
   const filterOptions = useMemo(
     () => ({
       names: createFilterOptions(customerEquipments, (equipment) => equipment.name),
-      clients: createFilterOptions(customerEquipments, (equipment) => equipment.customers.name),
       types: createFilterOptions(customerEquipments, (equipment) => equipment.type),
     }),
     [customerEquipments]
@@ -97,7 +86,6 @@ function CustomerEquipmentTable({ customerEquipments, setSelectedCustomerEquipme
 
   return (
     <div className="p-4 pt-0">
-      <h2 className="text-xl font-bold mb-4">Equipos del cliente</h2>
       <BaseDataTable
         columns={columns}
         data={customerEquipments}
@@ -107,7 +95,6 @@ function CustomerEquipmentTable({ customerEquipments, setSelectedCustomerEquipme
           initialVisibleFilters: savedFilters,
           filterableColumns: [
             { columnId: 'Nombre', title: 'Nombre', options: filterOptions.names },
-            { columnId: 'Cliente', title: 'Cliente', options: filterOptions.clients },
             { columnId: 'Tipo de equipo', title: 'Tipo de equipo', options: filterOptions.types },
           ],
         }}
