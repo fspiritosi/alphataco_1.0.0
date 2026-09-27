@@ -3,6 +3,7 @@
 import { withSessionActor } from '@/features/Operaciones/lib/with-session-actor';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { resolveRowQuantity } from '../lib/row-quantity';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import {
   assertDailyReportInCompany,
@@ -34,6 +35,12 @@ export interface DailyReportRowInput {
   service_id: string;
   item_id: string;
   status: string;
+  /**
+   * Cantidad de la línea. Si no viene, vale 1 (`resolveRowQuantity`). Se acepta `string`
+   * porque el input del formulario entrega texto y convertirlo a `number` antes de tiempo
+   * pierde decimales: la conversión a `Decimal` la hace el helper.
+   */
+  quantity?: string | number | null;
   working_day: string;
   /** Turno seleccionado para jornada 12h (excluyente). Null para otras jornadas. */
   shift_12h?: 'dia' | 'noche' | null;
@@ -199,6 +206,7 @@ export async function createDailyReportRowPrisma(data: DailyReportRowInput & { d
           customer_id: data.customer_id,
           service_id: data.service_id,
           item_id: data.item_id,
+          quantity: resolveRowQuantity(data.quantity),
           status: resolvedStatus,
           working_day: data.working_day,
           shift_12h: data.shift_12h ?? null,

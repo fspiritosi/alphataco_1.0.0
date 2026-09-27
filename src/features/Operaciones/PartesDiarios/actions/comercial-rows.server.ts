@@ -4,6 +4,7 @@ import { withSessionActor } from '@/features/Operaciones/lib/with-session-actor'
 import type { daily_report_status, daily_report_type_enum } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { resolveRowQuantity } from '../lib/row-quantity';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 
@@ -142,6 +143,12 @@ export interface ComercialRowInput {
   service_id: string;
   item_id: string;
   working_day: string;
+  /**
+   * Cantidad de la línea. Si no viene, vale 1 (`resolveRowQuantity`). Se acepta `string`
+   * porque el input del formulario entrega texto y convertirlo a `number` antes de tiempo
+   * pierde decimales: la conversión a `Decimal` la hace el helper.
+   */
+  quantity?: string | number | null;
   employees?: string[];
   equipment?: string[];
   customer_equipment?: string[];
@@ -303,6 +310,7 @@ export async function createComercialDailyReportRow(input: ComercialRowInput) {
           customer_id: input.customer_id,
           service_id: input.service_id,
           item_id: input.item_id,
+          quantity: resolveRowQuantity(input.quantity),
           working_day: input.working_day,
           start_time: toPgTime(input.start_time),
           end_time: toPgTime(input.end_time),

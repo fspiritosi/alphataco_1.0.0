@@ -1,6 +1,7 @@
 'use server';
 
 import { withSessionActor } from '@/features/Operaciones/lib/with-session-actor';
+import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
@@ -24,6 +25,7 @@ interface RowToClone {
   customer_id: string | null;
   service_id: string | null;
   item_id: string | null;
+  quantity: Prisma.Decimal;
   working_day: string | null;
   start_time: Date | null;
   end_time: Date | null;
@@ -131,6 +133,7 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
         customer_id: true,
         service_id: true,
         item_id: true,
+        quantity: true,
         working_day: true,
         start_time: true,
         end_time: true,
@@ -269,6 +272,9 @@ export async function cloneDailyReportRows(rowIds: string[], targetDates: string
               customer_id: originalRow.customer_id,
               service_id: originalRow.service_id,
               item_id: originalRow.item_id,
+              // Se copia tal cual: clonar una línea de 3 unidades y que salga 1 sería una
+              // diferencia de importe que nadie vería hasta la certificación.
+              quantity: originalRow.quantity,
               working_day: originalRow.working_day,
               start_time: originalRow.start_time,
               end_time: originalRow.end_time,

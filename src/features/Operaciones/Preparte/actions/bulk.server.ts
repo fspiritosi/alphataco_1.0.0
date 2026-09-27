@@ -5,6 +5,7 @@ import { preparte_status } from '@/generated/prisma/enums';
 import { Logger } from '@/lib/logger';
 import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { resolveRowQuantity } from '@/features/Operaciones/PartesDiarios/lib/row-quantity';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import moment from 'moment';
 import { BULK_EDITABLE_STATUSES } from '../lib/preparte-status';
@@ -169,6 +170,9 @@ async function confirmSinglePreparte(
         customer_id: preparte.cliente_id,
         service_id: preparte.contrato_id,
         item_id: preparte.item,
+        // La cantidad del pedido se perdía en la conversión: `dailyreportrows` no tenía la
+        // columna. Sin esto no hay importe posible aunque el precio exista.
+        quantity: resolveRowQuantity(preparte.quantity),
         start_time: preparte.start_time ? new Date(`1970-01-01T${preparte.start_time}`) : null,
         end_time: preparte.end_time ? new Date(`1970-01-01T${preparte.end_time}`) : null,
         working_day: preparte.jornada,
