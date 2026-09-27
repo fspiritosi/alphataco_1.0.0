@@ -33,6 +33,10 @@ export const ACTIONS = {
   upload_private: { slug: 'upload_private', name: 'Subir privados' },
   assign_resources: { slug: 'assign_resources', name: 'Asignar Recursos' },
   approve: { slug: 'approve', name: 'Aprobar' },
+  // Un precio no es un dato como los otros: ver un parte y ver lo que vale son dos permisos
+  // distintos, y poder tocar el precio es otro más.
+  view_prices: { slug: 'view_prices', name: 'Ver precios e importes' },
+  update_prices: { slug: 'update_prices', name: 'Modificar precios' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -1173,38 +1177,35 @@ export const PERMISSIONS = {
                 parent: 'customers',
                 allowedActions: ['view', 'update'],
               },
+              'areas-cliente': {
+                slug: 'areas-cliente',
+                name: 'Areas del Cliente',
+                tabId: '40000000-0000-0000-0000-000000000114',
+                parent: 'customers',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+              'sectores-cliente': {
+                slug: 'sectores-cliente',
+                name: 'Sectores del Cliente',
+                tabId: '40000000-0000-0000-0000-000000000115',
+                parent: 'customers',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
               'equipos-cliente': {
                 slug: 'equipos-cliente',
                 name: 'Equipos',
                 tabId: '40000000-0000-0000-0000-000000000113',
                 parent: 'customers',
-                allowedActions: ['view', 'update'],
+                // `create` y `update` son el CRUD de los equipos DEL cliente (`equipos_clientes`);
+                // `update` tambien cubre afectar/desafectar equipos de la empresa al cliente.
+                // La base ya concedia `create`, pero faltaba declararlo: sin estar en el mapa, el
+                // editor de permisos no lo ofrece como tildeable.
+                allowedActions: ['view', 'create', 'update'],
               },
               // 'contratos-cliente': HEREDA permisos de 'comercial/comerce/service'
               // Esta tab no debe estar aquí porque hereda permisos de la tab Contratos/Servicios.
               // Ver implementación en: src/features/Empresa/Clientes/components/CustomerDetail/CustomerDetail.tsx
             },
-          },
-          areas: {
-            slug: 'areas',
-            name: 'Áreas',
-            tabId: '40000000-0000-0000-0000-000000000012',
-            parent: 'comerce',
-            allowedActions: ['view', 'create', 'update'],
-          },
-          equipment: {
-            slug: 'equipment',
-            name: 'Equipos',
-            tabId: '40000000-0000-0000-0000-000000000013',
-            parent: 'comerce',
-            allowedActions: ['view', 'create', 'update'],
-          },
-          sector: {
-            slug: 'sector',
-            name: 'Sectores',
-            tabId: '40000000-0000-0000-0000-000000000014',
-            parent: 'comerce',
-            allowedActions: ['view', 'create', 'update'],
           },
           service: {
             slug: 'service',
@@ -1232,7 +1233,9 @@ export const PERMISSIONS = {
                 name: 'Items del Servicio',
                 tabId: '40000000-0000-0000-0000-000000000153',
                 parent: 'service',
-                allowedActions: ['view', 'create', 'update'],
+                // `view` deja ver el item; `view_prices` deja ver lo que vale, y
+                // `update_prices` deja cambiarlo. Separados a proposito.
+                allowedActions: ['view', 'create', 'update', 'view_prices', 'update_prices'],
               },
             },
           },
@@ -1242,6 +1245,24 @@ export const PERMISSIONS = {
             tabId: '40000000-0000-0000-0000-000000000016',
             parent: 'comerce',
             allowedActions: ['view', 'create', 'update'],
+          },
+          'reglas-precio': {
+            slug: 'reglas-precio',
+            name: 'Reglas de Actualizacion de Precios',
+            tabId: '40000000-0000-0000-0000-000000000154',
+            parent: 'comerce',
+            allowedActions: ['view', 'create', 'update', 'delete'],
+            subtabs: {},
+          },
+          certificaciones: {
+            slug: 'certificaciones',
+            name: 'Certificaciones',
+            tabId: '40000000-0000-0000-0000-000000000018',
+            parent: 'comerce',
+            // `approve` es confirmar la certificacion emitida; `delete` es anularla.
+            // `view_prices` decide quien ve los importes del documento.
+            allowedActions: ['view', 'create', 'update', 'delete', 'approve', 'view_prices'],
+            subtabs: {},
           },
           daily_reports: {
             slug: 'daily_reports',
