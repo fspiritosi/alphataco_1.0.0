@@ -3,8 +3,10 @@
 import { Prisma } from '@/generated/prisma/client';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
+import { getSessionUserId } from '@/shared/lib/session';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { errorMessage, fail, ok, type ActionResult } from '../lib/action-result';
+import { priceChanged, writePriceRevision } from '../lib/price-revision-writer';
 import { serviceItemFormSchema, type ServiceItemFormValues } from '../schemas/service-item';
 
 const logger = new Logger('features/Empresa/Clientes/service-items');
@@ -100,10 +102,27 @@ export async function createServiceItem(
     const data = toItemData(parsed.data);
     await assertMeasureUnitExists(data.item_measure_units);
 
-    const created = await prisma.service_items.create({
-      data: { ...data, customer_service_id: customerServiceId, company_id: companyId },
-      select: { id: true },
+    const createdBy = await getSessionUserId();
+
+    // El alta siembra la primera revisión: si el historial arrancara en el primer AUMENTO, el
+    // precio original del contrato no quedaría registrado en ninguna parte.
+    const created = await prisma.$transaction(async (tx) => {
+      const item = await tx.service_items.create({
+        data: { ...data, customer_service_id: customerServiceId, company_id: companyId },
+        select: { id: true },
+      });
+      await writePriceRevision(tx, {
+        serviceItemId: item.id,
+        price: data.item_price,
+        previousPrice: null,
+        validFrom: new Date(),
+        source: 'manual',
+        reason: 'Precio inicial del ítem',
+        createdBy,
+      });
+      return item;
     });
+
     logger.info('Item de contrato creado', { data: { itemId: created.id, customerServiceId } });
     return ok({ id: created.id });
   } catch (error) {
@@ -124,9 +143,36 @@ export async function updateServiceItem(
   try {
     const data = toItemData(parsed.data);
     await assertMeasureUnitExists(data.item_measure_units);
-    const updated = await prisma.service_items.updateMany({ where: { id: itemId, company_id: companyId }, data });
-    if (updated.count === 0) return fail('Item no encontrado');
-    logger.info('Item de contrato actualizado', { data: { itemId } });
+
+    const actual = await prisma.service_items.findFirst({
+      where: { id: itemId, company_id: companyId },
+      select: { id: true, item_price: true },
+    });
+    if (!actual) return fail('Item no encontrado');
+
+    // El form del ítem también puede cambiar el precio. Si se escribiera con el resto de los
+    // campos, ese cambio no dejaría revisión y el historial mentiría: pasa por el mismo
+    // escritor que el cambio manual y la corrida de una regla.
+    const cambioPrecio = priceChanged(actual.item_price, data.item_price);
+    const { item_price, ...sinPrecio } = data;
+    const createdBy = cambioPrecio ? await getSessionUserId() : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.service_items.update({ where: { id: itemId }, data: sinPrecio });
+      if (cambioPrecio) {
+        await writePriceRevision(tx, {
+          serviceItemId: itemId,
+          price: item_price,
+          previousPrice: actual.item_price,
+          validFrom: new Date(),
+          source: 'manual',
+          reason: 'Precio editado desde el ítem',
+          createdBy,
+        });
+      }
+    });
+
+    logger.info('Item de contrato actualizado', { data: { itemId, cambioPrecio } });
     return ok({ id: itemId });
   } catch (error) {
     logger.error('Error al actualizar el item', { data: { error, itemId } });

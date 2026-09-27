@@ -10,9 +10,10 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { MeasureUnitRow } from '../../actions/measure-units.server';
 import { getServiceItemsByContract, type ServiceItemRow } from '../../actions/service-items.server';
+import { PriceRevisionsDialog } from './PriceRevisionsDialog';
 import ServiceItemsForm from './ServiceItemsForm';
 
 interface ServiceItemsTableProps {
@@ -26,9 +27,16 @@ function includesValue(value: unknown, filter: unknown): boolean {
   return Array.isArray(filter) && filter.includes(value);
 }
 
+interface PricePermissions {
+  canViewPrices: boolean;
+  canUpdatePrices: boolean;
+}
+
 function getServiceItemsColumns(
   handleEdit: (item: ServiceItemRow) => void,
-  hasUpdatePermission: boolean
+  hasUpdatePermission: boolean,
+  pricePermissions: PricePermissions,
+  onPriceSaved: () => void
 ): ColumnDef<ServiceItemRow>[] {
   const columns: ColumnDef<ServiceItemRow>[] = [
     {
@@ -89,13 +97,29 @@ function getServiceItemsColumns(
       header: ({ column }) => <DataTableColumnHeader column={column} title="UDM" />,
       filterFn: (row, id, value) => includesValue(row.getValue(id), value),
     },
-    {
+  ];
+
+  // `view_prices` esta separado de `view` a proposito: hay roles que administran items de
+  // contrato sin ver los importes.
+  if (pricePermissions.canViewPrices) {
+    columns.push({
       accessorKey: 'item_price',
       id: 'Precio',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Precio" />,
-      cell: ({ row }) => <div>${row.original.item_price}</div>,
-    },
-  ];
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <span className="tabular-nums">${row.original.item_price}</span>
+          <PriceRevisionsDialog
+            serviceItemId={row.original.id}
+            itemName={row.original.item_name}
+            currentPrice={row.original.item_price}
+            canUpdatePrices={pricePermissions.canUpdatePrices}
+            onSaved={onPriceSaved}
+          />
+        </div>
+      ),
+    });
+  }
 
   if (hasUpdatePermission) {
     columns.push({
@@ -135,6 +159,8 @@ export default function ServiceItemsTable({
 
   const { hasPermission } = usePermissions();
   const hasUpdatePermission = hasPermission('comercial', 'items-contrato', 'update');
+  const canViewPrices = hasPermission('comercial', 'items-contrato', 'view_prices');
+  const canUpdatePrices = hasPermission('comercial', 'items-contrato', 'update_prices');
   const canCreateOrUpdate = hasPermission('comercial', 'items-contrato', 'create') || hasUpdatePermission;
 
   const filteredItems = useMemo(
@@ -153,12 +179,20 @@ export default function ServiceItemsTable({
     [filteredItems]
   );
 
-  const columns = useMemo(() => getServiceItemsColumns(setEditingItem, hasUpdatePermission), [hasUpdatePermission]);
+  const refreshItems = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['service-items', customerServiceId] });
+    queryClient.invalidateQueries({ queryKey: ['preparte-service-items', customerServiceId] });
+  }, [queryClient, customerServiceId]);
+
+  const columns = useMemo(
+    () =>
+      getServiceItemsColumns(setEditingItem, hasUpdatePermission, { canViewPrices, canUpdatePrices }, refreshItems),
+    [hasUpdatePermission, canViewPrices, canUpdatePrices, refreshItems]
+  );
 
   const handleSaved = () => {
     setEditingItem(null);
-    queryClient.invalidateQueries({ queryKey });
-    queryClient.invalidateQueries({ queryKey: ['preparte-service-items', customerServiceId] });
+    refreshItems();
   };
 
   return (
