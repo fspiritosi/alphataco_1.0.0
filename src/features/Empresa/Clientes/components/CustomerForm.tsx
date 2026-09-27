@@ -9,10 +9,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import { saveCustomer } from '../actions/customers.server';
 import type { CustomerRow } from '../lib/serializers';
 import { customerFormSchema, type CustomerFormValues } from '../schemas/customer';
+
+
+const logger = new Logger('features/Empresa/Clientes/CustomerForm');
 
 interface CustomerFormProps {
   customer?: CustomerRow | null;
@@ -55,15 +59,21 @@ export function CustomerForm({ customer, onSuccess, readOnly = false }: Customer
   });
 
   const onSubmit = async (values: CustomerFormValues) => {
-    const result = await saveCustomer(values, customer?.id);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await saveCustomer(values, customer?.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Cliente guardado correctamente');
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      onSuccess(result.data.id);
+      router.refresh();
+    } catch (error) {
+      // La action puede rechazar (no devolver `ok: false`): sin este catch el usuario no ve nada.
+      logger.error('Error al guardar el cliente', { data: { error } });
+      toast.error('Error al guardar el cliente');
     }
-    toast.success('Cliente guardado correctamente');
-    queryClient.invalidateQueries({ queryKey: ['customers'] });
-    onSuccess(result.data.id);
-    router.refresh();
   };
 
   const readOnlyClass = readOnly ? 'bg-muted' : '';

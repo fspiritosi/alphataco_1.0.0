@@ -7,15 +7,17 @@ import { getSessionUserId } from '@/shared/lib/session';
 import { callVoid } from '@/shared/lib/sql';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { syncAllocatedTo } from '../lib/allocated-to';
-import { resolveAssignmentChanges, type AssignmentChanges } from '../lib/assignment-diff';
+import {
+  resolveAssignmentChanges,
+  type AssignmentChanges,
+  type AssignmentUpdateResult,
+} from '../lib/assignment-diff';
 
 const logger = new Logger('features/Empresa/Clientes/assignments');
 
-export type { AssignmentChanges };
-
-export type AssignmentUpdateResult =
-  | { success: true; added: number; removed: number }
-  | { success: false; error: string };
+// Los tipos NO se re-exportan desde acá: en un archivo `'use server'` todo export se registra
+// como server action, y un `export type { X }` deja una referencia a un nombre que ya no existe
+// después de compilar. Se importan de `../lib/assignment-diff`.
 
 /**
  * Afectaciones M:M cliente ↔ recurso (`contractor_employee` / `contractor_equipment`).

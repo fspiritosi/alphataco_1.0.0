@@ -16,7 +16,7 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import type { AssignmentChanges, AssignmentUpdateResult } from '../../actions/assignments.server';
+import type { AssignmentChanges, AssignmentUpdateResult } from '../../lib/assignment-diff';
 import { diffAssignments } from '../../lib/assignment-diff';
 
 interface AssignmentOption {

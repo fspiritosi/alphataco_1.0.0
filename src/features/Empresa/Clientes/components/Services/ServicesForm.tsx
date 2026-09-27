@@ -18,18 +18,22 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import type { AreaRow } from '../../actions/areas.server';
-import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { SectorRow } from '../../actions/sectors.server';
 import { createCustomerService, updateCustomerService, type CustomerServiceRow } from '../../actions/services.server';
 import { dbDateToLocal, localDateToDb } from '../../lib/service-dates';
 import type { CustomerRef } from '../../lib/serializers';
 import { serviceFormSchema, type ServiceFormValues } from '../../schemas/service';
 
+
+const logger = new Logger('features/Empresa/Clientes/ServicesForm');
+
 interface ServicesFormProps {
   customers: CustomerRef[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   editingService?: CustomerServiceRow | null;
   /** En el detalle de un contrato el form arranca en solo lectura. */
   startReadOnly?: boolean;
@@ -115,20 +119,26 @@ export default function ServicesForm({
       service_validity: localDateToDb(values.service_validity),
     };
 
-    const result = isEditing
-      ? await updateCustomerService(editingService.id, payload)
-      : await createCustomerService(payload);
+    try {
+      const result = isEditing
+        ? await updateCustomerService(editingService.id, payload)
+        : await createCustomerService(payload);
 
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(isEditing ? 'Contrato actualizado correctamente' : 'Contrato creado correctamente');
+      queryClient.invalidateQueries({ queryKey: ['customer-services'] });
+      if (!isEditing) resetForm();
+      setOpen?.(false);
+      router.refresh();
+    } catch (error) {
+      // La action puede rechazar (no devolver `ok: false`): sin este catch el usuario no ve nada.
+      logger.error('Error al guardar el contrato', { data: { error } });
+      toast.error('Error al guardar el contrato');
     }
-
-    toast.success(isEditing ? 'Contrato actualizado correctamente' : 'Contrato creado correctamente');
-    queryClient.invalidateQueries({ queryKey: ['customer-services'] });
-    if (!isEditing) resetForm();
-    setOpen?.(false);
-    router.refresh();
   };
 
   return (

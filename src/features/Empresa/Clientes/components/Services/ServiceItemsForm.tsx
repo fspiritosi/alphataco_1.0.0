@@ -10,10 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { PermissionGuard } from '@/features/Permissions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import type { MeasureUnitRow } from '../../actions/measure-units.server';
 import { createServiceItem, updateServiceItem, type ServiceItemRow } from '../../actions/service-items.server';
 import { serviceItemFormSchema, type ServiceItemFormValues } from '../../schemas/service-item';
+
+
+const logger = new Logger('features/Empresa/Clientes/ServiceItemsForm');
 
 interface ServiceItemsFormProps {
   measureUnits: MeasureUnitRow[];
@@ -55,16 +59,22 @@ export default function ServiceItemsForm({
   });
 
   const onSubmit = async (values: ServiceItemFormValues) => {
-    const result = isEditing
-      ? await updateServiceItem(editingItem.id, values)
-      : await createServiceItem(customerServiceId, values);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = isEditing
+        ? await updateServiceItem(editingItem.id, values)
+        : await createServiceItem(customerServiceId, values);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Item ${isEditing ? 'actualizado' : 'creado'} correctamente`);
+      form.reset(toFormValues(null));
+      onSaved();
+    } catch (error) {
+      // La action puede rechazar (no devolver `ok: false`): sin este catch el usuario no ve nada.
+      logger.error('Error al guardar el item del contrato', { data: { error } });
+      toast.error('Error al guardar el item');
     }
-    toast.success(`Item ${isEditing ? 'actualizado' : 'creado'} correctamente`);
-    form.reset(toFormValues(null));
-    onSaved();
   };
 
   const handleCancel = () => {

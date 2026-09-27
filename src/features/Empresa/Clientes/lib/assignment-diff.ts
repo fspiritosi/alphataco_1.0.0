@@ -48,3 +48,19 @@ export function resolveAssignmentChanges(changes: Partial<AssignmentChanges> | u
   const toRemove = normalizeIds(changes?.remove).filter((id) => !addSet.has(id));
   return { toAdd, toRemove };
 }
+
+/**
+ * Resultado de una mutación de afectaciones.
+ *
+ * Vive acá y no en `actions/assignments.server.ts` por una razón concreta: en un archivo
+ * `'use server'` **todo export se registra como server action en runtime**. Un
+ * `export type { X }` se borra al compilar pero su nombre queda en la lista que emite el
+ * transform, y el módulo entero explota al evaluarse con `ReferenceError: X is not defined`.
+ * No lo detecta `check-types`: se ve recién al ejecutar la pantalla.
+ *
+ * Regla: en un archivo `'use server'`, sólo funciones async exportadas. Los tipos van a un
+ * módulo sin directiva, como éste.
+ */
+export type AssignmentUpdateResult =
+  | { success: true; added: number; removed: number }
+  | { success: false; error: string };
