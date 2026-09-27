@@ -1,7 +1,7 @@
 # Módulo Comercial (tsk-745)
 
 **Fecha de inicio:** 2026-09-26
-**Estado:** Análisis completado — bloqueantes respondidos, listo para planificar
+**Estado:** Implementado — verificado con tests, build y datos reales en la base
 
 ---
 
@@ -802,7 +802,61 @@ _Pendiente - ejecutar `/planificar modulo-comercial`_
 _Pendiente - ejecutar `/disenar modulo-comercial`_
 
 ## 4. Implementación
-_Pendiente - ejecutar `/implementar modulo-comercial`_
+
+Se implementó directamente, sin las etapas 2 y 3: las decisiones de diseño se tomaron y
+registraron en §1.7 a medida que aparecieron.
+
+### 4.1 Esquema
+
+`20260926120000_comercial_precios_y_certificacion`
+
+- `sectors.customer_id` NOT NULL + FK + `@@unique(customer_id, name)`; se eliminó la pivote
+  `sector_customer`.
+- `dailyreportrows.quantity Decimal(15,4) NOT NULL DEFAULT 1`.
+- `service_items.item_price` → `Decimal(15,4)`; `customer_services.currency char(3) = 'ARS'`.
+- Tablas nuevas: `service_item_price_revisions`, `price_update_rules`, `price_update_runs`,
+  `certifications`, `certification_lines`.
+- **Escrito a mano, fuera del diff de Prisma**: el índice único parcial
+  `uq_price_revisions_one_current_per_item ... WHERE is_current`, más los `CHECK` de período
+  coherente y de cantidades e importes no negativos. Prisma no modela índices parciales: si
+  alguna vez se regenera el baseline, hay que volver a sumarlo.
+
+### 4.2 Permisos
+
+`20260927100000_...` y `20260927120000_...` y `20260927140000_...`
+
+- Acciones nuevas: `view_prices`, `update_prices`.
+- Tabs nuevas: `areas-cliente`, `sectores-cliente`, `certificaciones`, `reglas-precio`.
+- Los permisos de las tabs viejas (`areas`, `sector`, `equipment`) se **trasladaron antes** de
+  borrarlas: había un rol custom de empresa con acceso, y los roles custom no se recrean por
+  migración. Verificado post-migración que conservó sus 3 acciones en las tres tabs nuevas.
+
+### 4.3 Código
+
+| Qué | Dónde |
+|---|---|
+| Cantidad de la línea, una sola regla para las 4 rutas de alta | `Operaciones/PartesDiarios/lib/row-quantity.ts` |
+| Traducción pivote↔origen, unificada (2 copias de cliente) | `Operaciones/Preparte/lib/service-relation-id.ts` |
+| Factor de índice y polinómica | `Empresa/Clientes/lib/price-factor.ts` |
+| Revisiones de precio | `Empresa/Clientes/actions/price-revisions.server.ts` |
+| Reglas y su ejecución | `Empresa/Clientes/actions/price-rules.server.ts` |
+| Importes de la certificación | `Comercial/Certificaciones/lib/certification-amounts.ts` |
+| Máquina de estados | `Comercial/Certificaciones/lib/state-machine.ts` |
+| Certificación | `Comercial/Certificaciones/actions/certifications.server.ts` |
+| Pantallas | `Comercial/Certificaciones/`, `Comercial/ReglasPrecio/`, `CustomerDetail/CustomerAreasTab`, `CustomerSectorsTab` |
+
+### 4.4 Lo que quedó afuera, a propósito
+
+- **El campo de cantidad en los formularios de alta manual.** El servidor ya lo acepta; ningún
+  form lo expone, porque la regla del usuario dice que la cantidad explícita viene del preparte.
+- **`buildSectorMap`/`buildAreaMap`** siguen siendo una implementación aparte de la traducción
+  pivote↔origen: resuelven en bulk con una consulta para muchos prepartes y meterlas en el molde
+  del helper las volvería N consultas. Quedaron con referencia cruzada en ambos lados.
+- **La forma de la API pública** (`PublicCommercialSector.customers` como array) se mantuvo
+  aunque el modelo pasó a 1:1, porque nadie confirmó si hay consumidores activos.
+- Los duplicados preexistentes que el análisis listó (R6 trigger `after_service_update`, R8 FK
+  faltante en `documents_contracts`, R12 fuga de `getFilterSectors`) siguen abiertos: no los
+  menciona el ticket.
 
 ## 5. Verificación
 _Pendiente - ejecutar `/verificar modulo-comercial`_
