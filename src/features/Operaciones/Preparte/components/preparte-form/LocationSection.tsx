@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Logger } from '@/lib/logger';
+import { resolveServiceAreaId, resolveServiceSectorId } from '../../lib/service-relation-id';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -70,27 +71,15 @@ export function LocationSection({ form, clientes, isEditing, isLoading, sectorLi
                       ?.flatMap((s) => s.service_sectors || [])
                       .find((ss) => ss.sectors?.id === field.value);
 
-                  // Fallback if current value is a sector_customer.id or sector_id
-                  const sc = selectedCustomer?.sector_customer?.find(
-                    (x) => x.id === field.value || x.sector_id === field.value
+                  // El valor puede venir como `sectors.id` en vez de `service_sectors.id`.
+                  // La traducción es compartida: `lib/service-relation-id`.
+                  const resolvedSectorId = resolveServiceSectorId(
+                    field.value,
+                    selectedCustomer?.customer_services,
+                    selectedServiceId
                   );
-                  const viaSectorCustomer = sc
-                    ? selectedCustomer?.customer_services
-                        ?.flatMap((s) => s.service_sectors || [])
-                        .find((ss) => ss.sectors?.id === sc.sector_id)
-                    : undefined;
-                  if (!anySvcMatchByServiceSectorId && !anySvcMatchBySectorId && viaSectorCustomer) {
-                    form.setValue('sector_service_id', viaSectorCustomer.id, {
-                      shouldDirty: false,
-                      shouldValidate: false,
-                    });
-                  }
-
-                  // If the current value is sectors.id, normalize it to the matching service_sectors.id
-                  const normalizeToServiceSector =
-                    anySvcMatchByServiceSectorId || anySvcMatchBySectorId || viaSectorCustomer;
-                  if (normalizeToServiceSector && field.value !== normalizeToServiceSector.id) {
-                    form.setValue('sector_service_id', normalizeToServiceSector.id, {
+                  if (resolvedSectorId && field.value !== resolvedSectorId) {
+                    form.setValue('sector_service_id', resolvedSectorId, {
                       shouldDirty: false,
                       shouldValidate: false,
                     });
@@ -100,8 +89,7 @@ export function LocationSection({ form, clientes, isEditing, isLoading, sectorLi
                     matchByServiceSectorId?.sectors?.name ||
                     matchBySectorId?.sectors?.name ||
                     anySvcMatchByServiceSectorId?.sectors?.name ||
-                    anySvcMatchBySectorId?.sectors?.name ||
-                    sc?.sectors?.name;
+                    anySvcMatchBySectorId?.sectors?.name;
                   if (derivedLabel) {
                     sectorOptions = [{ label: derivedLabel, value: field.value }, ...baseSectorOptions];
                   }

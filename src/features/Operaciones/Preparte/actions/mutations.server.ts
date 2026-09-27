@@ -120,6 +120,12 @@ async function requirePreparteInCompany(id: string, companyId: string) {
 /**
  * El formulario puede mandar el `service_sectors.id` o el `sectors.id`; en la tabla se
  * guarda SIEMPRE el `service_sectors.id` del contrato. Devuelve el mapa de traducción.
+ *
+ * Misma regla que `lib/service-relation-id` (el equivalente de cliente), con la misma
+ * precedencia: primero la clave `service:sector` del contrato elegido, después la global.
+ * Acá no se reusa ese helper porque esto resuelve en bulk con UNA consulta para muchos
+ * prepartes; pasarlo por el helper sería una consulta por preparte. **Si cambia una de las
+ * dos, la otra también.**
  */
 async function buildSectorMap(serviceIds: string[], sectorValues: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();

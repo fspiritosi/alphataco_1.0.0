@@ -28,13 +28,9 @@ export async function fetchCustomersWithRelations() {
           select: { id: true, name: true },
           orderBy: { name: 'asc' },
         },
-        sector_customer: {
-          select: {
-            id: true,
-            customer_id: true,
-            sector_id: true,
-            sectors: { select: { id: true, name: true } },
-          },
+        sectors: {
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
         },
         customer_services: {
           where: { is_active: true },
@@ -86,6 +82,8 @@ export async function fetchCustomersWithRelations() {
         ...service,
         service_items: service.service_items.map((item) => ({
           ...item,
+          // Sólo para mostrar en el selector. NO calcular importes con esto: un `number` de JS
+          // no representa exactamente los decimales y el error recién aparece en un total.
           item_price: Number(item.item_price),
         })),
       })),

@@ -1,13 +1,12 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import CustomerEquipmentTabWrapper from '@/features/Comercial/Comerce/components/CustomerEquipmentTabWrapper';
-import CustomerTabWrapper from '@/features/Comercial/Comerce/components/CustomerTabWrapper';
+import CertificacionesTabContent from '@/features/Comercial/Certificaciones/CertificacionesTabContent';
+import ReglasPrecioTabContent from '@/features/Comercial/ReglasPrecio/ReglasPrecioTabContent';
 import DataCustomersWrapper from '@/features/Comercial/Comerce/components/DataCustomersWrapper';
 import DailyReportWrapper from '@/features/Comercial/Comerce/components/DailyReportWrapper';
 import MensureUnitsWrapper from '@/features/Comercial/Comerce/components/MensureUnitsWrapper';
-import SectorTabsWrapper from '@/features/Comercial/Comerce/components/SectorTabsWrapper';
 import ServiceComponentWrapper from '@/features/Comercial/Comerce/components/ServiceComponentWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { ClipboardList, FileText, Grid, MapPin, Ruler, Truck, Users } from 'lucide-react';
+import { ClipboardList, FileSpreadsheet, FileText, Ruler, TrendingUp, Users } from 'lucide-react';
 import { Suspense } from 'react';
 
 export default function ComerceTabContent({
@@ -41,54 +40,6 @@ export default function ComerceTabContent({
           ),
         },
         {
-          value: 'areas',
-          label: (
-            <span className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Áreas
-            </span>
-          ),
-          moduleSlug: 'comercial',
-          tabSlug: 'areas',
-          content: (
-            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-              <CustomerTabWrapper />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'equipment',
-          label: (
-            <span className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
-              Equipos
-            </span>
-          ),
-          moduleSlug: 'comercial',
-          tabSlug: 'equipment',
-          content: (
-            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-              <CustomerEquipmentTabWrapper />
-            </Suspense>
-          ),
-        },
-        {
-          value: 'sector',
-          label: (
-            <span className="flex items-center gap-2">
-              <Grid className="h-4 w-4" />
-              Sectores
-            </span>
-          ),
-          moduleSlug: 'comercial',
-          tabSlug: 'sector',
-          content: (
-            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
-              <SectorTabsWrapper />
-            </Suspense>
-          ),
-        },
-        {
           value: 'service',
           label: (
             <span className="flex items-center gap-2">
@@ -117,6 +68,38 @@ export default function ComerceTabContent({
           content: (
             <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <MensureUnitsWrapper />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'reglas-precio',
+          label: (
+            <span className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Reglas de Precio
+            </span>
+          ),
+          moduleSlug: 'comercial',
+          tabSlug: 'reglas-precio',
+          content: (
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
+              <ReglasPrecioTabContent />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'certificaciones',
+          label: (
+            <span className="flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Certificaciones
+            </span>
+          ),
+          moduleSlug: 'comercial',
+          tabSlug: 'certificaciones',
+          content: (
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
+              <CertificacionesTabContent />
             </Suspense>
           ),
         },

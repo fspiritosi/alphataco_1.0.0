@@ -14,6 +14,7 @@ import { getLastOrderNumber } from '@/features/Operaciones/Preparte/actions/quer
 import type { Preparte } from '@/features/Operaciones/Preparte/types';
 import { PermissionGuard } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
+import { resolveServiceAreaId, resolveServiceSectorId } from '../lib/service-relation-id';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { useQueryClient } from '@tanstack/react-query';
 import moment from 'moment';
@@ -379,35 +380,17 @@ export function PreparteManager({
     const cliente = Customers.find((c) => c.id === item.cliente_id);
     const service = cliente?.customer_services?.find((s) => s.id === item.contrato_id);
 
-    // Sector mapping -> to service_sectors.id
-    let sectorForForm = item.sector_service_id || '';
-    if (service?.service_sectors && service.service_sectors.length) {
-      const direct = service.service_sectors.find((ss) => ss.id === sectorForForm);
-      if (!direct) {
-        const bySectorId = service.service_sectors.find((ss) => ss.sectors?.id === sectorForForm);
-        if (bySectorId) {
-          sectorForForm = bySectorId.id;
-        } else {
-          const sc = cliente?.sector_customer?.find(
-            (entry) => entry.id === sectorForForm || entry.sector_id === sectorForForm
-          );
-          if (sc?.sector_id) {
-            const via = service.service_sectors.find((ss) => ss.sectors?.id === sc.sector_id);
-            if (via) sectorForForm = via.id;
-          }
-        }
-      }
-    }
+    // El valor guardado puede ser el id de la pivote o el de la entidad de origen.
+    // La traducción es compartida: `lib/service-relation-id`.
+    const sectorForForm =
+      resolveServiceSectorId(item.sector_service_id, cliente?.customer_services, item.contrato_id) ??
+      item.sector_service_id ??
+      '';
 
-    // Area mapping -> to service_areas.id
-    let areaForForm = item.areas_service_id || '';
-    if (service?.service_areas && service.service_areas.length) {
-      const directA = service.service_areas.find((sa) => sa.id === areaForForm);
-      if (!directA) {
-        const byAreaCliente = service.service_areas.find((sa) => sa.areas_cliente?.id === areaForForm);
-        if (byAreaCliente) areaForForm = byAreaCliente.id;
-      }
-    }
+    const areaForForm =
+      resolveServiceAreaId(item.areas_service_id, cliente?.customer_services, item.contrato_id) ??
+      item.areas_service_id ??
+      '';
 
     // Equipos mapping -> ensure array for multiselect
     const equiposForForm = item.equipos_cliente ? [item.equipos_cliente] : [];

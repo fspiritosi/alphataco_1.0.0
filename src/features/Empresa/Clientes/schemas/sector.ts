@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** Sector (`sectors` + `sector_customer`). */
+/** Sector de un cliente (`sectors.customer_id`). */
 export const sectorFormSchema = z.object({
   name: z.string().trim().min(1, { message: 'El nombre es requerido' }),
   descripcion_corta: z.string().trim().min(1, { message: 'La descripción es requerida' }),

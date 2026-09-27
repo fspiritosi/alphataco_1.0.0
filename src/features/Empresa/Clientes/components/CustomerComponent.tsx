@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import type { ProvinceOption } from './area_clientes/AreaFormDialog';
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLoggedUserStore } from '@/shared/store/loggedUser';
@@ -9,7 +10,7 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import type { AreaRow } from '../actions/areas.server';
 import type { MeasureUnitRow } from '../actions/measure-units.server';
-import type { SectorCustomerRow } from '../actions/sectors.server';
+import type { SectorRow } from '../actions/sectors.server';
 import type { CustomerServiceRow } from '../actions/services.server';
 import type { CustomerRow } from '../lib/serializers';
 import { CustomerDetail, type CustomerDetailPreferences } from './CustomerDetail/CustomerDetail';
@@ -19,8 +20,9 @@ interface CustomerComponentProps {
   customer: CustomerRow | null;
   services: CustomerServiceRow[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   measureUnits: MeasureUnitRow[];
+  provinces: ProvinceOption[];
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }
@@ -75,6 +77,7 @@ export default function CustomerComponent({
   areas,
   sectors,
   measureUnits,
+  provinces,
   savedFilters,
   savedVisibility,
 }: CustomerComponentProps) {
@@ -100,6 +103,7 @@ export default function CustomerComponent({
     servicesVisibility: {},
     serviceItemsFilters: [],
     serviceItemsVisibility: {},
+    areasFilters: [],
   };
 
   return (
@@ -110,6 +114,7 @@ export default function CustomerComponent({
         areas={areas}
         sectors={sectors}
         measureUnits={measureUnits}
+      provinces={provinces}
         preferences={preferences}
         onClose={() => router.push('/dashboard/configuration')}
       />

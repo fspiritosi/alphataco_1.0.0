@@ -6,7 +6,6 @@ import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { errorMessage, fail, ok, type ActionResult } from '../lib/action-result';
-import { diffAssignments } from '../lib/assignment-diff';
 import { sectorFormSchema, type SectorFormValues } from '../schemas/sector';
 
 const logger = new Logger('features/Empresa/Clientes/sectors');
@@ -14,37 +13,60 @@ const logger = new Logger('features/Empresa/Clientes/sectors');
 const COMERCIAL_PATH = '/dashboard/comercial';
 
 /**
- * Sectores (`sectors`) no tienen `company_id`: pertenecen a la empresa a través de
- * `sector_customer → customers`. Un sector sin clientes no es visible para nadie.
+ * Un sector pertenece a UN cliente (`sectors.customer_id`), y el cliente a una empresa.
+ *
+ * Antes `sectors` era una tabla global y la pertenencia salía de la pivote `sector_customer`,
+ * con la consecuencia de que un mismo sector podía estar compartido entre clientes y entre
+ * empresas. La pivote se eliminó (tsk-745): el diff de asignaciones que había acá ya venía
+ * operando de hecho como 1:1, porque el formulario nunca mandó más de un cliente.
  */
 
-/** Filas sector ↔ cliente de la empresa activa (lo que lista la tabla de Sectores). */
-export async function getSectorCustomers() {
+/** Sectores de los clientes de la empresa activa (lo que lista la tabla de Sectores). */
+export async function getSectors() {
   const companyId = await getActiveCompanyId();
   try {
-    return await prisma.sector_customer.findMany({
+    const rows = await prisma.sectors.findMany({
       where: { customers: { company_id: companyId } },
       select: {
         id: true,
-        sector_id: true,
         customer_id: true,
+        name: true,
+        descripcion_corta: true,
         created_at: true,
-        sectors: { select: { id: true, name: true, descripcion_corta: true } },
         customers: { select: { id: true, name: true } },
       },
-      orderBy: { sectors: { name: 'asc' } },
+      orderBy: { name: 'asc' },
     });
+
+    // Se conserva la forma anidada `sectors: {...}` que ya consumían las 14 pantallas: el
+    // ticket pide reordenar el dominio, no rehacer un DTO que atraviesa media aplicación.
+    return rows.map((s) => ({
+      id: s.id,
+      sector_id: s.id,
+      customer_id: s.customer_id,
+      created_at: s.created_at,
+      sectors: { id: s.id, name: s.name, descripcion_corta: s.descripcion_corta },
+      customers: s.customers,
+    }));
   } catch (error) {
-    logger.error('Error al obtener sectores por cliente', { data: { error, companyId } });
+    logger.error('Error al obtener sectores', { data: { error, companyId } });
     throw error;
   }
 }
 
-export type SectorCustomerRow = Awaited<ReturnType<typeof getSectorCustomers>>[number];
+export type SectorRow = Awaited<ReturnType<typeof getSectors>>[number];
 
 async function assertCustomerOwned(customerId: string, companyId: string): Promise<void> {
-  const customer = await prisma.customers.findFirst({ where: { id: customerId, company_id: companyId }, select: { id: true } });
+  const customer = await prisma.customers.findFirst({
+    where: { id: customerId, company_id: companyId },
+    select: { id: true },
+  });
   if (!customer) throw new Error('Cliente no encontrado');
+}
+
+/** Traduce el choque contra `@@unique([customer_id, name])` a un mensaje que se entienda. */
+function nombreRepetido(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
 
 export async function createSector(input: SectorFormValues): Promise<ActionResult<{ id: string }>> {
@@ -55,27 +77,24 @@ export async function createSector(input: SectorFormValues): Promise<ActionResul
   const companyId = await getActiveCompanyId();
   try {
     await assertCustomerOwned(values.customer_id, companyId);
-    const created = await prisma.$transaction(async (tx) => {
-      const sector = await tx.sectors.create({
-        data: { name: values.name, descripcion_corta: values.descripcion_corta },
-        select: { id: true },
-      });
-      await tx.sector_customer.create({ data: { sector_id: sector.id, customer_id: values.customer_id } });
-      return sector;
+    const created = await prisma.sectors.create({
+      data: {
+        customer_id: values.customer_id,
+        name: values.name,
+        descripcion_corta: values.descripcion_corta,
+      },
+      select: { id: true },
     });
-    logger.info('Sector creado', { data: { sectorId: created.id } });
+    logger.info('Sector creado', { data: { sectorId: created.id, customerId: values.customer_id } });
     revalidatePath(COMERCIAL_PATH);
     return ok({ id: created.id });
   } catch (error) {
+    if (nombreRepetido(error)) return fail('Ese cliente ya tiene un sector con ese nombre');
     logger.error('Error al crear el sector', { data: { error } });
     return fail(errorMessage(error, 'Error al crear el sector'));
   }
 }
 
-/**
- * Edición de sector. El vínculo con clientes se reconcilia con altas y bajas explícitas
- * (`diffAssignments`) contra lo que hay en la base para ese sector.
- */
 export async function updateSector(input: SectorFormValues & { id: string }): Promise<ActionResult<{ id: string }>> {
   const parsed = sectorFormSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
@@ -84,45 +103,29 @@ export async function updateSector(input: SectorFormValues & { id: string }): Pr
 
   const companyId = await getActiveCompanyId();
   try {
+    // Perímetro: el sector tiene que ser de un cliente de la empresa activa. No lo garantiza la
+    // base (no hay RLS), así que se verifica acá antes de escribir.
     const sector = await prisma.sectors.findFirst({
-      where: { id: sectorId, sector_customer: { some: { customers: { company_id: companyId } } } },
-      // Sólo los vínculos con clientes de la empresa activa: un sector puede estar compartido con
-      // otras empresas y esos vínculos no se tocan (ni entran en el diff ni en el deleteMany).
-      select: {
-        id: true,
-        sector_customer: { where: { customers: { company_id: companyId } }, select: { customer_id: true } },
-      },
+      where: { id: sectorId, customers: { company_id: companyId } },
+      select: { id: true },
     });
     if (!sector) return fail('Sector no encontrado');
     await assertCustomerOwned(values.customer_id, companyId);
 
-    const { toAdd, toRemove } = diffAssignments(
-      sector.sector_customer.map((sc) => sc.customer_id),
-      [values.customer_id]
-    );
-
-    await prisma.$transaction(async (tx) => {
-      await tx.sectors.update({
-        where: { id: sectorId },
-        data: { name: values.name, descripcion_corta: values.descripcion_corta },
-      });
-      if (toRemove.length > 0) {
-        await tx.sector_customer.deleteMany({
-          where: { sector_id: sectorId, customer_id: { in: toRemove }, customers: { company_id: companyId } },
-        });
-      }
-      if (toAdd.length > 0) {
-        await tx.sector_customer.createMany({
-          data: toAdd.map((customer_id) => ({ sector_id: sectorId, customer_id })),
-          skipDuplicates: true,
-        });
-      }
+    await prisma.sectors.update({
+      where: { id: sectorId },
+      data: {
+        customer_id: values.customer_id,
+        name: values.name,
+        descripcion_corta: values.descripcion_corta,
+      },
     });
 
-    logger.info('Sector actualizado', { data: { sectorId, added: toAdd.length, removed: toRemove.length } });
+    logger.info('Sector actualizado', { data: { sectorId } });
     revalidatePath(COMERCIAL_PATH);
     return ok({ id: sectorId });
   } catch (error) {
+    if (nombreRepetido(error)) return fail('Ese cliente ya tiene un sector con ese nombre');
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
       return fail('No se puede cambiar el cliente del sector porque está siendo utilizado en contratos o partes diarios');
     }

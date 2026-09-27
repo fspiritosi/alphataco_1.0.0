@@ -1,10 +1,11 @@
 'use client';
 
 import type { VisibilityState } from '@tanstack/react-table';
+import type { ProvinceOption } from './area_clientes/AreaFormDialog';
 import { useState } from 'react';
 import type { AreaRow } from '../actions/areas.server';
 import type { MeasureUnitRow } from '../actions/measure-units.server';
-import type { SectorCustomerRow } from '../actions/sectors.server';
+import type { SectorRow } from '../actions/sectors.server';
 import type { CustomerServiceRow } from '../actions/services.server';
 import type { CustomerRow } from '../lib/serializers';
 import { CustomerDetail, type CustomerDetailPreferences } from './CustomerDetail/CustomerDetail';
@@ -14,8 +15,9 @@ interface CustomersPanelProps {
   customers: CustomerRow[];
   services: CustomerServiceRow[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   measureUnits: MeasureUnitRow[];
+  provinces: ProvinceOption[];
   listVisibility: VisibilityState;
   listFilters: string[];
   preferences: CustomerDetailPreferences;
@@ -31,6 +33,7 @@ export function CustomersPanel({
   areas,
   sectors,
   measureUnits,
+  provinces,
   listVisibility,
   listFilters,
   preferences,
@@ -47,6 +50,7 @@ export function CustomersPanel({
         areas={areas}
         sectors={sectors}
         measureUnits={measureUnits}
+      provinces={provinces}
         preferences={preferences}
         onClose={() => setSelectedId(null)}
       />

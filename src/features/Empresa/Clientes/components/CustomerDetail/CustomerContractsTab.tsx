@@ -4,7 +4,7 @@ import type { VisibilityState } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import type { AreaRow } from '../../actions/areas.server';
 import type { MeasureUnitRow } from '../../actions/measure-units.server';
-import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { SectorRow } from '../../actions/sectors.server';
 import type { CustomerServiceRow } from '../../actions/services.server';
 import type { CustomerRow } from '../../lib/serializers';
 import ServiceTable from '../Services/ServiceTable';
@@ -13,7 +13,7 @@ interface CustomerContractsTabProps {
   customer: CustomerRow;
   services: CustomerServiceRow[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   measureUnits: MeasureUnitRow[];
   savedFilters: string[];
   savedVisibility: VisibilityState;

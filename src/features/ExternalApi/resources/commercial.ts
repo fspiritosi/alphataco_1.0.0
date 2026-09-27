@@ -91,9 +91,7 @@ const COMMERCIAL_SECTOR_SELECT = {
   name: true,
   descripcion_corta: true,
   created_at: true,
-  sector_customer: {
-    select: { customers: { select: { id: true, name: true } } },
-  },
+  customers: { select: { id: true, name: true } },
 } as const;
 
 type CommercialSectorRow = Prisma.sectorsGetPayload<{ select: typeof COMMERCIAL_SECTOR_SELECT }>;
@@ -105,13 +103,9 @@ export async function fetchExternalCommercialSectors(params: {
   const { companyId, query } = params;
 
   const where: Prisma.sectorsWhereInput = {
-    sector_customer: {
-      some: {
-        customers: {
-          company_id: companyId,
-          ...(query.includeInactive ? {} : { is_active: true }),
-        },
-      },
+    customers: {
+      company_id: companyId,
+      ...(query.includeInactive ? {} : { is_active: true }),
     },
   };
 
@@ -138,14 +132,15 @@ export type PublicCommercialSector = {
 };
 
 export function toPublicCommercialSector(row: CommercialSectorRow): PublicCommercialSector {
+  // `customers` sigue siendo un ARRAY aunque un sector ahora pertenezca a un solo cliente.
+  // Es un contrato público con consumidores de afuera: cambiarlo a un objeto singular los
+  // rompería sin aviso. La forma se mantiene y se devuelve un array de un elemento; si alguna
+  // vez se confirma que nadie lo consume, ahí sí conviene versionar la API y aplanarlo.
   return {
     id: row.id,
     name: row.name,
     description: row.descripcion_corta,
-    customers: row.sector_customer.map((relation) => ({
-      id: relation.customers.id,
-      name: relation.customers.name,
-    })),
+    customers: [{ id: row.customers.id, name: row.customers.name }],
     createdAt: row.created_at?.toISOString() ?? null,
   };
 }

@@ -1,8 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchAllProvinces } from '@/features/Comercial/actions/location-actions';
 import { getAreasWithProvinces } from '@/features/Empresa/Clientes/actions/areas.server';
 import { getCustomerById } from '@/features/Empresa/Clientes/actions/customers.server';
 import { getMeasureUnits } from '@/features/Empresa/Clientes/actions/measure-units.server';
-import { getSectorCustomers } from '@/features/Empresa/Clientes/actions/sectors.server';
+import { getSectors } from '@/features/Empresa/Clientes/actions/sectors.server';
 import { getCustomerServices } from '@/features/Empresa/Clientes/actions/services.server';
 import CustomerComponent from '@/features/Empresa/Clientes/components/CustomerComponent';
 import { cn } from '@/lib/utils';
@@ -20,12 +21,13 @@ export default async function CustomerFormAction({ searchParams }: PageProps) {
   const savedVisibility = cookiesStore.get('equipment-table-equipment')?.value;
   const savedFilters = cookiesStore.get('equipment-table-equipment-filters')?.value;
 
-  const [customer, services, areas, sectors, measureUnits] = await Promise.all([
+  const [customer, services, areas, sectors, measureUnits, provinces] = await Promise.all([
     id ? getCustomerById(id) : Promise.resolve(null),
     getCustomerServices(),
     getAreasWithProvinces(),
-    getSectorCustomers(),
+    getSectors(),
     getMeasureUnits(),
+    fetchAllProvinces(),
   ]);
 
   return (
@@ -42,6 +44,7 @@ export default async function CustomerFormAction({ searchParams }: PageProps) {
             areas={areas}
             sectors={sectors}
             measureUnits={measureUnits}
+            provinces={provinces}
             savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
             savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
           />

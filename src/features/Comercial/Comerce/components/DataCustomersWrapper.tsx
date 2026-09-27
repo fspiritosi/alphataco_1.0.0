@@ -1,8 +1,9 @@
 import { Card } from '@/components/ui/card';
+import { fetchAllProvinces } from '@/features/Comercial/actions/location-actions';
 import { getAreasWithProvinces } from '@/features/Empresa/Clientes/actions/areas.server';
 import { getCustomers } from '@/features/Empresa/Clientes/actions/customers.server';
 import { getMeasureUnits } from '@/features/Empresa/Clientes/actions/measure-units.server';
-import { getSectorCustomers } from '@/features/Empresa/Clientes/actions/sectors.server';
+import { getSectors } from '@/features/Empresa/Clientes/actions/sectors.server';
 import { getCustomerServices } from '@/features/Empresa/Clientes/actions/services.server';
 import { CustomersPanel } from '@/features/Empresa/Clientes/components/CustomersPanel';
 import { cookies } from 'next/headers';
@@ -20,12 +21,13 @@ export default async function DataCustomersWrapper() {
   const cookiesStore = await cookies();
 
   // Las actions ya acotan a la empresa activa (getActiveCompanyId + withCompany).
-  const [customers, areas, sectors, services, measureUnits] = await Promise.all([
+  const [customers, areas, sectors, services, measureUnits, provinces] = await Promise.all([
     getCustomers(),
     getAreasWithProvinces(),
-    getSectorCustomers(),
+    getSectors(),
     getCustomerServices(),
     getMeasureUnits(),
+    fetchAllProvinces(),
   ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function DataCustomersWrapper() {
         areas={areas}
         sectors={sectors}
         measureUnits={measureUnits}
+        provinces={provinces}
         listVisibility={readCookieJson(cookiesStore.get('customers-table')?.value, {})}
         listFilters={readCookieJson(cookiesStore.get('customers-table-filters')?.value, [])}
         preferences={{
@@ -46,6 +49,7 @@ export default async function DataCustomersWrapper() {
           servicesVisibility: readCookieJson(cookiesStore.get('services-table')?.value, {}),
           serviceItemsFilters: readCookieJson(cookiesStore.get('service-items-table-filters')?.value, []),
           serviceItemsVisibility: readCookieJson(cookiesStore.get('service-items-table')?.value, {}),
+          areasFilters: readCookieJson(cookiesStore.get('areaTable-filters')?.value, []),
         }}
       />
     </Card>

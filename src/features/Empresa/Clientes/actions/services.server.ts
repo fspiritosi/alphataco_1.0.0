@@ -94,7 +94,7 @@ async function assertAreasAndSectorsBelongToCustomer(
   const [areas, sectors] = await Promise.all([
     areaIds.length ? prisma.areas_cliente.count({ where: { id: { in: areaIds }, customer_id: customerId } }) : 0,
     sectorIds.length
-      ? prisma.sectors.count({ where: { id: { in: sectorIds }, sector_customer: { some: { customer_id: customerId } } } })
+      ? prisma.sectors.count({ where: { id: { in: sectorIds }, customer_id: customerId } })
       : 0,
   ]);
   if (areas !== areaIds.length) throw new Error('Una o más áreas no pertenecen al cliente');

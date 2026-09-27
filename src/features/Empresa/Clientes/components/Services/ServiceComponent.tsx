@@ -4,7 +4,7 @@ import Cookies from 'js-cookie';
 import type { VisibilityState } from '@tanstack/react-table';
 import type { AreaRow } from '../../actions/areas.server';
 import type { MeasureUnitRow } from '../../actions/measure-units.server';
-import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { SectorRow } from '../../actions/sectors.server';
 import type { CustomerServiceRow } from '../../actions/services.server';
 import type { CustomerRef } from '../../lib/serializers';
 import ServiceTable from './ServiceTable';
@@ -12,7 +12,7 @@ import ServiceTable from './ServiceTable';
 interface ServiceComponentProps {
   customers: CustomerRef[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   measureUnits: MeasureUnitRow[];
   services: CustomerServiceRow[];
   savedFilter: string[];

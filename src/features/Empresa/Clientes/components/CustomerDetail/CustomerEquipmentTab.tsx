@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import type { AssignmentChanges } from '../../lib/assignment-diff';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { PermissionGuard } from '@/features/Permissions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
@@ -14,7 +15,6 @@ import { useMemo } from 'react';
 import {
   getCustomerEquipmentAssignments,
   updateCustomerEquipmentAssignments,
-  type AssignmentChanges,
 } from '../../actions/assignments.server';
 import type { CustomerRow } from '../../lib/serializers';
 import { AssignmentDialog } from './AssignmentDialog';

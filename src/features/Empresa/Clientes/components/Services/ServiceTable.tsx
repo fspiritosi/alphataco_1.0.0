@@ -14,7 +14,7 @@ import moment from 'moment';
 import { useMemo, useState } from 'react';
 import type { AreaRow } from '../../actions/areas.server';
 import type { MeasureUnitRow } from '../../actions/measure-units.server';
-import type { SectorCustomerRow } from '../../actions/sectors.server';
+import type { SectorRow } from '../../actions/sectors.server';
 import type { CustomerServiceRow } from '../../actions/services.server';
 import type { CustomerRef } from '../../lib/serializers';
 import { dbDateToLocal } from '../../lib/service-dates';
@@ -26,7 +26,7 @@ interface ServiceTableProps {
   services: CustomerServiceRow[];
   customers: CustomerRef[];
   areas: AreaRow[];
-  sectors: SectorCustomerRow[];
+  sectors: SectorRow[];
   measureUnits: MeasureUnitRow[];
   /** Muestra el botón "Crear Contrato" (la pestaña Contratos de Comercial). */
   showCreateButton?: boolean;

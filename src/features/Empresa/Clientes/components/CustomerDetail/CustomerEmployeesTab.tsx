@@ -1,6 +1,7 @@
 'use client';
 
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
+import type { AssignmentChanges } from '../../lib/assignment-diff';
 import { PermissionGuard } from '@/features/Permissions';
 import { fetchAllEmployees2 } from '@/shared/actions/employees.actions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +11,6 @@ import { useMemo } from 'react';
 import {
   getCustomerEmployeeAssignments,
   updateCustomerEmployeeAssignments,
-  type AssignmentChanges,
 } from '../../actions/assignments.server';
 import type { CustomerRow } from '../../lib/serializers';
 import { AssignmentDialog } from './AssignmentDialog';
