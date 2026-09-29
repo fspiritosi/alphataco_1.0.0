@@ -25,6 +25,20 @@ export async function ensureCity(prisma: PrismaClient): Promise<{ id: bigint; pr
   });
 }
 
+/**
+ * El rol `User`: es el default de `profile.role` (FK a `roles.name`), así que ningún `profile`
+ * se puede crear sin él. Lo siembra `scripts/seed-company.ts`, no las migraciones: en CI la base
+ * de trabajo sale vacía de `0_init` y cualquier alta de perfil fallaba con `profile_role_fkey`.
+ * Mismos valores que el seed; no se borra al terminar porque es catálogo compartido.
+ */
+export async function ensureDefaultRole(prisma: PrismaClient): Promise<void> {
+  await prisma.roles.upsert({
+    where: { name: 'User' },
+    update: {},
+    create: { name: 'User', slug: 'user', is_system: true, is_active: true },
+  });
+}
+
 /** Un país cualquiera (FK de `employees.birthplace`), creándolo si no hay ninguno. */
 export async function ensureCountry(prisma: PrismaClient): Promise<{ id: string }> {
   const existing = await prisma.countries.findFirst({ select: { id: true } });

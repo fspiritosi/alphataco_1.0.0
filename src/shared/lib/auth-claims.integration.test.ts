@@ -1,4 +1,4 @@
-import { ensureCity } from '@/test/db-fixtures';
+import { ensureCity, ensureDefaultRole } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -77,6 +77,7 @@ describe.skipIf(!RUN)('claims de sesión: la invariante del perímetro (integrac
 
   beforeAll(async () => {
     ({ prisma } = await import('@/shared/lib/prisma'));
+    await ensureDefaultRole(prisma);
     ({ auth } = await import('@/shared/lib/auth'));
     ({ createCredential } = await import('@/shared/lib/auth-credentials'));
     ({ writeCompanyClaim } = await import('@/shared/lib/session-claims'));

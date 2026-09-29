@@ -1,4 +1,4 @@
-import { ensureCity } from '@/test/db-fixtures';
+import { ensureCity, ensureDefaultRole } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -33,6 +33,7 @@ describe.skipIf(!RUN)('assignRoleInCompany: grant del rol en el alta de usuario 
 
   beforeAll(async () => {
     ({ prisma } = await import('@/shared/lib/prisma'));
+    await ensureDefaultRole(prisma);
 
     await prisma.profile.create({
       data: {

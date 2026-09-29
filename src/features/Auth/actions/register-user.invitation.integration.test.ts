@@ -1,4 +1,4 @@
-import { ensureCity } from '@/test/db-fixtures';
+import { ensureCity, ensureDefaultRole } from '@/test/db-fixtures';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -52,6 +52,7 @@ describe.skipIf(!RUN)('registerUserWithRole: invitación a una empresa (integrac
 
   beforeAll(async () => {
     ({ prisma } = await import('@/shared/lib/prisma'));
+    await ensureDefaultRole(prisma);
     ({ auth } = await import('@/shared/lib/auth'));
     ({ registerUserWithRole } = await import('./register-user'));
 
