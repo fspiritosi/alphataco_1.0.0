@@ -12,17 +12,23 @@ ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name;
 --      modulo y pasan a ser pestañas de la ficha del cliente, que es de quien dependen.
 --    - certificaciones: el documento que se arma con lo trabajado en un periodo.
 --    - reglas-precio: como se actualizan los precios (indice, polinomica, manual).
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
-  ('40000000-0000-0000-0000-000000000114', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'areas-cliente',
-   'Areas del Cliente', 'Areas operativas del cliente', 3, '40000000-0000-0000-0000-000000000011'),
-  ('40000000-0000-0000-0000-000000000115', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'sectores-cliente',
-   'Sectores del Cliente', 'Sectores operativos del cliente', 4, '40000000-0000-0000-0000-000000000011'),
-  ('40000000-0000-0000-0000-000000000018', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'certificaciones',
+--    Solo si el catalogo ya esta sembrado: en una base nueva el modulo Comercial y las tabs
+--    padre todavia no existen (las crea `scripts/seed-company.ts` despues de migrar, desde
+--    permissions-map.ts, que ya incluye estas cuatro) y el INSERT rompia por FK.
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id)
+SELECT v.* FROM (VALUES
+  ('40000000-0000-0000-0000-000000000114'::uuid, '92bfac14-dc5b-41be-b366-740bfbeaea13'::uuid, 'areas-cliente',
+   'Areas del Cliente', 'Areas operativas del cliente', 3, '40000000-0000-0000-0000-000000000011'::uuid),
+  ('40000000-0000-0000-0000-000000000115'::uuid, '92bfac14-dc5b-41be-b366-740bfbeaea13'::uuid, 'sectores-cliente',
+   'Sectores del Cliente', 'Sectores operativos del cliente', 4, '40000000-0000-0000-0000-000000000011'::uuid),
+  ('40000000-0000-0000-0000-000000000018'::uuid, '92bfac14-dc5b-41be-b366-740bfbeaea13'::uuid, 'certificaciones',
    'Certificaciones', 'Certificacion de lo trabajado por cliente, contrato y periodo', 8,
-   '40000000-0000-0000-0000-000000000001'),
-  ('40000000-0000-0000-0000-000000000154', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'reglas-precio',
+   '40000000-0000-0000-0000-000000000001'::uuid),
+  ('40000000-0000-0000-0000-000000000154'::uuid, '92bfac14-dc5b-41be-b366-740bfbeaea13'::uuid, 'reglas-precio',
    'Reglas de Actualizacion de Precios', 'Como se actualizan los precios de los items', 4,
-   '40000000-0000-0000-0000-000000000015')
+   '40000000-0000-0000-0000-000000000015'::uuid)
+) AS v(id, module_id, slug, name, description, order_index, parent_tab_id)
+WHERE EXISTS (SELECT 1 FROM modules m WHERE m.id = '92bfac14-dc5b-41be-b366-740bfbeaea13')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
 
 -- 3) Permisos de los 3 roles de sistema, y SOLO esos tres: los roles custom de cada empresa
