@@ -35,6 +35,22 @@ RUN --mount=type=cache,target=/root/.npm \
        "@prisma/adapter-pg@$(V @prisma/adapter-pg)" "pg@$(V pg)" "dotenv@$(V dotenv)" \
   && rm -f package.json package-lock.json
 
+##### demo-tools #####
+# Dependencias del reset diario de la demo (scripts/demo/reset.ts). Van a un
+# node_modules PROPIO dentro de scripts/demo y no al de la app: npm resolveria las
+# transitivas de better-auth y del SDK de S3 por su cuenta y podrian pisar las
+# versiones que el standalone de Next trazo para el server.
+FROM node:24-bookworm-slim AS demo-tools
+WORKDIR /demo-tools
+COPY package-lock.json .npmrc ./
+RUN --mount=type=cache,target=/root/.npm \
+  V() { node -p "require('./package-lock.json').packages['node_modules/$1'].version"; }; \
+  npm init -y >/dev/null \
+  && npm install --no-audit --no-fund --omit=dev \
+       "@faker-js/faker@$(V @faker-js/faker)" "pdf-lib@$(V pdf-lib)" \
+       "@aws-sdk/client-s3@$(V @aws-sdk/client-s3)" "better-auth@$(V better-auth)" \
+  && rm -f package.json package-lock.json
+
 ##### build #####
 # Stage completa (node_modules + prisma.config.ts + .next). Ademas de producir el
 # standalone, la usa el servicio `migrate` del docker-compose local.
@@ -95,6 +111,10 @@ COPY --from=build --chown=nextjs:nodejs /app/scripts/seed/permission-rows.ts ./s
 COPY --from=build --chown=nextjs:nodejs /app/src/features/Permissions/permissions-map.ts ./src/features/Permissions/permissions-map.ts
 # CLI de Prisma + deps del seed, encima del node_modules trazado del standalone.
 COPY --from=tools --chown=nextjs:nodejs /tools/node_modules ./node_modules
+# Reset diario de la demo (lo corre un Schedule de Dokploy, ver scripts/demo/reset.ts)
+# con sus dependencias aparte.
+COPY --from=build --chown=nextjs:nodejs /app/scripts/demo ./scripts/demo
+COPY --from=demo-tools --chown=nextjs:nodejs /demo-tools/node_modules ./scripts/demo/node_modules
 
 COPY --from=build --chown=nextjs:nodejs /app/docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

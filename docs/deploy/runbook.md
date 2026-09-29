@@ -184,12 +184,37 @@ No usar `scripts/seed-auth-fixtures.ts`: son datos de prueba (contraseña fija c
 - **Verificar un deploy**: `gh run list --workflow deploy.yml`, `gh run view <id>`, y
   `curl <health>` comparando `sha` con el head de `main`.
 
+## Instancia demo: reset diario
+
+La instancia demo (`alphataco.31.97.42.82.sslip.io`, proyecto **Demos** de Dokploy) se regenera
+todas las noches con `scripts/demo/reset.ts`, así siempre tiene datos "de hoy": parte diario del
+día, novedades de diagrama, documentos por vencer, indicadores de los últimos meses.
+
+- **Qué hace**: borra los datos de negocio (todas las tablas salvo permisos, empresa, usuarios y
+  sus membresías: lista `KEEP` en `scripts/demo/lib/wipe.ts`) y genera ~120 empleados, ~120
+  vehículos, clientes y contratos, 12 meses de partes diarios, pedidos, documentación con un PDF
+  por documento, mantenimiento, certificaciones, selección, indumentaria, neumáticos, KPIs e
+  indicadores. Las fechas son relativas al día de la corrida (hora argentina); nombres, legajos y
+  patentes son siempre los mismos (Faker con semilla fija). Los ids son deterministas: los links
+  a un empleado o una OT sobreviven al reset.
+- **Seguridad**: sin `DEMO_RESET_ENABLED=true` no hace nada, y aborta si la base tiene otra
+  empresa además de la demo. Todo va en una transacción: si falla, queda la demo del día anterior.
+- **Cuándo corre**: Schedule de la app en Dokploy, `5 0 * * *` (America/Argentina/Buenos_Aires),
+  comando `node scripts/demo/reset.ts`. Va antes del job de indicadores de las 00:30. Tarda ~2 min.
+- **Correrlo a mano**: Dokploy → Alphataco → Schedules → Run now. Para probar sin tocar nada:
+  `node scripts/demo/reset.ts --dry` (genera todo y hace ROLLBACK).
+- **Usuarios demo** (contraseña `AlphaDemo2026!`): `demo@alphataco.com` (admin),
+  `administrador@`, `rrhh@`, `taller@` y `operaciones@patagonia-demo.com.ar`, cada uno con su rol.
+- **Si una migración agrega una tabla de negocio**, el reset la vacía sola. Si agrega una columna
+  NOT NULL sin default en una tabla que el reset llena, el reset falla hasta que se complete en el
+  dominio correspondiente de `scripts/demo/domains/`.
+
 ## Pendientes
 
-- **Jobs periódicos**: en compose los dispara el contenedor `cron` (`docker/cron`). En Dokploy no
-  hay nada que llame a `/api/jobs/*`: hace falta un Scheduled Task (o servicio cron) con
-  `curl --fail-with-body -H "Authorization: Bearer $JOBS_TOKEN"` a los tres endpoints (horarios en
-  `docs/desarrollo/entornos.md`).
+- **Jobs periódicos**: en compose los dispara el contenedor `cron` (`docker/cron`). En la
+  instancia demo los cubren tres Schedules de la app en Dokploy (mismos horarios, hora argentina)
+  que llaman a `/api/jobs/*` con `fetch` de Node y `JOBS_TOKEN`. Una instancia nueva necesita los
+  suyos.
 - **Limpieza del registry**: cada deploy deja un `sha-*`. Si ya existe un Scheduled Task global de
   limpieza del registry (el de Ecokit), sumarle el repo `alphataco` en vez de crear otro: borrar
   `sha-*` viejos protegiendo los digests de `main` y `buildcache`, con el `Accept` que incluye los

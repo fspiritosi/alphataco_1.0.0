@@ -28,7 +28,8 @@
     "db:status": "prisma migrate status",
     "db:baseline": "node scripts/sql/build-baseline.ts",
     "db:seed": "node scripts/seed-company.ts",
-    "db:reset": "docker compose --env-file .env.docker rm -sf postgres && docker volume rm -f alphataco_pgdata && docker compose --env-file .env.docker up -d --wait postgres"
+    "db:reset": "docker compose --env-file .env.docker rm -sf postgres && docker volume rm -f alphataco_pgdata && docker compose --env-file .env.docker up -d --wait postgres",
+    "demo:reset": "node scripts/demo/reset.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1138.0",
@@ -116,6 +117,7 @@
     "zustand": "4.5.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@prisma/adapter-pg": "^7.4.1",
     "@tailwindcss/postcss": "^4",
     "@types/file-saver": "^2.0.7",
@@ -134,6 +136,7 @@
     "eslint-plugin-react": "^7.37.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
+    "pdf-lib": "^1.17.1",
     "postcss": "^8",
     "prettier": "^3.1.1",
     "prisma": "^7.4.1",
