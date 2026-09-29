@@ -1,0 +1,118 @@
+name: deploy
+# push a main (con cambios que afectan la imagen) → build `:sha-<commit>` →
+# promocion a `:main` → webhook de Dokploy → readiness contra /api/health por commit.
+# Ver docs/deploy/runbook.md.
+on:
+  push:
+    branches: [main]
+  # Redeploy manual del commit actual de main (p. ej. tras cambiar una variable
+  # NEXT_PUBLIC_*, que obliga a reconstruir). Si la imagen ya existe no se rebuildea:
+  # para hornear variables nuevas hay que borrar el tag o pushear un commit.
+  workflow_dispatch:
+
+# Una sola cola por rama y SIN cancelar el run en curso: si un push de solo docs
+# cancelara un deploy de codigo en vuelo, su propio filtro no desplegaria nada y
+# main quedaria sin su ultimo cambio. GitHub descarta los pendientes intermedios.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # `every`: un archivo cuenta solo si cumple TODOS los patrones, asi las
+      # negaciones excluyen de verdad. Filtro negativo a proposito: un archivo
+      # nuevo que afecte la imagen dispara deploy sin tener que acordarse de
+      # sumarlo aca; lo que se excluye es lo que seguro no entra en la imagen.
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        id: filter
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!**/*.md'
+              - '!cypress/**'
+              - '!cypress.config.ts'
+              - '!.claude/**'
+              - '!.agents/**'
+              - '!.planes/**'
+              - '!.zed/**'
+              - '!.husky/**'
+              - '!.github/workflows/ci.yml'
+
+  # Mismo chequeo que el job `types-and-lint` de ci.yml, pero dentro de este
+  # workflow: el deploy lo necesita como dependencia y un workflow no puede
+  # esperar a otro sin `workflow_run`. Corre en paralelo con el build, asi que no
+  # suma latencia.
+  verify:
+    needs: changes
+    # El dispatch se acepta solo sobre main: desde otra rama se desplegaria a
+    # produccion un commit que nunca paso por main.
+    if: always() && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || needs.changes.outputs.code == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+          CYPRESS_INSTALL_BINARY: '0'
+      - run: npm run check-types
+      - run: npm test
+
+  build:
+    needs: changes
+    if: always() && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || needs.changes.outputs.code == 'true')
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      # `env` no llega a `with:` de un reusable: van literales.
+      image: registry-31-97-42-82.sslip.io/alphataco
+      registry: registry-31-97-42-82.sslip.io
+      registry_username: ${{ vars.REGISTRY_USERNAME }}
+      sha: ${{ github.sha }}
+      # Las NEXT_PUBLIC_* se hornean en el bundle: cambiar una de estas
+      # variables exige una imagen nueva, no un redeploy.
+      build_args: |
+        NEXT_PUBLIC_BASE_URL=${{ vars.NEXT_PUBLIC_BASE_URL }}
+        NEXT_PUBLIC_PROJECT_URL=${{ vars.NEXT_PUBLIC_PROJECT_URL }}
+        NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+        NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+        NEXT_PUBLIC_SHOW_LOGS=${{ vars.NEXT_PUBLIC_SHOW_LOGS || 'false' }}
+      required_build_args: NEXT_PUBLIC_BASE_URL NEXT_PUBLIC_PROJECT_URL
+      skip_if_exists: true
+      # Variable de repo; vacia = runner de GitHub. Con un label `blacksmith-*`
+      # el build usa su builder persistente. El deploy no cambia de runner.
+      runs_on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    secrets:
+      registry_password: ${{ secrets.REGISTRY_PASSWORD }}
+
+  deploy:
+    needs: [verify, build]
+    # `always()` en los de arriba es solo para que un `changes` salteado (dispatch)
+    # no los saltee a ellos; aca se exige que ambos hayan pasado.
+    if: always() && needs.verify.result == 'success' && needs.build.result == 'success'
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      source_tag: ${{ needs.build.outputs.sha_tag }}
+      target_tag: registry-31-97-42-82.sslip.io/alphataco:main
+      health_url: ${{ vars.DOKPLOY_HEALTH_URL }}
+      registry: registry-31-97-42-82.sslip.io
+      registry_username: ${{ vars.REGISTRY_USERNAME }}
+      expected_sha: ${{ github.sha }}
+      commit_message: ${{ github.event.head_commit.message }}
+    secrets:
+      registry_password: ${{ secrets.REGISTRY_PASSWORD }}
+      deploy_webhook: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
