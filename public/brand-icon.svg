@@ -1,20 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="alphataco">
   <!--
-    Marca mínima de alphataco: la inicial sobre el color de marca.
-    El color es el equivalente sRGB de `--primary` del theme (oklch(0.508 0.118 165.612) = #007956);
-    un SVG servido como archivo no puede leer las variables CSS de la app, así que si se
-    cambia el theme hay que actualizar este valor a mano. Sin esquinas redondeadas, igual
-    que el resto de la interfaz (`--radius: 0`).
+    Favicon de alphataco: una alfa (α) en trazo sobre indigo, con un punto ambar de acento.
+    Paleta propia a proposito, distinta del verde de GH, para que la pestaña no se confunda con
+    la de GH. La letra va en trazos (no en <text>) para no depender de las fuentes del sistema.
   -->
-  <rect width="64" height="64" fill="#007956" />
-  <text
-    x="32"
-    y="33"
-    fill="#ffffff"
-    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-    font-size="42"
-    font-weight="700"
-    text-anchor="middle"
-    dominant-baseline="central"
-  >a</text>
+  <rect width="64" height="64" rx="14" fill="#1e1b4b" />
+  <path
+    d="M46 19 C42 30 39 37 35 42 C31 47 27 49 23 49 C16 49 12 43 12 36 C12 28 18 22 25 22 C33 22 37 30 40 38 C42 44 44 48 50 48"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="50" cy="16" r="4.5" fill="#f59e0b" />
 </svg>

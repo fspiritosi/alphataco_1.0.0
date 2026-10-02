@@ -14,10 +14,11 @@ const popinsFont = Poppins({
 export const metadata: Metadata = {
   title: 'alphataco',
   description: 'Gestión para las empresas',
+  // `?v=`: los navegadores cachean el favicon por URL; subirlo al cambiar el icono.
   icons: {
-    icon: '/brand-icon.svg',
-    shortcut: '/brand-icon.svg',
-    apple: '/brand-icon.svg',
+    icon: '/brand-icon.svg?v=2',
+    shortcut: '/brand-icon.svg?v=2',
+    apple: '/brand-icon.svg?v=2',
   },
 };
 

@@ -71,10 +71,16 @@ export const fetchUserCompanies = async () => {
       prisma.company.findMany({ where: { owner_id: userId }, select: companyRowSelect }),
     ]);
 
-    return {
-      sharedCompanies: shared.flatMap((sc) => (sc.company ? [toCompanyRow(sc.company)] : [])),
-      allCompanies: owned.map(toCompanyRow),
-    };
+    // Cada empresa una sola vez: un usuario puede ser dueño y además tenerla compartida
+    // (`share_company_users`), o tener dos filas compartidas de la misma. Sin esto la empresa
+    // salía repetida en el selector. Si es dueño, cuenta como propia.
+    const seen = new Set(owned.map((company) => company.id));
+    const sharedCompanies = shared.flatMap((sc) => {
+      if (!sc.company || seen.has(sc.company.id)) return [];
+      seen.add(sc.company.id);
+      return [toCompanyRow(sc.company)];
+    });
+    return { sharedCompanies, allCompanies: owned.map(toCompanyRow) };
   } catch (error) {
     logger.error('Error fetching user companies', { data: { error } });
     return { sharedCompanies: [], allCompanies: [] };
