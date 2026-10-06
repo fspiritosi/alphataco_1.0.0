@@ -4,7 +4,7 @@
 -- 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(27);
+SELECT plan(30);
 
 SELECT has_table('public', 'warehouses', 'existe warehouses');
 SELECT has_table('public', 'material_categories', 'existe material_categories');
@@ -178,6 +178,27 @@ SELECT throws_ok(
     VALUES ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000040',
             'a1000000-0000-0000-0000-000000000011', 'LOST', '   ', 'a1000000-0000-0000-0000-000000000002')$$,
   '23514', NULL, 'una baja sin detalle se rechaza'
+);
+
+-- ── Etapa 3: pedidos ────────────────────────────────────────────────────────
+SELECT throws_ok(
+  $$INSERT INTO material_requests (company_id, number, requested_by, destination_type)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'PED-T1', 'a1000000-0000-0000-0000-000000000002', 'EMPLOYEE')$$,
+  '23514', NULL, 'un pedido con tipo de destino pero sin la FK se rechaza'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO stock_movements (company_id, number, type, warehouse_id, occurred_on, created_by, material_request_id)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'MOV-P1', 'ENTRY',
+            'a1000000-0000-0000-0000-000000000010', CURRENT_DATE, 'a1000000-0000-0000-0000-000000000002',
+            'a1000000-0000-0000-0000-000000000099')$$,
+  '23514', NULL, 'solo una salida puede ser la entrega de un pedido'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO material_request_lines (request_id, material_id, quantity)
+    VALUES ('a1000000-0000-0000-0000-000000000099', 'a1000000-0000-0000-0000-000000000020', 0)$$,
+  '23514', NULL, 'una linea de pedido con cantidad 0 se rechaza'
 );
 
 SELECT * FROM finish();

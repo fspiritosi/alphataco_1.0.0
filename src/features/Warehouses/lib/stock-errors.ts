@@ -17,7 +17,10 @@ export type StockErrorCode =
   | 'UNIT_NOT_AVAILABLE'
   | 'INVALID_DESTINATION'
   | 'ALREADY_REVERSED'
-  | 'CANNOT_REVERSE_REVERSAL';
+  | 'CANNOT_REVERSE_REVERSAL'
+  | 'OVER_DELIVERY'
+  | 'DIRECT_EXIT_LIMIT'
+  | 'INVALID_STATE';
 
 export class StockError extends Error {
   readonly code: StockErrorCode;

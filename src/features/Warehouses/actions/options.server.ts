@@ -27,13 +27,19 @@ const OPTIONS_LIMIT = 30;
 
 const contains = (query: string) => ({ contains: query.trim(), mode: 'insensitive' as const });
 
-/** El formulario lo usan quienes registran movimientos (`create`) y quienes solo ajustan (`adjust`). */
+/**
+ * Los selectores los usan quienes registran movimientos (`create`) o solo ajustan (`adjust`), y
+ * en Pedidos quien pide (`create`: materiales y destinos) y quien entrega (`update`: depositos,
+ * lotes y unidades).
+ */
 async function canUseMovementForm(): Promise<boolean> {
-  const [canCreate, canAdjust] = await Promise.all([
+  const checks = await Promise.all([
     checkPermissionServer('almacenes', 'movimientos', 'create'),
     checkPermissionServer('almacenes', 'movimientos', 'adjust'),
+    checkPermissionServer('almacenes', 'pedidos', 'create'),
+    checkPermissionServer('almacenes', 'pedidos', 'update'),
   ]);
-  return canCreate || canAdjust;
+  return checks.some(Boolean);
 }
 
 export interface SearchResult<T> {
@@ -222,7 +228,13 @@ export async function searchMaintenanceOrderOptions(query: string) {
  * lotes con saldo (el que vence primero, primero: FEFO) y unidades serializadas en stock.
  */
 export async function getMaterialAvailability(materialId: string, warehouseId: string) {
-  if (!(await canUseMovementForm())) return null;
+  // Quien solo pide (`pedidos:create`) no ve stock: la disponibilidad es para registrar o entregar.
+  const checks = await Promise.all([
+    checkPermissionServer('almacenes', 'movimientos', 'create'),
+    checkPermissionServer('almacenes', 'movimientos', 'adjust'),
+    checkPermissionServer('almacenes', 'pedidos', 'update'),
+  ]);
+  if (!checks.some(Boolean)) return null;
   const companyId = await getActiveCompanyId();
   const [balances, units] = await Promise.all([
     prisma.stock_balances.findMany({

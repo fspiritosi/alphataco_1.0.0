@@ -41,6 +41,8 @@ export const ACTIONS = {
   // revierte un movimiento ya registrado. Ninguno de los dos es "registrar movimientos".
   adjust: { slug: 'adjust', name: 'Ajustar stock' },
   reverse: { slug: 'reverse', name: 'Anular movimiento' },
+  // Salida de stock sin pedido. Sin esta accion, una salida pasa por un pedido aprobado.
+  direct_exit: { slug: 'direct_exit', name: 'Salida directa' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -1335,7 +1337,7 @@ export const PERMISSIONS = {
         parent: null,
         // 'create' registra entradas, salidas y transferencias; 'adjust' y 'reverse' son
         // aparte (ver ACTIONS).
-        allowedActions: ['view', 'create', 'adjust', 'reverse', 'view_prices'],
+        allowedActions: ['view', 'create', 'adjust', 'reverse', 'view_prices', 'direct_exit'],
         subtabs: {},
       },
       prestamos: {
@@ -1345,6 +1347,16 @@ export const PERMISSIONS = {
         parent: null,
         // 'create' registra la devolucion; 'delete' da de baja una herramienta que no vuelve.
         allowedActions: ['view', 'create', 'delete'],
+        subtabs: {},
+      },
+      pedidos: {
+        slug: 'pedidos',
+        name: 'Pedidos',
+        tabId: 'b0000000-0000-0000-0000-000000000007',
+        parent: null,
+        // 'view' ve los propios, 'view_all_requests' todos; 'approve' aprueba o rechaza;
+        // 'update' entrega y cierra.
+        allowedActions: ['view', 'view_all_requests', 'create', 'approve', 'update'],
         subtabs: {},
       },
       materiales: {

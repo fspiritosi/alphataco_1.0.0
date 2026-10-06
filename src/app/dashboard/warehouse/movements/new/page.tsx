@@ -10,9 +10,11 @@ import { notFound } from 'next/navigation';
 export const metadata = { title: 'Nuevo movimiento | Almacenes' };
 
 export default async function NewStockMovementPage() {
-  const [canCreate, canAdjust] = await Promise.all([
+  const [canCreate, canAdjust, canDirectExit, canRequest] = await Promise.all([
     checkPermissionServer('almacenes', 'movimientos', 'create'),
     checkPermissionServer('almacenes', 'movimientos', 'adjust'),
+    checkPermissionServer('almacenes', 'movimientos', 'direct_exit'),
+    checkPermissionServer('almacenes', 'pedidos', 'create'),
   ]);
   if (!canCreate && !canAdjust) notFound();
 
@@ -32,7 +34,7 @@ export default async function NewStockMovementPage() {
         </Button>
         <h1 className="text-2xl font-semibold">Nuevo movimiento</h1>
       </div>
-      <NewMovementForm lookups={lookups} allowedTypes={allowedTypes} />
+      <NewMovementForm lookups={lookups} allowedTypes={allowedTypes} canDirectExit={canDirectExit} canRequest={canRequest} />
     </div>
   );
 }

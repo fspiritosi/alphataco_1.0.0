@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Prisma } from '@/generated/prisma/client';
+import type { RequestDeliveryLineInput } from '../schemas/requests';
 import type { StockMovementInput, StockMovementLineInput } from '../schemas/stock-movement';
 import type { StockErrorCode } from './stock-errors';
 
@@ -104,6 +105,50 @@ async function reverse(tx: Prisma.TransactionClient, movementId: string, reason 
 }
 
 /** Codigo del StockError que lanza `fn` (falla el test si no lanza o lanza otra cosa). */
+/** Pedido aprobado al cliente de prueba, creado directo (el alta es de la action, no del motor). */
+async function approvedRequest(
+  tx: Pick<Prisma.TransactionClient, 'material_requests'>,
+  lines: { materialId: string; quantity: string }[],
+  number = 'PED-000001'
+) {
+  return tx.material_requests.create({
+    data: {
+      company_id: COMPANY,
+      number,
+      status: 'APPROVED',
+      requested_by: PROFILE,
+      destination_type: 'CUSTOMER',
+      customer_id: CUSTOMER,
+      decided_by: PROFILE,
+      decided_at: new Date(),
+      lines: { create: lines.map((l) => ({ material_id: l.materialId, quantity: l.quantity })) },
+    },
+    include: { lines: { orderBy: { quantity: 'desc' } } },
+  });
+}
+
+async function deliver(tx: Prisma.TransactionClient, requestId: string, lines: RequestDeliveryLineInput[], warehouseId = W1) {
+  return (await engine()).registerRequestDelivery(tx, COMPANY, PROFILE, {
+    requestId,
+    warehouseId,
+    occurredOn: new Date(),
+    notes: null,
+    lines,
+  });
+}
+
+const deliveryLine = (requestLineId: string, quantity: string, extra: Partial<RequestDeliveryLineInput> = {}) => ({
+  requestLineId,
+  quantity,
+  batchId: null,
+  unitIds: [],
+  ...extra,
+});
+
+async function requestStatus(tx: Pick<Prisma.TransactionClient, 'material_requests'>, id: string) {
+  return (await tx.material_requests.findUniqueOrThrow({ where: { id }, select: { status: true } })).status;
+}
+
 async function stockErrorOf(fn: () => Promise<unknown>): Promise<{ code: StockErrorCode; message: string }> {
   const { StockError } = await import('./stock-errors');
   try {
@@ -175,6 +220,7 @@ async function cleanup() {
   await prisma.stock_balances.deleteMany({ where: { company_id } });
   await prisma.stock_movements.updateMany({ where: { company_id }, data: { reverses_movement_id: null } });
   await prisma.stock_movements.deleteMany({ where: { company_id } });
+  await prisma.material_requests.deleteMany({ where: { company_id } });
   await prisma.material_batches.deleteMany({ where: { company_id } });
   await prisma.materials.deleteMany({ where: { company_id } });
   await prisma.warehouses.deleteMany({ where: { company_id } });
@@ -640,6 +686,139 @@ describe.skipIf(!RUN)('motor de stock (integracion)', () => {
     });
   });
 
+  it('pedidos: entrega parcial y total, al costo promedio y al destino del pedido', async () => {
+    const result = await inRollback(async (tx) => {
+      await register(tx, entry([line(QTY, { quantity: '10', unitCost: '100' }), line(BATCH, { quantity: '5', unitCost: '20', batchNumber: 'L-1' })]));
+      const batch = await tx.material_batches.findFirstOrThrow({ where: { material_id: BATCH, batch_number: 'L-1' } });
+      const request = await approvedRequest(tx, [
+        { materialId: QTY, quantity: '8' },
+        { materialId: BATCH, quantity: '2' },
+      ]);
+      const [qtyLine, batchLine] = request.lines;
+
+      const first = await deliver(tx, request.id, [deliveryLine(qtyLine!.id, '3')]);
+      const afterFirst = await requestStatus(tx, request.id);
+      const exit = await tx.stock_movements.findUniqueOrThrow({ where: { id: first.id }, include: { lines: true } });
+
+      await deliver(tx, request.id, [
+        deliveryLine(qtyLine!.id, '5'),
+        deliveryLine(batchLine!.id, '2', { batchId: batch.id }),
+      ]);
+      return {
+        afterFirst,
+        afterSecond: await requestStatus(tx, request.id),
+        exit,
+        balance: await balance(tx, QTY, W1),
+        batchBalance: await balance(tx, BATCH, W1, batch.id),
+        consistent: await balancesMatchLedger(tx),
+        kardex: await kardexMatchesEngine(tx, QTY),
+        requestId: request.id,
+        qtyLineId: qtyLine!.id,
+      };
+    });
+
+    expect(result.afterFirst).toBe('PARTIALLY_DELIVERED');
+    expect(result.afterSecond).toBe('DELIVERED');
+    expect(result.exit.type).toBe('EXIT');
+    expect(result.exit.material_request_id).toBe(result.requestId);
+    expect(result.exit.destination_type).toBe('CUSTOMER');
+    expect(result.exit.customer_id).toBe(CUSTOMER);
+    expect(result.exit.reference).toBe('PED-000001');
+    expect(result.exit.lines[0]!.request_line_id).toBe(result.qtyLineId);
+    expect(result.exit.lines[0]!.unit_cost.toFixed(4)).toBe('100.0000');
+    expect(result.balance).toBe('2');
+    expect(result.batchBalance).toBe('3');
+    expect(result.consistent).toBe(true);
+    expect(result.kardex).toBe(true);
+  });
+
+  it('pedidos: rechaza sobreentregas y pedidos no aprobados', async () => {
+    const result = await inRollback(async (tx) => {
+      await register(tx, entry([line(QTY, { quantity: '50', unitCost: '1' })]));
+      const request = await approvedRequest(tx, [{ materialId: QTY, quantity: '20' }]);
+      const requestLine = request.lines[0]!;
+      const over = await stockErrorOf(() => deliver(tx, request.id, [deliveryLine(requestLine.id, '30')]));
+      // La misma linea dos veces suma: 15 + 10 supera los 20 pedidos.
+      const split = await stockErrorOf(() =>
+        deliver(tx, request.id, [deliveryLine(requestLine.id, '15'), deliveryLine(requestLine.id, '10')])
+      );
+      const pending = await approvedRequest(tx, [{ materialId: QTY, quantity: '1' }], 'PED-000002');
+      await tx.material_requests.update({ where: { id: pending.id }, data: { status: 'PENDING_APPROVAL' } });
+      const notApproved = await stockErrorOf(() => deliver(tx, pending.id, [deliveryLine(pending.lines[0]!.id, '1')]));
+      const foreignLine = await stockErrorOf(() => deliver(tx, request.id, [deliveryLine(pending.lines[0]!.id, '1')]));
+      return { over, split, notApproved, foreignLine };
+    });
+
+    expect(result.over).toEqual({
+      code: 'OVER_DELIVERY',
+      message: 'De Aceite 15W40 quedan 20 l por entregar: no se pueden entregar 30 l',
+    });
+    expect(result.split.code).toBe('OVER_DELIVERY');
+    expect(result.notApproved.code).toBe('INVALID_STATE');
+    expect(result.foreignLine.code).toBe('INVALID_INPUT');
+  });
+
+  it('pedidos: anular una entrega devuelve lo pendiente; un pedido cerrado sigue cerrado', async () => {
+    const result = await inRollback(async (tx) => {
+      await register(tx, entry([line(QTY, { quantity: '20', unitCost: '10' })]));
+      const request = await approvedRequest(tx, [{ materialId: QTY, quantity: '10' }]);
+      const requestLine = request.lines[0]!;
+      const first = await deliver(tx, request.id, [deliveryLine(requestLine.id, '4')]);
+      const second = await deliver(tx, request.id, [deliveryLine(requestLine.id, '6')]);
+      const delivered = await requestStatus(tx, request.id);
+
+      const reversal = await reverse(tx, second.id);
+      const afterReversal = await requestStatus(tx, request.id);
+      const reversalRow = await tx.stock_movements.findUniqueOrThrow({ where: { id: reversal.id }, include: { lines: true } });
+      // Lo anulado vuelve a estar pendiente: se puede entregar de nuevo.
+      await deliver(tx, request.id, [deliveryLine(requestLine.id, '6')]);
+      const redelivered = await requestStatus(tx, request.id);
+
+      await tx.material_requests.update({ where: { id: request.id }, data: { status: 'CLOSED' } });
+      await reverse(tx, first.id);
+      return {
+        delivered,
+        afterReversal,
+        reversalRow,
+        redelivered,
+        closed: await requestStatus(tx, request.id),
+        balance: await balance(tx, QTY, W1),
+        kardex: await kardexMatchesEngine(tx, QTY),
+        requestId: request.id,
+        lineId: requestLine.id,
+      };
+    });
+
+    expect(result.delivered).toBe('DELIVERED');
+    expect(result.afterReversal).toBe('PARTIALLY_DELIVERED');
+    expect(result.reversalRow.material_request_id).toBe(result.requestId);
+    expect(result.reversalRow.lines[0]!.request_line_id).toBe(result.lineId);
+    expect(result.reversalRow.lines[0]!.direction).toBe(1);
+    expect(result.redelivered).toBe('DELIVERED');
+    expect(result.closed).toBe('CLOSED');
+    // 20 − 4 − 6 + 6 − 6 + 4 = 14
+    expect(result.balance).toBe('14');
+    expect(result.kardex).toBe(true);
+  });
+
+  it('pedidos: entrega de serializados por unidad', async () => {
+    const result = await inRollback(async (tx) => {
+      await register(tx, entry([line(SERIAL, { quantity: '2', unitCost: '500', serialNumbers: ['T-1', 'T-2'] })]));
+      const units = await tx.material_units.findMany({ where: { material_id: SERIAL }, orderBy: { serial_number: 'asc' } });
+      const request = await approvedRequest(tx, [{ materialId: SERIAL, quantity: '1' }]);
+      const over = await stockErrorOf(() =>
+        deliver(tx, request.id, [deliveryLine(request.lines[0]!.id, '2', { unitIds: units.map((u) => u.id) })])
+      );
+      await deliver(tx, request.id, [deliveryLine(request.lines[0]!.id, '1', { unitIds: [units[0]!.id] })]);
+      const unit = await tx.material_units.findUniqueOrThrow({ where: { id: units[0]!.id } });
+      return { over: over.code, status: await requestStatus(tx, request.id), unitStatus: unit.status };
+    });
+
+    expect(result.over).toBe('OVER_DELIVERY');
+    expect(result.status).toBe('DELIVERED');
+    expect(result.unitStatus).toBe('OUT');
+  });
+
   it('concurrencia: dos salidas simultaneas por el ultimo stock, exactamente una pasa', async () => {
     const prisma = await db();
     const { registerStockMovement } = await engine();
@@ -663,5 +842,37 @@ describe.skipIf(!RUN)('motor de stock (integracion)', () => {
     expect(final.quantity.toString()).toBe('0');
     const numbers = await prisma.stock_movements.findMany({ where: { company_id: COMPANY }, select: { number: true } });
     expect(new Set(numbers.map((n) => n.number)).size).toBe(numbers.length);
+  }, 30_000);
+
+  it('concurrencia: dos entregas simultaneas de lo ultimo pendiente, exactamente una pasa', async () => {
+    const prisma = await db();
+    const { registerStockMovement, registerRequestDelivery } = await engine();
+    await prisma.$transaction((tx) =>
+      registerStockMovement(tx, COMPANY, PROFILE, entry([line(QTY, { quantity: '10', unitCost: '10' })]))
+    );
+    const request = await approvedRequest(prisma, [{ materialId: QTY, quantity: '5' }], 'PED-000900');
+
+    const attempt = () =>
+      prisma.$transaction(
+        (tx) =>
+          registerRequestDelivery(tx, COMPANY, PROFILE, {
+            requestId: request.id,
+            warehouseId: W1,
+            occurredOn: new Date(),
+            notes: null,
+            lines: [deliveryLine(request.lines[0]!.id, '5')],
+          }),
+        { timeout: 20_000 }
+      );
+    const results = await Promise.allSettled([attempt(), attempt()]);
+
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    // El lock del pedido serializa: la segunda lo encuentra ya entregado por completo.
+    expect(rejected[0]!.reason).toMatchObject({ code: 'INVALID_STATE', message: 'PED-000900 ya fue entregado por completo' });
+    expect(await requestStatus(prisma, request.id)).toBe('DELIVERED');
+    const deliveries = await prisma.stock_movements.count({ where: { material_request_id: request.id } });
+    expect(deliveries).toBe(1);
   }, 30_000);
 });

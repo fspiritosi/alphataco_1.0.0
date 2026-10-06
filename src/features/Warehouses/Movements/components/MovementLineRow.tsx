@@ -2,17 +2,13 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
-import moment from 'moment';
 import { useState } from 'react';
 import { useWatch, type UseFormReturn } from 'react-hook-form';
 import {
@@ -29,6 +25,7 @@ import {
   parseSerialNumbers,
   type StockMovementFormValues,
 } from '../../schemas/stock-movement';
+import { BatchOptions, UnitPicker } from './StockPickers';
 
 interface MovementLineRowProps {
   form: UseFormReturn<StockMovementFormValues>;
@@ -260,20 +257,12 @@ export function MovementLineRow({ form, index, canRemove, onRemove }: MovementLi
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {available?.batches.map((batch, i) => (
-                        <SelectItem
-                          key={batch.id}
-                          value={batch.id}
-                          // Un lote vencido no sale ni se transfiere; el ajuste si lo descarta.
-                          disabled={batch.expired && type !== 'ADJUSTMENT'}
-                        >
-                          <span className="tabular-nums">
-                            {batch.batchNumber} · {formatQuantity(batch.quantity)} {material?.unit ?? ''}
-                            {batch.expiresAt ? ` · vence ${moment(batch.expiresAt).format('DD/MM/YYYY')}` : ''}
-                            {batch.expired ? ' · Vencido' : i === 0 || available.batches[i - 1]?.expired ? ' · vence primero' : ''}
-                          </span>
-                        </SelectItem>
-                      ))}
+                      {/* Un lote vencido no sale ni se transfiere; el ajuste si lo descarta. */}
+                      <BatchOptions
+                        batches={available?.batches ?? []}
+                        unit={material?.unit ?? ''}
+                        allowExpired={type === 'ADJUSTMENT'}
+                      />
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -306,26 +295,7 @@ export function MovementLineRow({ form, index, canRemove, onRemove }: MovementLi
                 <FormItem>
                   <FormLabel>Unidades</FormLabel>
                   {available?.units.length ? (
-                    <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md border p-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {available.units.map((unit) => {
-                        const checked = field.value.includes(unit.id);
-                        const id = `${path}-unit-${unit.id}`;
-                        return (
-                          <div key={unit.id} className={cn('flex items-center gap-2 rounded px-2 py-1', checked && 'bg-muted')}>
-                            <Checkbox
-                              id={id}
-                              checked={checked}
-                              onCheckedChange={(v) =>
-                                field.onChange(v === true ? [...field.value, unit.id] : field.value.filter((u) => u !== unit.id))
-                              }
-                            />
-                            <Label htmlFor={id} className="cursor-pointer font-mono text-sm font-normal">
-                              {unit.serial_number}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <UnitPicker units={available.units} value={field.value} onChange={field.onChange} idPrefix={path} />
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       {warehouseId ? 'No hay unidades de este material en el depósito.' : 'Elegí el depósito.'}

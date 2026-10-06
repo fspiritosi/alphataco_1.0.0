@@ -33,4 +33,5 @@ npx prisma migrate deploy
 echo "==> Corriendo los tests de integracion de Almacenes..."
 npx vitest run \
   src/features/Warehouses/lib/stock-engine.integration.test.ts \
-  src/features/Warehouses/actions/prices-permission.integration.test.ts
+  src/features/Warehouses/actions/prices-permission.integration.test.ts \
+  src/features/Warehouses/actions/direct-exit.integration.test.ts

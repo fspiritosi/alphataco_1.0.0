@@ -1,12 +1,13 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { ArrowLeftRight, HandHelping, Layers, Package, Settings, Warehouse } from 'lucide-react';
+import { ArrowLeftRight, ClipboardList, HandHelping, Layers, Package, Settings, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import DepotsTabContent from './Depots/DepotsTabContent';
 import LoansTabContent from './Loans/LoansTabContent';
 import MaterialsTabContent from './Materials/MaterialsTabContent';
 import MovementsTabContent from './Movements/MovementsTabContent';
+import RequestsTabContent from './Requests/RequestsTabContent';
 import SettingsTabContent from './Settings/SettingsTabContent';
 import { SettingsSkeleton } from './Settings/fallback/SettingsSkeleton';
 import StockTabContent from './Stock/StockTabContent';
@@ -15,7 +16,7 @@ import { WarehouseSectionSkeleton } from './fallback/WarehouseSectionSkeleton';
 /**
  * Modulo Almacenes (spec docs/superpowers/specs/2026-10-04-almacenes-etapa-1-design.md).
  *
- * Cinco secciones elegidas desde el sidebar (`?tab=`). Los iconos son los mismos que
+ * Secciones elegidas desde el sidebar (`?tab=`). Los iconos son los mismos que
  * `SUB_ITEM_ICONS` de `navigation.ts`, para que cada seccion se vea igual en los dos lados.
  */
 export default async function WarehousesComponent({ searchParams }: { searchParams: DataTableSearchParams }) {
@@ -65,6 +66,17 @@ export default async function WarehousesComponent({ searchParams }: { searchPara
           content: (
             <Suspense fallback={<WarehouseSectionSkeleton />}>
               <LoansTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'pedidos',
+          label: label(ClipboardList, 'Pedidos'),
+          moduleSlug: 'almacenes',
+          tabSlug: 'pedidos',
+          content: (
+            <Suspense fallback={<WarehouseSectionSkeleton />}>
+              <RequestsTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

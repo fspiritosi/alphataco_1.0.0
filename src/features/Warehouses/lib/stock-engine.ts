@@ -6,9 +6,17 @@ import { argentinaDate } from '@/features/Jobs/lib/dates';
 import { averageCostAfterEntry, averageCostAfterEntryReversal, lineTotal } from './average-cost';
 import { classifyBatch, dateColumnToYmd } from './batch-expiry';
 import { nextStockMovementNumber } from './movement-numbering';
+import { canApplyRequestAction } from './request-state-machine';
+import { deliveredByLine, lockRequest, recomputeRequestStatus } from './requests';
 import { CLOSED_MAINTENANCE_ORDER_STATUSES } from './stock-engine-constants';
 import { StockError } from './stock-errors';
-import type { MaterialTrackingTypeValue, StockMovementInput, StockMovementTypeValue } from '../schemas/stock-movement';
+import type {
+  DestinationInput,
+  MaterialTrackingTypeValue,
+  StockMovementInput,
+  StockMovementTypeValue,
+} from '../schemas/stock-movement';
+import type { RequestDeliveryInput } from '../schemas/requests';
 
 /**
  * Motor de stock: el UNICO escritor de `stock_balances`, `material_units`, `material_batches`
@@ -19,10 +27,11 @@ import type { MaterialTrackingTypeValue, StockMovementInput, StockMovementTypeVa
  *
  * ORDEN DE LOCKS, unico en todo el dominio (si dos caminos lo invierten, deadlock):
  *   1. el movimiento original (solo anulaciones)
- *   2. `materials` (por id)
- *   3. `stock_balances` (por id)
- *   4. `material_units` (por id)
- *   5. advisory lock de numeracion (`nextStockMovementNumber`)
+ *   2. el pedido de materiales (entregas y anulaciones de entregas, etapa 3)
+ *   3. `materials` (por id)
+ *   4. `stock_balances` (por id)
+ *   5. `material_units` (por id)
+ *   6. advisory lock de numeracion (`nextStockMovementNumber`)
  * Lockear el material serializa todo lo que toca su stock, incluido el calculo del total de
  * la empresa para el costo promedio (que suma saldos de depositos que no se lockean uno a uno).
  *
@@ -199,11 +208,11 @@ async function loadWarehouses(tx: Tx, companyId: string, input: StockMovementInp
 }
 
 /**
- * El destino de una salida tiene que ser de la empresa y estar vigente: empleados, equipos y
- * clientes activos; ordenes de mantenimiento abiertas (no completadas ni rechazadas).
+ * El destino de una salida (o de un pedido) tiene que ser de la empresa y estar vigente:
+ * empleados, equipos y clientes activos; ordenes de mantenimiento abiertas (no completadas ni
+ * rechazadas). La usan el motor y el alta de pedidos.
  */
-async function validateDestination(tx: Tx, companyId: string, input: StockMovementInput): Promise<void> {
-  if (input.type !== 'EXIT') return;
+export async function validateExitDestination(tx: Tx, companyId: string, input: DestinationInput): Promise<void> {
   const invalid = (message: string) => new StockError('INVALID_DESTINATION', message);
 
   switch (input.destinationType) {
@@ -292,11 +301,27 @@ interface PlannedLine {
  * Registra un movimiento (entrada, salida, transferencia o ajuste) y actualiza saldos, lotes,
  * unidades serializadas y costo promedio. `createdBy` es el `profile.id` del usuario.
  */
-export async function registerStockMovement(
+export function registerStockMovement(
   tx: Tx,
   companyId: string,
   createdBy: string,
   input: StockMovementInput
+): Promise<RegisteredMovement> {
+  return registerMovement(tx, companyId, createdBy, input, null);
+}
+
+/** Vinculo de una salida con el pedido que entrega: el pedido y la linea de cada linea de entrada. */
+interface RequestLink {
+  requestId: string;
+  requestLineIds: string[];
+}
+
+async function registerMovement(
+  tx: Tx,
+  companyId: string,
+  createdBy: string,
+  input: StockMovementInput,
+  requestLink: RequestLink | null
 ): Promise<RegisteredMovement> {
   if (input.lines.length === 0) throw new StockError('INVALID_INPUT', 'El movimiento no tiene líneas');
   if (input.type === 'ADJUSTMENT' && !input.notes?.trim()) {
@@ -304,7 +329,7 @@ export async function registerStockMovement(
   }
 
   const { origin, target } = await loadWarehouses(tx, companyId, input);
-  await validateDestination(tx, companyId, input);
+  if (input.type === 'EXIT') await validateExitDestination(tx, companyId, input);
 
   // 2. Materiales (lock) y validacion por tipo de control, con el tracking de la BASE.
   const materials = await lockMaterials(
@@ -540,6 +565,7 @@ export async function registerStockMovement(
       maintenance_order_id: input.type === 'EXIT' ? input.maintenanceOrderId : null,
       customer_id: input.type === 'EXIT' ? input.customerId : null,
       customer_service_id: input.type === 'EXIT' ? input.customerServiceId : null,
+      material_request_id: requestLink?.requestId ?? null,
       total_cost: totalCost,
       created_by: createdBy,
     },
@@ -573,7 +599,14 @@ export async function registerStockMovement(
 
   const lineRows = planned.flatMap((p, i): Prisma.stock_movement_linesCreateManyInput[] => {
     const unitCost = lineCosts[i]!;
-    const base = { movement_id: movement.id, material_id: p.material.id, direction: p.direction, unit_cost: unitCost, batch_id: p.batchId };
+    const base = {
+      movement_id: movement.id,
+      material_id: p.material.id,
+      direction: p.direction,
+      unit_cost: unitCost,
+      batch_id: p.batchId,
+      request_line_id: requestLink?.requestLineIds[i] ?? null,
+    };
     if (p.material.tracking_type === 'SERIAL') {
       const unitIds = p.unitIds.length ? p.unitIds : p.serialNumbers.map((s) => createdUnitId.get(`${p.material.id}|${s}`)!);
       return unitIds.map((unitId) => ({ ...base, quantity: dec(1), total_cost: lineTotal(1, unitCost), unit_id: unitId }));
@@ -659,7 +692,10 @@ export async function reverseStockMovement(
   const origin = original.warehouse;
   const target = original.target_warehouse;
 
-  // 2-4. Locks en el orden del dominio.
+  // Entrega de un pedido: el pedido se lockea despues del original y antes de los materiales.
+  const request = original.material_request_id ? await lockRequest(tx, companyId, original.material_request_id) : null;
+
+  // Locks de stock en el orden del dominio.
   const materials = await lockMaterials(
     tx,
     companyId,
@@ -764,6 +800,7 @@ export async function reverseStockMovement(
       reverses_movement_id: original.id,
       // La anulacion de una devolucion tambien es RETURN: apunta a la misma salida.
       returned_from_movement_id: original.returned_from_movement_id,
+      material_request_id: original.material_request_id,
       total_cost: original.total_cost,
       created_by: createdBy,
     },
@@ -780,6 +817,7 @@ export async function reverseStockMovement(
       total_cost: l.total_cost,
       batch_id: l.batch_id,
       unit_id: l.unit_id,
+      request_line_id: l.request_line_id,
     })),
   });
 
@@ -800,6 +838,9 @@ export async function reverseStockMovement(
   }
 
   await writeAverages(tx, averages, changedAverages);
+
+  // Lo entregado vuelve a estar pendiente; un pedido cerrado sigue cerrado (spec etapa 3 §3.1).
+  if (request) await recomputeRequestStatus(tx, request);
 
   return { id: reversal.id, number: reversal.number, totalCost: dec(original.total_cost), lineCount: original.lines.length };
 }
@@ -1019,4 +1060,98 @@ export async function writeOffLoanedUnit(
   await tx.material_units.update({ where: { id: unit.id }, data: { status: 'DISCARDED', warehouse_id: null } });
 
   return { unitId: unit.id, serialNumber: unit.serial_number, loanMovementId: unit.last_movement_id };
+}
+
+// ── Entregas de pedidos (etapa 3) ───────────────────────────────────────────
+
+/**
+ * Entrega (total o parcial) de un pedido aprobado: una salida con el destino del pedido,
+ * registrada por el mismo camino que cualquier salida (lotes, unidades, stock, vencidos) y
+ * vinculada al pedido y a sus lineas. No pasa por la regla de salida directa: el pedido ya fue
+ * aprobado. Lockea el pedido antes que los materiales (orden del dominio), asi dos entregas
+ * simultaneas de lo ultimo pendiente se ordenan y la segunda falla con `OVER_DELIVERY`.
+ */
+export async function registerRequestDelivery(
+  tx: Tx,
+  companyId: string,
+  createdBy: string,
+  input: RequestDeliveryInput
+): Promise<RegisteredMovement> {
+  if (input.lines.length === 0) throw new StockError('INVALID_INPUT', 'Indicá al menos una cantidad a entregar');
+
+  const locked = await lockRequest(tx, companyId, input.requestId);
+  if (!canApplyRequestAction(locked.status, 'deliver')) {
+    throw new StockError(
+      'INVALID_STATE',
+      locked.status === 'DELIVERED'
+        ? `${locked.number} ya fue entregado por completo`
+        : `${locked.number} no admite entregas: tiene que estar aprobado`
+    );
+  }
+
+  const request = await tx.material_requests.findUniqueOrThrow({
+    where: { id: locked.id },
+    include: {
+      lines: { include: { material: { select: { name: true, tracking_type: true, unit: { select: { abbreviation: true } } } } } },
+    },
+  });
+  const linesById = new Map(request.lines.map((l) => [l.id, l]));
+  const delivered = await deliveredByLine(tx, request.id);
+
+  // Lo pendiente se descuenta a medida que se recorren las lineas de la entrega: la misma linea
+  // del pedido puede venir dos veces (por ejemplo, de dos lotes distintos).
+  const pending = new Map(request.lines.map((l) => [l.id, dec(l.quantity).minus(delivered.get(l.id) ?? 0)]));
+  for (const line of input.lines) {
+    const requestLine = linesById.get(line.requestLineId);
+    if (!requestLine) throw new StockError('INVALID_INPUT', `Una de las líneas no es de ${request.number}`);
+    const quantity = dec(line.quantity);
+    const left = pending.get(requestLine.id)!;
+    if (quantity.gt(left)) {
+      const unit = requestLine.material.unit.abbreviation;
+      throw new StockError(
+        'OVER_DELIVERY',
+        `De ${requestLine.material.name} quedan ${formatQuantity(left.isNegative() ? dec(0) : left)} ${unit} por entregar: no se pueden entregar ${formatQuantity(quantity)} ${unit}`
+      );
+    }
+    pending.set(requestLine.id, left.minus(quantity));
+  }
+
+  const movement = await registerMovement(
+    tx,
+    companyId,
+    createdBy,
+    {
+      type: 'EXIT',
+      warehouseId: input.warehouseId,
+      targetWarehouseId: null,
+      occurredOn: input.occurredOn,
+      reference: request.number,
+      notes: input.notes,
+      destinationType: request.destination_type,
+      employeeId: request.employee_id,
+      vehicleId: request.vehicle_id,
+      otherEquipmentId: request.other_equipment_id,
+      maintenanceOrderId: request.maintenance_order_id,
+      customerId: request.customer_id,
+      customerServiceId: request.customer_service_id,
+      lines: input.lines.map((line) => {
+        const tracking = linesById.get(line.requestLineId)!.material.tracking_type;
+        return {
+          materialId: linesById.get(line.requestLineId)!.material_id,
+          quantity: line.quantity,
+          unitCost: null,
+          adjustmentDirection: null,
+          batchId: tracking === 'BATCH' ? line.batchId : null,
+          batchNumber: null,
+          batchExpiresOn: null,
+          serialNumbers: [],
+          unitIds: tracking === 'SERIAL' ? line.unitIds : [],
+        };
+      }),
+    },
+    { requestId: request.id, requestLineIds: input.lines.map((l) => l.requestLineId) }
+  );
+
+  await recomputeRequestStatus(tx, locked);
+  return movement;
 }

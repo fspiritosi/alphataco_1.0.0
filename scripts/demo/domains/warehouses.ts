@@ -1,7 +1,8 @@
 /**
  * Almacenes: depositos, catalogo (materiales de los tres tipos de control), y unos dos meses de
  * movimientos — compras, transferencias al pañol y al obrador, entregas a empleados, consumos de
- * equipos y ordenes de mantenimiento, una salida a cliente, un ajuste y una anulacion.
+ * equipos y ordenes de mantenimiento, una salida a cliente, un ajuste y una anulacion; y pedidos
+ * de materiales en todos sus estados, con las entregas vinculadas a sus lineas (etapa 3).
  *
  * Por que NO pasa por el motor (`src/features/Warehouses/lib/stock-engine.ts`): la imagen de
  * produccion copia `scripts/demo` sin `src/` (salvo el cliente de Prisma), y el motor depende del
@@ -51,7 +52,8 @@ const MATERIALS = [
   { key: 'QUI-DES', name: 'Desengrasante industrial', category: 'Químicos', unit: 'l', tracking: 'BATCH', min: 20 },
   { key: 'HER-TAL', name: 'Taladro percutor 13 mm', category: 'Herramientas', unit: 'u', tracking: 'SERIAL', min: null },
   { key: 'HER-AMO', name: 'Amoladora angular 115 mm', category: 'Herramientas', unit: 'u', tracking: 'SERIAL', min: null },
-  { key: 'HER-DET', name: 'Detector multigás portátil', category: 'Herramientas', unit: 'u', tracking: 'SERIAL', min: 2 },
+  // Equipo caro y de seguridad: solo sale con pedido aprobado.
+  { key: 'HER-DET', name: 'Detector multigás portátil', category: 'Herramientas', unit: 'u', tracking: 'SERIAL', min: 2, requiresApproval: true },
 ] as const;
 type MaterialKey = (typeof MATERIALS)[number]['key'];
 
@@ -70,6 +72,8 @@ interface LineDef {
   expires?: number;
   serials?: string[];
   direction?: 1 | -1;
+  /** Linea del pedido que entrega (solo entregas de pedidos). */
+  requestLine?: string;
 }
 
 interface MovementDef {
@@ -80,6 +84,8 @@ interface MovementDef {
   destination?: Destination;
   reference?: string;
   notes?: string;
+  /** Pedido que entrega esta salida. */
+  requestId?: string;
   lines: LineDef[];
 }
 
@@ -168,7 +174,7 @@ class Ledger {
 
       const lineTotal = round4(qty.times(unitCost));
       total = total.plus(lineTotal);
-      const base = { movement_id: id, material_id: material, direction, unit_cost: unitCost, batch_id: batchId };
+      const base = { movement_id: id, material_id: material, direction, unit_cost: unitCost, batch_id: batchId, request_line_id: l.requestLine ?? null };
       if (unitIds.length) {
         unitIds.forEach((unitId, i) =>
           this.lines.push({ ...base, id: demoId('stock_line', `${this.seq}:${l.material}:${i}`), quantity: dec(1), total_cost: round4(unitCost), unit_id: unitId })
@@ -196,6 +202,7 @@ class Ledger {
       maintenance_order_id: d?.type === 'MAINTENANCE_ORDER' ? d.id : null,
       customer_id: d?.type === 'CUSTOMER' ? d.id : null,
       customer_service_id: d?.type === 'CUSTOMER' ? d.serviceId : null,
+      material_request_id: def.requestId ?? null,
       total_cost: total,
       created_by: ctx.actorId,
       // Una hora por movimiento: el kardex ordena por registro y no puede haber empates.
@@ -417,6 +424,89 @@ export async function seedWarehouses(
     { material: 'FIL-ACE', qty: 2, direction: -1 },
   ] });
 
+  // ── Pedidos de materiales (etapa 3): uno por estado ──
+  // Las entregas son salidas del libro con el destino del pedido y el vinculo a cada linea; el
+  // estado sale de lo entregado, con la misma regla que `statusAfterDeliveries`.
+  const requests: Prisma.material_requestsCreateManyInput[] = [];
+  const requestLines: Prisma.material_request_linesCreateManyInput[] = [];
+  const request = (
+    n: number,
+    day: number,
+    destination: Destination | undefined,
+    lines: { material: MaterialKey; qty: number }[],
+    decision: { status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'; notes?: string },
+    notes?: string
+  ) => {
+    if (!destination) return null;
+    const id = demoId('material_request', n);
+    const lineIds = lines.map((l, j) => {
+      const lineId = demoId('material_request_line', `${n}:${j}`);
+      requestLines.push({ id: lineId, request_id: id, material_id: demoId('material', l.material), quantity: l.qty });
+      return lineId;
+    });
+    requests.push({
+      id,
+      company_id: company.id,
+      number: `PED-${String(n).padStart(6, '0')}`,
+      status: decision.status,
+      requested_by: ctx.actorId,
+      destination_type: destination.type,
+      employee_id: destination.type === 'EMPLOYEE' ? destination.id : null,
+      vehicle_id: destination.type === 'VEHICLE' ? destination.id : null,
+      other_equipment_id: destination.type === 'OTHER_EQUIPMENT' ? destination.id : null,
+      maintenance_order_id: destination.type === 'MAINTENANCE_ORDER' ? destination.id : null,
+      customer_id: destination.type === 'CUSTOMER' ? destination.id : null,
+      customer_service_id: destination.type === 'CUSTOMER' ? destination.serviceId : null,
+      notes: notes ?? null,
+      decided_by: decision.status === 'PENDING_APPROVAL' ? null : ctx.actorId,
+      decided_at: decision.status === 'PENDING_APPROVAL' ? null : ctx.cal.at(day + 1, 9),
+      decision_notes: decision.notes ?? null,
+      created_at: ctx.cal.at(day, 8),
+    });
+    return { id, number: `PED-${String(n).padStart(6, '0')}`, destination, lineIds, lines };
+  };
+  const deliver = (
+    req: NonNullable<ReturnType<typeof request>>,
+    day: number,
+    warehouse: WarehouseKey,
+    quantities: (number | { qty?: number; batch?: string; serials?: string[] })[]
+  ) =>
+    ledger.register({
+      type: 'EXIT',
+      day,
+      warehouse,
+      destination: req.destination,
+      reference: req.number,
+      requestId: req.id,
+      lines: quantities.flatMap((q, j) => {
+        const spec = typeof q === 'number' ? { qty: q } : q;
+        if (!spec.serials && !spec.qty) return [];
+        return [{ material: req.lines[j]!.material, ...spec, requestLine: req.lineIds[j] }];
+      }),
+    });
+  const setStatus = (req: ReturnType<typeof request>, data: Partial<Prisma.material_requestsCreateManyInput>) => {
+    if (req) Object.assign(requests.find((r) => r.id === req.id)!, data);
+  };
+
+  const delivered = request(1, -27, emp(0), [{ material: 'EPP-GUA', qty: 4 }, { material: 'EPP-ANT', qty: 2 }], { status: 'APPROVED' }, 'Ingreso de personal nuevo');
+  if (delivered) {
+    deliver(delivered, -25, 'ANELO', [4, 2]);
+    setStatus(delivered, { status: 'DELIVERED' });
+  }
+  const partial = request(2, -12, veh(0), [{ material: 'ACE-15W40', qty: 100 }, { material: 'FIL-ACE', qty: 4 }], { status: 'APPROVED' }, 'Service de 250 horas');
+  if (partial) {
+    deliver(partial, -10, 'BASE', [60, 4]);
+    setStatus(partial, { status: 'PARTIALLY_DELIVERED' });
+  }
+  request(3, -3, emp(1), [{ material: 'GRA-LIT', qty: 5 }], { status: 'APPROVED' }, 'Engrase de crucetas');
+  request(4, -1, emp(3), [{ material: 'HER-DET', qty: 1 }], { status: 'PENDING_APPROVAL' }, 'Trabajo en espacio confinado la semana próxima');
+  request(5, -8, veh(2), [{ material: 'ACE-HID68', qty: 200 }], { status: 'REJECTED', notes: 'El cambio de aceite hidráulico se hizo hace un mes' });
+  const closed = request(6, -33, emp(5), [{ material: 'EPP-GUA', qty: 10 }], { status: 'APPROVED' });
+  if (closed) {
+    deliver(closed, -30, 'ANELO', [6]);
+    setStatus(closed, { status: 'CLOSED', closed_by: ctx.actorId, closed_at: ctx.cal.at(-20, 10), close_notes: 'El resto se compró en Añelo' });
+  }
+
   // ── Escritura ──
   await tx.materials.createMany({
     data: MATERIALS.map((m) => {
@@ -430,6 +520,7 @@ export async function seedWarehouses(
         unit_id: demoId('measurement_unit', m.unit),
         tracking_type: m.tracking,
         min_stock: m.min,
+        requires_approval: 'requiresApproval' in m ? m.requiresApproval : false,
         average_cost: ledger.averages.get(id) ?? 0,
       };
     }),
@@ -437,6 +528,9 @@ export async function seedWarehouses(
   await tx.material_batches.createMany({
     data: [...ledger.batches.values()].map((b) => ({ id: b.id, company_id: company.id, material_id: b.material, batch_number: b.number, expires_at: b.expires })),
   });
+  await tx.material_requests.createMany({ data: requests });
+  await tx.material_request_lines.createMany({ data: requestLines });
+  await tx.warehouse_settings.create({ data: { company_id: company.id, direct_exit_max_amount: 500000, updated_by: ctx.actorId } });
   await tx.stock_movements.createMany({ data: ledger.movements });
   await tx.material_units.createMany({
     data: [...ledger.units.values()].map((u) => ({
@@ -479,5 +573,7 @@ export async function seedWarehouses(
   `;
   if (Number(mismatches[0]?.n ?? 0) > 0) throw new Error('demo almacenes: los saldos no coinciden con los movimientos');
 
-  ctx.log(`almacenes: ${ledger.movements.length} movimientos, ${MATERIALS.length} materiales, ${WAREHOUSES.length} depósitos`);
+  ctx.log(
+    `almacenes: ${ledger.movements.length} movimientos, ${requests.length} pedidos, ${MATERIALS.length} materiales, ${WAREHOUSES.length} depósitos`
+  );
 }

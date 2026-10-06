@@ -30,7 +30,7 @@ export type StockDestinationTypeValue = (typeof STOCK_DESTINATION_TYPES)[number]
 export type MaterialTrackingTypeValue = (typeof MATERIAL_TRACKING_TYPES)[number];
 
 /** Hasta 11 enteros y 4 decimales (`Decimal(15, 4)`), con punto o coma. */
-const DECIMAL_RE = /^\d{1,11}([.,]\d{1,4})?$/;
+export const DECIMAL_RE = /^\d{1,11}([.,]\d{1,4})?$/;
 
 export function normalizeDecimal(value: string): string {
   return value.trim().replace(',', '.');
@@ -42,6 +42,34 @@ export function parseSerialNumbers(raw: string): string[] {
     .split(/[\n,;]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Campo del form que guarda el recurso de cada tipo de destino. */
+export const DESTINATION_FIELD = {
+  EMPLOYEE: 'employeeId',
+  VEHICLE: 'vehicleId',
+  OTHER_EQUIPMENT: 'otherEquipmentId',
+  MAINTENANCE_ORDER: 'maintenanceOrderId',
+  CUSTOMER: 'customerId',
+} as const;
+
+/** Campos de destino que comparten la salida y el pedido de materiales. */
+export const destinationFieldsSchema = {
+  destinationType: z.enum(STOCK_DESTINATION_TYPES).or(z.literal('')),
+  employeeId: z.string(),
+  vehicleId: z.string(),
+  otherEquipmentId: z.string(),
+  maintenanceOrderId: z.string(),
+  customerId: z.string(),
+  customerServiceId: z.string(),
+};
+
+export type DestinationFormValues = { [K in keyof typeof destinationFieldsSchema]: z.infer<(typeof destinationFieldsSchema)[K]> };
+
+/** El destino es obligatorio y su recurso tambien (salida y pedido). */
+export function refineDestination(v: DestinationFormValues, issue: (path: (string | number)[], message: string) => void) {
+  if (!v.destinationType) issue(['destinationType'], 'Elegí a quién se imputa la salida');
+  else if (!v[DESTINATION_FIELD[v.destinationType]]) issue([DESTINATION_FIELD[v.destinationType]], 'Requerido');
 }
 
 const lineSchema = z.object({
@@ -70,13 +98,7 @@ export const stockMovementSchema = z
     occurredOn: z.date({ required_error: 'La fecha es requerida', invalid_type_error: 'Fecha inválida' }),
     reference: z.string().trim().max(120, 'Máximo 120 caracteres'),
     notes: z.string().trim().max(1000, 'Máximo 1000 caracteres'),
-    destinationType: z.enum(STOCK_DESTINATION_TYPES).or(z.literal('')),
-    employeeId: z.string(),
-    vehicleId: z.string(),
-    otherEquipmentId: z.string(),
-    maintenanceOrderId: z.string(),
-    customerId: z.string(),
-    customerServiceId: z.string(),
+    ...destinationFieldsSchema,
     lines: z.array(lineSchema).min(1, 'Agregá al menos una línea'),
   })
   .superRefine((v, ctx) => {
@@ -87,20 +109,7 @@ export const stockMovementSchema = z
       else if (v.targetWarehouseId === v.warehouseId) issue(['targetWarehouseId'], 'El destino tiene que ser otro depósito');
     }
 
-    if (v.type === 'EXIT') {
-      const destinationField = {
-        EMPLOYEE: 'employeeId',
-        VEHICLE: 'vehicleId',
-        OTHER_EQUIPMENT: 'otherEquipmentId',
-        MAINTENANCE_ORDER: 'maintenanceOrderId',
-        CUSTOMER: 'customerId',
-      } as const;
-      if (!v.destinationType) {
-        issue(['destinationType'], 'Elegí a quién se imputa la salida');
-      } else if (!v[destinationField[v.destinationType]]) {
-        issue([destinationField[v.destinationType]], 'Requerido');
-      }
-    }
+    if (v.type === 'EXIT') refineDestination(v, issue);
 
     if (v.type === 'ADJUSTMENT' && !v.notes) issue(['notes'], 'El motivo del ajuste es obligatorio');
 
@@ -194,23 +203,22 @@ export interface StockMovementInput {
 
 const orNull = (value: string) => (value.trim() ? value.trim() : null);
 
-/**
- * Traduce el form (ya validado) a la entrada del motor: descarta los campos que no aplican al
- * tipo de movimiento ni al tipo de control de cada linea, para que el motor nunca reciba un
- * destino en una entrada o un lote en un material por cantidad.
- */
-export function toStockMovementInput(v: StockMovementFormValues): StockMovementInput {
-  const isExit = v.type === 'EXIT';
-  const destination = isExit && v.destinationType ? v.destinationType : null;
-  const pick = (type: StockDestinationTypeValue, value: string) => (destination === type ? orNull(value) : null);
+export type DestinationInput = Pick<
+  StockMovementInput,
+  | 'destinationType'
+  | 'employeeId'
+  | 'vehicleId'
+  | 'otherEquipmentId'
+  | 'maintenanceOrderId'
+  | 'customerId'
+  | 'customerServiceId'
+>;
 
+/** Deja solo la FK del tipo de destino elegido (y el contrato si es un cliente). */
+export function toDestinationInput(v: DestinationFormValues): DestinationInput {
+  const destination = v.destinationType || null;
+  const pick = (type: StockDestinationTypeValue, value: string) => (destination === type ? orNull(value) : null);
   return {
-    type: v.type,
-    warehouseId: v.warehouseId,
-    targetWarehouseId: v.type === 'TRANSFER' ? orNull(v.targetWarehouseId) : null,
-    occurredOn: v.occurredOn,
-    reference: orNull(v.reference),
-    notes: orNull(v.notes),
     destinationType: destination,
     employeeId: pick('EMPLOYEE', v.employeeId),
     vehicleId: pick('VEHICLE', v.vehicleId),
@@ -218,6 +226,23 @@ export function toStockMovementInput(v: StockMovementFormValues): StockMovementI
     maintenanceOrderId: pick('MAINTENANCE_ORDER', v.maintenanceOrderId),
     customerId: pick('CUSTOMER', v.customerId),
     customerServiceId: destination === 'CUSTOMER' ? orNull(v.customerServiceId) : null,
+  };
+}
+
+/**
+ * Traduce el form (ya validado) a la entrada del motor: descarta los campos que no aplican al
+ * tipo de movimiento ni al tipo de control de cada linea, para que el motor nunca reciba un
+ * destino en una entrada o un lote en un material por cantidad.
+ */
+export function toStockMovementInput(v: StockMovementFormValues): StockMovementInput {
+  return {
+    type: v.type,
+    warehouseId: v.warehouseId,
+    targetWarehouseId: v.type === 'TRANSFER' ? orNull(v.targetWarehouseId) : null,
+    occurredOn: v.occurredOn,
+    reference: orNull(v.reference),
+    notes: orNull(v.notes),
+    ...toDestinationInput(v.type === 'EXIT' ? v : { ...v, destinationType: '' }),
     lines: v.lines.map((line) => {
       const inbound = isInboundLine(v.type, line.adjustmentDirection);
       const serialIn = line.trackingType === 'SERIAL' && inbound ? parseSerialNumbers(line.serialNumbers) : [];

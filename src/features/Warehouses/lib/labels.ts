@@ -8,6 +8,7 @@ import {
   type MaterialTrackingTypeValue,
   type StockDestinationTypeValue,
 } from '../schemas/stock-movement';
+import type { MaterialRequestStatus } from './request-state-machine';
 
 /**
  * Todos los tipos de movimiento, incluida la devolucion. `STOCK_MOVEMENT_TYPES` (del schema
@@ -29,6 +30,16 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementKind, string> = {
 export const WRITE_OFF_REASON_LABELS: Record<'LOST' | 'BROKEN', string> = {
   LOST: 'Extraviada',
   BROKEN: 'Rota',
+};
+
+export const REQUEST_STATUS_LABELS: Record<MaterialRequestStatus, string> = {
+  PENDING_APPROVAL: 'Pendiente de aprobación',
+  APPROVED: 'Aprobado',
+  PARTIALLY_DELIVERED: 'Entregado en parte',
+  DELIVERED: 'Entregado',
+  REJECTED: 'Rechazado',
+  CLOSED: 'Cerrado',
+  CANCELLED: 'Cancelado',
 };
 
 export const DESTINATION_TYPE_LABELS: Record<StockDestinationTypeValue, string> = {

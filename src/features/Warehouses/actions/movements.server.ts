@@ -9,9 +9,11 @@ import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { toActionError } from '../lib/action-errors';
+import { formatMoney } from '../lib/format';
 import { dateColumnToYmd } from '../lib/batch-expiry';
 import { DESTINATION_SELECT, destinationLabel } from '../lib/labels';
 import { registerStockMovement, reverseStockMovement } from '../lib/stock-engine';
+import { StockError } from '../lib/stock-errors';
 import { stockMovementSchema, toStockMovementInput, type StockMovementFormValues } from '../schemas/stock-movement';
 
 const logger = new Logger('features/Warehouses/movements');
@@ -32,19 +34,32 @@ export interface MovementResult {
   totalCost: string | null;
 }
 
-/** Registra entrada, salida, transferencia o ajuste. Los ajustes piden `adjust`; el resto `create`. */
+const REQUEST_HINT = 'hacé un pedido de materiales.';
+
+/**
+ * Registra entrada, salida, transferencia o ajuste. Los ajustes piden `adjust`; el resto `create`.
+ *
+ * Una salida desde "Nuevo movimiento" es una SALIDA DIRECTA y cumple la regla triple (spec etapa 3
+ * §3.4); si no, va por pedido de materiales: permiso `direct_exit`, ningun material con
+ * `requires_approval`, y el total real del motor dentro del monto de la empresa. El monto se
+ * controla despues de registrar, dentro de la transaccion: si se pasa, se lanza y se revierte
+ * todo (el total sale del costo promedio que el motor leyo con lock, no de una estimacion).
+ */
 export async function registerStockMovementAction(values: StockMovementFormValues): Promise<ActionResult<MovementResult>> {
   const parsed = stockMovementSchema.safeParse(values);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
 
   const action = parsed.data.type === 'ADJUSTMENT' ? 'adjust' : 'create';
-  const [allowed, canViewPrices] = await Promise.all([
+  const isExit = parsed.data.type === 'EXIT';
+  const [allowed, canViewPrices, canDirectExit] = await Promise.all([
     checkPermissionServer('almacenes', 'movimientos', action),
     checkPermissionServer('almacenes', 'movimientos', 'view_prices'),
+    isExit ? checkPermissionServer('almacenes', 'movimientos', 'direct_exit') : Promise.resolve(true),
   ]);
   if (!allowed) {
     return fail(action === 'adjust' ? 'No tenés permiso para ajustar stock' : 'No tenés permiso para registrar movimientos');
   }
+  if (!canDirectExit) return fail(`No tenés permiso de salida directa: ${REQUEST_HINT}`);
 
   const profile = await getServerAuthProfile();
   if (!profile) return fail('Tu sesión expiró. Volvé a ingresar.');
@@ -53,7 +68,36 @@ export async function registerStockMovementAction(values: StockMovementFormValue
   try {
     const registered = await withActor(
       profile.credentialId,
-      (tx) => registerStockMovement(tx, companyId, profile.id, toStockMovementInput(parsed.data)),
+      async (tx) => {
+        if (isExit) {
+          const needsApproval = await tx.materials.findFirst({
+            where: { id: { in: parsed.data.lines.map((l) => l.materialId) }, company_id: companyId, requires_approval: true },
+            select: { name: true },
+            orderBy: { name: 'asc' },
+          });
+          if (needsApproval) {
+            throw new StockError('DIRECT_EXIT_LIMIT', `${needsApproval.name} requiere aprobación: ${REQUEST_HINT}`);
+          }
+        }
+        const registered = await registerStockMovement(tx, companyId, profile.id, toStockMovementInput(parsed.data));
+        if (isExit) {
+          const settings = await tx.warehouse_settings.findUnique({
+            where: { company_id: companyId },
+            select: { direct_exit_max_amount: true },
+          });
+          const limit = settings?.direct_exit_max_amount;
+          if (limit && registered.totalCost.gt(limit)) {
+            // Sin `view_prices` el mensaje no revela importes.
+            throw new StockError(
+              'DIRECT_EXIT_LIMIT',
+              canViewPrices
+                ? `La salida suma ${formatMoney(registered.totalCost.toFixed(2))} y el máximo de salida directa es ${formatMoney(limit.toFixed(2))}: ${REQUEST_HINT}`
+                : `La salida supera el monto máximo de salida directa: ${REQUEST_HINT}`
+            );
+          }
+        }
+        return registered;
+      },
       prisma,
       TRANSACTION_OPTIONS
     );
@@ -132,6 +176,7 @@ export async function getStockMovementDetail(id: string) {
       reverses: { select: { id: true, number: true } },
       reversed_by: { select: { id: true, number: true } },
       returned_from: { select: { id: true, number: true } },
+      material_request: { select: { id: true, number: true } },
       ...DESTINATION_SELECT,
       lines: {
         select: {
@@ -164,6 +209,7 @@ export async function getStockMovementDetail(id: string) {
     reverses: movement.reverses,
     reversedBy: movement.reversed_by,
     returnedFrom: movement.returned_from,
+    materialRequest: movement.material_request,
     destinationType: movement.destination_type,
     destination: destinationLabel(movement),
     totalCost: canViewPrices ? movement.total_cost.toFixed(2) : null,

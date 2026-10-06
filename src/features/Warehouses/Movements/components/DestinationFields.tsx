@@ -3,7 +3,7 @@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
-import { useWatch, type UseFormReturn } from 'react-hook-form';
+import { useWatch, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import {
   searchEmployeeOptions,
   searchMaintenanceOrderOptions,
@@ -13,7 +13,7 @@ import {
 } from '../../actions/options.server';
 import { SearchCombobox, type SearchOption } from '../../components/SearchCombobox';
 import { contractLabel, DESTINATION_TYPE_LABELS } from '../../lib/labels';
-import { STOCK_DESTINATION_TYPES, type StockMovementFormValues } from '../../schemas/stock-movement';
+import { STOCK_DESTINATION_TYPES, type DestinationFormValues } from '../../schemas/stock-movement';
 
 /** Valor del Select para "sin contrato" (un SelectItem no admite value vacio). */
 const NO_CONTRACT = '__none__';
@@ -60,14 +60,20 @@ const SEARCHES: Record<
   },
 };
 
-/** A quien se imputa una salida. Solo se ofrece lo vigente (activos, ordenes abiertas). */
-export function DestinationFields({
-  form,
+/**
+ * A quien se imputa una salida (o un pedido de materiales). Solo se ofrece lo vigente (activos,
+ * ordenes abiertas). Sirve a cualquier form que tenga los campos de `destinationFieldsSchema`.
+ */
+export function DestinationFields<T extends FieldValues & DestinationFormValues>({
+  form: typedForm,
   customers,
 }: {
-  form: UseFormReturn<StockMovementFormValues>;
+  form: UseFormReturn<T>;
   customers: MovementFormLookups['customers'];
 }) {
+  // React Hook Form no acepta un form "mas grande" donde se espera uno con menos campos (sus
+  // tipos son invariantes). `T` garantiza que los campos de destino existen con estos tipos.
+  const form = typedForm as unknown as UseFormReturn<DestinationFormValues>;
   const [labels, setLabels] = useState<Partial<Record<SearchField, string>>>({});
   const [destinationType, customerId] = useWatch({ control: form.control, name: ['destinationType', 'customerId'] });
   const contracts = customers.find((c) => c.id === customerId)?.customer_services ?? [];

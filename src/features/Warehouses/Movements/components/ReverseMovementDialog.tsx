@@ -43,6 +43,9 @@ export function ReverseMovementDialog({ movementId, number }: { movementId: stri
       toast.success(`${number} anulado por ${result.number}${total}`);
       queryClient.invalidateQueries({ queryKey: WAREHOUSE_QUERY_KEYS.movements });
       queryClient.invalidateQueries({ queryKey: WAREHOUSE_QUERY_KEYS.stock });
+      queryClient.invalidateQueries({ queryKey: WAREHOUSE_QUERY_KEYS.availability });
+      // Anular una entrega recalcula el estado y el avance del pedido.
+      queryClient.invalidateQueries({ queryKey: WAREHOUSE_QUERY_KEYS.requests });
       setOpen(false);
       router.push(`/dashboard/warehouse/movements/${result.id}`);
     },

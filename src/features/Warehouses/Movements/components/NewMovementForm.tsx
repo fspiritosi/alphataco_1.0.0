@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
@@ -12,7 +13,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Info, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -44,9 +46,12 @@ interface NewMovementFormProps {
   lookups: MovementFormLookups;
   /** Tipos que el usuario puede registrar: `create` habilita entrada/salida/transferencia, `adjust` el ajuste. */
   allowedTypes: StockMovementTypeValue[];
+  /** Sin salida directa una salida va por pedido de materiales (spec etapa 3 §3.4). */
+  canDirectExit: boolean;
+  canRequest: boolean;
 }
 
-export function NewMovementForm({ lookups, allowedTypes }: NewMovementFormProps) {
+export function NewMovementForm({ lookups, allowedTypes, canDirectExit, canRequest }: NewMovementFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -71,6 +76,7 @@ export function NewMovementForm({ lookups, allowedTypes }: NewMovementFormProps)
   });
   const lines = useFieldArray({ control: form.control, name: 'lines' });
   const [type, warehouseId] = useWatch({ control: form.control, name: ['type', 'warehouseId'] });
+  const exitBlocked = type === 'EXIT' && !canDirectExit;
 
   const mutation = useMutation({
     mutationFn: async (values: StockMovementFormValues) => unwrapAction(await registerStockMovementAction(values)),
@@ -235,7 +241,21 @@ export function NewMovementForm({ lookups, allowedTypes }: NewMovementFormProps)
               )}
             />
 
-            {type === 'EXIT' && (
+            {exitBlocked && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  No tenés permiso de salida directa: las salidas van por pedido de materiales, que aprueba un responsable.{' '}
+                  {canRequest && (
+                    <Link href="/dashboard/warehouse/requests/new" className="font-medium underline">
+                      Hacer un pedido
+                    </Link>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {type === 'EXIT' && !exitBlocked && (
               <>
                 <Separator />
                 <DestinationFields form={form} customers={lookups.customers} />
@@ -277,7 +297,7 @@ export function NewMovementForm({ lookups, allowedTypes }: NewMovementFormProps)
           <Button type="button" variant="outline" onClick={() => router.back()} disabled={mutation.isPending}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending || exitBlocked}>
             {mutation.isPending ? 'Registrando…' : `Registrar ${MOVEMENT_TYPE_LABELS[type].toLowerCase()}`}
           </Button>
         </div>
