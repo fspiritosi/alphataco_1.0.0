@@ -4,7 +4,7 @@
 -- 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(23);
+SELECT plan(27);
 
 SELECT has_table('public', 'warehouses', 'existe warehouses');
 SELECT has_table('public', 'material_categories', 'existe material_categories');
@@ -140,6 +140,44 @@ SELECT throws_ok(
     VALUES ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000020', 'S-2', 'OUT',
             'a1000000-0000-0000-0000-000000000010')$$,
   '23514', NULL, 'una unidad entregada no puede tener deposito'
+);
+
+-- ── Etapa 2: devoluciones y bajas ───────────────────────────────────────────
+SELECT throws_ok(
+  $$INSERT INTO stock_movements (company_id, number, type, warehouse_id, occurred_on, created_by)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'MOV-R1', 'RETURN',
+            'a1000000-0000-0000-0000-000000000010', CURRENT_DATE, 'a1000000-0000-0000-0000-000000000002')$$,
+  '23514', NULL, 'una devolucion sin destino ni salida de origen se rechaza'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO stock_movements (company_id, number, type, warehouse_id, occurred_on, created_by, returned_from_movement_id)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'MOV-R2', 'ENTRY',
+            'a1000000-0000-0000-0000-000000000010', CURRENT_DATE, 'a1000000-0000-0000-0000-000000000002',
+            'a1000000-0000-0000-0000-000000000030')$$,
+  '23514', NULL, 'solo una devolucion apunta a una salida de origen'
+);
+
+INSERT INTO material_units (id, company_id, material_id, serial_number, status)
+VALUES ('a1000000-0000-0000-0000-000000000040', 'a1000000-0000-0000-0000-000000000001',
+        'a1000000-0000-0000-0000-000000000020', 'S-LOAN', 'OUT');
+
+INSERT INTO material_unit_write_offs (company_id, unit_id, loan_movement_id, reason, notes, created_by)
+VALUES ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000040',
+        'a1000000-0000-0000-0000-000000000030', 'LOST', 'extraviada en locacion', 'a1000000-0000-0000-0000-000000000002');
+
+SELECT throws_ok(
+  $$INSERT INTO material_unit_write_offs (company_id, unit_id, loan_movement_id, reason, notes, created_by)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000040',
+            'a1000000-0000-0000-0000-000000000030', 'BROKEN', 'otra vez', 'a1000000-0000-0000-0000-000000000002')$$,
+  '23505', NULL, 'un mismo prestamo no se da de baja dos veces'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO material_unit_write_offs (company_id, unit_id, loan_movement_id, reason, notes, created_by)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000040',
+            'a1000000-0000-0000-0000-000000000011', 'LOST', '   ', 'a1000000-0000-0000-0000-000000000002')$$,
+  '23514', NULL, 'una baja sin detalle se rechaza'
 );
 
 SELECT * FROM finish();

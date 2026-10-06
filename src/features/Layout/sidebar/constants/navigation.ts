@@ -10,6 +10,7 @@ import {
   FileText,
   FileType,
   GitBranch,
+  HandHelping,
   House,
   Layers,
   Package,
@@ -181,6 +182,7 @@ export const navigationLinks: NavigationLink[] = [
     items: [
       { name: 'Stock', tabSlug: 'stock' },
       { name: 'Movimientos', tabSlug: 'movimientos' },
+      { name: 'Préstamos', tabSlug: 'prestamos' },
       { name: 'Materiales', tabSlug: 'materiales' },
       { name: 'Depósitos', tabSlug: 'depositos' },
       { name: 'Configuración', tabSlug: 'config-almacen' },
@@ -250,6 +252,7 @@ export const SUB_ITEM_ICONS: Record<string, NavIcon> = {
   'mantenimiento:gomeria': CircleDot,
   'almacenes:stock': Layers,
   'almacenes:movimientos': ArrowLeftRight,
+  'almacenes:prestamos': HandHelping,
   'almacenes:materiales': Package,
   'almacenes:depositos': Warehouse,
   'almacenes:config-almacen': Settings,

@@ -204,6 +204,67 @@ class Ledger {
     return id;
   }
 
+  readonly writeOffs: Prisma.material_unit_write_offsCreateManyInput[] = [];
+
+  /**
+   * Devolucion de unidades prestadas (misma regla que `registerReturn` del motor): reingresan
+   * al costo con que salieron, recalculando el promedio como una entrada, y el movimiento copia
+   * el destino de la salida.
+   */
+  returnLoan(exitId: string, serials: string[], warehouseKey: WarehouseKey, day: number, notes: string): void {
+    const exit = this.movements.find((m) => m.id === exitId)!;
+    const warehouse = demoId('warehouse', warehouseKey);
+    this.seq += 1;
+    const id = demoId('stock_movement', this.seq);
+    let total = dec(0);
+    serials.forEach((serial, i) => {
+      const unit = [...this.units.values()].find((u) => u.serial === serial)!;
+      if (unit.status !== 'OUT' || unit.last !== exitId) throw new Error(`demo almacenes: ${serial} no esta prestada por esa salida`);
+      const exitLine = this.lines.find((l) => l.movement_id === exitId && l.unit_id === unit.id)!;
+      const cost = dec(exitLine.unit_cost as Decimal);
+      const stock = this.totals.get(unit.material) ?? dec(0);
+      const average = this.averages.get(unit.material) ?? dec(0);
+      this.averages.set(unit.material, stock.lte(0) ? round4(cost) : round4(stock.times(average).plus(cost).dividedBy(stock.plus(1))));
+      this.totals.set(unit.material, stock.plus(1));
+      this.balance(unit.material, warehouse, null, dec(1), serial);
+      unit.status = 'IN_STOCK';
+      unit.warehouse = warehouse;
+      unit.last = id;
+      total = total.plus(round4(cost));
+      this.lines.push({ id: demoId('stock_line', `${this.seq}:${i}`), movement_id: id, material_id: unit.material, quantity: dec(1), direction: 1, unit_cost: cost, total_cost: round4(cost), batch_id: null, unit_id: unit.id });
+    });
+    this.movements.push({
+      ...exit,
+      id,
+      number: `MOV-${String(this.seq).padStart(6, '0')}`,
+      type: 'RETURN',
+      warehouse_id: warehouse,
+      occurred_on: this.ctx.cal.day(day),
+      reference: null,
+      notes,
+      returned_from_movement_id: exitId,
+      total_cost: total,
+      created_at: this.ctx.cal.at(day, 16, this.seq % 60),
+    });
+  }
+
+  /** Baja de una unidad prestada que no vuelve: no mueve stock (misma regla que el motor). */
+  writeOff(serial: string, reason: 'LOST' | 'BROKEN', notes: string, day: number): void {
+    const unit = [...this.units.values()].find((u) => u.serial === serial)!;
+    if (unit.status !== 'OUT') throw new Error(`demo almacenes: ${serial} no esta prestada`);
+    this.writeOffs.push({
+      id: demoId('material_write_off', serial),
+      company_id: this.ctx.company.id,
+      unit_id: unit.id,
+      loan_movement_id: unit.last,
+      reason,
+      notes,
+      created_by: this.ctx.actorId,
+      created_at: this.ctx.cal.at(day, 11),
+    });
+    unit.status = 'DISCARDED';
+  }
+
   /** Anulacion de una salida: reingresa al costo original y recalcula el promedio como entrada. */
   reverseExit(originalId: string, day: number, reason: string): void {
     const original = this.movements.find((m) => m.id === originalId)!;
@@ -300,6 +361,11 @@ export async function seedWarehouses(
     { material: 'HER-DET', cost: 1890000, serials: ['MX4-0018833', 'MX4-0018840'] },
   ] });
 
+  // Un lote que ya venció con saldo: el aviso de Stock y el mail lo muestran, y no puede salir.
+  ledger.register({ type: 'ENTRY', day: -90, warehouse: 'BASE', reference: 'Remito 0001-00003990', lines: [
+    { material: 'QUI-DES', qty: 12, cost: 2950, batch: 'D-4410', expires: -10 },
+  ] });
+
   // ── Abastecimiento del pañol y del obrador ──
   ledger.register({ type: 'TRANSFER', day: -62, warehouse: 'BASE', target: 'PANOL', notes: 'Reposición del pañol', lines: [
     { material: 'ACE-15W40', qty: 300 },
@@ -332,7 +398,10 @@ export async function seedWarehouses(
   exit(-45, 'BASE', veh(1), [{ material: 'ACE-HID68', qty: 120 }, { material: 'FIL-AIRE', qty: 2 }], 'Cambio de aceite hidráulico');
   if (openOrders[0]) exit(-12, 'PANOL', { type: 'MAINTENANCE_ORDER', id: openOrders[0].id }, [{ material: 'GRA-LIT', qty: 4, batch: 'L2407-118' }, { material: 'FIL-ACE', qty: 2 }]);
   if (openOrders[1]) exit(-6, 'BASE', { type: 'MAINTENANCE_ORDER', id: openOrders[1].id }, [{ material: 'FIL-AIRE', qty: 1 }, { material: 'ACE-HID68', qty: 40 }]);
-  exit(-20, 'PANOL', emp(2), [{ material: 'HER-TAL', serials: ['TP-23A1187'] }], 'Asignación de herramienta');
+  const drillLoan = exit(-20, 'PANOL', emp(2), [{ material: 'HER-TAL', serials: ['TP-23A1187'] }], 'Asignación de herramienta');
+  if (drillLoan) ledger.returnLoan(drillLoan, ['TP-23A1187'], 'PANOL', -5, 'Vuelve en buen estado');
+  const grinderLoan = exit(-15, 'PANOL', emp(4), [{ material: 'HER-AMO', serials: ['AM-90551'] }], 'Asignación de herramienta');
+  if (grinderLoan) ledger.writeOff('AM-90551', 'LOST', 'Extraviada en la locación del pozo 12', -6);
   exit(-18, 'ANELO', emp(3), [{ material: 'HER-DET', serials: ['MX4-0018833'] }], 'Detector para trabajos en locación');
   if (others[0]) exit(-14, 'ANELO', { type: 'OTHER_EQUIPMENT', id: others[0].id }, [{ material: 'QUI-DES', qty: 15, batch: 'D-5531' }]);
   if (customer) {
@@ -381,6 +450,7 @@ export async function seedWarehouses(
     })),
   });
   await tx.stock_movement_lines.createMany({ data: ledger.lines });
+  if (ledger.writeOffs.length) await tx.material_unit_write_offs.createMany({ data: ledger.writeOffs });
   await tx.stock_balances.createMany({
     data: [...ledger.balances.values()].map((b) => ({
       company_id: company.id,

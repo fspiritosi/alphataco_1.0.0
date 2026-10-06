@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle } from 'lucide-react';
 import moment from 'moment';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getMaterialDetail } from '../../actions/materials-detail.server';
 import { formatMoney, formatQuantity, formatUnitCost } from '../../lib/format';
-import { TRACKING_TYPE_LABELS } from '../../lib/labels';
+import { TRACKING_TYPE_LABELS, WRITE_OFF_REASON_LABELS } from '../../lib/labels';
 
 /** Datos del material y su stock por deposito (y lote / unidades). */
 export async function MaterialHeader({ materialId }: { materialId: string }) {
@@ -122,6 +123,79 @@ export async function MaterialHeader({ materialId }: { materialId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {material.trackingType === 'SERIAL' && (material.unitsOnLoan.length > 0 || material.writeOffs.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Préstamos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {material.unitsOnLoan.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium tabular-nums">Unidades prestadas ({material.unitsOnLoan.length})</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Serie</TableHead>
+                      <TableHead>En poder de</TableHead>
+                      <TableHead>Desde</TableHead>
+                      <TableHead>Salida</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {material.unitsOnLoan.map((loan) => (
+                      <TableRow key={loan.unitId}>
+                        <TableCell className="font-mono text-sm">{loan.serialNumber}</TableCell>
+                        <TableCell>{loan.holder ?? '—'}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {loan.since ? `${moment(loan.since).format('DD/MM/YYYY')} (${loan.days} días)` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {loan.exitMovementId ? (
+                            <Link href={`/dashboard/warehouse/movements/${loan.exitMovementId}`} className="font-mono hover:underline">
+                              {loan.exitNumber}
+                            </Link>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {material.writeOffs.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium tabular-nums">Dadas de baja ({material.writeOffs.length})</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Serie</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead>La tenía</TableHead>
+                      <TableHead>Fecha</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {material.writeOffs.map((w) => (
+                      <TableRow key={w.id}>
+                        <TableCell className="font-mono text-sm">{w.serialNumber}</TableCell>
+                        <TableCell>
+                          {WRITE_OFF_REASON_LABELS[w.reason]}
+                          <span className="block text-xs text-muted-foreground">{w.notes}</span>
+                        </TableCell>
+                        <TableCell>{w.holder ?? '—'}</TableCell>
+                        <TableCell className="tabular-nums">{moment(w.date).format('DD/MM/YYYY')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

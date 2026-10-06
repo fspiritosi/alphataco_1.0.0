@@ -3,17 +3,32 @@
  * Fuente unica para tablas, filtros, detalle, kardex y export (regla del repo: los labels del
  * filtro coinciden exactamente con los de la celda).
  */
-import type {
-  MaterialTrackingTypeValue,
-  StockDestinationTypeValue,
-  StockMovementTypeValue,
+import {
+  STOCK_MOVEMENT_TYPES,
+  type MaterialTrackingTypeValue,
+  type StockDestinationTypeValue,
 } from '../schemas/stock-movement';
 
-export const MOVEMENT_TYPE_LABELS: Record<StockMovementTypeValue, string> = {
+/**
+ * Todos los tipos de movimiento, incluida la devolucion. `STOCK_MOVEMENT_TYPES` (del schema
+ * del formulario) NO incluye `RETURN` a proposito: la devolucion no se carga desde "Nuevo
+ * movimiento" sino desde Prestamos, que sabe de que salida viene. Tablas, filtros, detalle y
+ * kardex usan esta lista completa.
+ */
+export const ALL_MOVEMENT_TYPES = [...STOCK_MOVEMENT_TYPES, 'RETURN'] as const;
+export type MovementKind = (typeof ALL_MOVEMENT_TYPES)[number];
+
+export const MOVEMENT_TYPE_LABELS: Record<MovementKind, string> = {
   ENTRY: 'Entrada',
   EXIT: 'Salida',
   TRANSFER: 'Transferencia',
   ADJUSTMENT: 'Ajuste',
+  RETURN: 'Devolución',
+};
+
+export const WRITE_OFF_REASON_LABELS: Record<'LOST' | 'BROKEN', string> = {
+  LOST: 'Extraviada',
+  BROKEN: 'Rota',
 };
 
 export const DESTINATION_TYPE_LABELS: Record<StockDestinationTypeValue, string> = {

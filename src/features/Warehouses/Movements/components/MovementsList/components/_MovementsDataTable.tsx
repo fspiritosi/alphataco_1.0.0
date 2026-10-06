@@ -11,13 +11,11 @@ import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers'
 import { CircleOff, User } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
-import { DESTINATION_TYPE_LABELS, MOVEMENT_TYPE_LABELS } from '../../../../lib/labels';
+import { ALL_MOVEMENT_TYPES, DESTINATION_TYPE_LABELS, MOVEMENT_TYPE_LABELS, type MovementKind } from '../../../../lib/labels';
 import { WAREHOUSE_QUERY_KEYS } from '../../../../lib/query-keys';
 import {
   STOCK_DESTINATION_TYPES,
-  STOCK_MOVEMENT_TYPES,
   type StockDestinationTypeValue,
-  type StockMovementTypeValue,
 } from '../../../../schemas/stock-movement';
 import {
   getAllMovementsForExport,
@@ -101,7 +99,7 @@ export function _MovementsDataTable({
           const result = await getMovementSingleFacet('type', params);
           if (!result) return EMPTY_FACET;
           return {
-            options: STOCK_MOVEMENT_TYPES.map((value) => ({
+            options: ALL_MOVEMENT_TYPES.map((value) => ({
               value,
               label: MOVEMENT_TYPE_LABELS[value],
               icon: movementTypeIcons[value],
@@ -178,7 +176,7 @@ export function _MovementsDataTable({
       fetchAllData: () => getAllMovementsForExport(currentParams),
       options: { filename: 'movimientos', title: 'Movimientos de stock', sheetName: 'Movimientos' },
       formatters: {
-        type: (value) => MOVEMENT_TYPE_LABELS[value as StockMovementTypeValue] ?? String(value),
+        type: (value) => MOVEMENT_TYPE_LABELS[value as MovementKind] ?? String(value),
         occurred_on: (value) => (value ? moment.utc(value as string | Date).format('DD/MM/YYYY') : ''),
         destination_type: (value) =>
           value ? (DESTINATION_TYPE_LABELS[value as StockDestinationTypeValue] ?? String(value)) : '',

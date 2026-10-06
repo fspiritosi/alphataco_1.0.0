@@ -1,12 +1,15 @@
 'use server';
 
 import { Prisma } from '@/generated/prisma/client';
+import { argentinaDate } from '@/features/Jobs/lib/dates';
 import { checkPermissionServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { dateColumnToYmd } from '../lib/batch-expiry';
 import { replayKardex } from '../lib/kardex';
 import { DESTINATION_SELECT, destinationLabel } from '../lib/labels';
+import { LOAN_UNIT_SELECT, toLoan } from '../lib/loans';
 
 const logger = new Logger('features/Warehouses/materials-detail');
 
@@ -16,15 +19,19 @@ const logger = new Logger('features/Warehouses/materials-detail');
  * promedio no sale del servidor.
  */
 export async function getMaterialDetail(id: string) {
-  const [canView, canViewPrices] = await Promise.all([
+  const [canView, canViewPrices, canViewLoans] = await Promise.all([
     checkPermissionServer('almacenes', 'stock', 'view'),
     checkPermissionServer('almacenes', 'stock', 'view_prices'),
+    // Quien tiene cada herramienta es informacion de Prestamos: sin ese permiso no sale.
+    checkPermissionServer('almacenes', 'prestamos', 'view'),
   ]);
   if (!canView) return null;
   const companyId = await getActiveCompanyId();
+  const today = argentinaDate();
 
   try {
-    const material = await prisma.materials.findFirst({
+    const [material, loanedUnits, writeOffs] = await Promise.all([
+      prisma.materials.findFirst({
       where: { id, company_id: companyId },
       select: {
         id: true,
@@ -52,7 +59,25 @@ export async function getMaterialDetail(id: string) {
           orderBy: { serial_number: 'asc' },
         },
       },
-    });
+      }),
+      prisma.material_units.findMany({
+        where: canViewLoans ? { material_id: id, company_id: companyId, status: 'OUT' } : { id: { in: [] } },
+        select: LOAN_UNIT_SELECT,
+        orderBy: { serial_number: 'asc' },
+      }),
+      prisma.material_unit_write_offs.findMany({
+        where: canViewLoans ? { company_id: companyId, unit: { material_id: id } } : { id: { in: [] } },
+        select: {
+          id: true,
+          reason: true,
+          notes: true,
+          created_at: true,
+          unit: { select: { serial_number: true } },
+          loan_movement: { select: DESTINATION_SELECT },
+        },
+        orderBy: { created_at: 'desc' },
+      }),
+    ]);
     if (!material) return null;
 
     const total = material.stock_balances.reduce((acc, b) => acc.plus(b.quantity), new Prisma.Decimal(0));
@@ -60,7 +85,7 @@ export async function getMaterialDetail(id: string) {
       .map((b) => ({
         warehouse: b.warehouse,
         batch: b.batch?.batch_number ?? null,
-        expiresAt: b.batch?.expires_at?.toISOString().slice(0, 10) ?? null,
+        expiresAt: b.batch?.expires_at ? dateColumnToYmd(b.batch.expires_at) : null,
         quantity: b.quantity.toString(),
       }))
       .sort(
@@ -86,6 +111,15 @@ export async function getMaterialDetail(id: string) {
       stockValue: canViewPrices ? total.times(material.average_cost).toFixed(2) : null,
       stock,
       unitsInStock: material.units.map((u) => ({ id: u.id, serialNumber: u.serial_number, warehouse: u.warehouse?.name ?? null })),
+      unitsOnLoan: loanedUnits.map((u) => toLoan(u, today)),
+      writeOffs: writeOffs.map((w) => ({
+        id: w.id,
+        serialNumber: w.unit.serial_number,
+        reason: w.reason,
+        notes: w.notes,
+        holder: destinationLabel(w.loan_movement),
+        date: w.created_at.toISOString(),
+      })),
     };
   } catch (error) {
     logger.error('Error al obtener el detalle del material', { data: { error, id } });
@@ -156,7 +190,7 @@ export async function getMaterialKardex(id: string) {
       number: m.number,
       type: m.type,
       isReversal,
-      occurredOn: m.occurred_on.toISOString().slice(0, 10),
+      occurredOn: dateColumnToYmd(m.occurred_on),
       warehouse: isTransfer
         ? line.direction === -1
           ? `${m.warehouse.name} → ${m.target_warehouse?.name ?? ''}`

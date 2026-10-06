@@ -575,6 +575,7 @@ model company {
   material_units       material_units[]
   stock_balances       stock_balances[]
   stock_movements      stock_movements[]
+  material_unit_write_offs material_unit_write_offs[]
   @@schema("public")
 }
 
@@ -2053,6 +2054,7 @@ model profile {
   user_roles_user_roles_user_idToprofile                                             user_roles[]                     @relation("user_roles_user_idToprofile")
 
   stock_movements      stock_movements[]  @relation("stock_movement_creator")
+  material_write_offs  material_unit_write_offs[] @relation("material_write_off_creator")
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
 }
@@ -3122,6 +3124,7 @@ enum job_run_status {
 enum notification_kind {
   documents_expiry
   daily_report_deviations
+  stock_batch_expiry
 
   @@schema("public")
 }
@@ -3777,6 +3780,15 @@ enum stock_movement_type {
   EXIT
   TRANSFER
   ADJUSTMENT
+  /// Devolucion de unidades serializadas prestadas (etapa 2). Solo la registra `registerReturn`.
+  RETURN
+
+  @@schema("public")
+}
+
+enum material_write_off_reason {
+  LOST
+  BROKEN
 
   @@schema("public")
 }
@@ -3911,6 +3923,7 @@ model material_units {
   warehouse        warehouses?            @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   last_movement    stock_movements?       @relation("unit_last_movement", fields: [last_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   movement_lines   stock_movement_lines[]
+  write_offs       material_unit_write_offs[]
 
   @@unique([material_id, serial_number])
   @@index([warehouse_id], map: "idx_material_units_warehouse_id")
@@ -3958,6 +3971,8 @@ model stock_movements {
   customer_id          String?                 @db.Uuid
   customer_service_id  String?                 @db.Uuid
   reverses_movement_id String?                 @unique @db.Uuid
+  /// Solo RETURN: la salida cuyo prestamo cierra la devolucion.
+  returned_from_movement_id String?            @db.Uuid
   total_cost           Decimal                 @default(0) @db.Decimal(15, 4)
   created_by           String                  @db.Uuid
   created_at           DateTime                @default(now()) @db.Timestamptz(6)
@@ -3973,6 +3988,9 @@ model stock_movements {
   creator              profile                 @relation("stock_movement_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reverses             stock_movements?        @relation("stock_movement_reversal", fields: [reverses_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reversed_by          stock_movements?        @relation("stock_movement_reversal")
+  returned_from        stock_movements?        @relation("stock_movement_return", fields: [returned_from_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  returns              stock_movements[]       @relation("stock_movement_return")
+  write_offs           material_unit_write_offs[]
   lines                stock_movement_lines[]
   units_last_here      material_units[]        @relation("unit_last_movement")
 
@@ -3984,6 +4002,7 @@ model stock_movements {
   @@index([other_equipment_id], map: "idx_stock_movements_other_equipment_id")
   @@index([maintenance_order_id], map: "idx_stock_movements_maintenance_order_id")
   @@index([customer_id], map: "idx_stock_movements_customer_id")
+  @@index([returned_from_movement_id], map: "idx_stock_movements_returned_from")
   @@schema("public")
 }
 
@@ -4005,5 +4024,27 @@ model stock_movement_lines {
 
   @@index([movement_id], map: "idx_stock_movement_lines_movement_id")
   @@index([material_id], map: "idx_stock_movement_lines_material_id")
+  @@schema("public")
+}
+
+/// Baja de una unidad serializada que estaba prestada y no vuelve (extraviada o rota). No es un
+/// movimiento de stock: la unidad ya habia salido y su costo queda imputado a quien la tenia.
+model material_unit_write_offs {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id       String                    @db.Uuid
+  unit_id          String                    @db.Uuid
+  /// Ultimo movimiento de la unidad al darla de baja: el prestamo que cierra.
+  loan_movement_id String                    @db.Uuid
+  reason           material_write_off_reason
+  notes            String
+  created_by       String                    @db.Uuid
+  created_at       DateTime                  @default(now()) @db.Timestamptz(6)
+  company          company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  unit             material_units            @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  loan_movement    stock_movements           @relation(fields: [loan_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator          profile                   @relation("material_write_off_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([unit_id, loan_movement_id])
+  @@index([company_id], map: "idx_material_unit_write_offs_company_id")
   @@schema("public")
 }

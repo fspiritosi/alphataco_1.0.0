@@ -6,7 +6,7 @@ export interface KardexLineInput {
   quantity: Prisma.Decimal;
   direction: number;
   unit_cost: Prisma.Decimal;
-  movement: { type: 'ENTRY' | 'EXIT' | 'TRANSFER' | 'ADJUSTMENT'; reverses_movement_id: string | null };
+  movement: { type: 'ENTRY' | 'EXIT' | 'TRANSFER' | 'ADJUSTMENT' | 'RETURN'; reverses_movement_id: string | null };
 }
 
 export interface KardexStep {
@@ -18,8 +18,8 @@ export interface KardexStep {
 
 /**
  * Reproduce el saldo y el costo promedio de un material linea por linea, con la MISMA regla que
- * el motor (`average-cost.ts`): solo mueven el promedio las entradas y las anulaciones de
- * entradas y de salidas, calculadas con el saldo anterior a la linea. Las lineas tienen que
+ * el motor (`average-cost.ts`): solo mueven el promedio las entradas, las devoluciones y las
+ * anulaciones de entradas, devoluciones y salidas, calculadas con el saldo anterior a la linea. Las lineas tienen que
  * venir en el orden en que el motor las APLICO: por `movement.number` y despues `id`.
  *
  * No sirve `created_at`: es el inicio de la transaccion, y una transaccion que empezo antes puede
@@ -37,7 +37,9 @@ export function replayKardex(lines: KardexLineInput[]): KardexStep[] {
     const { type, reverses_movement_id } = line.movement;
     const isReversal = reverses_movement_id !== null;
 
-    if (type === 'ENTRY') {
+    // Una devolucion reingresa al costo de la salida: para el promedio es una entrada, igual
+    // que la anulacion de una salida. Su anulacion es la anulacion de una entrada.
+    if (type === 'ENTRY' || type === 'RETURN') {
       average = isReversal
         ? averageCostAfterEntryReversal(balance, average, line.quantity, line.unit_cost)
         : averageCostAfterEntry(balance, average, line.quantity, line.unit_cost);

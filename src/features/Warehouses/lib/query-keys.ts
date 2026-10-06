@@ -8,8 +8,13 @@ export const WAREHOUSE_QUERY_KEYS = {
   movements: ['warehouse-movements'],
   materials: ['warehouse-materials'],
   depots: ['warehouse-depots'],
+  loans: ['warehouse-loans'],
   /** Disponible de un material en un deposito (lineas del formulario de movimientos). */
   availability: ['warehouse-availability'],
   /** Categorias y unidades (Configuracion). */
   settings: ['warehouse-settings'],
+  /** Depositos a los que se puede devolver un prestamo. */
+  returnWarehouses: ['warehouse-return-warehouses'],
+  /** Busqueda de materiales del formulario de movimientos. */
+  materialOptions: ['warehouse-material-options'],
 } as const;

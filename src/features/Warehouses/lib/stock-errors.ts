@@ -6,6 +6,8 @@
 export type StockErrorCode =
   | 'INVALID_INPUT'
   | 'INSUFFICIENT_STOCK'
+  | 'EXPIRED_BATCH'
+  | 'NOT_ON_LOAN'
   | 'INACTIVE_MATERIAL'
   | 'INACTIVE_WAREHOUSE'
   | 'NOT_FOUND'

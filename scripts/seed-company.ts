@@ -135,7 +135,7 @@ async function main(): Promise<void> {
     //     deliberadamente NO hay fallback por variable de entorno (una lista global
     //     recibiria los datos de todas las empresas). `update: {}` para no pisar una lista
     //     que alguien ya haya editado.
-    for (const kind of ['documents_expiry', 'daily_report_deviations'] as const) {
+    for (const kind of ['documents_expiry', 'daily_report_deviations', 'stock_batch_expiry'] as const) {
       await prisma.notification_settings.upsert({
         where: { company_id_kind: { company_id: company.id, kind } },
         update: {},

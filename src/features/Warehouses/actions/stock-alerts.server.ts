@@ -2,7 +2,9 @@
 
 import { Prisma } from '@/generated/prisma/client';
 import { checkPermissionServer } from '@/features/Permissions';
+import { argentinaDate } from '@/features/Jobs/lib/dates';
 import { prisma } from '@/shared/lib/prisma';
+import { findExpiringBatches } from '../lib/expiring-batches';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 
 /**
@@ -39,4 +41,10 @@ export async function getMaterialsBelowMinimum() {
       total: total.toString(),
       minStock: m.min_stock!.toString(),
     }));
+}
+
+/** Lotes con saldo vencidos o por vencer, para el aviso de Stock (ver `lib/expiring-batches.ts`). */
+export async function getExpiringBatches() {
+  if (!(await checkPermissionServer('almacenes', 'stock', 'view'))) return [];
+  return findExpiringBatches(await getActiveCompanyId(), argentinaDate());
 }

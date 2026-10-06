@@ -5,6 +5,8 @@ import { checkPermissionServer } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
+import { argentinaDate } from '@/features/Jobs/lib/dates';
+import { classifyBatch, dateColumnToYmd } from '../lib/batch-expiry';
 import { findEmployeeOptions } from '../lib/employee-search';
 import { otherEquipmentLabel, vehicleLabel } from '../lib/labels';
 import { CLOSED_MAINTENANCE_ORDER_STATUSES } from '../lib/stock-engine-constants';
@@ -238,14 +240,20 @@ export async function getMaterialAvailability(materialId: string, warehouseId: s
   ]);
 
   const total = balances.reduce((acc, b) => acc.plus(b.quantity), new Prisma.Decimal(0));
+  const today = argentinaDate();
   const batches = balances
     .filter((b) => b.batch)
-    .map((b) => ({
-      id: b.batch!.id,
-      batchNumber: b.batch!.batch_number,
-      expiresAt: b.batch!.expires_at ? b.batch!.expires_at.toISOString().slice(0, 10) : null,
-      quantity: b.quantity.toString(),
-    }))
+    .map((b) => {
+      const expiresAt = b.batch!.expires_at ? dateColumnToYmd(b.batch!.expires_at) : null;
+      return {
+        id: b.batch!.id,
+        batchNumber: b.batch!.batch_number,
+        expiresAt,
+        quantity: b.quantity.toString(),
+        // El motor rechaza sacarlo; el formulario lo muestra deshabilitado para no ofrecerlo.
+        expired: classifyBatch(expiresAt, today) === 'EXPIRED',
+      };
+    })
     .sort((a, b) => (a.expiresAt ?? '9999-12-31').localeCompare(b.expiresAt ?? '9999-12-31'));
 
   return { total: total.toString(), batches, units };

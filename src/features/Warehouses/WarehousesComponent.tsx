@@ -1,9 +1,10 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { ArrowLeftRight, Layers, Package, Settings, Warehouse } from 'lucide-react';
+import { ArrowLeftRight, HandHelping, Layers, Package, Settings, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
 import DepotsTabContent from './Depots/DepotsTabContent';
+import LoansTabContent from './Loans/LoansTabContent';
 import MaterialsTabContent from './Materials/MaterialsTabContent';
 import MovementsTabContent from './Movements/MovementsTabContent';
 import SettingsTabContent from './Settings/SettingsTabContent';
@@ -53,6 +54,17 @@ export default async function WarehousesComponent({ searchParams }: { searchPara
           content: (
             <Suspense fallback={<WarehouseSectionSkeleton />}>
               <MovementsTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'prestamos',
+          label: label(HandHelping, 'Préstamos'),
+          moduleSlug: 'almacenes',
+          tabSlug: 'prestamos',
+          content: (
+            <Suspense fallback={<WarehouseSectionSkeleton />}>
+              <LoansTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

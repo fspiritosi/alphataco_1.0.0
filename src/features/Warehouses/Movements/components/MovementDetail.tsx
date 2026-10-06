@@ -34,6 +34,16 @@ export function MovementDetail({ movement }: { movement: StockMovementDetail }) 
         </div>
       </div>
 
+      {movement.returnedFrom && !movement.reverses && (
+        <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          Devuelve el préstamo de{' '}
+          <Link className="font-mono underline" href={`/dashboard/warehouse/movements/${movement.returnedFrom.id}`}>
+            {movement.returnedFrom.number}
+          </Link>
+          : las unidades vuelven al depósito al costo con que salieron.
+        </p>
+      )}
+
       {(movement.reverses || movement.reversedBy) && (
         <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
           {movement.reverses ? (

@@ -89,7 +89,7 @@ export function MovementLineRow({ form, index, canRemove, onRemove }: MovementLi
               <FormItem>
                 <FormLabel className="sr-only">Material</FormLabel>
                 <SearchCombobox<MaterialOption>
-                  queryKey={['warehouse-material-options']}
+                  queryKey={WAREHOUSE_QUERY_KEYS.materialOptions}
                   search={searchMaterialOptions}
                   value={field.value}
                   selectedLabel={material ? `${material.code} · ${material.name}` : null}
@@ -261,11 +261,16 @@ export function MovementLineRow({ form, index, canRemove, onRemove }: MovementLi
                     </FormControl>
                     <SelectContent>
                       {available?.batches.map((batch, i) => (
-                        <SelectItem key={batch.id} value={batch.id}>
+                        <SelectItem
+                          key={batch.id}
+                          value={batch.id}
+                          // Un lote vencido no sale ni se transfiere; el ajuste si lo descarta.
+                          disabled={batch.expired && type !== 'ADJUSTMENT'}
+                        >
                           <span className="tabular-nums">
                             {batch.batchNumber} · {formatQuantity(batch.quantity)} {material?.unit ?? ''}
                             {batch.expiresAt ? ` · vence ${moment(batch.expiresAt).format('DD/MM/YYYY')}` : ''}
-                            {i === 0 ? ' · vence primero' : ''}
+                            {batch.expired ? ' · Vencido' : i === 0 || available.batches[i - 1]?.expired ? ' · vence primero' : ''}
                           </span>
                         </SelectItem>
                       ))}

@@ -1338,6 +1338,15 @@ export const PERMISSIONS = {
         allowedActions: ['view', 'create', 'adjust', 'reverse', 'view_prices'],
         subtabs: {},
       },
+      prestamos: {
+        slug: 'prestamos',
+        name: 'Préstamos',
+        tabId: 'b0000000-0000-0000-0000-000000000006',
+        parent: null,
+        // 'create' registra la devolucion; 'delete' da de baja una herramienta que no vuelve.
+        allowedActions: ['view', 'create', 'delete'],
+        subtabs: {},
+      },
       materiales: {
         slug: 'materiales',
         name: 'Materiales',

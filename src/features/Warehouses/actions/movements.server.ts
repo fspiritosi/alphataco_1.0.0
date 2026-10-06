@@ -9,6 +9,7 @@ import { withActor } from '@/shared/lib/actor';
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { toActionError } from '../lib/action-errors';
+import { dateColumnToYmd } from '../lib/batch-expiry';
 import { DESTINATION_SELECT, destinationLabel } from '../lib/labels';
 import { registerStockMovement, reverseStockMovement } from '../lib/stock-engine';
 import { stockMovementSchema, toStockMovementInput, type StockMovementFormValues } from '../schemas/stock-movement';
@@ -130,6 +131,7 @@ export async function getStockMovementDetail(id: string) {
       creator: { select: { fullname: true, email: true } },
       reverses: { select: { id: true, number: true } },
       reversed_by: { select: { id: true, number: true } },
+      returned_from: { select: { id: true, number: true } },
       ...DESTINATION_SELECT,
       lines: {
         select: {
@@ -152,7 +154,7 @@ export async function getStockMovementDetail(id: string) {
     id: movement.id,
     number: movement.number,
     type: movement.type,
-    occurredOn: movement.occurred_on.toISOString().slice(0, 10),
+    occurredOn: dateColumnToYmd(movement.occurred_on),
     createdAt: movement.created_at.toISOString(),
     reference: movement.reference,
     notes: movement.notes,
@@ -161,6 +163,7 @@ export async function getStockMovementDetail(id: string) {
     createdBy: movement.creator.fullname ?? movement.creator.email ?? 'Usuario',
     reverses: movement.reverses,
     reversedBy: movement.reversed_by,
+    returnedFrom: movement.returned_from,
     destinationType: movement.destination_type,
     destination: destinationLabel(movement),
     totalCost: canViewPrices ? movement.total_cost.toFixed(2) : null,
@@ -171,7 +174,7 @@ export async function getStockMovementDetail(id: string) {
       quantity: l.quantity.toString(),
       direction: l.direction,
       batch: l.batch
-        ? { number: l.batch.batch_number, expiresAt: l.batch.expires_at?.toISOString().slice(0, 10) ?? null }
+        ? { number: l.batch.batch_number, expiresAt: l.batch.expires_at ? dateColumnToYmd(l.batch.expires_at) : null }
         : null,
       serialNumber: l.unit?.serial_number ?? null,
       unitCost: canViewPrices ? l.unit_cost.toFixed(4) : null,

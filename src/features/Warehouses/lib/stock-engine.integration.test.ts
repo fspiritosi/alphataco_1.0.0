@@ -469,6 +469,141 @@ describe.skipIf(!RUN)('motor de stock (integracion)', () => {
     });
   });
 
+  it('prestamos: devolver al costo de la salida, a otro deposito, compensando al tenedor', async () => {
+    const result = await inRollback(async (tx) => {
+      const { registerReturn } = await engine();
+      await register(tx, entry([line(SERIAL, { quantity: '2', unitCost: '1000', serialNumbers: ['P-A', 'P-B'] })]));
+      const [a, b] = await tx.material_units.findMany({ where: { material_id: SERIAL }, orderBy: { serial_number: 'asc' } });
+      const out = await register(tx, exitToCustomer([line(SERIAL, { unitIds: [a!.id] })]));
+      await register(tx, entry([line(SERIAL, { quantity: '1', unitCost: '3000', serialNumbers: ['P-C'] })])); // B y C: promedio 2000
+
+      const notFromExit = await stockErrorOf(() =>
+        registerReturn(tx, COMPANY, PROFILE, { exitMovementId: out.id, unitIds: [b!.id], warehouseId: W2, occurredOn: new Date(), notes: null })
+      );
+      const returned = await registerReturn(tx, COMPANY, PROFILE, {
+        exitMovementId: out.id,
+        unitIds: [a!.id],
+        warehouseId: W2,
+        occurredOn: new Date(),
+        notes: 'vuelve del cliente',
+      });
+      const twice = await stockErrorOf(() =>
+        registerReturn(tx, COMPANY, PROFILE, { exitMovementId: out.id, unitIds: [a!.id], warehouseId: W1, occurredOn: new Date(), notes: null })
+      );
+      const unit = await tx.material_units.findUniqueOrThrow({ where: { id: a!.id } });
+      const movement = await tx.stock_movements.findUniqueOrThrow({ where: { id: returned.id } });
+      return {
+        notFromExit: notFromExit.code,
+        twice: twice.code,
+        total: returned.totalCost.toFixed(4),
+        unit: `${unit.status}:${unit.warehouse_id === W2}`,
+        compensates: movement.type === 'RETURN' && movement.customer_id === CUSTOMER && movement.returned_from_movement_id === out.id,
+        // (2 x 2000 + 1 x 1000) / 3
+        average: await averageCost(tx, SERIAL),
+        w2: await balance(tx, SERIAL, W2),
+        consistent: await balancesMatchLedger(tx),
+        kardexMatchesEngine: await kardexMatchesEngine(tx, SERIAL),
+      };
+    });
+    expect(result).toEqual({
+      notFromExit: 'UNIT_NOT_AVAILABLE',
+      twice: 'NOT_ON_LOAN',
+      total: '1000.0000',
+      unit: 'IN_STOCK:true',
+      compensates: true,
+      average: '1666.6667',
+      w2: '1',
+      consistent: true,
+      kardexMatchesEngine: true,
+    });
+  });
+
+  it('prestamos: anular la devolucion reabre el prestamo; una salida devuelta no se anula', async () => {
+    const result = await inRollback(async (tx) => {
+      const { registerReturn } = await engine();
+      await register(tx, entry([line(SERIAL, { quantity: '1', unitCost: '800', serialNumbers: ['Q-1'] })]));
+      const unit = await tx.material_units.findFirstOrThrow({ where: { serial_number: 'Q-1' } });
+      const out = await register(tx, exitToCustomer([line(SERIAL, { unitIds: [unit.id] })]));
+      const ret = await registerReturn(tx, COMPANY, PROFILE, { exitMovementId: out.id, unitIds: [unit.id], warehouseId: W1, occurredOn: new Date(), notes: null });
+      const exitAfterReturn = await stockErrorOf(() => reverse(tx, out.id));
+      const reversal = await reverse(tx, ret.id);
+      const reopened = await tx.material_units.findUniqueOrThrow({ where: { id: unit.id } });
+      const reversalRow = await tx.stock_movements.findUniqueOrThrow({ where: { id: reversal.id } });
+      // El prestamo reabierto se puede volver a devolver.
+      await registerReturn(tx, COMPANY, PROFILE, { exitMovementId: out.id, unitIds: [unit.id], warehouseId: W1, occurredOn: new Date(), notes: null });
+      const final = await tx.material_units.findUniqueOrThrow({ where: { id: unit.id } });
+      return {
+        exitAfterReturn: exitAfterReturn.code,
+        reopened: `${reopened.status}:${reopened.warehouse_id}`,
+        reversalPointsToExit: reversalRow.type === 'RETURN' && reversalRow.returned_from_movement_id === out.id,
+        final: final.status,
+        consistent: await balancesMatchLedger(tx),
+        kardexMatchesEngine: await kardexMatchesEngine(tx, SERIAL),
+      };
+    });
+    expect(result).toEqual({
+      exitAfterReturn: 'UNIT_NOT_AVAILABLE',
+      reopened: 'OUT:null',
+      reversalPointsToExit: true,
+      final: 'IN_STOCK',
+      consistent: true,
+      kardexMatchesEngine: true,
+    });
+  });
+
+  it('prestamos: dar de baja una unidad prestada no toca el stock y no se repite', async () => {
+    const result = await inRollback(async (tx) => {
+      const { writeOffLoanedUnit } = await engine();
+      await register(tx, entry([line(SERIAL, { quantity: '1', unitCost: '500', serialNumbers: ['W-1'] })]));
+      const unit = await tx.material_units.findFirstOrThrow({ where: { serial_number: 'W-1' } });
+      const out = await register(tx, exitToCustomer([line(SERIAL, { unitIds: [unit.id] })]));
+      const averageBefore = await averageCost(tx, SERIAL);
+      const noNotes = await stockErrorOf(() => writeOffLoanedUnit(tx, COMPANY, PROFILE, { unitId: unit.id, reason: 'LOST', notes: ' ' }));
+      const written = await writeOffLoanedUnit(tx, COMPANY, PROFILE, { unitId: unit.id, reason: 'LOST', notes: 'extraviada en locacion' });
+      const again = await stockErrorOf(() => writeOffLoanedUnit(tx, COMPANY, PROFILE, { unitId: unit.id, reason: 'BROKEN', notes: 'x' }));
+      const exitReversal = await stockErrorOf(() => reverse(tx, out.id));
+      const after = await tx.material_units.findUniqueOrThrow({ where: { id: unit.id } });
+      return {
+        noNotes: noNotes.code,
+        closesTheExit: written.loanMovementId === out.id,
+        again: again.code,
+        exitReversal: exitReversal.code,
+        status: after.status,
+        balance: await balance(tx, SERIAL, W1),
+        sameAverage: (await averageCost(tx, SERIAL)) === averageBefore,
+        consistent: await balancesMatchLedger(tx),
+      };
+    });
+    expect(result).toEqual({
+      noNotes: 'INVALID_INPUT',
+      closesTheExit: true,
+      again: 'NOT_ON_LOAN',
+      exitReversal: 'UNIT_NOT_AVAILABLE',
+      status: 'DISCARDED',
+      balance: '0',
+      sameAverage: true,
+      consistent: true,
+    });
+  });
+
+  it('lotes vencidos: no salen ni se transfieren; el ajuste negativo los da de baja', async () => {
+    const result = await inRollback(async (tx) => {
+      const yesterday = new Date(Date.now() - 2 * 86_400_000);
+      await register(tx, entry([line(BATCH, { quantity: '5', unitCost: '10', batchNumber: 'VENCIDO', batchExpiresOn: yesterday })]));
+      const batch = await tx.material_batches.findFirstOrThrow({ where: { batch_number: 'VENCIDO' } });
+      const exit = await stockErrorOf(() => register(tx, exitToCustomer([line(BATCH, { quantity: '1', batchId: batch.id })])));
+      const transfer = await stockErrorOf(() =>
+        register(tx, movement({ type: 'TRANSFER', targetWarehouseId: W2, lines: [line(BATCH, { quantity: '1', batchId: batch.id })] }))
+      );
+      await register(
+        tx,
+        movement({ type: 'ADJUSTMENT', notes: 'descarte por vencimiento', lines: [line(BATCH, { quantity: '5', adjustmentDirection: 'OUT', batchId: batch.id })] })
+      );
+      return { exit: exit.code, transfer: transfer.code, balance: await balance(tx, BATCH, W1, batch.id) };
+    });
+    expect(result).toEqual({ exit: 'EXPIRED_BATCH', transfer: 'EXPIRED_BATCH', balance: '0' });
+  });
+
   it('valida empresa, depositos, destino y tipo de control', async () => {
     const result = await inRollback(async (tx) => ({
       foreignMaterial: (await stockErrorOf(() => register(tx, entry([line(FOREIGN, { unitCost: '1' })])))).code,

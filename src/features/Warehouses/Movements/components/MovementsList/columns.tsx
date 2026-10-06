@@ -12,6 +12,7 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
+  RotateCcw,
   SlidersHorizontal,
   Truck,
   Undo2,
@@ -21,17 +22,19 @@ import {
 } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { DESTINATION_TYPE_LABELS, MOVEMENT_TYPE_LABELS } from '../../../lib/labels';
-import type { StockDestinationTypeValue, StockMovementTypeValue } from '../../../schemas/stock-movement';
+import { DESTINATION_TYPE_LABELS, MOVEMENT_TYPE_LABELS, type MovementKind } from '../../../lib/labels';
+import type { StockDestinationTypeValue } from '../../../schemas/stock-movement';
 import { formatMoney } from '../../../lib/format';
 import type { MovementListItem, MovementReversalStatus } from './actions.server';
 
 // Iconos compartidos entre celdas y filtros (consistencia)
-export const movementTypeIcons: Record<StockMovementTypeValue, LucideIcon> = {
+export const movementTypeIcons: Record<MovementKind, LucideIcon> = {
   ENTRY: ArrowDownToLine,
   EXIT: ArrowUpFromLine,
   TRANSFER: ArrowLeftRight,
   ADJUSTMENT: SlidersHorizontal,
+  // Undo2 ya identifica la anulacion en la columna Estado: la devolucion usa otro icono.
+  RETURN: RotateCcw,
 };
 
 export const destinationTypeIcons: Record<StockDestinationTypeValue, LucideIcon> = {
