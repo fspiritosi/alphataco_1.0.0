@@ -33,6 +33,7 @@ import { seedMaintenance } from './domains/maintenance.ts';
 import { seedCertifications } from './domains/commercial.ts';
 import { seedCandidates, seedClothing, seedKpis } from './domains/hr.ts';
 import { seedTires } from './domains/tires.ts';
+import { seedWarehouses } from './domains/warehouses.ts';
 import { seedUsers } from './domains/users.ts';
 import { seedIndicators } from './domains/indicators.ts';
 
@@ -98,6 +99,7 @@ async function main(): Promise<void> {
           const rows = await seedOperations(ctx, employees, vehicles, others, grid);
           await seedCertifications(ctx, rows);
           await seedTires(ctx, vehicles);
+          await seedWarehouses(ctx, employees, vehicles, others);
           await seedCandidates(ctx, employees);
           await seedClothing(ctx, employees);
           await seedKpis(ctx);

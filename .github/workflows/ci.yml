@@ -51,3 +51,4 @@ jobs:
       # Integracion de los jobs de P5: usa la base de trabajo `alphataco` (test-db.sh usa
       # `alphataco_test`), aplica migraciones y crea/borra sus propios datos.
       - run: bash scripts/test-jobs.sh
+      - run: bash scripts/test-warehouses.sh
