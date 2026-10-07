@@ -2897,6 +2897,7 @@ model work_orders {
   maintenance_activity_log                  maintenance_activity_log[]
   maintenance_order_items                   maintenance_order_items[]
   work_order_items                          work_order_items[]
+  material_requests                         material_requests[]
   profile_work_orders_cancelled_byToprofile profile?                   @relation("work_orders_cancelled_byToprofile", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                                   company                    @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_work_orders_completed_byToprofile profile?                   @relation("work_orders_completed_byToprofile", fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -4096,6 +4097,8 @@ model material_requests {
   maintenance_order_id String?                 @db.Uuid
   customer_id          String?                 @db.Uuid
   customer_service_id  String?                 @db.Uuid
+  /// OT desde la que se pidio (etapa 4). Solo con destino MAINTENANCE_ORDER (CHECK en BD).
+  work_order_id        String?                 @db.Uuid
   notes                String?
   decided_by           String?                 @db.Uuid
   decided_at           DateTime?               @db.Timestamptz(6)
@@ -4115,12 +4118,14 @@ model material_requests {
   maintenance_order    maintenance_orders?     @relation(fields: [maintenance_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customer             customers?              @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customer_service     customer_services?      @relation(fields: [customer_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_order           work_orders?            @relation(fields: [work_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines                material_request_lines[]
   deliveries           stock_movements[]
 
   @@unique([company_id, number])
   @@index([company_id, status], map: "idx_material_requests_company_status")
   @@index([requested_by], map: "idx_material_requests_requested_by")
+  @@index([work_order_id], map: "idx_material_requests_work_order")
   @@schema("public")
 }
 

@@ -50,6 +50,24 @@ export async function deliveredByLine(tx: Pick<Tx, '$queryRaw'>, requestId: stri
   return new Map(rows.map((r) => [r.request_line_id, new Prisma.Decimal(r.delivered)]));
 }
 
+/**
+ * Lo entregado de varias lineas de pedido (de uno o varios pedidos) en UNA consulta. Misma regla
+ * que `deliveredByLine`; para listas (OT, orden de mantenimiento) sin N+1.
+ */
+export async function deliveredByLines(
+  tx: Pick<Tx, '$queryRaw'>,
+  lineIds: string[]
+): Promise<Map<string, Prisma.Decimal>> {
+  if (lineIds.length === 0) return new Map();
+  const rows = await tx.$queryRaw<{ request_line_id: string; delivered: Prisma.Decimal }[]>`
+    SELECT request_line_id, SUM(-direction * quantity) AS delivered
+    FROM stock_movement_lines
+    WHERE request_line_id = ANY(${lineIds}::uuid[])
+    GROUP BY request_line_id
+  `;
+  return new Map(rows.map((r) => [r.request_line_id, new Prisma.Decimal(r.delivered)]));
+}
+
 /** Recalcula y guarda el estado despues de una entrega o de su anulacion (con el pedido lockeado). */
 export async function recomputeRequestStatus(tx: Tx, request: LockedRequest): Promise<MaterialRequestStatus> {
   const [lines, delivered] = await Promise.all([

@@ -34,4 +34,6 @@ echo "==> Corriendo los tests de integracion de Almacenes..."
 npx vitest run \
   src/features/Warehouses/lib/stock-engine.integration.test.ts \
   src/features/Warehouses/actions/prices-permission.integration.test.ts \
-  src/features/Warehouses/actions/direct-exit.integration.test.ts
+  src/features/Warehouses/actions/direct-exit.integration.test.ts \
+  src/features/OperatorPanel/actions/materials.integration.test.ts \
+  src/features/Mantenimiento/MaintenanceOrders/actions/materials.integration.test.ts

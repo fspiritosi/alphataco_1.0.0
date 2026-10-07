@@ -4,7 +4,7 @@
 -- 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(30);
+SELECT plan(31);
 
 SELECT has_table('public', 'warehouses', 'existe warehouses');
 SELECT has_table('public', 'material_categories', 'existe material_categories');
@@ -199,6 +199,17 @@ SELECT throws_ok(
   $$INSERT INTO material_request_lines (request_id, material_id, quantity)
     VALUES ('a1000000-0000-0000-0000-000000000099', 'a1000000-0000-0000-0000-000000000020', 0)$$,
   '23514', NULL, 'una linea de pedido con cantidad 0 se rechaza'
+);
+
+-- ── Etapa 4: pedidos desde una OT ───────────────────────────────────────────
+-- Destino valido (empleado con su FK) para que el unico CHECK que falle sea el de la OT; las FK
+-- se verifican despues de los CHECK, asi que los uuid no necesitan existir.
+SELECT throws_ok(
+  $$INSERT INTO material_requests (company_id, number, requested_by, destination_type, employee_id, work_order_id)
+    VALUES ('a1000000-0000-0000-0000-000000000001', 'PED-T2', 'a1000000-0000-0000-0000-000000000002', 'EMPLOYEE',
+            'a1000000-0000-0000-0000-000000000098', 'a1000000-0000-0000-0000-000000000097')$$,
+  '23514', 'new row for relation "material_requests" violates check constraint "material_requests_work_order_check"',
+  'una OT solo va en un pedido a una orden de mantenimiento'
 );
 
 SELECT * FROM finish();

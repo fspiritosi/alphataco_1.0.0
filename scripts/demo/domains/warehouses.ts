@@ -2,7 +2,8 @@
  * Almacenes: depositos, catalogo (materiales de los tres tipos de control), y unos dos meses de
  * movimientos — compras, transferencias al pañol y al obrador, entregas a empleados, consumos de
  * equipos y ordenes de mantenimiento, una salida a cliente, un ajuste y una anulacion; y pedidos
- * de materiales en todos sus estados, con las entregas vinculadas a sus lineas (etapa 3).
+ * de materiales en todos sus estados, con las entregas vinculadas a sus lineas (etapa 3), y
+ * pedidos de una OT en taller (etapa 4).
  *
  * Por que NO pasa por el motor (`src/features/Warehouses/lib/stock-engine.ts`): la imagen de
  * produccion copia `scripts/demo` sin `src/` (salvo el cliente de Prisma), y el motor depende del
@@ -338,6 +339,16 @@ export async function seedWarehouses(
     take: 3,
     orderBy: { created_at: 'asc' },
   });
+  // Una orden en taller con una OT abierta: ahi van los pedidos hechos desde la OT (etapa 4).
+  const workshopItem = await tx.maintenance_order_items.findFirst({
+    where: {
+      company_id: company.id,
+      maintenance_orders: { status: 'in_workshop' },
+      work_orders: { status: { notIn: ['completed', 'completed_partial', 'cancelled'] } },
+    },
+    select: { maintenance_order_id: true, work_order_id: true },
+    orderBy: { created_at: 'asc' },
+  });
   const customer = await tx.customers.findFirst({
     where: { company_id: company.id, is_active: true },
     select: { id: true, customer_services: { select: { id: true }, take: 1 } },
@@ -435,7 +446,8 @@ export async function seedWarehouses(
     destination: Destination | undefined,
     lines: { material: MaterialKey; qty: number }[],
     decision: { status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'; notes?: string },
-    notes?: string
+    notes?: string,
+    workOrderId: string | null = null
   ) => {
     if (!destination) return null;
     const id = demoId('material_request', n);
@@ -457,6 +469,7 @@ export async function seedWarehouses(
       maintenance_order_id: destination.type === 'MAINTENANCE_ORDER' ? destination.id : null,
       customer_id: destination.type === 'CUSTOMER' ? destination.id : null,
       customer_service_id: destination.type === 'CUSTOMER' ? destination.serviceId : null,
+      work_order_id: workOrderId,
       notes: notes ?? null,
       decided_by: decision.status === 'PENDING_APPROVAL' ? null : ctx.actorId,
       decided_at: decision.status === 'PENDING_APPROVAL' ? null : ctx.cal.at(day + 1, 9),
@@ -505,6 +518,17 @@ export async function seedWarehouses(
   if (closed) {
     deliver(closed, -30, 'ANELO', [6]);
     setStatus(closed, { status: 'CLOSED', closed_by: ctx.actorId, closed_at: ctx.cal.at(-20, 10), close_notes: 'El resto se compró en Añelo' });
+  }
+
+  // Pedidos desde la OT de una orden en taller: uno entregado y otro esperando aprobacion.
+  if (workshopItem?.work_order_id) {
+    const order: Destination = { type: 'MAINTENANCE_ORDER', id: workshopItem.maintenance_order_id };
+    const fromWorkOrder = request(7, -2, order, [{ material: 'ACE-HID68', qty: 20 }, { material: 'FIL-AIRE', qty: 1 }], { status: 'APPROVED' }, 'Cambio de aceite hidráulico', workshopItem.work_order_id);
+    if (fromWorkOrder) {
+      deliver(fromWorkOrder, -1, 'BASE', [20, 1]);
+      setStatus(fromWorkOrder, { status: 'DELIVERED' });
+    }
+    request(8, 0, order, [{ material: 'GRA-LIT', qty: 2 }], { status: 'PENDING_APPROVAL' }, 'Engrase de crucetas al terminar', workshopItem.work_order_id);
   }
 
   // ── Escritura ──

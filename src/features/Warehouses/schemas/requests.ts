@@ -9,7 +9,7 @@ import {
 
 /** Schemas de pedidos de materiales. Modulo sin directiva: los usan form y action. */
 
-const quantityIssue = (raw: string): string | null => {
+export const quantityIssue = (raw: string): string | null => {
   if (!raw.trim()) return 'Indicá la cantidad';
   if (!DECIMAL_RE.test(raw.trim())) return 'Número inválido (hasta 4 decimales)';
   if (Number(normalizeDecimal(raw)) <= 0) return 'Tiene que ser mayor a 0';
@@ -128,3 +128,24 @@ export const directExitLimitSchema = z.object({
     .refine((v) => v === '' || /^\d{1,13}([.,]\d{1,2})?$/.test(v), 'Monto inválido (hasta 2 decimales)'),
 });
 export type DirectExitLimitFormValues = z.infer<typeof directExitLimitSchema>;
+
+/**
+ * Pedido de materiales desde Mantenimiento (etapa 4): el operario desde su OT o el detalle de la
+ * orden. Solo materiales y cantidades; el destino lo fija el servidor. `workOrderId` vacio =
+ * pedido a nivel orden (solo desde el detalle).
+ */
+export const maintenanceMaterialRequestSchema = z
+  .object({
+    workOrderId: z.string().uuid({ message: 'Orden de trabajo inválida' }).or(z.literal('')),
+    notes: z.string().trim().max(1000, 'Máximo 1000 caracteres'),
+    lines: z
+      .array(z.object({ materialId: z.string().uuid({ message: 'Elegí un material' }), quantity: z.string() }))
+      .min(1, 'Agregá al menos una línea'),
+  })
+  .superRefine((v, ctx) => {
+    v.lines.forEach((line, i) => {
+      const message = quantityIssue(line.quantity);
+      if (message) ctx.addIssue({ code: 'custom', path: ['lines', i, 'quantity'], message });
+    });
+  });
+export type MaintenanceMaterialRequestFormValues = z.infer<typeof maintenanceMaterialRequestSchema>;

@@ -13,9 +13,9 @@ import { toActionError } from '../lib/action-errors';
 import { dateColumnToYmd } from '../lib/batch-expiry';
 import { DESTINATION_SELECT, destinationLabel } from '../lib/labels';
 import { canApplyRequestAction, type MaterialRequestStatus, type RequestAction } from '../lib/request-state-machine';
-import { nextMaterialRequestNumber } from '../lib/request-numbering';
 import { deliveredByLine, lockRequest } from '../lib/requests';
-import { registerRequestDelivery, validateExitDestination } from '../lib/stock-engine';
+import { createMaterialRequest } from '../lib/create-request';
+import { registerRequestDelivery } from '../lib/stock-engine';
 import { StockError } from '../lib/stock-errors';
 import {
   closeRequestSchema,
@@ -28,7 +28,7 @@ import {
   type MaterialRequestFormValues,
   type RejectRequestFormValues,
 } from '../schemas/requests';
-import { normalizeDecimal, toDestinationInput } from '../schemas/stock-movement';
+import { toDestinationInput } from '../schemas/stock-movement';
 
 const logger = new Logger('features/Warehouses/requests');
 
@@ -56,44 +56,13 @@ export async function createMaterialRequestAction(
   try {
     const created = await withActor(
       profile.credentialId,
-      async (tx) => {
-        const materialIds = [...new Set(parsed.data.lines.map((l) => l.materialId))];
-        const materials = await tx.materials.findMany({
-          where: { id: { in: materialIds }, company_id: companyId },
-          select: { id: true, name: true, is_active: true, tracking_type: true },
-        });
-        const byId = new Map(materials.map((m) => [m.id, m]));
-        for (const line of parsed.data.lines) {
-          const material = byId.get(line.materialId);
-          if (!material) throw new StockError('NOT_FOUND', 'Uno de los materiales no existe en la empresa');
-          if (!material.is_active) throw new StockError('INACTIVE_MATERIAL', `${material.name} está inactivo`);
-          if (material.tracking_type === 'SERIAL' && !Number.isInteger(Number(normalizeDecimal(line.quantity)))) {
-            throw new StockError('INVALID_INPUT', `${material.name} se entrega por unidad: la cantidad tiene que ser entera`);
-          }
-        }
-        await validateExitDestination(tx, companyId, destination);
-
-        const number = await nextMaterialRequestNumber(tx, companyId);
-        return tx.material_requests.create({
-          data: {
-            company_id: companyId,
-            number,
-            requested_by: profile.id,
-            destination_type: destination.destinationType!,
-            employee_id: destination.employeeId,
-            vehicle_id: destination.vehicleId,
-            other_equipment_id: destination.otherEquipmentId,
-            maintenance_order_id: destination.maintenanceOrderId,
-            customer_id: destination.customerId,
-            customer_service_id: destination.customerServiceId,
-            notes: parsed.data.notes || null,
-            lines: {
-              create: parsed.data.lines.map((l) => ({ material_id: l.materialId, quantity: normalizeDecimal(l.quantity) })),
-            },
-          },
-          select: { id: true, number: true },
-        });
-      },
+      (tx) =>
+        createMaterialRequest(tx, companyId, profile.id, {
+          destination,
+          workOrderId: null,
+          notes: parsed.data.notes || null,
+          lines: parsed.data.lines,
+        }),
       prisma,
       TRANSACTION_OPTIONS
     );
@@ -258,6 +227,7 @@ export async function getMaterialRequestDetail(id: string) {
       requester: { select: { fullname: true, email: true } },
       decider: { select: { fullname: true, email: true } },
       closer: { select: { fullname: true, email: true } },
+      work_order: { select: { order_number: true, workshop_sectors: { select: { name: true } } } },
       ...DESTINATION_SELECT,
       lines: {
         select: {
@@ -309,6 +279,10 @@ export async function getMaterialRequestDetail(id: string) {
     requestedBy: userName(request.requester)!,
     destinationType: request.destination_type,
     destination: destinationLabel(request),
+    /** OT desde la que se pidio (pedidos de Mantenimiento, etapa 4). */
+    workOrder: request.work_order
+      ? [request.work_order.order_number, request.work_order.workshop_sectors?.name].filter(Boolean).join(' · ')
+      : null,
     decision: request.decided_at
       ? { by: userName(request.decider), at: request.decided_at.toISOString(), notes: request.decision_notes }
       : null,

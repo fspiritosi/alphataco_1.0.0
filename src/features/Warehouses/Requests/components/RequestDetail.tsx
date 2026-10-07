@@ -41,6 +41,7 @@ export function RequestDetail({ request }: { request: MaterialRequestDetail }) {
               {request.requestedBy} · {at(request.createdAt)}
             </Field>
             <Field label={`Se imputa a (${DESTINATION_TYPE_LABELS[request.destinationType]})`}>{request.destination ?? '—'}</Field>
+            {request.workOrder && <Field label="Orden de trabajo">{request.workOrder}</Field>}
             {request.decision && (
               <Field label={DECISION_TITLE[request.status] ?? 'Aprobado por'}>
                 {request.decision.by} · {at(request.decision.at)}
