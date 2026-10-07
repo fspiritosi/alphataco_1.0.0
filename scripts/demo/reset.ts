@@ -24,6 +24,7 @@ import { COMPANY_PROFILE } from './data/catalog.ts';
 import { seedCatalogs } from './domains/catalogs.ts';
 import { linkPriceRules, seedCustomers, seedPriceRules } from './domains/customers.ts';
 import { seedEmployees } from './domains/employees.ts';
+import { seedFiscalProfile } from './domains/fiscal.ts';
 import { seedVehicles } from './domains/vehicles.ts';
 import { seedDocuments } from './domains/documents.ts';
 import { DOCUMENT_BUCKET, REMIT_BUCKET, REMIT_PREFIX, companyFolder } from './lib/paths.ts';
@@ -86,7 +87,8 @@ async function main(): Promise<void> {
           await seedPriceRules(ctx);
           await seedCustomers(ctx);
           await linkPriceRules(ctx);
-          log('clientes y contratos listos');
+          await seedFiscalProfile(ctx);
+          log('clientes, contratos y datos fiscales listos');
           const employees = await seedEmployees(ctx);
           const { vehicles, others } = await seedVehicles(ctx);
           await seedDocuments(ctx, employees, vehicles);
@@ -107,7 +109,8 @@ async function main(): Promise<void> {
           files = ctx.files;
           if (dry) throw new DryRunRollback();
 
-          await ensureBuckets(s3, [DOCUMENT_BUCKET, REMIT_BUCKET]);
+          // invoice-pdfs: los PDF fiscales que se generan al facturar en vivo durante la demo.
+          await ensureBuckets(s3, [DOCUMENT_BUCKET, REMIT_BUCKET, 'invoice-pdfs']);
           await uploadAll(s3, files);
           log(`${files.length} archivos subidos`);
         },

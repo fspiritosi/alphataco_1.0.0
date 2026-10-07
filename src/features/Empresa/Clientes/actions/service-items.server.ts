@@ -72,6 +72,7 @@ function toItemData(values: ServiceItemFormValues) {
     item_number: values.item_number || null,
     item_measure_units: Number(values.item_measure_units),
     item_price: new Prisma.Decimal(values.item_price),
+    vat_rate_id: Number(values.vat_rate_id),
     is_active: values.is_active,
     needs_personnel: values.needs_personnel,
     needs_equipment: values.needs_equipment,

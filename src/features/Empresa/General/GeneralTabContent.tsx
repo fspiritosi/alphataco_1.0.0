@@ -9,7 +9,7 @@ import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { document_applies } from '@/generated/prisma/enums';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
-import { Building2, ChartColumn, DollarSign, FileText, Network, Users } from 'lucide-react';
+import { Building2, ChartColumn, DollarSign, FileText, Landmark, Network, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
@@ -20,6 +20,8 @@ import { HierarchyTableSkeleton } from './Hierarchy/fallback/HierarchyTableSkele
 import CompanyComponent from './components/company/CompanyComponent';
 import { CompanySkeleton } from './fallback/CompanySkeleton';
 import { TableSubtabSkeleton } from './fallback/SubtabSkeletons';
+import { FiscalDataSkeleton } from './FiscalData/fallback/FiscalDataSkeleton';
+import FiscalDataTabContent from './FiscalData/FiscalDataTabContent';
 
 export default async function GeneralTabContent({
   searchParams,
@@ -150,6 +152,32 @@ export default async function GeneralTabContent({
               <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
                 <KpisTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
+            ),
+          },
+          {
+            value: 'datos-fiscales',
+            label: (
+              <span className="flex items-center gap-2">
+                <Landmark className="h-4 w-4" />
+                Datos fiscales
+              </span>
+            ),
+            moduleSlug: 'configuracion',
+            tabSlug: 'datos-fiscales',
+            content: (
+              <Card>
+                <CardHeader className="bg-surface dark:bg-muted/50 border-b-2">
+                  <CardTitle>Datos fiscales</CardTitle>
+                  <CardDescription>
+                    Facturación electrónica ARCA: datos del emisor, puntos de venta y certificado
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <Suspense fallback={<FiscalDataSkeleton />}>
+                    <FiscalDataTabContent searchParams={searchParams} />
+                  </Suspense>
+                </CardContent>
+              </Card>
             ),
           },
           {

@@ -16,6 +16,7 @@ export type ServiceItemFormSource = Pick<
   | 'item_number'
   | 'item_price'
   | 'item_measure_units'
+  | 'vat_rate_id'
   | 'is_active'
   | 'needs_personnel'
   | 'needs_equipment'
@@ -37,6 +38,7 @@ export function toServiceItemFormValues(
     item_number: item.item_number,
     item_price: item.item_price,
     item_measure_units: String(item.item_measure_units),
+    vat_rate_id: String(item.vat_rate_id),
     is_active: item.is_active ?? true,
     needs_personnel: item.needs_personnel,
     needs_equipment: item.needs_equipment,

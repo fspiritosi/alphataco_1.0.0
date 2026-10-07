@@ -11,6 +11,8 @@ const STYLES: Record<certification_status, string> = {
   emitida: 'bg-brand/10 text-brand border-brand/30',
   confirmada: 'bg-brand text-brand-foreground',
   anulada: 'bg-destructive/10 text-destructive border-destructive/30',
+  // Contorno de marca sin relleno: se distingue de Confirmada (relleno) y de Emitida (brand/10).
+  facturada: 'border-brand text-brand',
 };
 
 export function CertificationStatusBadge({ status }: { status: certification_status }) {

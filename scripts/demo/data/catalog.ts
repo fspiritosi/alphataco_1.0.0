@@ -6,7 +6,7 @@ import { KPI_FIXED_IDS } from '../lib/ids.ts';
 
 export const COMPANY_PROFILE = {
   name: 'Transportes Patagonia DEMO S.A.',
-  cuit: '30716543219',
+  cuit: '30716543214',
   description: 'Servicios de transporte y apoyo a la industria petrolera en la Cuenca Neuquina',
   email: 'administracion@patagonia-demo.com.ar',
   phone: '2994480000',

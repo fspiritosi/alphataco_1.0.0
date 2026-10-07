@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { serializeCertification, serializeCertificationLine } from '../lib/serializers';
 import { certificationTotal, lineAmount } from '../lib/certification-amounts';
 import { canTransition, isDeletable, isEditable, transitionError } from '../lib/state-machine';
+import { formatVoucherLabel } from '@/features/Comercial/Facturacion/lib/invoice-type';
 
 const logger = new Logger('features/Comercial/Certificaciones');
 
@@ -90,6 +91,14 @@ export async function getCertificationById(id: string) {
         voided_reason: true,
         customers: { select: { id: true, name: true } },
         customer_services: { select: { id: true, service_name: true, contract_number: true } },
+        // Comprobantes que la facturan (vigentes: los anulados por NC total quedan con released_at).
+        invoice_certifications: {
+          select: {
+            released_at: true,
+            invoice: { select: { id: true, cbte_type: true, number: true, status: true, sales_point: { select: { number: true } } } },
+          },
+          orderBy: { invoice: { created_at: 'desc' } },
+        },
         lines: {
           select: {
             id: true,
@@ -105,7 +114,16 @@ export async function getCertificationById(id: string) {
     });
 
     if (!row) return null;
-    return { ...serializeCertification(row), lines: row.lines.map(serializeCertificationLine) };
+    return {
+      ...serializeCertification(row),
+      lines: row.lines.map(serializeCertificationLine),
+      invoices: row.invoice_certifications.map((link) => ({
+        id: link.invoice.id,
+        label: formatVoucherLabel(link.invoice.cbte_type, link.invoice.sales_point.number, link.invoice.number),
+        status: link.invoice.status,
+        released: link.released_at !== null,
+      })),
+    };
   } catch (error) {
     logger.error('Error al obtener la certificación', { data: { error, id } });
     throw error;
@@ -225,6 +243,9 @@ export async function refreshCertificationLines(id: string): Promise<ActionResul
         status: { in: [...ESTADOS_CERTIFICABLES] },
         item_id: { not: null },
         dailyreport: { company_id: companyId, date: { gte: cert.period_from, lte: cert.period_to } },
+        // Lo ya incluido en otra certificación vigente no se vuelve a certificar (ni a facturar).
+        // El índice `uq_certification_lines_live_row` es la red de seguridad si dos refrescos corren a la vez.
+        certification_lines: { none: { is_live: true, certification_id: { not: id } } },
       },
       select: {
         id: true,
@@ -267,16 +288,25 @@ export async function refreshCertificationLines(id: string): Promise<ActionResul
     revalidatePath(COMERCIAL_PATH);
     return ok({ lines: total });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return fail('Otra certificación tomó parte de estos partes al mismo tiempo. Refrescá de nuevo.');
+    }
     logger.error('Error al recalcular las líneas', { data: { error, id } });
     return fail(errorMessage(error, 'Error al recalcular las líneas'));
   }
 }
 
-/** Cambio de estado con la máquina de estados y el permiso que corresponda. */
+/**
+ * Cambio de estado con la máquina de estados y el permiso que corresponda.
+ *
+ * El `UPDATE` exige que el estado siga siendo el leído: si otra acción lo cambió en el medio
+ * (p. ej. la factura la pasó a facturada), no se pisa.
+ */
 async function transition(
   id: string,
   to: certification_status,
-  extra: (userId: string | null) => Prisma.certificationsUpdateInput
+  extra: (userId: string | null) => Prisma.certificationsUpdateManyMutationInput,
+  afterUpdate?: (tx: Prisma.TransactionClient) => Promise<unknown>
 ): Promise<ActionResult<null>> {
   const companyId = await getActiveCompanyId();
 
@@ -289,7 +319,15 @@ async function transition(
     if (!canTransition(cert.status, to)) return fail(transitionError(cert.status, to));
 
     const userId = await getSessionUserId();
-    await prisma.certifications.update({ where: { id }, data: { status: to, ...extra(userId) } });
+    const updated = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.certifications.updateMany({
+        where: { id, status: cert.status },
+        data: { status: to, ...extra(userId) },
+      });
+      if (count === 1 && afterUpdate) await afterUpdate(tx);
+      return count;
+    });
+    if (updated !== 1) return fail('La certificación cambió de estado mientras tanto. Actualizá la pantalla.');
 
     logger.info('Certificación cambió de estado', { data: { id, de: cert.status, a: to } });
     revalidatePath(COMERCIAL_PATH);
@@ -372,11 +410,35 @@ export async function voidCertification(id: string, reason: string): Promise<Act
   // Anular sin motivo deja un documento muerto sin explicación seis meses después.
   if (!motivo) return fail('Hay que indicar el motivo de la anulación');
 
-  return transition(id, 'anulada', (userId) => ({
-    voided_at: new Date(),
-    voided_by: userId,
-    voided_reason: motivo,
-  }));
+  // Una certificación incluida en un comprobante vivo (borrador, en emisión o pendiente) no se
+  // anula: el comprobante quedaría con una certificación anulada adentro. Primero hay que
+  // quitarla del borrador o descartarlo.
+  const companyId = await getActiveCompanyId();
+  const inInvoice = await prisma.invoice_certifications.findFirst({
+    where: {
+      certification_id: id,
+      released_at: null,
+      certification: { company_id: companyId },
+      invoice: { status: { in: ['borrador', 'rechazada', 'emitiendo', 'pendiente'] } },
+    },
+    select: { invoice: { select: { cbte_type: true, sales_point: { select: { number: true } }, number: true } } },
+  });
+  if (inInvoice) {
+    const label = formatVoucherLabel(inInvoice.invoice.cbte_type, inInvoice.invoice.sales_point.number, inInvoice.invoice.number);
+    return fail(`La certificación está incluida en ${label} (sin emitir). Quitala de ese comprobante o descartalo antes de anularla.`);
+  }
+
+  return transition(
+    id,
+    'anulada',
+    (userId) => ({
+      voided_at: new Date(),
+      voided_by: userId,
+      voided_reason: motivo,
+    }),
+    // Las líneas de una anulada dejan de reservar sus partes: se pueden volver a certificar.
+    (tx) => tx.certification_lines.updateMany({ where: { certification_id: id }, data: { is_live: false } })
+  );
 }
 
 /** Sólo un borrador se elimina. Lo emitido se anula, que deja rastro del número usado. */

@@ -1,13 +1,16 @@
 'use client';
 
+import { DEFAULT_VAT_RATE_ID } from '@/shared/lib/arca/catalogs';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PermissionGuard } from '@/features/Permissions';
+import { VAT_RATE_LABELS, VAT_RATES, type VatRateId } from '@/shared/lib/arca/catalogs';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Logger } from '@/lib/logger';
@@ -18,6 +21,11 @@ import { serviceItemFormSchema, type ServiceItemFormValues } from '../../schemas
 
 
 const logger = new Logger('features/Empresa/Clientes/ServiceItemsForm');
+
+/** Alícuotas de mayor a menor (27 %, 21 %, 10,5 %…), derivadas del catálogo de ARCA. */
+const VAT_RATE_OPTIONS = (Object.keys(VAT_RATES).map(Number) as VatRateId[]).sort(
+  (a, b) => Number(VAT_RATES[b]) - Number(VAT_RATES[a])
+);
 
 interface ServiceItemsFormProps {
   measureUnits: MeasureUnitRow[];
@@ -35,6 +43,7 @@ function toFormValues(item: ServiceItemRow | null): ServiceItemFormValues {
     item_number: item?.item_number ?? '',
     item_price: item?.item_price ?? 0,
     item_measure_units: item ? String(item.item_measure_units) : '',
+    vat_rate_id: item ? String(item.vat_rate_id) : String(DEFAULT_VAT_RATE_ID),
     is_active: item?.is_active ?? true,
     needs_personnel: item?.needs_personnel ?? true,
     needs_equipment: item?.needs_equipment ?? true,
@@ -140,10 +149,43 @@ export default function ServiceItemsForm({
                   <FormControl>
                     <Input type="number" placeholder="0.00" {...field} />
                   </FormControl>
+                  <FormDescription>Precio neto, sin IVA</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="vat_rate_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Alícuota IVA*</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Elegí la alícuota" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        {VAT_RATE_OPTIONS.map((id) => (
+                          <SelectItem key={id} value={String(id)}>
+                            {VAT_RATE_LABELS[id]}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Alícuota por defecto al facturar este ítem. Se puede cambiar en cada factura.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="item_measure_units"

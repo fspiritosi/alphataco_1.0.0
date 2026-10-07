@@ -234,6 +234,14 @@ export const PERMISSIONS = {
             parent: 'general',
             allowedActions: ['view', 'create'],
           },
+          // Facturación electrónica ARCA: datos fiscales del emisor, puntos de venta y certificado.
+          'datos-fiscales': {
+            slug: 'datos-fiscales',
+            name: 'Datos fiscales',
+            tabId: '10000000-0000-0000-0000-000000000017',
+            parent: 'general',
+            allowedActions: ['view', 'update'],
+          },
         },
       },
       rrhh: {
@@ -1262,6 +1270,17 @@ export const PERMISSIONS = {
             // `approve` es confirmar la certificacion emitida; `delete` es anularla.
             // `view_prices` decide quien ve los importes del documento.
             allowedActions: ['view', 'create', 'update', 'delete', 'approve', 'view_prices'],
+            subtabs: {},
+          },
+          // Facturación electrónica ARCA. `create` arma y edita borradores (y NC/ND);
+          // `approve` emite ante ARCA y consulta pendientes; `delete` descarta borradores;
+          // `view_prices` muestra importes (emitir exige además ver lo que se emite).
+          facturacion: {
+            slug: 'facturacion',
+            name: 'Facturación',
+            tabId: '40000000-0000-0000-0000-000000000019',
+            parent: 'comerce',
+            allowedActions: ['view', 'create', 'delete', 'approve', 'view_prices'],
             subtabs: {},
           },
           daily_reports: {

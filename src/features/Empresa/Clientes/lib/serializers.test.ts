@@ -14,6 +14,11 @@ describe('serializeCustomer', () => {
     reason_for_termination: null,
     termination_date: null,
     created_at: new Date(2026, 0, 1),
+    vat_condition_id: null,
+    fiscal_street: null,
+    fiscal_city: null,
+    fiscal_province_id: null,
+    fiscal_postal_code: null,
   };
 
   it('bigint → string (cuit y teléfono)', () => {
