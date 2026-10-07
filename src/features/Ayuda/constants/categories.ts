@@ -43,6 +43,13 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'otro', label: 'Otro', icon: MoreHorizontal },
 ];
 
+/**
+ * Los slugs como tupla, para que el schema del formulario salga de ACÁ y no de
+ * una lista escrita a mano: con el enum duplicado en `TicketForm`, el `<Select>`
+ * ofrecía categorías que la validación rechazaba.
+ */
+export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug) as [CategorySlug, ...CategorySlug[]];
+
 export const CATEGORY_BY_SLUG: Record<CategorySlug, CategoryDef> = Object.fromEntries(
   CATEGORIES.map((c) => [c.slug, c])
 ) as Record<CategorySlug, CategoryDef>;

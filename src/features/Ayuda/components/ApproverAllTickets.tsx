@@ -34,7 +34,10 @@ export function ApproverAllTickets({ onSelect }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / APPROVER_ALL_PAGE_SIZE));
 
   // Si el total baja (se borraron tickets), corregimos la página actual.
+  // El setState reacciona a datos nuevos del server (sistema externo) y está
+  // guardado por condición: corre a lo sumo una vez por cambio de total.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
@@ -71,7 +74,7 @@ export function ApproverAllTickets({ onSelect }: Props) {
           }`}
         >
         {tickets.map((ticket) => {
-          const status = statusFor(ticket.status?.slug, ticket.status?.name);
+          const status = statusFor(ticket.status?.slug);
           const { cleanTitle, categoryLabel } = parseCategoryFromTitle(ticket.title);
           const reporterLabel =
             ticket.reporter_name && ticket.reporter_name.trim() !== ''
