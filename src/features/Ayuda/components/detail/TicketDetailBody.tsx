@@ -1,4 +1,8 @@
 import type { Ticket } from '@/shared/lib/taskapp/types';
+import { canDecide } from '../../constants/ticket-copy';
+import { ProposeCloseAction } from '../ProposeCloseAction';
+import { closeProposalNoticeId } from '../TicketCloseProposalNotice';
+import { TicketResolutionPanel } from '../TicketResolutionPanel';
 import { TicketAttachmentsList } from './TicketAttachmentsList';
 import { TicketCommentsThread } from './TicketCommentsThread';
 
@@ -15,6 +19,15 @@ export function TicketDetailBody({ ticket, currentUserEmail, currentUserName }: 
 
   return (
     <div className="space-y-6 p-6">
+      {/* Arriba de todo cuando hay algo que decidir: el aprobador entra al
+          ticket por acá y no por el listado propio, así que si el bloque de
+          resolución viviera sólo en la tarjeta él nunca lo vería. */}
+      {canDecide(ticket) && (
+        <section aria-label="Resolución">
+          <TicketResolutionPanel ticket={ticket} canAct />
+        </section>
+      )}
+
       {ticket.description && (
         <section>
           <h4 className="mb-2 text-sm font-medium text-muted-foreground">Descripción</h4>
@@ -23,6 +36,15 @@ export function TicketDetailBody({ ticket, currentUserEmail, currentUserName }: 
       )}
 
       <TicketAttachmentsList urls={ticket.attachments ?? []} />
+
+      {/* Antes de la conversación y no arriba de todo: arriba va lo que el
+          ticket le pide al cliente (el bloque de resolución), y esto no lo
+          pide nadie. El aviso de propuesta pendiente vive en el encabezado. */}
+      <ProposeCloseAction
+        ticket={ticket}
+        variant="panel"
+        focusTargetId={closeProposalNoticeId(ticket.id, 'sheet')}
+      />
 
       <section>
         <h4 className="mb-3 text-sm font-medium text-muted-foreground">Conversación</h4>
