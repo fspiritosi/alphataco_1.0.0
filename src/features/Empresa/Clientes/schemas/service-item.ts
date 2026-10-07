@@ -1,7 +1,15 @@
 import { z } from 'zod';
+import { isVatRateId } from '@/shared/lib/arca/catalogs';
 
-/** Item de contrato (`service_items`). `item_measure_units` viaja como string (id del select). */
+/**
+ * Item de contrato (`service_items`). `item_measure_units` y `vat_rate_id` viajan como string
+ * (id del select). El precio es NETO: el IVA lo agrega la factura con `vat_rate_id`.
+ */
 export const serviceItemFormSchema = z.object({
+  vat_rate_id: z
+    .string()
+    .default('5')
+    .refine((v) => isVatRateId(Number(v)), 'Elegí la alícuota de IVA'),
   item_name: z.string().trim().min(1, { message: 'Debe ingresar el nombre del item' }),
   item_description: z.string().nullable().optional(),
   code_item: z.string().nullable().optional(),

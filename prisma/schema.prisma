@@ -523,6 +523,12 @@ model company {
   kpis                          kpis[]
   notifications                 notifications[]
   notification_settings         notification_settings[]
+  fiscal_profile                company_fiscal_profiles?
+  sales_points                  sales_points[]
+  arca_credentials              arca_credentials[]
+  arca_tokens                   arca_tokens[]
+  arca_call_logs                arca_call_logs[]
+  invoices                      invoices[]
   other_equipment               other_equipment[]
   preparte                      preparte[]
   service_items                 service_items[]
@@ -755,7 +761,8 @@ model customer_services {
 model customers {
   created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
   name                       String
-  cuit                       BigInt                       @unique
+  /// Único POR EMPRESA (antes era global): dos empresas del sistema pueden tener el mismo cliente.
+  cuit                       BigInt
   client_email               String?
   client_phone               BigInt?
   address                    String?
@@ -764,6 +771,14 @@ model customers {
   company_id                 String                       @db.Uuid
   reason_for_termination     String?
   termination_date           DateTime?                    @db.Date
+  /// Datos fiscales del receptor (facturación ARCA). Nullable: se exigen recién al facturar.
+  /// `vat_condition_id` es el id de ARCA de la condición frente al IVA (RG 5616).
+  vat_condition_id           Int?
+  fiscal_street              String?                      @db.VarChar(255)
+  fiscal_city                String?                      @db.VarChar(120)
+  fiscal_province_id         BigInt?
+  fiscal_postal_code         String?                      @db.VarChar(10)
+  fiscal_province            provinces?                   @relation(fields: [fiscal_province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   areas_cliente              areas_cliente[]
   contacts                   contacts[]
   contractor_employee        contractor_employee[]
@@ -776,10 +791,13 @@ model customers {
   preparte                   preparte[]
   sectors                    sectors[]
   certifications             certifications[]
+  invoices                   invoices[]
   share_company_users        share_company_users[]
+  stock_movements            stock_movements[]
+  material_requests          material_requests[]
 
-  stock_movements      stock_movements[]
-  material_requests    material_requests[]
+
+  @@unique([company_id, cuit], map: "customers_company_id_cuit_key")
   @@schema("public")
 }
 
@@ -2077,6 +2095,8 @@ model provinces {
   area_province area_province[]
   cities        cities[]
   company       company[]
+  company_fiscal_profiles company_fiscal_profiles[]
+  customers               customers[]
   employees     employees[]
   workshops     workshops[]
   pre_employees pre_employees[]
@@ -2247,8 +2267,12 @@ model service_items {
   /// 4 decimales: los ajustes por indice y polinomica multiplican por coeficientes y
   /// redondear el unitario antes de multiplicarlo por la cantidad arrastra el error.
   item_price          Decimal                        @db.Decimal(15, 4)
+  /// Alícuota de IVA por defecto al facturar (id de ARCA: 3=0%, 4=10,5%, 5=21%, 6=27%, 8=5%,
+  /// 9=2,5%). El precio es NETO, sin IVA. En cada factura se puede cambiar por línea.
+  vat_rate_id         Int                            @default(5)
   price_revisions     service_item_price_revisions[]
   certification_lines certification_lines[]
+  invoice_lines       invoice_lines[]
   item_measure_units  Int
   is_active           Boolean?                       @default(true)
   code_item           String?
@@ -3616,6 +3640,7 @@ enum certification_status {
   emitida
   confirmada
   anulada
+  facturada
 
   @@schema("public")
 }
@@ -3727,6 +3752,8 @@ model certifications {
   customers           customers             @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   customer_services   customer_services     @relation(fields: [customer_service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   lines               certification_lines[]
+  invoice_certifications invoice_certifications[]
+  invoice_lines          invoice_lines[]
 
   @@unique([company_id, number])
   @@index([company_id], map: "idx_certifications_company_id")
@@ -3750,14 +3777,337 @@ model certification_lines {
   quantity          Decimal          @db.Decimal(15, 4)
   unit_price        Decimal          @db.Decimal(15, 4)
   amount            Decimal          @db.Decimal(15, 2)
+  /// `false` cuando la certificación se anula. Una línea de parte diario puede estar en UNA sola
+  /// línea viva (índice único parcial): así el mismo trabajo no se certifica ni se factura dos
+  /// veces. Lo mantiene el código (anular la certificación lo apaga), no un trigger.
+  is_live           Boolean          @default(true)
   created_at        DateTime         @default(now()) @db.Timestamptz(6)
   certifications    certifications   @relation(fields: [certification_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   service_items     service_items    @relation(fields: [service_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dailyreportrows   dailyreportrows? @relation(fields: [dailyreportrow_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
+  @@unique([dailyreportrow_id], map: "uq_certification_lines_live_row", where: raw("(is_live AND dailyreportrow_id IS NOT NULL)"))
   @@index([certification_id], map: "idx_certification_lines_certification_id")
   @@index([dailyreportrow_id], map: "idx_certification_lines_dailyreportrow_id")
   @@index([service_item_id], map: "idx_certification_lines_service_item_id")
+  @@schema("public")
+}
+
+// ─── Facturación electrónica ARCA ───────────────────────────────────────────────
+
+/// Ambiente de ARCA. Homologación y producción no comparten certificados ni numeración.
+enum arca_environment {
+  homologacion
+  produccion
+
+  @@schema("public")
+}
+
+/// Condición frente al IVA del EMISOR. Define la letra: RI emite A/B, monotributo y exento C.
+/// La del receptor se guarda como el id de ARCA (RG 5616), no como enum.
+enum fiscal_tax_condition {
+  responsable_inscripto
+  monotributo
+  exento
+
+  @@schema("public")
+}
+
+enum gross_income_regime {
+  local
+  convenio_multilateral
+  exento
+
+  @@schema("public")
+}
+
+enum arca_credential_status {
+  /// Clave y CSR generados; falta cargar el certificado que devuelve ARCA.
+  pendiente
+  activo
+  /// Reemplazado por una renovación. Se conserva como historial.
+  reemplazado
+
+  @@schema("public")
+}
+
+/// Datos fiscales del emisor (1:1 con la empresa). Razón social y CUIT salen de `company`.
+model company_fiscal_profiles {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id             String                @unique @db.Uuid
+  tax_condition          fiscal_tax_condition
+  gross_income_number    String?               @db.VarChar(30)
+  gross_income_regime    gross_income_regime?
+  activity_start_date    DateTime              @db.Date
+  fiscal_street          String                @db.VarChar(255)
+  fiscal_city            String                @db.VarChar(120)
+  fiscal_province_id     BigInt?
+  fiscal_postal_code     String                @db.VarChar(10)
+  /// Ambiente con el que se emite. Pasar a producción exige además `ARCA_ALLOW_PRODUCTION`.
+  environment            arca_environment      @default(homologacion)
+  environment_changed_at DateTime?             @db.Timestamptz(6)
+  environment_changed_by String?               @db.Uuid
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+  company                company               @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  provinces              provinces?            @relation(fields: [fiscal_province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// Punto de venta dado de alta en ARCA para "Factura electrónica - Web Services". Con
+/// comprobantes no se borra: se desactiva.
+model sales_points {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id String   @db.Uuid
+  number     Int
+  name       String   @db.VarChar(120)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  company    company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  invoices   invoices[]
+
+  @@unique([company_id, number])
+  @@schema("public")
+}
+
+/// Certificado de ARCA por empresa y ambiente. La clave privada se genera en el servidor y se
+/// guarda cifrada (AES-256-GCM con `FISCAL_SECRETS_KEY`, formato `v<n>.<iv>.<tag>.<ct>`): nunca
+/// se devuelve al cliente ni se loguea. A lo sumo un `activo` y un `pendiente` por ambiente.
+model arca_credentials {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id       String                 @db.Uuid
+  environment      arca_environment
+  status           arca_credential_status
+  alias            String                 @db.VarChar(60)
+  private_key_enc  String
+  csr_pem          String
+  certificate_pem  String?
+  cert_subject     String?
+  cert_issuer      String?
+  cert_serial      String?                @db.VarChar(64)
+  cert_not_before  DateTime?              @db.Timestamptz(6)
+  cert_not_after   DateTime?              @db.Timestamptz(6)
+  /// Resultado de la última "Probar conexión" (lista de chequeos), para mostrarlo al volver.
+  last_test_at     DateTime?              @db.Timestamptz(6)
+  last_test_ok     Boolean?
+  last_test_result Json?
+  created_by       String?                @db.Uuid
+  activated_at     DateTime?              @db.Timestamptz(6)
+  created_at       DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  company          company                @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  arca_tokens      arca_tokens[]
+
+  @@unique([company_id, environment], map: "uq_arca_credentials_active", where: raw("(status = 'activo'::arca_credential_status)"))
+  @@unique([company_id, environment], map: "uq_arca_credentials_pending", where: raw("(status = 'pendiente'::arca_credential_status)"))
+  @@index([company_id, environment], map: "idx_arca_credentials_company_env")
+  @@schema("public")
+}
+
+/// Ticket de acceso de WSAA (~12 h) cifrado. ARCA no entrega otro mientras éste esté vigente,
+/// así que se persiste ANTES de usarlo y se reutiliza. Va atado a la credencial que lo firmó.
+model arca_tokens {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String           @db.Uuid
+  environment   arca_environment
+  service       String           @default("wsfe") @db.VarChar(20)
+  credential_id String           @db.Uuid
+  token_enc     String
+  sign_enc      String
+  expires_at    DateTime         @db.Timestamptz(6)
+  updated_at    DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  company       company          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  credential    arca_credentials @relation(fields: [credential_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, environment, service])
+  @@schema("public")
+}
+
+/// Exclusión mutua entre procesos (lease con vencimiento): pedido de ticket WSAA y numeración de
+/// comprobantes. No es un lock de transacción porque abarca llamadas a ARCA, que nunca van
+/// dentro de una transacción. Si el proceso muere, el lease vence solo.
+model arca_locks {
+  key          String   @id
+  owner        String
+  locked_until DateTime @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// Bitácora de llamadas a ARCA (auditoría y diagnóstico). Token, sign y CMS se redactan antes
+/// de guardar.
+model arca_call_logs {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id   String           @db.Uuid
+  environment  arca_environment
+  operation    String           @db.VarChar(60)
+  invoice_id   String?          @db.Uuid
+  http_status  Int?
+  duration_ms  Int
+  error        String?
+  request_xml  String
+  response_xml String?
+  created_at   DateTime         @default(now()) @db.Timestamptz(6)
+  company      company          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  invoice      invoices?        @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+
+  @@index([company_id, created_at], map: "idx_arca_call_logs_company_created")
+  @@index([invoice_id], map: "idx_arca_call_logs_invoice", where: raw("(invoice_id IS NOT NULL)"))
+  @@schema("public")
+}
+
+/// Ciclo de vida de un comprobante.
+///
+/// borrador ──emitir──> emitiendo ──A──> autorizada (final: solo una NC la contrarresta)
+///                         ├──R──> rechazada (editable como un borrador)
+///                         └──sin respuesta──> pendiente ──consultar en ARCA──> autorizada | borrador
+enum invoice_status {
+  borrador
+  emitiendo
+  pendiente
+  rechazada
+  autorizada
+
+  @@schema("public")
+}
+
+/// Comprobante electrónico: factura, nota de crédito o nota de débito (A, B o C). La clase y la
+/// letra salen de `cbte_type` (id de ARCA, ver src/shared/lib/arca/catalogs.ts). Una vez
+/// autorizada es inmutable (trigger `invoices_guard_immutable`).
+///
+/// `number` se asigna al emitir (último autorizado + 1) y se guarda ANTES de pedir el CAE: si
+/// ARCA no responde, es lo que permite reconciliar con `FECompConsultar` sin duplicar.
+model invoices {
+  id                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                String                   @db.Uuid
+  /// Ambiente con el que se emitió (o se va a emitir). La numeración es por ambiente.
+  environment               arca_environment
+  status                    invoice_status           @default(borrador)
+  /// Emitido con ARCA simulado (`ARCA_MODE=mock`, demos): el CAE es ficticio y no tiene validez.
+  simulated                 Boolean                  @default(false)
+  sales_point_id            String                   @db.Uuid
+  customer_id               String                   @db.Uuid
+  cbte_type                 Int
+  number                    Int?
+  /// 1 productos, 2 servicios, 3 ambos.
+  concept                   Int                      @default(2)
+  issue_date                DateTime                 @db.Date
+  service_from              DateTime?                @db.Date
+  service_to                DateTime?                @db.Date
+  payment_due_date          DateTime?                @db.Date
+  /// ISO (como contratos y certificaciones) y el código de ARCA (`PES`, `DOL`, `060`).
+  currency                  String                   @db.Char(3)
+  arca_currency_id          String                   @db.VarChar(3)
+  /// Cotización de ARCA congelada al emitir (1 en pesos).
+  exchange_rate             Decimal                  @default(1) @db.Decimal(18, 6)
+  exchange_rate_date        DateTime?                @db.Date
+  net_taxed                 Decimal                  @default(0) @db.Decimal(15, 2)
+  net_untaxed               Decimal                  @default(0) @db.Decimal(15, 2)
+  exempt_amount             Decimal                  @default(0) @db.Decimal(15, 2)
+  vat_total                 Decimal                  @default(0) @db.Decimal(15, 2)
+  other_taxes               Decimal                  @default(0) @db.Decimal(15, 2)
+  total                     Decimal                  @default(0) @db.Decimal(15, 2)
+  receiver_doc_type         Int                      @default(80)
+  receiver_doc_number       BigInt
+  receiver_vat_condition_id Int
+  /// Copia de los datos de emisor y receptor al emitir: el PDF se puede regenerar igual aunque
+  /// cambien después.
+  issuer_snapshot           Json?
+  receiver_snapshot         Json?
+  /// NC/ND: el comprobante que ajusta (`CbtesAsoc`).
+  associated_invoice_id     String?                  @db.Uuid
+  cae                       String?                  @db.VarChar(14)
+  cae_due_date              DateTime?                @db.Date
+  authorized_at             DateTime?                @db.Timestamptz(6)
+  arca_result               String?                  @db.Char(1)
+  arca_observations         Json?
+  arca_errors               Json?
+  /// Intención: el pedido exacto que se mandó (o se va a mandar) a ARCA.
+  request_payload           Json?
+  claimed_at                DateTime?                @db.Timestamptz(6)
+  sent_at                   DateTime?                @db.Timestamptz(6)
+  attempt_count             Int                      @default(0)
+  needs_review              Boolean                  @default(false)
+  review_note               String?
+  pdf_path                  String?
+  pdf_generated_at          DateTime?                @db.Timestamptz(6)
+  notes                     String?
+  created_by                String?                  @db.Uuid
+  emitted_by                String?                  @db.Uuid
+  created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
+  company                   company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales_point               sales_points             @relation(fields: [sales_point_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  customer                  customers                @relation(fields: [customer_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  associated_invoice        invoices?                @relation("InvoiceAdjustments", fields: [associated_invoice_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  adjustments               invoices[]               @relation("InvoiceAdjustments")
+  lines                     invoice_lines[]
+  vat_breakdown             invoice_vat[]
+  certifications            invoice_certifications[]
+  arca_call_logs            arca_call_logs[]
+
+  @@unique([sales_point_id, environment, cbte_type, number], map: "uq_invoices_number")
+  @@index([company_id, status], map: "idx_invoices_company_status")
+  @@index([company_id, issue_date(sort: Desc)], map: "idx_invoices_company_issue_date")
+  @@index([customer_id], map: "idx_invoices_customer")
+  @@index([associated_invoice_id], map: "idx_invoices_associated", where: raw("(associated_invoice_id IS NOT NULL)"))
+  @@schema("public")
+}
+
+/// Línea del comprobante. `net_amount` es la fuente de verdad (no se recalcula como cantidad x
+/// unitario): una línea que agrupa líneas de certificación suma sus importes ya redondeados, que
+/// es lo que el cliente aprobó. `vat_rate_id` nulo = comprobante C (no discrimina IVA).
+model invoice_lines {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id       String          @db.Uuid
+  position         Int
+  description      String
+  quantity         Decimal         @db.Decimal(15, 4)
+  unit_price       Decimal         @db.Decimal(15, 4)
+  net_amount       Decimal         @db.Decimal(15, 2)
+  vat_rate_id      Int?
+  service_item_id  String?         @db.Uuid
+  certification_id String?         @db.Uuid
+  invoice          invoices        @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  service_item     service_items?  @relation(fields: [service_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  certification    certifications? @relation(fields: [certification_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([invoice_id, position])
+  @@schema("public")
+}
+
+/// Subtotal por alícuota (array `Iva` de ARCA). El IVA se redondea UNA vez por alícuota, no por
+/// línea: es lo que valida ARCA.
+model invoice_vat {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id  String   @db.Uuid
+  vat_rate_id Int
+  base_amount Decimal  @db.Decimal(15, 2)
+  vat_amount  Decimal  @db.Decimal(15, 2)
+  invoice     invoices @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@unique([invoice_id, vat_rate_id])
+  @@schema("public")
+}
+
+/// Certificaciones que factura un comprobante. Un borrador ya las reserva. En PRODUCCIÓN una
+/// certificación se factura una sola vez (índice único parcial); en homologación no se consumen,
+/// así las pruebas no tocan el circuito real. Una NC total las libera (`released_at`).
+model invoice_certifications {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id       String           @db.Uuid
+  certification_id String           @db.Uuid
+  environment      arca_environment
+  amount           Decimal          @db.Decimal(15, 2)
+  released_at      DateTime?        @db.Timestamptz(6)
+  invoice          invoices         @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  certification    certifications   @relation(fields: [certification_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([invoice_id, certification_id])
+  @@unique([certification_id], map: "uq_invoice_certifications_live_prod", where: raw("((environment = 'produccion'::arca_environment) AND (released_at IS NULL))"))
+  @@index([certification_id], map: "idx_invoice_certifications_certification")
   @@schema("public")
 }
 

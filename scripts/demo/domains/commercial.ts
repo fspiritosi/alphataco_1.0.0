@@ -50,6 +50,7 @@ export async function seedCertifications(ctx: Ctx, rows: DemoRow[]): Promise<voi
               quantity: row.quantity,
               unit_price: unit,
               amount,
+              is_live: certStatus !== 'anulada',
               created_at: cal.at(to + 1 > 0 ? 0 : to + 1, 10),
             });
           }

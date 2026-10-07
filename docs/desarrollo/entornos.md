@@ -27,6 +27,10 @@
 | `MAILPIT_WEB_PORT`              | Servidor             | Puerto de la web/API de `mailpit`.                                        |
 | `TASKAPP_BASE_URL`              | Servidor             | Base URL del backend de tickets (Centro de Ayuda).                        |
 | `TASKAPP_PROJECT_API_KEY`       | Servidor             | API key del proyecto en TaskApp.                                          |
+| `FISCAL_SECRETS_KEY`            | Servidor             | Clave maestra AES-256-GCM (32 bytes base64, `openssl rand -base64 32`) que cifra la clave privada del certificado de ARCA y los tickets de WSAA. Solo en el entorno, nunca en la base. Rotación: la vigente lleva `FISCAL_SECRETS_KEY_VERSION` y las anteriores se dejan como `FISCAL_SECRETS_KEY_V<n>`. Si se pierde, hay que generar un certificado nuevo (las facturas no se pierden). |
+| `ARCA_MODE`                     | Servidor             | `mock` = ARCA simulado: demos y desarrollo sin certificado. CAE ficticio, comprobantes marcados "simulado" y PDF con marca de agua. Vacío = ARCA real. **La instancia demo debe tenerlo en `mock`.** |
+| `ARCA_MOCK_SCENARIO`            | Servidor             | Solo con `ARCA_MODE=mock`: `reject` fuerza un rechazo y `timeout` un corte de comunicación (para mostrar/probar los estados rechazada y pendiente). |
+| `ARCA_ALLOW_PRODUCTION`         | Servidor             | `true` SOLO en el despliegue de producción. Sin esto ninguna instancia (dev, demo) puede emitir comprobantes con validez fiscal, aunque la empresa tenga el ambiente en producción. |
 
 Ninguna variable `NEXT_PUBLIC_*` contiene un secreto: la key de PostHog es pública por diseño (es una clave de proyecto, no una credencial privilegiada). Los secretos de auth (`BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`) son de servidor y nunca se prefijan con `NEXT_PUBLIC_`.
 

@@ -24,7 +24,7 @@
 
 **Files:**
 - Modify: `prisma/schema.prisma`: `material_requests.work_order_id` + relación con `work_orders` (inversa `material_requests`), con índice.
-- Create: `prisma/migrations/20261007100000_material_requests_work_order/migration.sql`:
+- Create: `prisma/migrations/20261007190000_material_requests_work_order/migration.sql`:
   - columna, FK, índice;
   - CHECK `material_requests_work_order_check` (`work_order_id IS NULL OR destination_type = 'MAINTENANCE_ORDER'`).
 - Modify: `prisma/tests/02_warehouses.sql`. Caso nuevo: pedido con OT y destino `CUSTOMER` → `throws_ok`.
