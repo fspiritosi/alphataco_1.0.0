@@ -1,17 +1,30 @@
 import { z } from 'zod';
+import { isValidCuit, normalizeCuit } from '@/features/Empresa/General/lib/company-form';
 
 /**
  * Schema compartido server/client del formulario de cliente (sin directiva: lo importan la
  * server action y el componente). Los numéricos viajan como string (CUIT/teléfono) y la
  * action los convierte a `bigint` al persistir.
+ *
+ * El CUIT se valida con dígito verificador y se acepta con guiones ("30-71234567-8"): se
+ * guarda sin ellos. Los datos fiscales son opcionales acá; se exigen recién al facturar.
  */
+const optionalText = (max: number) =>
+  z.string().trim().max(max, `Máximo ${max} caracteres`).optional().or(z.literal(''));
+
 export const customerFormSchema = z.object({
   name: z.string().trim().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   cuit: z
     .string()
     .trim()
-    .min(8, 'El CUIT debe tener al menos 8 caracteres.')
-    .regex(/^\d+$/, 'El CUIT solo puede contener dígitos'),
+    .transform(normalizeCuit)
+    .refine(isValidCuit, 'El CUIT no es válido: revisá el dígito verificador.'),
+  /** Id de ARCA de la condición frente al IVA, como string (valor del select). */
+  vat_condition_id: z.string().optional().or(z.literal('')),
+  fiscal_street: optionalText(255),
+  fiscal_city: optionalText(120),
+  fiscal_province_id: z.string().optional().or(z.literal('')),
+  fiscal_postal_code: optionalText(10),
   client_email: z.string().trim().email('Por favor ingresa un email válido.').optional().or(z.literal('')),
   client_phone: z
     .string()

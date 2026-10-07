@@ -2,6 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   cacheComponents: true,
+  transpilePackages: ['@react-pdf/renderer'],
   experimental: {
     staleTimes: {
       dynamic: 60

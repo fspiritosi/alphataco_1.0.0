@@ -15,6 +15,12 @@ export interface CustomerRow {
   reason_for_termination: string | null;
   termination_date: Date | null;
   created_at: Date;
+  /** Datos fiscales (facturación ARCA). `fiscal_province_id` viaja como string (id del select). */
+  vat_condition_id: number | null;
+  fiscal_street: string | null;
+  fiscal_city: string | null;
+  fiscal_province_id: string | null;
+  fiscal_postal_code: string | null;
 }
 
 interface CustomerDbRow {
@@ -29,6 +35,11 @@ interface CustomerDbRow {
   reason_for_termination: string | null;
   termination_date: Date | null;
   created_at: Date;
+  vat_condition_id: number | null;
+  fiscal_street: string | null;
+  fiscal_city: string | null;
+  fiscal_province_id: bigint | null;
+  fiscal_postal_code: string | null;
 }
 
 export function serializeCustomer(row: CustomerDbRow): CustomerRow {
@@ -44,6 +55,11 @@ export function serializeCustomer(row: CustomerDbRow): CustomerRow {
     reason_for_termination: row.reason_for_termination,
     termination_date: row.termination_date,
     created_at: row.created_at,
+    vat_condition_id: row.vat_condition_id,
+    fiscal_street: row.fiscal_street,
+    fiscal_city: row.fiscal_city,
+    fiscal_province_id: row.fiscal_province_id === null ? null : row.fiscal_province_id.toString(),
+    fiscal_postal_code: row.fiscal_postal_code,
   };
 }
 

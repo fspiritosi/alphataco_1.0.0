@@ -49,7 +49,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'andes',
     name: 'Andes Energía Upstream S.A.',
-    cuit: '30709876541',
+    cuit: '30709876542',
     email: 'compras@andes-upstream-demo.com.ar',
     phone: '2994421100',
     address: 'Av. Argentina 1450, Neuquén',
@@ -90,7 +90,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'vaca_muerta',
     name: 'Vaca Muerta Operaciones S.R.L.',
-    cuit: '30712223334',
+    cuit: '30712223339',
     email: 'proveedores@vmo-demo.com.ar',
     phone: '2994487722',
     address: 'Ruta 7 Km 104, Añelo',
@@ -120,7 +120,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'petro_comahue',
     name: 'Petro Comahue S.A.',
-    cuit: '30714445556',
+    cuit: '30714445568',
     email: 'contratos@petrocomahue-demo.com.ar',
     phone: '2994433310',
     address: 'Calle Brown 322, Cutral Có',
@@ -146,7 +146,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'neuquen_og',
     name: 'Neuquén Oil & Gas S.A.',
-    cuit: '30716667778',
+    cuit: '30716667770',
     email: 'administracion@nqn-og-demo.com.ar',
     phone: '2994470055',
     address: 'Av. Olascoaga 890, Neuquén',
@@ -173,7 +173,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'anelo_servicios',
     name: 'Servicios Añelo S.A.',
-    cuit: '30718889990',
+    cuit: '30718889991',
     email: 'compras@servicios-anelo-demo.com.ar',
     phone: '2994490221',
     address: 'Parque Industrial Añelo, Lote 14',
@@ -198,7 +198,7 @@ export const CUSTOMERS: CustomerDef[] = [
   {
     key: 'cuenca_ep',
     name: 'Cuenca Neuquina E&P S.A.',
-    cuit: '30719990001',
+    cuit: '30719990009',
     email: 'contratos@cuenca-ep-demo.com.ar',
     phone: '2994455009',
     address: 'Leloir 1100, Neuquén',
@@ -223,7 +223,7 @@ export const CUSTOMERS: CustomerDef[] = [
     key: 'interno',
     id: KPI_FIXED_IDS.customerInternal,
     name: 'Movimientos Internos',
-    cuit: '30716543210',
+    cuit: '30716543214',
     email: 'operaciones@patagonia-demo.com.ar',
     phone: '2994480001',
     address: 'Ruta Provincial 7 Km 5, Neuquén',

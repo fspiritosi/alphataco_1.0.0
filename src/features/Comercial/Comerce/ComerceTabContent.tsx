@@ -1,12 +1,14 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import CertificacionesTabContent from '@/features/Comercial/Certificaciones/CertificacionesTabContent';
+import FacturacionTabContent from '@/features/Comercial/Facturacion/FacturacionTabContent';
+import { InvoicesTableSkeleton } from '@/features/Comercial/Facturacion/fallback/InvoicesTableSkeleton';
 import ReglasPrecioTabContent from '@/features/Comercial/ReglasPrecio/ReglasPrecioTabContent';
 import DataCustomersWrapper from '@/features/Comercial/Comerce/components/DataCustomersWrapper';
 import DailyReportWrapper from '@/features/Comercial/Comerce/components/DailyReportWrapper';
 import MensureUnitsWrapper from '@/features/Comercial/Comerce/components/MensureUnitsWrapper';
 import ServiceComponentWrapper from '@/features/Comercial/Comerce/components/ServiceComponentWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { ClipboardList, FileSpreadsheet, FileText, Ruler, TrendingUp, Users } from 'lucide-react';
+import { ClipboardList, FileSpreadsheet, FileText, Receipt, Ruler, TrendingUp, Users } from 'lucide-react';
 import { Suspense } from 'react';
 
 export default function ComerceTabContent({
@@ -100,6 +102,22 @@ export default function ComerceTabContent({
           content: (
             <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <CertificacionesTabContent />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'facturacion',
+          label: (
+            <span className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Facturación
+            </span>
+          ),
+          moduleSlug: 'comercial',
+          tabSlug: 'facturacion',
+          content: (
+            <Suspense fallback={<InvoicesTableSkeleton />}>
+              <FacturacionTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

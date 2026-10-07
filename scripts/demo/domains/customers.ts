@@ -28,6 +28,12 @@ export async function seedCustomers(ctx: Ctx): Promise<void> {
         client_email: c.email,
         client_phone: BigInt(c.phone),
         address: c.address,
+        // Datos fiscales para poder facturarles (todos Responsables Inscriptos de Neuquén).
+        vat_condition_id: 1,
+        fiscal_street: c.address,
+        fiscal_city: c.address.includes('Añelo') ? 'Añelo' : c.address.includes('Cutral Có') ? 'Cutral Có' : 'Neuquén',
+        fiscal_province_id: BigInt(NEUQUEN_PROVINCE),
+        fiscal_postal_code: '8300',
         company_id: companyId,
         is_active: !c.inactive,
         termination_date: c.inactive ? cal.day(-150) : null,

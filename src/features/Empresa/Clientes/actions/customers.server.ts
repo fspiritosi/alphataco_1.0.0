@@ -49,6 +49,11 @@ function toCustomerData(values: CustomerFormValues, companyId: string) {
     client_email: values.client_email || null,
     client_phone: values.client_phone ? BigInt(values.client_phone) : null,
     address: values.address || null,
+    vat_condition_id: values.vat_condition_id ? Number(values.vat_condition_id) : null,
+    fiscal_street: values.fiscal_street || null,
+    fiscal_city: values.fiscal_city || null,
+    fiscal_province_id: values.fiscal_province_id ? BigInt(values.fiscal_province_id) : null,
+    fiscal_postal_code: values.fiscal_postal_code ? values.fiscal_postal_code.toUpperCase() : null,
     is_active: isActive,
     company_id: companyId,
     // Si el cliente está activo se limpian los campos de baja.
@@ -58,8 +63,8 @@ function toCustomerData(values: CustomerFormValues, companyId: string) {
 }
 
 /**
- * Alta o edición de un cliente de la empresa activa. `cuit` es único en toda la tabla:
- * se verifica antes para devolver un mensaje claro en vez del P2002.
+ * Alta o edición de un cliente de la empresa activa. `cuit` es único por empresa: se verifica
+ * antes para devolver un mensaje claro (con el nombre del otro cliente) en vez del P2002.
  */
 export async function saveCustomer(
   input: CustomerFormValues,
@@ -73,11 +78,10 @@ export async function saveCustomer(
 
   try {
     const duplicate = await prisma.customers.findFirst({
-      where: { cuit: data.cuit, ...(customerId ? { id: { not: customerId } } : {}) },
-      select: { id: true },
+      where: { company_id: companyId, cuit: data.cuit, ...(customerId ? { id: { not: customerId } } : {}) },
+      select: { name: true },
     });
-    // El CUIT es único en toda la tabla: no se revela el nombre del cliente de otra empresa.
-    if (duplicate) return fail('Ya existe un cliente con este CUIT');
+    if (duplicate) return fail(`Ya hay un cliente con ese CUIT en esta empresa: ${duplicate.name}.`);
 
     if (customerId) {
       const updated = await prisma.customers.updateMany({ where: { id: customerId, company_id: companyId }, data });
@@ -93,7 +97,7 @@ export async function saveCustomer(
     return ok({ id: created.id });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return fail('Ya existe un cliente con este CUIT');
+      return fail('Ya hay un cliente con ese CUIT en esta empresa.');
     }
     logger.error('Error al guardar el cliente', { data: { error, customerId } });
     return fail(errorMessage(error, 'Error al guardar el cliente'));
