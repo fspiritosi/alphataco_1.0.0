@@ -4,7 +4,7 @@
 -- 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(31);
+SELECT plan(33);
 
 SELECT has_table('public', 'warehouses', 'existe warehouses');
 SELECT has_table('public', 'material_categories', 'existe material_categories');
@@ -210,6 +210,24 @@ SELECT throws_ok(
             'a1000000-0000-0000-0000-000000000098', 'a1000000-0000-0000-0000-000000000097')$$,
   '23514', 'new row for relation "material_requests" violates check constraint "material_requests_work_order_check"',
   'una OT solo va en un pedido a una orden de mantenimiento'
+);
+
+-- ── Etapa 5: ropa ───────────────────────────────────────────────────────────
+-- Anulacion a medias (fecha sin quien ni motivo). Los demas campos no importan: el CHECK falla
+-- antes que las FK.
+SELECT throws_ok(
+  $$INSERT INTO clothing_deliveries (employee_id, delivered_by_id, delivery_type, delivered_at, company_id, cancelled_at)
+    VALUES ('a1000000-0000-0000-0000-000000000096', 'a1000000-0000-0000-0000-000000000096', 'REPLACEMENT', now(),
+            'a1000000-0000-0000-0000-000000000001', now())$$,
+  '23514', NULL, 'una anulacion de entrega tiene fecha, quien y motivo juntos'
+);
+
+-- Un material no puede ser de dos combinaciones de ropa.
+SELECT throws_ok(
+  $$INSERT INTO clothing_item_materials (company_id, clothing_item_id, clothing_brand_id, clothing_size_id, material_id)
+    VALUES ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020'),
+           ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020')$$,
+  '23505', NULL, 'un material es de una sola combinacion de ropa'
 );
 
 SELECT * FROM finish();

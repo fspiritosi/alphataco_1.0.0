@@ -34,6 +34,14 @@ export function MovementDetail({ movement }: { movement: StockMovementDetail }) 
         </div>
       </div>
 
+      {movement.clothingDelivery && (
+        <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          Entrega de ropa a {movement.destination ?? 'un empleado'}
+          {movement.clothingDelivery.cancelled ? ' (entrega anulada)' : ''}. Se registró desde el panel de Ropa, con la
+          firma del empleado.
+        </p>
+      )}
+
       {movement.materialRequest && (
         <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
           {movement.reverses ? 'Anula una entrega del pedido ' : 'Entrega del pedido '}

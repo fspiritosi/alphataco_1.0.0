@@ -177,6 +177,8 @@ export async function getStockMovementDetail(id: string) {
       reversed_by: { select: { id: true, number: true } },
       returned_from: { select: { id: true, number: true } },
       material_request: { select: { id: true, number: true } },
+      // Salida de una entrega de ropa (etapa 5).
+      clothing_delivery: { select: { id: true, cancelled_at: true } },
       ...DESTINATION_SELECT,
       lines: {
         select: {
@@ -210,6 +212,9 @@ export async function getStockMovementDetail(id: string) {
     reversedBy: movement.reversed_by,
     returnedFrom: movement.returned_from,
     materialRequest: movement.material_request,
+    clothingDelivery: movement.clothing_delivery
+      ? { id: movement.clothing_delivery.id, cancelled: movement.clothing_delivery.cancelled_at !== null }
+      : null,
     destinationType: movement.destination_type,
     destination: destinationLabel(movement),
     totalCost: canViewPrices ? movement.total_cost.toFixed(2) : null,

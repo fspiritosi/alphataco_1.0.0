@@ -33,7 +33,9 @@ const UNITS = [
   { key: 'caja', name: 'Caja' },
 ];
 
-const CATEGORIES = ['Lubricantes', 'Filtros', 'Herramientas', 'EPP', 'Químicos'];
+// La ropa y los EPP (guantes, anteojos, botines...) son materiales del catalogo de Ropa: los crea
+// `seedClothing` (Almacenes etapa 5). Aca no se duplican.
+const CATEGORIES = ['Lubricantes', 'Filtros', 'Herramientas', 'Consumibles', 'Químicos'];
 
 const WAREHOUSES = [
   { key: 'BASE', name: 'Depósito Base Neuquén', address: 'Parque Industrial Neuquén, Calle 3 N° 450' },
@@ -47,8 +49,8 @@ const MATERIALS = [
   { key: 'ACE-HID68', name: 'Aceite hidráulico ISO 68', category: 'Lubricantes', unit: 'l', tracking: 'QUANTITY', min: 100 },
   { key: 'FIL-ACE', name: 'Filtro de aceite motor', category: 'Filtros', unit: 'u', tracking: 'QUANTITY', min: 10 },
   { key: 'FIL-AIRE', name: 'Filtro de aire primario', category: 'Filtros', unit: 'u', tracking: 'QUANTITY', min: 8 },
-  { key: 'EPP-GUA', name: 'Guantes de vaqueta', category: 'EPP', unit: 'par', tracking: 'QUANTITY', min: 40 },
-  { key: 'EPP-ANT', name: 'Anteojos de seguridad claros', category: 'EPP', unit: 'u', tracking: 'QUANTITY', min: 20 },
+  { key: 'CON-CIN', name: 'Cinta aisladora 20 m', category: 'Consumibles', unit: 'u', tracking: 'QUANTITY', min: 40 },
+  { key: 'CON-PAN', name: 'Paño absorbente industrial', category: 'Consumibles', unit: 'u', tracking: 'QUANTITY', min: 20 },
   { key: 'GRA-LIT', name: 'Grasa de litio EP2', category: 'Lubricantes', unit: 'kg', tracking: 'BATCH', min: null },
   { key: 'QUI-DES', name: 'Desengrasante industrial', category: 'Químicos', unit: 'l', tracking: 'BATCH', min: 20 },
   { key: 'HER-TAL', name: 'Taladro percutor 13 mm', category: 'Herramientas', unit: 'u', tracking: 'SERIAL', min: null },
@@ -368,8 +370,8 @@ export async function seedWarehouses(
     { material: 'FIL-AIRE', qty: 24, cost: 42300 },
   ] });
   ledger.register({ type: 'ENTRY', day: -68, warehouse: 'BASE', reference: 'Remito 0001-00004521', lines: [
-    { material: 'EPP-GUA', qty: 200, cost: 6900 },
-    { material: 'EPP-ANT', qty: 80, cost: 3800 },
+    { material: 'CON-CIN', qty: 200, cost: 2900 },
+    { material: 'CON-PAN', qty: 80, cost: 1800 },
     { material: 'GRA-LIT', qty: 60, cost: 9800, batch: 'L2407-118', expires: 300 },
     { material: 'QUI-DES', qty: 100, cost: 3100, batch: 'D-5531', expires: 25 },
   ] });
@@ -393,8 +395,8 @@ export async function seedWarehouses(
     { material: 'HER-AMO', serials: ['AM-90551', 'AM-90557'] },
   ] });
   ledger.register({ type: 'TRANSFER', day: -60, warehouse: 'BASE', target: 'ANELO', notes: 'Envío al obrador', lines: [
-    { material: 'EPP-GUA', qty: 80 },
-    { material: 'EPP-ANT', qty: 30 },
+    { material: 'CON-CIN', qty: 80 },
+    { material: 'CON-PAN', qty: 30 },
     { material: 'QUI-DES', qty: 40, batch: 'D-5531' },
     { material: 'HER-DET', serials: ['MX4-0018833'] },
   ] });
@@ -410,7 +412,7 @@ export async function seedWarehouses(
   let i = 0;
   for (const day of [-58, -51, -44, -37, -30, -23, -16, -9]) {
     exit(day, 'PANOL', veh(i), [{ material: 'ACE-15W40', qty: 32 }, { material: 'FIL-ACE', qty: 1 }], 'Service de motor');
-    exit(day + 1, 'ANELO', emp(i), [{ material: 'EPP-GUA', qty: 2 }, { material: 'EPP-ANT', qty: 1 }]);
+    exit(day + 1, 'ANELO', emp(i), [{ material: 'CON-CIN', qty: 2 }, { material: 'CON-PAN', qty: 1 }]);
     i += 1;
   }
   exit(-45, 'BASE', veh(1), [{ material: 'ACE-HID68', qty: 120 }, { material: 'FIL-AIRE', qty: 2 }], 'Cambio de aceite hidráulico');
@@ -501,7 +503,7 @@ export async function seedWarehouses(
     if (req) Object.assign(requests.find((r) => r.id === req.id)!, data);
   };
 
-  const delivered = request(1, -27, emp(0), [{ material: 'EPP-GUA', qty: 4 }, { material: 'EPP-ANT', qty: 2 }], { status: 'APPROVED' }, 'Ingreso de personal nuevo');
+  const delivered = request(1, -27, emp(0), [{ material: 'CON-CIN', qty: 4 }, { material: 'CON-PAN', qty: 2 }], { status: 'APPROVED' }, 'Kit de consumibles para el equipo nuevo');
   if (delivered) {
     deliver(delivered, -25, 'ANELO', [4, 2]);
     setStatus(delivered, { status: 'DELIVERED' });
@@ -514,7 +516,7 @@ export async function seedWarehouses(
   request(3, -3, emp(1), [{ material: 'GRA-LIT', qty: 5 }], { status: 'APPROVED' }, 'Engrase de crucetas');
   request(4, -1, emp(3), [{ material: 'HER-DET', qty: 1 }], { status: 'PENDING_APPROVAL' }, 'Trabajo en espacio confinado la semana próxima');
   request(5, -8, veh(2), [{ material: 'ACE-HID68', qty: 200 }], { status: 'REJECTED', notes: 'El cambio de aceite hidráulico se hizo hace un mes' });
-  const closed = request(6, -33, emp(5), [{ material: 'EPP-GUA', qty: 10 }], { status: 'APPROVED' });
+  const closed = request(6, -33, emp(5), [{ material: 'CON-CIN', qty: 10 }], { status: 'APPROVED' });
   if (closed) {
     deliver(closed, -30, 'ANELO', [6]);
     setStatus(closed, { status: 'CLOSED', closed_by: ctx.actorId, closed_at: ctx.cal.at(-20, 10), close_notes: 'El resto se compró en Añelo' });

@@ -371,6 +371,7 @@ model clothing_brands {
   company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   clothing_item_brand_sizes clothing_item_brand_sizes[]
   clothing_delivery_items   clothing_delivery_items[]
+  clothing_item_materials   clothing_item_materials[]
 
   @@unique([name, company_id], map: "clothing_brands_name_company_id_key")
   @@schema("public")
@@ -392,6 +393,15 @@ model clothing_deliveries {
   employees_clothing_deliveries_delivered_by_idToemployees employees                 @relation("clothing_deliveries_delivered_by_idToemployees", fields: [delivered_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                                                  company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
   clothing_delivery_items                                  clothing_delivery_items[]
+  /// Almacenes etapa 5: deposito del que salio, su salida de stock y la anulacion.
+  warehouse_id                                             String?                   @db.Uuid
+  stock_movement_id                                        String?                   @unique @db.Uuid
+  cancelled_at                                             DateTime?                 @db.Timestamptz(6)
+  cancelled_by                                             String?                   @db.Uuid
+  cancel_reason                                            String?
+  warehouse                                                warehouses?               @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stock_movement                                           stock_movements?          @relation(fields: [stock_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller                                                profile?                  @relation("clothing_delivery_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([employee_id], map: "idx_clothing_deliveries_employee")
   @@index([company_id], map: "idx_clothing_deliveries_company_id")
@@ -431,6 +441,28 @@ model clothing_item_brand_sizes {
   @@schema("public")
 }
 
+/// Almacenes etapa 5: material de stock de cada combinacion articulo + marca + talle. NUNCA se
+/// borra (la matriz `clothing_item_brand_sizes` si se reescribe): si una combinacion se quita y
+/// se vuelve a habilitar, recupera el mismo material con su stock e historial.
+model clothing_item_materials {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id        String          @db.Uuid
+  clothing_item_id  String          @db.Uuid
+  clothing_brand_id String          @db.Uuid
+  clothing_size_id  String          @db.Uuid
+  material_id       String          @unique @db.Uuid
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  company           company         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  clothing_items    clothing_items  @relation(fields: [clothing_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_brands   clothing_brands @relation(fields: [clothing_brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clothing_sizes    clothing_sizes  @relation(fields: [clothing_size_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  material          materials       @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([clothing_item_id, clothing_brand_id, clothing_size_id], map: "clothing_item_materials_combination_key")
+  @@index([company_id], map: "idx_clothing_item_materials_company")
+  @@schema("public")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model clothing_items {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -444,6 +476,7 @@ model clothing_items {
   company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   clothing_item_brand_sizes clothing_item_brand_sizes[]
   clothing_delivery_items   clothing_delivery_items[]
+  clothing_item_materials   clothing_item_materials[]
 
   @@unique([name, company_id], map: "clothing_items_name_company_id_key")
   @@schema("public")
@@ -460,6 +493,7 @@ model clothing_sizes {
   company                   company                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   clothing_item_brand_sizes clothing_item_brand_sizes[]
   clothing_delivery_items   clothing_delivery_items[]
+  clothing_item_materials   clothing_item_materials[]
 
   @@unique([name, company_id], map: "clothing_sizes_name_company_id_key")
   @@schema("public")
@@ -584,6 +618,7 @@ model company {
   material_unit_write_offs material_unit_write_offs[]
   material_requests    material_requests[]
   warehouse_settings   warehouse_settings?
+  clothing_item_materials      clothing_item_materials[]
   @@schema("public")
 }
 
@@ -2083,6 +2118,7 @@ model profile {
   material_requests_requested material_requests[] @relation("material_request_requester")
   material_requests_decided  material_requests[] @relation("material_request_decider")
   material_requests_closed   material_requests[] @relation("material_request_closer")
+  clothing_deliveries_cancelled clothing_deliveries[] @relation("clothing_delivery_canceller")
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
 }
@@ -4193,6 +4229,7 @@ model warehouses {
   material_units      material_units[]
   movements           stock_movements[] @relation("movement_warehouse")
   incoming_transfers  stock_movements[] @relation("movement_target_warehouse")
+  clothing_deliveries clothing_deliveries[]
 
   @@unique([company_id, code])
   @@unique([company_id, name])
@@ -4257,6 +4294,7 @@ model materials {
   stock_balances    stock_balances[]
   movement_lines    stock_movement_lines[]
   request_lines     material_request_lines[]
+  clothing_combination clothing_item_materials?
 
   @@unique([company_id, code])
   @@index([company_id], map: "idx_materials_company_id")
@@ -4371,6 +4409,7 @@ model stock_movements {
   material_request     material_requests?      @relation(fields: [material_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines                stock_movement_lines[]
   units_last_here      material_units[]        @relation("unit_last_movement")
+  clothing_delivery    clothing_deliveries?
 
   @@unique([company_id, number])
   @@index([company_id, occurred_on, created_at], map: "idx_stock_movements_company_date")

@@ -36,4 +36,6 @@ npx vitest run \
   src/features/Warehouses/actions/prices-permission.integration.test.ts \
   src/features/Warehouses/actions/direct-exit.integration.test.ts \
   src/features/OperatorPanel/actions/materials.integration.test.ts \
-  src/features/Mantenimiento/MaintenanceOrders/actions/materials.integration.test.ts
+  src/features/Mantenimiento/MaintenanceOrders/actions/materials.integration.test.ts \
+  src/features/Warehouses/lib/clothing-materials.integration.test.ts \
+  src/features/Clothing/ClothingDelivery/actions/deliveries.integration.test.ts
