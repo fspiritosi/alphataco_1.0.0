@@ -1,0 +1,114 @@
+---
+title: Catálogo de indumentaria
+summary: Cómo cargar los artículos de indumentaria y EPP con sus marcas y talles, y cómo consultar y descargar las constancias de todas las entregas.
+keywords: indumentaria, EPP, ropa de trabajo, artículo, marca, talle, combinación, entregas, constancia, reportes, firma, ZIP, reposición
+updated: 2026-10-07
+---
+
+El **Listado Maestro de Artículos** es el catálogo de la ropa de trabajo y los elementos de protección personal (EPP) que la empresa entrega a su gente. Lo que se carga acá es exactamente lo que después se puede elegir al registrar una entrega. También reúne el reporte de todas las entregas hechas. Lo usan RRHH, Higiene y Seguridad y el pañol.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Está en **Configuración → RRHH → Artículos** y tiene cuatro pestañas:
+
+| Pestaña | Para qué sirve |
+|---|---|
+| **Artículos** | Los artículos (camisa, botín, casco…) y qué marcas y talles hay de cada uno. |
+| **Marcas** | Las marcas disponibles. |
+| **Talles** | Los talles disponibles. |
+| **Reportes** | Todas las entregas registradas, con su constancia. |
+
+Conviene cargarlas en este orden: primero **Marcas** y **Talles**, después **Artículos**, porque al crear un artículo se eligen sus marcas y talles.
+
+## Marcas y Talles
+
+Las dos pestañas funcionan igual: una tabla con **Nombre**, **Estado** y **Fecha de creación**, el botón **Nueva Marca** o **Nuevo Talle**, y en cada fila los botones **Editar** y **Desactivar**/**Activar**.
+
+- La marca solo pide el **Nombre** (hasta 100 caracteres, por ejemplo "Caterpillar").
+- El talle solo pide el **Nombre** (hasta 50 caracteres, por ejemplo "M", "XL" o "42").
+
+No puede haber dos marcas, ni dos talles, con el mismo nombre ("**Ya existe una marca con ese nombre**").
+
+Una marca o un talle **inactivo** no se ofrece al armar las combinaciones de un artículo.
+
+## Artículos
+
+La tabla muestra **Nombre**, **Código**, **Descripción**, **Estado** y **Fecha de creación**. Podés buscar por nombre o código, filtrar por cada columna y exportar a Excel ("Artículos de Indumentaria").
+
+### Cómo crear un artículo
+
+<Steps>
+<Step title="Abrí el formulario">
+Hacé clic en **Nuevo Artículo**.
+</Step>
+<Step title="Cargá los datos">
+**Nombre** es obligatorio (por ejemplo "Camisa manga larga" o "Botas de seguridad") y no puede repetirse. **Código** (por ejemplo "CAM-ML-001") y **Descripción** son opcionales.
+</Step>
+<Step title="Armá las combinaciones de marca y talle">
+En **Marcas y Talles**, hacé clic en **Agregar**, elegí una marca en **Seleccioná una marca...**, tildá los talles que hay de esa marca y confirmá. Repetí con cada marca. Cada combinación se ve como una fila con la marca y sus talles; el tacho la quita.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear artículo**. Vas a ver **Artículo creado exitosamente**.
+</Step>
+</Steps>
+
+<Callout type="warning" title="Sin combinaciones, el artículo no se puede entregar bien">
+Al registrar una entrega se elige el artículo, después una de **sus** marcas y después uno de **sus** talles. Un artículo sin marcas ni talles cargados no ofrece nada para elegir.
+</Callout>
+
+Para cambiar un artículo, usá **Editar** en su fila (el botón dice **Guardar cambios**). Para dejar de entregarlo, usá **Desactivar**: un artículo inactivo no se ofrece en las entregas nuevas, pero sigue apareciendo en las entregas ya registradas.
+
+## Reportes
+
+**Reportes** es el listado de **todas** las entregas de indumentaria de la empresa.
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha de entrega** | Cuándo se entregó. |
+| **Legajo Receptor** y **Empleado** | Quién recibió. |
+| **Legajo (entregó)** y **Entregado por** | Quién entregó. |
+| **Tipo de entrega** | **Planificada CCT**, **Planificada EPP** o **Reposición**. |
+| **Artículos** | Lo que se entregó. |
+| Firma | **Con firma** o **Sin firma**. |
+| **Notas** | Las observaciones de la entrega. |
+| **Fecha de registro** | Cuándo se cargó en el sistema. |
+
+Podés filtrar por todas esas columnas y exportar a Excel ("Reportes de Entregas de Indumentaria", con una fila por artículo).
+
+- El botón de cada fila abre la **Constancia de Entrega EPP** en PDF, para ver o descargar.
+- Tildando varias entregas (o todas las visibles, con la casilla del encabezado) aparece una barra para descargarlas juntas con **Descargar ZIP**. La selección se mantiene aunque cambies de página.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow>
+<FlowStep title="Catálogo" module="Configuración">Artículos con sus marcas y talles.</FlowStep>
+<FlowStep title="Entrega" module="Panel de indumentaria" to="entrega-de-indumentaria" tone="info">Se elige artículo, marca y talle, y firma el empleado.</FlowStep>
+<FlowStep title="Ficha del empleado" module="Empleados" to="ficha-del-empleado" tone="success">La entrega queda en la pestaña Indumentaria.</FlowStep>
+<FlowStep title="Reportes" module="Configuración">Todas las entregas, con su constancia.</FlowStep>
+</Flow>
+
+- Lo que se entrega sale de este catálogo: si falta un artículo, una marca o un talle, se carga acá (<GuideLink to="entrega-de-indumentaria">Entrega de indumentaria</GuideLink>).
+- Cada entrega queda también en la ficha del empleado (<GuideLink to="ficha-del-empleado#indumentaria">Ficha del empleado → Indumentaria</GuideLink>).
+- El catálogo no lleva stock: no descuenta existencias al entregar.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver el catálogo | **Ver** en **RRHH** y en **Listado Maestro de Artículos** |
+| Ver cada pestaña | **Ver** en **Artículos**, **Marcas**, **Talles** o **Reportes** |
+| **Nuevo Artículo** / **Nueva Marca** / **Nuevo Talle** | **Crear** en esa pestaña |
+| **Editar** | **Editar** en esa pestaña |
+| **Desactivar** / **Activar** | **Eliminar** en esa pestaña |
+
+## Problemas frecuentes
+
+<Callout type="tip" title="&quot;No hay talles activos disponibles.&quot;">
+Al armar una combinación no hay talles para tildar. Cargá los talles en la pestaña **Talles** (o activá los que estén inactivos) y volvé al artículo.
+</Callout>
+
+<Callout type="tip" title="El botón Agregar de Marcas y Talles no aparece">
+Ya usaste todas las marcas activas en ese artículo. Para sumar talles a una marca ya cargada, quitá esa combinación y volvé a agregarla con todos sus talles.
+</Callout>

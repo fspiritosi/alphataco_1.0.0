@@ -1,0 +1,79 @@
+---
+title: Documentos de empresa
+summary: La documentación de la propia empresa (habilitaciones, constancias, seguros, presentaciones mensuales): qué está pendiente, cómo se sube y cómo se mantiene al día.
+keywords: documentos, empresa, habilitación, constancia, afip, arca, seguro, art, permanentes, mensuales, pendiente, subir, vencimiento, período, privados
+updated: 2026-10-07
+---
+
+La pestaña **Documentos de Empresa** reúne los documentos que la empresa tiene que tener al día sobre sí misma: constancias, habilitaciones, pólizas, presentaciones mensuales y todo lo que piden los clientes o los organismos. A diferencia de los documentos de empleados y equipos, cada documento existe **una sola vez** (es de la empresa activa).
+
+Los documentos obligatorios aparecen solos: cuando se configura un tipo de documento obligatorio para la empresa (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>), se agrega a esta lista como **Pendiente**.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Dos subpestañas: **Documentos Permanentes** y **Documentos Mensuales** (estos últimos se presentan por período).
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre del documento** | El tipo de documento. |
+| **Estado** | **Pendiente**, **Presentado**, **Aprobado**, **Rechazado** o **Vencido**. |
+| **Mandatorio** | Si el tipo es obligatorio. |
+| **Subido por** | Quién lo cargó; **Pendiente** si todavía no se subió. |
+| **Fecha de carga** | Cuándo se subió. |
+| **Vencimiento** | La fecha de vencimiento; **No vence** si el tipo no vence y **Pendiente** si falta cargarlo. |
+| **Período** | (Solo mensuales) el mes al que corresponde. |
+
+En la última columna aparece **Subir** si el documento todavía no se cargó, o **Ver** para abrir el <GuideLink to="detalle-de-documento">detalle del documento</GuideLink>.
+
+- **Buscador**: por nombre de documento.
+- **Filtros**: de entrada **Estado**, **Tipo de documento** y **Mandatorio**; con **Filtros** sumás **Subido por**, **Fecha de carga** y, en mensuales, **Período**.
+- **Excel**: exporta la lista con los filtros aplicados.
+
+## Cómo subir un documento de la empresa
+
+<Steps>
+<Step title="Abrí la carga">
+En la fila del documento pendiente, hacé clic en **Subir**. Se abre **Subir documento** con el tipo ya elegido.
+</Step>
+<Step title="Elegí el archivo">
+En **Archivo** seleccioná el documento.
+</Step>
+<Step title="Completá vencimiento o período">
+Si el tipo vence, la **Fecha de vencimiento** es obligatoria. Si es mensual, elegí el **Periodo**.
+</Step>
+<Step title="Confirmá">
+Hacé clic en **Subir**. Vas a ver **Documento subido con exito** y la fila pasa a **Presentado**.
+</Step>
+</Steps>
+
+Si el documento ya tenía archivo, el sistema avisa **Este documento ya se encuentra subido**: para cambiarlo, entrá con **Ver** y usá **Renovar** o **Reemplazar** en la pestaña **Actualizar**.
+
+Los estados funcionan igual que en empleados y equipos; están explicados en <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>. Los documentos de la empresa no se archivan como **Ya no aplica**.
+
+## Documentos privados
+
+Si un tipo de documento de empresa está marcado como privado, solo lo ven quienes tienen el permiso **Ver privados** en Documentos de Empresa.
+
+## Cómo se conecta con el resto del sistema
+
+- **Configuración**: los mismos documentos se ven desde los datos de la empresa. Ver <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>.
+- **Dashboard**: los vencimientos de los documentos de la empresa aparecen en <GuideLink to="dashboard-vencimientos">Vencimientos</GuideLink>.
+- **Tipos de documento**: qué documentos se piden, si vencen y si son mensuales se define en <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver la pestaña | **Ver** en Documentos de Empresa |
+| Ver cada subpestaña | **Ver** en Permanentes o Mensuales |
+| Ver documentos privados | **Ver privados** en Documentos de Empresa |
+| Abrir el detalle (**Ver**) | **Ver** en Detalle de Documento |
+| Renovar, reemplazar o eliminar | **Editar** en Detalle de Documento |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Falta un documento que la empresa debería tener">
+Solo aparecen como pendientes los tipos de documento **obligatorios** para la empresa. Si el que necesitás no está, revisá su configuración en <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>.
+</Callout>

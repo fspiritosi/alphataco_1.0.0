@@ -1,0 +1,129 @@
+---
+title: Altas y bajas
+summary: Qué pasa en todo el sistema cuando das de alta o de baja un empleado, un equipo o un usuario, y cómo se reactivan.
+keywords: alta, baja, reactivar, empleado, equipo, vehículo, usuario, motivo de baja, inactivo, dado de baja
+updated: 2026-10-07
+---
+
+Dar de alta o de baja un recurso no es solo cambiar un dato: arrastra documentos, diagramas, accesos y su presencia en los partes diarios. En el sistema **nada se borra**: un empleado o un equipo dado de baja queda guardado con su historial, y se puede **reactivar**. Esta guía cuenta, para cada caso, qué se hace, dónde y qué cambia solo.
+
+<Flow title="Ciclo de vida de un recurso">
+  <FlowStep title="Alta" module="Empleados / Equipos" to="empleados-listado">Se crea el legajo o el equipo.</FlowStep>
+  <FlowStep title="Documentos exigidos" module="Documentación" tone="warning" to="documentos-alertas-y-estado">Se le generan las alertas pendientes que le aplican.</FlowStep>
+  <FlowStep title="Trabajo diario" module="Operaciones" to="partes-diarios">Se asigna a partes, clientes y diagramas.</FlowStep>
+  <FlowStep title="Baja" module="Empleados / Equipos" tone="danger" to="ficha-del-empleado">Se registra motivo y fecha. Sale de los selectores.</FlowStep>
+  <FlowStep title="Reactivación" module="Empleados / Equipos" tone="success" to="ficha-del-empleado">Vuelve a estar activo y se le regeneran las exigencias.</FlowStep>
+</Flow>
+
+## Alta de un empleado
+
+Desde <GuideLink to="empleados-listado">Empleados</GuideLink>, **Agregar empleado** abre "Registrar Nuevo Empleado" con **Datos Personales**, **Datos de Contacto** y **Datos Laborales**. Las pestañas **Documentación** e **Indumentaria** se habilitan después de guardar. Son obligatorios, entre otros, nombre, apellido, documento, CUIL, fecha de nacimiento, domicilio, teléfono, email, **Legajo**, **Sector**, **Puesto en la empresa** y **Diagrama de trabajo**.
+
+Al guardar con **Agregar empleado**:
+
+- Se crean sus afectaciones a clientes ("Asignado a contratistas"), sus aptitudes técnicas y sus sectores de taller.
+- Se le genera una alerta **Pendiente** por cada documento obligatorio que le corresponda según sus datos (ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>), y se calcula su estado de documentación.
+- Si no se cargó **Fecha de ingreso**, se guarda la de hoy.
+
+Si el empleado viene de Selección, no se carga a mano: se crea al aprobar el candidato (ver <GuideLink to="de-candidato-a-legajo">De candidato a legajo</GuideLink>).
+
+<Callout type="warning" title="DNI, CUIL y legajo">
+El DNI y el CUIL no se pueden repetir: si ya existen, el alta falla con el mensaje genérico "Hubo un error al crear el empleado". Si te pasa, buscá ese DNI en **Empleados Inactivos**: puede ser alguien dado de baja que hay que **reactivar**, no volver a crear. El **Legajo**, en cambio, no se controla: verificá que no esté repetido.
+</Callout>
+
+## Alta de un equipo
+
+Desde <GuideLink to="equipos-listado">Equipos</GuideLink>:
+
+- **Vehículos** → **Agregar vehículo**. Pide tipo, marca, modelo, año, tipo de costo, sector y, según el tipo, **Dominio** y chasis o **Serie**. El dominio no se puede repetir ("El dominio ya existe").
+- **Equipamiento** → **Nuevo equipo**. El **N° de Serie** y el **N° Interno** no se pueden repetir entre los equipos activos de la empresa.
+
+Al crear un vehículo:
+
+- Nace con condición **En preparación**. Cuando está listo para trabajar, se pasa a **Operativo** desde el selector de condición del encabezado de su ficha.
+- Se crean sus afectaciones a clientes.
+- Se le generan las alertas **Pendiente** de los documentos de equipos que le correspondan.
+- En su ficha, la pestaña **QR** permite descargar o imprimir el código que se pega en el equipo para hacer checklists y pedidos desde el lugar (ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>).
+
+## Alta de un usuario
+
+En <GuideLink to="usuarios-y-roles">Configuración → Usuarios</GuideLink>, **Agregar Usuario** ofrece dos caminos:
+
+- **Crear usuario**: cargás nombre, apellido, correo, contraseña y **Rol**. La persona tiene que cambiar la contraseña la primera vez que entra.
+- **Invitar usuario**: solo correo y **Rol**. Le llega un mail "Te invitaron a …" con el botón **Definir mi contraseña**; el enlace vence en 24 horas. Si el mail no llega, puede usar "¿Olvidaste tu contraseña?".
+
+Si el correo ya tiene usuario en otra empresa, se le da acceso a esta sin mail. Para que un usuario quede asociado a un legajo, en la columna **Empleado vinculado** se usa **Vincular**. Ese vínculo es el que conecta las bajas de uno y otro (ver abajo).
+
+## Baja de un empleado
+
+Desde la <GuideLink to="ficha-del-empleado">ficha del empleado</GuideLink>, en el menú **⋯**, **Dar de Baja Empleado**. Se pide **Motivo de Baja** (Despido sin causa, Renuncia, Despido con causa, Acuerdo de partes, Fin de contrato, Fallecimiento) y **Fecha de Baja** (no puede ser futura).
+
+Lo que cambia solo:
+
+| Dónde | Efecto |
+|---|---|
+| Listados | Pasa a **Empleados Inactivos**, con la marca **Inactivo**, la fecha y la razón de baja. |
+| Documentación | Solo se le siguen pidiendo los documentos de tipos **Documento de baja**. Los demás pendientes sin archivo se borran. Los documentos con archivo **se conservan**. |
+| Diagramas | Se desactivan todos sus diagramas. |
+| Usuario vinculado | Si tiene un usuario vinculado, queda **bloqueado**: se le cierran las sesiones y pierde el acceso. |
+| Partes diarios | Deja de aparecer para asignar en partes nuevos y no se copia al clonar partes. Los partes ya cargados no cambian. |
+| Clientes | Sus afectaciones a clientes **no se tocan**. |
+
+## Baja de un equipo
+
+Desde la ficha del equipo, menú **⋯**, **Dar de Baja Equipo**, con **Motivo de Baja** (venta, destrucción total, devolución, otro) y **Fecha de Baja** (elegida en el calendario, no futura).
+
+- El equipo pasa a <GuideLink to="equipos-dados-de-baja">Equipos → Dados de Baja</GuideLink>, con su motivo y fecha.
+- Un vehículo dado de baja pasa además a condición **No operativo**.
+- Documentación: igual que con empleados, solo se siguen pidiendo los **Documentos de baja**; los pendientes sin archivo se borran y los archivos se conservan.
+- Deja de ofrecerse para asignar en los partes diarios. Sus afectaciones a clientes no se tocan.
+
+<Callout type="warning" title="Clonar partes con vehículos dados de baja">
+Al clonar líneas de un parte a otra fecha, los vehículos dados de baja **sí** se copian (los empleados y los otros equipos dados de baja no). Revisá los equipos de las líneas clonadas.
+</Callout>
+
+## Baja de un usuario
+
+En **Configuración → Usuarios**, **Dar de baja**. El usuario queda **Baneado**: no puede entrar al sistema en ninguna empresa y se le cierran las sesiones.
+
+Si tiene un empleado vinculado activo, el sistema pregunta "¿Deseas tambien dar de baja al empleado?":
+
+- **Solo quitar acceso**: se bloquea el usuario, el empleado sigue activo.
+- **Si, ambos**: pide el motivo y la fecha de baja del empleado y da de baja los dos juntos, con todos los efectos de la baja de un empleado.
+
+## Reactivar
+
+| Qué | Dónde | Qué pasa |
+|---|---|---|
+| Empleado | Ficha → **⋯** → **Activar Empleado** | Se borran el motivo y la fecha de baja, se reactivan sus diagramas, se desbloquea su usuario vinculado y se le vuelven a generar los documentos pendientes que le correspondan. |
+| Equipo | Ficha → **⋯** → **Activar Equipo** | Se borran el motivo y la fecha de baja y vuelven las exigencias de documentos. Un vehículo conserva la condición que tenía (**No operativo**): **no** vuelve solo a Operativo. |
+| Usuario | Configuración → Usuarios → **Reactivar** | Recupera el acceso. Si su empleado vinculado también está dado de baja, pregunta si reactivarlo ("Solo restaurar acceso" / "Si, ambos"). |
+
+<Callout type="danger" title="Lo que se pierde al reactivar">
+Al reactivar se borran el motivo y la fecha de la baja anterior: si necesitás conservarlos, anotalos antes. Los pendientes vacíos que se borraron en la baja se vuelven a crear, pero vacíos.
+</Callout>
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Alta de empleado | Empleados → Empleados: **Crear** |
+| Alta de vehículo / equipo | Equipos → Vehículos / Equipamiento: **Crear** |
+| Baja y reactivación de equipos | Detalle del equipo: **Editar** |
+| Alta de usuario | Configuración → Usuarios: **Crear** |
+| Baja de usuario | Configuración → Usuarios: **Eliminar** |
+| Reactivar usuario | Configuración → Usuarios: **Editar** |
+
+## Problemas frecuentes
+
+**"No me deja crear un empleado y el error no dice por qué"**: casi siempre es un DNI o CUIL que ya existe, muchas veces de un empleado inactivo. Reactivalo en vez de crearlo de nuevo.
+
+**"Di de baja al empleado y su usuario sigue entrando"**: el usuario no estaba vinculado a ese legajo. Vinculalo en Configuración → Usuarios o dalo de baja desde ahí.
+
+**"El empleado dado de baja sigue figurando en un cliente"**: es esperable, las afectaciones no se tocan en la baja. Si corresponde, quitalo desde <GuideLink to="clientes">Comercial → Clientes</GuideLink>.
+
+**"Reactivé el vehículo y no lo puedo usar"**: sigue **No operativo**. Desde la ficha solo se puede pasar a Operativo un equipo **En preparación**; un vehículo No operativo vuelve a Operativo al cerrarse una orden de taller (ver <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>).
+
+<Callout type="info" title="No hay borrado definitivo">
+Desde la pantalla no se puede eliminar un empleado ni un equipo: se dan de baja. Así se conserva su historial de documentos, partes y mantenimiento.
+</Callout>

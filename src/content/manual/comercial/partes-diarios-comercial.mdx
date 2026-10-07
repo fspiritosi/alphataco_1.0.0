@@ -1,0 +1,131 @@
+---
+title: Partes diarios (Comercial)
+summary: La vista comercial de los partes diarios: buscá lo trabajado por cliente, contrato o fecha, corregí líneas y pasalas en masa a En certificación.
+keywords: parte diario, comercial, línea, en certificación, ejecutado, remito, certificar, filtros, jornada
+updated: 2026-10-07
+---
+
+Operaciones carga día a día qué se hizo para cada cliente en los partes diarios. Esta solapa es la mirada comercial sobre esas mismas líneas: sirve para revisar lo trabajado, corregir lo que haga falta una vez cerrado el parte y marcar qué está listo para certificar. La usa el área comercial o de administración que prepara las certificaciones.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Partes Diarios**. Cómo se cargan los partes del lado de Operaciones está en <GuideLink to="partes-diarios">Partes diarios</GuideLink> y <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+
+## Buscar líneas
+
+La pantalla arranca vacía, con el mensaje **Utilice los filtros para buscar reportes.** Arriba está el bloque **Filtros de Reportes** (se puede plegar).
+
+| Filtro | Detalle |
+|---|---|
+| **Cliente** | Uno o varios clientes. |
+| **Servicio** | Los contratos. |
+| **Ítem** | Los ítems de los servicios elegidos (elegí primero un servicio). |
+| **Equipos del Cliente**, **Áreas**, **Sectores** | Se habilitan después de elegir un cliente. |
+| **Empleado** | Las líneas donde participó ese empleado. |
+| **Equipo** | Las líneas donde participó ese equipo de la empresa. |
+| **Estado** | **Pendiente**, **En Certificación**, **Ejecutado**, **Reprogramado**, **Cancelado**, **Sin Recursos Asignados**. |
+| **Fecha Desde** / **Fecha Hasta** | El rango de fechas de los partes. |
+
+Hacé clic en **Buscar**. **Limpiar** borra todos los filtros. Si no hay coincidencias vas a ver **No se encontraron resultados para los filtros seleccionados.**
+
+<Callout type="tip" title="Acotá antes de buscar">
+Sin filtros la búsqueda trae todas las líneas de la empresa. Para trabajar una certificación, filtrá por **Cliente**, **Servicio** y el rango de fechas del período.
+</Callout>
+
+## Qué ves en la tabla
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha** | Fecha del parte. |
+| **Cliente**, **Servicio**, **Ítem**, **Descripción Ítem** | A quién, bajo qué contrato y qué ítem. |
+| **Equipo Cliente**, **Área**, **Sector** | Dónde se trabajó. |
+| **Tipo de Servicio** | Mensual, Adicional o Adicional Permanente. |
+| **N° de Remito** | El o los remitos de la línea. |
+| **Estado** | El estado de la línea. |
+| **Empleados**, **Equipo Empresa** | Los recursos asignados. |
+| **Jornada**, **Descripción** | Duración y observaciones. |
+
+Dentro de la tabla tenés además filtros por columna y un buscador **Buscar en descripción...**. Las filas se pintan para que veas de un vistazo qué pasó con ellas:
+
+- **Amarillo**: la línea se creó después del día del parte (se agregó una vez pasado ese día).
+- **Azul**: la línea fue modificada desde Comercial.
+
+Cada fila tiene, según su estado y tus permisos, **Editar**, **Ver detalles**, **Ver historial** y, en las líneas **En certificación**, **Gestionar Remitos**.
+
+## Pasar líneas a En certificación
+
+Cuando el trabajo está **Ejecutado** y revisado, se marca **En certificación**. Se hace en masa:
+
+<Steps>
+  <Step title="Seleccioná las líneas">
+    Tildá las filas en la tabla. Solo se pueden tildar las que están en **Ejecutado**.
+  </Step>
+  <Step title="Enviá a certificación">
+    Hacé clic en **Enviar a certificación**. Se abre **Actualización masiva a En certificación** con la lista de lo elegido.
+  </Step>
+  <Step title="Confirmá">
+    Hacé clic en **Confirmar actualización**. El mensaje dice cuántas se actualizaron, por ejemplo **Se actualizaron 12 registro(s) a En certificación.** Si alguna ya no estaba en Ejecutado (porque alguien la cambió mientras tanto), se saltea y el mensaje lo aclara.
+  </Step>
+</Steps>
+
+<States title="Estados de una línea de parte">
+  <State name="Sin recursos asignados" tone="warning" next="Pendiente">Al ítem le faltan los empleados o equipos que requiere. Pasa sola a Pendiente cuando se le asignan.</State>
+  <State name="Pendiente" tone="default" next="Ejecutado, Reprogramado, Cancelado">Planificada, todavía no se hizo.</State>
+  <State name="Ejecutado" tone="success" next="En certificación">El trabajo se hizo. Se puede pasar a En certificación.</State>
+  <State name="En certificación" tone="info">Lista para certificar. Queda bloqueada para Operaciones.</State>
+  <State name="Reprogramado" tone="default">Se movió a otro día.</State>
+  <State name="Cancelado" tone="danger">No se hizo.</State>
+</States>
+
+<Callout type="warning" title="Qué bloquea En certificación en Operaciones">
+Una línea **En certificación** ya no se puede editar ni reasignar recursos desde el parte diario de Operaciones. Tampoco se edita desde esta solapa con **Editar** (el botón no aparece): desde Comercial solo queda **Gestionar Remitos**. Pasala a En certificación cuando esté realmente revisada.
+</Callout>
+
+## Corregir una línea
+
+<Steps>
+  <Step title="Abrí la línea">
+    Hacé clic en **Editar** en la fila. Si el parte de ese día todavía está abierto, el botón está deshabilitado y avisa **El parte esta abierto, debe editarse desde Operaciones**: mientras Operaciones lo está cargando, las correcciones se hacen allá.
+  </Step>
+  <Step title="Corregí">
+    Se abre el panel **Editar Parte Diario** con los datos del cliente, servicio, ítem, sector, área, equipos del cliente, tipo de servicio, fecha y **Jornada** (8, 12 o 24 horas, o **Por horario** con hora de inicio y fin), empleados, equipos de la empresa, **Estado**, **Número de Remito** y **Observaciones**.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Actualizar**. Vas a ver **Parte diario actualizado exitosamente.** y la fila queda pintada de azul.
+  </Step>
+</Steps>
+
+El **Estado** solo puede avanzar (de Sin recursos asignados a Pendiente, Ejecutado o En certificación), nunca volver atrás. Y solo se puede pasar a **En certificación** una línea que ya está en **Ejecutado**: si no, avisa **El estado solo puede cambiar a "en_certificacion" si el parte ya está en estado "ejecutado".**
+
+## Crear una línea desde Comercial
+
+Para registrar un trabajo que no se cargó en el parte (por ejemplo, un adicional que aparece después), usá **Crear Línea**, abajo de los filtros.
+
+<Steps>
+  <Step title="Completá la línea">
+    Se abre **Crear Línea de Parte Diario**. Elegí **Cliente**, **Servicio**, **Ítem** y, si corresponde, **Sector del Cliente**, **Área del Cliente** y **Equipos de Cliente (Máx. 2)**. Cargá la **Fecha del Parte Diario** (obligatoria), la **Jornada**, los **Empleados** y **Equipos Empresa**, y opcionalmente el **Número de Remito** y **Observaciones**.
+  </Step>
+  <Step title="Creá">
+    Hacé clic en **Crear**. Si no existe el parte de esa fecha, se crea. La línea nace en **En certificación**, salvo que al ítem le falten los recursos que requiere: en ese caso queda en **Sin recursos asignados**.
+  </Step>
+</Steps>
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="De la línea del parte a la factura">
+  <FlowStep title="Parte diario" module="Operaciones" to="partes-diarios">Se carga y se ejecuta la línea.</FlowStep>
+  <FlowStep title="En certificación" module="Comercial" tone="info">Se revisa y se marca desde esta solapa.</FlowStep>
+  <FlowStep title="Certificación" module="Comercial" to="certificaciones">Se agrupa por cliente, contrato y período.</FlowStep>
+  <FlowStep title="Factura" module="Comercial" tone="success" to="facturacion">Se factura lo certificado.</FlowStep>
+</Flow>
+
+- Las **certificaciones** toman las líneas **Ejecutado** y **En certificación** del contrato y del período. Pasarlas a En certificación no es obligatorio para certificarlas, pero sirve para dejar claro qué ya fue revisado y para cerrarlas a cambios desde Operaciones. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink>.
+- El recorrido completo está en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la solapa y buscar | **Ver** en Partes Diarios (Comercial) |
+| **Crear Línea** | **Crear** en Partes Diarios (Comercial) |
+| **Editar**, **Enviar a certificación**, **Gestionar Remitos** | **Editar** en Partes Diarios (Comercial) |

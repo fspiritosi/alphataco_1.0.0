@@ -1,0 +1,168 @@
+---
+title: Formularios y checklists
+summary: Respondé los checklists de inspección de los equipos, consultá las respuestas, descargá el PDF y registrá los desvíos que van a Mantenimiento.
+keywords: formulario, checklist, inspección, respuesta, PDF, desvío, enganche, kilometraje, horómetro, bueno, malo, no aplica
+updated: 2026-10-07
+---
+
+El módulo **Formularios** reúne los checklists de inspección de los equipos (la inspección diaria del vehículo, el checklist de la hidrogrúa, el de los semirremolques, etc.). Cada vez que alguien inspecciona un equipo, carga una **respuesta**. Si en la inspección algo está mal, el sistema registra un **desvío** y desde ahí arranca el circuito de mantenimiento: la solicitud, la validación del supervisor y la entrada al taller.
+
+<OpenScreen />
+
+Se entra desde **Formularios** en el menú lateral.
+
+## Qué ves en la pantalla
+
+La tabla lista los formularios de la empresa:
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre** | El nombre del formulario, con un contador de respuestas al costado. Es un enlace que abre el formulario. |
+| **Descripción** | Para qué sirve. |
+| **Código** | El código interno de la plantilla (oculto al principio). |
+| **Tipo** | **Normalizado** (los checklists actuales) o **Formulario personalizado** (formularios del sistema anterior). |
+| **Estado** | **Activo** o **Inactivo**. Los inactivos se ven atenuados y no se pueden abrir. |
+| **Creación** | Fecha en que se cargó el formulario. |
+| **Respuestas** | Cuántas respuestas tiene. |
+| Acciones | **Ver formulario**. |
+
+**Filtros.** **Estado**, **Tipo**, **Nombre**, **Descripción**, **Código** y **Fecha de creación**. El buscador es **Buscar formularios por nombre o descripción...** **Excel** exporta el listado.
+
+## De dónde salen los formularios
+
+Los formularios **no se crean desde esta pantalla**. Cada checklist replica un formulario en papel de la empresa (con sus secciones, sus ítems y cuáles son críticos) y se carga en el sistema al implementarlo. Para pedir un formulario nuevo, o cambiar uno existente, abrí un ticket de soporte (ver <GuideLink to="soporte-tickets">Soporte</GuideLink>).
+
+Cada checklist además sabe **a qué equipos aplica**: está asociado a tipos o subtipos de equipo, y al responderlo solo se ofrecen los equipos que coinciden.
+
+<Callout type="info" title="Formularios personalizados">
+Los formularios del tipo **Formulario personalizado** vienen del sistema anterior. Se pueden abrir para ver la lista de respuestas que tenían e imprimirlos vacíos (**Imprimir vacío**), pero no admiten respuestas nuevas: al intentar responder aparece **Formulario de estructura antigua detectado**. Todo lo que sigue en esta guía se refiere a los checklists **Normalizados**.
+</Callout>
+
+## Cómo responder un checklist
+
+<Steps>
+  <Step title="Abrí el formulario">
+    En la tabla, hacé clic en el nombre o en **Ver formulario**, y después en **Nueva respuesta**.
+  </Step>
+  <Step title="Completá la Información General">
+    Elegí el **Equipo** (obligatorio). Al elegirlo se ven su marca, modelo, número de serie e interno. Completá **Chofer** (obligatorio; se busca por nombre o documento entre los empleados activos), **Fecha** y **Hora** (obligatorias). **Cliente**, **Kilometraje**, **Horómetro** y **Observaciones** son opcionales.
+  </Step>
+  <Step title="Declará el enganche, si corresponde">
+    En los checklists de unidades que llevan acoplado o semirremolque aparece **Enganche**: hacé clic en **Agregar enganche** y elegí la unidad en **Seleccionar Equipo Enganchado** (solo aparecen los equipos compatibles). Al declararlo se muestra la sección propia del acoplado.
+  </Step>
+  <Step title="Respondé cada sección">
+    Las secciones se abren y cierran como acordeón. Cada ítem se responde con **Bueno**, **Malo** o **No aplica**. Algunos ítems se responden por lado (**Izquierda** y **Derecha**) y otros piden una fecha o una opción propia. Todos los ítems son obligatorios.
+  </Step>
+  <Step title="Agregá observaciones por ítem (si el formulario las tiene)">
+    Los checklists que en papel tienen una columna de observaciones (como el de la hidrogrúa) muestran un campo **Observación** en cada ítem: describí qué encontraste. Ese texto viaja al desvío y a la orden de trabajo del taller.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Guardar Checklist**. **Limpiar** el formulario lo deja en blanco.
+  </Step>
+</Steps>
+
+Si falta algún ítem, el formulario no se guarda y marca en rojo lo pendiente (por ejemplo "… es requerido"). **No aplica** sirve para los ítems que no corresponden a esa unidad (por ejemplo un conector de acoplado en un vehículo liviano): no cuenta como falla.
+
+<Callout type="tip" title="Ver diagrama de partes">
+Algunos checklists traen el dibujo de nomenclatura del formulario en papel. Si está disponible, aparece el enlace **Ver diagrama de partes** debajo de la información general. Es solo de consulta: no forma parte de la inspección.
+</Callout>
+
+### Kilometraje y horómetro
+
+El kilometraje y el horómetro no pueden ser menores a los que el equipo ya tiene registrados: la etiqueta muestra el mínimo, por ejemplo **(mín: 125.000 km)**, y si cargás menos aparece **El kilometraje no puede ser menor a …**. Si el kilometraje que cargás es mayor al registrado, el sistema actualiza el kilometraje del equipo.
+
+## Qué pasa al guardar: desvíos y solicitudes de mantenimiento
+
+Cada ítem respondido como **Malo** genera un **desvío** sobre ese equipo, marcado como crítico si el ítem lo es. Lo que ves después de guardar depende del resultado:
+
+<Flow title="Del checklist al taller">
+  <FlowStep title="Checklist con fallas" module="Formularios" tone="warning">Uno o más ítems en Malo: se registran los desvíos.</FlowStep>
+  <FlowStep title="Registrar Desvíos" module="Formularios" tone="info">Elegís el supervisor de turno y se crea la solicitud de mantenimiento.</FlowStep>
+  <FlowStep title="Validación" module="Mantenimiento" tone="info" to="validar-solicitudes">El supervisor revisa la solicitud.</FlowStep>
+  <FlowStep title="Taller" module="Mantenimiento" tone="success" to="del-checklist-al-taller">El equipo entra al taller y se repara.</FlowStep>
+</Flow>
+
+**Si hubo fallas.** Aparece **Checklist guardado** con la cantidad de ítems con fallos (y cuántos críticos), y se abre **Registrar Desvíos**:
+
+<Steps>
+  <Step title="Elegí el supervisor de turno">
+    **Supervisor de Turno \*** es obligatorio: es quien va a revisar la solicitud.
+  </Step>
+  <Step title="Comentá cada desvío (opcional)">
+    Podés agregar un comentario a cada ítem fallado, describiendo el problema.
+  </Step>
+  <Step title="Registrá">
+    Hacé clic en **Registrar Desvíos**. El aviso dice cuántos desvíos se registraron y en cuántas solicitudes, por ejemplo **Se registraron 3 desvío(s) en 1 solicitud(es) para revisión del supervisor.**
+  </Step>
+</Steps>
+
+Si declaraste un enganche y hay fallas en las dos unidades, se crea **una solicitud por unidad**, para que cada reparación quede imputada a la patente que corresponde. Las fallas de la sección del acoplado van al acoplado, no al camión.
+
+**Si no hubo fallas.** Aparece **Checklist guardado correctamente** con la pregunta de si querés registrar un desvío igualmente, por algo que el checklist no cubre. **Sí, registrar desvío** abre **Registrar desvío adicional**, donde elegís el supervisor y los ítems; **No, continuar** termina.
+
+<Callout type="warning" title="Si cerrás Registrar Desvíos sin registrar">
+La respuesta del checklist y sus desvíos quedan guardados igual, pero **sin solicitud de mantenimiento**. Esos desvíos no se pierden: quedan pendientes en Mantenimiento, en **Equipos con desvíos**, desde donde se puede crear la solicitud después. Ver <GuideLink to="equipos-con-desvios">Equipos con desvíos</GuideLink>.
+</Callout>
+
+Guardar un checklist **no cambia la condición del equipo**: un equipo con fallas sigue figurando como estaba hasta que Mantenimiento aprueba su entrada al taller. El recorrido completo, con la validación y el taller, está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+## Cómo ver las respuestas
+
+Al abrir un formulario normalizado ves su nombre, los botones **Imprimir PDF vacío** y **Nueva respuesta**, y la tabla de respuestas:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha** | La fecha de la inspección. |
+| **Equipo** | El equipo inspeccionado. |
+| **Chofer** | Quién manejaba la unidad. |
+| **Cliente** | El cliente, si se cargó. |
+| **Kilometraje** / **Horómetro** | Lo cargado en la inspección. |
+| **Resultado** | **Aprobado** (ningún ítem en Malo) o **Fallido** (al menos uno en Malo). |
+| **Usuario** | Quién cargó la respuesta. |
+| **Observaciones** | Las observaciones generales (oculta al principio). |
+| Acciones | **Ver**. |
+
+**Filtros.** De entrada se ven **Fecha**, **Resultado** y **Equipo**; también hay **Usuario**, **Chofer**, **Cliente** y **Observaciones**. El buscador es **Buscar respuestas...** y **Excel** exporta las respuestas filtradas.
+
+**Ver** abre la respuesta tal como se cargó, en modo solo lectura. Los ítems en Malo se ven resaltados.
+
+## Cómo obtener el PDF
+
+- **De una respuesta**: en la respuesta abierta, **Descargar PDF** genera el checklist completo con los datos del equipo, el cliente, el chofer, la fecha, cada respuesta y las observaciones.
+- **En blanco**: en la lista de respuestas, **Imprimir PDF vacío** muestra una **Vista previa del PDF vacío** para imprimir y completar a mano cuando no hay conexión.
+
+## Otras formas de responder un checklist
+
+El mismo checklist se puede responder también:
+
+- **Desde el código QR del equipo**, sin entrar al sistema, típicamente por el chofer en el lugar. Ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>.
+- **Desde la ficha del vehículo**, donde además se ve el historial de checklists de esa unidad. Ver <GuideLink to="ficha-del-vehiculo">Ficha del vehículo</GuideLink>.
+
+Las respuestas cargadas por cualquiera de esos caminos aparecen en la lista de respuestas de este módulo.
+
+## Cómo se conecta con el resto del sistema
+
+- **Mantenimiento**: cada ítem en Malo es un desvío; registrarlo crea la solicitud de mantenimiento que valida el supervisor (<GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink>). Los desvíos sin solicitud aparecen en <GuideLink to="equipos-con-desvios">Equipos con desvíos</GuideLink>.
+- **Equipos**: el kilometraje cargado actualiza el del equipo cuando es mayor. La condición del equipo (operativo, en reparación) la cambia Mantenimiento, no el checklist.
+- **Operaciones**: cuando el equipo entra al taller, su condición cambia y eso se refleja como desvío si está asignado en un parte diario. Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver el listado, abrir los formularios, responder, ver respuestas y descargar PDFs | **Ver** en Formularios |
+| Elegir supervisor y registrar desvíos | No requiere un permiso aparte; la solicitud la valida después un supervisor con permiso en Mantenimiento |
+
+## Problemas frecuentes
+
+<Callout type="info" title="El equipo no aparece en la lista">
+El checklist solo ofrece equipos **activos** de los tipos o subtipos a los que está asociado. Si el equipo es de otro tipo, probablemente corresponda otro checklist. Si el equipo está dado de baja, no aparece.
+</Callout>
+
+<Callout type="info" title="No me deja guardar el kilometraje">
+Es menor al que el equipo ya tiene registrado. Revisá el odómetro de la unidad: el mínimo aceptado se muestra junto a la etiqueta **Kilometraje**. Si el registrado está mal, hay que corregirlo en la ficha del equipo.
+</Callout>
+
+<Callout type="info" title="No encuentro un formulario en la lista">
+Puede estar **Inactivo** (filtrá por **Estado**) o no estar cargado para tu empresa. Los formularios nuevos se piden por soporte.
+</Callout>

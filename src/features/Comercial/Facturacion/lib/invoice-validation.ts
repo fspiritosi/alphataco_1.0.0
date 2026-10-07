@@ -1,5 +1,6 @@
 import { isValidCuit } from '@/features/Empresa/General/lib/company-form';
 import { isSupportedCurrency } from '@/shared/lib/arca/catalogs';
+import { formatAmountText } from '@/shared/utils/amount-text';
 import { amountOf, compareAmounts, parseScaled, QUANTITY_SCALE } from './invoice-math';
 
 /**
@@ -95,7 +96,7 @@ export function validateInvoiceForIssue(invoice: InvoiceForValidation): IssuePro
 
   if (invoice.kind === 'credit_note' && invoice.creditableRemaining !== undefined) {
     if (compareAmounts(invoice.total, invoice.creditableRemaining) > 0) {
-      add('total', `La nota de crédito supera el saldo del comprobante original (${invoice.creditableRemaining}).`);
+      add('total', `La nota de crédito supera el saldo del comprobante original (saldo disponible: ${invoice.currency} ${formatAmountText(invoice.creditableRemaining)}).`);
     }
   }
 

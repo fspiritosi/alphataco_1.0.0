@@ -71,6 +71,11 @@ export interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
   tabSlug?: AllTabSlugsUnion<M>;
   /** Deshabilita la pestaña */
   disabled?: boolean;
+  /**
+   * `SectionManagerServer`: no dibuja el `<h1>` con el `label` porque el contenido trae su propio
+   * título (ej. el Centro de Ayuda del módulo de TaskApp). Sin esto quedaban dos títulos.
+   */
+  hideTitle?: boolean;
 }
 
 /**

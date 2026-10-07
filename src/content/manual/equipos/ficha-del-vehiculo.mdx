@@ -1,0 +1,138 @@
+---
+title: Ficha del vehículo
+summary: Todo lo que se ve y se hace dentro de un vehículo: datos, asignación a clientes y centro de costo, documentos, QR, historial de mantenimiento, checklists y cubiertas.
+keywords: ficha, vehículo, detalle, editar, dominio, asignación, contratistas, clientes, centro de costo, sector, qr, historial de mantenimiento, checklist, cubiertas, gomería, en preparación, operativo
+updated: 2026-10-07
+---
+
+La ficha reúne toda la información de un vehículo: sus datos, a qué clientes y centro de costo está asignado, sus documentos, su código QR, lo que pasó por el taller, los checklists que se le hicieron y la configuración de sus cubiertas. Se abre haciendo clic en el **Dominio**, el **N° Interno** o **Ver** desde el <GuideLink to="equipos-listado">listado de equipos</GuideLink>, o desde cualquier tabla que muestre el equipo como enlace.
+
+<OpenScreen to="equipos-listado" label="Ir al listado de equipos" />
+
+## El encabezado
+
+Arriba de todo ves:
+
+- La **foto** del vehículo (si se cargó) y el **Dominio** como título.
+- Su **condición** (**Operativo**, **No operativo**, **En preparación**…).
+- Un resumen: **Año**, **Tipo**, **Subtipo**, **N° Interno** y **Estado** (**Activo** o **Dado de Baja**). Si está dado de baja, debajo aparecen la **Fecha de Baja** y la **Razón de Baja**.
+- Los botones **Editar**, el menú de los tres puntos (**Dar de Baja Equipo** o **Activar Equipo**) y **Volver**.
+
+### Pasar de En preparación a Operativo
+
+Todo vehículo nuevo nace **En preparación**. Mientras esté así, en lugar del distintivo de condición aparece un selector.
+
+<Steps>
+<Step title="Abrí el selector de condición">
+Debajo del dominio, hacé clic en **En preparación**.
+</Step>
+<Step title="Elegí Operativo">
+Seleccioná **Operativo**. Vas a ver **Equipo actualizado a Operativo**.
+</Step>
+</Steps>
+
+Es el **único** cambio de condición que se hace desde la ficha. El resto lo maneja Mantenimiento: el ingreso al taller lo pasa a **No operativo** y el cierre de la orden lo devuelve a **Operativo**. Ver <GuideLink to="equipos-listado">Listado de equipos</GuideLink> para el detalle de cada condición.
+
+## Ver y editar los datos
+
+La ficha se abre en modo lectura. Para modificarla:
+
+<Steps>
+<Step title="Entrá en modo edición">
+Hacé clic en **Editar**. Los campos de **Datos Básicos** y **Asignación** se habilitan.
+</Step>
+<Step title="Hacé los cambios">
+Las validaciones son las mismas que en el alta (dominio según el año, chasis, campos obligatorios, certificación). Si una pestaña tiene errores, muestra un punto rojo.
+</Step>
+<Step title="Guardá o cancelá">
+**Guardar cambios** confirma (**Equipo actualizado correctamente**). **Cancelar** descarta lo que cambiaste y vuelve al modo lectura.
+</Step>
+</Steps>
+
+## Las pestañas de la ficha
+
+| Pestaña | Qué tiene |
+|---|---|
+| **Datos Básicos** | Tipo de equipo, marca, modelo, año, motor, tipo y subtipo, chasis, dominio, kilometraje, horómetro, contrato y propietario, certificación, valor y número interno. |
+| **Asignación** | Centro de costo, tipo de costo, sector y clientes a los que está afectado. |
+| **Documentos** | Los documentos que se le exigen, permanentes y mensuales. |
+| **QR** | El código QR del vehículo para pegar en la unidad. |
+| **Historial de Mantenimiento** | Las órdenes de mantenimiento y las solicitudes rechazadas. |
+| **Checklist** | Todos los checklists completados para este vehículo. |
+| **Cubiertas** | La configuración de ejes y cubiertas y las órdenes de gomería. |
+
+Cada pestaña se muestra solo si tenés permiso para verla. **Documentos**, **Historial de Mantenimiento**, **Checklist** y **Cubiertas** se habilitan recién cuando el vehículo ya está guardado.
+
+### Asignación
+
+Define a quién se imputa el vehículo y para quién trabaja:
+
+- **Centro de costo**: el centro de costo de la empresa al que se carga el equipo.
+- **Tipo de costo** (obligatorio): **Directo** o **Indirecto**.
+- **Sector** (obligatorio): el sector de la organización al que pertenece.
+- **Asignación a Contratistas**: tildá los clientes a los que queda afectado. En modo lectura se ven como etiquetas; si no tiene ninguno, dice **No hay contratistas asignados**.
+
+Al guardar, el sistema agrega y quita solo los clientes que cambiaste: los que dejaste igual no se tocan. Estas afectaciones son las que ves en la columna **Afectaciones** del listado y en Comercial → Clientes, y las que usa Operaciones para saber con qué equipos cuenta cada cliente.
+
+### Documentos
+
+Muestra los documentos del vehículo en dos subpestañas, **Documentos Permanentes** y **Documentos Mensuales**, con las mismas columnas y acciones que en Documentación (incluido **Subir documento** en los pendientes y **Ver documento** en los cargados). A diferencia de las tablas generales, acá también aparecen los documentos que **ya no aplican** al vehículo, marcados **Ya no aplica**, como historial. Ver <GuideLink to="documentos-de-equipos">Documentos de equipos</GuideLink>.
+
+### QR
+
+Muestra el código QR del vehículo con tres botones: **Descargar** (imagen), **Imprimir** y **Copiar url**.
+
+El QR abre la página de acceso de campo de ese equipo: quien lo escanea con el celular inicia sesión y llega al panel del vehículo, desde donde puede completar checklists, pedir mantenimiento o registrar servicios de gomería sin entrar al sistema completo. Ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>.
+
+<Callout type="tip" title="Un QR por unidad">
+Imprimí el QR y pegalo en un lugar visible de la unidad. El código identifica a ese vehículo: no lo cambies de equipo.
+</Callout>
+
+### Historial de Mantenimiento
+
+Tiene dos subpestañas:
+
+- **Órdenes de Mantenimiento**: cada orden del vehículo con **N° Orden**, **Estado**, **Ingreso**, **Creada**, **Sectores**, **Items**, **OTs** y **Progreso** (porcentaje de avance). **Detalle** abre la orden completa y el ícono del reloj muestra el **Historial Completo** de lo que pasó con ella. Podés filtrar por estado: **Por programar**, **Pendiente de ingreso a taller**, **En Taller**, **Completada**, **Rechazada por Taller**, entre otros.
+- **Solicitudes Rechazadas**: lo que se pidió para este vehículo y no se aprobó, con **Fecha de Rechazo**, **Tipo de Rechazo**, **Ítems Rechazados**, **Motivo**, **Origen**, **Rechazado por** y **Descripción**. Es el único lugar donde quedan registradas.
+
+Ver <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink> para el circuito completo.
+
+### Checklist
+
+La tabla **Historial de Checklists** lista cada checklist completado para el vehículo: **Fecha**, **Checklist** (el formulario usado), **Resultado** (**Bueno** o **Malo**), **Items Críticos Fallidos**, **Unidad Tractor**, **Realizado por** y **Observaciones**. **Ver** abre el checklist completo en una pestaña nueva del navegador.
+
+### Cubiertas
+
+- **Configuración de Cubiertas**: el diagrama de ejes y posiciones del vehículo. La configuración puede venir **Heredada** de la plantilla de su subtipo o ser **Personalizada** para este vehículo. Con permiso de edición podés **Editar** el diagrama (si era heredado, se crea una configuración personalizada para este equipo), **Restablecer** la del subtipo, o **Crear configuración personalizada** si no tiene ninguna. **Ir a Plantillas** lleva a las plantillas de Gomería.
+- **Medidas de cubierta**: la medida por eje, que puede ajustarse para este vehículo.
+- **Historial de Órdenes de Gomería**: los servicios de gomería registrados.
+
+Ver <GuideLink to="gomeria">Gomería</GuideLink>.
+
+## Cómo se conecta con el resto del sistema
+
+- **Datos Básicos → Documentación**: al guardar, el sistema vuelve a calcular qué documentos le corresponden al vehículo. Si cambiaste algo que define esos documentos (por ejemplo, el tipo o el subtipo), pueden aparecer documentos nuevos pendientes, y los que dejaron de corresponder pasan a **Ya no aplica** si tenían archivo. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+- **Asignación → Comercial y Operaciones**: los clientes tildados son los que figuran en el cliente y en la planificación.
+- **Condición ↔ Mantenimiento**: el taller cambia la condición; la ficha solo habilita el primer paso a **Operativo**.
+- **Checklist y QR → Mantenimiento**: un checklist con ítems en mal estado puede generar un pedido de mantenimiento que después aparece en el historial.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Abrir la ficha | **Ver** en Detalle de Equipo |
+| **Editar**, pasar a **Operativo**, dar de baja o reactivar | **Editar** en Detalle de Equipo |
+| Pestañas **Datos Básicos**, **Asignación**, **QR**, **Historial de Mantenimiento**, **Checklist** | **Ver** en cada una (subpestañas de Detalle de Equipo) |
+| Pestaña **Cubiertas** | **Ver** en Cubiertas; **Editar** en Cubiertas para cambiar la configuración |
+| Pestaña **Documentos** | **Ver** en Documentación → Documentos de Equipos |
+| Subir documentos desde la ficha | **Editar** en la subpestaña de Permanentes o Mensuales de Documentos de Equipos (o **Subir privados** si el tipo es privado) |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Las pestañas aparecen deshabilitadas">
+En un vehículo que todavía no guardaste, **Documentos**, **Historial de Mantenimiento**, **Checklist** y **Cubiertas** están deshabilitadas. Guardalo primero.
+</Callout>
+
+<Callout type="warning" title="El dominio ya pertenece a otro equipo">
+Si al guardar ves que el dominio ya pertenece a otro equipo, es porque hay otro vehículo activo con esa patente. Buscalo en el listado antes de crear uno nuevo.
+</Callout>

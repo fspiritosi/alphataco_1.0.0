@@ -431,7 +431,12 @@ export function InvoiceDraftForm({ data, permissions, issueBlockedReason, banner
           <AlertDialogHeader>
             <AlertDialogTitle>¿Descartar el borrador?</AlertDialogTitle>
             <AlertDialogDescription className="text-pretty">
-              Se elimina el borrador con sus {countLabel(invoice.lines.length, 'línea', 'líneas')}
+              Se elimina el borrador
+              {invoice.lines.length === 0
+                ? ''
+                : invoice.lines.length === 1
+                  ? ' con su línea'
+                  : ` con sus ${countLabel(invoice.lines.length, 'línea', 'líneas')}`}
               {invoice.certifications.length === 0
                 ? '.'
                 : invoice.certifications.length === 1

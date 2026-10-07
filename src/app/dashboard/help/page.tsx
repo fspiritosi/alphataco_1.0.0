@@ -1,10 +1,6 @@
-import { getReporterEmail } from '@/features/Ayuda/actions/getReporterEmail';
-import { getMyTicketsWithUnread, getSupportTicketById } from '@/features/Ayuda/actions/support-tickets';
-import { HelpCenter } from '@/features/Ayuda/components/HelpCenter';
+import AyudaComponent from '@/features/Ayuda/AyudaComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/company.server';
-import { checkPermissionServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 export async function generateMetadata() {
   const cookiesStore = await cookies();
@@ -25,38 +21,11 @@ export async function generateMetadata() {
   return { title: 'Ayuda' };
 }
 
-interface SearchParams {
-  ticket?: string;
-}
-
-interface Props {
-  searchParams: Promise<SearchParams>;
-}
-
-export default async function HelpPage({ searchParams }: Props) {
-  const canView = await checkPermissionServer('ayuda', 'tickets', 'view');
-  if (!canView) redirect('/dashboard');
-
-  const params = await searchParams;
-  const rawId = params.ticket ? Number(params.ticket) : null;
-  const ticketId = rawId != null && Number.isFinite(rawId) ? rawId : null;
-
-  const [initialTickets, initialTicket, reporter] = await Promise.all([
-    getMyTicketsWithUnread(),
-    ticketId != null ? getSupportTicketById(ticketId) : Promise.resolve(null),
-    getReporterEmail(),
-  ]);
-
-  const currentUserEmail = reporter?.email ?? '';
-  const currentUserName = reporter?.name ?? reporter?.email ?? 'Usuario';
-
-  return (
-    <HelpCenter
-      initialTickets={initialTickets}
-      initialTicket={initialTicket}
-      initialTicketId={ticketId}
-      currentUserEmail={currentUserEmail}
-      currentUserName={currentUserName}
-    />
-  );
+export default async function HelpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  return <AyudaComponent searchParams={resolvedSearchParams} />;
 }

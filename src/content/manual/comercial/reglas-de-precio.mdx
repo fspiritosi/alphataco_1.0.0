@@ -1,0 +1,136 @@
+---
+title: Reglas de precio
+summary: Actualizá de una vez los precios de los ítems de un contrato o de toda la empresa, por índice o por fórmula polinómica, dejando registro de cada cambio.
+keywords: regla de precio, actualización, índice, polinómica, redeterminación, coeficiente, CAC, IPC, ajuste, revisión de precio
+updated: 2026-10-07
+---
+
+Las reglas de precio sirven para actualizar muchos precios a la vez, como se hace con las redeterminaciones de contratos: aplicás un índice (por ejemplo, el costo de la construcción subió 15 %) o una fórmula polinómica (mano de obra, combustible y materiales, cada uno con su peso y su variación), y el sistema recalcula el precio de todos los ítems alcanzados. Cada cambio queda en el historial de precios de cada ítem, con la regla que lo produjo.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Reglas de Precio**.
+
+## Dos ideas antes de empezar
+
+- **La regla guarda la estructura; los coeficientes se cargan al ejecutarla.** Una regla dice "esto se actualiza por el índice CAC" o "esto se actualiza por esta fórmula: mano de obra 0,6, combustible 0,25, materiales 0,15". Cuánto varió cada cosa en el período se ingresa cada vez que la ejecutás.
+- **Las certificaciones ya emitidas no cambian.** El precio de una certificación queda fijo al emitirla; actualizar precios después solo afecta lo que se emita de ahí en adelante.
+
+## Qué ves en la pantalla
+
+Arriba, el título **Reglas de actualización de precios** con la aclaración *Una regla sin contrato aplica a toda la empresa. Los coeficientes se cargan al ejecutarla.* y el botón **Nueva regla**. Debajo, la tabla de reglas:
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre** | El nombre de la regla. |
+| **Método** | **Manual**, **Por índice** (con el nombre del índice entre paréntesis) o **Fórmula polinómica**. |
+| **Alcance** | `Cliente · Contrato` si la regla es de un contrato, o **Toda la empresa**. |
+| **Corridas** | Cuántas veces se ejecutó. |
+| **Estado** | **Activa** o **Desactivada**. |
+
+Cada fila tiene, según tus permisos, los botones **Editar**, **Ejecutar** y **Desactivar** / **Activar**.
+
+## Los tres métodos
+
+| Método | Qué significa | ¿Se ejecuta? |
+|---|---|---|
+| **Manual** | En ese alcance los precios se cargan uno por uno, desde el botón **Precios** de cada ítem del contrato. La regla sirve para dejar documentado que así se trabaja. | No: no tiene botón **Ejecutar**. |
+| **Por índice** | Un único coeficiente para todos los ítems. Si el índice pasó de 100 a 115, el coeficiente es `1.15`. | Sí: pide el coeficiente del período. |
+| **Fórmula polinómica** | El precio se reparte en componentes, cada uno con un peso. Al ejecutar se carga cuánto varió cada componente, y el factor es la suma de peso × variación. | Sí: pide un coeficiente por componente. |
+
+**Ejemplo de polinómica**: mano de obra peso 0,6 con coeficiente 1,20; combustible peso 0,25 con coeficiente 1,10; materiales peso 0,15 con coeficiente 1,05. El factor es 0,6 × 1,20 + 0,25 × 1,10 + 0,15 × 1,05 = 1,1525: los precios suben 15,25 %.
+
+## Cómo crear una regla
+
+<Steps>
+  <Step title="Abrí el formulario">
+    Hacé clic en **Nueva regla**. Se abre **Nueva regla de precios**.
+  </Step>
+  <Step title="Nombre y método">
+    Escribí un **Nombre** (por ejemplo "Actualización trimestral por CAC") y elegí el **Método**.
+  </Step>
+  <Step title="Alcance">
+    En **Alcance** elegí **Toda la empresa** o un contrato puntual (se muestran como `Cliente · Contrato · N° número`).
+  </Step>
+  <Step title="Datos del método">
+    - **Por índice**: completá **Índice de referencia** (por ejemplo CAC, INDEC IPC). Es solo el nombre; el coeficiente se carga al ejecutar.
+    - **Fórmula polinómica**: en **Componentes de la fórmula** agregá cada componente con **Agregar**, con su nombre y su **Peso (0-1)**. Los pesos tienen que sumar exactamente 1; si no, el formulario avisa **Los pesos deben sumar 1 (suman …)**.
+    - **Manual**: no pide nada más.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Guardar regla**. Vas a ver **Regla creada**.
+  </Step>
+</Steps>
+
+Para cambiar una regla usá **Editar** (se guarda con **Guardar regla** y avisa **Regla actualizada**). Las reglas no se borran: si una ya no se usa, **Desactivar** la saca de circulación y conserva su historial. **Activar** la vuelve a habilitar.
+
+## Cómo ejecutar una regla
+
+Ejecutar es lo que efectivamente cambia los precios.
+
+<Steps>
+  <Step title="Abrí la ejecución">
+    En una regla **Activa** de tipo índice o polinómica, hacé clic en **Ejecutar**. Se abre **Ejecutar: nombre de la regla**.
+  </Step>
+  <Step title="Indicá desde cuándo rige">
+    Completá **Vigente desde** (por defecto, hoy). Esa fecha queda registrada en el historial de cada ítem.
+  </Step>
+  <Step title="Cargá los coeficientes del período">
+    - Por índice: **Coeficiente del período** (`1.15` = subió 15 %).
+    - Polinómica: un coeficiente por cada componente; al lado de cada uno se ve su peso.
+
+    Escribí los coeficientes con punto decimal (`1.15`), como muestra el ejemplo del campo.
+  </Step>
+  <Step title="Agregá una nota (opcional)">
+    En **Nota** podés dejar de dónde salieron los coeficientes.
+  </Step>
+  <Step title="Ejecutá">
+    Hacé clic en **Ejecutar**. El mensaje final dice cuántos ítems se actualizaron: **Se actualizaron N ítems**.
+  </Step>
+</Steps>
+
+La regla alcanza a **todos los ítems activos** de su contrato (o de todos los contratos de la empresa, si su alcance es **Toda la empresa**). Para cada uno, el precio nuevo es el precio vigente multiplicado por el factor, redondeado a 4 decimales, y pasa a ser el vigente en ese momento. Todo se aplica junto: si algo falla, no se cambia ningún precio.
+
+<Callout type="danger" title="Ejecutar dos veces aplica el aumento dos veces">
+Cada ejecución parte del precio vigente en ese momento. Si ejecutás la misma regla dos veces con el mismo coeficiente, el aumento se aplica dos veces. Mirá la columna **Corridas** y el historial de precios antes de volver a ejecutar. No hay un botón para deshacer una corrida: para volver atrás hay que cargar los precios a mano desde cada ítem.
+</Callout>
+
+## Revisiones que genera
+
+Cada ejecución deja, en cada ítem alcanzado, una revisión nueva en su historial (botón **Precios** de la columna **Precio**, ver <GuideLink to="contratos">Contratos</GuideLink>), con:
+
+- el precio nuevo y el **Anterior**,
+- el **Origen** (**Por índice** o **Fórmula polinómica**) y el nombre de la regla,
+- como **Motivo**, el nombre de la regla y el factor aplicado.
+
+Así cualquier precio puede explicar de dónde salió.
+
+## Cómo se conecta con el resto del sistema
+
+- Los precios actualizados son los que toman las **certificaciones** en borrador al recalcularse y las que se emitan a partir de ese momento. Las ya emitidas no cambian. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink>.
+- Los ítems inactivos no se actualizan. Si reactivás un ítem después de una corrida, conserva el precio que tenía.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la solapa | **Ver** en Reglas de Precio |
+| **Nueva regla** | **Crear** en Reglas de Precio |
+| **Editar**, **Desactivar**, **Activar** | **Editar** en Reglas de Precio |
+| **Ejecutar** | **Modificar precios** en Contratos → Items del Servicio |
+
+Ejecutar pide el mismo permiso que cambiar un precio a mano, porque hace lo mismo sobre muchos ítems a la vez. Sin ese permiso el botón **Ejecutar** no aparece.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="La regla no alcanza a ningún ítem activo">
+El contrato elegido como alcance no tiene ítems activos (o el contrato está inactivo, y con él sus ítems). Revisá los ítems del contrato.
+</Callout>
+
+<Callout type="warning" title="Los pesos de la fórmula suman … y tienen que sumar 1">
+Una fórmula incompleta no representa el precio entero y daría un aumento equivocado. Editá la regla y ajustá los pesos.
+</Callout>
+
+<Callout type="info" title="Falta el coeficiente">
+Al ejecutar, todos los coeficientes son obligatorios: **Falta el coeficiente del índice** o **Falta el coeficiente de "componente"**. Ningún coeficiente puede ser negativo.
+</Callout>

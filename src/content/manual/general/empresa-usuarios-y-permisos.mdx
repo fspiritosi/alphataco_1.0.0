@@ -1,0 +1,123 @@
+---
+title: Empresa, usuarios y permisos
+summary: Qué es la empresa activa, cómo se dan de alta los usuarios, cómo funcionan los roles y los permisos por acción, y qué hacer si no ves una pantalla o un botón.
+keywords: empresa activa, usuario, rol, permiso, acceso, propietario, invitar, no veo, botón, ver, crear, editar, eliminar, aprobar, precios, privados
+updated: 2026-10-07
+---
+
+Esta guía explica **por qué cada persona ve lo que ve** en el sistema. Si alguna vez te preguntaste por qué a un compañero le aparece un módulo que a vos no, o por qué falta el botón **Eliminar** en una pantalla, la respuesta está acá.
+
+## La empresa activa
+
+El sistema puede administrar varias empresas, y una misma persona puede trabajar en más de una. En cada momento estás trabajando en **una sola: la empresa activa**, que figura arriba del menú lateral con la leyenda **Empresa activa**.
+
+**Todo lo que ves y cargás pertenece a la empresa activa**: empleados, equipos, clientes, documentos, partes, solicitudes, facturas. Y también **tus permisos**: una persona puede ser administradora en una empresa y no tener acceso a casi nada en otra.
+
+### Cómo se elige
+
+- **Al entrar**, el sistema elige solo: primero la empresa de la que sos propietario; si no, la empresa a la que te sumaron primero; si no, la de tu legajo de empleado.
+- **Para cambiarla**, hacé clic en el nombre de la empresa y elegí otra de **Otras compañias**. La página se recarga entera con los datos y permisos de la nueva.
+- Si no ves la empresa que buscás en la lista, es porque tu usuario no tiene acceso a ella: pedile a un administrador de esa empresa que te invite.
+
+### Crear una empresa nueva
+
+Desde el mismo selector, **Agregar compañía** abre el formulario **Registrar Compañía**. Quien la crea queda como su **propietario**, con el rol **Admin** en ella, y la empresa nueva pasa a ser la activa. Si ya existe una empresa con ese CUIT, el sistema no la deja crear de nuevo. Los datos de la empresa se completan después (ver <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>).
+
+Un usuario que todavía no pertenece a ninguna empresa, al entrar, ve directamente el aviso "**Parece que no tienes ninguna Compañía registrada.**" con ese formulario.
+
+## Usuarios
+
+Un **usuario** es una persona que puede entrar al sistema con su correo. No hay registro libre: **los usuarios los da de alta un administrador** en **Configuración → General → Usuarios**, con **Agregar Usuario** (ver <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>). Hay dos formas:
+
+| Opción | Qué pasa |
+|---|---|
+| **Crear usuario** | El administrador carga nombre, apellido, correo, una contraseña temporal y el rol. La persona entra con esa contraseña y el sistema le pide cambiarla. |
+| **Invitar usuario** | El administrador carga solo el correo y el rol. Si la persona no tenía usuario, le llega un correo para definir su contraseña. Si ya tenía usuario en otra empresa, simplemente se le suma esta empresa a su selector. |
+
+Algunas cosas importantes sobre los usuarios:
+
+- **Usuario no es lo mismo que empleado.** El empleado es el legajo de RRHH; el usuario es el acceso al sistema. Se pueden **vincular** (columna **Empleado vinculado**), y esa vinculación es la que necesitan los paneles de campo (<GuideLink to="entrega-de-indumentaria">Entrega de indumentaria</GuideLink> y <GuideLink to="panel-del-operario">Panel del operario</GuideLink>).
+- **Dar de baja un usuario** le quita el acceso ("**Tu acceso ha sido revocado. Contacta al administrador de tu empresa.**" al intentar entrar). Se puede **Reactivar** después. Si tiene un empleado vinculado, el sistema pregunta si también querés dar de baja el empleado.
+- Al **dar de baja un empleado** que tiene usuario vinculado, ese usuario también pierde el acceso (ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+- El **propietario** de la empresa figura como **Propietario** con una corona y no se puede dar de baja.
+
+## Roles y permisos
+
+### Qué es un permiso
+
+Un **permiso** habilita **una acción** sobre **una pantalla** (una sección o pestaña de un módulo). Por ejemplo: "**Editar** en **Empleados**" o "**Aprobar** en **Certificaciones**".
+
+Las acciones posibles son:
+
+| Acción | Qué habilita |
+|---|---|
+| **Ver** | Que la pantalla aparezca en el menú y puedas abrirla. Es la base: sin **Ver** no tenés ninguna de las otras. |
+| **Crear** | Cargar registros nuevos (los botones **Nuevo**, **Agregar**, **Subir**…). |
+| **Editar** | Modificar registros existentes. En las solicitudes de mantenimiento, **Editar** es lo que permite aprobarlas o rechazarlas. |
+| **Eliminar** | Borrar registros. |
+| **Aprobar** | Confirmar pasos de un circuito: por ejemplo confirmar certificaciones, emitir comprobantes ante ARCA o aprobar un candidato para crear su legajo. |
+| **Ver precios e importes** | Ver los valores en pesos (por ejemplo en certificaciones, facturación y en los ítems de los contratos). Sin este permiso ves las cantidades pero no los importes. |
+| **Modificar precios** | Cambiar los precios de los ítems de los contratos. |
+| **Ver todas las solicitudes** | En Mantenimiento, ver las solicitudes de todos los supervisores y no solo las asignadas a vos. |
+| **Ver privados** y **Subir privados** | Ver y cargar los documentos marcados como privados (por ejemplo, información médica o salarial). Sin estos permisos esos documentos no aparecen. |
+| **Asignar Recursos** | En el detalle del parte diario, asignar empleados y equipos a las líneas. |
+
+No todas las pantallas admiten todas las acciones: cada una muestra solo las que tienen sentido para ella.
+
+### Qué es un rol
+
+Un **rol** es un conjunto de permisos con nombre (por ejemplo, "Usuario de RR.HH." o "Supervisor de taller"). En vez de tildar permiso por permiso a cada usuario, se le asigna un rol. Hay dos tipos:
+
+- **Roles de sistema** (marcados **Sistema**): **Admin**, **Administrador** y **Full Access Provisional** tienen acceso total. No se pueden editar ni eliminar; solo se les asignan usuarios.
+- **Roles personalizados** (marcados **Personalizado**): los crea la empresa con los permisos que necesite. Se pueden editar, asignar y eliminar.
+
+Además de los roles, a un usuario se le pueden dar **permisos personalizados** puntuales desde su ficha (**Permisos por Módulo**). Un permiso que viene de un rol aparece bloqueado en la ficha del usuario: para quitarlo hay que quitarle el rol o cambiar el rol.
+
+Una persona puede tener varios roles: suma los permisos de todos.
+
+<Callout type="info" title="Los roles se administran por empresa">
+La asignación de roles es por empresa. Si trabajás en dos empresas, tus roles (y por lo tanto lo que ves) pueden ser distintos en cada una.
+</Callout>
+
+## Qué pasa cuando no tenés un permiso
+
+El sistema **oculta** lo que no podés usar; no te muestra un botón para después decirte que no:
+
+- **Sin Ver en ninguna sección de un módulo**: el módulo no aparece en el menú lateral.
+- **Sin Ver en una sección**: esa sección no aparece entre las del módulo. Si alguien te pasa un enlace a ella, vas a ver **Sin acceso**.
+- **Sin Crear, Editar o Eliminar**: la pantalla se ve, pero los botones de esa acción no aparecen.
+- **Sin Ver precios e importes**: las columnas de importes no se muestran.
+- **Sin ningún permiso**: el menú muestra "**No tenés permisos para acceder a ningún módulo. Contactá al administrador.**"
+
+Lo mismo vale para este manual: **solo ves las guías de las pantallas a las que tenés acceso** (ver <GuideLink to="como-usar-el-manual">Cómo usar el manual</GuideLink>).
+
+<Callout type="tip" title="Antes de reportar un error">
+Si un botón que un compañero tiene a vos no te aparece, casi siempre es un permiso, no un error del sistema. Comparen sus roles en **Configuración → General → Usuarios**.
+</Callout>
+
+## A quién pedirle acceso
+
+Los permisos los administra quien tenga acceso a **Configuración → General → Usuarios** en tu empresa, normalmente el propietario o el área de sistemas. Cuando pidas un acceso, decí **qué pantalla** necesitás y **qué acción** (ver, cargar, editar, borrar, aprobar), así te dan solo lo necesario.
+
+Si nadie de tu empresa puede darte el acceso, o creés que tus permisos están mal configurados, reportalo en <GuideLink to="soporte-tickets">Soporte y tickets</GuideLink>.
+
+## Cómo se conecta con el resto del sistema
+
+- Todo el sistema filtra por **empresa activa** y por **permisos**: el menú, cada pantalla, cada botón, las búsquedas y las exportaciones.
+- Los cambios de rol o de permisos rigen para la persona la próxima vez que cargue una pantalla.
+- Dar de baja un empleado vinculado a un usuario le quita el acceso; reactivar el empleado se lo devuelve (ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+- Para crear roles, asignar usuarios y armar permisos paso a paso, seguí en <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>.
+
+## Problemas frecuentes
+
+<Callout type="info" title="No puedo eliminar un rol">
+Los roles de sistema no se pueden eliminar. Un rol personalizado no se puede eliminar mientras tenga usuarios asignados: el botón aparece deshabilitado con "**No se puede eliminar: N usuario(s) asignado(s)**". Quitale el rol a esos usuarios (con **Asignar usuarios**) y volvé a intentar.
+</Callout>
+
+<Callout type="info" title="No puedo destildar Ver en un permiso">
+**Ver** es la base de las demás acciones: no se puede quitar mientras **Crear**, **Editar** o **Eliminar** estén activas en esa pantalla. Del mismo modo, **Subir privados** activa **Ver privados**.
+</Callout>
+
+<Callout type="warning" title="Cargué algo y no lo encuentro">
+Revisá la **empresa activa**: si estabas en otra empresa al cargarlo, quedó guardado en esa.
+</Callout>

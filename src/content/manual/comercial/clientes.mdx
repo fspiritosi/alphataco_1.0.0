@@ -1,0 +1,194 @@
+---
+title: Clientes
+summary: Alta y ficha de cada cliente: datos fiscales para facturar, empleados y equipos afectados, equipos propios del cliente, áreas, sectores y contratos.
+keywords: cliente, CUIT, condición frente al IVA, domicilio fiscal, afectar, desafectar, afectación, áreas, sectores, equipos del cliente, invitados
+updated: 2026-10-07
+---
+
+Los clientes son el punto de partida de todo el circuito comercial: a un cliente se le afectan empleados y equipos, se le firman contratos, se le cargan partes diarios, se le certifica lo trabajado y se le factura. Esta pantalla la usan principalmente las áreas comercial y de administración, y también quien arma la dotación de cada cliente.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Clientes**. Es la solapa que se abre por defecto al entrar al módulo.
+
+## Qué ves en la pantalla
+
+Arriba está el botón **Registrar Cliente** y debajo el listado de clientes de tu empresa, ordenado por nombre.
+
+| Columna | Qué muestra |
+|---|---|
+| **Cuit** | El CUIT del cliente. |
+| **Nombre** | La razón social o el nombre con el que lo identifican. |
+| **Email** | El correo de contacto. |
+| **Telefono** | El teléfono de contacto. |
+| **Estado** | **Activo** (verde) o **Inactivo** (rojo). |
+
+Podés filtrar por **Nombre**, **Cuit**, **Email**, **Telefono** y **Estado**, y elegir qué columnas ver. Para abrir la ficha de un cliente, hacé clic en su fila.
+
+## Cómo dar de alta un cliente
+
+<Steps>
+  <Step title="Abrí el formulario">
+    Hacé clic en **Registrar Cliente**. Se abre un formulario en una ventana.
+  </Step>
+  <Step title="Cargá nombre y CUIT">
+    **Nombre** (al menos 2 caracteres) y **CUIT** son obligatorios. El CUIT se puede escribir con o sin guiones (por ejemplo `30-71234567-8`); el sistema controla el dígito verificador y, si no cierra, avisa **El CUIT no es válido: revisá el dígito verificador.**
+  </Step>
+  <Step title="Completá los datos fiscales">
+    En el bloque **Datos fiscales** elegí la **Condición frente al IVA** y cargá **Calle y número**, **Localidad**, **Provincia** y **Código postal**. No son obligatorios para guardar, pero sin ellos no vas a poder facturarle (ver más abajo).
+  </Step>
+  <Step title="Completá el contacto">
+    **Email**, **Teléfono** (solo números, mínimo 8 dígitos) y **Dirección de contacto** son opcionales.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Crear Cliente**. Si todo está bien vas a ver **Cliente guardado correctamente** y el cliente aparece en el listado.
+  </Step>
+</Steps>
+
+<Callout type="warning" title="Un CUIT, un cliente">
+No puede haber dos clientes con el mismo CUIT en la misma empresa. Si lo intentás, el sistema te dice cuál es el cliente que ya lo tiene: **Ya hay un cliente con ese CUIT en esta empresa: …**. Buscalo en el listado y trabajá sobre ese.
+</Callout>
+
+## La ficha del cliente
+
+Al hacer clic en un cliente se abre su ficha, con el título **Detalles del Cliente** y el nombre. Tiene estas pestañas (algunas aparecen solo si tenés permiso):
+
+| Pestaña | Para qué sirve |
+|---|---|
+| **Detalle** | Ver y editar los datos del cliente, incluidos los fiscales. |
+| **Empleados** | Ver y cambiar qué empleados de tu empresa trabajan para este cliente. |
+| **Equipos afectados** | Ver y cambiar qué equipos de tu empresa trabajan para este cliente. |
+| **Equipos del cliente** | Los equipos que aporta el propio cliente (su perforador, su work over…). |
+| **Áreas** | Las áreas del cliente donde se trabaja. |
+| **Sectores** | Los sectores del cliente. |
+| **Contratos** | Los contratos firmados con este cliente. |
+
+Con **Cerrar** volvés al listado.
+
+<Callout type="info" title="Otra forma de llegar a la ficha">
+Desde Facturación, los avisos del tipo **Completar datos fiscales del cliente** abren la ficha del cliente en una pestaña nueva del navegador, para que no pierdas lo que estabas haciendo. Es la misma ficha, con un bloque extra al final: **Invitados**, la lista de usuarios con rol Invitado asociados a ese cliente.
+</Callout>
+
+### Detalle: datos generales y fiscales
+
+La pestaña muestra **Información del Cliente** en modo lectura. Para modificarla:
+
+<Steps>
+  <Step title="Habilitá la edición">
+    Hacé clic en **Habilitar edición**. Los campos se vuelven editables (el botón pasa a decir **Deshabilitar edición**, por si querés salir sin guardar).
+  </Step>
+  <Step title="Cambiá lo que necesites">
+    Son los mismos campos del alta. Además está **Estado**: si marcás **Inactivo**, aparecen **Motivo de baja** y **Fecha de baja**.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Actualizar Cliente**.
+  </Step>
+</Steps>
+
+Si volvés a poner el cliente en **Activo**, el motivo y la fecha de baja se borran.
+
+#### Los datos fiscales, y por qué importan
+
+El bloque **Datos fiscales** lo aclara en pantalla: *Se usan para facturar. Si faltan, no vas a poder emitirle facturas.* En concreto:
+
+- **Condición frente al IVA**: define qué letra de factura le corresponde (A, B o C), según tu propia condición. Las opciones son **IVA Responsable Inscripto**, **IVA Sujeto Exento**, **Consumidor Final**, **Responsable Monotributo**, **Sujeto No Categorizado**, **IVA Liberado – Ley N° 19.640**, **Monotributista Social**, **IVA No Alcanzado** y **Monotributo Trabajador Independiente Promovido**.
+- **Domicilio fiscal** (**Calle y número**, **Localidad**, **Provincia**, **Código postal**): sale impreso en la factura. Para emitir hacen falta calle, localidad y código postal.
+- **CUIT**: tiene que ser válido; es el documento del receptor que se informa a ARCA.
+
+Sin condición frente al IVA no se puede ni siquiera crear un borrador de factura para el cliente. Ver <GuideLink to="facturacion">Facturación</GuideLink>.
+
+### Empleados: afectar y desafectar personal
+
+Muestra la tabla **Empleados del Cliente** con los empleados que hoy están afectados a este cliente. El botón **Cargar empleados** abre el selector para dar altas y bajas.
+
+<Steps>
+  <Step title="Abrí el selector">
+    Hacé clic en **Cargar empleados**. Primero aparece **Cargando las afectaciones actuales del cliente...**: el sistema lee quiénes están afectados hoy. Mientras tanto el combo está bloqueado y no se puede guardar.
+  </Step>
+  <Step title="Tildá y destildá">
+    El combo **Empleados** ya viene con los afectados actuales tildados. Buscá por legajo o nombre (se muestran como `[legajo] Apellido Nombre`). Tildá a quien quieras sumar y destildá a quien quieras sacar.
+  </Step>
+  <Step title="Revisá el resumen antes de guardar">
+    Debajo del combo se ve qué va a pasar: **N afectados actualmente.** seguido de **Se agregan X.** (en verde) y **Se quitan Y.** (en rojo). Si no tocaste nada dice **Sin cambios.**
+  </Step>
+  <Step title="Confirmá">
+    Hacé clic en **Guardar cambios**. El aviso final dice exactamente lo que se hizo, por ejemplo **Se afectaron 2 empleados y se desafectaron 1 empleado.**
+  </Step>
+</Steps>
+
+<Callout type="tip" title="Solo se toca lo que cambiaste">
+El sistema guarda únicamente las altas y bajas que hiciste en esa ventana. Los empleados que no tocaste quedan exactamente como estaban, aunque en el medio otra persona haya afectado a alguien más. Mirá siempre el número rojo de **Se quitan** antes de confirmar: si es más grande de lo que esperabas, cancelá y revisá.
+</Callout>
+
+### Equipos afectados: afectar y desafectar equipos
+
+Funciona igual que Empleados, pero con los equipos de tu empresa. La tabla **Equipos del Cliente** muestra **Número interno**, **Dominio**, **Tipo**, **Marca**, **Modelo**, **Año**, **Condición** y **Estado**. El botón es **Asignar Equipos**, el combo lista los equipos como `número interno - dominio`, y el resumen y la confirmación son los mismos (**Se agregan / Se quitan**, **Guardar cambios**).
+
+### Equipos del cliente
+
+No confundir con la pestaña anterior. Acá se cargan los equipos que **son del cliente** y que tu gente opera o asiste: su perforador, su equipo de work over, etc. Son los que después se eligen como **Equipo Cliente** al cargar una línea de parte diario.
+
+- **Nuevo equipo** abre el formulario con **Nombre del equipo** y **Tipo de equipo** (**Perforador**, **Perforador Spudder**, **Work over**, **Fractura** o **Coiled Tubing**). Se guarda con **Crear**.
+- En la tabla (**Nombre**, **Tipo de equipo**) cada fila tiene **Editar**.
+
+### Áreas
+
+Las áreas son las zonas o yacimientos del cliente donde se presta el servicio. Se usan en los contratos y en los partes diarios.
+
+- **Nueva área** abre el formulario: **Nombre del área**, **Descripción corta** (hasta 5 caracteres) y **Provincias** (al menos una), todos obligatorios.
+- Debajo, en **Vincular a contratos** (opcional), podés elegir contratos activos de este cliente para que el área quede incluida en ellos. Todo se guarda con un solo **Crear**.
+- La tabla muestra **Nombre**, **Descripción** y **Provincias**, con **Editar** en cada fila.
+
+### Sectores
+
+Los sectores del cliente (por ejemplo, las gerencias o unidades que piden el trabajo). Se usan en los contratos y en los partes diarios.
+
+- **Nuevo sector** pide **Nombre del sector** y **Descripción corta**. Un cliente no puede tener dos sectores con el mismo nombre.
+- La tabla muestra **Nombre** y **Descripción**, con **Editar** en cada fila.
+
+### Contratos
+
+Lista los contratos de este cliente con las mismas columnas y el mismo detalle que la solapa general de contratos. Desde acá se consultan y editan; los contratos nuevos se crean desde **Comercial → Contratos**. Todo el detalle está en <GuideLink to="contratos">Contratos</GuideLink>.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="Qué desencadena afectar un recurso a un cliente">
+  <FlowStep title="Afectás" module="Comercial" tone="info">Sumás un empleado o un equipo en la ficha del cliente.</FlowStep>
+  <FlowStep title="Documentos exigidos" module="Documentación" to="documentos-alertas-y-estado">El sistema revisa qué documentos le corresponden según la afectación.</FlowStep>
+  <FlowStep title="Estado del recurso" module="Empleados / Equipos" tone="warning">Si le falta documentación nueva, su estado puede pasar a incompleto.</FlowStep>
+  <FlowStep title="Partes diarios" module="Operaciones" to="diagramas-afectaciones-y-desvios">Al cargarlo en un parte de ese cliente ya no marca desvío.</FlowStep>
+</Flow>
+
+- **Documentación exigida**: algunos tipos de documento se piden solo a quienes trabajan para determinado cliente. Al afectar o desafectar, el sistema vuelve a revisar los documentos de **cada** empleado o equipo que tocaste: le aparecen los pendientes nuevos y, si deja de corresponderle alguno, los que no tienen archivo se quitan y los que ya estaban subidos se conservan como historial. Eso puede cambiar el estado de documentación del recurso y lo que aparece en vencimientos. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+- **Listado de empleados y equipos**: la afectación se ve en la columna **Afectaciones** del listado de empleados y en la ficha de cada recurso.
+- **Partes diarios**: cuando en una línea de parte se carga un empleado o un equipo que no está afectado al cliente de esa línea, el parte lo marca como desvío (**No asignado al cliente de esta fila**). Mantener las afectaciones al día evita esos desvíos. Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+- **Equipos del cliente, áreas y sectores** son las opciones que después aparecen al cargar contratos y líneas de partes diarios de ese cliente.
+- **Datos fiscales** habilitan la facturación. Ver el recorrido completo en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la solapa y la ficha | **Ver** en Clientes |
+| **Registrar Cliente** | **Crear** en Clientes |
+| **Habilitar edición** en Detalle | **Editar** en Clientes → Detalle |
+| **Cargar empleados** | **Editar** en Clientes → Empleados |
+| **Asignar Equipos** | **Editar** en Clientes → Equipos |
+| Ver **Equipos del cliente** / **Nuevo equipo** / **Editar** | **Ver** / **Crear** / **Editar** en Clientes → Equipos |
+| Ver **Áreas** / **Nueva área** / **Editar** | **Ver** / **Crear** / **Editar** en Clientes → Áreas del Cliente |
+| Ver **Sectores** / **Nuevo sector** / **Editar** | **Ver** / **Crear** / **Editar** en Clientes → Sectores del Cliente |
+| Ver la pestaña **Contratos** | **Ver** en Contratos |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Ese cliente ya tiene un sector con ese nombre">
+Los nombres de sector no se repiten dentro de un mismo cliente. Si el sector ya existe, editalo en lugar de crear otro. Las áreas y los sectores no se borran desde esta pantalla: si uno dejó de usarse, renombralo o dejalo fuera de los contratos.
+</Callout>
+
+<Callout type="info" title="El botón Guardar cambios no se habilita">
+Mientras el modal de afectaciones está leyendo las afectaciones actuales, el guardado queda bloqueado a propósito. Si la lectura falla vas a ver **No se pudieron cargar las afectaciones actuales. Volvé a abrir el modal.**: cerralo y abrilo de nuevo.
+</Callout>
+
+<Callout type="warning" title="Desafectar varios a la vez">
+Antes de confirmar una desafectación grande, controlá el número de **Se quitan**. Desafectar cambia los documentos exigidos y los desvíos de los partes de cada recurso, y no hay un botón para deshacerlo: habría que volver a afectar uno por uno.
+</Callout>

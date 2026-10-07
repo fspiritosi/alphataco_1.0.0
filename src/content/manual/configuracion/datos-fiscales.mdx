@@ -1,0 +1,190 @@
+---
+title: Datos fiscales
+summary: Todo lo que hace falta para facturar con ARCA - datos del emisor, puntos de venta, certificado digital paso a paso y el pase de homologación a producción.
+keywords: ARCA, AFIP, factura electrónica, datos fiscales, emisor, condición IVA, ingresos brutos, punto de venta, certificado, CSR, homologación, producción, prueba de conexión, WSASS, wsfe, simulado, demo
+updated: 2026-10-07
+---
+
+Antes de emitir facturas electrónicas, la empresa tiene que dejar listos sus **datos fiscales**: cómo está inscripta, desde qué **puntos de venta** factura y con qué **certificado** se identifica ante ARCA. Todo eso se configura en **Configuración → General → Datos fiscales**, normalmente una sola vez, por quien administra la empresa junto con su contador.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+La pantalla tiene cinco bloques, de arriba hacia abajo:
+
+| Bloque | Para qué sirve |
+|---|---|
+| **Facturación electrónica** | El resumen: qué está listo, qué falta y si ya se puede emitir. |
+| Ambiente | En qué ambiente de ARCA se emite: **Homologación** (pruebas) o **Producción** (validez fiscal). |
+| **Datos fiscales del emisor** | Los datos que se imprimen en cada comprobante. |
+| **Puntos de venta** | Los puntos de venta dados de alta en ARCA. |
+| **Certificado de ARCA** | El asistente para obtener, cargar y probar el certificado de cada ambiente. |
+
+<Flow title="Orden recomendado">
+<FlowStep title="Datos del emisor" tone="info">Condición frente al IVA, domicilio fiscal, inicio de actividades.</FlowStep>
+<FlowStep title="Punto de venta" tone="info">El mismo número que diste de alta en ARCA.</FlowStep>
+<FlowStep title="Certificado de homologación" tone="info">Solicitud, portal de ARCA, carga y prueba.</FlowStep>
+<FlowStep title="Facturas de prueba" module="Comercial" to="facturacion">Emitís en homologación para validar todo.</FlowStep>
+<FlowStep title="Certificado de producción" tone="warning">Mismo asistente, en el otro ambiente.</FlowStep>
+<FlowStep title="Pasar a producción" tone="success">Desde acá las facturas tienen validez fiscal.</FlowStep>
+</Flow>
+
+## El resumen: "listo para emitir"
+
+El bloque **Facturación electrónica** muestra el ambiente activo (**Homologación · sin validez fiscal** o **Producción · con validez fiscal**) y una lista de controles, cada uno con un ícono verde, ámbar o gris. Hacé clic en cualquiera para ir al bloque correspondiente:
+
+- **Datos fiscales completos** o **Faltan los datos fiscales**.
+- Cuántos **puntos de venta activos** hay (o **Sin puntos de venta activos**).
+- El estado del certificado del ambiente activo: **Falta el certificado de …**, **Certificado de … solicitado, falta cargarlo**, **El certificado vence en N días**, **El certificado de … está vencido** o **Certificado vigente hasta el …**.
+- La última prueba de conexión: **Conexión sin probar**, **Conexión probada el …** o **La última prueba de conexión falló**.
+
+Abajo, una frase resume todo: **Todo listo: podés emitir comprobantes en …** o **Todavía no podés emitir: falta …**, con lo que falta en el orden en que conviene resolverlo. La pantalla de **Facturación** usa este mismo control antes de emitir.
+
+## Datos fiscales del emisor
+
+Son los datos que se imprimen en cada comprobante. La **Razón social** y el **CUIT** se ven pero no se editan acá: se cambian en los datos de la empresa (enlace **Editar en Empresa**, ver <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>).
+
+| Campo | Qué es |
+|---|---|
+| **Condición frente al IVA** | **Responsable Inscripto** (emitís Facturas A y B), **Monotributo** o **IVA Exento** (emitís Facturas C). Obligatoria: define qué tipo de factura sale. |
+| **Ingresos Brutos: régimen** | **Local**, **Convenio Multilateral**, **Exento** o **Sin informar**. |
+| **Ingresos Brutos: número de inscripción** | Se imprime en la factura. Dejalo vacío si no corresponde. |
+| **Inicio de actividades** | Obligatoria. Se imprime en la factura. |
+| **Domicilio fiscal: calle y número**, **Localidad**, **Provincia**, **Código postal** | El domicilio fiscal. Todos obligatorios; el código postal admite solo letras y números (entre 4 y 10). |
+
+Al guardar vas a ver **Datos fiscales guardados.**
+
+## Puntos de venta
+
+Cargá acá los puntos de venta que diste de alta en ARCA **para factura electrónica por Web Services** (no los de controlador fiscal ni los de factura en línea).
+
+<Steps>
+<Step title="Agregá el punto de venta">
+Hacé clic en **Agregar punto de venta**.
+</Step>
+<Step title="Poné el número de ARCA">
+En **Número**, el mismo número que tiene en ARCA (entre 1 y 99999).
+</Step>
+<Step title="Poné un nombre interno">
+En **Nombre interno**, algo que te ayude a reconocerlo (por ejemplo "Casa central"). No se informa a ARCA.
+</Step>
+<Step title="Guardá">
+Vas a ver **Punto de venta N agregado.** y aparece en la tabla con su **Número**, **Nombre** y **Estado**.
+</Step>
+</Steps>
+
+Cada fila tiene botones para **editar**, **desactivar** o **activar** y **eliminar** el punto de venta:
+
+- **Desactivar**: el punto de venta deja de ofrecerse en las facturas nuevas. Se puede volver a activar cuando quieras.
+- **Eliminar**: lo borra de la configuración. Solo se puede si nunca se emitió un comprobante con él.
+
+<Callout type="warning" title="Un punto de venta con comprobantes no se renumera ni se borra">
+El número del punto de venta forma parte de la identidad fiscal de cada comprobante emitido. Si ya tiene comprobantes, el sistema no deja cambiarle el número ("**Este punto de venta ya tiene comprobantes emitidos: su número no se puede cambiar. Creá uno nuevo.**") ni borrarlo: desactivalo y creá uno nuevo.
+</Callout>
+
+## Certificado de ARCA
+
+El certificado es lo que le permite al sistema identificarse ante ARCA en nombre de la empresa. **Cada ambiente tiene su propio certificado**: uno para homologación y otro para producción. Arriba del asistente, **Ambiente que estás configurando** elige cuál estás preparando (el activo se marca **(activo)**). Configurar uno no cambia el ambiente en el que se emite.
+
+El asistente tiene cuatro pasos. Cada paso se habilita cuando terminaste el anterior.
+
+<Steps>
+<Step title="Generá la solicitud (CSR)">
+El sistema genera una clave privada, que queda guardada cifrada y nunca se descarga, y una **solicitud de certificado** para ARCA. Revisá la **Razón social** y el **CUIT**, elegí el **Alias del certificado** (es el nombre con el que lo vas a ver en ARCA; solo letras, números, punto, guion y guion bajo) y hacé clic en **Generar solicitud**. Después **descargá la solicitud (.csr)** o copiala con **Copiar solicitud**.
+</Step>
+<Step title="Subí la solicitud a ARCA">
+Esto se hace en el portal de ARCA, con la clave fiscal de la empresa. Con **Ver instrucciones** ves los pasos exactos para el ambiente que estás configurando, y el enlace **Abrir el portal de ARCA**. En homologación se usa el servicio "WSASS – Autogestión Certificados Homologación"; en producción, "Administración de Certificados Digitales" y después el "Administrador de Relaciones de Clave Fiscal" para autorizar el servicio de factura electrónica (wsfe). ARCA te devuelve un archivo de certificado (.crt).
+</Step>
+<Step title="Cargá el certificado">
+Arrastrá el archivo .crt al recuadro o hacé clic en **Elegir archivo**. También podés pegar su contenido con **Pegar el contenido** y **Cargar certificado**. Vas a ver **Certificado cargado. Vence el …** y una tarjeta con el **Titular**, el **Emisor**, la **Vigencia** y cuándo se cargó.
+</Step>
+<Step title="Probá la conexión">
+Hacé clic en **Probar conexión**. El sistema se conecta con ARCA con ese certificado y muestra si salió bien. Si falla, **Respuesta técnica de ARCA** muestra el detalle (podés copiarlo para pasárselo a tu contador o a soporte).
+</Step>
+</Steps>
+
+<Callout type="warning" title="Si descartás o reemplazás una solicitud">
+**Descartar solicitud** o **Generar otra solicitud** invalida la solicitud anterior: si ya la habías subido a ARCA, el certificado que te devuelva **no se va a poder cargar**. El certificado vigente, si había uno, sigue funcionando.
+</Callout>
+
+### Cómo renovar el certificado
+
+Los certificados vencen. Desde 30 días antes, el resumen y la tarjeta del certificado avisan "**El certificado vence en N días**". Para renovarlo, hacé clic en **Renovar certificado** (o en **Generar solicitud de renovación**) y repetí los cuatro pasos. **El certificado actual sigue funcionando hasta que cargues el nuevo.** Si se vence, no se puede emitir en ese ambiente hasta renovarlo.
+
+## Homologación y producción
+
+| Ambiente | Qué pasa con lo que emitís |
+|---|---|
+| **Homologación** | Es el ambiente de pruebas de ARCA. Las facturas no tienen validez fiscal y en el listado quedan marcadas como **Prueba**. Es el ambiente con el que arranca toda empresa. |
+| **Producción** | Las facturas se informan a ARCA con validez fiscal. |
+
+<States title="Ambiente de emisión">
+<State name="Homologación" tone="info" next="Producción">Pruebas sin validez fiscal. Sirve para validar datos, puntos de venta y certificado.</State>
+<State name="Producción" tone="success" next="Homologación">Facturas con validez fiscal. Se puede volver a homologación si hace falta probar algo.</State>
+</States>
+
+### Cómo pasar a producción
+
+El botón **Pasar a producción** se habilita solo cuando está todo en orden. Si falta algo, debajo aparece **Para pasar a producción falta:** con la lista:
+
+- Datos fiscales completos.
+- Al menos un punto de venta activo.
+- Un certificado de **producción** cargado y vigente.
+- Una **prueba de conexión en producción** que haya salido bien **en las últimas 24 horas**.
+- Que la instalación esté habilitada para emitir en producción. Si no lo está, la lista dice "**Este servidor no está habilitado para emitir en producción.**" y hay que pedírselo al administrador del sistema.
+
+<Steps>
+<Step title="Prepará el certificado de producción">
+En **Ambiente que estás configurando** elegí **Producción**, completá los cuatro pasos y probá la conexión.
+</Step>
+<Step title="Hacé clic en Pasar a producción">
+Se abre **¿Pasar a producción?**.
+</Step>
+<Step title="Confirmá con el CUIT">
+Tildá **Entiendo que los comprobantes emitidos en producción tienen validez fiscal.** y escribí el CUIT de la empresa. Recién ahí se habilita el botón **Pasar a producción**. Vas a ver **Ambiente cambiado a producción.**
+</Step>
+</Steps>
+
+<Callout type="danger" title="En producción, una factura emitida no se borra">
+Cada factura que emitas en producción se informa a ARCA con validez fiscal y no se puede borrar: solo se corrige con una nota de crédito. Los comprobantes que emitiste en homologación quedan en el listado marcados como **Prueba**.
+</Callout>
+
+Para volver, **Volver a homologación** pide confirmación ("**¿Volver a homologación?**"): las facturas que emitas desde ese momento son de prueba; los borradores no cambian.
+
+## ARCA simulado (modo demo)
+
+Algunas instalaciones de demostración funcionan con **ARCA simulado**. En ese caso la pantalla lo avisa arriba: "**ARCA simulado (modo demo): no hace falta certificado; los comprobantes no se informan a ARCA y no tienen validez fiscal.**". El resumen no exige certificado y podés emitir comprobantes de prueba sin él. Si igual lo configurás, se usa cuando el sistema deje el modo demo.
+
+## Cómo se conecta con el resto del sistema
+
+- **Facturación** (Comercial) usa todo lo de esta pantalla: no deja emitir si el resumen dice que falta algo, toma el tipo de factura de la condición frente al IVA, ofrece solo los puntos de venta activos y emite en el ambiente activo (<GuideLink to="facturacion">Facturación</GuideLink>).
+- El recorrido completo, desde el pedido del cliente hasta la factura, está en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+- **Razón social y CUIT** se editan en <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la pantalla | **Ver** en **Datos fiscales** |
+| Guardar datos, puntos de venta, certificado, probar conexión y cambiar de ambiente | **Editar** en **Datos fiscales** |
+
+Sin **Editar** la pantalla se ve completa pero en modo consulta, con el aviso "**Para modificar los datos fiscales necesitás el permiso Modificar en Datos fiscales.**".
+
+## Problemas frecuentes
+
+<Callout type="info" title="&quot;Ya existe el punto de venta N.&quot;">
+Ese número ya está cargado. Si estaba desactivado, activalo en lugar de crearlo de nuevo.
+</Callout>
+
+<Callout type="warning" title="&quot;Falta configurar la clave de cifrado del servidor&quot;">
+El paso 1 muestra este aviso cuando la instalación no tiene configurada la clave con la que se guardan cifrados los certificados. No se puede resolver desde la pantalla: pedíselo al administrador del sistema.
+</Callout>
+
+<Callout type="tip" title="El certificado no se puede cargar">
+Revisá que sea el .crt que devolvió ARCA para **la última solicitud** generada en **este mismo ambiente**. Un certificado de homologación no sirve para producción, y uno generado a partir de una solicitud descartada tampoco.
+</Callout>
+
+<Callout type="tip" title="La prueba de conexión falla">
+Las causas habituales son que el alias no está autorizado para el servicio de factura electrónica (wsfe) en ARCA, o que el certificado es del otro ambiente. Copiá la **Respuesta técnica de ARCA** y revisala con tu contador.
+</Callout>

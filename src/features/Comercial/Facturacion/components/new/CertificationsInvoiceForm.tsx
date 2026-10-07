@@ -163,6 +163,8 @@ export function CertificationsInvoiceForm({ customers }: { customers: Customer[]
                   selectedValues={field.value ? [field.value] : []}
                   onChange={handleCustomerChange}
                   maxSelections={1}
+                  closeOnSelect
+                  searchPlaceholder="Buscar cliente..."
                   disabled={pending}
                 />
               </FormControl>

@@ -1,0 +1,178 @@
+---
+title: Documentos de empleados
+summary: Dónde controlás y cargás la documentación del personal: permanentes y mensuales, estados, carga individual o multirecurso, privados, descarga y filtros.
+keywords: documentos, documentación, empleados, legajo, permanentes, mensuales, pendiente, presentado, vencido, rechazado, subir documento, multirecurso, privados, descargar, zip, ya no aplica
+updated: 2026-10-07
+---
+
+El módulo **Documentación** concentra los documentos que la empresa le exige a su personal, a sus equipos y a sí misma. Esta guía cubre la pestaña **Documentos de Empleados**: la lista de cada documento exigido a cada empleado activo, con su estado y vencimiento, desde donde se cargan los archivos que faltan.
+
+Los documentos **no se crean a mano uno por uno**: cuando un tipo de documento es obligatorio para los empleados (según cómo se configuró en <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>), el sistema crea solo un documento **Pendiente** para cada empleado al que le corresponde. El trabajo de esta pantalla es completar esos pendientes y mantenerlos al día.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Arriba está el botón **Documento Multirecurso** (para cargar un mismo documento a varios empleados a la vez) y, debajo, dos subpestañas:
+
+- **Documentos Permanentes**: documentos que se presentan una vez y valen hasta su vencimiento (o no vencen): DNI, carnet, apto médico, etc.
+- **Documentos Mensuales**: documentos que se presentan **por período** (mes y año): recibos, formularios de cargas sociales, etc. Cada período es un documento distinto.
+
+### Columnas
+
+| Columna | Qué muestra |
+|---|---|
+| **Empleado** | Apellido y nombre. El nombre es un enlace a la ficha del empleado. |
+| **Legajo** | El número de legajo. |
+| **Tipo de Documento** | Qué documento es. |
+| **Afectado a** | (Solo mensuales) los clientes a los que está afectado el empleado. |
+| **Estado** | **Pendiente**, **Presentado**, **Aprobado**, **Rechazado** o **Vencido** (ver más abajo). |
+| **Mandatorio** | Si el tipo de documento es obligatorio. |
+| **Multirecurso** | Si el tipo de documento se carga una vez para varios empleados. |
+| **Vencimiento** | (Solo permanentes) la fecha de vencimiento; **No vence** si el tipo no vence y **Pendiente** si todavía no se cargó. |
+| **Período** | (Solo mensuales) el mes al que corresponde. |
+| **Subido el** | La fecha de carga; **No disponible** si está pendiente. |
+| **Motivo de rechazo** | El motivo, si el documento fue rechazado. |
+
+**Mandatorio**, **Multirecurso** y **Motivo de rechazo** vienen ocultas; mostralas con **Columnas**.
+
+En la última columna:
+
+- **Subir documento** si el documento está **Pendiente**.
+- **Ver documento** si ya tiene archivo: abre el <GuideLink to="detalle-de-documento">detalle del documento</GuideLink>.
+
+### Buscar, filtrar, descargar y exportar
+
+- **Buscador**: busca por empleado.
+- **Filtros**: de entrada se ven **Estado**, **Empleado**, **Legajo** y **Tipo de documento**; con **Filtros** mostrás **Mandatorio**, **Multirecurso**, **Vencimiento**, **Subido el**, **Motivo de rechazo** y, en mensuales, **Afectado a** y **Período**.
+- **Descargar Documentos**: arma un archivo .zip con los documentos cargados que se ven en la tabla. Antes de descargar te muestra cuántos están **listos para descargar** y cuántos están **pendientes (no se descargarán)**.
+- **Excel**: exporta la lista con los filtros aplicados.
+
+<Callout type="tip" title="Ver todo lo que falta">
+Filtrá **Estado → Pendiente** para tener la lista de lo que falta presentar. Combinado con **Tipo de documento**, te da, por ejemplo, todos los empleados que todavía no presentaron el apto médico.
+</Callout>
+
+## Los estados de un documento
+
+<States title="Ciclo de un documento">
+<State name="Pendiente" tone="danger" next="Presentado">
+El documento se exige pero todavía no tiene archivo. Se carga con **Subir documento**.
+</State>
+<State name="Presentado" tone="info" next="Vencido, Pendiente">
+Tiene archivo cargado y cuenta como presentado. Si se elimina el archivo, vuelve a **Pendiente**.
+</State>
+<State name="Aprobado" tone="success">
+Documento marcado como aprobado. El sistema lo trata igual que uno cargado: no se vuelve a pedir.
+</State>
+<State name="Rechazado" tone="danger" next="Presentado">
+Documento marcado como rechazado; el motivo se ve en **Motivo de rechazo**. Se corrige reemplazando el archivo desde el detalle.
+</State>
+<State name="Vencido" tone="warning" next="Presentado">
+Documento marcado como vencido. Se pone al día renovándolo desde el detalle.
+</State>
+<State name="Ya no aplica" tone="default" next="Presentado">
+El documento tenía archivo, pero el empleado dejó de cumplir la condición que lo hacía obligatorio (por ejemplo, cambió de puesto). Se conserva como historial y no cuenta para su documentación. Solo se ve en la ficha del empleado.
+</State>
+</States>
+
+El conjunto de estos documentos define el **estado de la documentación** del empleado (**Completo**, **Incompleto** o **Completo con doc vencida**), que se ve en el listado de empleados. Cómo se calcula, cuándo se crean y se archivan los documentos y qué pasa con las bajas está en <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+## Cómo cargar un documento pendiente
+
+<Steps>
+<Step title="Encontrá el pendiente">
+En **Documentos Permanentes** o **Documentos Mensuales**, buscá el empleado (o filtrá **Estado → Pendiente**).
+</Step>
+<Step title="Abrí la carga">
+Hacé clic en **Subir documento** en esa fila. El empleado y el tipo de documento ya vienen elegidos.
+</Step>
+<Step title="Elegí el archivo">
+En **Documento** seleccioná el archivo.
+</Step>
+<Step title="Completá vencimiento o período">
+Si el tipo vence, cargá la **Fecha de vencimiento** (obligatoria). Si es mensual, elegí el **Periodo** al que corresponde.
+</Step>
+<Step title="Enviá">
+Hacé clic en **Enviar documento**. Vas a ver **Documento subido correctamente** y la fila pasa a **Presentado**.
+</Step>
+</Steps>
+
+<Callout type="warning" title="Si el tipo es multirecurso, se carga a todos">
+Cuando el tipo de documento es **multirecurso** (por ejemplo, una póliza que cubre a todo el personal), el archivo que subís desde **Subir documento** se vincula a **todos los empleados activos** a los que les falta, no solo al de la fila. Los que ya lo tenían presentado no se tocan.
+</Callout>
+
+Si el documento ya estaba presentado para ese período, el sistema avisa **El documento ya ha sido subido anteriormente** (o **El documento ya ha sido subido para el período …**). Para cambiar un archivo ya cargado, usá **Reemplazar** o **Renovar** en el detalle.
+
+## Cómo cargar un documento a varios empleados (multirecurso)
+
+<Steps>
+<Step title="Abrí la carga multirecurso">
+Hacé clic en **Documento Multirecurso**.
+</Step>
+<Step title="Elegí el tipo">
+En **Tipo de documento** aparecen solo los tipos marcados como multirecurso.
+</Step>
+<Step title="Elegí los empleados">
+En **Empleados** seleccioná a quiénes aplica (la opción **Todos** los marca a todos). Cada empleado se identifica por nombre y CUIL.
+</Step>
+<Step title="Completá vencimiento o período y el archivo">
+Según el tipo, cargá la **Fecha de validez** o el **Período**, y elegí el **Documento**.
+</Step>
+<Step title="Enviá">
+Hacé clic en **Enviar**. El aviso **Documento cargado (N recursos)** confirma a cuántos empleados se vinculó.
+</Step>
+</Steps>
+
+Esta carga solo completa documentos **faltantes**. Para reemplazar o eliminar uno ya cargado, andá al documento puntual.
+
+## Reemplazar, renovar y eliminar
+
+Estas acciones se hacen desde el detalle del documento (**Ver documento** → pestaña **Actualizar**):
+
+- **Renovar**: subís el documento nuevo (con su nuevo vencimiento o período) y el anterior queda guardado como historia.
+- **Reemplazar**: cambiás el archivo por otro (por ejemplo, porque se subió uno equivocado). El anterior se borra y no se recupera.
+- **Eliminar**: borra el archivo y el documento vuelve a **Pendiente**.
+
+El paso a paso está en <GuideLink to="detalle-de-documento">Detalle de documento</GuideLink>.
+
+## Documentos privados
+
+Un tipo de documento puede estar marcado como **privado** (por ejemplo, documentación médica o salarial). Los documentos privados:
+
+- Solo los ven quienes tienen el permiso **Ver privados**. Para el resto, no aparecen en las tablas.
+- Solo los puede cargar quien tiene el permiso **Subir privados**: sin ese permiso, el botón **Subir documento** no aparece en esas filas.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="De la condición al documento">
+<FlowStep title="Tipo de documento" module="Configuración" to="tipos-de-documento">Se define a quién se le exige</FlowStep>
+<FlowStep title="Pendiente" module="Documentación" tone="danger">Se crea para cada empleado que cumple la condición</FlowStep>
+<FlowStep title="Presentado" module="Documentación" tone="info">Se sube el archivo</FlowStep>
+<FlowStep title="Estado del empleado" module="Empleados" to="empleados-listado" tone="success">Completo, Incompleto o con doc vencida</FlowStep>
+<FlowStep title="Vencimientos" module="Dashboard" to="dashboard-vencimientos">Se controla qué vence</FlowStep>
+</Flow>
+
+- **Empleados**: cambiar el puesto, la categoría, el gremio o las afectaciones de un empleado puede hacer que le aparezcan documentos nuevos o que otros pasen a **Ya no aplica**. Ver <GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>.
+- **Bajas**: los empleados dados de baja no aparecen en estas tablas. Ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>.
+- **Dashboard**: los vencimientos próximos se ven en <GuideLink to="dashboard-vencimientos">Vencimientos</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver la pestaña | **Ver** en Documentos de Empleados |
+| Ver cada subpestaña | **Ver** en Permanentes o Mensuales |
+| **Documento Multirecurso** | **Crear** en Documentos de Empleados |
+| **Subir documento** en un pendiente | **Editar** en Permanentes o Mensuales (o **Subir privados** si el tipo es privado) |
+| Ver documentos privados | **Ver privados** en Documentos de Empleados |
+| **Ver documento** | **Ver** en la subpestaña y en Detalle de Documento |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Un empleado no tiene el documento que debería">
+El documento se crea según las condiciones del tipo de documento. Revisá que el empleado cumpla esas condiciones (puesto, categoría, cliente, etc.) y que el tipo esté activo y marcado como obligatorio.
+</Callout>
+
+<Callout type="warning" title="No encuentro un documento privado">
+Si no tenés el permiso **Ver privados**, los documentos privados no aparecen en la tabla ni en los filtros.
+</Callout>

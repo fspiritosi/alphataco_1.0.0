@@ -1,0 +1,181 @@
+---
+title: Diagramas
+summary: Cargá día por día qué hace cada empleado (trabaja, franco, licencia…), en forma individual o masiva, y consultá lo cargado en grilla o en reportes.
+keywords: diagrama, turno, novedad, franco, licencia, enfermedad, 14x14, carga masiva, ausentismo, calendario
+updated: 2026-10-07
+---
+
+Los diagramas dicen, para cada empleado y cada día, en qué situación está: trabajando, de franco, de licencia, enfermo, de vacaciones… Esa información es la base de varias cosas del sistema: los desvíos de los partes diarios, los empleados disponibles del Dashboard y las estadísticas de ausentismo. Por eso conviene tener los diagramas siempre cargados con anticipación.
+
+<OpenScreen />
+
+Se entra desde **Empleados**, pestaña **Diagramas**. Tiene cuatro solapas: **Diagramas Cargados**, **Cargar Diagrama**, **Carga Masiva** y **Reportes**.
+
+## Dos conceptos: novedad y diagrama de trabajo
+
+Antes de cargar nada conviene distinguir dos cosas que se configuran en **Configuración → RRHH** (ver <GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>):
+
+| Concepto | Dónde se configura | Qué es |
+|---|---|---|
+| **Novedad** | **Tipos de Novedades** | Lo que se registra en cada día: Trabajo, Franco, Licencia, Enfermedad, etc. Tiene un nombre, una **Descripción corta** (el código de hasta 3 letras que se ve en la grilla), un **Color** y el interruptor **Laboralmente Activo**, que indica si ese día la persona está trabajando. |
+| **Diagrama de trabajo** | **Tipos de Diagramas** | Un ciclo que se repite, por ejemplo 14x14: una cantidad de **Días activos** con una **Novedad activa** y una cantidad de **Días inactivos** con una **Novedad inactiva**. Cada empleado tiene uno asignado en su ficha (**Diagrama de trabajo**). |
+
+Lo que se guarda para cada empleado es siempre **una novedad por día**. El diagrama de trabajo es una forma rápida de llenar muchos días de una vez en la **Carga Masiva**: el sistema reparte las novedades activas e inactivas según el ciclo.
+
+<Callout type="info" title="Laboralmente Activo es lo que importa">
+Para el resto del sistema, un día "trabajado" es un día con una novedad que tiene **Laboralmente Activo** encendido. Si una novedad está mal configurada (por ejemplo, una licencia marcada como laboralmente activa), los desvíos del parte y el ausentismo van a dar mal.
+</Callout>
+
+## Diagramas Cargados: consultar lo que hay
+
+Es una grilla tipo calendario: una fila por empleado y una columna por día. Cada celda se pinta con el color de la novedad y muestra su código. Al pasar el mouse ves el nombre de la novedad y el comentario, si tiene. Los días sin nada cargado muestran **Sin diagrama**.
+
+<Steps>
+  <Step title="Filtrá a quién querés ver">
+    En **Buscador de diagramas de empleados** completá al menos un filtro: **Nombre**, **Apellido**, **Puesto en la empresa**, **Diagrama de trabajo**, **Centro de costos**, **Convenio**, **Gremio**, **Categoría**, **Contratista** o **Tipo de Diagrama**. Sin filtros la pantalla te pide **Para mostrar diagramas debe aplicar al menos un filtro.**
+  </Step>
+  <Step title="Buscá">
+    Hacé clic en **Buscar diagramas**. Se buscan solo empleados activos, de a 100. Si hay más, al final aparece **Cargar más empleados**.
+  </Step>
+  <Step title="Ajustá empleados y fechas">
+    Arriba de la grilla podés destildar empleados (**Selecciona al menos 1 recurso**) y elegir el rango de fechas. De entrada muestra de hoy a 30 días; **La selección máxima es de 30 días**.
+  </Step>
+  <Step title="Exportá si lo necesitás">
+    **Exportar a Excel** descarga la grilla con los colores y, además, el puesto, sector, fecha de ingreso, diagrama, centro de costo, categoría, convenio y sindicato de cada empleado.
+  </Step>
+</Steps>
+
+Los filtros quedan en la dirección de la página, así que podés guardar el enlace o compartirlo y la búsqueda se repite sola. **Limpiar filtros** los borra.
+
+<Callout type="tip" title="Buscar quién no tiene diagrama">
+El filtro **Tipo de Diagrama** tiene la opción **Sin diagramas asignados**. Ojo: este filtro mira la novedad de **hoy**, no la del rango que estás viendo.
+</Callout>
+
+Esta grilla es solo de consulta: no se edita ni se borra desde acá. Para corregir un día, cargalo de nuevo desde **Cargar Diagrama** y elegí **Actualizar**.
+
+## Cargar Diagrama: un empleado, un rango
+
+Sirve para cargar una novedad puntual (una licencia, un certificado médico, unas vacaciones) o corregir días ya cargados.
+
+<Steps>
+  <Step title="Completá el formulario Generar Diagrama">
+    Elegí el **Empleado** (aparece como [legajo] Apellido Nombre), el **Tipo de novedad**, **Fecha desde** y **Fecha hasta**. Las fechas se pueden escribir (DD/MM/AAAA) o elegir en el calendario. La fecha hasta no puede ser anterior a la fecha desde.
+  </Step>
+  <Step title="Agregá un comentario si hace falta">
+    **Comentarios (opcional)** se guarda en todos los días del rango. Si encendés **Personalizar comentario por día**, cada día queda con el comentario general y podés cambiar solo los que necesites.
+  </Step>
+  <Step title="Generá la vista previa">
+    Hacé clic en **Generar diagramas**. Todavía no se guarda nada: el sistema te muestra, día por día, qué va a pasar.
+  </Step>
+  <Step title="Resolvé los días ya cargados">
+    En **Diagramas duplicados** aparecen los días que ya tienen una novedad (con la **Novedad registrada**). Para cada uno elegí **Actualizar** (reemplaza la novedad) o **Descartar** (lo deja como está). Con varios, usá **Actualizar Todos** o **Descartar Todos**. Si dejás el comentario vacío, se conserva el que ya tenía.
+  </Step>
+  <Step title="Creá los días nuevos">
+    En **Diagramas correctos** están los días libres. Hacé clic en **Crear** en cada uno o en **Crear Todos**. Vas a ver **Se crearon N diagramas**.
+  </Step>
+</Steps>
+
+Cuando no queda nada pendiente, la pantalla avisa **No quedan diagramas pendientes de esta carga.** y el formulario queda listo para otra carga.
+
+La misma carga existe dentro de la ficha de cada empleado, en la pestaña **Diagramas → Nuevo Diagrama**, con el empleado ya elegido (ver <GuideLink to="ficha-del-empleado#diagramas">Ficha del empleado</GuideLink>).
+
+<Callout type="info" title="Se puede cargar hacia atrás">
+**Cargar Diagrama** acepta fechas pasadas y no tiene un límite de días. Es la herramienta para regularizar días que quedaron sin cargar.
+</Callout>
+
+## Carga Masiva: muchos empleados de una vez
+
+Asigna un diagrama de trabajo cíclico o una misma novedad a muchos empleados en un rango de fechas. Es un asistente de tres pasos: **Formulario**, **Verificación** y **Resultados**.
+
+<Steps>
+  <Step title="Elegí el tipo de carga">
+    En **Tipo de carga** elegí **Diagrama** (aplica un patrón cíclico de días activos e inactivos) o **Novedad** (la misma novedad todos los días del rango, por ejemplo un feriado o una licencia general).
+  </Step>
+  <Step title="Elegí qué se carga">
+    En modo **Diagrama**, elegí el **Diagrama de trabajo**; si tiene más de una novedad activa, elegí cuál usar en **Novedad activa**. En modo **Novedad**, elegí la **Novedad**.
+  </Step>
+  <Step title="Elegí el rango de fechas">
+    En **Rango de fechas**: solo desde hoy en adelante y como máximo 90 días.
+  </Step>
+  <Step title="Elegí los empleados">
+    En **Filtrar empleados** buscá por Nombre, Apellido, Posición, Centro de Costo, Convenio, Gremio, Categoría o Contratista y hacé clic en **Buscar empleados**. En modo Diagrama se agrega solo el filtro por ese diagrama de trabajo, así que aparecen los empleados que lo tienen asignado. Tildá las tarjetas o usá **Seleccionar Todos** (máximo 100 empleados por carga).
+  </Step>
+  <Step title="Verificá">
+    Revisá el **Resumen de la operación** (empleados, días, registros) y hacé clic en **Verificar y Crear Diagramas** o **Verificar y Cargar Novedad**.
+  </Step>
+  <Step title="Revisá los conflictos y confirmá">
+    Si hay días ya cargados aparece **Conflictos Detectados**, con dos grupos: **Registros en Uso** (días en los que el empleado ya figura en un parte diario) y **Registros Existentes - Se actualizarán**. Si todo está bien, hacé clic en **Continuar**.
+  </Step>
+  <Step title="Mirá el resultado">
+    **Operación Completada** muestra cuántos registros se crearon, actualizaron y fallaron, con el detalle en las solapas **Creados**, **Actualizados** (con la novedad anterior y la nueva) y **Errores**. Podés guardar el detalle con **Descargar Reporte TXT** y arrancar otra con **Nueva Carga Masiva**.
+  </Step>
+</Steps>
+
+### Cómo se reparte el ciclo
+
+El ciclo arranca el primer día del rango que elegiste. Con un diagrama 14x14 y el rango empezando el 1°, del 1 al 14 se carga la novedad activa y del 15 al 28 la inactiva, y vuelve a empezar. Si el empleado venía con el ciclo empezado en otra fecha, elegí el rango para que arranque justo en su primer día de trabajo.
+
+<Callout type="danger" title="Días ya usados en un parte">
+La carga masiva **reemplaza todos los días que ya estaban cargados en el rango**, sin opción de saltearlos. Si en la verificación aparecen **Registros en Uso**, cancelá y revisá esos días antes de continuar: cambiar la novedad de un día en el que el empleado ya figura en un parte puede generarle un desvío en ese parte. Para esos casos usá **Cargar Diagrama**, que te deja descartar día por día.
+</Callout>
+
+## Reportes
+
+**Reportes de Diagramas** es una tabla con una fila por empleado y por día, para analizar y exportar las novedades cargadas.
+
+| Columna | Qué muestra |
+|---|---|
+| **Empleado**, **Legajo**, **CUIL**, **Puesto** | Datos del empleado (CUIL oculta por defecto). |
+| **Tipo de novedad** | Nombre de la novedad. |
+| **Novedad** | El código con su color. |
+| **Comentario** | Oculta por defecto. |
+| **Fecha**, **Día**, **Mes**, **Año** | El día de la novedad, también desglosado para filtrar. |
+| **Registrado** | Oculta por defecto. Cuándo se cargó. |
+
+- El buscador (**Buscar por nombre, apellido, legajo o CUIL...**) busca en todos esos datos.
+- Filtros visibles de entrada: **Empleado**, **Tipo de novedad** y **Puesto**. Con el botón de filtros se suman **Legajo** (exacto), **Apellido**, **Nombre**, **CUIL**, **Día**, **Mes**, **Año**, **Comentario** y el rango **Fecha de registro**.
+- La exportación a Excel (**Reporte de Novedades de Diagramas**) respeta los filtros activos.
+
+Solo se incluyen empleados activos.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="Para qué se usan los diagramas">
+  <FlowStep title="Novedades y diagramas" module="Configuración" to="catalogos-de-rrhh">Se definen los tipos y si son laborales.</FlowStep>
+  <FlowStep title="Carga de diagramas" module="Empleados">Una novedad por empleado y por día.</FlowStep>
+  <FlowStep title="Parte diario" module="Operaciones" to="partes-diarios" tone="warning">Marca desvíos si el empleado no debía trabajar.</FlowStep>
+  <FlowStep title="Dashboard y estadísticas" module="Dashboard" to="dashboard-estadisticas" tone="info">Disponibles del día y ausentismo.</FlowStep>
+</Flow>
+
+- **Partes diarios**: al poner a un empleado en un parte, el sistema mira su novedad de ese día. Si no tiene nada cargado, el parte marca el desvío **Sin diagrama cargado para este día**; si la novedad no es laboral (franco, licencia…), marca **Día no laboral** con el nombre de la novedad. Ya en el selector de empleados del parte se ve la advertencia antes de asignarlo. Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink> y el recorrido completo en <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+- **Dashboard → Principal**: la tarjeta **Recursos Humanos** cuenta los empleados **Con diagrama** (con novedad laboral hoy), los que están **En operacion** (en el parte de hoy) y los **Disponibles** (con diagrama de trabajo y sin parte). También muestra cuántos hay hoy con cada novedad. Ver <GuideLink to="dashboard-principal">Dashboard principal</GuideLink>.
+- **Estadísticas de RRHH**: el ausentismo se calcula con las novedades no laborales cargadas. Ver <GuideLink to="dashboard-estadisticas">Estadísticas</GuideLink>.
+- **Mantenimiento**: un supervisor solo figura como disponible si su novedad de hoy es laboral; si no, aparece **Sin diagrama activo**.
+- **Baja de un empleado**: al darlo de baja, sus diagramas quedan desactivados y dejan de aparecer en estas pantallas; si se lo reactiva, vuelven (ver <GuideLink to="ficha-del-empleado#dar-de-baja-un-empleado">Dar de baja un empleado</GuideLink>).
+
+Todo cambio en un diagrama queda registrado en el **Historial** que se ve en la pestaña Diagramas de la ficha de cada empleado, con quién lo hizo y cuándo.
+
+## Permisos
+
+| Permiso | Qué habilita |
+|---|---|
+| **Ver** en **Diagramas** (módulo Empleados) | Entrar a la pestaña. Cada solapa (**Diagramas Cargados**, **Cargar Diagramas**, **Carga Masiva**, **Reportes**) tiene su propio permiso **Ver**: se muestran solo las habilitadas. |
+| **Ver** en **Cargar Diagramas** | Además habilita la solapa **Nuevo Diagrama** dentro de la ficha del empleado. |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="El parte marca Sin diagrama cargado">
+Al empleado le falta la novedad de ese día. Cargala desde **Cargar Diagrama** (acepta fechas pasadas).
+</Callout>
+
+<Callout type="warning" title="No encuentro la novedad o el diagrama en la carga masiva">
+La carga masiva solo ofrece novedades y diagramas de trabajo **activos**. Revisá su **Estado** en **Configuración → RRHH**.
+</Callout>
+
+<Callout type="info" title="No puedo elegir fechas pasadas en la carga masiva">
+Es así a propósito: la carga masiva es para planificar. Para días pasados usá **Cargar Diagrama**, empleado por empleado.
+</Callout>
+
+<Callout type="info" title="Un empleado no aparece en ninguna búsqueda">
+Las pantallas de diagramas muestran solo empleados activos. Si fue dado de baja, sus diagramas quedan guardados pero ocultos.
+</Callout>

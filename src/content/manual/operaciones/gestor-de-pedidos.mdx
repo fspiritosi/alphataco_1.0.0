@@ -1,0 +1,254 @@
+---
+title: Gestor de pedidos
+summary: Registrá los pedidos de servicio de tus clientes, confirmalos para mandarlos al parte diario y seguí su estado hasta que se ejecutan.
+keywords: pedido, preparte, solicitud, cliente, contrato, ítem, confirmar, reprogramar, vencido, sujeto a disponibilidad, informe
+updated: 2026-10-07
+---
+
+El Gestor de Pedidos es la puerta de entrada de todo el trabajo operativo. Cada vez que un cliente pide un servicio (por teléfono, por mail, por orden de compra), Operaciones lo carga acá como **pedido**. Mientras el pedido está pendiente es solo una intención; cuando se **confirma**, el sistema lo convierte en una línea del parte diario de su fecha, y a partir de ahí se le asignan personal y equipos, se ejecuta y, más adelante, Comercial lo certifica y lo factura.
+
+<OpenScreen />
+
+Se entra desde **Operaciones**, pestaña **Gestor de Pedidos**. Es la pestaña que se abre por defecto al entrar al módulo.
+
+<Flow title="Recorrido de un pedido">
+  <FlowStep title="Pedido" module="Operaciones" tone="default">Se carga en el Gestor de Pedidos y queda Pendiente.</FlowStep>
+  <FlowStep title="Confirmación" module="Operaciones" tone="info">Al confirmarlo se crea su línea en el parte diario de la fecha de ejecución.</FlowStep>
+  <FlowStep title="Parte diario" module="Operaciones" tone="info" to="detalle-del-parte">Se asignan recursos y se marca como ejecutado.</FlowStep>
+  <FlowStep title="Certificación y factura" module="Comercial" tone="success" to="del-pedido-a-la-factura">Comercial certifica lo ejecutado y lo factura.</FlowStep>
+</Flow>
+
+## Qué es un pedido
+
+Un pedido es **un servicio, para un día**. Aunque en el formulario cargues varios ítems, una cantidad mayor a uno o un rango de fechas, el sistema guarda un pedido separado por cada combinación de ítem, unidad y fecha. Todos comparten el mismo **N° pedido** (con el formato **PED-0001**, **PED-0002**…), que el sistema asigna solo y en orden.
+
+Por ejemplo: si un cliente pide 2 equipos de un ítem del 1 al 3 del mes, al guardar se crean 6 pedidos (2 × 3 días), todos con el mismo número. Así cada uno se puede confirmar, reprogramar o cancelar por separado.
+
+## Qué ves en la pantalla
+
+Arriba están el título **Gestión de Pedidos** y los botones **Generar Informe** y **Nuevo Pedido**.
+
+Debajo hay una fila de tarjetas con el conteo de pedidos: **Todos**, **Pendientes**, **Reprogramados**, **Confirmados**, **Cancelados**, **Rechazados** y **Vencidos**. Hacé clic en una tarjeta para filtrar la tabla por ese estado; **Todos** quita el filtro.
+
+La tabla muestra un pedido por fila. Estas son sus columnas:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha de solicitud** | Cuándo lo pidió el cliente. |
+| **Fecha de ejecución** | Para qué día es el servicio. Vacía si está sujeto a disponibilidad. |
+| **N° pedido** | El número compartido por todos los pedidos cargados juntos. |
+| **Estado** | Pendiente, Confirmado, Reprogramado, Cancelado, Rechazado o Vencido. |
+| **Cliente** / **Contrato** | Para quién y bajo qué contrato. |
+| **Sector (cliente)** / **Área (cliente)** / **Equipo cliente** | Dónde se presta el servicio dentro del cliente. |
+| **Ítem** / **Cantidad** | Qué servicio del contrato se pidió. |
+| **Tipo** | Mensual, Adicional o Adicional Permanente. |
+| **Jornada** / **Hora de inicio** / **Hora de fin** | Duración del servicio. |
+| **Solicitante** | Quién lo pidió del lado del cliente. |
+| **Motivo** | El motivo de la cancelación, el rechazo o la reprogramación, según el estado. |
+| **Confirmado por** / **Rechazado por** / **Cancelado por** / **Reprogramado por** | Quién hizo cada cambio de estado. |
+| **Observaciones** | Notas del pedido. |
+| **Imagen** | El documento adjunto (orden, mail escaneado). Se abre en una vista previa. |
+| **Acciones** | Ver detalle, Editar, Eliminar y Confirmar pedido. |
+
+Algunas columnas (por ejemplo sector, área y los "… por") están ocultas al principio: activalas desde **Columnas**.
+
+**Filtros.** Hay un filtro por cada columna: rango de fechas para las dos fechas, listas para estado, cliente, contrato, sector, área, equipo, ítem, tipo, jornada y los "… por", y texto libre para el resto. De entrada se ven **Fecha de solicitud**, **Estado** y **Cliente**; el resto se activa con **Filtros**. El buscador general (**Buscar por pedido, solicitante, observación o motivo...**) busca en esos cuatro campos a la vez.
+
+**Exportar.** El botón **Excel** descarga todos los pedidos que coinciden con los filtros activos (no solo la página que estás viendo).
+
+## Cómo cargar un pedido nuevo
+
+<Steps>
+  <Step title="Abrí el formulario">
+    Hacé clic en **Nuevo Pedido**. Se abre un panel a la derecha.
+  </Step>
+  <Step title="Elegí cliente y contrato">
+    **Cliente** y **Contrato** son obligatorios. El contrato se habilita después de elegir el cliente y solo muestra los contratos de ese cliente.
+  </Step>
+  <Step title="Completá la solicitud">
+    **Fecha de Solicitud** (por defecto hoy) y **Solicitante** (texto libre: el nombre de quien pidió el servicio) son obligatorios.
+  </Step>
+  <Step title="Indicá dónde se presta">
+    **Sector del Cliente** es opcional. **Área del Cliente** es obligatoria. **Equipos del Cliente** es opcional y admite un solo equipo. Las tres listas salen de lo que tiene cargado el contrato elegido: si dice **Sin áreas disponibles para este contrato**, hay que cargarlas primero en el contrato.
+  </Step>
+  <Step title="Cargá los ítems">
+    En **Item** elegí uno de los ítems del contrato y su **Cantidad**. Al elegirlo aparecen sus campos propios (se explican en la sección siguiente). Para pedir otro ítem en el mismo pedido usá **Agregar ítem**; para sacar uno, el ícono de papelera.
+  </Step>
+  <Step title="Adjuntá el documento (opcional)">
+    En **Documento adjunto (Imagen o PDF)** podés subir la orden o el mail del cliente. Queda vinculado a todos los pedidos de ese número.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Guardar**. El aviso confirma cuántos pedidos se crearon y con qué número, por ejemplo **Se crearon 6 pedidos con N° PED-0042**. Si alguno quedó sin fecha, lo aclara entre paréntesis.
+  </Step>
+</Steps>
+
+### Los campos de cada ítem
+
+| Campo | Obligatorio | Qué significa |
+|---|---|---|
+| **Jornada** | Sí | **Jornada 8 horas**, **Jornada 12 horas**, **Jornada 24 horas** o **Por horario**. Si elegís **Por horario** aparecen **Hora de inicio** y **Hora de fin**. La jornada define después cómo se asigna el personal en el parte (chofer y ayudantes por turno en 12 y 24 horas). |
+| **Tipo de servicio** | Sí | **Mensual**: forma parte del servicio fijo del contrato. **Adicional**: un trabajo extra puntual. **Adicional Permanente**: un extra que se repite en el tiempo. Este dato viaja al parte diario y lo usa Comercial para certificar y facturar. |
+| **Observaciones** | No | Notas propias de ese ítem. |
+| **Fecha de Ejecución** | Sí, salvo que esté sujeto a disponibilidad | Al cargar un pedido nuevo podés elegir **un día o un rango**: se crea un pedido por cada día. No se pueden elegir días pasados. |
+| **Sujeto a disponibilidad operativa** | No | Marcalo cuando el cliente pidió el servicio pero todavía no hay fecha. El pedido se crea sin fecha y **No podrá confirmarse hasta asignar fecha.** |
+
+Los errores de validación aparecen debajo de cada ítem, por ejemplo **Todos los ítems deben tener fecha de ejecución o estar sujetos a disponibilidad**.
+
+<Callout type="info" title="La cantidad multiplica pedidos">
+La **Cantidad** del formulario de alta no se guarda como un número dentro de un pedido: genera esa cantidad de pedidos de una unidad cada uno. Si pedís 3 unidades durante 5 días, se crean 15 pedidos.
+</Callout>
+
+## Estados del pedido
+
+<States title="Ciclo de vida de un pedido">
+  <State name="Pendiente" tone="default" next="Confirmado, Reprogramado, Cancelado, Rechazado, Vencido">Recién cargado. Es el único estado en el que el pedido se puede editar o eliminar.</State>
+  <State name="Reprogramado" tone="warning" next="Confirmado, Cancelado, Rechazado">El pedido se pasó a otra fecha. Este registro queda como constancia y el sistema crea un pedido nuevo, Pendiente, con la fecha nueva y el mismo N° pedido. Es ese pedido nuevo el que hay que seguir gestionando.</State>
+  <State name="Vencido" tone="danger" next="Confirmado (con fecha nueva)">Llegó su fecha de ejecución y nadie lo confirmó. Lo marca el sistema solo, todas las noches. Todavía se puede confirmar eligiendo una fecha nueva.</State>
+  <State name="Confirmado" tone="success">Ya está en el parte diario de su fecha. Estado final: desde acá se gestiona en el parte.</State>
+  <State name="Cancelado" tone="danger">Se dio de baja con un motivo obligatorio. Estado final.</State>
+  <State name="Rechazado" tone="danger">No se va a prestar (por ejemplo, no hay capacidad), con un motivo obligatorio. Estado final.</State>
+</States>
+
+### El vencimiento nocturno
+
+Todas las noches, a las 00:30 (hora de Argentina), el sistema revisa los pedidos **Pendientes** cuya fecha de ejecución ya pasó y los pasa a **Vencido**. No toca los que están sujetos a disponibilidad (no tienen fecha) ni los reprogramados.
+
+Un pedido vencido no está perdido: si el servicio se va a prestar igual, confirmalo y elegí la nueva fecha de ejecución. En el detalle del pedido aparece el aviso **Este preparte ha vencido sin ser confirmado a tiempo.**
+
+<Callout type="warning" title="Un vencido confirmado sigue diciendo Vencido">
+Cuando confirmás un pedido vencido, su línea se crea en el parte diario de la fecha nueva, pero el pedido sigue figurando como **Vencido** en la tabla (el sistema conserva el dato de que no se confirmó a tiempo). Para saber si ya está en un parte, abrí su detalle o buscalo en el parte de esa fecha.
+</Callout>
+
+## Cómo confirmar un pedido
+
+Confirmar es lo que manda el pedido a Operaciones del día.
+
+<Steps>
+  <Step title="Buscá el pedido">
+    Filtrá por **Pendientes** (o **Vencidos**) desde las tarjetas.
+  </Step>
+  <Step title="Hacé clic en el tilde verde">
+    Es la acción **Confirmar pedido**. Está deshabilitada si el pedido no tiene fecha de ejecución o si no está Pendiente ni Vencido.
+  </Step>
+  <Step title="Indicá quién confirma">
+    En **Confirmado por** escribí el nombre de quien confirma. Si el pedido está vencido, además elegí la **Fecha de ejecución** nueva (hoy o posterior).
+  </Step>
+  <Step title="Confirmá">
+    Hacé clic en **Confirmar**. Vas a ver **Pedido confirmado y enviado al parte diario**.
+  </Step>
+</Steps>
+
+### Qué pasa cuando confirmás
+
+- Si todavía no existe el parte diario de la fecha de ejecución, **el sistema lo crea**. Si ya existe, usa ese.
+- Agrega al parte una **línea** con todos los datos del pedido: cliente, contrato, ítem, cantidad, jornada, horario, tipo de servicio, sector, área, equipo del cliente y las observaciones (que pasan a ser la descripción de la línea).
+- La línea nace en estado **Sin recursos asignados**: falta que Operaciones le asigne personal y equipos en el <GuideLink to="detalle-del-parte">detalle del parte</GuideLink>.
+- La línea queda vinculada al pedido: en el detalle de la línea se ve **Pedido vinculado:** con su número.
+- Confirmar dos veces el mismo pedido no duplica la línea: si ya estaba en el parte, el sistema solo actualiza quién lo confirmó.
+
+<Callout type="info" title="Si borran la línea del parte, el pedido vuelve">
+Si alguien elimina en el parte diario una línea que vino de un pedido, el pedido vuelve a **Pendiente** y queda registrado en su historial con el motivo "La línea del parte diario fue eliminada manualmente". Así no se pierde: se puede volver a confirmar, reprogramar o cancelar.
+</Callout>
+
+## Cómo editar, reprogramar, cancelar o rechazar un pedido
+
+Todo eso se hace desde **Editar** (el lápiz), que solo aparece en los pedidos **Pendientes**.
+
+En edición no se pueden cambiar el cliente, el contrato, la fecha de solicitud, el solicitante, el sector, el área ni el equipo del cliente: si alguno está mal, conviene cancelar el pedido y cargarlo de nuevo. Sí se pueden cambiar el ítem, la cantidad, la jornada, el tipo, las observaciones, la fecha de ejecución y la imagen.
+
+- **Cambiar el ítem.** Si cambiás el ítem aparece **Motivo del cambio de ítem \***, que es obligatorio. El cambio queda en el historial del pedido.
+- **Cambiar la imagen.** El campo dice **Cambiar imagen del pedido (aplica a todo el N° …)**: la imagen es una sola para todos los pedidos de ese número.
+- **Asignarle fecha a uno sujeto a disponibilidad.** Desmarcá **Sujeto a disponibilidad operativa**, elegí la **Fecha de Ejecución** y guardá. Recién ahí se puede confirmar.
+
+Para cambiar el estado usá el campo **Estado**:
+
+| Nuevo estado | Qué te pide | Qué pasa |
+|---|---|---|
+| **Reprogramado** | **Fecha de reprogramación** (hoy o posterior) y **Motivo del Reprogramado** | El pedido actual pasa a Reprogramado, con una nota en las observaciones ("Se reprogramó para…"), y se crea un pedido nuevo Pendiente con la fecha nueva y el mismo número. |
+| **Cancelado** | **Motivo de cancelación** | El pedido queda Cancelado. |
+| **Rechazado** | **Motivo de rechazo** | El pedido queda Rechazado. |
+
+**Confirmado** aparece en la lista pero deshabilitado: para confirmar se usa el tilde verde de la tabla. Quién reprogramó, canceló o rechazó lo registra el sistema con el usuario que hizo el cambio.
+
+## Acciones masivas
+
+Para operar muchos pedidos a la vez, tildá las casillas de la izquierda. Solo se pueden seleccionar pedidos **Pendientes** o **Reprogramados**. Después hacé clic en **Cambiar estado**.
+
+<Steps>
+  <Step title="Revisá la selección">
+    El cuadro **Cambiar estado masivamente** lista los pedidos elegidos con su estado actual.
+  </Step>
+  <Step title="Elegí el nuevo estado">
+    En **Nuevo estado** elegí Pendiente, Confirmado, Reprogramado, Cancelado o Rechazado.
+  </Step>
+  <Step title="Completá lo que pide cada estado">
+    **Confirmado** pide **Confirmado por**. **Reprogramado** pide la fecha nueva y el motivo. **Cancelado** y **Rechazado** piden el motivo.
+  </Step>
+  <Step title="Guardá">
+    El resultado se informa con números: cuántos se confirmaron, cuántos ya estaban en el parte y cuáles no se pudieron confirmar (con el motivo de cada uno, por ejemplo que no tenían fecha).
+  </Step>
+</Steps>
+
+- La **confirmación masiva** funciona igual que la individual, pedido por pedido: los que no tienen fecha (sujetos a disponibilidad) se informan como error y el resto sigue adelante.
+- La **reprogramación masiva** es "todo o nada": si alguno de los pedidos ya no está pendiente o reprogramado, no se reprograma ninguno.
+
+<Callout type="warning" title="No confirmes el pedido reprogramado viejo">
+Al reprogramar, el pedido original queda en **Reprogramado** y el sistema crea otro **Pendiente** con la fecha nueva. Los dos se pueden seleccionar en la tabla. Confirmá siempre el **Pendiente** nuevo: si confirmás también el viejo, el servicio va a aparecer dos veces en los partes.
+</Callout>
+
+## Ver el detalle y el historial de un pedido
+
+El ícono del ojo (**Ver detalle**) abre **Detalle del Preparte**: los datos del cliente y del servicio, los horarios, el solicitante, el documento adjunto, el motivo y el autor de cada cambio de estado, y al final el **Historial de Cambios** (por ejemplo los cambios de ítem con su motivo, o la vuelta a pendiente cuando se borró su línea del parte).
+
+## Cómo generar el informe de pedidos
+
+**Generar Informe** descarga un Excel con un resumen y el detalle de los pedidos.
+
+<Steps>
+  <Step title="Elegí el período">
+    **Desde** y **Hasta** son obligatorios. Entran los pedidos cuya fecha de ejecución cae en el período y, si no tienen fecha, los que se solicitaron en ese período.
+  </Step>
+  <Step title="Filtrá (opcional)">
+    **Clientes** y **Estados**: si los dejás vacíos, incluye todos.
+  </Step>
+  <Step title="Elegí cómo agrupar">
+    **Agrupar por** **Línea** (un renglón por pedido) o **Pedido** (un renglón por número de pedido, con la cantidad de líneas).
+  </Step>
+  <Step title="Descargá">
+    Hacé clic en **Generar Informe**. El archivo tiene una hoja **Resumen** con los totales por estado y cliente, y una hoja **Detalle**.
+  </Step>
+</Steps>
+
+## Cómo se conecta con el resto del sistema
+
+- **Clientes y contratos** (Comercial): todo lo que elegís en el pedido (contratos, ítems, sectores, áreas, equipos del cliente) sale de lo que está cargado en el cliente y su contrato. Si falta un ítem o un área, se agrega primero ahí. Ver <GuideLink to="clientes">Clientes</GuideLink> y <GuideLink to="contratos">Contratos</GuideLink>.
+- **Partes diarios**: confirmar un pedido crea (si hace falta) el parte de esa fecha y le agrega una línea. Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink> y <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+- **Certificación y facturación**: el tipo de servicio y la cantidad del pedido viajan a la línea del parte, y de ahí a la certificación de Comercial. El recorrido completo está en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+- **Estadísticas**: los estados de los pedidos alimentan los indicadores de gestión de pedidos del Dashboard. Ver <GuideLink to="dashboard-estadisticas">Estadísticas</GuideLink>.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña, el detalle de los pedidos y generar el informe | **Ver** en Gestor de Pedidos |
+| Usar **Nuevo Pedido** | **Crear** |
+| Editar, cambiar estado (individual o masivo), confirmar y seleccionar filas | **Editar** |
+| Eliminar un pedido pendiente | **Eliminar** |
+
+## Problemas frecuentes
+
+<Callout type="info" title="El tilde de confirmar está gris">
+El pedido no tiene fecha de ejecución (está sujeto a disponibilidad) o ya no está Pendiente ni Vencido. Editalo, desmarcá **Sujeto a disponibilidad operativa** y asignale fecha.
+</Callout>
+
+<Callout type="info" title="No aparece el lápiz para editar">
+Solo se editan los pedidos **Pendientes**. Un pedido confirmado se corrige en su línea del parte diario; uno vencido se confirma con fecha nueva.
+</Callout>
+
+<Callout type="tip" title="El contrato no muestra ítems, áreas o equipos">
+Las listas salen del contrato. Si un contrato no tiene ítems o áreas cargadas, pedile a Comercial que los complete en el contrato del cliente.
+</Callout>
+
+<Callout type="danger" title="Eliminar no se puede deshacer">
+**Eliminar** borra el pedido para siempre (**Esta acción no se puede deshacer. El pedido será eliminado permanentemente.**). Si el cliente simplemente dio de baja el pedido, preferí **Cancelado**: queda la constancia y el motivo.
+</Callout>

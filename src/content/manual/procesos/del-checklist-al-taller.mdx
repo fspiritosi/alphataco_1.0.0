@@ -1,0 +1,124 @@
+---
+title: Del checklist al taller
+summary: Cómo una falla detectada en un checklist se convierte en una solicitud, un pedido de mantenimiento y un trabajo de taller, y qué cambia en el equipo.
+keywords: checklist, desvío, solicitud, mantenimiento, taller, orden de trabajo, OT, condición, no operativo, kilometraje
+updated: 2026-10-07
+---
+
+Cuando un chofer o un supervisor encuentra algo mal en un equipo, el sistema lo lleva paso a paso hasta el taller y de vuelta a la calle: el **checklist** registra la falla, la **solicitud** la pone a consideración de un supervisor, el **pedido** la programa en el taller, las **órdenes de trabajo** la resuelven y el cierre devuelve el equipo a **Operativo**. Mientras tanto, la condición del equipo se refleja en los partes diarios y en el Dashboard.
+
+<Flow title="Recorrido de una falla">
+  <FlowStep title="Checklist" module="Formularios" to="formularios">Se inspecciona el equipo. Cada ítem en **M** genera un desvío.</FlowStep>
+  <FlowStep title="Solicitud" module="Mantenimiento" to="equipos-con-desvios">Los desvíos se registran en una solicitud para un supervisor.</FlowStep>
+  <FlowStep title="Validación" module="Mantenimiento" tone="info" to="validar-solicitudes">El supervisor aprueba o rechaza cada ítem.</FlowStep>
+  <FlowStep title="Programación" module="Mantenimiento" to="taller">El taller le pone fecha y registra el ingreso.</FlowStep>
+  <FlowStep title="Taller" module="Mantenimiento" tone="warning" to="vista-taller">Se trabaja por sectores con órdenes de trabajo.</FlowStep>
+  <FlowStep title="Cierre" module="Mantenimiento" tone="success" to="taller">El jefe de taller cierra y el equipo vuelve a Operativo.</FlowStep>
+</Flow>
+
+## Paso 1: el checklist detecta la falla
+
+El checklist se completa desde <GuideLink to="formularios">Formularios</GuideLink> o, en el lugar, escaneando el <GuideLink to="qr-del-equipo">QR del equipo</GuideLink> (no hace falta tener usuario). Al guardarlo:
+
+- Cada ítem respondido como **M** queda registrado como un **desvío** del equipo, con el comentario del chofer si lo dejó. Se registran todos los ítems en M, no solo los críticos.
+- Si se cargó un **kilometraje** mayor al que tenía el equipo, se actualiza el del equipo.
+- Si hubo fallas, aparece el aviso "Se detectaron N item(s) con fallos… Por favor, registra los desvíos." y se abre el modal para registrarlos (Paso 2).
+- Si no hubo fallas, el sistema pregunta igual si querés registrar algún desvío ("Sí, registrar desvío" / "No, continuar").
+
+Si el checklist incluye un enganche (acoplado), los desvíos de esa parte quedan cargados a la patente del enganche, no a la del tractor.
+
+## Paso 2: los desvíos pasan a una solicitud
+
+En el modal **Registrar Desvíos** se elige el **Supervisor de Turno** que va a revisar y, opcionalmente, se agrega un comentario a cada desvío. Al confirmar, los desvíos se agregan a una **solicitud de mantenimiento** para ese supervisor. El mensaje dice cuántos desvíos se registraron y en cuántas solicitudes.
+
+<Callout type="warning" title="Si se cierra el modal sin registrar">
+Los desvíos no se pierden: quedan en <GuideLink to="equipos-con-desvios">Mantenimiento → Equipos con Desvíos</GuideLink>, que lista los equipos que tienen desvíos sin solicitud. Desde ahí, **Resolver Desvíos** abre el mismo registro. Mientras un equipo figure en esa lista, nadie del taller se enteró de la falla.
+</Callout>
+
+### La otra entrada: Nuevo Pedido
+
+También se puede pedir mantenimiento sin checklist, desde <GuideLink to="nuevo-pedido-de-mantenimiento">Mantenimiento → Nuevo Pedido</GuideLink>. Se elige el equipo y el tipo:
+
+- **Checklist**: desde desvíos de inspección ya registrados.
+- **Mant. Preventivo**: un mantenimiento planificado (no se ofrece para equipamientos).
+- **Carga Manual - Mant. Correctivo**: se cargan las reparaciones directamente, eligiendo un tipo de reparación o escribiendo texto libre.
+
+El asistente pregunta **¿Eres el supervisor de este pedido?**. Esa respuesta cambia el camino:
+
+- **Si sos el supervisor**, el pedido queda **aprobado en el acto** y pasa directo al taller (Paso 4). Mensaje: "Pedido de mantenimiento creado exitosamente".
+- **Si no**, elegís el supervisor y se crea una **solicitud** que espera su validación (Paso 3). Mensaje: "Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos."
+
+## Paso 3: el supervisor valida la solicitud
+
+En <GuideLink to="validar-solicitudes">Mantenimiento → Operaciones → Validar Solicitud</GuideLink> el supervisor ve las solicitudes nuevas. En **Validar Solicitud de Mantenimiento** decide **ítem por ítem**: cada uno queda **Aprobado** o **Rechazado**, y no se puede guardar mientras quede alguno sin decidir ("Todos los items deben ser aprobados o rechazados"). Los rechazados llevan motivo. Si se aprueba algo, hay que escribir una descripción de lo que se aprueba y qué hay que hacer (mínimo 15 caracteres): **el taller usa ese texto para planificar el trabajo**.
+
+<States title="Estados de una solicitud">
+  <State name="Pendiente de aprobación" tone="warning" next="Aprobada, Rechazada">Espera la decisión del supervisor.</State>
+  <State name="Aprobada" tone="success">Al menos un ítem aprobado: se genera el **pedido** para el taller con esos ítems.</State>
+  <State name="Rechazada" tone="danger">Todos los ítems rechazados. No llega al taller.</State>
+</States>
+
+## Paso 4: el pedido recorre el taller
+
+El taller trabaja en <GuideLink to="taller">Mantenimiento → Taller</GuideLink>, organizado en cuatro pasos:
+
+1. **Por Programar**: pedidos aprobados sin fecha. Con **Planificar Pedido de Mantenimiento** se fija la **Fecha de recepción en taller**. El taller también puede **Rechazar Pedido** con motivo; queda en el historial del equipo.
+2. **Por Ingresar**: pedidos con fecha. Cuando el equipo llega, **Aprobar Entrada a Taller** pide el **Kilometraje actual del equipo** (no puede ser menor al registrado) y, si corresponde, el horómetro. Al confirmar, **el equipo pasa a No operativo** ("Entrada a taller aprobada. El equipo ahora está "No Operativo"").
+3. **En Taller**: los equipos activos. Se reparten los trabajos por **sector** y se generan las **órdenes de trabajo** (OT), que los operarios ejecutan desde su <GuideLink to="panel-del-operario">panel</GuideLink>. Los trabajos de un taller externo se registran como OT externas. La <GuideLink to="vista-taller">Vista Taller</GuideLink> muestra lo mismo agrupado por sector.
+4. **Aprobaciones**: lo que necesita la autorización del jefe de taller (tareas a aprobar, reasignaciones de sector y pedidos con todas sus OT terminadas).
+
+Del lado de Operaciones, el paso **Seguimiento** muestra los equipos pendientes de ingreso y los que están en el taller.
+
+<States title="Estados de un pedido de mantenimiento">
+  <State name="Pendiente de programación" tone="warning" next="Fecha confirmada, Rechazado">Aprobado, sin fecha. Se ve en **Por Programar**.</State>
+  <State name="Fecha confirmada" tone="info" next="En Taller, Pendiente de programación">Tiene fecha de recepción. Se ve en **Por Ingresar**.</State>
+  <State name="En Taller" tone="warning" next="Pend. Validación Taller, Rechazada por Taller">El equipo está adentro y no operativo.</State>
+  <State name="Pend. Validación Taller" tone="info" next="Completada, En Taller">Todas las OT quedaron cerradas. Espera el cierre del jefe de taller, que también puede devolverlo al taller.</State>
+  <State name="Rechazada por Taller" tone="danger" next="En Taller">El taller rechazó todos los ítems.</State>
+  <State name="Completada" tone="success">Cerrada por el jefe de taller.</State>
+  <State name="Rechazado" tone="danger">El taller lo rechazó antes de programarlo.</State>
+</States>
+
+## Paso 5: el cierre y la vuelta a la calle
+
+Cuando todas las OT de un pedido están **Completada** o **Completada Parcial**, el pedido pasa a **Pend. Validación Taller** y aparece en **Aprobaciones**. Al cerrarlo el jefe de taller:
+
+- El pedido queda **Completada**.
+- El equipo vuelve a **Operativo**, **salvo que tenga otro pedido todavía En Taller**: en ese caso sigue **No operativo** hasta que se cierre el último.
+
+## Qué cambia en el resto del sistema
+
+| Momento | Efecto automático |
+|---|---|
+| Se guarda un checklist con ítems en M | Se crean los desvíos del equipo; si no se registran, el equipo aparece en **Equipos con Desvíos**. |
+| Se guarda un checklist con kilometraje mayor | Se actualiza el kilometraje del equipo. |
+| Se aprueba una solicitud | Se crea el pedido en **Por Programar**. |
+| Se aprueba la entrada a taller | El equipo pasa a **No operativo** y se actualiza su kilometraje/horómetro. |
+| Se cierra el último pedido del equipo | El equipo vuelve a **Operativo**. |
+
+La **condición del equipo** se usa en otros dos lugares:
+
+- **Partes diarios**: si asignás a una línea del parte un equipo que no está operativo, se marca el desvío "Condición: No operativo" (o "Condición: En reparación", "Condición: Condicionado", "Condición: En preparación"). Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+- **Dashboard**: en <GuideLink to="dashboard-principal">el Dashboard principal</GuideLink>, la disponibilidad de la flota cuenta como disponibles los equipos **Operativo** y **Operativo condicionado**; los **No operativo**, **En reparación** y **En preparación** cuentan como en reparación.
+
+## Gomería
+
+Las cubiertas tienen su propio circuito en <GuideLink to="gomeria">Mantenimiento → Gomería</GuideLink>: catálogo de cubiertas, plantillas de disposición por tipo de equipo, marcas, tipos y **órdenes** de servicio de gomería. Las órdenes de gomería también se pueden iniciar desde el QR del equipo. Es independiente de los pedidos de taller.
+
+## Permisos
+
+Cada paso es una pestaña con su permiso: **Formularios** para completar checklists, **Equipos con Desvíos** y **Nuevo Pedido** para pedir mantenimiento, **Operaciones** (Mantenimiento) para validar solicitudes, **Taller** y **Vista Taller** para programar, ingresar y cerrar. El detalle de cada pantalla está en su guía.
+
+## Problemas frecuentes
+
+**"El chofer hizo el checklist y el taller no ve nada"**: los desvíos no se registraron en una solicitud. Buscá el equipo en **Equipos con Desvíos** y usá **Resolver Desvíos**.
+
+**"La solicitud no llega al taller"**: está esperando al supervisor en **Validar Solicitud**, o el supervisor rechazó todos los ítems.
+
+**"El equipo salió del taller pero sigue No operativo"**: tiene otro pedido todavía **En Taller**. Se pone Operativo al cerrar el último.
+
+**"No me deja ingresar el kilometraje"**: no puede ser menor al último registrado del equipo.
+
+<Callout type="danger" title="Lo que no tiene vuelta atrás">
+Una solicitud aprobada o rechazada ya no se vuelve a validar, y un pedido **Rechazado** o **Completada** no se reabre: si el equipo vuelve a fallar, se inicia un pedido nuevo.
+</Callout>

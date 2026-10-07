@@ -1,0 +1,221 @@
+---
+title: Tipos de documento
+summary: Cómo definir qué documentos se piden a empleados, equipos y a la empresa, con qué opciones y condiciones, y qué recalcula el sistema al crear, editar o desactivar un tipo.
+keywords: tipo de documento, documentación, obligatorio, vencimiento, mensual, privado, documento de baja, multirrecurso, póliza, candidato, condicional, condiciones, especial, alertas, pendientes, desactivar, verificar documentos, globales
+updated: 2026-10-07
+---
+
+Un **tipo de documento** es la definición de un papel que la empresa necesita tener al día: el DNI y el apto médico de cada empleado, el seguro y la VTV de cada vehículo, la habilitación de la empresa. Acá se decide **qué se pide, a quién y cómo**. A partir de esa definición el sistema crea solo los documentos pendientes de cada recurso, calcula su estado de documentación y avisa los vencimientos. Lo configura quien administra la documentación (RRHH, Higiene y Seguridad, control documental).
+
+<OpenScreen />
+
+<Callout type="info" title="Primero leé cómo funciona la documentación">
+Esta guía explica cómo se configura un tipo. Cómo se usa después (documentos pendientes, estado del legajo, vencimientos) está en <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+</Callout>
+
+## Qué ves en la pantalla
+
+Está en **Configuración → Documentos**, con tres pestañas según a quién se le pide el documento:
+
+| Pestaña | Tipos de documento para… |
+|---|---|
+| **Personas** | Los empleados. |
+| **Equipos** | Los vehículos y otros equipos. |
+| **Empresa** | La propia empresa. |
+
+La pestaña de equipos también se puede abrir desde **Equipos → Tipos de Documentos**, que muestra solo los tipos de equipos.
+
+Cada tabla muestra el **Nombre** del tipo y sus opciones como columnas de **Sí/No**: **Obligatorio**, **Con vencimiento**, **Condicional**, **Multirrecurso**, **Mensual**, **Privado**, **Doc. de baja** y, en equipos, **Tipo de equipo** y **N° de Póliza**. Además **Estado** (**Activo** o **Inactivo**; los inactivos se ven tachados), **Descripción** y **Fecha de creación**. Todas esas columnas se pueden filtrar, y la tabla se exporta a Excel. En cada fila, **Editar** abre el tipo.
+
+## Tipos globales y tipos de la empresa
+
+Algunos tipos de documento son **globales**: vienen con el sistema y los comparten todas las empresas. Los ves en la tabla y los podés usar (se piden y se suben igual que los propios), pero **no se modifican desde una empresa**, porque cambiarlos afectaría a las demás. Si intentás guardar un cambio en uno de ellos, el sistema responde "**Los tipos de documento globales no se editan desde una empresa**".
+
+Los tipos que crea tu empresa son **propios**: solo existen para ella y los podés editar, desactivar y activar libremente.
+
+<Callout type="info" title="La configuración la decide la empresa">
+Qué documentos se piden y a quién es una decisión de cada empresa (o del cliente para el que trabaja). El sistema aplica exactamente lo configurado: si un tipo se configuró para ciertos puestos, a los demás no se les pide, aunque intuitivamente parezca que debería pedírseles a todos.
+</Callout>
+
+## Cómo crear un tipo de documento
+
+<Steps>
+<Step title="Abrí el formulario">
+Hacé clic en **Crear tipo de documento** (arriba a la derecha). Se abre **Nuevo Tipo de Documento**.
+</Step>
+<Step title="Poné el nombre">
+**Nombre** es obligatorio (por ejemplo "Licencia de conducir").
+</Step>
+<Step title="Elegí a quién se aplica">
+En **Aplica a** elegí **Empleados**, **Equipos** o **Empresa**. Esto **no se puede cambiar después**. Si es para equipos, en **Tipo de equipo** indicá si es de **Vehículo** u **Otro** (es informativo: se ve en la columna **Tipo de equipo**).
+</Step>
+<Step title="Tildá las opciones">
+En **Opciones** marcá cómo se comporta el documento (se explican abajo).
+</Step>
+<Step title="Agregá una descripción (opcional)">
+La **Descripción** ayuda a quien tiene que cargarlo a saber qué subir.
+</Step>
+<Step title="Definí a quién se le pide (opcional)">
+Si el documento no se le pide a todos, encendé **Documento condicional** y elegí las condiciones (se explican abajo).
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear**. Vas a ver **Tipo de documento creado**.
+</Step>
+</Steps>
+
+## Las opciones de un tipo de documento
+
+| Opción | Qué hace |
+|---|---|
+| **Es obligatorio** | El documento se exige. El sistema crea solo un documento **pendiente** a cada recurso que corresponda, y mientras falte el recurso no tiene la documentación completa. Si no es obligatorio, se puede subir cuando se quiera pero no se exige ni afecta el estado. |
+| **Tiene vencimiento** | Al subirlo se pide la **fecha de vencimiento**. El documento vence, se sigue en los vencimientos del Dashboard y un documento obligatorio vencido deja al recurso con documentación vencida. |
+| **Es mensual** | El documento se presenta **por período** (un mes): al subirlo se pide el período. Se ve separado de los permanentes, en las secciones de documentos mensuales. Ejemplos: recibos de sueldo, F931. |
+| **Es privado** | Información sensible (médica, salarial). Solo la ven y la suben quienes tienen los permisos **Ver privados** y **Subir privados** en la sección de documentos correspondiente. |
+| **Documento de baja** | Es documentación de egreso. Se sigue pidiendo a los empleados y equipos **dados de baja**, a diferencia de los demás tipos, que dejan de pedírseles. |
+| **Puede cargarse desde un candidato** | Solo para **Empleados**. El documento aparece en el checklist de documentos de los candidatos de Selección, para ir cargándolo antes del alta (ver <GuideLink to="candidatos">Candidatos</GuideLink>). |
+| **Es multirrecurso** | Solo para **Empleados** y **Equipos**. Un mismo archivo sirve para varios recursos a la vez (por ejemplo, una póliza de seguro que cubre a toda la flota): se sube una vez y se aplica a todos los elegidos. |
+| **Lleva N° de póliza** | Solo para **Equipos** multirrecurso. Al subirlo se pide el número de póliza. Si destildás **Es multirrecurso**, esta opción se destilda sola. |
+
+## Documentos condicionales: a quién se le pide
+
+Sin condiciones, un tipo de empleados se pide a **todos** los empleados y un tipo de equipos, a **todos** los equipos. Para pedirlo solo a algunos, encendé **Documento condicional** y elegí condiciones. El formulario lo explica así: "Este documento solo aplicará a empleados que cumplan al menos una condición de cada grupo configurado. Los grupos vacíos no restringen."
+
+Dicho de otra forma:
+
+- **Dentro de un mismo campo**, alcanza con cumplir **una** de las opciones elegidas (por ejemplo, Puesto "Chofer" **o** "Mecánico").
+- **Entre campos distintos**, hay que cumplir **todos** (por ejemplo, Puesto "Chofer" **y** Cliente "Cliente X").
+- Un campo que dejás vacío no filtra nada.
+
+Mientras elegís, abajo se ve cuántos recursos cumplen las condiciones: "**N empleados coinciden con las condiciones configuradas**". Usalo para comprobar que el alcance es el que esperabas antes de guardar.
+
+Si encendés **Documento condicional** y no elegís ninguna condición, el sistema no deja guardar: "**Debe seleccionar al menos una condición**". Los tipos de **Empresa** no tienen condiciones.
+
+### Condiciones para empleados
+
+**Relaciones** (se buscan escribiendo):
+
+| Condición | Qué es en la ficha del empleado |
+|---|---|
+| **Tipo de Contrato** | Tipo de contrato. |
+| **Provincia** | Provincia del domicilio. |
+| **Posición Jerárquica** | Sector (del organigrama). |
+| **Diagrama de Flujo** | Diagrama de trabajo. |
+| **Posición en Empresa** | Puesto en la empresa. |
+| **Categoría** | Categoría del convenio. |
+| **Gremio/Sindicato** | Gremio. |
+| **Convenio** | Convenio. |
+| **Centro de Costo** | Centro de costo. |
+| **Sectores de Taller** | Sectores de taller en los que trabaja. |
+| **Clientes** | Los clientes a los que está afectado. |
+| **Aptitudes Técnicas** | Sus aptitudes técnicas. |
+
+**Propiedades** (se eligen de una lista):
+
+| Condición | Opciones |
+|---|---|
+| **Sexo** | Masculino, Femenino, No Declarado. |
+| **Estado Civil** | Casado, Soltero, Divorciado, Viudo, Separado, Unión de hecho. |
+| **Nacionalidad** | Argentina, Extranjero. |
+| **Tipo de DNI** | DNI, LE, LC, Pasaporte. |
+| **Nivel de Educación** | Primario, Secundario, Terciario, Universitario, Posgrado. |
+| **Tipo de Costo** | Directo, Indirecto. |
+| **Estado de Convenio** | Dentro de convenio, Fuera de convenio. |
+
+### Condiciones para equipos
+
+| Condición | Qué es |
+|---|---|
+| **Marca** | La marca del equipo. |
+| **Modelo** | El modelo. |
+| **Tipo** | El tipo de unidad. |
+| **Subtipo** | El subtipo (la lista se acota a los tipos elegidos). |
+| **Categoría Vehículo** | La categoría del vehículo. |
+| **Clientes** | Los clientes a los que está afectado. |
+| **Condición** | Operativo, No operativo, En reparación, Operativo condicionado, En preparación. |
+| **Tipo de Costo** | Directo, Indirecto. |
+| **Tipo de Contrato** | Leasing, Alquiler, Propio, Prendado. |
+
+Las listas de puestos, sectores, diagramas, convenios, tipos, marcas, etc. salen de los catálogos de Configuración (<GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>, <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>, <GuideLink to="catalogos-de-equipos">Catálogos de equipos</GuideLink>, <GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink>).
+
+## Qué pasa al crear o editar un tipo
+
+Cuando el tipo es **obligatorio**, guardar no solo cambia la definición: **el sistema recalcula los documentos pendientes de todos los recursos** de ese tipo (todos los empleados o todos los equipos):
+
+<Flow title="Al guardar un tipo obligatorio">
+<FlowStep title="Guardás el tipo" module="Configuración">Opciones y condiciones.</FlowStep>
+<FlowStep title="Se revisa cada recurso" tone="info">¿Cumple las condiciones? ¿Está activo, o el tipo es de baja?</FlowStep>
+<FlowStep title="Se ajustan los pendientes" module="Documentación" to="documentos-alertas-y-estado" tone="warning">Se crean los que faltan, se quitan los que sobran.</FlowStep>
+<FlowStep title="Cambia el estado" module="Empleados / Equipos" tone="success">Estado de documentación y vencimientos del Dashboard.</FlowStep>
+</Flow>
+
+- **Al crearlo**, a cada recurso activo que cumple las condiciones (y también a los dados de baja, si es **Documento de baja**) se le crea un documento **pendiente**.
+- **Al cambiar las condiciones**, a quienes **empiezan** a cumplirlas se les crea el pendiente (y si tenían un documento de ese tipo marcado **Ya no aplica**, vuelve a estar vigente). A quienes **dejan** de cumplirlas se les quita el pendiente si estaba vacío (sin archivo). Los documentos que ya tienen un archivo subido **nunca se borran**.
+- **Al pasar un tipo a obligatorio**, se crean los pendientes que correspondan.
+- Como consecuencia, cambia el **estado de documentación** de los recursos afectados (por ejemplo, un empleado puede pasar de completo a incompleto porque ahora se le pide un documento nuevo) y los vencimientos del Dashboard.
+
+Los tipos **no obligatorios** no generan pendientes: los documentos se suben cuando hace falta.
+
+Lo mismo pasa en sentido inverso: cuando a un empleado o a un equipo le cambian un dato que es condición de algún tipo (el puesto, el cliente, el tipo de unidad…), el sistema recalcula qué documentos le corresponden a ese recurso. En ese caso, si un documento con archivo deja de corresponderle, no se borra: queda archivado como historial, marcado **Ya no aplica** en su ficha, y deja de contar para su estado.
+
+<Callout type="warning" title="Revisá el alcance antes de guardar">
+Un cambio de condiciones en un tipo obligatorio puede crear o quitar pendientes en cientos de legajos de una vez. Mirá el contador de coincidencias antes de confirmar.
+</Callout>
+
+## Cómo editar un tipo
+
+Hacé clic en **Editar** en su fila: se abre **Editar Tipo de Documento** con los datos actuales. Podés cambiar todo salvo **Aplica a**. Al guardar con **Actualizar** vas a ver **Tipo de documento actualizado** y se aplica lo explicado arriba.
+
+**Verificar documentos** (al pie del formulario de edición, para tipos obligatorios que no son mensuales) compara las condiciones configuradas con los pendientes que existen y muestra las **Alertas faltantes** (recursos que deberían tener el documento y no lo tienen) y las **Alertas sobrantes** (pendientes que no deberían estar). Si todo coincide dice **Todo en orden**; si no, **Confirmar correccion** crea los que faltan y quita los que sobran.
+
+## Cómo desactivar o activar un tipo
+
+En el formulario de edición, **Desactivar** abre las opciones para desactivar el tipo. El sistema primero analiza el impacto y ofrece solo lo que es posible:
+
+| Situación | Opciones |
+|---|---|
+| Ya hay documentos **subidos** de este tipo | **Desactivar y mantener** las alertas vacías existentes, o **Desactivar y borrar** las alertas vacías. No se puede eliminar permanentemente. |
+| Es **obligatorio** y no tiene documentos subidos | **Desactivar y mantener alertas**, **Desactivar y borrar** las alertas vacías, o **Eliminar permanentemente (tipo + alertas)**. |
+| **No es obligatorio** | **Desactivar el tipo de documento**, o **Eliminar permanentemente el tipo y todas sus alertas** si no tiene documentos subidos. |
+
+Una "alerta vacía" es un documento pendiente, sin archivo. Los documentos que ya tienen archivo nunca se borran al desactivar.
+
+Para volver a usarlo, **Activar**. Si es obligatorio y faltan pendientes, el sistema ofrece **Activar y crear** los pendientes que faltan, o **Activar sin crear alertas**.
+
+<Callout type="danger" title="Eliminar permanentemente no se puede deshacer">
+Borra el tipo y todos sus pendientes. Solo se ofrece cuando no hay ningún archivo subido de ese tipo. Si dudás, desactivalo.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- **Documentación**: los pendientes que se crean acá son los que se completan en <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>, <GuideLink to="documentos-de-equipos">Documentos de equipos</GuideLink> y <GuideLink to="documentos-de-empresa">Documentos de empresa</GuideLink>.
+- **Estado de documentación**: los tipos obligatorios definen si un empleado o equipo tiene la documentación completa, incompleta o vencida (<GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>).
+- **Dashboard**: los tipos con vencimiento alimentan los vencimientos (<GuideLink to="dashboard-vencimientos">Vencimientos</GuideLink>).
+- **Bajas**: solo los tipos marcados **Documento de baja** se siguen pidiendo a los recursos dados de baja (<GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+- **Afectaciones a clientes**: si un tipo tiene la condición **Clientes**, afectar o desafectar un empleado o un equipo de un cliente cambia los documentos que se le piden (<GuideLink to="clientes">Clientes</GuideLink>).
+- **Selección**: los tipos con **Puede cargarse desde un candidato** forman el checklist de documentos de los candidatos (<GuideLink to="candidatos">Candidatos</GuideLink>).
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la pestaña Documentos | **Ver** en **Documentos** (la pestaña de Configuración) |
+| Ver cada pestaña | **Ver** en **Personas**, **Equipos** o **Empresa** |
+| **Crear tipo de documento** | **Crear** en **Documentos** |
+| Editar, desactivar y activar | **Editar** en **Personas**, **Equipos** o **Empresa** |
+| Ver los tipos privados en la lista | **Ver privados** en la pestaña correspondiente |
+
+La pestaña **Equipos → Tipos de Documentos** usa los mismos permisos que **Configuración → Documentos**.
+
+## Problemas frecuentes
+
+<Callout type="info" title="&quot;Los tipos de documento globales no se editan desde una empresa&quot;">
+Es un tipo global, compartido por todas las empresas. Si necesitás otra configuración, creá un tipo propio con el nombre y las condiciones que quieras.
+</Callout>
+
+<Callout type="tip" title="Un empleado no tiene un documento que debería tener">
+Abrí el tipo, revisá las condiciones y el contador de coincidencias, y compará con los datos de la ficha del empleado (puesto, sector, clientes…). Si el tipo es obligatorio y el empleado está activo pero no cumple alguna condición, el documento no se le pide.
+</Callout>
+
+<Callout type="tip" title="Un documento subido aparece como &quot;Ya no aplica&quot;">
+Al recurso le cambiaron un dato (el puesto, el cliente, el tipo…) y dejó de cumplir las condiciones del tipo. El archivo se conserva como historial y no cuenta para su estado. Si vuelve a cumplirlas, el documento vuelve a estar vigente.
+</Callout>
