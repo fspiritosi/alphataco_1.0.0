@@ -1,0 +1,263 @@
+---
+title: Facturación
+summary: Facturas electrónicas ante ARCA, desde certificaciones o manuales: armado del borrador, emisión con CAE, PDF con QR y notas de crédito y débito.
+keywords: factura, facturación, ARCA, AFIP, CAE, factura A, factura B, factura C, nota de crédito, nota de débito, IVA, punto de venta, homologación, producción, PDF, QR, certificado
+updated: 2026-10-07
+---
+
+Desde acá se emiten las facturas electrónicas de la empresa y sus notas de crédito y débito. El sistema arma el comprobante, lo envía a ARCA y, si ARCA lo autoriza, guarda el **CAE** y genera el PDF con el código QR. La usa el área de administración o facturación.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Facturación**. Cada comprobante se abre en su propia página (con el enlace **Facturación** arriba para volver al listado).
+
+## Antes de facturar: requisitos
+
+Para poder emitir hacen falta cuatro cosas. Si falta alguna, la solapa lo avisa con **Todavía no podés emitir comprobantes en …: falta …** y el enlace **Completar en Datos fiscales**.
+
+| Requisito | Dónde se carga |
+|---|---|
+| **Datos fiscales de la empresa** (tu condición frente al IVA, domicilio fiscal y demás datos que pide ARCA) | **Configuración → Datos fiscales**. Ver <GuideLink to="datos-fiscales">Datos fiscales</GuideLink>. |
+| **Al menos un punto de venta activo** | **Configuración → Datos fiscales**. |
+| **Certificado de ARCA** vigente para el ambiente en uso | **Configuración → Datos fiscales**. No hace falta con ARCA simulado. |
+| **Datos fiscales del cliente**: CUIT válido, condición frente al IVA y domicilio fiscal (calle, localidad y código postal) | La ficha del cliente, pestaña **Detalle**. Ver <GuideLink to="clientes">Clientes</GuideLink>. |
+
+Sin datos fiscales de la empresa o sin punto de venta no se puede ni crear un borrador. Sin la condición frente al IVA del cliente tampoco, porque no se sabe qué tipo de factura corresponde.
+
+### Homologación, producción y ARCA simulado
+
+Arriba de la pantalla puede aparecer uno de estos avisos:
+
+- **Estás en homologación: los comprobantes que emitas son de prueba y no tienen validez fiscal.** Homologación es el ambiente de pruebas de ARCA. El pase a producción se hace desde Datos fiscales.
+- **ARCA simulado (modo demo): los comprobantes no se informan a ARCA y no tienen validez fiscal.** El sistema simula las respuestas de ARCA, para demostraciones o capacitación. Lo define la configuración del servidor, no se cambia desde la pantalla.
+
+Si no ves ninguno de los dos, estás en **producción**: lo que emitas tiene validez fiscal.
+
+Los comprobantes de prueba y simulados se distinguen en todos lados: en el estado llevan la marca **Prueba (homologación)** o **Simulado**, y el PDF dice **SIN VALIDEZ FISCAL – HOMOLOGACIÓN** o **SIMULADO – SIN VALIDEZ FISCAL**.
+
+### Avisos del certificado
+
+El certificado de ARCA tiene vencimiento. Desde 30 días antes, la solapa avisa **El certificado de … vence en N días (fecha). Cuando venza no vas a poder emitir.** con el enlace **Renovar el certificado**. Si vence, deja de poder emitirse hasta renovarlo.
+
+## Qué ves en el listado
+
+El botón **Nueva factura**, los avisos y la tabla de comprobantes:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha de emisión** | La fecha del comprobante. |
+| **Tipo** | Factura, nota de crédito o débito, con su letra. |
+| **Número** / **Punto de venta** | El número asignado por ARCA (los borradores todavía no tienen). |
+| **Cliente** / **CUIT** | El receptor. |
+| **Estado** | Ver más abajo, con sus marcas. |
+| **Ambiente** | **Homologación** o **Producción**, y **Simulado** si corresponde. |
+| **Simulado** | **Sí** o **No**. |
+| **Moneda** | ARS, USD o EUR. |
+| **Total** | Solo con permiso **Ver precios**. |
+| **CAE** / **Vencimiento CAE** | El código de autorización de ARCA y su vencimiento. |
+| **Fecha de creación** | Cuándo se creó el borrador. |
+
+Se puede buscar con **Buscar por número, cliente o CAE...**, filtrar por **Estado**, **Tipo**, **Cliente**, **Punto de venta**, **Ambiente**, **Simulado**, **Moneda**, **Número**, **CUIT**, **CAE**, **Total** y por rangos de **Fecha de emisión**, **Vencimiento CAE** y **Fecha de creación**, y exportar a Excel. **Ver** abre el comprobante.
+
+## Estados de un comprobante
+
+<States title="Estados de una factura o nota">
+  <State name="Borrador" tone="default" next="Emitiendo">Se arma y se edita. No tiene número ni validez. Se puede descartar.</State>
+  <State name="Emitiendo" tone="warning" next="Autorizada, Rechazada, Pendiente en ARCA">Se está enviando a ARCA en este momento.</State>
+  <State name="Pendiente en ARCA" tone="warning" next="Autorizada, Borrador">ARCA no respondió a tiempo: puede haberlo autorizado o no. Hay que consultar.</State>
+  <State name="Rechazada" tone="danger" next="Emitiendo">ARCA lo rechazó: no se usó número ni tiene validez. Se corrige y se vuelve a emitir.</State>
+  <State name="Autorizada" tone="success">Tiene CAE y validez fiscal. No se modifica ni se borra: se corrige con notas de crédito o débito.</State>
+</States>
+
+Además del estado pueden aparecer marcas: **Con observaciones** (ARCA lo autorizó pero dejó observaciones) y **Revisar** (algo no cuadró y hace falta revisarlo a mano; el comprobante muestra **Este comprobante necesita una revisión manual.**).
+
+## Cómo crear una factura
+
+**Nueva factura** ofrece dos orígenes:
+
+- **Desde certificaciones**: *Certificaciones confirmadas de un cliente*. Las cantidades y los precios salen de las certificaciones.
+- **Factura manual**: *Líneas cargadas a mano*.
+
+### Desde certificaciones
+
+<Steps>
+  <Step title="Elegí el cliente">
+    En **Cliente** aparecen solo los clientes que tienen certificaciones **Confirmadas** sin facturar, con cuántas tiene cada uno.
+  </Step>
+  <Step title="Tildá las certificaciones">
+    Aparecen agrupadas por moneda. Tildá las que van en la factura. Todas tienen que ser de la **misma moneda**: las de otra moneda se facturan aparte (**Otra moneda: se factura aparte.**).
+  </Step>
+  <Step title="Creá el borrador">
+    Hacé clic en **Crear borrador**. Se abre el editor con una línea por cada ítem y precio de cada certificación, con la descripción `ítem — número de certificación (período)`.
+  </Step>
+</Steps>
+
+Desde ese momento las certificaciones quedan **reservadas** por ese borrador: no aparecen para otra factura hasta que las quites o descartes el borrador.
+
+Si no hay nada para facturar vas a ver **No hay certificaciones confirmadas para facturar.** con el botón **Ir a Certificaciones**. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink>.
+
+### Factura manual
+
+<Steps>
+  <Step title="Elegí cliente y moneda">
+    Elegí el **Cliente** (solo clientes activos) y la **Moneda**: **ARS · Peso argentino**, **USD · Dólar estadounidense** o **EUR · Euro**. Si al cliente le falta la condición frente al IVA, aparece el aviso con el enlace **Completar en la ficha del cliente**.
+  </Step>
+  <Step title="Creá el borrador">
+    Hacé clic en **Crear borrador**. Las líneas se cargan en el editor.
+  </Step>
+</Steps>
+
+En moneda extranjera, la cotización la informa ARCA al emitir y queda fija en el comprobante.
+
+## El editor del borrador
+
+El borrador (o un comprobante rechazado) se edita en una página con estas partes:
+
+**Encabezado**
+
+- **Punto de venta**: viene el primero activo; podés elegir otro.
+- **Fecha de emisión**: por defecto hoy. ARCA acepta hasta 10 días antes o después de hoy para servicios, y 5 para productos.
+- **Concepto**: **Productos**, **Servicios** o **Productos y servicios**. En las facturas desde certificaciones es siempre **Servicios** y no se cambia.
+- Con servicios aparecen **Período facturado desde**, **Período facturado hasta** y **Vencimiento del pago** (ARCA los pide). Se completan solos: en las facturas desde certificaciones, con el período de las certificaciones; en las manuales, desde el primer día del mes hasta hoy. El vencimiento del pago se propone a 30 días.
+
+**Receptor**: el nombre, CUIT, condición frente al IVA y domicilio del cliente, de solo lectura. Si le falta algo se muestra **A … le falta …** con **Completar datos fiscales del cliente** (abre la ficha en otra pestaña) y **Ya los completé, actualizar** para volver a leerlos sin perder el borrador.
+
+**Certificaciones incluidas** (solo si viene de certificaciones): cada una con su período, líneas e importe, y **Quitar de la factura**, que saca sus líneas y la deja libre para facturar.
+
+**Líneas**: **Descripción**, **Cantidad**, **P. unit. neto**, **IVA** y **Subtotal neto**. **Agregar línea** suma una línea y el tacho la quita. Las cantidades y precios de las líneas que vienen de certificaciones están bloqueados (*Para cambiarlos, quitá la certificación de esta factura*); de ellas solo se cambian la descripción y el IVA.
+
+**Observaciones**: texto libre que se imprime en la factura.
+
+A la derecha (abajo en el celular) está el panel con el tipo de comprobante, los totales y los botones **Emitir …**, **Guardar borrador** y **Descartar borrador**. Arriba se ve si hay **Cambios sin guardar** o la hora del último guardado.
+
+### La letra: A, B o C
+
+El sistema elige la letra solo y explica por qué debajo del recuadro de la letra:
+
+| Tu empresa es | El cliente es | Letra |
+|---|---|---|
+| Monotributista o IVA Exento | cualquiera | **C** |
+| Responsable Inscripto | Responsable Inscripto o monotributista (Responsable Monotributo, Monotributista Social, Monotributo Trabajador Independiente Promovido) | **A** |
+| Responsable Inscripto | Consumidor Final, IVA Sujeto Exento, Sujeto No Categorizado, IVA No Alcanzado, IVA Liberado | **B** |
+
+Si cambió la condición frente al IVA del cliente después de crear el borrador, el panel avisa **Al guardar pasa de … a …** y la letra se actualiza al guardar.
+
+### Alícuotas de IVA
+
+Cada línea lleva su alícuota: **0 %**, **2,5 %**, **5 %**, **10,5 %**, **21 %** o **27 %**. En las facturas desde certificaciones viene la alícuota por defecto de cada ítem del contrato (ver <GuideLink to="contratos">Contratos</GuideLink>), y se puede cambiar. Los totales muestran **Neto gravado**, una fila de **IVA** por alícuota y el **Total**.
+
+La **Factura C** no discrimina IVA: no hay columna de IVA y el panel lo aclara (**La Factura C no discrimina IVA.**).
+
+## Cómo emitir
+
+<Steps>
+  <Step title="Hacé clic en Emitir">
+    El botón dice el tipo exacto, por ejemplo **Emitir Factura A**. Si hay cambios sin guardar, se guardan primero: lo que se emite es lo guardado.
+  </Step>
+  <Step title="Corregí lo que falte">
+    El sistema revisa todo antes de enviar. Si falta algo aparece **Antes de emitir, corregí N cosas:** con la lista (por ejemplo **Ingresá el vencimiento del pago (servicios).**, **Línea 2: ingresá una cantidad mayor a 0.**, **… no tiene completo el domicilio fiscal.**). El panel lateral también muestra **Para emitir falta (N), según lo guardado:**.
+  </Step>
+  <Step title="Revisá la confirmación">
+    Se abre **¿Emitir Factura A 00003-00000125?** con el número que informa ARCA, el ambiente (**Producción · con validez fiscal**, **Homologación · sin validez fiscal** o **ARCA simulado · sin validez fiscal**), **Cliente**, **Fecha**, **Total**, y si corresponde **Incluye** (certificaciones) o **Asociada a** (notas).
+  </Step>
+  <Step title="Confirmá">
+    Hacé clic en **Emitir … por …**. Aparece **Enviando a ARCA…**. No cierres la pestaña.
+  </Step>
+</Steps>
+
+<Callout type="danger" title="Emitir es irreversible">
+Como dice la confirmación: *Una vez autorizado no se puede modificar ni borrar. Para corregirlo vas a tener que emitir una nota de crédito.* El número es el que informa ARCA en ese momento; si alguien emite antes, se toma el siguiente.
+</Callout>
+
+Qué puede pasar después:
+
+- **Autorizada**: vas a ver, por ejemplo, **Factura A 00003-00000125 autorizada. CAE …** y se abre la página del comprobante con el resultado, el **CAE** y su vencimiento. Si ARCA dejó observaciones, se listan bajo **ARCA la autorizó con observaciones:**.
+- **Rechazada**: el borrador se conserva entero con el panel **ARCA rechazó … No se asignó número y no tiene validez.**, la **Respuesta de ARCA** (código y texto) y la indicación de corregir y volver a emitir.
+- **Pendiente en ARCA**: ver el apartado siguiente.
+
+### Pendiente en ARCA: consultar, nunca reemitir
+
+Si ARCA no responde a tiempo, el comprobante queda **Pendiente en ARCA** con el aviso **ARCA no confirmó si autorizó el comprobante.** *No lo vuelvas a emitir: consultá su estado.*
+
+Hacé clic en **Consultar estado en ARCA**. Las respuestas posibles son:
+
+- **ARCA confirma que está autorizada. CAE …**: queda autorizada.
+- **ARCA confirma que no se autorizó: el comprobante volvió a borrador y se puede emitir de nuevo.**
+- **ARCA todavía no informa el comprobante. Probá de nuevo en unos minutos.**
+- **ARCA tiene ese número con otros datos. Hace falta revisarlo a mano.**: queda marcado **Revisar**.
+
+<Callout type="warning" title="Un pendiente frena a los siguientes">
+Mientras haya un comprobante pendiente del mismo punto de venta y tipo, no se puede emitir otro: **Hay otro comprobante de este punto de venta y tipo pendiente de confirmar en ARCA. Consultá su estado antes de emitir otro.** Resolvé primero el pendiente.
+</Callout>
+
+## El comprobante autorizado
+
+La página muestra el documento completo (emisor, receptor, líneas, totales, observaciones), el CAE y, si corresponde, las notas que lo ajustan y las certificaciones que incluye.
+
+### PDF con QR
+
+Con el comprobante autorizado se genera el PDF, con el código QR que permite verificarlo en el sitio de ARCA y la leyenda **ORIGINAL**. Los botones son **Descargar PDF** y **Ver PDF** (se abre en otra pestaña). Si el PDF todavía no está, aparece **Generando PDF…**; si tarda, **Generar PDF** lo vuelve a armar (el comprobante está autorizado igual).
+
+### Notas de crédito y débito
+
+Sobre un comprobante autorizado, el botón **Nota de crédito o débito** ofrece:
+
+| Opción | Para qué |
+|---|---|
+| **Nota de crédito total** | Anula el comprobante por el total. Copia sus líneas. Solo si todavía no tiene notas de crédito: si ya tiene, aparece *Ya tiene notas de crédito: cargá una parcial por el saldo.* |
+| **Nota de crédito parcial** | Acredita una parte: cargás las líneas. No puede superar el **saldo** del comprobante (su total menos las notas de crédito anteriores). |
+| **Nota de débito** | Intereses, diferencias o ajustes: cargás las líneas. |
+
+Cada opción crea un borrador con el cliente, la letra, la moneda y el punto de venta del original, y se emite igual que una factura. Una nota de crédito no se ajusta con otra nota.
+
+<Callout type="info" title="Nota de crédito total sobre una factura de certificaciones">
+Cuando una nota de crédito completa el total de una factura que incluía certificaciones, esas certificaciones quedan libres para volver a facturarse y, en producción, vuelven de **Facturada** a **Confirmada**.
+</Callout>
+
+## Descartar un borrador
+
+**Descartar borrador** pide confirmación (**¿Descartar el borrador?**). Se borra el borrador con sus líneas y, si tenía certificaciones, quedan disponibles para facturar. Solo se descartan borradores y comprobantes rechazados; uno autorizado nunca.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="Del trabajo a la factura">
+  <FlowStep title="Contrato e ítems" module="Comercial" to="contratos">Precios netos y alícuota por defecto.</FlowStep>
+  <FlowStep title="Partes diarios" module="Operaciones" to="partes-diarios">Lo trabajado.</FlowStep>
+  <FlowStep title="Certificación confirmada" module="Comercial" to="certificaciones">Precios fijos y aprobados.</FlowStep>
+  <FlowStep title="Factura autorizada" module="Comercial" tone="success">CAE y PDF.</FlowStep>
+</Flow>
+
+- Al autorizarse en **producción** una factura con certificaciones, esas certificaciones pasan a **Facturada**. En homologación o con ARCA simulado no cambian de estado, pero quedan tomadas por esa factura de prueba (las reservas se cuentan por ambiente, así que después se pueden facturar en producción).
+- Los requisitos se cargan en <GuideLink to="datos-fiscales">Datos fiscales</GuideLink> y en la ficha de cada <GuideLink to="clientes">cliente</GuideLink>.
+
+El recorrido completo está en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la solapa y los comprobantes | **Ver** en Facturación |
+| Ver importes, totales y el PDF | **Ver precios** en Facturación |
+| **Nueva factura**, editar y guardar borradores, crear notas de crédito y débito | **Crear** en Facturación |
+| **Emitir** y **Consultar estado en ARCA** | **Aprobar** y **Ver precios** en Facturación |
+| **Descartar borrador** | **Eliminar** en Facturación |
+
+Emitir pide también **Ver precios** porque nadie debería emitir un comprobante sin ver lo que emite. Sin esos permisos el botón queda deshabilitado con el motivo (**Emitir requiere el permiso Aprobar en Facturación.**).
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No se puede determinar el tipo: falta la condición frente al IVA de …">
+Completá la condición frente al IVA en la ficha del cliente y volvé a intentar.
+</Callout>
+
+<Callout type="warning" title="La certificación … ya está en el borrador de …">
+Esa certificación está reservada por otro borrador. Abrilo y quitala, o descartalo.
+</Callout>
+
+<Callout type="warning" title="La fecha de emisión tiene que estar dentro de los … días">
+ARCA no acepta fechas de emisión muy alejadas de hoy. Cambiá la **Fecha de emisión**.
+</Callout>
+
+<Callout type="danger" title="Se cortó la comunicación al emitir">
+Si ves **Se cortó la comunicación con el servidor. Puede que la emisión haya llegado a ARCA: actualizá la página antes de volver a emitir.**, no emitas de nuevo a ciegas: actualizá y, si quedó pendiente, usá **Consultar estado en ARCA**.
+</Callout>

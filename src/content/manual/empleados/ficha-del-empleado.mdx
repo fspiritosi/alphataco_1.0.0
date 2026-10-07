@@ -1,0 +1,258 @@
+---
+title: Ficha del empleado
+summary: El legajo completo de cada empleado: datos personales, de contacto y laborales, documentación, diagramas, indumentaria, y cómo darlo de baja o reactivarlo.
+keywords: ficha, legajo, empleado, alta, editar, baja, reactivar, documentación, afectación, contratistas, aptitudes, indumentaria, puesto
+updated: 2026-10-07
+---
+
+La ficha del empleado es su legajo digital. Reúne en un solo lugar sus datos, la documentación que se le exige, sus diagramas de trabajo y las entregas de indumentaria. Desde acá se da de alta a un empleado nuevo, se corrigen sus datos y se lo da de baja o se lo reactiva.
+
+<OpenScreen to="empleados-listado" label="Abrir listado de empleados" />
+
+Se llega desde el <GuideLink to="empleados-listado">listado de empleados</GuideLink>: con **Agregar empleado** (alta), haciendo clic en el nombre o en **Ver** (lectura), o con **Editar** (modificación).
+
+## Qué ves en la pantalla
+
+Arriba está el encabezado con la foto, el apellido y nombre, el puesto (o **Sin posición asignada**), el email, el DNI, la etiqueta **Activo** o **Inactivo** y la **Posición Jerárquica** (el sector). Si el empleado está dado de baja, se muestran en rojo la **Fecha de Baja** y la **Razón de Baja**.
+
+La barra de acciones tiene **Volver** y, en modo lectura, el botón **Editar** y el menú de tres puntos con las acciones rápidas (**Enviar Email** y **Dar de Baja Empleado** o **Activar Empleado**). Mientras editás, aparece **Cancelar**.
+
+Debajo están las pestañas:
+
+| Pestaña | Qué contiene |
+|---|---|
+| **Datos Personales** | Identidad del empleado. |
+| **Datos de Contacto** | Domicilio, teléfono y email. |
+| **Datos Laborales** | Legajo, sector, puesto, diagrama, convenio, clientes y aptitudes. |
+| **Documentación** | Los documentos que se le exigen y su estado. |
+| **Diagramas** | Sus novedades día por día y el historial de cambios. |
+| **Indumentaria** | Las entregas de ropa y elementos de protección que recibió. |
+
+Mientras das de alta a un empleado, **Documentación** e **Indumentaria** aparecen con un candado y **Diagramas** no se muestra: se habilitan una vez guardado.
+
+## Dar de alta un empleado
+
+<Steps>
+  <Step title="Abrí el alta">
+    En el listado de empleados, hacé clic en **Agregar empleado**.
+  </Step>
+  <Step title="Completá Datos Personales">
+    Ver los campos en [Datos Personales](#datos-personales).
+  </Step>
+  <Step title="Completá Datos de Contacto">
+    Ver los campos en [Datos de Contacto](#datos-de-contacto).
+  </Step>
+  <Step title="Completá Datos Laborales">
+    Ver los campos en [Datos Laborales](#datos-laborales). Acá se decide qué documentos se le van a exigir.
+  </Step>
+  <Step title="Guardá">
+    Hacé clic en **Agregar empleado**. Vas a ver **Empleado creado** y se abre la ficha del nuevo empleado en modo lectura.
+  </Step>
+</Steps>
+
+Si falta algún dato obligatorio, el botón avisa **Falta corregir algunos campos en…** con las pestañas que tienen errores, que además se marcan en rojo con un punto. Al pasar el mouse por el botón, **¡Todo listo para guardar!** indica que está todo completo.
+
+<Callout type="tip" title="Después de guardar: la documentación">
+Apenas se crea el empleado, el sistema calcula qué documentos le corresponden y los deja en **Pendiente** en la pestaña **Documentación**. Ese es el siguiente paso: subirlos.
+</Callout>
+
+<Callout type="info" title="Ingresos desde Selección">
+Si la empresa usa el módulo **Selección**, el legajo se crea al aprobar al candidato y no hace falta cargarlo a mano. Ver <GuideLink to="candidatos">Candidatos</GuideLink> y <GuideLink to="de-candidato-a-legajo">De candidato a legajo</GuideLink>.
+</Callout>
+
+## Editar un empleado
+
+En la ficha, hacé clic en **Editar** (o entrá con **Editar** desde el listado). Los campos se habilitan; cambiá lo necesario y hacé clic en **Guardar cambios**. Vas a ver **Cambios guardados** y la ficha vuelve a modo lectura. **Cancelar** descarta los cambios.
+
+## Datos Personales
+
+Todos son obligatorios salvo la foto.
+
+| Campo | Detalle |
+|---|---|
+| **Foto del empleado** | Opcional. **Subir foto** / **Cambiar foto**; la X roja la quita. |
+| **Nombre**, **Apellido** | |
+| **Tipo de documento** | DNI, LC, LE, CI o Pasaporte. |
+| **Número de documento** | |
+| **CUIL** | Con el formato XX-XXXXXXXX-X. |
+| **Fecha de nacimiento** | Se puede escribir o elegir en el calendario. |
+| **Nacionalidad** | Argentina o Extranjero. |
+| **País de nacimiento** | |
+| **Sexo** | Masculino o Femenino. |
+| **Estado civil** | Soltero/a, Casado/a, Divorciado/a o Viudo/a. |
+| **Nivel de instrucción** | Primario, Secundario, Terciario, Universitario o Posgrado. |
+
+## Datos de Contacto
+
+Todos son obligatorios: **Calle**, **Altura**, **Provincia**, **Ciudad**, **Código postal**, **Teléfono** y **Email** (tiene que ser un email válido). La ciudad se elige después de la provincia (**Primero seleccione una provincia**); si cambiás la provincia, la ciudad se borra.
+
+## Datos Laborales
+
+| Campo | Obligatorio | Detalle |
+|---|---|---|
+| **Legajo** | Sí | Número de legajo. Es como se identifica al empleado en todo el sistema. |
+| **Sector** | Sí | Sectores de la empresa. Al cambiarlo se borran el puesto y las aptitudes. |
+| **Puesto en la empresa** | Sí | Solo muestra los puestos de ese sector (**Primero seleccione un sector**). Al cambiarlo se borran las aptitudes. |
+| **Diagrama de trabajo** | Sí | El ciclo de trabajo del empleado (por ejemplo 14x14). Ver <GuideLink to="diagramas">Diagramas</GuideLink>. |
+| **Horas normales** | No | |
+| **Tipo de contrato** | No | |
+| **Fecha de ingreso** | No | Si la dejás vacía en el alta, se guarda la fecha del día. |
+| **Gremio**, **Convenio**, **Categoría** | No | Cada uno depende del anterior: primero el gremio, después el convenio, después la categoría. Al cambiar uno se borran los siguientes. |
+| **Centro de costo** | No | |
+| **Tipo de costo** | No | Directo o Indirecto. |
+| **Sectores de Taller** | No | Para el personal de taller: en qué sectores del taller trabaja. |
+
+Debajo hay dos recuadros:
+
+- **Asignado a contratistas**: los clientes activos de la empresa, para tildar a cuáles está afectado el empleado. Es lo que se ve como **Afectaciones** en el listado.
+- **Aptitudes Técnicas**: las aptitudes habilitadas para el puesto elegido (**Primero seleccione un puesto para ver las aptitudes disponibles**).
+
+Las listas de sectores, puestos, diagramas, tipos de contrato, gremios, convenios, categorías, centros de costo y aptitudes se administran en **Configuración** (ver <GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>). Las afectaciones también se pueden cargar desde **Comercial → Clientes** (ver <GuideLink to="clientes">Clientes</GuideLink>).
+
+<Callout type="warning" title="Estos datos cambian los documentos que se le exigen">
+Los documentos que se piden a un empleado dependen de sus datos laborales. Cada vez que guardás la ficha, el sistema vuelve a evaluar qué le corresponde según su **puesto**, **sector**, **categoría**, **convenio**, **gremio**, **centro de costo**, los **clientes** a los que está afectado y sus **aptitudes**:
+
+- Si ahora le corresponde un documento nuevo, aparece como **Pendiente** en su documentación.
+- Si un documento dejó de corresponderle y estaba vacío, se quita.
+- Si dejó de corresponderle pero ya lo había presentado, **no se borra**: queda archivado como **Ya no aplica**, como historial. Si más adelante vuelve a corresponderle, se recupera.
+
+Al final se recalcula su estado de documentación (**Completo**, **Incompleto**…). El detalle está en <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+</Callout>
+
+## Documentación
+
+Muestra los documentos que se le exigen al empleado, en dos solapas: **Documentos Permanentes** y **Documentos Mensuales**.
+
+| Columna | Qué muestra |
+|---|---|
+| **Tipo de Documento** | Qué documento es. |
+| **Estado** | **Pendiente** (falta subirlo), **Presentado**, **Aprobado**, **Rechazado**, **Vencido** o **Ya no aplica** (archivado porque dejó de corresponderle). |
+| **Mandatorio** | Si es obligatorio. |
+| **Multirecurso** | Si el mismo archivo se comparte entre varios empleados. |
+| **Vencimiento** | Fecha de vencimiento, o **No vence**. |
+| **Subido el** | Fecha de carga. |
+| **Motivo de rechazo** | Si fue rechazado, por qué. |
+
+En **Documentos Mensuales** se suman **Afectado a** y **Período**.
+
+- En las filas **Pendiente**, el botón **Subir documento** abre el formulario de carga de ese documento.
+- En las demás, **Ver documento** abre el detalle del documento, donde se lo puede revisar, aprobar, rechazar o reemplazar (ver <GuideLink to="detalle-de-documento">Detalle de documento</GuideLink>).
+- **Descargar Documentos** baja un ZIP con los archivos seleccionados, y también se puede exportar la lista a Excel.
+
+Todo el circuito de documentación de empleados se explica en <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>.
+
+## Diagramas
+
+Tiene dos solapas:
+
+- **Diagramas**: las novedades del empleado (trabajo, franco, licencia…) en un rango de fechas, de hoy a 30 días por defecto (**La selección máxima es de 30 días**). La tabla muestra **Fecha**, **Descripcion** (la novedad con su color), **Estado** y **Comentario**, y se puede bajar a Excel. Al costado, **Historial** muestra cada cambio: qué novedad había antes, cuál quedó, quién lo modificó y cuándo.
+- **Nuevo Diagrama**: el mismo formulario de **Cargar Diagrama**, con el empleado ya elegido. Elegí el **Tipo de novedad**, **Fecha desde**, **Fecha hasta** y, si querés, un comentario; hacé clic en **Generar diagramas** y decidí qué crear y qué actualizar.
+
+El funcionamiento completo de los diagramas está en <GuideLink to="diagramas">Diagramas</GuideLink>.
+
+## Indumentaria
+
+Lista las entregas de ropa de trabajo y elementos de protección personal que recibió el empleado:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha de entrega** | |
+| **Tipo de entrega** | **Planificada CCT**, **Planificada EPP** o **Reposición**. |
+| **Legajo** / **Entregado por** | Quién hizo la entrega. |
+| **Artículos** | Artículo, marca, talle y cantidad. |
+| **Firma** | Si el empleado firmó la recepción. |
+| **Notas** | Oculta por defecto. |
+
+- El ícono del ojo abre la **Constancia de Entrega EPP**, que se puede bajar con **Descargar PDF**.
+- Si tildás varias entregas, **Descargar ZIP** baja todas las constancias juntas.
+- **Nueva Entrega** abre, en otra pestaña del navegador, el panel de entregas con este empleado ya elegido. Ese panel pide iniciar sesión por separado. El paso a paso está en <GuideLink to="entrega-de-indumentaria">Entrega de indumentaria</GuideLink>.
+
+Los artículos, marcas y talles se configuran en <GuideLink to="catalogo-de-indumentaria">Catálogo de indumentaria</GuideLink>.
+
+## Dar de baja un empleado
+
+<Steps>
+  <Step title="Abrí el menú de acciones">
+    En la ficha (modo lectura), hacé clic en el menú de tres puntos y elegí **Dar de Baja Empleado**.
+  </Step>
+  <Step title="Indicá el motivo">
+    En **Motivo de Baja** elegí: Despido sin causa, Renuncia, Despido con causa, Acuerdo de partes, Fin de contrato o Fallecimiento.
+  </Step>
+  <Step title="Indicá la fecha">
+    **Fecha de Baja** es obligatoria y no puede ser futura.
+  </Step>
+  <Step title="Confirmá">
+    Hacé clic en **Dar de Baja**. Vas a ver **Empleado dado de baja correctamente**.
+  </Step>
+</Steps>
+
+<Callout type="warning" title="Elegí siempre el motivo">
+El sistema deja confirmar la baja sin elegir un motivo, pero entonces la ficha y la columna **Motivo de baja** quedan vacías. Completalo siempre.
+</Callout>
+
+### Qué provoca la baja
+
+- **Listado**: el empleado pasa de **Empleados Activos** a **Empleados Inactivos**, con su motivo y fecha. No se borra nada de su legajo.
+- **Diagramas**: todos sus diagramas quedan desactivados, de cualquier fecha (no solo los posteriores a la baja). Dejan de verse en las pantallas de diagramas, reportes y en el Dashboard, pero se conservan.
+- **Usuario vinculado**: si el empleado tiene un usuario del sistema, ese usuario queda **bloqueado** en el acto: se cierran todas sus sesiones abiertas y pierde el acceso a la empresa.
+- **Documentación**: se quitan los documentos pendientes que estaban vacíos. Los que ya tenían archivo **se conservan**. Los tipos de documento marcados como documentos de baja (la documentación de egreso) siguen exigiéndose, así que pueden aparecer como **Pendiente**. Se recalcula su estado de documentación.
+- **Operación**: como empleado inactivo, ya no aparece para cargar diagramas, ponerlo en partes diarios ni hacerle entregas de indumentaria.
+- **Afectaciones a clientes**: no se modifican; quedan como estaban.
+
+## Reactivar un empleado
+
+Si el empleado vuelve a la empresa, no se crea un legajo nuevo: se reactiva el mismo.
+
+<Steps>
+  <Step title="Buscalo en inactivos">
+    En el listado, solapa **Empleados Inactivos**, abrí su ficha.
+  </Step>
+  <Step title="Activalo">
+    En el menú de tres puntos elegí **Activar Empleado** y confirmá con **Activar**. Vas a ver **Empleado activado correctamente**.
+  </Step>
+</Steps>
+
+Al reactivarlo se borran el motivo y la fecha de baja, sus diagramas vuelven a estar activos, su usuario vinculado (si tiene) se desbloquea y recupera el acceso, y el sistema vuelve a exigirle los documentos obligatorios que le correspondan. Revisá sus datos laborales y su documentación, que pueden haber quedado desactualizados.
+
+El circuito completo de ingresos y egresos está en <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="Lo que dispara la ficha">
+  <FlowStep title="Datos laborales y afectaciones" module="Empleados">Puesto, convenio, clientes, aptitudes.</FlowStep>
+  <FlowStep title="Documentos exigidos" module="Documentación" to="documentos-de-empleados" tone="warning">Aparecen pendientes o se archivan.</FlowStep>
+  <FlowStep title="Estado de documentación" module="Empleados" tone="info">Completo, Incompleto o con doc vencida.</FlowStep>
+  <FlowStep title="Vencimientos" module="Dashboard" to="dashboard-vencimientos">Lo que vence en los próximos 30 días.</FlowStep>
+</Flow>
+
+- **Documentación**: los datos laborales y las afectaciones definen qué documentos se le exigen; sus vencimientos aparecen en <GuideLink to="dashboard-vencimientos">Próximos vencimientos</GuideLink>.
+- **Partes diarios**: el empleado solo debería ir a partes de clientes a los que está afectado y en días en los que su diagrama dice que trabaja; si no, el parte marca un desvío. Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+- **Dashboard**: cuenta entre los empleados activos, con diagrama, en operación o disponibles (<GuideLink to="dashboard-principal">Dashboard principal</GuideLink>).
+- **Usuarios**: si el empleado tiene usuario, la baja lo bloquea y la reactivación lo habilita (<GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>).
+
+## Permisos
+
+| Permiso | Qué habilita |
+|---|---|
+| **Ver** en **Datos Personales**, **Datos de Contacto**, **Datos Laborales** | Ver cada pestaña. |
+| **Editar** en **Empleados** | El botón **Editar** y guardar cambios. |
+| **Crear** en **Empleados** | El alta (**Agregar empleado**). |
+| **Ver** en **Documentos de empleados** (módulo Documentación) | La pestaña **Documentación**. Subir documentos requiere **Editar** en documentos permanentes o mensuales; los documentos privados requieren el permiso de subir privados. |
+| **Ver** en **Diagramas** de la ficha | La solapa **Diagramas**. **Nuevo Diagrama** requiere **Ver** en **Cargar Diagramas** del módulo Empleados. |
+| **Ver** / **Crear** en **Indumentaria** | Ver las entregas / el botón **Nueva Entrega**. |
+
+El menú de acciones (**Dar de Baja Empleado** / **Activar Empleado**) está disponible para quien puede abrir la ficha.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No me deja elegir el puesto o las aptitudes">
+Primero elegí el **Sector**: los puestos dependen del sector, y las aptitudes del puesto. Si el puesto no aparece, no está asociado a ese sector en Configuración.
+</Callout>
+
+<Callout type="info" title="Cambié el puesto y le aparecieron documentos nuevos">
+Es lo esperado: el nuevo puesto (o cliente, convenio, etc.) exige otros documentos. Los que ya no aplican y tenían archivo quedan como **Ya no aplica**, no se pierden.
+</Callout>
+
+<Callout type="danger" title="La baja cierra la sesión del usuario vinculado">
+Si el empleado tiene usuario en el sistema, al darlo de baja pierde el acceso de inmediato. Verificá la persona antes de confirmar.
+</Callout>

@@ -1,0 +1,188 @@
+---
+title: Datos de la empresa
+summary: Los datos generales de la empresa, cómo editarlos, los centros de costo, el organigrama, los documentos de la empresa y cómo agregar otra compañía.
+keywords: empresa, compañía, razón social, CUIT, logo, editar empresa, centro de costo, organigrama, sector, documentos de la empresa, agregar compañía, registrar compañía
+updated: 2026-10-07
+---
+
+**Configuración** reúne todo lo que se carga una vez y después usa el resto del sistema. Su primera pestaña, **General**, empieza por la propia empresa: sus datos, sus centros de costo, su organigrama y su documentación. Normalmente la usa el propietario de la empresa o quien administra el sistema.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Al entrar a **Configuración** se abre la pestaña **General**. Arriba están todas las pestañas del módulo y, dentro de **General**, sus subpestañas:
+
+| Subpestaña | Para qué sirve | Guía |
+|---|---|---|
+| **Empresa** | Ver y editar los datos de la empresa. | Esta guía |
+| **Centro de Costos** | Mantener la lista de centros de costo. | Esta guía |
+| **Organigrama** | Mantener los sectores de la empresa. | Esta guía |
+| **Usuarios** | Usuarios, roles y accesos externos. | <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink> |
+| **KPIs** | Los indicadores de la empresa y sus gráficos. | <GuideLink to="kpis">KPIs</GuideLink> |
+| **Datos fiscales** | Lo necesario para facturar con ARCA. | <GuideLink to="datos-fiscales">Datos fiscales</GuideLink> |
+| **Documentación** | Los documentos de la empresa. | Esta guía |
+
+Las otras pestañas del módulo son **RRHH** (<GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink> y <GuideLink to="catalogo-de-indumentaria">Catálogo de indumentaria</GuideLink>), **Equipos** (<GuideLink to="catalogos-de-equipos">Catálogos de equipos</GuideLink>), **Mantenimiento** (<GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink>) y **Documentos** (<GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>). Cada persona ve solo las pestañas para las que tiene permiso.
+
+## Los datos de la empresa
+
+La subpestaña **Empresa** muestra una ficha con la **Razón Social**, el **CUIT**, la **Dirección**, el **País**, la **Ciudad**, la **Industria**, el **Teléfono de contacto** y el **Email de contacto** de la empresa activa (la que está elegida en el selector de empresas del menú lateral). Un dato vacío se muestra con un guion.
+
+### Cómo editar la empresa
+
+<Steps>
+<Step title="Abrí el formulario">
+En **Empresa**, hacé clic en **Editar Empresa** (arriba a la derecha). Se abre la pantalla **Editar Compañía**.
+</Step>
+<Step title="Corregí los datos">
+Modificá lo que necesites. Todos los campos vienen cargados con los valores actuales.
+</Step>
+<Step title="Cambiá el logo si hace falta">
+En **Subir Logo** elegí una imagen nueva (hasta 10 MB; jpg, png, gif, bmp, tif, webp o svg). Si no elegís ninguna, se conserva el logo actual.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Editar Compañía**. Vas a ver "**Actualización exitosa, algunos cambios pueden tardar unos minutos en reflejarse**".
+</Step>
+</Steps>
+
+El formulario valida cada campo y muestra el error debajo:
+
+| Campo | Qué pide |
+|---|---|
+| **Nombre de la compañía** | Entre 2 y 30 caracteres. |
+| **CUIT de la compañía** | 11 números, con o sin guiones, y un CUIT válido. No puede repetirse con el de otra compañía del sistema. |
+| **Sitio Web** | Opcional. Si lo cargás, tiene que ser una dirección web válida. |
+| **Email** | Un correo válido. |
+| **Número de teléfono** | Entre 5 y 25 caracteres, solo números (puede empezar con +). |
+| **Dirección** | Entre 4 y 50 caracteres. |
+| **Seleccione un país** | Hoy la única opción es Argentina. |
+| Provincia y ciudad | Las dos son obligatorias. |
+| **Seleccione una Industria** | Obligatoria. |
+| **Descripción** | Entre 3 y 200 caracteres. |
+
+<Callout type="info" title="Razón social y CUIT también se usan para facturar">
+La razón social y el CUIT que figuran acá son los que se imprimen en las facturas electrónicas. En **Datos fiscales** se ven pero no se editan: se cambian desde esta pantalla (ver <GuideLink to="datos-fiscales">Datos fiscales</GuideLink>).
+</Callout>
+
+## Cómo agregar otra compañía
+
+Una misma persona puede trabajar en varias empresas y cambiar entre ellas con el selector de empresas del menú lateral.
+
+<Steps>
+<Step title="Abrí el selector de empresas">
+En el menú lateral, hacé clic en el nombre de la empresa activa y, al final de la lista, en **Agregar compañía**.
+</Step>
+<Step title="Completá el formulario">
+Se abre **Registrar Compañía**, con los mismos campos que la edición (y las mismas validaciones). Podés subir el logo en el mismo paso.
+</Step>
+<Step title="Registrala">
+Hacé clic en **Registrar Compañía**. Vas a ver **Compañía Registrada** y el sistema te lleva al Dashboard con la empresa nueva ya elegida.
+</Step>
+</Steps>
+
+Quien registra la compañía queda como su **propietario** y con el rol de administrador **en esa empresa** (no en las demás). Desde ahí puede dar de alta a los usuarios que van a trabajar en ella (ver <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>).
+
+<Callout type="warning" title="Una empresa nueva arranca vacía">
+La compañía nueva no hereda nada de la otra: ni empleados, ni equipos, ni catálogos propios, ni usuarios. Cada empresa tiene sus propios datos.
+</Callout>
+
+Si una persona entra al sistema sin pertenecer a ninguna empresa, va directo a este formulario, con el aviso "**Parece que no tienes ninguna Compañía registrada.**".
+
+## Centros de costo
+
+La subpestaña **Centro de Costos** es la lista de centros de costo de la empresa. Después se eligen en la ficha de cada empleado (campo **Centro de costo**).
+
+Si tenés permiso para crear o editar, la pantalla se divide en dos: a la izquierda el formulario y a la derecha la tabla.
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre** | El nombre del centro de costo. |
+| **Estado** | **Activo** o **Inactivo**. |
+| **Fecha de creación** | Cuándo se dio de alta. |
+
+Podés buscar con **Buscar centros de costo...**, filtrar por **Estado**, **Nombre** y **Fecha de creación**, y exportar a Excel.
+
+<Steps>
+<Step title="Cargá el nombre">
+En **Crear Centro de Costo**, escribí el **Nombre del Centro de Costo** (obligatorio).
+</Step>
+<Step title="Elegí el estado">
+En **Estado** dejalo **Activo** (pasalo a **Inactivo** cuando deje de usarse).
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear**. Para corregir uno existente, hacé clic en **Editar** en su fila: el formulario pasa a **Editar Centro de Costo** y el botón dice **Actualizar**.
+</Step>
+</Steps>
+
+Los centros de costo no se borran: si uno ya no se usa, pasalo a **Inactivo**.
+
+## Organigrama
+
+La subpestaña **Organigrama** es la lista de **sectores** de la empresa (por ejemplo Administración, Operaciones, Taller). Funciona igual que los centros de costo: formulario a la izquierda (**Crear Sector**, con **Nombre del Sector** y **Estado**) y tabla a la derecha, con búsqueda (**Buscar sectores...**), filtros y Excel.
+
+Los sectores se usan en dos lugares:
+
+- En la ficha del empleado, el campo **Sector** sale de esta lista. Y al elegir un sector, el campo **Puesto en la empresa** muestra los puestos de ese sector.
+- En los puestos (Configuración → RRHH → **Puestos**), el campo **Sector/Departamento** indica a qué sectores pertenece cada puesto (ver <GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>).
+
+Además, el sector del empleado (**Posición Jerárquica**) se puede usar como condición de un tipo de documento: por ejemplo, pedir un documento solo a la gente de Taller (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>).
+
+## Documentos de la empresa
+
+La subpestaña **Documentación** muestra los documentos de la propia empresa (habilitaciones, seguros, constancias). Es la misma información que **Documentación → Documentos de Empresa** (ver <GuideLink to="documentos-de-empresa">Documentos de empresa</GuideLink>).
+
+| Columna | Qué muestra |
+|---|---|
+| **Documento** | El tipo de documento. |
+| **Estado** | Si está pendiente, presentado, aprobado, vencido, etc. |
+| **Tipo** | Si es mensual o permanente. |
+| **Mandatorio** | Si es obligatorio. |
+| **Subido por** | Quién lo cargó. |
+| **Fecha de carga** | Cuándo se subió. |
+| **Vencimiento** | La fecha de vencimiento, si el tipo vence. |
+| **Período** | El mes al que corresponde, si el tipo es mensual. |
+
+En cada fila, **Subir** abre el formulario para cargar el archivo (con **Fecha de vencimiento** o **Periodo** si el tipo lo pide) y, si ya está cargado, **Ver documento** abre su detalle.
+
+Arriba de la tabla, **Crear tipo de documento** crea un tipo nuevo ya marcado como de **Empresa**. Es el mismo formulario de **Configuración → Documentos** (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>).
+
+## Cómo se conecta con el resto del sistema
+
+- **Razón social y CUIT** se imprimen en las facturas electrónicas (<GuideLink to="datos-fiscales">Datos fiscales</GuideLink>). El **logo** es el que se ve junto al nombre de la empresa en el selector de empresas.
+- **Centros de costo** y **sectores** se eligen en la ficha de cada empleado (<GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>) y se pueden usar como condiciones de los tipos de documento.
+- **Documentación** de la empresa: los documentos obligatorios para la empresa aparecen como pendientes hasta que se suben, y los vencimientos se siguen igual que los de empleados y equipos (<GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>).
+- **Agregar compañía** crea una empresa independiente, con sus propios datos, usuarios y permisos (<GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>).
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Entrar a Configuración → General | **Ver** en **General** |
+| Ver la ficha de la empresa | **Ver** en **Empresa** |
+| **Editar Empresa** | **Editar** en **General** |
+| Ver los centros de costo | **Ver** en **Centro de Costos** |
+| Crear o editar centros de costo | **Crear** o **Editar** en **Centro de Costos** |
+| Ver el organigrama | **Ver** en **Organigrama** |
+| Crear o editar sectores | **Crear** o **Editar** en **Organigrama** |
+| Ver los documentos de la empresa | **Ver** en **Documentación** |
+| **Crear tipo de documento** desde acá | **Crear** en **Documentación** |
+| **Agregar compañía** | Cualquier usuario puede registrar una compañía nueva |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="&quot;Ya existe una compañía con este CUIT.&quot;">
+El CUIT es único en todo el sistema. Si la compañía ya fue registrada por otra persona, pedile a su propietario que te invite como usuario en lugar de registrarla de nuevo.
+</Callout>
+
+<Callout type="info" title="&quot;Sin acceso&quot; al editar la compañía">
+La pantalla **Editar Compañía** muestra "**No tenés permisos para editar esta compañía.**" si no sos el propietario y tu rol no tiene **Editar** en **General**.
+</Callout>
+
+<Callout type="info" title="&quot;Datos guardados, pero el logo no se pudo subir&quot;">
+Los datos se guardaron bien; solo falló la imagen. Volvé a editar la compañía y subí el logo de nuevo, revisando que sea una imagen de menos de 10 MB.
+</Callout>
+
+<Callout type="tip" title="Un centro de costo o un sector que ya no se usa">
+No hay botón para borrarlo: pasalo a **Inactivo**. Así queda identificado como fuera de uso y se conserva en las fichas de los empleados que ya lo tienen cargado.
+</Callout>

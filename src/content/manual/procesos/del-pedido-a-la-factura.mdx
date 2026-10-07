@@ -1,0 +1,217 @@
+---
+title: Del pedido a la factura
+summary: El circuito comercial completo: el pedido del cliente, el parte diario que lo ejecuta, la certificación que lo valoriza y la factura electrónica.
+keywords: pedido, preparte, parte diario, certificación, factura, ARCA, CAE, nota de crédito, precio, contrato
+updated: 2026-10-07
+---
+
+Todo trabajo que se le cobra a un cliente recorre el mismo camino: entra como **pedido**, se ejecuta como **línea del parte diario**, se valoriza en una **certificación** y se cobra con una **factura**. Cada paso lo hace un área distinta en una pantalla distinta, y cada uno se apoya en lo que dejó el anterior. Esta guía explica el recorrido completo, qué cambia solo y dónde se suele trabar.
+
+<Flow title="El recorrido de un trabajo">
+  <FlowStep title="Pedido" module="Operaciones" to="gestor-de-pedidos">El cliente pide un servicio con fecha de ejecución.</FlowStep>
+  <FlowStep title="Confirmación" module="Operaciones" tone="info" to="gestor-de-pedidos">El pedido confirmado se convierte en una línea del parte diario de esa fecha.</FlowStep>
+  <FlowStep title="Ejecución" module="Operaciones" to="detalle-del-parte">Se asignan empleados y equipos y la línea se marca como ejecutada.</FlowStep>
+  <FlowStep title="Certificación" module="Comercial" to="certificaciones">Lo ejecutado en un período se valoriza con los precios del contrato.</FlowStep>
+  <FlowStep title="Factura" module="Comercial" tone="success" to="facturacion">Las certificaciones confirmadas se facturan y ARCA devuelve el CAE.</FlowStep>
+</Flow>
+
+## Antes de empezar: cliente, contrato, ítems y precios
+
+Nada de este circuito funciona sin la base comercial cargada. Un pedido siempre se arma con un **cliente**, un **contrato** de ese cliente y uno o más **ítems** del contrato; y el importe de una certificación sale del **precio del ítem**.
+
+- **Cliente**: se da de alta en <GuideLink to="clientes">Comercial → Clientes</GuideLink>. Ahí también se cargan sus áreas, sectores y equipos propios, y se afectan los empleados y equipos que trabajan para él (ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>).
+- **Contrato**: se crea en <GuideLink to="contratos">Comercial → Contratos</GuideLink>, con su moneda y vigencia. La certificación copia la moneda del contrato.
+- **Ítems del contrato**: cada ítem tiene **Nombre del Item**, **Unidad de Medida** (se administran en <GuideLink to="unidades-de-medida">Unidades de Medida</GuideLink>), **Precio** y dos marcas que importan en el parte diario: **Necesita Personal** y **Necesita Equipos**. Esas marcas definen qué recursos hay que asignarle a la línea para que deje de estar "sin recursos".
+
+### Cómo cambian los precios
+
+El precio vigente de un ítem es el que usan los partes y las certificaciones en borrador. Se puede cambiar de dos maneras, y las dos dejan rastro en el **Historial** de precios del ítem (precio, precio anterior, vigencia, origen y motivo):
+
+- **A mano**, desde el ítem del contrato: se carga el **Nuevo precio**, **Vigente desde** y un **Motivo (opcional)**, y se aplica con **Aplicar precio**. El mensaje de confirmación es "Precio actualizado. La revisión anterior queda en el historial."
+- **Con una regla**, desde <GuideLink to="reglas-de-precio">Reglas de Precio</GuideLink>: una regla define a qué alcance aplica (un contrato o **Toda la empresa**) y con qué **Método**: **Por índice** (un coeficiente sobre un índice de referencia, por ejemplo CAC o IPC), **Fórmula polinómica** (componentes con su peso) o **Manual** (declara que en ese alcance los precios se cargan uno por uno). Las reglas por índice y polinómicas se aplican con **Ejecutar**, que pide los coeficientes del período en ese momento.
+
+<Callout type="warning" title="El nuevo precio se aplica en el momento">
+Al aplicar un precio (a mano o con una regla) ese valor pasa a ser el precio vigente del ítem enseguida. **Vigente desde** queda registrado en el historial, pero no posterga el cambio. Si cargás un aumento, desde ese momento las certificaciones en borrador que recalcules ya lo usan.
+</Callout>
+
+Ver y cambiar precios son permisos distintos: en los ítems del contrato existe **Ver precios e importes** y **Modificar precios**. Un usuario puede trabajar con los ítems sin ver cuánto valen.
+
+## Paso 1: el pedido (Gestor de Pedidos)
+
+El pedido del cliente se carga en <GuideLink to="gestor-de-pedidos">Operaciones → Gestor de Pedidos</GuideLink> con el botón **Nuevo Pedido**. Se elige cliente y contrato, y se agregan uno o más ítems. Cada ítem necesita una **Fecha de ejecución** o la marca **Sujeto a disponibilidad operativa**; si falta, el sistema avisa "El ítem debe tener fecha de ejecución o estar sujeto a disponibilidad". **Cada ítem genera su propio pedido**, con su fecha.
+
+<States title="Estados de un pedido">
+  <State name="Pendiente" tone="warning" next="Confirmado, Reprogramado, Rechazado, Cancelado, Vencido">Recién cargado. Es el único estado que se puede editar o eliminar.</State>
+  <State name="Reprogramado" tone="info" next="Confirmado, Rechazado, Cancelado, Vencido">Se le cambió la fecha. El sistema crea un pedido nuevo en Pendiente con la fecha nueva y deja este como Reprogramado, con el motivo.</State>
+  <State name="Vencido" tone="danger" next="Confirmado">Pasó su fecha de ejecución sin confirmarse. Todavía se puede confirmar de a uno, eligiendo una fecha nueva.</State>
+  <State name="Confirmado" tone="success">Se envió al parte diario de su fecha de ejecución.</State>
+  <State name="Rechazado" tone="danger">El pedido no se va a hacer. Pide motivo.</State>
+  <State name="Cancelado" tone="danger">El pedido se anuló. Pide motivo.</State>
+</States>
+
+**Todas las noches, a las 00:30**, el sistema pasa a **Vencido** los pedidos **Pendientes** cuya fecha de ejecución ya pasó. Los reprogramados no se vencen por este proceso.
+
+### Confirmar: el pedido pasa al parte diario
+
+Al tocar **Confirmar pedido** se abre "¿Confirmar pedido?" con el aviso "El pedido se enviará al parte diario correspondiente a la fecha de ejecución." y hay que completar **Confirmado por**. Al confirmar:
+
+1. Si todavía no existe el parte diario de esa fecha, **se crea solo**.
+2. Se agrega una **línea** al parte con el cliente, el contrato, el ítem, la cantidad, la jornada, los horarios, el sector, el área y las observaciones del pedido. Si el pedido tenía un equipo del cliente, también se copia.
+3. La línea nace en **Sin recursos asignados**: todavía nadie le asignó empleados ni equipos.
+4. El pedido pasa a **Confirmado** y se ve el mensaje "Pedido confirmado y enviado al parte diario".
+
+Un pedido **Vencido** se confirma desde "Confirmar pedido vencido", que pide además una **Fecha de ejecución** (hoy o posterior): la línea se crea en el parte de esa fecha nueva. En ese caso el pedido sigue figurando como **Vencido** en el gestor aunque ya esté en el parte.
+
+Para confirmar o cambiar de estado varios pedidos a la vez, seleccionalos y usá **Cambiar estado masivamente**; solo admite pedidos **Pendientes** o **Reprogramados** (un Reprogramado se confirma por esta vía).
+
+## Paso 2: la ejecución (Partes Diarios)
+
+El parte diario es el registro del día: una línea por servicio a ejecutar. Se ven en <GuideLink to="partes-diarios">Operaciones → Partes Diarios</GuideLink> y cada uno se abre en su <GuideLink to="detalle-del-parte">detalle</GuideLink>. Además de las que llegan desde pedidos, se pueden cargar líneas a mano o clonarlas de otro día.
+
+<States title="Estados de una línea del parte">
+  <State name="Sin recursos asignados" tone="danger" next="Pendiente, Reprogramado, Cancelado">La línea todavía no tiene empleados ni equipos. No se puede marcar como Ejecutado.</State>
+  <State name="Pendiente" tone="warning" next="Ejecutado, Reprogramado, Cancelado">Ya tiene recursos y espera ejecutarse. El sistema la pone en este estado solo al asignarle recursos.</State>
+  <State name="Ejecutado" tone="success" next="En certificación">El trabajo se hizo. Es lo que después se certifica.</State>
+  <State name="Reprogramado" tone="info">Se movió a otra fecha: el sistema crea una copia de la línea, sin recursos, en el parte de la fecha nueva.</State>
+  <State name="Cancelado" tone="danger">No se hizo. Pide **Motivo de cancelación**.</State>
+  <State name="En certificación" tone="info">Comercial ya la tomó para certificar. Desde Operaciones ya no se edita ni se le cambian los recursos.</State>
+</States>
+
+Lo que hace cada uno en esta etapa:
+
+- **Asignar recursos** (permiso **Asignar Recursos**): se eligen empleados y equipos para la línea. Si el ítem tiene **Necesita Personal** se ve la sección de empleados; si no, aparece "… no requiere personal". Al guardar con recursos, la línea pasa de **Sin recursos asignados** a **Pendiente**.
+- **Marcar como Ejecutado**: exige al menos un empleado o equipo ("Debe seleccionar al menos un empleado o equipo cuando el estado es "Ejecutado"") y no se puede hacer en partes de fechas futuras.
+- **Cambiar recursos de una línea ya asignada**: pide un **motivo de reasignación**, que queda en el historial de la línea.
+- **Desvíos**: mientras cargás, cada empleado o equipo asignado muestra si tiene algún desvío (asignado en varias filas, no afectado al cliente, sin diagrama, día no laboral, equipo no operativo…). No bloquean la carga, pero se informan. Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+
+### El cierre del parte
+
+El parte se cierra solo. **Todas las noches, a las 00:30**, el sistema revisa los partes de días anteriores que siguen **Abierto** o **Cerrado incompleto**:
+
+- Si todas sus líneas están **Ejecutado**, **Reprogramado**, **Cancelado** o **En certificación** (o el parte no tiene líneas), queda **Cerrado completo**.
+- Si alguna línea sigue **Pendiente** o **Sin recursos asignados**, queda **Cerrado incompleto**.
+
+Un parte **Cerrado incompleto** se vuelve a revisar cada noche: si completás las líneas que faltaban, a la noche siguiente pasa a **Cerrado completo**. El remito no es requisito para el cierre. La misma pasada nocturna pasa a **Pendiente** las líneas que estaban **Sin recursos asignados** y ya tienen algún recurso.
+
+## Paso 3: la certificación (Comercial)
+
+La certificación es el documento que valoriza lo trabajado: **un cliente, un contrato y un período**.
+
+### Revisar los partes desde Comercial
+
+En <GuideLink to="partes-diarios-comercial">Comercial → Partes Diarios</GuideLink> el área comercial ve todas las líneas de los partes. Seleccionando líneas **Ejecutado** y usando **Enviar a certificación**, pasan a **En certificación**: quedan bloqueadas para Operaciones, así nadie las cambia mientras se certifican. Las líneas que no estaban en **Ejecutado** se saltean y el mensaje lo dice ("… no estaban en estado "ejecutado"").
+
+<Callout type="info" title="No es obligatorio pasar las líneas a En certificación">
+La certificación toma las líneas **Ejecutado** y las **En certificación** del período. Pasarlas antes a En certificación sirve para congelarlas del lado de Operaciones, no para que entren en la certificación.
+</Callout>
+
+### Armar, emitir y confirmar
+
+En <GuideLink to="certificaciones">Comercial → Certificaciones</GuideLink>:
+
+<Steps>
+  <Step title="Crear el borrador">**Nueva certificación**: elegí **Cliente**, **Contrato** y el período (**Desde** / **Hasta**). Se crea en **Borrador** y sin líneas.</Step>
+  <Step title="Traer lo trabajado">**Recalcular líneas** busca las líneas del parte de ese cliente y contrato, dentro del período, en **Ejecutado** o **En certificación**, que no estén en otra certificación vigente. Cada línea se valoriza con el **precio vigente** del ítem por la cantidad. Podés recalcular las veces que quieras mientras sea borrador.</Step>
+  <Step title="Emitir">**Emitir** toma el número, **congela los precios** de cada línea y fija el total. Desde ahí, un cambio de precio en el contrato ya no la afecta. No se puede emitir sin líneas.</Step>
+  <Step title="Confirmar">Quien tiene el permiso **Aprobar** la revisa y la **Confirma**. Solo las certificaciones confirmadas se pueden facturar.</Step>
+</Steps>
+
+<States title="Estados de una certificación">
+  <State name="Borrador" next="Emitida">Editable: se recalcula contra el precio vigente cada vez. Se puede eliminar con **Eliminar borrador**.</State>
+  <State name="Emitida" tone="info" next="Confirmada, Anulada">Precios congelados. Ya no se modifica: si está mal, se anula y se arma otra.</State>
+  <State name="Confirmada" tone="success" next="Facturada, Anulada">Aprobada para facturar.</State>
+  <State name="Facturada" tone="success" next="Confirmada">Incluida en una factura autorizada por ARCA. Vuelve a Confirmada solo si se emite una nota de crédito por el total de esa factura.</State>
+  <State name="Anulada" tone="danger">Dada de baja con motivo obligatorio. Sus líneas del parte quedan libres para certificarse de nuevo.</State>
+</States>
+
+<Callout type="danger" title="Anular no se deshace">
+Una certificación anulada no vuelve atrás: hay que armar una nueva. Una certificación **Facturada** no se puede anular directamente: primero hay que emitir una nota de crédito total de la factura. Y una certificación que está dentro de un comprobante sin emitir tampoco: el sistema pide quitarla de ese comprobante o descartarlo antes.
+</Callout>
+
+## Paso 4: la factura (Facturación)
+
+En <GuideLink to="facturacion">Comercial → Facturación</GuideLink>, **Nueva factura** ofrece dos orígenes:
+
+- **Desde certificaciones**: elegís el cliente y tildás sus certificaciones **Confirmadas** que todavía no se facturaron. Las de otra moneda se facturan aparte. Se crea un borrador con esas certificaciones.
+- **Factura manual**: líneas cargadas a mano, sin certificaciones.
+
+El borrador se revisa y se emite con **Emitir**. El sistema consulta a ARCA el próximo número, muestra el resumen ("¿Emitir …?") y, al confirmar, envía el comprobante.
+
+<States title="Estados de un comprobante">
+  <State name="Borrador" next="Emitiendo">Se edita libremente. Se puede descartar.</State>
+  <State name="Emitiendo" tone="warning" next="Autorizada, Rechazada, Pendiente en ARCA">Se está enviando a ARCA.</State>
+  <State name="Autorizada" tone="success">ARCA la aprobó y devolvió el **CAE**. Tiene validez fiscal: no se modifica ni se borra. Sus certificaciones pasan a **Facturada**.</State>
+  <State name="Rechazada" tone="danger" next="Emitiendo">ARCA no la aceptó. Se muestran los motivos, se corrige y se vuelve a emitir.</State>
+  <State name="Pendiente en ARCA" tone="warning" next="Autorizada, Borrador">ARCA no respondió y no se sabe si la autorizó. Se resuelve con **Consultar estado en ARCA**.</State>
+</States>
+
+<Callout type="danger" title="Un comprobante pendiente nunca se reemite">
+Si una factura quedó **Pendiente en ARCA**, puede estar autorizada aunque el sistema no lo sepa. No la vuelvas a emitir ni armes otra igual: usá **Consultar estado en ARCA**. Si ARCA confirma que no la autorizó, vuelve a borrador y se puede emitir de nuevo. Mientras haya un comprobante pendiente del mismo punto de venta y tipo, el sistema no deja emitir otro.
+</Callout>
+
+### Corregir una factura autorizada
+
+Una factura autorizada no se toca: se compensa con otro comprobante, desde su detalle.
+
+- **Nota de crédito total**: anula la factura por el total. Al autorizarse, **sus certificaciones vuelven a Confirmada** y se pueden facturar de nuevo.
+- **Nota de crédito parcial**: acredita una parte; cargás las líneas. Las certificaciones siguen facturadas.
+- **Nota de débito**: intereses, diferencias o ajustes.
+
+### Homologación, producción y modo demo
+
+La empresa emite en el ambiente que tenga configurado en <GuideLink to="datos-fiscales">Configuración → Datos fiscales</GuideLink>, donde también se cargan el certificado de ARCA y los puntos de venta. La pantalla de Facturación lo avisa siempre:
+
+- **Homologación**: "Estás en homologación: los comprobantes que emitas son de prueba y no tienen validez fiscal." Los comprobantes llevan la marca **Prueba (homologación)**.
+- **ARCA simulado (modo demo)**: "los comprobantes no se informan a ARCA y no tienen validez fiscal." Llevan la marca **Simulado**.
+- **Producción**: los comprobantes tienen validez fiscal.
+
+Si falta algún dato para emitir, se ve "Todavía no podés emitir comprobantes en …: falta …" con el enlace **Completar en Datos fiscales**. Si el certificado está por vencer, se avisa con días de anticipación: cuando vence, no se puede emitir.
+
+## Qué cambia solo en cada paso
+
+| Hacés esto | Y el sistema hace esto |
+|---|---|
+| Confirmás un pedido | Crea el parte de esa fecha si no existía y agrega la línea en **Sin recursos asignados**. El pedido pasa a **Confirmado**. |
+| Asignás recursos a una línea | La línea pasa a **Pendiente**. |
+| Reprogramás una línea | Crea la misma línea, sin recursos, en el parte de la fecha nueva. |
+| Pasa la medianoche | 00:30: vencen los pedidos pendientes atrasados, se cierran los partes de días anteriores (completo o incompleto). |
+| Enviás líneas a certificación | Quedan **En certificación** y Operaciones ya no las edita. |
+| Emitís una certificación | Se congelan sus precios. |
+| ARCA autoriza la factura | Sus certificaciones pasan a **Facturada**. |
+| ARCA autoriza una nota de crédito total | Las certificaciones de la factura original vuelven a **Confirmada**. |
+| Anulás una certificación | Sus líneas del parte quedan disponibles para otra certificación. |
+
+## Permisos que intervienen
+
+| Paso | Permiso |
+|---|---|
+| Cargar, editar y eliminar pedidos | Gestor de Pedidos: **Crear**, **Editar**, **Eliminar** |
+| Confirmar y cambiar el estado de pedidos | Gestor de Pedidos: **Editar** |
+| Asignar empleados y equipos a una línea | Detalle del parte: **Asignar Recursos** |
+| Enviar líneas a certificación | Comercial → Partes Diarios: **Editar** |
+| Crear el borrador, recalcular y emitir una certificación | Certificaciones: **Crear** y **Editar** |
+| Confirmar una certificación | Certificaciones: **Aprobar** |
+| Anular o eliminar una certificación | Certificaciones: **Eliminar** |
+| Ver importes de certificaciones y facturas | **Ver precios e importes** |
+| Armar borradores de factura y notas | Facturación: **Crear** |
+| Emitir ante ARCA y consultar pendientes | Facturación: **Aprobar** y **Ver precios e importes** |
+
+## Problemas frecuentes
+
+**"El pedido no se puede confirmar"**: el botón de confirmar solo se habilita en pedidos **Pendientes** o **Vencidos** que tengan fecha de ejecución. Un pedido "sujeto a disponibilidad" primero necesita una fecha.
+
+**"Marqué la línea pero no me deja poner Ejecutado"**: la línea está **Sin recursos asignados** o el parte es de una fecha futura. Asigná al menos un empleado o equipo.
+
+**"El parte quedó Cerrado incompleto"**: tiene líneas Pendientes o sin recursos. Completalas (ejecutadas, reprogramadas o canceladas) y a la noche siguiente se cierra completo.
+
+**"La certificación no trae líneas"**: revisá que las líneas sean de ese cliente **y** de ese contrato, que estén dentro del período, en **Ejecutado** o **En certificación**, que tengan ítem y que no estén ya en otra certificación vigente. Después tocá **Recalcular líneas**.
+
+**"Cambié un precio y la certificación no lo tomó"**: si ya estaba **Emitida**, sus precios están congelados. Para cobrar el precio nuevo hay que anularla y armar otra.
+
+**"No aparece la certificación para facturar"**: solo se ofrecen las **Confirmadas** y sin facturar del cliente elegido.
+
+<Callout type="danger" title="Lo que no tiene vuelta atrás">
+- Eliminar un pedido ("Esta acción no se puede deshacer").
+- Anular una certificación.
+- Una factura **Autorizada**: solo se compensa con una nota de crédito o débito.
+</Callout>

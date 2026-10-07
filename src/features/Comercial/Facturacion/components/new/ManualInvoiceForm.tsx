@@ -97,6 +97,8 @@ export function ManualInvoiceForm({ customers }: { customers: Customer[] }) {
                     setServerError(null);
                   }}
                   maxSelections={1}
+                  closeOnSelect
+                  searchPlaceholder="Buscar cliente..."
                   disabled={pending}
                 />
               </FormControl>

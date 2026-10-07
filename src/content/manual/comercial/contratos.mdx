@@ -1,0 +1,190 @@
+---
+title: Contratos
+summary: Los contratos con cada cliente: vigencia, áreas y sectores, documentos, los ítems que se certifican con su precio e IVA, y el historial de precios.
+keywords: contrato, servicio, ítem, item, precio, IVA, alícuota, unidad de medida, revisión de precio, historial, vigencia, documentos del contrato
+updated: 2026-10-07
+---
+
+Un contrato es el acuerdo con un cliente para prestarle un servicio. Define dónde se trabaja (áreas y sectores del cliente), durante cuánto tiempo, y sobre todo **qué se cobra**: sus **ítems**, cada uno con su unidad de medida, precio neto e IVA. Todo lo que después se carga en los partes diarios, se certifica y se factura cuelga de un contrato y de uno de sus ítems.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Contratos**. Los contratos de un cliente en particular también se ven en la pestaña **Contratos** de su ficha (ver <GuideLink to="clientes">Clientes</GuideLink>).
+
+## Qué ves en la pantalla
+
+Arriba está el botón **Crear Contrato** y debajo el listado de todos los contratos de la empresa.
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre del Servicio** | El título del contrato. |
+| **Cliente** | A quién se le presta. |
+| **N° Contrato** | El número de contrato, si se cargó. |
+| **Areas** | Las áreas incluidas. Si hay varias se ve la primera y `+N`; pasá el mouse para verlas todas. |
+| **Sectores** | Los sectores incluidos, con el mismo formato. |
+| **Estado** | **Activo** o **Inactivo**. |
+| **Fecha Inicio** / **Fecha Vencimiento** | La vigencia del contrato. |
+
+Se puede filtrar por **Nombre del Servicio**, **Cliente**, **Número de Contrato**, **Estado**, **Sectores** y **Areas**. Hacé clic en una fila para abrir el contrato.
+
+## Cómo crear un contrato
+
+Antes de crearlo, el cliente tiene que tener cargadas sus **Áreas** y sus **Sectores** (se cargan en la ficha del cliente).
+
+<Steps>
+  <Step title="Abrí el formulario">
+    Hacé clic en **Crear Contrato**.
+  </Step>
+  <Step title="Elegí el cliente">
+    En **Cliente** elegí a quién se le presta el servicio. Al cambiarlo se vacían las áreas y sectores elegidos, porque cada cliente tiene los suyos.
+  </Step>
+  <Step title="Elegí áreas y sectores">
+    En **Area** y **Sectores** elegí al menos una de cada una. Solo aparecen las del cliente elegido.
+  </Step>
+  <Step title="Completá título, vigencia y número">
+    **Título del Contrato** es obligatorio. **Inicio del Contrato** y **Validez del Contrato** se eligen en el calendario, y la validez tiene que ser posterior al inicio. **Número de Contrato** es opcional.
+  </Step>
+  <Step title="Elegí el estado y creá">
+    Dejalo en **Activo** (o **Inactivo**) y hacé clic en **Crear**. Vas a ver **Contrato creado correctamente**.
+  </Step>
+</Steps>
+
+<Callout type="info" title="Una moneda por contrato">
+Cada contrato está en una sola moneda, y todo lo que sale de él (certificaciones y facturas) va en esa moneda: no hay conversión. Los contratos se crean en pesos argentinos; la pantalla no tiene un campo para cambiar la moneda.
+</Callout>
+
+## El detalle del contrato
+
+Al abrir un contrato aparecen tres pestañas: **Detalle**, **Documentos** e **Items del Servicio**. Con **Cerrar** volvés al listado.
+
+### Detalle
+
+Muestra los mismos campos del alta, en modo lectura. Para modificarlos hacé clic en **Habilitar Edicion**, cambiá lo que necesites y guardá con **Editar** (o **Cancelar**). El botón **Ver** vuelve al modo lectura.
+
+<Callout type="warning" title="Desactivar un contrato desactiva todos sus ítems">
+Si pasás el contrato a **Inactivo**, todos sus ítems pasan a inactivos y dejan de ofrecerse al cargar partes diarios. Si después lo volvés a **Activo**, se reactivan **todos** los ítems, incluso los que habías dado de baja uno por uno: revisalos.
+</Callout>
+
+Si querés quitar del contrato un área o un sector que ya se usó en partes diarios, el sistema no lo permite: **No se pueden quitar áreas o sectores que están siendo utilizados en partes diarios**.
+
+### Documentos
+
+Guarda los archivos del contrato (el contrato firmado, anexos, planillas…).
+
+<Steps>
+  <Step title="Elegí los archivos">
+    En **Subir Documento** arrastrá los archivos al recuadro o usá **Seleccionar archivos**. Podés elegir varios; aparecen en **Archivos seleccionados** y podés quitar cualquiera antes de subir.
+  </Step>
+  <Step title="Describilos (opcional)">
+    Completá **Tipo de documento** y **Descripción**.
+  </Step>
+  <Step title="Subí">
+    Hacé clic en **Subir documento**.
+  </Step>
+</Steps>
+
+A la derecha, **Documentos del Contrato** lista lo subido (**Nombre**, **Tipo**, **Fecha**, **Tamaño**) con un buscador. Cada documento tiene **Ver** (vista previa), **Descargar** y eliminar; eliminar pide confirmación y **no se puede deshacer**.
+
+### Items del Servicio
+
+Los ítems son lo que se le cobra al cliente: cada línea de parte diario se carga sobre un ítem, y las certificaciones multiplican la cantidad trabajada por el precio del ítem.
+
+La tabla muestra los ítems activos; el botón **Ver Inactivos** muestra los dados de baja (y **Ver Activos** vuelve). Columnas:
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre** | Nombre del ítem. |
+| **Estado** | **Activo** o **Inactivo**. |
+| **Req. Personal** / **Req. Equipos** | Si el ítem necesita empleados y/o equipos asignados. |
+| **Descripción**, **Codigo**, **Numero** | Datos de referencia del ítem. |
+| **UDM** | Unidad de medida (ver <GuideLink to="unidades-de-medida">Unidades de medida</GuideLink>). |
+| **Precio** | Precio neto vigente, con el botón **Precios** para ver el historial. Solo con permiso **Ver precios**. |
+
+#### Crear o editar un ítem
+
+A la izquierda está el formulario **Nuevo Item** (o **Editar Item** si hiciste clic en **Editar** en una fila).
+
+<Steps>
+  <Step title="Datos del ítem">
+    **Nombre del Item** es obligatorio. **Código**, **Número** y **Descripción** son opcionales.
+  </Step>
+  <Step title="Precio e IVA">
+    **Precio** (obligatorio) es el precio **neto, sin IVA**. **Alícuota IVA** (obligatoria) es la que se propone al facturar este ítem (por defecto 21 %; también 0 %, 2,5 %, 5 %, 10,5 % y 27 %); en cada factura se puede cambiar.
+  </Step>
+  <Step title="Unidad y estado">
+    Elegí la **Unidad de Medida** (obligatoria) y el **Estado** (**Activo** / **Inactivo**).
+  </Step>
+  <Step title="Requerimientos">
+    Marcá **Necesita Personal** y/o **Necesita Equipos** según corresponda (vienen marcados).
+  </Step>
+  <Step title="Guardá">
+    **Crear** para un ítem nuevo, **Guardar cambios** al editar. **Cancelar** limpia el formulario.
+  </Step>
+</Steps>
+
+<Callout type="info" title="Para qué sirven Necesita Personal y Necesita Equipos">
+Cuando se carga una línea de parte diario sobre este ítem, el sistema controla que tenga los recursos que el ítem pide. Si falta personal o equipo requerido, la línea queda en **Sin recursos asignados**. Si el ítem no requiere equipos (por ejemplo, un servicio de solo personal), desmarcá **Necesita Equipos** para que las líneas no queden trabadas.
+</Callout>
+
+## Historial y actualización de precios
+
+Cada ítem guarda la historia de su precio. En la columna **Precio**, el botón **Precios** abre la ventana **Precios de …** con:
+
+- **Vigente**: el precio que se usa hoy.
+- **Historial**: cada cambio con **Vigencia**, **Precio**, **Anterior**, **Origen** (**Manual**, **Por índice** o **Fórmula polinómica**, con el nombre de la regla si vino de una) y **Motivo**. El cambio actual se marca **Vigente**.
+
+Para cargar un precio nuevo a mano (requiere el permiso **Modificar precios**):
+
+<Steps>
+  <Step title="Cargá el nuevo precio">
+    En **Nuevo precio** escribí el **Precio** (hasta 4 decimales, sin separador de miles).
+  </Step>
+  <Step title="Indicá la vigencia y el motivo">
+    Elegí **Vigente desde** y, si querés, un **Motivo (opcional)**, por ejemplo "acuerdo de actualización de abril".
+  </Step>
+  <Step title="Aplicá">
+    Hacé clic en **Aplicar precio**. El mensaje confirma **Precio actualizado. La revisión anterior queda en el historial.**
+  </Step>
+</Steps>
+
+El precio nuevo pasa a ser el vigente en el momento en que lo aplicás; la fecha **Vigente desde** queda registrada en el historial. Para actualizar muchos ítems a la vez con un índice o una fórmula, usá <GuideLink to="reglas-de-precio">Reglas de precio</GuideLink>.
+
+Si cambiás el precio desde el formulario del ítem, también queda registrado en el historial, con el motivo **Precio editado desde el ítem**.
+
+<Callout type="tip" title="Las certificaciones emitidas no cambian">
+El precio vigente es el que toma una certificación **al emitirse**; a partir de ahí queda fijo. Actualizar precios después no modifica certificaciones ya emitidas. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink>.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- **Partes diarios**: al cargar una línea se elige cliente, **Servicio** (el contrato) e **Ítem**. Solo se ofrecen los ítems activos. Los requerimientos del ítem deciden si la línea queda **Sin recursos asignados**. Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink>.
+- **Certificaciones**: se arman por cliente, contrato y período, con las líneas de parte de ese contrato. La moneda de la certificación es la del contrato.
+- **Facturación**: la alícuota del ítem es la que se propone en cada línea de la factura.
+- **Reglas de precio**: una regla puede alcanzar solo a los ítems de un contrato o a todos los de la empresa.
+
+El recorrido completo está en <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la solapa y abrir contratos | **Ver** en Contratos |
+| **Crear Contrato** | **Crear** en Contratos |
+| Ver la pestaña **Detalle** / **Habilitar Edicion** y guardar | **Ver** / **Editar** en Contratos → Detalle |
+| Ver y usar la pestaña **Documentos** | **Ver** en Contratos → Documentos |
+| Ver **Items del Servicio** | **Ver** en Contratos → Items del Servicio |
+| **Crear** / **Editar** ítems | **Crear** / **Editar** en Items del Servicio |
+| Ver la columna **Precio** y el historial | **Ver precios** en Items del Servicio |
+| Cargar un precio nuevo en **Precios** | **Modificar precios** en Items del Servicio |
+
+**Ver precios** y **Modificar precios** están separados a propósito: puede haber gente que administre los ítems sin ver cuánto valen.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="La validez del servicio debe ser mayor que el inicio del servicio">
+La fecha de **Validez del Contrato** tiene que ser posterior a la de **Inicio del Contrato**. Corregí cualquiera de las dos.
+</Callout>
+
+<Callout type="info" title="No aparecen áreas o sectores para elegir">
+El selector muestra solo las áreas y sectores del cliente elegido. Si está vacío, cargalos primero en la ficha del cliente (pestañas **Áreas** y **Sectores**).
+</Callout>

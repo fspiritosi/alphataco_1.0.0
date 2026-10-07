@@ -1,0 +1,132 @@
+---
+title: Partes diarios
+summary: El listado de partes diarios por fecha: creá el parte de un día, mirá cuántas líneas le faltan completar y seguí su cierre automático.
+keywords: parte diario, jornada, fecha, cierre, abierto, cerrado completo, cerrado incompleto, sin recursos
+updated: 2026-10-07
+---
+
+El **parte diario** es la planilla de trabajo de un día: reúne todos los servicios que la empresa presta ese día, con el personal y los equipos asignados a cada uno. Hay **un parte por fecha** para toda la empresa. Esta pantalla es el índice de esos partes: desde acá creás el parte de un día, ves de un vistazo cuánto le falta y entrás a su detalle para trabajarlo.
+
+<OpenScreen />
+
+Se entra desde **Operaciones**, pestaña **Partes Diarios**.
+
+## Qué ves en la pantalla
+
+Si tenés permiso para crear, la pantalla se divide en dos paneles (el divisor del medio se puede arrastrar):
+
+- A la izquierda, **Crear parte diario**.
+- A la derecha, la tabla de partes.
+
+La tabla tiene estas columnas:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha** | El día del parte. |
+| **Estado** | **Abierto**, **Cerrado completo** o **Cerrado incompleto** (ver más abajo). |
+| **Fecha de creación** | Cuándo se creó el parte. |
+| **Sin Recursos** | Cuántas líneas todavía no tienen personal ni equipos asignados. |
+| **Pendientes** | Cuántas líneas tienen recursos pero todavía no se marcaron como ejecutadas, canceladas o reprogramadas. |
+| **Total** | Cuántas líneas tiene el parte. |
+| **Activo** | Oculta al principio. Indica si el parte está activo. |
+| Acciones | **Ver** (abre el detalle) y la papelera para eliminar. |
+
+Las columnas **Sin Recursos** y **Pendientes** son las que conviene mirar todos los días: un parte de ayer con números en esas columnas va a quedar **Cerrado incompleto**.
+
+**Filtros.** **Fecha** (rango), **Estado**, **Fecha de creación** (rango) y **Activo**. De entrada se ven **Fecha** y **Estado**. El buscador es **Buscar partes diarios...**
+
+**Exportar.** **Excel** descarga el listado con los filtros aplicados.
+
+## De dónde salen los partes
+
+Un parte diario se crea de tres maneras:
+
+1. **A mano**, desde **Crear parte diario** en esta pantalla.
+2. **Al confirmar un pedido** en el <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink>: si no existe el parte de la fecha de ejecución, el sistema lo crea solo.
+3. **Al clonar o reprogramar líneas** desde el detalle de otro parte hacia una fecha que todavía no tiene parte: también se crea solo.
+
+En la práctica, la mayoría de los partes nacen de los pedidos confirmados. Crearlo a mano sirve para cargar servicios que no pasaron por el gestor de pedidos (por ejemplo el servicio mensual fijo, que suele cargarse clonando el parte del día anterior).
+
+## Cómo crear un parte diario
+
+<Steps>
+  <Step title="Elegí la fecha">
+    En **Crear parte diario**, abrí el calendario de **Fecha** y elegí el día. Solo se pueden elegir hoy y días futuros.
+  </Step>
+  <Step title="Creá el parte">
+    Hacé clic en **Crear parte diario**. Si ya hay un parte para ese día, vas a ver **Ya existe un parte diario para esta fecha.** y no se crea otro.
+  </Step>
+  <Step title="Cargá las líneas">
+    Si se creó bien (**Parte diario creado exitosamente!**), el sistema te lleva directo al detalle del parte para que empieces a cargar líneas. Seguí en <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+  </Step>
+</Steps>
+
+Para crear los partes de varios días seguidos, la forma más rápida es armar uno y después usar **Clonar Registros** en su detalle eligiendo todas las fechas destino: el sistema crea los partes que falten y les copia las líneas.
+
+## Estados del parte
+
+<States title="Ciclo de vida de un parte diario">
+  <State name="Abierto" tone="info" next="Cerrado completo, Cerrado incompleto">El parte del día de hoy o de días futuros. Se le pueden agregar líneas libremente.</State>
+  <State name="Cerrado incompleto" tone="danger" next="Cerrado completo">Ya pasó su fecha y alguna línea quedó en Pendiente o Sin recursos asignados. Se vuelve a evaluar cada noche: si se completan las líneas, pasa a Cerrado completo.</State>
+  <State name="Cerrado completo" tone="success">Ya pasó su fecha y todas sus líneas quedaron resueltas (Ejecutado, Reprogramado, Cancelado o En certificación), o el parte no tenía líneas.</State>
+</States>
+
+### El cierre automático
+
+Nadie cierra los partes a mano. Todas las noches, a las 00:30 (hora de Argentina), el sistema revisa los partes de **días anteriores** que están **Abiertos** o **Cerrados incompletos**:
+
+- Si no tienen líneas, o si todas sus líneas están en **Ejecutado**, **Reprogramado**, **Cancelado** o **En certificación**, pasan a **Cerrado completo**.
+- Si queda alguna línea **Pendiente** o **Sin recursos asignados**, pasan a **Cerrado incompleto**.
+
+El número de remito no es requisito para el cierre.
+
+En la misma pasada, las líneas que estaban **Sin recursos asignados** pero ya tienen personal o equipos cargados pasan a **Pendiente**.
+
+<Callout type="tip" title="Un parte incompleto se puede arreglar">
+Un parte **Cerrado incompleto** no queda trabado. Entrá a su detalle, poné cada línea en el estado que corresponde (ejecutada, cancelada o reprogramada) y a la noche siguiente el sistema lo pasa a **Cerrado completo**. Lo que ya no se puede en un parte cerrado de un día pasado es **agregar** líneas nuevas.
+</Callout>
+
+## Cómo eliminar un parte diario
+
+Solo se puede eliminar un parte **vacío**, sin ninguna línea. Si tiene líneas, la papelera aparece gris con el aviso **No se puede eliminar un parte con registros**.
+
+<Steps>
+  <Step title="Vaciá el parte si hace falta">
+    Si el parte tiene líneas que no corresponden, eliminalas primero desde su detalle.
+  </Step>
+  <Step title="Eliminá">
+    Hacé clic en la papelera y confirmá en **¿Está seguro de eliminar este parte diario?**
+  </Step>
+</Steps>
+
+<Callout type="danger" title="No se puede deshacer">
+El parte eliminado no se recupera. Igualmente, como solo se borran partes vacíos, no se pierden líneas ni recursos.
+</Callout>
+
+En esta pantalla no hay acciones masivas sobre los partes: las operaciones masivas (editar el estado de muchas líneas, clonar) se hacen dentro de cada parte, en su detalle.
+
+## Cómo se conecta con el resto del sistema
+
+- **Gestor de pedidos**: cada pedido confirmado agrega una línea al parte de su fecha (y lo crea si no existe). Ver <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink>.
+- **Detalle del parte**: es donde se trabaja cada línea (recursos, ejecución, desvíos). Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+- **Comercial**: certifica las líneas ejecutadas de los partes y las factura. Ver <GuideLink to="partes-diarios-comercial">Partes diarios en Comercial</GuideLink> y <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+- **Aviso de desvíos**: cada mañana el sistema revisa el parte del día y, si encuentra recursos con desvíos, manda un correo a los destinatarios configurados de la empresa. Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña y el listado | **Ver** en Partes Diarios |
+| Ver el panel **Crear parte diario** y crear partes | **Crear** |
+| Eliminar un parte vacío | **Eliminar** |
+| Entrar al detalle de un parte | **Ver** en Detalle de Parte Diario (sin ese permiso, **Ver** te devuelve al inicio) |
+
+## Problemas frecuentes
+
+<Callout type="info" title="No veo el panel para crear partes">
+Te falta el permiso **Crear** en Partes Diarios. Igual podés ver los partes y entrar a su detalle.
+</Callout>
+
+<Callout type="info" title="El calendario no me deja elegir una fecha pasada">
+Desde esta pantalla solo se crean partes de hoy en adelante. Si necesitás cargar un servicio de un día que no tiene parte, revisá primero si existe (filtrá por **Fecha**): los partes de días pasados normalmente ya existen porque se crearon al confirmar pedidos o al clonar.
+</Callout>

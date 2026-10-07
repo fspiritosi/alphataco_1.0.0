@@ -1,0 +1,134 @@
+---
+title: Panel del operario
+summary: Panel del taller donde cada operario ve las órdenes de trabajo de su sector, las inicia, completa tareas, pide tareas nuevas y cierra la OT.
+keywords: operario, taller, OT, orden de trabajo, sector, mecánico, diagnóstico, tarea, pausar, cerrar OT, devolver tarea
+updated: 2026-10-07
+---
+
+El **Panel de Operario** es la pantalla del personal de taller. Cada operario ve solo las **órdenes de trabajo (OT)** de su sector, las inicia cuando arranca, va tildando las tareas a medida que las termina, deja notas técnicas y cierra la OT al final. Todo lo que hace se refleja en el módulo **Mantenimiento** del sistema, donde el jefe de taller sigue el avance.
+
+No está en el menú lateral: se abre con su propia dirección, que termina en **/operator**. Lo ideal es dejarlo como favorito en la tablet o la computadora del taller.
+
+## Quién puede usarlo
+
+Para entrar, el operario necesita:
+
+1. Un **usuario** del sistema (correo y contraseña), vinculado a **su empleado** (lo hace un administrador en **Configuración → General → Usuarios**, columna **Empleado vinculado**).
+2. Que ese empleado tenga asignado al menos un **sector de taller**. Se carga en la ficha del empleado, en los datos laborales, campo **Sectores de Taller** (ver <GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>).
+
+Si el empleado no tiene sectores, al entrar aparece "**Tu empleado no tiene sectores de taller asignados. Contacta al administrador.**"
+
+## Cómo entrar
+
+<Steps>
+<Step title="Abrí el panel">
+Vas a ver la tarjeta **Panel de Operario** con la leyenda **Acceso exclusivo para operarios de taller**.
+</Step>
+<Step title="Ingresá">
+Completá **Email** y **Contrasena** y hacé clic en **Iniciar Sesion**.
+</Step>
+<Step title="Elegí tu sector (si tenés más de uno)">
+Arriba, debajo de tu nombre, figura el sector activo. Si trabajás en varios sectores, tocalo para cambiar: la lista se recarga con las OT de ese sector.
+</Step>
+</Steps>
+
+En el encabezado también ves cuántas OT tenés disponibles (por ejemplo **5 OT**) y el botón **Salir** para cerrar la sesión.
+
+## La lista de órdenes de trabajo
+
+Bajo **Ordenes de Trabajo** aparecen las OT de tu sector, con la cantidad de activas y bloqueadas. Podés:
+
+- **Buscar** por número de OT, número de orden de mantenimiento (OM), dominio, número de serie o número interno.
+- **Filtrar** con **Todas**, **Activas**, **Bloqueadas** o **Completadas** (las completadas se ven por páginas).
+
+Cada tarjeta muestra el equipo (dominio o serie y número interno), **OT** y **OM**, el estado, la prioridad (**Urgente**, **Alta**, **Media** o **Baja**), el progreso (tareas hechas sobre el total), y las fechas de creación y programada. Si el diagnóstico todavía no se hizo, lleva la marca **Diagnostico**.
+
+### OT bloqueadas
+
+Una orden de mantenimiento puede pasar por varios sectores en un orden definido (por ejemplo, primero Mecánica y después Pintura). **Tu OT queda bloqueada mientras un sector anterior no terminó la suya**: la tarjeta muestra **Esperando** y el nombre de ese sector, y no se puede abrir. Se libera sola cuando el sector anterior completa o pausa su OT.
+
+## Cómo trabajar una OT
+
+Tocá la tarjeta para abrir el detalle. Arriba ves el número de OT y de OM, los datos del equipo (dominio, serie, tipo, interno, kilómetros y horas), el estado, la prioridad, la fecha planificada y el **Progreso** de tareas.
+
+<Steps>
+<Step title="Iniciá la OT">
+Tocá **Iniciar OT**. Hasta que no la inicies, no podés tildar tareas ("**Inicie la Orden de Trabajo antes de completar tareas**"). La OT pasa a **En Progreso**.
+</Step>
+<Step title="Hacé el diagnóstico">
+La primera tarea es el **DIAGNOSTICO** (marcado **Obligatorio**). Escribí en **Notas del diagnostico** lo que encontraste y marcalo como hecho. Mientras no esté completo, el resto de las tareas queda trabado ("**Complete el DIAGNOSTICO antes de continuar con otras tareas**").
+</Step>
+<Step title="Completá las tareas">
+Las tareas aparecen ordenadas por criticidad, con su tipo de reparación. Tildá cada una al terminarla; si te equivocaste, destildala. Con **Agregar notas** dejás observaciones técnicas en cada tarea (se guardan solas al salir del campo). Si la tarea vino de un pedido con fotos, las ves en **Fotos del pedido**.
+</Step>
+<Step title="Cerrá la OT">
+Cuando terminaste, tocá **Cerrar OT**. En **Resumen de Reparaciones** ves cuántas quedaron **Completadas**, **Pendientes** y **Devueltas**. Podés escribir **Notas de cierre (opcional)** y confirmar con **Cerrar Orden de Trabajo**.
+</Step>
+</Steps>
+
+<Callout type="warning" title="Cerrar con tareas pendientes">
+Si cerrás con tareas sin hacer, el sistema te avisa ("**Esta OT se cerrara con N tarea(s) pendiente(s)**") y la OT queda como **Completada Parcial** en vez de **Completada**. El jefe de taller lo ve al validar la orden.
+</Callout>
+
+### Pausar y reanudar
+
+Si tenés que dejar la OT a medias (falta un repuesto, cambio de turno), tocá **Pausar OT**. Mientras está pausada no podés completar tareas; para seguir, **Reanudar OT**.
+
+Pausar tiene otro efecto: **libera a los sectores siguientes**. Una misma orden de mantenimiento solo puede tener una OT en progreso a la vez, así que si otro sector tomó la orden mientras la tuya estaba pausada, el botón dice **Bloqueada** y vas a ver "**No se puede reanudar: el sector … tiene una OT en progreso para esta orden de mantenimiento.**" Esperá a que ese sector pause o termine.
+
+### Estados de una OT
+
+<States>
+<State name="Pendiente" tone="default" next="En Progreso">La OT está asignada a tu sector y todavía no se arrancó.</State>
+<State name="En Progreso" tone="info" next="Pausada, Completada, Completada Parcial">Alguien la inició: se pueden tildar tareas, agregar tareas y cerrarla.</State>
+<State name="Pausada" tone="warning" next="En Progreso">Detenida. No se pueden completar tareas hasta reanudarla.</State>
+<State name="Completada" tone="success">Cerrada con todas las tareas hechas.</State>
+<State name="Completada Parcial" tone="warning">Cerrada con alguna tarea pendiente.</State>
+</States>
+
+## Cómo devolver una tarea
+
+Si una tarea no corresponde a tu sector o no la podés hacer, devolvéla al jefe de taller:
+
+<Steps>
+<Step title="Abrí Devolver tarea">
+En la tarea, tocá **Devolver tarea**.
+</Step>
+<Step title="Escribí el motivo">
+En **Motivo de devolucion** explicá por qué (mínimo 10 caracteres).
+</Step>
+<Step title="Confirmá">
+Tocá **Devolver Tarea**. Vas a ver "**Tarea devuelta. El jefe de taller la reasignara.**" En el módulo Mantenimiento la tarea aparece como **Reasignación**.
+</Step>
+</Steps>
+
+## Cómo agregar una tarea
+
+Si durante el trabajo encontrás algo más para reparar, con la OT **en progreso** tocá **Agregar Tarea**. Tenés dos opciones:
+
+- **Mi Sector**: elegí el **Tipo de Reparacion** y escribí la **Descripcion**. Si el tipo de reparación no requiere autorización, la tarea se suma directamente a tu OT ("**Tarea agregada**"). Si la requiere (aviso **Requiere aprobacion**), se envía como solicitud al jefe de taller y aparece como **Pend. Aprobacion** hasta que la apruebe.
+- **Otro Sector**: describí la tarea y tocá **Solicitar**. Va al jefe de taller, que decide a qué sector asignarla.
+
+Las tareas que agregaste vos llevan la marca **Operario**. Si el jefe rechaza una, la ves como **Rechazada** con el **Motivo de rechazo**.
+
+<Callout type="info" title="Sin tipos de reparación">
+Si al agregar ves **Sin tipos de reparacion disponibles**, tu sector no tiene tipos de reparación configurados. Lo resuelve un administrador en la configuración de mantenimiento (ver <GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink>); mientras tanto podés derivar la tarea con **Otro Sector**.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="Del pedido al cierre en el taller">
+<FlowStep title="Solicitud aprobada" module="Mantenimiento" tone="default" to="validar-solicitudes">El supervisor aprueba el pedido de reparación.</FlowStep>
+<FlowStep title="Orden y OT por sector" module="Mantenimiento" tone="info" to="taller">El jefe de taller arma la orden y la reparte en OT por sector.</FlowStep>
+<FlowStep title="Trabajo del operario" module="Panel de operario" tone="info">Inicia, completa tareas y cierra la OT.</FlowStep>
+<FlowStep title="Validación del taller" module="Mantenimiento" tone="success" to="taller">Con la última OT cerrada, la orden pasa a Pend. Validación Taller.</FlowStep>
+</Flow>
+
+- Las OT que ves las genera el jefe de taller en **Mantenimiento → Taller** a partir de los pedidos aprobados (ver <GuideLink to="taller">Taller</GuideLink>). El recorrido completo, desde el checklist del chofer hasta el taller, está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+- Cada acción tuya (iniciar, pausar, completar tareas, devolver, agregar, cerrar) queda registrada en el historial de la orden y se ve en **Mantenimiento → Vista Taller**, donde las tareas abiertas se agrupan por sector (ver <GuideLink to="vista-taller">Vista Taller</GuideLink>).
+- Las tareas devueltas, las que requieren aprobación y las derivadas a otro sector le llegan al jefe de taller para que decida.
+- Cuando se cierra **la última OT** de una orden de mantenimiento, la orden pasa a **Pend. Validación Taller**. Si en cambio aparece el aviso "**La OT se cerró, pero el pedido quedó en un estado que impide avanzarlo a validación del taller. Avisá al jefe de taller.**", la OT sí se cerró: avisale al jefe de taller.
+
+## Permisos
+
+El panel no usa los permisos por rol del sistema: entra cualquier usuario vinculado a un empleado que tenga sectores de taller, y ve solo las OT de esos sectores. Lo que se administra desde el sistema (armar órdenes, aprobar tareas, validar) requiere los permisos del módulo Mantenimiento.

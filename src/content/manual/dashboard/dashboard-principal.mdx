@@ -1,0 +1,129 @@
+---
+title: Dashboard principal
+summary: El tablero del día: personal, flota y servicios de hoy en un vistazo, y de dónde sale cada número.
+keywords: dashboard, inicio, tablero, indicadores, kpi, servicios del día, recursos humanos, disponibles, flota, operatividad
+updated: 2026-10-07
+---
+
+El Dashboard principal es la pantalla de inicio del sistema. Muestra cómo está la operación **hoy**: cuánta gente y cuántos equipos hay, cuántos están trabajando, cuántos quedan disponibles y qué servicios se registraron. No se carga nada acá: todos los números salen de lo que se carga en otros módulos (empleados, diagramas, equipos, partes diarios, checklists), así que el tablero es tan bueno como esa carga.
+
+<OpenScreen />
+
+Se entra desde el menú lateral, en **Dashboard → Principal**. Las otras secciones del Dashboard, **Documentación** y **Estadísticas**, también se eligen desde el menú lateral (ver <GuideLink to="dashboard-vencimientos">Próximos vencimientos</GuideLink> y <GuideLink to="dashboard-estadisticas">Estadísticas</GuideLink>).
+
+<Callout type="info" title="Siempre es hoy">
+El tablero no tiene filtro de fecha: todo se calcula para el día de hoy (hora de Argentina) y para la empresa activa. "El parte de hoy" es el parte diario del día en curso.
+</Callout>
+
+## Tarjetas de indicadores
+
+La primera fila tiene tarjetas con un número y una leyenda:
+
+| Tarjeta | Qué cuenta | De dónde sale |
+|---|---|---|
+| **empleados activos** | Empleados activos de la empresa. | <GuideLink to="empleados-listado">Empleados</GuideLink> |
+| **unidades activas** | Equipos activos. | <GuideLink to="equipos-listado">Equipos</GuideLink> |
+| **total flota (activos - en reparacion)** | Equipos activos menos los que están fuera de servicio (condición **No operativo**, **En reparación** o **En preparación**). | Condición de cada equipo, que cambia con el circuito de mantenimiento. |
+| **servicios registrados** | Filas del parte de hoy en estado pendiente o ejecutado. | <GuideLink to="partes-diarios">Partes diarios</GuideLink> |
+| **activos / flota total** | Operatividad: porcentaje de la flota que está en servicio. Verde desde 75 %, ámbar desde 50 %, rojo debajo. | Condición de los equipos. |
+| **equipos sin checklist** | Equipos sin ningún checklist cargado. El selector **Mes** / **Histórico** cambia entre "en el mes en curso" y "nunca". | Checklists de los equipos (<GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>). |
+
+Pasá el mouse por el porcentaje de operatividad para ver la cuenta: **(Equipos activos / Flota total) × 100**.
+
+## Servicios del Día
+
+Muestra los servicios del parte de hoy (los pendientes y los ejecutados):
+
+- Una tabla **Tipo de Servicio | Cantidad | %** con **Mensual**, **Adicional**, **Adicional Permanente** y el **Total**.
+- Un gráfico de torta **Distribución por Cliente**. Si no hay nada, dice **Sin servicios para hoy**.
+
+**Ver detalle** abre **Detalle de servicios por cliente**: una tabla por cliente con **Mensuales**, **Adicionales** (incluye los adicionales permanentes), **Total** y la cantidad por estado, y una fila **TOTAL GENERAL**. Ahí sí podés elegir otra **Fecha:** para ver otro día, y **Descargar imagen** guarda la tabla como imagen para compartir.
+
+Estos números salen del <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink> y los <GuideLink to="partes-diarios">Partes diarios</GuideLink>: si el parte de hoy no está cargado, la sección queda vacía.
+
+## Recursos Humanos
+
+Responde a la pregunta "¿cuánta gente tengo para trabajar hoy y cuánta está trabajando?".
+
+| Dato | Qué cuenta |
+|---|---|
+| **Con diagrama** | Empleados activos cuya novedad de hoy es laboral (por ejemplo, Trabajo). Sale de los <GuideLink to="diagramas">diagramas</GuideLink>. |
+| **En operacion** | Empleados que están en alguna fila del parte de hoy. |
+| **Disponibles** | **Con diagrama** menos **En operacion**: deberían trabajar hoy y no están en el parte. |
+
+- El medidor **Operativos** muestra qué porcentaje de los empleados con diagrama está en operación (verde desde 75 %, ámbar desde 50 %).
+- El gráfico **Novedades cargadas** cuenta cuántos empleados tienen hoy cada novedad (trabajo, franco, licencia…) y suma **Sin diagrama** para los empleados activos que no tienen nada cargado hoy. Hacé clic en una novedad de la leyenda para abrir, en otra pestaña, la grilla de diagramas filtrada por esa novedad.
+- **Filtrar por posicion...** limita toda la sección a los puestos que elijas (confirmá con **Filtrar**). El filtro se recuerda por un día.
+
+### Empleados Disponibles
+
+Hacé clic en **Disponibles** para abrir **Empleados Disponibles**: la lista de empleados con diagrama de trabajo hoy que no están en el parte. Muestra **Legajo**, **Nombre**, **CUIL**, **Posición**, **Clientes** a los que está afectado (o **Sin afectar**), **Diagrama** y **Comentario**. Se puede buscar por legajo, nombre o CUIL, filtrar por posición, cliente y diagrama, y exportar a Excel.
+
+<Callout type="tip" title="Para qué sirve la lista de disponibles">
+Es la lista de gente que se podría asignar al parte de hoy. También sirve para detectar errores: alguien que figura disponible pero en realidad está trabajando probablemente falta en el parte, y alguien que figura disponible pero está de licencia tiene mal cargado el diagrama.
+</Callout>
+
+## Estado de Equipos
+
+Muestra, por tipo de equipo (los 8 con más unidades), cuántos están **Operativos**, **Fuera de Servicio** y **Trabajando**:
+
+| Dato | Qué cuenta |
+|---|---|
+| **Operativos** | Equipos en servicio (condición operativa). |
+| **En Operaciones** | Equipos en servicio que están en el parte de hoy. |
+| **Disponible / Sin asignar** | **Operativos** menos **En Operaciones**: en servicio pero sin trabajo hoy. |
+
+El medidor **Operatividad** es el porcentaje de equipos en servicio sobre el total. **Filtrar por tipo...** limita la sección a los tipos que elijas.
+
+Un equipo fuera de servicio nunca se cuenta como "trabajando", aunque figure en el parte.
+
+## Equipos — Estado de Flota
+
+Mira la flota desde dos ángulos:
+
+- **Disponibilidad — Todos los Equipos**: **Operativos**, **En reparacion** y **Total flota**, con el medidor **Disponibilidad** (operativos sobre el total).
+- **Uso — Todos los Equipos**: **En Operaciones**, **Disponible / Sin asignar** y **Operativos**, con el medidor **Uso** (en operaciones sobre operativos).
+
+Si la empresa tiene unidades motoras (chasis y tractores), arriba aparece el bloque **Solo Unidades Motoras (Chasis & Tractor)** con los mismos cálculos solo para esas unidades (**Indicador de flota** y **Eficiencia de uso**).
+
+### Listas de equipos
+
+- **Disponible / Sin asignar** abre la lista de equipos operativos que no están en el parte de hoy.
+- **En reparacion** abre **Vehiculos no disponibles**: los equipos no operativos, en reparación o en preparación.
+
+Las dos muestran **Dominio**, **Serie**, **N° Interno**, **Tipo**, **Subtipo**, **Condición** y **Afectaciones**, con buscador y exportación a Excel. Si el número es 0, la tarjeta no abre nada.
+
+## De dónde sale cada número
+
+<Flow title="Qué alimenta el tablero">
+  <FlowStep title="Diagramas" module="Empleados" to="diagramas">Quién trabaja hoy.</FlowStep>
+  <FlowStep title="Partes diarios" module="Operaciones" to="partes-diarios">Quién y qué está trabajando.</FlowStep>
+  <FlowStep title="Condición de los equipos" module="Mantenimiento" to="taller">Qué está fuera de servicio.</FlowStep>
+  <FlowStep title="Dashboard principal" module="Dashboard" tone="success">Disponibles, operatividad y uso.</FlowStep>
+</Flow>
+
+- **Empleados**: el alta y la baja cambian **empleados activos** (<GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>).
+- **Diagramas**: definen **Con diagrama**, **Novedades cargadas** y por lo tanto **Disponibles** (<GuideLink to="diagramas">Diagramas</GuideLink>).
+- **Partes diarios**: definen **servicios registrados**, **Servicios del Día**, **En operacion** y **En Operaciones** (<GuideLink to="partes-diarios">Partes diarios</GuideLink>).
+- **Mantenimiento**: cuando un equipo entra o sale del taller cambia su condición, y con ella la operatividad, la disponibilidad y la flota (<GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>).
+- **Checklists**: definen **equipos sin checklist**.
+
+Para ver cómo se mueven estos números en el tiempo, usá <GuideLink to="dashboard-estadisticas">Estadísticas</GuideLink>.
+
+## Permisos
+
+Hace falta el permiso **Ver** en **Principal** del módulo Dashboard. Es la única acción: el tablero es de consulta.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Disponibles da un número muy alto">
+Lo más común es que el parte de hoy todavía no esté cargado o le falten empleados: todos los que tienen diagrama de trabajo y no están en el parte cuentan como disponibles. Revisá el parte diario del día.
+</Callout>
+
+<Callout type="warning" title="Mucha gente en Sin diagrama">
+Faltan cargar los diagramas de hoy. Cargalos desde **Empleados → Diagramas** (la carga masiva sirve para planificar varios días de una vez).
+</Callout>
+
+<Callout type="info" title="Un equipo figura fuera de servicio y ya está trabajando">
+La condición del equipo se actualiza con el circuito de mantenimiento. Si el equipo ya salió del taller, revisá su condición y el estado de su orden en <GuideLink to="taller">Taller</GuideLink>.
+</Callout>

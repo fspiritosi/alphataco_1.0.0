@@ -1,0 +1,105 @@
+---
+title: Ficha de otro equipo
+summary: La ficha del equipamiento (piletas, contenedores, trailers y otros equipos sin dominio): datos, fotos y planos, asignación, documentos propios, mantenimiento y QR.
+keywords: equipamiento, otro equipo, ficha, número de serie, número interno, fotos, planos, documentos, certificaciones, vencimiento, mantenimiento, qr, vehículo vinculado
+updated: 2026-10-07
+---
+
+El **equipamiento** son los equipos de la flota que no son vehículos: no tienen dominio ni kilometraje y se identifican por **N° de Serie** o **N° Interno**. Su ficha se abre desde **Equipos → Equipos → Equipamiento**, haciendo clic en el **N° Serie**, el **N° Interno** o **Ver**.
+
+<OpenScreen to="equipos-listado" label="Ir al listado de equipos" />
+
+## El encabezado
+
+Muestra un ícono de paquete y, como título, el **N° de Serie** (o el **N° Interno** si no tiene serie), con el tipo y subtipo debajo. El resumen tiene **Año**, **N° Serie**, **N° Interno**, **Condición** y **Estado** (**Activo** o **Dado de Baja**). Si está dado de baja, se ven la **Fecha de Baja** y la **Razón de Baja**.
+
+Los botones son los mismos que en un vehículo: **Editar**, el menú de los tres puntos (**Dar de Baja Equipo** / **Activar Equipo**) y **Volver**. Si el equipamiento está **En preparación**, la condición aparece como selector y podés pasarlo a **Operativo**; es el único cambio de condición que se hace desde la ficha.
+
+## Las pestañas de la ficha
+
+| Pestaña | Qué tiene |
+|---|---|
+| **Datos Básicos** | Los datos del equipo y, una vez guardado, sus **Fotos** y **Planos**. |
+| **Asignación** | Centro de costo, tipo de costo, sector y clientes. |
+| **Documentos** | Documentos propios del equipo, con su vencimiento. |
+| **Mantenimiento** | Las órdenes de mantenimiento del equipo. |
+| **QR** | Solo si el tipo de equipo está configurado para generar QR. |
+
+### Datos Básicos
+
+El único dato obligatorio es **Tipo**. Además podés cargar **Sub Tipo**, **Marca**, **Modelo**, **N° de Serie**, **N° Interno**, **Año**, **Horómetro**, **Placa del Fabricante**, **Composición**, **N° de Factura**, **Valor Inicial**, **Fecha de Compra**, **Tipo de Contrato**, **Propietario**, las fechas y el número de contrato, la certificación y el **Vehículo Vinculado**.
+
+- **N° de Serie** y **N° Interno** no pueden repetirse con otro equipo de la empresa: si pasa, el campo avisa **Este N° de Serie ya está en uso por otro equipo** o **Este N° Interno ya está en uso por otro equipo**.
+- **Posee certificación**: al marcarlo se vuelven obligatorias la **Fecha de Vencimiento de la Certificación** y el **Número de Certificación**.
+- **Vehículo Vinculado**: el vehículo al que está asociado el equipo (por ejemplo, el camión que lleva la pileta). Se busca por dominio y es lo que muestra la columna **Vinculado a** del listado.
+
+Debajo del formulario, con el equipo ya guardado, aparecen:
+
+- **Fotos**: hasta 4 imágenes del equipo.
+- **Planos**: documentos técnicos y planos.
+
+### Asignación
+
+**Centro de Costo**, **Tipo de Costo** (**Directo** o **Indirecto**), **Sector** y **Asignación a Contratistas** (los clientes a los que queda afectado). Al guardar se agregan y quitan solo los clientes que cambiaste.
+
+### Documentos
+
+El equipamiento no usa los tipos de documento del módulo Documentación: sus documentos se cargan libremente desde esta pestaña.
+
+<Steps>
+<Step title="Agregá el documento">
+Hacé clic en **Agregar documento**.
+</Step>
+<Step title="Completá los datos">
+Escribí el **Nombre** (obligatorio), elegí el **Archivo** (PDF, DOC, JPG o PNG, de hasta 10 MB) y, si vence, la **Fecha de vencimiento**.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear documento**. Vas a ver **Documento creado correctamente**.
+</Step>
+</Steps>
+
+Cada documento se muestra como una tarjeta con su nombre, la fecha de vencimiento (**Vence:**), el enlace **Ver archivo** y la fecha de carga. El color de la fecha de vencimiento avisa su situación: **rojo** si ya venció, **amarillo** si vence dentro de los próximos 30 días y **verde** si falta más.
+
+<Callout type="danger" title="Eliminar un documento no se puede deshacer">
+El ícono de la papelera borra el documento y su archivo. El sistema pide confirmación (**¿Eliminar documento?**) porque no hay forma de recuperarlo.
+</Callout>
+
+<Callout type="info" title="Estos vencimientos no generan alertas">
+Los documentos del equipamiento no entran en el circuito de alertas de Documentación ni en los vencimientos del Dashboard. Revisá esta pestaña para controlarlos.
+</Callout>
+
+### Mantenimiento
+
+Lista las órdenes de mantenimiento del equipamiento con **N° Orden**, **Estado**, **Origen**, **Reparaciones**, **Fecha Planificada**, **Ingreso a Taller**, **Creada** y **Descripción**, con filtros por **Estado** y **Origen**. Si no tiene órdenes, dice **Sin órdenes de mantenimiento**. Mientras el equipo no está guardado, la pestaña indica **Guardá el equipamiento para registrar mantenimientos.**
+
+El equipamiento sigue el mismo circuito de mantenimiento que los vehículos: al ingresar al taller pasa a **No operativo** y al cerrarse la orden vuelve a **Operativo**. Ver <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+### QR
+
+Igual que en los vehículos: **Descargar**, **Imprimir** y **Copiar url**. El QR abre el acceso de campo del equipo. La pestaña aparece solo si el tipo del equipo está configurado para generar QR (se define en los tipos de equipo, ver <GuideLink to="catalogos-de-equipos">Catálogos de equipos</GuideLink>). Para el uso en campo, ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>.
+
+## Cómo se conecta con el resto del sistema
+
+- **Clientes**: las afectaciones se ven en la columna **Afectaciones** del listado.
+- **Mantenimiento**: los pedidos y órdenes del equipamiento cambian su condición igual que en un vehículo.
+- **Vehículo vinculado**: deja asociado el equipo a un vehículo para identificarlo en el listado.
+- **Baja**: dar de baja el equipamiento no cambia su condición. Ver <GuideLink to="equipos-dados-de-baja">Equipos dados de baja</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Abrir la ficha | **Ver** en Detalle de Otro Equipo |
+| **Editar**, pasar a **Operativo**, dar de baja o reactivar | **Editar** en Detalle de Otro Equipo |
+| Pestañas **Datos Básicos**, **Asignación**, **Documentos**, **QR** | **Ver** en cada una (subpestañas de Detalle de Otro Equipo) |
+| Pestaña **Mantenimiento** | **Ver** en Mantenimiento → Órdenes de Mantenimiento |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No aparecen Fotos, Planos ni Documentos">
+Se habilitan cuando el equipo ya está guardado. Primero hacé clic en **Agregar equipo** y después volvé a la ficha.
+</Callout>
+
+<Callout type="warning" title="No veo la pestaña QR">
+El tipo del equipo no está configurado para generar QR. Pedile a quien administra los catálogos que lo habilite si el equipo necesita uno.
+</Callout>

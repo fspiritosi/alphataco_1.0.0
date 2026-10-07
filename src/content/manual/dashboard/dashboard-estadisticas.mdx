@@ -1,0 +1,106 @@
+---
+title: Estadísticas
+summary: La evolución en el tiempo de servicios, ausentismo, mantenimiento de la flota y desvíos de los partes, para analizar tendencias.
+keywords: estadísticas, gráficos, ausentismo, dotación, servicios, histórico, mantenimiento, sala de control, desvíos, pedidos
+updated: 2026-10-07
+---
+
+Mientras el <GuideLink to="dashboard-principal">Dashboard principal</GuideLink> muestra el día de hoy, **Estadísticas** muestra cómo vienen las cosas en el tiempo: servicios por período, ausentismo, uso y mantenimiento de la flota, y los desvíos de los partes diarios. Es la pantalla para jefaturas y gerencia.
+
+<OpenScreen />
+
+Se entra desde el menú lateral, en **Dashboard → Estadísticas**. Tiene cuatro solapas: **Operaciones**, **RRHH**, **Mantenimiento** y **Sala de Control**. Cada una se muestra solo si tenés permiso para verla.
+
+<Callout type="info" title="Si un gráfico aparece vacío">
+Los gráficos se arman solo con lo que ya está cargado en el sistema. Si la empresa todavía no carga partes diarios, diagramas o pedidos de mantenimiento, el gráfico correspondiente aparece vacío con un mensaje como **Sin datos para este período**. La **Sala de Control**, además, se arma con un registro nocturno que empieza a acumularse desde que la empresa cierra partes: los días anteriores a ese registro no tienen datos.
+</Callout>
+
+## Operaciones
+
+**Historico de servicios** muestra la cantidad de servicios de los partes diarios a lo largo del tiempo.
+
+- Con las flechas cambiás de mes, y con **Diario**, **Semanal**, **Mensual**, **Trimestral** o **Anual** el agrupamiento (diario muestra ese mes; semanal y mensual, tres meses; trimestral, cuatro trimestres; anual, doce meses).
+- **Todos los clientes** y **Todos los centros de costo** permiten acotar a algunos clientes o centros de costo. Con centros de costo elegidos, el gráfico pasa a una línea por centro de costo: cada línea cuenta los servicios en los que participó ese centro.
+- Los botones **Total**, **Mensual** y **Adicional** muestran los totales del período y eligen qué serie ver. Los adicionales incluyen los adicionales permanentes.
+
+Debajo, **Servicios por cliente** ordena a los clientes por cantidad de servicios.
+
+Los datos salen de los <GuideLink to="partes-diarios">Partes diarios</GuideLink> de los últimos 12 meses.
+
+## RRHH
+
+Mide la dotación y el ausentismo. Arriba dice **Medición del día de hoy** con la fecha.
+
+### Tarjetas del día
+
+| Tarjeta | Qué cuenta |
+|---|---|
+| **Dotación Día Anterior** | Empleados que ya habían ingresado al día de ayer y no estaban dados de baja. |
+| **Altas** | Ingresos de hoy (por fecha de ingreso). |
+| **Bajas** | Bajas de hoy (por fecha de baja). |
+| **Total Ausentes** | Empleados ausentes hoy. |
+| **Dotación Actual** | Dotación de hoy. |
+| **% Ausentismo Diario** | **Total Ausentes** sobre **Dotación Actual**. |
+
+### Cómo se calcula el ausentismo
+
+Un empleado cuenta como **ausente** un día si en su <GuideLink to="diagramas">diagrama</GuideLink> de ese día tiene una novedad **no laboral** (licencia, enfermedad, etc.). No cuentan como ausencia los francos ni las vacaciones. Por eso el ausentismo depende de que los diagramas estén bien cargados: un empleado sin novedad cargada no aparece como ausente.
+
+### Gráficos y tablas
+
+- **Variación de Ausentismo**: el porcentaje diario. Se elige un mes (**Buscar por mes**) o los **Últimos 7 días**, **30 días** o **3 meses**. La línea punteada marca el 3 %: los puntos por encima se pintan en rojo.
+- **Resumen por Sector**: dotación, ausentes y porcentaje de ausentismo por sector (rojo por encima de 5 %, amarillo desde 4 %). **Ver ausentes** lista quiénes son.
+- **Distribución de Empleados** (por género y por puesto) y **Tipos de Contrato**.
+- **Motivos de Ausencia por Departamento**: qué novedades explican las ausencias de cada área.
+- **Ausentismo Diario**: una tabla día por día del mes con dotación, altas, bajas, vacaciones, ausentes y porcentaje; **Ver ausentes** abre la lista de ese día.
+- **Variación de Dotación**: cómo cambió la cantidad de empleados.
+- **Detalle de Ausencias por Empleado**: legajo, nombre, cargo, sector, turno, motivo, desde, hasta y días caídos de cada ausencia.
+
+## Mantenimiento
+
+- **Mantenimiento de equipos**: la flota por tipo de tenencia (**Propios**, **Leasing**, **Contratados**) en el mes elegido. La barra **Días trabajados** compara los días en que cada equipo figuró en un parte contra los días transcurridos del mes. Los filtros de **Condición** (Operativos, Op. condicionado, En preparación, No operativos, En reparación) y las tarjetas de tenencia permiten ver equipo por equipo, con buscador por patente. Los equipos sin tipo de contrato cargado no se cuentan.
+- **Equipos en mantenimiento por tipo**: cuántos equipos distintos pasaron por el taller en el mes.
+- **Origen de las solicitudes de mantenimiento**: cuántas solicitudes nacieron de un **Checklist**, se cargaron en forma **Manual**, son **Preventivo** o no tienen origen. Se mira por **Día**, **Mes**, **Trimestre** o **Año**.
+- **Mantenimiento preventivo vs. correctivo**: las tareas que el taller completó en el período y qué porcentaje fue preventivo.
+
+Estos datos salen del módulo Mantenimiento y de los partes diarios (ver <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>).
+
+## Sala de Control
+
+### Desvíos del parte diario
+
+El objetivo es **0 desvíos**. Muestra cuántos desvíos tuvieron los partes diarios a lo largo del tiempo, por día, semana o mes, y se puede filtrar por cliente.
+
+Las tarjetas sirven también de leyenda del gráfico (clic para mostrar u ocultar cada serie):
+
+- **Desvíos Empleados**: empleados en el parte sin diagrama ese día, con un día no laboral, o no afectados al cliente de la fila.
+- **Desvíos Equipos**: lo mismo para los equipos.
+- **Empleados Duplicados** y **Equipos Duplicados**: recursos asignados en más de una fila del mismo parte.
+- **Filas con desvíos**: filas del parte con al menos un desvío (oculta por defecto).
+
+El registro se toma cada noche a partir de los partes cerrados. Si en el período no hay partes cerrados, la pantalla lo dice y aclara desde qué fecha existe el registro. Qué es cada desvío y cómo se evita está en <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+
+### Gestion de Pedidos
+
+Muestra los pedidos del <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink> de los últimos 12 meses, por fecha de carga, y cuántos quedaron **Confirmados**, **Pendientes**, **Rechazados** o **Cancelados**. Debajo, **Pedidos por cliente**. Este gráfico no responde al filtro de centro de costo.
+
+## Relación con Configuración → KPIs
+
+En **Configuración → KPIs** la empresa define sus indicadores (nombre, **Número (Umbral)**, fórmula, vigencia) y ve sus gráficos con el umbral dibujado como meta. Ver <GuideLink to="kpis">KPIs</GuideLink>.
+
+Son pantallas complementarias pero independientes: las metas que se ven en Estadísticas (el 3 % de ausentismo, los colores de 4 % y 5 % por sector, el objetivo de 0 desvíos) son fijas y **no cambian** con lo que se configure en KPIs. Si querés seguir un indicador contra la meta propia de la empresa, usá los gráficos de Configuración → KPIs.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="De la carga diaria a la estadística">
+  <FlowStep title="Partes diarios" module="Operaciones" to="partes-diarios">Servicios, recursos y desvíos.</FlowStep>
+  <FlowStep title="Diagramas" module="Empleados" to="diagramas">Ausencias y días laborales.</FlowStep>
+  <FlowStep title="Mantenimiento" module="Mantenimiento" to="taller">Solicitudes, órdenes y condición de los equipos.</FlowStep>
+  <FlowStep title="Estadísticas" module="Dashboard" tone="success">Tendencias por período.</FlowStep>
+</Flow>
+
+Cualquier carga atrasada o incompleta en esos módulos se ve acá como un hueco o una caída en los gráficos.
+
+## Permisos
+
+Hace falta **Ver** en **Estadisticas** del módulo Dashboard, y **Ver** en cada solapa que quieras usar (**Operaciones**, **RRHH**, **Mantenimiento**, **Sala de Control**). Es una pantalla de consulta: no tiene otras acciones.

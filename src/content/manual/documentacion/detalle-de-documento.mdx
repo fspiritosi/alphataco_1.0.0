@@ -1,0 +1,141 @@
+---
+title: Detalle de documento
+summary: La pantalla de un documento puntual: el archivo, sus datos, a quién pertenece, su estado y las acciones para renovarlo, reemplazarlo o eliminarlo.
+keywords: detalle, documento, ver documento, descargar, renovar, reemplazar, eliminar, estado, motivo de rechazo, historial, ya no aplica, vencimiento, período
+updated: 2026-10-07
+---
+
+El detalle de un documento muestra el archivo cargado junto con todo lo que hay que saber de él: qué tipo de documento es, a quién pertenece (empleado, vehículo o empresa), su estado, su vencimiento o período, y las acciones para mantenerlo al día. Se abre con **Ver documento** (o **Ver**) desde cualquier tabla de documentos: las de Documentación, la pestaña **Documentos** de la ficha de un vehículo o la de un empleado.
+
+## Qué ves en la pantalla
+
+A la izquierda:
+
+- El **nombre del tipo de documento** como título.
+- El **estado** del documento (**Presentado**, **Aprobado**, **Rechazado**, **Vencido**…) y, si fue rechazado, el **motivo** debajo.
+- Los botones **Descargar** (baja el archivo) y **Volver**.
+- Las pestañas con los datos.
+
+A la derecha, el **visor del archivo** para leerlo sin descargarlo.
+
+### Las pestañas
+
+| Pestaña | Qué muestra |
+|---|---|
+| **Empresa** | Los datos de la empresa que solicita el documento (o a la que pertenece, si es un documento de empresa). En los documentos de empleados incluye la fecha de ingreso del empleado. |
+| **Empleado** / **Equipo** | A quién pertenece el documento. Para un empleado: **Legajo**, **DNI**, **CUIL**, **Dirección**, **Provincia**, **Teléfono de contacto**, **Email de contacto**, **Fecha de alta** y **Afectaciones**. Para un vehículo: **Dominio**, **Numero interno**, **Marca**, **Modelo**, **Fecha de alta**, **Motor**, **Chasis** y **Tipo de vehiculo**. No aparece en los documentos de empresa. |
+| **Documento** | Los datos del tipo de documento y del documento cargado: vencimiento, fecha de carga y, si es mensual, el **Período**. Es la pestaña que se abre por defecto. |
+| **Actualizar** | Las acciones **Renovar**, **Reemplazar** y **Eliminar**. Solo aparece si tenés permiso de edición. |
+
+### Documentos que ya no aplican
+
+Si el documento pertenece a un empleado o vehículo que dejó de cumplir la condición que lo hacía obligatorio (por ejemplo, el empleado cambió de puesto), arriba aparece el aviso: el documento **ya no aplica** al recurso y se conserva como **historial**; no se solicita ni cuenta para la documentación vigente. En lugar del estado se ve la etiqueta **Ya no aplica · Historial**.
+
+Si el recurso vuelve a cumplir la condición, o si subís un archivo nuevo con **Reemplazar**, el documento vuelve a estar vigente. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+## El estado del documento
+
+El estado que ves en el encabezado es el mismo de las tablas:
+
+<States>
+<State name="Pendiente" tone="danger" next="Presentado">
+Sin archivo. No se llega a este detalle desde las tablas: los pendientes se cargan con **Subir documento**.
+</State>
+<State name="Presentado" tone="info" next="Vencido, Pendiente">
+Archivo cargado. Al **Renovar** o **Reemplazar**, el documento queda otra vez **Presentado** con el archivo nuevo. Al **Eliminar**, vuelve a **Pendiente**.
+</State>
+<State name="Aprobado" tone="success">
+Documento marcado como aprobado.
+</State>
+<State name="Rechazado" tone="danger" next="Presentado">
+Documento marcado como rechazado. El motivo se muestra debajo del estado. Corregilo con **Reemplazar**.
+</State>
+<State name="Vencido" tone="warning" next="Presentado">
+Documento marcado como vencido. Ponelo al día con **Renovar**.
+</State>
+</States>
+
+<Callout type="info" title="Aprobar y rechazar">
+El sistema muestra los estados **Aprobado** y **Rechazado** con su motivo, pero esta pantalla no tiene botones para aprobar o rechazar un documento: lo que ves es el estado que ya tiene registrado.
+</Callout>
+
+## Cómo renovar un documento
+
+Usalo cuando el documento venció o está por vencer y tenés la versión nueva (por ejemplo, la póliza del período siguiente).
+
+<Steps>
+<Step title="Abrí Actualizar">
+En el detalle, entrá a la pestaña **Actualizar** y hacé clic en **Renovar**.
+</Step>
+<Step title="Subí el nuevo documento">
+En **Nuevo Documento** elegí el archivo.
+</Step>
+<Step title="Completá la nueva fecha o período">
+Si el tipo vence, cargá la nueva **Fecha de vencimiento** (no puede ser anterior a hoy). Si es mensual, elegí el **Periodo**.
+</Step>
+<Step title="Confirmá">
+Al terminar ves **Documento renovado correctamente**. El nuevo pasa a ser el documento vigente y el anterior se guarda en el historial del sistema.
+</Step>
+</Steps>
+
+## Cómo reemplazar un documento
+
+Usalo cuando el archivo cargado está mal (otro documento, ilegible, rechazado) y querés cambiarlo por el correcto.
+
+<Steps>
+<Step title="Abrí Actualizar">
+En la pestaña **Actualizar**, hacé clic en **Reemplazar**.
+</Step>
+<Step title="Subí el archivo correcto">
+En **Nuevo Documento** elegí el archivo. Si el tipo vence, revisá la **Fecha de vencimiento**; si es mensual, el **Periodo**.
+</Step>
+<Step title="Confirmá">
+Vas a ver **Documento reemplazado correctamente**. Puede tardar unos minutos en reflejarse.
+</Step>
+</Steps>
+
+<Callout type="danger" title="Reemplazar borra el archivo anterior">
+A diferencia de **Renovar**, el documento que reemplazás se elimina y **no se puede recuperar**. Si lo que tenés es la versión nueva de un documento vencido, usá **Renovar**.
+</Callout>
+
+## Cómo eliminar un documento
+
+<Steps>
+<Step title="Abrí Eliminar">
+En la pestaña **Actualizar**, hacé clic en **Eliminar**.
+</Step>
+<Step title="Confirmá escribiendo ELIMINAR">
+Escribí la palabra **ELIMINAR** en el campo y confirmá. Vas a ver **Documento eliminado correctamente**.
+</Step>
+</Steps>
+
+El archivo se borra y el documento vuelve a **Pendiente**, así que se vuelve a pedir.
+
+<Callout type="danger" title="En documentos multirecurso, se elimina para todos">
+Un documento cargado como **multirecurso** comparte el mismo archivo entre todos los empleados o vehículos a los que se vinculó. Eliminarlo desde el detalle de uno lo borra **para todos** y todos vuelven a **Pendiente**. No se puede deshacer.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- Renovar, reemplazar o eliminar cambia el estado del documento y, con él, el **estado de la documentación** del empleado o del vehículo (**Completo**, **Incompleto**, **Completo con doc vencida**) y lo que muestra el Dashboard de vencimientos. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+- Las tablas desde donde llegaste: <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>, <GuideLink to="documentos-de-equipos">Documentos de equipos</GuideLink> y <GuideLink to="documentos-de-empresa">Documentos de empresa</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver el detalle | **Ver** en Documentación → Detalle de Documento |
+| Pestañas **Empresa**, **Empleado/Equipo** y **Documento** | **Ver** en cada una (subpestañas de Detalle de Documento) |
+| Pestaña **Actualizar** (**Renovar**, **Reemplazar**, **Eliminar**) | **Editar** en Detalle de Documento |
+
+Sin permiso de ver, la pantalla muestra **Sin acceso**. Si el documento no existe o es de otra empresa, muestra **Documento no encontrado**.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No veo la pestaña Actualizar">
+Necesitás el permiso **Editar** en Detalle de Documento.
+</Callout>
+
+<Callout type="warning" title="Renovar me pide una fecha y no me deja elegir una pasada">
+Al renovar, la fecha de vencimiento tiene que ser de hoy en adelante: estás cargando la versión vigente del documento.
+</Callout>

@@ -25,6 +25,10 @@ interface MultiSelectComboboxProps {
   maxSelections?: null | number;
   'data-testid'?: string;
   isLoading?: boolean;
+  /** Cierra el desplegable al elegir una opción (pensado para `maxSelections={1}`). */
+  closeOnSelect?: boolean;
+  /** Placeholder del buscador; por defecto `Buscar <placeholder>...`. */
+  searchPlaceholder?: string;
 }
 
 export function MultiSelectCombobox({
@@ -39,6 +43,8 @@ export function MultiSelectCombobox({
   maxSelections = null,
   'data-testid': dataTestId,
   isLoading = false,
+  closeOnSelect = false,
+  searchPlaceholder,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -50,6 +56,7 @@ export function MultiSelectCombobox({
       // Para selección única, devuelve string
       const newValue = currentValues[0] === value ? '' : value;
       onChange([newValue]);
+      if (closeOnSelect) setOpen(false);
       return;
     }
 
@@ -136,7 +143,7 @@ export function MultiSelectCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command filter={(itemValue, search) => (itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
-          <CommandInput placeholder={`Buscar ${placeholder.toLowerCase()}...`} />
+          <CommandInput placeholder={searchPlaceholder ?? `Buscar ${placeholder.toLowerCase()}...`} />
           <CommandEmpty>
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-2">

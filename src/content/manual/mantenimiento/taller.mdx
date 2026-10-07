@@ -1,0 +1,261 @@
+---
+title: Taller
+summary: Del pedido aprobado al equipo reparado: programar la fecha, registrar el ingreso, armar las órdenes de trabajo por sector, autorizar tareas y cerrar la orden.
+keywords: taller, pedido, programar, fecha, ingreso, kilometraje, orden de mantenimiento, orden de trabajo, OT, OM, sector, jefe de taller, aprobaciones, cerrar, no operativo
+updated: 2026-10-07
+---
+
+La pestaña **Taller** del módulo **Mantenimiento** es donde trabaja el jefe de taller. Recibe los pedidos que aprobó operaciones (o que cargó directamente un supervisor), les pone fecha, registra cuándo entra el equipo, reparte el trabajo entre los sectores del taller y, cuando los sectores terminan, revisa y cierra.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Arriba hay cuatro pasos con forma de flecha, cada uno con la cantidad de registros pendientes. Hacé clic en un paso para ver su tabla; el paso elegido queda en la dirección de la página.
+
+| Paso | Qué muestra | Qué hacés |
+|---|---|---|
+| **1 Por Programar** | Pedidos aprobados sin fecha. | Ponés la fecha de recepción o rechazás el pedido. |
+| **2 Por Ingresar** | Pedidos con fecha asignada. | Registrás el ingreso del equipo al taller. |
+| **3 En Taller** | Equipos dentro del taller. | Asignás tareas y sectores, y generás las órdenes de trabajo. |
+| **4 Aprobaciones** | Trabajos que requieren tu autorización. | Cerrás órdenes terminadas, autorizás tareas y reasignás las devueltas. |
+
+<Flow title="El recorrido de un pedido en el taller">
+  <FlowStep title="Por Programar" module="Taller">Fecha de recepción.</FlowStep>
+  <FlowStep title="Por Ingresar" module="Taller">Ingreso: el equipo pasa a No operativo.</FlowStep>
+  <FlowStep title="En Taller" module="Taller" tone="warning">Gestionar: tareas, sectores y OT.</FlowStep>
+  <FlowStep title="Sectores" module="Panel del operario" to="panel-del-operario">Los operarios hacen las tareas.</FlowStep>
+  <FlowStep title="Aprobaciones" module="Taller" tone="info">Validar y cerrar la orden.</FlowStep>
+  <FlowStep title="Completada" tone="success">El equipo vuelve a Operativo.</FlowStep>
+</Flow>
+
+Dos palabras que vas a ver todo el tiempo:
+
+- **OM (orden de mantenimiento)**: es el pedido completo de un equipo. Recibe su número (el **N° Orden**) cuando el equipo ingresa al taller.
+- **OT (orden de trabajo)**: es la parte del pedido que hace **un sector**. Una OM puede tener varias OT, una por cada sector por el que pasa el equipo.
+
+## 1 Por Programar
+
+Lista los pedidos aprobados que todavía no tienen fecha, del más reciente al más viejo.
+
+| Columna | Qué muestra |
+|---|---|
+| **Estado** | **Pendiente Planificar**. |
+| **Equipo** | Dominio o serie, si es vehículo o equipamiento, y número interno. |
+| **Nro. Pedido** | Número del pedido. |
+| **Descripción** | La descripción que escribió quien aprobó: qué hay que hacer. |
+| **Origen** | **Checklist**, **Manual** o **Preventivo**. Oculta por defecto. |
+| **Fecha Aprobación** | Cuándo se aprobó. Oculta por defecto. |
+| **Fecha Planificada** | **Sin planificar** hasta que le pongas fecha. |
+| **Items** | Cantidad de ítems a reparar (o el programa, si es preventivo). |
+
+El buscador es **Buscar por equipo (dominio, serie) o nro. pedido...**. Filtros: **Estado**, **Equipo** y **Origen** a la vista; **Nro. Pedido**, **Descripción**, **Fecha Aprobación** y **Fecha Planificada** desde el botón de filtros.
+
+### Cómo programar la fecha
+
+<Steps>
+<Step title="Abrí la planificación">
+Tocá el ícono de calendario (**Planificar fecha**) de la fila. Se abre **Planificar Pedido de Mantenimiento** con el equipo, el número de pedido, la descripción y los **Items a reparar** con sus fotos.
+</Step>
+<Step title="Elegí la fecha">
+En **Fecha de recepción en taller** escribí la fecha o elegila del calendario. No se aceptan fechas pasadas.
+</Step>
+<Step title="Confirmá">
+Tocá **Confirmar Planificación**. El pedido pasa a **Por Ingresar** y operaciones lo ve en su **Seguimiento** como **Pendiente de ingreso a taller**.
+</Step>
+</Steps>
+
+<Callout type="info" title="Acá solo va la fecha">
+En este paso no se eligen tipos de reparación ni sectores: eso se hace cuando el equipo ya está en el taller, con **Gestionar** (paso 3). La fecha que ponés es directamente la fecha de reparación; operaciones no tiene que aprobarla.
+</Callout>
+
+### Cómo rechazar un pedido
+
+Si el pedido no corresponde (por ejemplo, está duplicado), tocá la cruz roja (**Rechazar pedido**), completá **Motivo del rechazo** y confirmá con **Rechazar Pedido**. El pedido sale de la lista, la solicitud que le dio origen también queda rechazada, y todo queda registrado con el motivo en la pestaña **Historial de Mantenimiento** de la <GuideLink to="ficha-del-vehiculo">ficha del vehículo</GuideLink>.
+
+## 2 Por Ingresar
+
+Pedidos con fecha, esperando que el equipo llegue.
+
+| Columna | Qué muestra |
+|---|---|
+| **Equipo** | Dominio o serie y número interno. |
+| **Nro. Pedido** | Número del pedido. |
+| **Fecha Planificada** | En verde con **Hoy**, en naranja con **Mañana**, en rojo con **Vencido** si la fecha ya pasó. |
+| **Descripción** | Qué hay que hacer. |
+| **Items** | Cantidad de ítems. |
+| **Condición Actual** | Condición del equipo en este momento. |
+| **Fecha Aprobación**, **Fecha Creación**, **Origen** | Ocultas por defecto. |
+
+Filtros a la vista: **Equipo**, **Condición** y **Fecha Planificada**. Además: **Origen**, **Nro. Pedido**, **Descripción**, **Fecha Creación**, **Fecha Aprobación**, **Dominio**, **Serie** y **N° Interno**.
+
+### Cómo registrar el ingreso al taller
+
+<Steps>
+<Step title="Abrí el ingreso">
+Cuando el equipo llega, tocá el ícono de entrada (**Aprobar Entrada a Taller**). La ventana muestra la condición actual, el kilometraje, el horómetro, la fecha programada y los **Items a Reparar**.
+</Step>
+<Step title="Cargá las mediciones">
+**Kilometraje actual del equipo** es obligatorio para vehículos (los equipamientos no llevan kilometraje). **Horómetro actual del equipo** es opcional. Los dos vienen precargados con el último valor conocido y **no pueden ser menores** que ese valor.
+</Step>
+<Step title="Confirmá">
+Tocá **Confirmar Entrada**. El aviso dice que el equipo ahora está **No Operativo**.
+</Step>
+</Steps>
+
+Al confirmar el ingreso:
+
+- La condición del equipo cambia a **No operativo**.
+- Se actualizan el kilometraje y, si lo cargaste, el horómetro del equipo.
+- El pedido recibe su **N° Orden** y pasa a **En Taller**.
+
+<Callout type="warning" title="Confirmá el ingreso cuando el equipo está en el taller">
+Desde este momento el equipo figura fuera de servicio en todo el sistema: no cuenta como flota disponible en el Dashboard y, si alguien lo carga en un parte diario, aparece como desvío por condición.
+</Callout>
+
+## 3 En Taller
+
+Las órdenes de los equipos que están dentro del taller. Las completadas no se muestran al entrar; las traés tildando **Completada** en el filtro **Estado**.
+
+| Columna | Qué muestra |
+|---|---|
+| **N° Orden** | Número de la OM. |
+| **Descripción** | Qué hay que hacer. |
+| **Equipo** | Dominio o serie, tipo de recurso y número interno. |
+| **Ingreso a Taller** | Día de ingreso. |
+| **Necesidades** | Las descripciones de los ítems de la orden, una detrás de otra. |
+| **Sector Actual** | Sector en el que está trabajando el equipo ahora. |
+| **Estado** | **En Taller**, **Rechazada por Taller**, **Completada**, etc. |
+| **Progreso** | Porcentaje de tareas terminadas. |
+| **Fecha Creación** | Oculta por defecto. |
+
+Filtros a la vista: **Estado**, **Equipo** e **Ingreso a Taller**; además **Sector Actual**, **Fecha Creación**, **Dominio**, **Serie**, **N° Interno**, **N° Orden** y **Descripción**. El botón **Excel** exporta las **tareas** de las órdenes filtradas, una fila por tarea, con su OT, sector y estado.
+
+Botones de cada fila:
+
+| Botón | Qué hace |
+|---|---|
+| **Gestionar** | Abre el asistente para asignar tareas y sectores y generar las OT. Solo en órdenes **En Taller** o **Rechazada por Taller**. |
+| **Detalle** / **Ver detalle** | Muestra la orden por sector: cada OT con su estado (**Pendiente**, **En progreso**, **Pausada**, **Completada**, **Parcial**, **Cancelada**), la tarea de **DIAGNOSTICO** y las tareas que agregaron los operarios. |
+| **Ítems** | Abre **Ítems solicitados**: cada ítem de la orden con su descripción, las tareas asignadas y las fotos. |
+| **PDF** | Descarga el detalle completo de la orden en PDF. |
+
+### Cómo gestionar una orden (Gestionar)
+
+El asistente tiene cuatro pasos: **Desvíos**, **Sectores**, **Orden** y **Confirmar**. Arriba siempre ves el equipo, su tipo, la fecha de ingreso, el kilometraje y las horas.
+
+<Steps>
+<Step title="Desvíos: definí qué se hace">
+Cada desvío tiene que tener **al menos un tipo de reparación** (una tarea). En cada uno podés:
+
+- **Asignar tarea**: abre **Asignar Tipos de Reparación** para elegir una o varias tareas del listado.
+- **Rechazar**: no se hace. Pide un motivo y el desvío queda aparte, sin entrar en ninguna OT. Se puede restaurar.
+- **Agregar comentario**: un comentario del jefe de taller que verán los operarios.
+- **Eliminar item**: solo para los ítems que agregaste vos en esta orden (los que vienen de la solicitud no se borran, se rechazan).
+
+**Agregar reparación** suma un trabajo que no estaba en el pedido: **Descripción** obligatoria, un **Grupo de tareas (opcional)** que tilda sus tareas de una vez, y las tareas a mano. Al tocar **Siguiente** se guardan los cambios de este paso.
+</Step>
+<Step title="Sectores: quién lo hace">
+Los desvíos se asignan solos al sector que tiene configurados esos tipos de reparación. Los que no se pueden asignar solos aparecen con el aviso **necesitan asignación manual de sector**: elegí el **Sector** de cada uno. Para avanzar, todos tienen que tener sector.
+</Step>
+<Step title="Orden: por dónde pasa el equipo">
+Definí en qué orden recorre el equipo los sectores: arrastrá para reordenar o usá las flechas. Abajo se ve el **Flujo del vehiculo**.
+</Step>
+<Step title="Confirmar: generá las OT">
+El resumen dice cuántas OT se generan (**una por cada sector asignado**), qué desvíos y tareas lleva cada una y que **cada OT incluye diagnóstico automático del sector**. Cargá las **Fechas planificadas** (**Fecha inicio** y **Fecha fin**; la de fin no puede ser anterior) y tocá **Generar N OT(s)**.
+</Step>
+</Steps>
+
+Las OT generadas aparecen en la <GuideLink to="vista-taller">Vista Taller</GuideLink> y en el <GuideLink to="panel-del-operario">Panel del operario</GuideLink> de cada sector, donde los operarios las inician, pausan y terminan.
+
+<Callout type="info" title="Volver a gestionar">
+Si después aparece trabajo nuevo, podés volver a **Gestionar** la misma orden: los ítems que ya tienen OT no se tocan y el asistente te pide agregar al menos un ítem nuevo para seguir.
+</Callout>
+
+<Callout type="warning" title="Si rechazás todos los desvíos">
+Si en el paso **Desvíos** rechazás todo, el botón cambia a **Guardar cambios** y la orden queda **Rechazada por Taller**. El equipo **sigue No operativo**: la orden se puede retomar desde **Gestionar** restaurando algún desvío.
+</Callout>
+
+<Callout type="warning" title="Cerrar sin guardar">
+Si cerrás el asistente con cambios sin guardar, aparece **Hay cambios sin guardar**: **Seguir editando** o **Descartar cambios**.
+</Callout>
+
+## 4 Aprobaciones
+
+Es la bandeja del jefe de taller. Arriba hay dos indicadores que se habilitan cuando tienen pendientes:
+
+- **Autorizaciones**: tareas que agregaron los operarios y que, por su tipo de reparación (marcado como **Autorizable**), necesitan tu visto bueno antes de hacerse. Para cada una ves el sector, el equipo, la descripción, el comentario del chofer y la nota del operario. **Aprobar** la deja pendiente para que el sector la haga; **Rechazar** pide un motivo.
+- **Reasignaciones**: tareas que un operario devolvió porque no le correspondían a su sector. Ves el **Motivo de devolucion**; elegí el **Nuevo sector** y tocá **Reasignar**.
+
+Debajo está la tabla de **órdenes pendientes de validación**: las OM cuyas OT ya terminaron todas. Columnas: **N° Orden**, **Equipo**, **Descripción**, **Sectores**, **Progreso** e **Ingreso a Taller**. El buscador dice **Buscar por N° orden o equipo...**.
+
+### Cómo cerrar una orden
+
+<Steps>
+<Step title="Abrí la orden">
+Tocá **Ver detalle y validar orden**. Arriba está el **Resumen de Ordenes de Trabajo** con lo que hizo cada sector.
+</Step>
+<Step title="Decidí">
+Abajo tenés **Notas de validacion (opcional)** y tres botones:
+
+- **Validar y Cerrar Orden**: el trabajo está bien. La orden queda **Completada**.
+- **Rechazar Items**: algunas tareas no quedaron bien. Tildá cuáles y escribí un comentario por cada una; esas tareas vuelven al sector y la orden vuelve a **En Taller**.
+- **Devolver Todo**: abre **Devolver Orden Completa al Taller**, pide el motivo y reabre todas las OT terminadas.
+</Step>
+</Steps>
+
+Al cerrar con **Validar y Cerrar Orden**, el equipo vuelve a **Operativo**, salvo que tenga **otra** orden todavía dentro del taller: en ese caso sigue **No operativo** hasta que se cierre la última.
+
+<States title="Estados del pedido en el taller">
+  <State name="Pendiente de planificar fecha de taller" tone="warning" next="Pendiente de ingreso a taller, Rechazada">Está en Por Programar, sin fecha.</State>
+  <State name="Rechazada" tone="danger">El taller rechazó el pedido antes de programarlo. Queda en el historial del equipo.</State>
+  <State name="Pendiente de ingreso a taller" tone="info" next="En Taller">Tiene fecha; está en Por Ingresar. En la Vista Taller figura como Fecha confirmada.</State>
+  <State name="En Taller" tone="info" next="Pend. Validación Taller, Rechazada por Taller">El equipo entró y está No operativo. Se gestiona y se generan las OT.</State>
+  <State name="Rechazada por Taller" tone="danger" next="En Taller">Se rechazaron todos los desvíos en Gestionar. Restaurando alguno, vuelve a En Taller.</State>
+  <State name="Pend. Validación Taller" tone="warning" next="Completada, En Taller">Todas las OT terminaron; está en Aprobaciones esperando al jefe de taller.</State>
+  <State name="Completada" tone="success">Cerrada. El equipo vuelve a Operativo si no tiene otra orden en el taller.</State>
+</States>
+
+Los nombres cambian un poco según la tabla (por ejemplo, **Pendiente Planificar** en Por Programar o **Por planificar** en la Vista Taller), pero son los mismos estados.
+
+## Cómo se conecta con el resto del sistema
+
+- **De dónde llegan los pedidos**: de la validación de operaciones (<GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink>) o directamente de <GuideLink to="nuevo-pedido-de-mantenimiento">Nuevo Pedido</GuideLink> cuando quien carga es el supervisor.
+- **Qué ve operaciones**: cada cambio de estado se refleja en el paso **Seguimiento** de la pestaña Operaciones, con fecha planificada, días en taller, sectores y progreso.
+- **Condición del equipo**: pasa a **No operativo** al registrar el ingreso y vuelve a **Operativo** al cerrar la última orden. Esa condición la ves en la <GuideLink to="ficha-del-vehiculo">ficha del vehículo</GuideLink> y en el <GuideLink to="equipos-listado">listado de equipos</GuideLink>.
+- **Partes diarios**: un equipo No operativo cargado en un parte genera un desvío de equipo por condición (ver <GuideLink to="partes-diarios">Partes diarios</GuideLink>).
+- **Dashboard**: los equipos No operativos cuentan como **No disponibles** en el <GuideLink to="dashboard-principal">Dashboard principal</GuideLink> y bajan el porcentaje de operatividad de la flota.
+- **Historial**: todo lo que pasa con el pedido (planificación, ingreso, OT, rechazos, cierre) queda en la pestaña **Historial de Mantenimiento** de la ficha del equipo.
+- **Configuración**: talleres, sectores (con su cupo), tipos de reparación y grupos de tareas se cargan en <GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink>. Si un tipo de reparación no está asignado a ningún sector, el asistente te va a pedir el sector a mano.
+
+El recorrido completo está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña Taller y sus cuatro pasos | **Ver** en **Taller** del módulo Mantenimiento. |
+| Ver todos los pedidos en Por Programar y Por Ingresar | Igual que en Operaciones: sin **Ver Todas** en **Solicitudes de Mantenimiento** ves solo los pedidos de las solicitudes donde sos el supervisor. |
+| Rechazar un pedido en Por Programar | **Editar** en **Pendientes** (dentro de **Pedidos de Mantenimiento**). |
+| Registrar el ingreso al taller | **Editar** en **Confirmados** (dentro de **Pedidos de Mantenimiento**). |
+| Agregar reparaciones y generar las OT | **Crear** en **Gestión de Órdenes**. |
+| Asignar tareas y rechazar desvíos en Gestionar | **Editar** en **Gestión de Órdenes**. |
+| Validar y cerrar, rechazar ítems y devolver una orden | **Editar** en **Órdenes de Mantenimiento**. |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No puedo avanzar del paso Desvíos">
+Hay desvíos sin tipo de reparación: el aviso dice cuántos. Usá **Asignar tarea** en cada uno, o rechazá los que no se van a hacer.
+</Callout>
+
+<Callout type="warning" title="El kilometraje no me deja confirmar el ingreso">
+El valor no puede ser menor que el último registrado (el que viene precargado). Si el último kilometraje estaba mal cargado, corregilo primero en la ficha del vehículo.
+</Callout>
+
+<Callout type="info" title="Una orden terminada no aparece en Aprobaciones">
+Aparece recién cuando **todas** sus OT están terminadas. Revisá en **Detalle** si queda alguna **Pendiente**, **En progreso** o **Pausada**, o si hay tareas esperando autorización en **Autorizaciones**.
+</Callout>
+
+<Callout type="danger" title="Cerrar es definitivo">
+Una orden **Completada** no se reabre. Si el trabajo no quedó bien, usá **Rechazar Items** o **Devolver Todo** antes de cerrar.
+</Callout>

@@ -209,6 +209,7 @@ export default function _InvoicesDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       initialSorting={DEFAULT_SORTING}
+      showSearch
       searchPlaceholder="Buscar por número, cliente o CAE..."
       showFilterToggle
       queryFn={tableQueryFn}

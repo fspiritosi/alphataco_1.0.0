@@ -1,0 +1,126 @@
+---
+title: Documentos de equipos
+summary: La documentación exigida a los vehículos (seguro, VTV, habilitaciones…): permanentes y mensuales, estados, carga individual o multirecurso, descarga y filtros.
+keywords: documentos, equipos, vehículos, seguro, póliza, vtv, habilitación, permanentes, mensuales, pendiente, vencido, subir documento, multirecurso, privados, descargar
+updated: 2026-10-07
+---
+
+La pestaña **Documentos de Equipos** muestra cada documento exigido a cada vehículo activo de la flota, con su estado y su vencimiento, y desde acá se cargan los que faltan. Funciona igual que <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>; esta guía se concentra en lo propio de los equipos.
+
+La misma pantalla está en dos lugares, con el mismo contenido:
+
+- **Documentación → Documentos de Equipos**.
+- **Equipos → Documentos de Equipos**.
+
+Los documentos se crean solos: cuando un tipo de documento es obligatorio para los equipos (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>), el sistema crea un documento **Pendiente** para cada vehículo al que le corresponde.
+
+<OpenScreen />
+
+<Callout type="info" title="Solo vehículos">
+Esta pantalla cubre los **vehículos**. El equipamiento (piletas, contenedores, etc.) tiene sus documentos en su propia ficha. Ver <GuideLink to="ficha-de-otro-equipo">Ficha de otro equipo</GuideLink>.
+</Callout>
+
+## Qué ves en la pantalla
+
+Arriba está el botón **Documento Multirecurso** y, debajo, dos subpestañas: **Documentos Permanentes** y **Documentos Mensuales**.
+
+### Columnas de Documentos Permanentes
+
+| Columna | Qué muestra |
+|---|---|
+| **Equipo** | El dominio del vehículo (o su serie, si no tiene dominio). Es un enlace que abre la ficha del vehículo en una pestaña nueva. |
+| **N° de Póliza** | El número de póliza, para los documentos que lo llevan. |
+| **Documento** | El tipo de documento. |
+| **Afectado a** | Los clientes a los que está afectado el vehículo. |
+| **Estado** | **Pendiente**, **Presentado**, **Aprobado**, **Rechazado** o **Vencido**. |
+| **Mandatorio** / **Multirecurso** | Características del tipo de documento. |
+| **Vencimiento** | La fecha de vencimiento; **No vence** si el tipo no vence y **Pendiente** si todavía no se cargó. |
+| **Subido el** | La fecha de carga. |
+| **Motivo de rechazo** | El motivo, si fue rechazado. |
+
+Con **Columnas** podés sumar datos del vehículo que vienen ocultos: **Serie**, **Tipo**, **Subtipo**, **Marca**, **Año**, **Propietario**, **Sector**, **Chasis**, **Motor**, **Tipo de contrato** y **Venc. de contrato**. Sirven para filtrar, por ejemplo, la documentación de todos los equipos de un propietario.
+
+### Columnas de Documentos Mensuales
+
+**Equipo**, **Tipo de Documento**, **Afectado a**, **Estado**, **Mandatorio**, **Multirecurso**, **Período**, **Subido el** y **Razón de rechazo**.
+
+En ambas, la última columna muestra **Subir documento** para los pendientes y **Ver documento** para los cargados.
+
+### Buscar, filtrar, descargar y exportar
+
+- **Buscador**: por dominio, serie o número interno.
+- **Filtros**: de entrada se ven **Estado**, **Equipo** y **Tipo de documento**; con **Filtros** mostrás el resto.
+- **Descargar Documentos**: arma un .zip con los documentos cargados de la tabla, avisando cuáles quedan afuera por estar pendientes.
+- **Excel**: exporta con los filtros aplicados.
+
+## Estados
+
+Los estados son los mismos que en empleados: **Pendiente**, **Presentado**, **Aprobado**, **Rechazado**, **Vencido** y **Ya no aplica**. Están explicados en <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>.
+
+Con todos sus documentos, el sistema calcula el **Estado** del vehículo (**Completo**, **Incompleto** o **Completo con doc vencida**), que se ve en la columna **Estado** del <GuideLink to="equipos-listado">listado de equipos</GuideLink>. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+## Cómo cargar un documento pendiente
+
+<Steps>
+<Step title="Encontrá el pendiente">
+Buscá el vehículo o filtrá **Estado → Pendiente**.
+</Step>
+<Step title="Abrí la carga">
+Hacé clic en **Subir documento**. El equipo y el tipo de documento ya vienen elegidos.
+</Step>
+<Step title="Completá y enviá">
+Elegí el archivo en **Documento**, cargá la **Fecha de vencimiento** si el tipo vence o el **Periodo** si es mensual, y hacé clic en **Enviar documento**.
+</Step>
+</Steps>
+
+También podés cargarlo desde la pestaña **Documentos** de la <GuideLink to="ficha-del-vehiculo">ficha del vehículo</GuideLink>, que muestra solo los documentos de ese equipo.
+
+<Callout type="warning" title="Tipos multirecurso: se cargan a toda la flota">
+Si el tipo de documento es **multirecurso** (por ejemplo, una póliza de flota), el archivo que subís desde **Subir documento** se vincula a **todos los vehículos activos** que no lo tienen presentado, no solo al de la fila.
+</Callout>
+
+## Cómo cargar un documento a varios vehículos
+
+<Steps>
+<Step title="Abrí la carga multirecurso">
+Hacé clic en **Documento Multirecurso**.
+</Step>
+<Step title="Elegí tipo y equipos">
+En **Tipo de documento** aparecen solo los tipos multirecurso de equipos. En **Equipos** seleccioná los vehículos (cada uno se muestra como dominio o serie y número interno).
+</Step>
+<Step title="Completá y enviá">
+Cargá la **Fecha de validez** o el **Período** según el tipo, elegí el **Documento** y hacé clic en **Enviar**. El aviso **Documento cargado (N recursos)** confirma a cuántos se vinculó.
+</Step>
+</Steps>
+
+## Reemplazar, renovar y eliminar
+
+Se hace desde **Ver documento** → pestaña **Actualizar**. Ver <GuideLink to="detalle-de-documento">Detalle de documento</GuideLink>.
+
+## Documentos privados
+
+Igual que en empleados: los tipos privados solo los ve quien tiene **Ver privados** en Documentos de Equipos, y solo los carga quien tiene **Subir privados**.
+
+## Cómo se conecta con el resto del sistema
+
+- **Equipos**: al crear un vehículo o cambiarle datos que definen sus documentos (tipo, subtipo, marca, modelo, condición, tipo de costo, tipo de contrato), el sistema recalcula qué documentos le corresponden. Los que dejan de corresponder y tenían archivo pasan a **Ya no aplica** y se ven solo en la ficha del vehículo.
+- **Bajas**: los vehículos dados de baja no aparecen en esta pantalla. Ver <GuideLink to="equipos-dados-de-baja">Equipos dados de baja</GuideLink>.
+- **Dashboard**: los vencimientos próximos de la flota se ven en <GuideLink to="dashboard-vencimientos">Vencimientos</GuideLink>.
+
+## Permisos
+
+Los permisos dependen de desde qué módulo entrás:
+
+| Acción | Desde Documentación | Desde Equipos |
+|---|---|---|
+| Ver la pestaña | **Ver** en Documentación → Documentos de Equipos | **Ver** en Equipos → Documentos de Equipos |
+| **Documento Multirecurso** | **Crear** en Documentación → Documentos de Equipos | **Crear** en Equipos → Documentos de Equipos |
+| Ver cada subpestaña | **Ver** en Permanentes o Mensuales del módulo | **Ver** en Permanentes o Mensuales del módulo |
+
+En los dos casos, **Subir documento** en una fila pide **Editar** en Documentación → Documentos de Equipos → Permanentes o Mensuales (o **Subir privados** si el tipo es privado), y **Ver documento** pide **Ver** en Detalle de Documento.
+
+## Problemas frecuentes
+
+<Callout type="warning" title="Un vehículo no tiene un documento que debería">
+Revisá que el vehículo cumpla las condiciones del tipo de documento (tipo, subtipo, marca, etc.) y que el tipo esté activo y sea obligatorio. Si cambiaste un dato del vehículo, guardá la ficha: ahí se recalcula.
+</Callout>

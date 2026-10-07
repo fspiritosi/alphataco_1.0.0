@@ -1,0 +1,58 @@
+---
+title: Unidades de medida
+summary: El catálogo de unidades (hora, día, metro, kilogramo…) con las que se miden y cobran los ítems de los contratos.
+keywords: unidad de medida, UDM, símbolo, hora, día, metro, kilogramo, catálogo
+updated: 2026-10-07
+---
+
+Las unidades de medida dicen **en qué se mide** cada ítem de un contrato: horas, días, metros, kilos, viajes… Se eligen al crear un ítem y se muestran en la columna **UDM** de los ítems. Esta pantalla la usa quien administra los contratos.
+
+<OpenScreen />
+
+Se entra desde **Comercial**, solapa **Unidades de Medida**.
+
+<Callout type="info" title="Es una lista compartida">
+Las unidades de medida son un catálogo común a todo el sistema: lo que cargues o cambies acá lo ven todos los que usan la lista. Antes de crear una unidad, fijate si ya existe.
+</Callout>
+
+## Qué ves en la pantalla
+
+A la izquierda está el formulario **Nueva Unidad de Medida** y a la derecha la tabla **Unidades de Medida**, con las columnas **Símbolo**, **Unidad** y **Tipo**. Se puede filtrar por cualquiera de las tres. Si no tenés permiso para crear ni editar, solo ves la tabla.
+
+## Cómo crear una unidad
+
+<Steps>
+  <Step title="Completá los tres campos">
+    **Símbolo** (hasta 5 caracteres, por ejemplo `kg`, `m`, `hs`), **Tipo** (por ejemplo Peso, Longitud, Tiempo) y **Unidad** (el nombre completo: Kilogramo, Metro, Hora). Los tres son obligatorios.
+  </Step>
+  <Step title="Creá">
+    Hacé clic en **Crear**. Vas a ver **Unidad de medida creada correctamente**.
+  </Step>
+</Steps>
+
+No puede haber dos unidades con el mismo símbolo: si lo intentás, el sistema avisa **Ya existe una unidad de medida con este símbolo**.
+
+## Cómo editar o eliminar una unidad
+
+- **Editar**: hacé clic en el lápiz (**Editar unidad**) de la fila. El formulario pasa a **Editar Unidad de Medida** con los datos cargados; cambiá lo que necesites y hacé clic en **Actualizar** (o **Cancelar**).
+- **Eliminar**: hacé clic en el tacho (**Eliminar unidad**) y confirmá en **Eliminar unidad de medida**.
+
+<Callout type="warning" title="Una unidad en uso no se elimina">
+Si algún ítem de contrato usa la unidad, el sistema no la deja borrar y te dice cuántos: **No se puede eliminar: la unidad está en uso por N items de contrato**. Cambiale la unidad a esos ítems primero, o dejala como está.
+</Callout>
+
+<Callout type="tip" title="Cambiar una unidad cambia todos los ítems que la usan">
+Como los ítems apuntan a la unidad, si editás su símbolo o su nombre el cambio se ve en todos los contratos que la usan. Para corregir una errata está bien; para "convertir" una unidad en otra, creá una nueva.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+Cada ítem de contrato tiene una **Unidad de Medida** obligatoria (ver <GuideLink to="contratos">Contratos</GuideLink>). La cantidad que se carga en cada línea de parte diario, y que después se certifica y factura, se expresa en esa unidad.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la tabla | **Ver** en Unidades de Medida |
+| Crear | **Crear** en Unidades de Medida |
+| Editar y eliminar | **Editar** en Unidades de Medida |
