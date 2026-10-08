@@ -17,6 +17,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
       - run: npm run check-types
+        env:
+          # tsc del proyecto completo pasa los ~2 GB del heap por defecto de Node (OOM, exit 134).
+          NODE_OPTIONS: --max-old-space-size=8192
       - run: npm test
 
   db-tests:
