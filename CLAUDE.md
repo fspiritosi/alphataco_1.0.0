@@ -567,6 +567,12 @@ El síntoma para el usuario era intermitente y por eso difícil: al subir un doc
 
 **Cómo detectarlo:** cuando un valor guardado parece desactualizado, no alcanza con recalcularlo — hay que buscar TODOS los lugares que lo escriben (grep del nombre de la columna, `SET <col>`, y las funciones de la BD con `pg_get_functiondef`) y comparar las fórmulas entre sí. **Cómo cerrarlo:** una sola función (acá una función SQL que reciben `uuid[]` + tipo de recurso) que llamen todos los escritores, incluido el TypeScript. Dejar copias "porque el cambio es más chico" es reproducir la causa raíz.
 
+### `check-types` no alcanza: antes de un PR grande, correr `npx next build`
+
+El PR #5 (Almacenes) pasó `npm run check-types` y el CI, pero el deploy falló en `next build`: _"Type instantiation is excessively deep and possibly infinite"_ en una action que le pasaba el cliente completo de Prisma (`prisma`) a una función tipada con `Prisma.TransactionClient`. El chequeo de tipos de `next build` es más estricto con la profundidad de instanciación que `tsc --noEmit`, y el CI solo corre este último.
+
+Reglas: (1) una función de `lib/` que se llama con el cliente completo **y** con un `tx` se tipa con lo que usa (`Pick<Prisma.TransactionClient, 'tires'>`), no con el `TransactionClient` entero; (2) antes de abrir un PR que agrega modelos o mucho código server, correr `NODE_OPTIONS=--max-old-space-size=8192 npx next build` en local — es lo único que reproduce el build de la imagen.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
