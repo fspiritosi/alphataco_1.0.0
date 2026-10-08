@@ -386,7 +386,11 @@ export async function linkTiresFromEntry(tx: Tx, companyId: string, movementId: 
 // ── Inventario inicial ──────────────────────────────────────────────────────
 
 /** Cubiertas sin stock (activas, no descartadas), agrupadas por tipo + marca, con su cantidad por estado. */
-export async function getTiresWithoutStock(tx: Tx, companyId: string) {
+/**
+ * Recibe solo el delegado de `tires`: la llama la action con el cliente completo y comparar ese tipo
+ * contra `TransactionClient` hace que el chequeo de `next build` se corte ("excessively deep").
+ */
+export async function getTiresWithoutStock(tx: Pick<Tx, 'tires'>, companyId: string) {
   const tires = await tx.tires.findMany({
     where: { company_id: companyId, is_active: true, material_unit_id: null, status: { not: 'DISCARDED' } },
     select: {
