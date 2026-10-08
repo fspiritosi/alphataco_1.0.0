@@ -20,7 +20,8 @@ export type StockErrorCode =
   | 'CANNOT_REVERSE_REVERSAL'
   | 'OVER_DELIVERY'
   | 'DIRECT_EXIT_LIMIT'
-  | 'INVALID_STATE';
+  | 'INVALID_STATE'
+  | 'MANAGED_ELSEWHERE';
 
 export class StockError extends Error {
   readonly code: StockErrorCode;

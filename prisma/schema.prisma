@@ -619,6 +619,7 @@ model company {
   material_requests    material_requests[]
   warehouse_settings   warehouse_settings?
   clothing_item_materials      clothing_item_materials[]
+  tire_materials               tire_materials[]
   @@schema("public")
 }
 
@@ -2658,8 +2659,9 @@ model tire_brands {
   is_active  Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
-  company company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tires   tires[]
+  company        company          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tires          tires[]
+  tire_materials tire_materials[]
 
   @@unique([name, company_id])
   @@schema("public")
@@ -2675,10 +2677,29 @@ model tire_types {
   created_at DateTime      @default(now()) @db.Timestamptz(6)
   updated_at DateTime      @updatedAt @db.Timestamptz(6)
 
-  company company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tires   tires[]
+  company        company          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tires          tires[]
+  tire_materials tire_materials[]
 
   @@unique([size, tread_type, company_id])
+  @@schema("public")
+}
+
+/// Vinculo tipo + marca de cubierta -> material SERIAL de Almacenes (etapa 6). Nunca se borra.
+model tire_materials {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String      @db.Uuid
+  tire_type_id  String      @db.Uuid
+  tire_brand_id String      @db.Uuid
+  material_id   String      @unique @db.Uuid
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  company       company     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  tire_type     tire_types  @relation(fields: [tire_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tire_brand    tire_brands @relation(fields: [tire_brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  material      materials   @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([tire_type_id, tire_brand_id], map: "tire_materials_combination_key")
+  @@index([company_id], map: "idx_tire_materials_company")
   @@schema("public")
 }
 
@@ -2698,7 +2719,10 @@ model tires {
   is_active       Boolean           @default(true)
   created_at      DateTime          @default(now()) @db.Timestamptz(6)
   updated_at      DateTime          @updatedAt @db.Timestamptz(6)
+  /// Unidad de stock de la cubierta (Almacenes etapa 6). NULL: cubierta sin stock.
+  material_unit_id String?          @unique @db.Uuid
 
+  material_unit              material_units?          @relation(fields: [material_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   brand                      tire_brands              @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tire_type                  tire_types               @relation(fields: [tire_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                    company                  @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2818,7 +2842,13 @@ model tire_service_items {
   pressure_end         Decimal?            @db.Decimal(5, 1)
   observations         String?
   created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  /// Salida de stock de la cubierta que se monta (Almacenes etapa 6).
+  mount_movement_id    String?             @db.Uuid
+  /// Devolucion al deposito de la cubierta que se desmonta a disponible.
+  return_movement_id   String?             @db.Uuid
 
+  mount_movement  stock_movements?    @relation("tire_item_mount", fields: [mount_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  return_movement stock_movements?    @relation("tire_item_return", fields: [return_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   service_order tire_service_orders @relation(fields: [service_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   vehicle       vehicles            @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tire          tires?              @relation("tire_at_position", fields: [tire_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -4295,6 +4325,7 @@ model materials {
   movement_lines    stock_movement_lines[]
   request_lines     material_request_lines[]
   clothing_combination clothing_item_materials?
+  tire_combination     tire_materials?
 
   @@unique([company_id, code])
   @@index([company_id], map: "idx_materials_company_id")
@@ -4337,6 +4368,7 @@ model material_units {
   last_movement    stock_movements?       @relation("unit_last_movement", fields: [last_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   movement_lines   stock_movement_lines[]
   write_offs       material_unit_write_offs[]
+  tire             tires?
 
   @@unique([material_id, serial_number])
   @@index([warehouse_id], map: "idx_material_units_warehouse_id")
@@ -4410,6 +4442,8 @@ model stock_movements {
   lines                stock_movement_lines[]
   units_last_here      material_units[]        @relation("unit_last_movement")
   clothing_delivery    clothing_deliveries?
+  tire_item_mounts     tire_service_items[]    @relation("tire_item_mount")
+  tire_item_returns    tire_service_items[]    @relation("tire_item_return")
 
   @@unique([company_id, number])
   @@index([company_id, occurred_on, created_at], map: "idx_stock_movements_company_date")

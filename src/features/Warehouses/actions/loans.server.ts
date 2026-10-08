@@ -10,12 +10,27 @@ import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { toActionError } from '../lib/action-errors';
 import { registerReturn, writeOffLoanedUnit } from '../lib/stock-engine';
+import { StockError } from '../lib/stock-errors';
+import { hasTireMaterials } from '../lib/tire-stock';
 import { returnLoanSchema, writeOffLoanSchema, type ReturnLoanFormValues, type WriteOffLoanFormValues } from '../schemas/loans';
 
 const logger = new Logger('features/Warehouses/loans');
 
 const WAREHOUSE_PATH = '/dashboard/warehouse';
 const TRANSACTION_OPTIONS = { timeout: 20_000, maxWait: 5_000 };
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/** Las cubiertas montadas se desmontan desde Gomeria (etapa 6), no como un prestamo. */
+async function assertNotTireUnits(tx: Tx, companyId: string, unitIds: string[]) {
+  const units = await tx.material_units.findMany({
+    where: { id: { in: unitIds }, company_id: companyId },
+    select: { material_id: true },
+  });
+  if (await hasTireMaterials(tx, units.map((u) => u.material_id))) {
+    throw new StockError('MANAGED_ELSEWHERE', 'Las cubiertas montadas se desmontan desde Gomería');
+  }
+}
 
 /** Depositos activos a los que se puede devolver. */
 export async function getReturnWarehouses() {
@@ -50,6 +65,7 @@ export async function returnLoanedUnitsAction(values: ReturnLoanFormValues): Pro
     const result = await withActor(
       profile.credentialId,
       async (tx) => {
+        await assertNotTireUnits(tx, companyId, parsed.data.unitIds);
         const registered = await registerReturn(tx, companyId, profile.id, {
           exitMovementId: parsed.data.exitMovementId,
           unitIds: parsed.data.unitIds,
@@ -95,7 +111,10 @@ export async function writeOffLoanedUnitAction(
   try {
     const result = await withActor(
       profile.credentialId,
-      (tx) => writeOffLoanedUnit(tx, companyId, profile.id, parsed.data),
+      async (tx) => {
+        await assertNotTireUnits(tx, companyId, [parsed.data.unitId]);
+        return writeOffLoanedUnit(tx, companyId, profile.id, parsed.data);
+      },
       prisma,
       TRANSACTION_OPTIONS
     );

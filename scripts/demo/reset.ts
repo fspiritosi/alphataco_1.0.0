@@ -100,8 +100,9 @@ async function main(): Promise<void> {
           await seedMaintenance(ctx, employees, vehicles, others, grid);
           const rows = await seedOperations(ctx, employees, vehicles, others, grid);
           await seedCertifications(ctx, rows);
-          await seedTires(ctx, vehicles);
+          // Almacenes antes que Gomeria: las cubiertas son unidades de stock del deposito base.
           await seedWarehouses(ctx, employees, vehicles, others);
+          await seedTires(ctx, vehicles);
           await seedCandidates(ctx, employees);
           await seedClothing(ctx, employees);
           await seedKpis(ctx);

@@ -231,8 +231,21 @@ export async function createMaterial(values: MaterialFormValues): Promise<Action
   }
 }
 
-/** Material de una combinacion de ropa: su codigo, nombre, unidad y estado los maneja Ropa (etapa 5). */
-const CLOTHING_MANAGED = 'Este material se administra desde el catálogo de Ropa (artículo, marca y talle)';
+/**
+ * Materiales que administra otro modulo: su codigo, nombre, unidad, control y estado los maneja
+ * Ropa (etapa 5, articulo + marca + talle) o Gomeria (etapa 6, tipo + marca de cubierta).
+ */
+const MANAGED_MESSAGES = {
+  clothing: 'Este material se administra desde el catálogo de Ropa (artículo, marca y talle)',
+  tires: 'Este material se administra desde el catálogo de Gomería (tipo y marca de cubierta)',
+} as const;
+type ManagedBy = keyof typeof MANAGED_MESSAGES;
+
+function managedBy(material: { clothing_combination: unknown; tire_combination: unknown }): ManagedBy | null {
+  if (material.clothing_combination) return 'clothing';
+  if (material.tire_combination) return 'tires';
+  return null;
+}
 
 export async function updateMaterial(id: string, values: MaterialFormValues): Promise<ActionResult> {
   if (!(await checkPermissionServer('almacenes', 'materiales', 'update'))) return fail(NO_PERMISSION);
@@ -249,18 +262,20 @@ export async function updateMaterial(id: string, values: MaterialFormValues): Pr
         tracking_type: true,
         unit_id: true,
         clothing_combination: { select: { id: true } },
+        tire_combination: { select: { id: true } },
         _count: { select: { movement_lines: true } },
       },
     });
     if (!current) return fail('El material no existe');
+    const managed = managedBy(current);
     if (
-      current.clothing_combination &&
+      managed &&
       (parsed.data.code.trim() !== current.code ||
         parsed.data.name.trim() !== current.name ||
         parsed.data.unitId !== current.unit_id ||
         parsed.data.trackingType !== current.tracking_type)
     ) {
-      return fail(`${CLOTHING_MANAGED}: no se cambian su código, nombre, unidad ni tipo de control`);
+      return fail(`${MANAGED_MESSAGES[managed]}: no se cambian su código, nombre, unidad ni tipo de control`);
     }
 
     const trackingError = trackingTypeChangeError(
@@ -289,10 +304,16 @@ export async function removeMaterial(id: string): Promise<ActionResult<{ mode: R
   try {
     const material = await prisma.materials.findFirst({
       where: { id, company_id: companyId },
-      select: { clothing_combination: { select: { id: true } }, _count: { select: { movement_lines: true } } },
+      select: {
+        clothing_combination: { select: { id: true } },
+        tire_combination: { select: { id: true } },
+        _count: { select: { movement_lines: true } },
+      },
     });
     if (!material) return fail('El material no existe');
-    if (material.clothing_combination) return fail(`${CLOTHING_MANAGED}: se da de baja quitando la combinación`);
+    const managed = managedBy(material);
+    if (managed === 'clothing') return fail(`${MANAGED_MESSAGES.clothing}: se da de baja quitando la combinación`);
+    if (managed === 'tires') return fail(`${MANAGED_MESSAGES.tires}: se da de baja desactivando el tipo o la marca`);
 
     const mode = materialRemovalMode(material._count.movement_lines);
     if (mode === 'delete') {
@@ -314,8 +335,12 @@ export async function reactivateMaterial(id: string): Promise<ActionResult> {
   if (!(await checkPermissionServer('almacenes', 'materiales', 'update'))) return fail(NO_PERMISSION);
   const companyId = await getActiveCompanyId();
   try {
-    const clothing = await prisma.clothing_item_materials.findFirst({ where: { material_id: id }, select: { id: true } });
-    if (clothing) return fail(`${CLOTHING_MANAGED}: se reactiva habilitando la combinación`);
+    const [clothing, tire] = await Promise.all([
+      prisma.clothing_item_materials.findFirst({ where: { material_id: id }, select: { id: true } }),
+      prisma.tire_materials.findFirst({ where: { material_id: id }, select: { id: true } }),
+    ]);
+    if (clothing) return fail(`${MANAGED_MESSAGES.clothing}: se reactiva habilitando la combinación`);
+    if (tire) return fail(`${MANAGED_MESSAGES.tires}: se reactiva activando el tipo y la marca`);
     const { count } = await prisma.materials.updateMany({ where: { id, company_id: companyId }, data: { is_active: true } });
     if (count === 0) return fail('El material no existe');
     revalidatePath(WAREHOUSE_PATH);
@@ -342,17 +367,19 @@ export async function getMaterialForEdit(id: string) {
       requires_approval: true,
       min_stock: true,
       clothing_combination: { select: { id: true } },
+      tire_combination: { select: { id: true } },
       _count: { select: { movement_lines: true } },
     },
   });
   if (!material) return null;
-  const { _count, min_stock, clothing_combination, ...rest } = material;
+  const { _count, min_stock, clothing_combination, tire_combination, ...rest } = material;
+  const managed = managedBy({ clothing_combination, tire_combination });
   return {
     ...rest,
     min_stock: min_stock?.toString() ?? null,
     hasMovements: _count.movement_lines > 0,
-    /** Material de una combinacion de ropa: codigo, nombre, unidad y control los maneja Ropa. */
-    isClothing: clothing_combination !== null,
+    /** Codigo, nombre, unidad y control los maneja otro modulo (Ropa o Gomeria): el form los bloquea. */
+    managedNotice: managed ? MANAGED_MESSAGES[managed] : null,
   };
 }
 

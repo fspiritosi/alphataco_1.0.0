@@ -1,5 +1,6 @@
 'use server';
 
+import moment from 'moment';
 import { revalidatePath } from 'next/cache';
 import { checkPermissionServer } from '@/features/Permissions';
 import { fail, ok, type ActionResult } from '@/features/Empresa/Clientes/lib/action-result';
@@ -14,7 +15,13 @@ import { dateColumnToYmd } from '../lib/batch-expiry';
 import { DESTINATION_SELECT, destinationLabel } from '../lib/labels';
 import { registerStockMovement, reverseStockMovement } from '../lib/stock-engine';
 import { StockError } from '../lib/stock-errors';
-import { stockMovementSchema, toStockMovementInput, type StockMovementFormValues } from '../schemas/stock-movement';
+import { hasTireMaterials, linkTiresFromEntry } from '../lib/tire-stock';
+import {
+  isInboundLine,
+  stockMovementSchema,
+  toStockMovementInput,
+  type StockMovementFormValues,
+} from '../schemas/stock-movement';
 
 const logger = new Logger('features/Warehouses/movements');
 
@@ -79,7 +86,18 @@ export async function registerStockMovementAction(values: StockMovementFormValue
             throw new StockError('DIRECT_EXIT_LIMIT', `${needsApproval.name} requiere aprobación: ${REQUEST_HINT}`);
           }
         }
+        // Las cubiertas se montan y se dan de baja desde Gomeria (etapa 6): aca solo entran o se transfieren.
+        const outboundMaterials = parsed.data.lines
+          .filter((l) => parsed.data.type !== 'TRANSFER' && !isInboundLine(parsed.data.type, l.adjustmentDirection))
+          .map((l) => l.materialId);
+        if (await hasTireMaterials(tx, outboundMaterials)) {
+          throw new StockError('MANAGED_ELSEWHERE', 'Las cubiertas se montan y se dan de baja desde Gomería');
+        }
         const registered = await registerStockMovement(tx, companyId, profile.id, toStockMovementInput(parsed.data));
+        // Cada unidad de cubierta que entra es una cubierta de Gomeria.
+        if (parsed.data.type === 'ENTRY' || parsed.data.type === 'ADJUSTMENT') {
+          await linkTiresFromEntry(tx, companyId, registered.id);
+        }
         if (isExit) {
           const settings = await tx.warehouse_settings.findUnique({
             where: { company_id: companyId },
@@ -129,7 +147,19 @@ export async function reverseStockMovementAction(movementId: string, reason: str
   try {
     const reversal = await withActor(
       profile.credentialId,
-      (tx) => reverseStockMovement(tx, companyId, profile.id, movementId, reason),
+      async (tx) => {
+        const lines = await tx.stock_movement_lines.findMany({
+          where: { movement_id: movementId, movement: { company_id: companyId } },
+          select: { material_id: true },
+        });
+        if (await hasTireMaterials(tx, lines.map((l) => l.material_id))) {
+          throw new StockError(
+            'MANAGED_ELSEWHERE',
+            'Los movimientos de cubiertas no se anulan desde Almacenes: se corrigen desde Gomería'
+          );
+        }
+        return reverseStockMovement(tx, companyId, profile.id, movementId, reason);
+      },
       prisma,
       TRANSACTION_OPTIONS
     );
@@ -144,6 +174,29 @@ export async function reverseStockMovementAction(movementId: string, reason: str
   } catch (error) {
     return toActionError(error, logger, 'anular el movimiento');
   }
+}
+
+const TIRE_ITEM_SELECT = {
+  position_number: true,
+  vehicle: { select: { domain: true, intern_number: true } },
+  service_order: { select: { service_date: true, status: true } },
+} as const;
+
+/** "Orden de gomería del 07/10/2026 · AB123CD, posición 3 (abierta)". */
+function tireServiceItemInfo(
+  item: {
+    position_number: number;
+    vehicle: { domain: string | null; intern_number: string | null };
+    service_order: { service_date: Date; status: string };
+  } | null
+) {
+  if (!item) return null;
+  return {
+    date: moment(item.service_order.service_date).format('DD/MM/YYYY'),
+    vehicle: item.vehicle.domain || item.vehicle.intern_number || 'equipo',
+    position: item.position_number,
+    open: item.service_order.status === 'OPEN',
+  };
 }
 
 /**
@@ -179,6 +232,9 @@ export async function getStockMovementDetail(id: string) {
       material_request: { select: { id: true, number: true } },
       // Salida de una entrega de ropa (etapa 5).
       clothing_delivery: { select: { id: true, cancelled_at: true } },
+      // Montaje o devolucion de una orden de gomeria (etapa 6).
+      tire_item_mounts: { select: TIRE_ITEM_SELECT, take: 1 },
+      tire_item_returns: { select: TIRE_ITEM_SELECT, take: 1 },
       ...DESTINATION_SELECT,
       lines: {
         select: {
@@ -212,6 +268,7 @@ export async function getStockMovementDetail(id: string) {
     reversedBy: movement.reversed_by,
     returnedFrom: movement.returned_from,
     materialRequest: movement.material_request,
+    tireServiceItem: tireServiceItemInfo(movement.tire_item_mounts[0] ?? movement.tire_item_returns[0] ?? null),
     clothingDelivery: movement.clothing_delivery
       ? { id: movement.clothing_delivery.id, cancelled: movement.clothing_delivery.cancelled_at !== null }
       : null,

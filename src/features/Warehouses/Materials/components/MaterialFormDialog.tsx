@@ -59,6 +59,7 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const isEdit = material !== null;
+  const isManaged = !!material?.managedNotice;
 
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialFormSchema),
@@ -106,10 +107,10 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
-              {material?.isClothing && (
+              {isManaged && (
                 <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                  Se administra desde el catálogo de Ropa: código, nombre, unidad y tipo de control salen del artículo,
-                  la marca y el talle. Acá se pueden cambiar la categoría, el mínimo y la descripción.
+                  {material?.managedNotice}: el código, el nombre, la unidad y el tipo de control salen de ese catálogo.
+                  Acá se pueden cambiar la categoría, el mínimo y la descripción.
                 </p>
               )}
               <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
@@ -120,7 +121,7 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
                     <FormItem>
                       <FormLabel>Código</FormLabel>
                       <FormControl>
-                        <Input placeholder="ACE-15W40" readOnly={material?.isClothing} {...field} />
+                        <Input placeholder="ACE-15W40" readOnly={isManaged} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -133,7 +134,7 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
                     <FormItem>
                       <FormLabel>Nombre</FormLabel>
                       <FormControl>
-                        <Input placeholder="Aceite 15W40" readOnly={material?.isClothing} {...field} />
+                        <Input placeholder="Aceite 15W40" readOnly={isManaged} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -176,7 +177,7 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unidad de medida</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange} disabled={material?.hasMovements || material?.isClothing}>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={material?.hasMovements || isManaged}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Elegí una unidad" />
@@ -203,7 +204,7 @@ export function MaterialFormDialog({ lookups, material = null, open: controlledO
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Control de stock</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange} disabled={material?.hasMovements || material?.isClothing}>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={material?.hasMovements || isManaged}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />

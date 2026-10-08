@@ -38,4 +38,5 @@ npx vitest run \
   src/features/OperatorPanel/actions/materials.integration.test.ts \
   src/features/Mantenimiento/MaintenanceOrders/actions/materials.integration.test.ts \
   src/features/Warehouses/lib/clothing-materials.integration.test.ts \
-  src/features/Clothing/ClothingDelivery/actions/deliveries.integration.test.ts
+  src/features/Clothing/ClothingDelivery/actions/deliveries.integration.test.ts \
+  src/features/Mantenimiento/Gomeria/Ordenes/actions/tire-stock.integration.test.ts

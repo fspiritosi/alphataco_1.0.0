@@ -4,7 +4,7 @@
 -- 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(33);
+SELECT plan(35);
 
 SELECT has_table('public', 'warehouses', 'existe warehouses');
 SELECT has_table('public', 'material_categories', 'existe material_categories');
@@ -228,6 +228,23 @@ SELECT throws_ok(
     VALUES ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020'),
            ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020')$$,
   '23505', NULL, 'un material es de una sola combinacion de ropa'
+);
+
+-- ── Etapa 6: cubiertas ──────────────────────────────────────────────────────
+-- Un material es de una sola combinacion tipo + marca (la unicidad falla antes que las FK).
+SELECT throws_ok(
+  $$INSERT INTO tire_materials (company_id, tire_type_id, tire_brand_id, material_id)
+    VALUES ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020'),
+           ('a1000000-0000-0000-0000-000000000001', gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000020')$$,
+  '23505', NULL, 'un material es de una sola combinacion de cubiertas'
+);
+
+-- Una unidad de stock es de una sola cubierta.
+SELECT throws_ok(
+  $$INSERT INTO tires (serial_number, brand_id, tire_type_id, company_id, updated_at, material_unit_id)
+    VALUES ('T-1', gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000001', now(), 'a1000000-0000-0000-0000-000000000095'),
+           ('T-2', gen_random_uuid(), gen_random_uuid(), 'a1000000-0000-0000-0000-000000000001', now(), 'a1000000-0000-0000-0000-000000000095')$$,
+  '23505', NULL, 'una unidad de stock es de una sola cubierta'
 );
 
 SELECT * FROM finish();

@@ -42,6 +42,15 @@ export function MovementDetail({ movement }: { movement: StockMovementDetail }) 
         </p>
       )}
 
+      {movement.tireServiceItem && (
+        <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          {movement.type === 'RETURN' ? 'Cubierta desmontada' : 'Cubierta montada'} en la orden de gomería del{' '}
+          {movement.tireServiceItem.date} · {movement.tireServiceItem.vehicle}, posición {movement.tireServiceItem.position}
+          {movement.tireServiceItem.open ? ' (orden abierta)' : ''}. Se corrige desde Gomería: cancelando la orden si
+          sigue abierta.
+        </p>
+      )}
+
       {movement.materialRequest && (
         <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
           {movement.reverses ? 'Anula una entrega del pedido ' : 'Entrega del pedido '}

@@ -713,6 +713,18 @@ export async function reverseStockMovement(
     original.lines.flatMap((l) => (l.unit_id ? [l.unit_id] : []))
   );
 
+  // Ultimo movimiento de cada unidad: una salida sigue anulable si la unidad esta afuera por ESE
+  // prestamo, aunque en el medio se haya devuelto y anulado la devolucion (cubiertas, etapa 6).
+  const lastMovementIds = [...new Set([...units.values()].map((u) => u.last_movement_id).filter((id): id is string => !!id))];
+  const lastMovements = new Map(
+    (
+      await tx.stock_movements.findMany({
+        where: { id: { in: lastMovementIds } },
+        select: { id: true, type: true, reverses_movement_id: true, returned_from_movement_id: true },
+      })
+    ).map((m) => [m.id, m])
+  );
+
   const quantities = new Map([...balances].map(([k, b]) => [k, dec(b.quantity)]));
   const averages = new Map([...materials].map(([id, m]) => [id, dec(m.average_cost)]));
   const changedAverages = new Set<string>();
@@ -767,14 +779,18 @@ export async function reverseStockMovement(
         if (unit.status !== 'IN_STOCK' || unit.warehouse_id !== target?.id) throw moved;
       } else if (line.direction === 1) {
         if (unit.status !== 'IN_STOCK' || unit.warehouse_id !== origin.id) throw moved;
+      } else if (original.type === 'EXIT') {
+        const last = unit.last_movement_id ? lastMovements.get(unit.last_movement_id) : undefined;
+        if (!last || loanExitOf(last) !== original.id) throw moved;
+        if (unit.status !== 'OUT') {
+          // Prestada y dada de baja: la baja cierra el prestamo y no se anula (spec etapa 2 §3.4).
+          throw new StockError(
+            'UNIT_NOT_AVAILABLE',
+            `No se puede anular ${original.number}: la unidad ${unit.serial_number} fue dada de baja`
+          );
+        }
       } else if (unit.last_movement_id !== original.id) {
         throw moved;
-      } else if (original.type === 'EXIT' && unit.status !== 'OUT') {
-        // Prestada y dada de baja: la baja cierra el prestamo y no se anula (spec etapa 2 §3.4).
-        throw new StockError(
-          'UNIT_NOT_AVAILABLE',
-          `No se puede anular ${original.number}: la unidad ${unit.serial_number} fue dada de baja`
-        );
       }
     }
   }
@@ -861,7 +877,7 @@ export interface ReturnInput {
  * Salida a la que pertenece el prestamo abierto de una unidad: su ultimo movimiento, o — si
  * el ultimo es la anulacion de una devolucion — la salida a la que apunta esa devolucion.
  */
-function loanExitOf(lastMovement: {
+export function loanExitOf(lastMovement: {
   id: string;
   type: string;
   reverses_movement_id: string | null;

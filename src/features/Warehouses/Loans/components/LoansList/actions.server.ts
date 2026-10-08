@@ -73,7 +73,8 @@ function exitDateWhere(range: Record<string, unknown>): UnitWhere {
 /** WHERE compartido entre paginated, export y facets. */
 function buildWhereClause(companyId: string, state: FilterState): UnitWhere {
   const f = state.filters;
-  const and: UnitWhere[] = [{ company_id: companyId, status: 'OUT' }];
+  // Las cubiertas (materiales con `tire_combination`) se desmontan desde Gomeria: no se listan.
+  const and: UnitWhere[] = [{ company_id: companyId, status: 'OUT', material: { tire_combination: null } }];
 
   // Busqueda global: serie, codigo y nombre del material
   const search = state.search?.trim();
