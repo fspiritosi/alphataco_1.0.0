@@ -30,6 +30,9 @@ vi.mock('next/cache', () => ({ revalidatePath: () => undefined }));
 
 const RUN = Boolean(process.env.DATABASE_URL);
 
+/** Tipo de vehiculo propio del test: la base del CI no trae catalogos. */
+const VEHICLE_KIND_NAME = 'Cubiertas stock test';
+
 async function db() {
   return (await import('@/shared/lib/prisma')).prisma;
 }
@@ -56,6 +59,7 @@ async function cleanup() {
   await prisma.vehicles.deleteMany({ where: { id: VEHICLE } });
   await prisma.tire_templates.deleteMany({ where: { id: TEMPLATE } });
   await prisma.type.deleteMany({ where: { id: VEHICLE_TYPE } });
+  await prisma.types_of_vehicles.deleteMany({ where: { name: VEHICLE_KIND_NAME } });
   await prisma.material_categories.deleteMany({ where: { company_id } });
   await prisma.measurement_units.deleteMany({ where: { company_id } });
   await prisma.warehouses.deleteMany({ where: { company_id } });
@@ -102,7 +106,7 @@ describe.skipIf(!RUN)('cubiertas en el stock (integracion)', () => {
     await cleanup();
     const prisma = await db();
     const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
-    const vehicleKind = await prisma.types_of_vehicles.findFirstOrThrow({ select: { id: true } });
+    const vehicleKind = await prisma.types_of_vehicles.create({ data: { name: VEHICLE_KIND_NAME }, select: { id: true } });
     await prisma.company.create({
       data: {
         id: COMPANY,
