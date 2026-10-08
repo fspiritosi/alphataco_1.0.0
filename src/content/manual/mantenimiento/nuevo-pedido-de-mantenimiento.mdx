@@ -1,0 +1,136 @@
+---
+title: Nuevo pedido de mantenimiento
+summary: Cargar un pedido para un vehículo o un equipamiento desde un checklist, un programa preventivo o a mano, y quién lo tiene que aprobar.
+keywords: nuevo pedido, pedido, solicitud, mantenimiento, correctivo, preventivo, carga manual, checklist, desvío, equipamiento, supervisor, kilometraje, horómetro
+updated: 2026-10-07
+---
+
+La pestaña **Nuevo Pedido** del módulo **Mantenimiento** sirve para pedir un trabajo de taller sin esperar a que un chofer lo marque en un checklist: un desvío que se vio en la calle, un programa preventivo que toca, o una reparación puntual. Es un asistente paso a paso que termina en una **solicitud** (que tiene que aprobar un supervisor) o directamente en un **pedido** para el taller, si quien carga es el supervisor.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+A la izquierda, la lista de pasos (se tildan a medida que los completás); a la derecha, el paso actual con los botones **Anterior** y **Siguiente**. Los pasos dependen de lo que elijas:
+
+| Tipo de pedido | Pasos |
+|---|---|
+| **Checklist** | Recurso → Equipo → Tipo → Items → Supervisor → Confirmar |
+| **Mant. Preventivo** | Recurso → Equipo → Preventivo → Supervisor → Confirmar |
+| **Carga Manual - Mant. Correctivo** | Recurso → Equipo → Tipo → Reparaciones → Supervisor → Confirmar |
+
+**Siguiente** se habilita cuando el paso está completo.
+
+## Cómo cargar un pedido
+
+<Steps>
+<Step title="Recurso: ¿para qué es el pedido?">
+Elegí **Equipos** (vehículos con dominio y kilometraje) o **Equipamientos** (contenedores, piletas, trailers: sin dominio, se miden con horómetro). Define qué lista vas a ver en el paso siguiente.
+</Step>
+<Step title="Equipo">
+Abrí **Seleccioná el equipo** (o **Seleccioná el equipamiento**) y buscalo por dominio, serie, número interno, tipo o subtipo; podés escribir varias palabras y no hace falta poner tildes. Al elegirlo se muestran sus datos y se precargan:
+
+- **Kilometraje actual** (solo vehículos).
+- **Horómetro**.
+
+Corregilos si el equipo tiene una lectura más nueva. El kilometraje **no puede ser menor** que el último registrado.
+</Step>
+<Step title="Tipo de pedido">
+Elegí una de las tarjetas:
+
+- **Checklist** (desde desvíos de inspección): después elegís en **Selecciona el checklist base** cuál de los checklists del equipo usar.
+- **Mant. Preventivo** (programa planificado): elegís en **Selecciona el programa** entre **Mantenimiento Preventivo Flota Liviana**, **Mantenimiento Preventivo Flota Pesada**, **Programa de Verano** y **Programa de Invierno**, y podés sumar una **Descripción (opcional)**.
+- **Carga Manual - Mant. Correctivo**: cargás las reparaciones sin pasar por un checklist.
+
+Para equipamientos no hay checklists ni programa preventivo: se usa **Carga Manual**.
+</Step>
+<Step title="Items o Reparaciones">
+Depende del tipo (ver abajo).
+</Step>
+<Step title="Supervisor">
+Respondé **¿Eres el supervisor de este pedido?**:
+
+- **Sí, soy el supervisor**: el pedido se crea aprobado y va directo al taller.
+- **No, seleccionaré uno**: elegí en **Selecciona el supervisor de turno** quién lo va a aprobar.
+</Step>
+<Step title="Confirmar">
+Revisá el resumen (equipo, mediciones, tipo, ítems o reparaciones, supervisor) y tocá **Crear Pedido** (si sos el supervisor) o **Enviar Solicitud**.
+</Step>
+</Steps>
+
+### Items de un checklist
+
+En **Selecciona los items con desvío** aparecen los ítems del checklist elegido, agrupados por sección. Tildá los que tienen problemas; en cada uno podés escribir un **Comentario sobre el desvío (opcional)**. Los ítems críticos llevan la marca **Crítico**.
+
+Si algo no está en el checklist, agregalo en **Otros ítems (no listados en el checklist)** describiendo el problema.
+
+<Callout type="info" title="Solo informativo · No viaja a taller">
+Algunos ítems tienen esa marca: si los tildás quedan registrados en el pedido, pero no generan trabajo en el taller.
+</Callout>
+
+### Reparaciones de una carga manual
+
+En **Cargá las reparaciones que necesita el equipo** cargás cada reparación con:
+
+- **¿Qué hay que reparar?**: una línea alcanza (por ejemplo, "reparar guardabarros trasero"). Es lo único obligatorio.
+- **Detalle (opcional)**: contexto, síntomas o lo que haga falta aclarar.
+- **Fotos (opcional)**: hasta 3 por reparación.
+
+Tocá **Agregar reparación** para sumarla a la lista y repetí para cada una. El taller después la asocia al tipo de reparación que corresponda.
+
+<Callout type="tip" title="No se pierde lo que escribiste">
+Si escribiste una reparación y tocás **Siguiente** sin **Agregar reparación**, el sistema la agrega solo y te avisa. Si cargaste fotos o detalle pero no escribiste qué hay que reparar, no te deja avanzar y te dice qué falta.
+</Callout>
+
+## Quién aprueba el pedido
+
+Este formulario sigue la misma regla que el resto del circuito:
+
+| Si en el paso Supervisor elegiste… | Qué se crea | Dónde aparece |
+|---|---|---|
+| **Sí, soy el supervisor** | Un **pedido** ya aprobado. | **Taller → Por Programar**. El aviso dice **Pedido de mantenimiento creado exitosamente** (o **Pedido creado con N reparaciones**). |
+| **No, seleccionaré uno** | Una **solicitud** pendiente. | **Operaciones → Validar Solicitud**, para el supervisor elegido. El aviso dice **Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos.** (o **Solicitud creada con N reparaciones**). |
+
+En la lista de supervisores aparecen los usuarios de la empresa del equipo con el rol de supervisor de operaciones. Los que figuran con **Sin empleado vinculado** o **Sin diagrama activo** (no trabajan hoy según su diagrama) se ven atenuados y no se pueden elegir.
+
+<Flow title="Qué pasa después">
+  <FlowStep title="Nuevo Pedido" module="Mantenimiento">Cargás el pedido.</FlowStep>
+  <FlowStep title="Validar Solicitud" module="Operaciones" to="validar-solicitudes">Solo si no sos el supervisor.</FlowStep>
+  <FlowStep title="Por Programar" module="Taller" to="taller">El taller le pone fecha.</FlowStep>
+  <FlowStep title="En Taller" module="Taller" to="taller" tone="warning">El equipo queda No operativo.</FlowStep>
+  <FlowStep title="Completada" tone="success">Vuelve a Operativo.</FlowStep>
+</Flow>
+
+## Cómo se conecta con el resto del sistema
+
+- **Taller**: el pedido aprobado aparece en **Por Programar** con su descripción. En una carga manual hecha por el supervisor, el taller ve el texto de cada reparación tal como lo escribiste.
+- **Operaciones**: la solicitud pendiente aparece en **Validar Solicitud** del supervisor elegido; ahí se aprueba o rechaza ítem por ítem (ver <GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink>).
+- **Equipo**: cargar el pedido **no** cambia la condición. El equipo pasa a **No operativo** recién cuando el taller registra su ingreso; desde ese momento cuenta como no disponible en el <GuideLink to="dashboard-principal">Dashboard</GuideLink> y genera un desvío si se lo carga en un <GuideLink to="partes-diarios">parte diario</GuideLink>.
+- **Historial**: todo queda en la pestaña **Historial de Mantenimiento** de la <GuideLink to="ficha-del-vehiculo">ficha del vehículo</GuideLink>.
+- **Desde el campo**: el mismo formulario lo usa el chofer al escanear el QR del equipo (ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>); en ese caso el equipo ya viene elegido, el paso **Recurso** no aparece y el chofer siempre elige un supervisor, así que lo que carga queda como solicitud a validar.
+
+El circuito completo está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña y cargar pedidos | **Ver** en **Nuevo Pedido** del módulo Mantenimiento. |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="La lista de supervisores está vacía o no deja elegir">
+No hay usuarios con el rol de supervisor de operaciones en la empresa del equipo, o ninguno tiene hoy un diagrama de trabajo. Revisá los diagramas de los supervisores (<GuideLink to="diagramas">Diagramas</GuideLink>) o que su usuario esté vinculado a su legajo.
+</Callout>
+
+<Callout type="warning" title="El kilometraje no puede ser menor al actual">
+El valor que cargaste es menor que el último kilometraje registrado del vehículo. Si el registro anterior estaba mal, corregilo en la ficha del vehículo.
+</Callout>
+
+<Callout type="info" title="La tarjeta Checklist está bloqueada">
+Para equipamientos no hay checklists configurados: elegí **Carga Manual**. Si es un vehículo y ves **No hay checklists disponibles para este tipo de equipo**, no hay ningún checklist armado para ese tipo de vehículo: usá **Carga Manual**.
+</Callout>
+
+<Callout type="danger" title="Elegí bien la respuesta del paso Supervisor">
+Si respondés **Sí, soy el supervisor**, el pedido no pasa por la validación de operaciones: va directo al taller.
+</Callout>

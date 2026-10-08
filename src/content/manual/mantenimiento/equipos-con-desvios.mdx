@@ -1,0 +1,78 @@
+---
+title: Equipos con desvíos
+summary: Vehículos con desvíos de checklist que quedaron sin solicitud de mantenimiento, y cómo convertirlos en solicitud para que no se pierdan.
+keywords: equipos con desvíos, desvío, checklist, pendiente, registrar desvíos, solicitud, supervisor de turno, resolver
+updated: 2026-10-07
+---
+
+La pestaña **Equipos con Desvíos** del módulo **Mantenimiento** es una red de seguridad. Cuando un chofer completa un checklist y marca problemas, el sistema le pide registrarlos y elegir un supervisor; así nace la solicitud de mantenimiento. Si ese paso no se completó (por ejemplo, cerró la ventana sin confirmar), los desvíos quedan cargados pero **sin solicitud**: nadie los va a validar y el taller nunca se entera. Esta pantalla lista los vehículos que tienen desvíos en esa situación y permite registrarlos.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Una fila por vehículo con al menos un desvío sin solicitud.
+
+| Columna | Qué muestra |
+|---|---|
+| **Dominio**, **Serie**, **N° Interno** | Identificación del vehículo. |
+| **Categoría** | Categoría del vehículo. |
+| **Tipo de Unidad** y **Subtipo de Unidad** | Clasificación del vehículo. |
+| **Sector** | Sector de la empresa al que pertenece. |
+| **Cantidad de Desvíos** | Cuántos desvíos tiene sin solicitud. |
+| **Último Desvío** | Fecha y hora del desvío más reciente. |
+
+- **Filtros**: **Categoría**, **Tipo de Unidad**, **Subtipo de Unidad**, **Sector**, **Dominio**, **Serie** y **N° Interno**.
+- **Buscar por dominio, serie, N° interno...**
+- Se puede exportar a Excel.
+
+Si no hay nada pendiente, la tabla dice **No hay equipos con desvíos pendientes.**: es la situación ideal.
+
+<Callout type="info" title="Solo vehículos">
+Esta pantalla lista vehículos. Los equipamientos (contenedores, piletas, trailers) no tienen checklist, así que sus pedidos se cargan siempre desde <GuideLink to="nuevo-pedido-de-mantenimiento">Nuevo Pedido</GuideLink>.
+</Callout>
+
+## Cómo convertir los desvíos en solicitud
+
+<Steps>
+<Step title="Abrí los desvíos del equipo">
+Tocá **Resolver Desvíos** en la fila. Se abre **Registrar Desvíos** con todos los desvíos pendientes del vehículo, los críticos primero.
+</Step>
+<Step title="Elegí el supervisor de turno">
+En **Supervisor de Turno** elegí quién va a revisar estos desvíos. Es obligatorio.
+</Step>
+<Step title="Comentá si hace falta">
+Opcionalmente, agregá un comentario a cada desvío describiendo el problema.
+</Step>
+<Step title="Registrá">
+Tocá **Registrar Desvíos**. El aviso dice cuántas solicitudes se crearon y cuántos desvíos se registraron.
+</Step>
+</Steps>
+
+Al registrar, los desvíos dejan de aparecer en esta pantalla y pasan a **Operaciones → Validar Solicitud** del supervisor elegido, que los aprueba o rechaza como cualquier otra solicitud (ver <GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink>).
+
+<Callout type="info" title="Pueden salir varias solicitudes">
+Cada checklist genera su propia solicitud. Si los desvíos acumulados vienen de varios checklists, la ventana lo avisa: **Estos desvíos provienen de N checklists distintos**, y se crea una solicitud por cada uno, todas con el supervisor que elegiste. Si el checklist incluía un enganche (tractora y acoplado), se crea una solicitud por cada unidad, para que el gasto quede en la unidad que corresponde.
+</Callout>
+
+<Callout type="tip" title="Si ya había una solicitud abierta">
+Si el checklist ya tiene una solicitud que todavía no se validó, los desvíos se suman a esa en lugar de crear otra. Si los desvíos ya estaban en una solicitud, solo se actualizan los comentarios y el supervisor, y el aviso dice **Los desvíos ya tenían solicitud de mantenimiento**.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- **De dónde vienen los desvíos**: de los checklists que completan los choferes, desde el <GuideLink to="qr-del-equipo">QR del equipo</GuideLink> o el <GuideLink to="panel-del-operario">Panel del operario</GuideLink>. También se ven en la pestaña de checklists de la <GuideLink to="ficha-del-vehiculo">ficha del vehículo</GuideLink>.
+- **Hacia dónde van**: a la validación de operaciones y, si se aprueban, al taller. El recorrido completo está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+- **Condición del equipo**: tener desvíos pendientes no cambia la condición del vehículo. Sigue **Operativo** hasta que entra al taller.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña y registrar desvíos | **Ver** en **Equipos con Desvíos** del módulo Mantenimiento. |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No puedo elegir supervisor">
+La lista muestra los supervisores de operaciones de la empresa. Si está vacía, no hay usuarios con ese rol en la empresa. **Registrar Desvíos** queda deshabilitado hasta que elijas uno.
+</Callout>

@@ -1,0 +1,118 @@
+---
+title: Diagramas, afectaciones y desvíos
+summary: Cómo los diagramas de turnos, las afectaciones a clientes y la condición de los equipos determinan los desvíos de cada parte diario, el mail diario y la Sala de Control.
+keywords: diagrama, novedad, turno, afectación, cliente, desvío, parte diario, condición, duplicado, sala de control, mail
+updated: 2026-10-07
+---
+
+Cada vez que se asigna un empleado o un equipo a una línea del parte diario, el sistema lo controla contra tres datos maestros: **el diagrama** (¿le toca trabajar ese día?), **la afectación** (¿trabaja para ese cliente?) y, en los equipos, **la condición** (¿está operativo?). Si algo no coincide, se marca un **desvío**. Los desvíos no bloquean la carga: se muestran en el parte, se informan por mail cada mañana y se acumulan en la **Sala de Control** del Dashboard.
+
+<Flow title="De los datos maestros al control diario">
+  <FlowStep title="Diagramas" module="Empleados" to="diagramas">Qué novedad tiene cada empleado cada día.</FlowStep>
+  <FlowStep title="Afectaciones" module="Comercial" to="clientes">Para qué clientes trabaja cada empleado y equipo.</FlowStep>
+  <FlowStep title="Condición" module="Equipos / Mantenimiento" to="del-checklist-al-taller">Si el equipo está operativo.</FlowStep>
+  <FlowStep title="Parte diario" module="Operaciones" tone="warning" to="detalle-del-parte">Cada recurso asignado se controla y se marcan sus desvíos.</FlowStep>
+  <FlowStep title="Seguimiento" module="Dashboard" tone="info" to="dashboard-estadisticas">Mail de las 07:00 y Sala de Control.</FlowStep>
+</Flow>
+
+## 1. Diagramas: quién trabaja cada día
+
+El diagrama es el calendario de cada empleado: para cada día tiene una **novedad** (por ejemplo, un día de trabajo, un franco, una licencia). Se gestiona en <GuideLink to="diagramas">Empleados → Diagramas</GuideLink>, con las solapas **Diagramas Cargados**, **Cargar Diagrama** (de a un empleado), **Carga Masiva** (hasta 100 empleados y 90 días) y **Reportes**, y también desde la pestaña **Diagramas** de la ficha del empleado.
+
+Las novedades se configuran en <GuideLink to="catalogos-de-rrhh">Configuración → RRHH → Tipos de Novedades</GuideLink>. La que decide los desvíos es **Laboralmente Activo**: una novedad con ese interruptor apagado es un **día no laboral**. En **Tipos de Diagramas** se definen los esquemas de trabajo (días activos, días inactivos y la novedad de cada uno), que se usan para cargar diagramas completos.
+
+<Callout type="warning" title="Los diagramas no se borran">
+No hay forma de eliminar un diagrama cargado: para corregir un día se vuelve a cargar y se elige **Actualizar**. La carga masiva pisa todos los días del rango elegido: revisá el rango antes de confirmar.
+</Callout>
+
+Al dar de baja a un empleado se desactivan **todos** sus diagramas; al reactivarlo, vuelven (ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+
+## 2. Afectaciones: para qué cliente trabaja cada recurso
+
+Afectar un empleado o un equipo a un cliente significa declarar que trabaja para él. Se hace de dos maneras:
+
+- **Desde el cliente**, en <GuideLink to="clientes">Comercial → Clientes</GuideLink>: al abrir un cliente, la pestaña **Empleados** (botón **Cargar empleados**) y la pestaña **Equipos afectados** (botón **Asignar Equipos**).
+- **Desde el recurso**: en la ficha del empleado, la tarjeta **Asignado a contratistas** de **Datos Laborales**; en la ficha del equipo, la tarjeta **Asignación a Contratistas** de la pestaña **Asignación**.
+
+Desde el cliente, el modal lee las afectaciones actuales al abrirse (mientras tanto no deja guardar) y, antes de confirmar, muestra exactamente qué va a pasar: "{N} afectados actualmente. Se agregan X. Se quitan Y." Las bajas se ven en rojo. Al guardar, el mensaje confirma cuántos se afectaron y cuántos se desafectaron.
+
+<Callout type="danger" title="Mirá las bajas antes de guardar">
+Las afectaciones no tienen historial: si quitás a alguien por error, el sistema no guarda cuándo estaba afectado. Leé el resumen "Se quitan…" antes de tocar **Guardar cambios**.
+</Callout>
+
+Lo que cambia al afectar o desafectar:
+
+- **Documentación**: los tipos de documento pueden estar condicionados por **Clientes**. Al afectar o desafectar, el sistema re-evalúa los documentos de cada recurso tocado: le aparecen los que el cliente exige y se archivan como **Ya no aplica** los que dejan de corresponder. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+- **Partes diarios**: un recurso asignado a una línea de un cliente al que no está afectado marca el desvío "No asignado al cliente de esta fila".
+
+## 3. La condición del equipo
+
+| Condición | Cómo llega el equipo a ese estado |
+|---|---|
+| **En preparación** | Todo vehículo nuevo nace así. Se pasa a **Operativo** desde el selector del encabezado de su ficha. |
+| **Operativo** | Al pasarlo desde la ficha, o al cerrarse su última orden de taller. |
+| **No operativo** | Al ingresar al taller, o al darlo de baja. |
+| **En reparación** / **Operativo condicionado** | Existen en registros anteriores; hoy el sistema no los asigna. |
+
+El circuito de taller está en <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+## 4. Los desvíos del parte diario
+
+En el <GuideLink to="detalle-del-parte">detalle del parte</GuideLink>, cada empleado y equipo asignado aparece como una etiqueta. Sin desvíos, la etiqueta es sólida ("Empleado asignado correctamente"); con desvíos, es de contorno de color y al pasar el mouse lista **todos** los que tiene (pueden ser varios a la vez).
+
+| Recurso | Desvío | Qué lo causa |
+|---|---|---|
+| Empleado | **Empleado asignado en múltiples filas** | Está en más de una línea del mismo parte. |
+| Empleado | **No asignado al cliente de esta fila** | No está afectado al cliente de esa línea. |
+| Empleado | **Sin diagrama cargado para este día** | No tiene novedad cargada para la fecha del parte (o está dado de baja). |
+| Empleado | **Día no laboral: …** | La novedad de ese día no es laboralmente activa (franco, licencia, etc.). |
+| Equipo | **Asignado en múltiples filas del parte diario** | Está en más de una línea del mismo parte. |
+| Equipo | **No asignado al cliente de esta fila** | No está afectado al cliente de esa línea. |
+| Equipo | **Condición: No operativo** / **En reparación** / **Condicionado** / **En preparación** | Su condición no es Operativo. |
+
+Al asignar empleados, el selector ya avisa "Sin diagrama" o el día no laboral, para evitar el desvío antes de cargarlo.
+
+<Callout type="info" title="Los desvíos del parte se calculan en vivo">
+Cada vez que abrís un parte, los desvíos se calculan con los datos actuales. Si cargás el diagrama que faltaba o afectás al empleado al cliente, el desvío desaparece del parte, incluso en partes de días anteriores.
+</Callout>
+
+## 5. Mail diario y Sala de Control
+
+**Mail de desvíos**: todos los días a las **07:00** el sistema revisa el parte **del día** de cada empresa y, si tiene desvíos, envía "Desvíos del Parte Diario — {Empresa} — {fecha}". Trae los totales (filas con desvíos, desvíos de empleados y de equipos, duplicados), el detalle agrupado por cliente y línea, y el botón **Ver Parte Diario**. Si ese día no hay parte o no hay desvíos, no se envía nada. Llega a los destinatarios que la empresa tenga configurados.
+
+**Sala de Control**: en <GuideLink to="dashboard-estadisticas">Dashboard → Estadísticas → Sala de Control</GuideLink>, la tarjeta **Desvíos del parte diario** muestra la evolución con la meta fija en cero ("la meta es 0 desvíos"): **Desvíos Empleados**, **Desvíos Equipos**, **Empleados Duplicados**, **Equipos Duplicados** y **Filas con desvíos**, por día, semana o mes, para todos los clientes o uno. Debajo, la tarjeta de **Gestión de Pedidos** resume los pedidos por estado.
+
+<Callout type="warning" title="La Sala de Control es una foto que no cambia">
+El dato de cada día se guarda a las **00:30**, con el parte de ese día tal como estaba cargado a esa hora, y después no se recalcula. Corregir un diagrama o una afectación más tarde arregla el parte (que se calcula en vivo), pero no el histórico de la Sala de Control ni el mail que ya salió. Por eso conviene cargar los partes y los diagramas el día anterior.
+</Callout>
+
+## Cómo corregir cada desvío
+
+| Desvío | Cómo se corrige |
+|---|---|
+| Sin diagrama cargado | Cargá la novedad del día en **Cargar Diagrama** (acepta fechas pasadas). |
+| Día no laboral | Si en realidad trabajó, cargá la novedad correcta con **Actualizar**; si no, sacalo de la línea. |
+| No asignado al cliente | Afectalo al cliente en Comercial → Clientes o desde su ficha, o asigná otro recurso. |
+| Asignado en múltiples filas | Dejalo en una sola línea del parte. |
+| Equipo no operativo | Asigná otro equipo, o completá el circuito de taller para que vuelva a Operativo. Un equipo **En preparación** se pasa a Operativo desde su ficha. |
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver y cargar diagramas | Empleados → **Diagramas** y sus solapas |
+| Configurar novedades y tipos de diagrama | Configuración → RRHH |
+| Afectar empleados desde el cliente | Comercial → Clientes → Empleados: **Editar** |
+| Afectar equipos desde el cliente | Comercial → Clientes → Equipos: **Editar** |
+| Afectar desde la ficha | **Editar** en la ficha del empleado o del equipo |
+| Ver la Sala de Control | Dashboard → Estadísticas → **Sala de Control** |
+
+## Problemas frecuentes
+
+**"Todos los empleados de un parte salen Sin diagrama"**: no se cargaron los diagramas de ese período. Usá **Carga Masiva**.
+
+**"El empleado trabaja para ese cliente pero sale No asignado"**: falta la afectación. Revisá la pestaña Empleados del cliente.
+
+**"Corregí todo y la Sala de Control sigue mostrando desvíos"**: es esperable: muestra la foto de las 00:30 de ese día. El parte ya corregido no tiene desvíos.
+
+**"Un empleado dado de baja sigue apareciendo en el cliente"**: la baja no quita las afectaciones. Quitalo desde el cliente si corresponde.

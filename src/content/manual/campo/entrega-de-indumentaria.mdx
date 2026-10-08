@@ -1,0 +1,111 @@
+---
+title: Entrega de indumentaria
+summary: Panel para registrar entregas de ropa de trabajo y EPP con la firma del empleado, consultar el historial y descargar la constancia en PDF.
+keywords: indumentaria, ropa, EPP, elementos de protección, entrega, firma, constancia, RG 12-4, talle, panel, pañol
+updated: 2026-10-07
+---
+
+El panel de **Entrega de Indumentaria** es una pantalla aparte del sistema, pensada para usarse en una tablet o en la computadora del pañol: el responsable de indumentaria registra qué se le entregó a cada empleado (ropa de trabajo o elementos de protección personal), el empleado **firma en la pantalla** con el dedo, y la entrega queda guardada con fecha y hora, lista para imprimir la constancia.
+
+No está dentro del menú lateral: se abre con su propia dirección, que termina en **/clothing**. Pedile el enlace al administrador del sistema y guardalo como favorito en el dispositivo que se use para las entregas.
+
+## Quién puede usarlo
+
+Lo usa la persona que entrega la indumentaria. Para entrar necesita:
+
+1. Un **usuario** del sistema (correo y contraseña), creado por un administrador.
+2. Que ese usuario esté **vinculado a un empleado** (su propio legajo). Lo hace un administrador en **Configuración → General → Usuarios**, columna **Empleado vinculado**, botón **Vincular**.
+
+El panel trabaja siempre con la empresa del empleado vinculado: no tiene selector de empresa. Y queda registrado **quién entregó** cada cosa: el empleado vinculado al usuario que inició sesión.
+
+## Cómo entrar
+
+<Steps>
+<Step title="Abrí el panel">
+Entrá a la dirección del panel. Vas a ver la tarjeta **Entrega de Indumentaria** con la leyenda **Acceso para registro de entregas de EPP**.
+</Step>
+<Step title="Ingresá tus datos">
+Completá **Email** y **Contrasena** (la misma contraseña con la que entrás al sistema) y hacé clic en **Iniciar Sesion**.
+</Step>
+<Step title="Elegí qué hacer">
+En **Indumentaria** elegí **Nueva Entrega** para registrar una entrega o **Ver Entregas** para consultar el historial. Desde cualquiera de las dos volvés con **Volver al menú**.
+</Step>
+</Steps>
+
+Arriba de la pantalla ves tu nombre y el botón **Salir**, que cierra la sesión y vuelve al ingreso. Cerrá la sesión si el dispositivo queda a disposición de otras personas.
+
+<Callout type="warning" title="Si no te deja entrar">
+- "**Tu usuario no tiene un empleado vinculado. Contacta al administrador.**": el usuario existe pero no está vinculado a un legajo. Un administrador lo resuelve con **Vincular** en la lista de usuarios.
+- "**Correo o contraseña inválidos**": revisá los datos o recuperá la contraseña desde el ingreso principal del sistema (ver <GuideLink to="primeros-pasos#si-te-olvidaste-la-contraseña">Si te olvidaste la contraseña</GuideLink>).
+</Callout>
+
+## Cómo registrar una entrega
+
+La entrega se carga en cinco pasos. A la izquierda (o arriba, en el teléfono, como **Paso X de 5**) ves el **Progreso**. Te movés con **Siguiente** y **Anterior**; el sistema no te deja avanzar si falta algo del paso actual.
+
+<Steps>
+<Step title="Empleado: quién recibe">
+En **Buscar empleado** escribí el legajo, el nombre o el apellido. La lista muestra **[legajo] Apellido Nombre** con el puesto, el convenio y la fecha de ingreso. Elegí al empleado: aparece su tarjeta con **Legajo**, **CUIL**, **CCT** e **Ingreso**. Solo aparecen empleados activos. Si te equivocaste, quitalo con la cruz.
+</Step>
+<Step title="Tipo: por qué se entrega">
+Elegí el tipo de entrega: **Planificada CCT** (la que corresponde por convenio), **Planificada EPP** (elementos de protección planificados) o **Reposición** (reemplazo de algo roto o perdido).
+</Step>
+<Step title="Artículos: qué se entrega">
+Por cada artículo completá **Artículo** y **Cantidad** (obligatorios) y, si corresponde, **Marca** y **Talle**. Las marcas y talles que aparecen son los que están cargados para ese artículo en el catálogo. Tildá **Posee certificado** si el elemento tiene certificación. Para sumar otra línea usá **Agregar artículo**; para quitar una, el ícono de la papelera. Tiene que haber al menos un artículo.
+</Step>
+<Step title="Firma: el empleado confirma">
+Pasale el dispositivo al empleado para que firme en el recuadro **Firme aqui con su dedo o lapiz**. Si sale mal, **Limpiar** y que firme de nuevo. Cuando esté bien, tocá **Confirmar Firma**: vas a ver **Firma registrada**. Sin firma confirmada no se puede seguir.
+</Step>
+<Step title="Confirmar: revisá y guardá">
+En **Resumen de la entrega** revisá el empleado, el tipo, los artículos (con marca, talle, certificado y cantidad) y la firma. Si querés, agregá **Observaciones**. La entrega se registra con la fecha y hora del momento. Tocá **Confirmar Entrega**.
+</Step>
+</Steps>
+
+Al terminar vas a ver "**Entrega registrada correctamente**" y el panel pasa al historial de entregas, con la nueva arriba.
+
+<Callout type="info" title="Empezar desde la ficha del empleado">
+En el sistema, en la ficha del empleado, pestaña **Indumentaria**, el botón **Nueva Entrega** abre este panel en otra pestaña del navegador con el empleado ya elegido: arrancás directamente en el paso **Tipo**. Ver <GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>.
+</Callout>
+
+<Callout type="warning" title="Revisá antes de confirmar">
+Una entrega confirmada no se edita desde el panel. Verificá cantidades y talles en el resumen antes de tocar **Confirmar Entrega**.
+</Callout>
+
+## Cómo consultar las entregas
+
+En **Ver Entregas** está el historial de todas las entregas de la empresa.
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha de entrega** | Fecha y hora en que se confirmó. |
+| **Legajo (destinatario)** y **Destinatario** | El empleado que recibió. |
+| **Tipo de entrega** | Planificada CCT, Planificada EPP o Reposición. |
+| **Legajo (entregó)** y **Entregado por** | Quién registró la entrega. |
+| **Artículos** | Lo entregado. |
+| **Firma** | Si tiene firma (filtro **Con firma** / **Sin firma**). |
+| **Notas** | Las observaciones. |
+
+Podés buscar por el nombre del empleado y exportar la lista a Excel (ver <GuideLink to="primeros-pasos#cómo-usar-las-tablas">Cómo usar las tablas</GuideLink>).
+
+### La constancia en PDF
+
+Con **Ver PDF** se abre la **Constancia de Entrega EPP** (formulario **RG 12-4**) con los datos de la empresa, del trabajador (nombre, DNI, legajo y puesto), el detalle de cada producto (tipo, modelo, talle, código, marca, certificado, cantidad y si es reposición) y la firma. Hacé clic en **Descargar PDF** para guardarla o imprimirla.
+
+Si seleccionás varias entregas, **Descargar ZIP** genera un archivo comprimido con una constancia por entrega.
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="De la entrega a la ficha del empleado">
+<FlowStep title="Catálogo" module="Configuración" tone="default" to="catalogo-de-indumentaria">Artículos, marcas y talles disponibles.</FlowStep>
+<FlowStep title="Entrega firmada" module="Panel de indumentaria" tone="info">Se registra con fecha, firma y quién entregó.</FlowStep>
+<FlowStep title="Ficha del empleado" module="Empleados" tone="success" to="ficha-del-empleado">Queda en la pestaña Indumentaria.</FlowStep>
+</Flow>
+
+- **Lo que se puede entregar** sale del catálogo de indumentaria: si falta un artículo, una marca o un talle, hay que cargarlo ahí primero (ver <GuideLink to="catalogo-de-indumentaria">Catálogo de indumentaria</GuideLink>).
+- **Cada entrega aparece en la ficha del empleado**, pestaña **Indumentaria**, con su fecha, tipo, quién la entregó, la firma y las notas (ver <GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>).
+- Los empleados **dados de baja** no aparecen en la búsqueda del paso **Empleado**.
+- El panel **no descuenta stock**: registra la entrega y la firma, pero no lleva existencias de pañol.
+
+## Permisos
+
+El panel no usa los permisos por rol del sistema: alcanza con tener un usuario vinculado a un empleado. En cambio, **ver las entregas en la ficha del empleado** requiere el permiso **Ver** sobre la pestaña **Indumentaria** de Empleados, y el catálogo se administra desde Configuración con sus propios permisos (ver <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>).

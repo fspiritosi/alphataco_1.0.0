@@ -849,6 +849,14 @@ export const PERMISSIONS = {
         allowedActions: ['view'],
         subtabs: {},
       },
+      manual: {
+        slug: 'manual',
+        name: 'Manual de uso',
+        tabId: 'a0000000-0000-0000-0000-000000000002',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
     },
   },
 

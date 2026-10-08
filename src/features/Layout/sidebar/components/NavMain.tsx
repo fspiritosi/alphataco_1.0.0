@@ -18,7 +18,7 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
-import { SUB_ITEM_ICONS, navigationLinks } from '../constants/navigation';
+import { SUB_ITEM_ICONS, navigationLinks, type NavBadge } from '../constants/navigation';
 import { buildSidebarItems, createLinkRegex, findBestMatch, resolveActiveTab } from '../utils/sidebar.utils';
 
 /**
@@ -44,6 +44,12 @@ const MODULE_BUTTON = cn(
   '[&>svg]:text-sidebar-foreground/60 [&>svg]:transition-colors',
   'hover:[&>svg]:text-brand data-[active=true]:[&>svg]:text-brand'
 );
+
+const BADGE_CLASS = 'bg-destructive text-destructive-foreground pointer-events-none';
+
+function badgeLabel(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}
 
 /** Igual que el módulo, pero la tab activa va con relleno sólido: es la hoja del árbol. */
 const SUB_ITEM_BUTTON = cn(
@@ -74,8 +80,9 @@ export function NavMain({ accessibleModuleSlugs, visibleTabs }: NavMainProps) {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
 
-  // Badge del modulo Ayuda: tickets de soporte sin leer.
+  // Contadores de los items que declaran `badge` (hoy: tickets de soporte sin leer).
   const unreadTickets = useUnreadSupportTicketsCount();
+  const countFor = (badge: NavBadge | undefined): number => (badge === 'support-tickets' ? unreadTickets : 0);
 
   const items = useMemo(
     () => buildSidebarItems(navigationLinks, accessibleModuleSlugs, visibleTabs),
@@ -106,7 +113,11 @@ export function NavMain({ accessibleModuleSlugs, visibleTabs }: NavMainProps) {
       <SidebarMenu className="gap-0.5">
         {items.map((item) => {
           const isActive = item.name === activeName;
-          const badgeCount = item.moduleSlug === 'ayuda' ? unreadTickets : 0;
+          // Con sub-items, el contador del modulo sale de los sub-items VISIBLES (ya filtrados
+          // por permiso): quien ve Ayuda solo por el Manual no tiene tickets que leer.
+          const badgeCount = item.items?.length
+            ? Math.max(0, ...item.items.map((subItem) => countFor(subItem.badge)))
+            : countFor(item.badge);
           const activeTab = isActive ? resolveActiveTab(item, tabParam) : null;
 
           // Sin sub-items visibles (modulo de una sola tab, sin tabs, o sin permisos sobre
@@ -131,9 +142,7 @@ export function NavMain({ accessibleModuleSlugs, visibleTabs }: NavMainProps) {
                   </Link>
                 </SidebarMenuButton>
                 {badgeCount > 0 && (
-                  <SidebarMenuBadge className="bg-destructive text-destructive-foreground pointer-events-none">
-                    {badgeCount > 9 ? '9+' : badgeCount}
-                  </SidebarMenuBadge>
+                  <SidebarMenuBadge className={BADGE_CLASS}>{badgeLabel(badgeCount)}</SidebarMenuBadge>
                 )}
               </SidebarMenuItem>
             );
@@ -149,10 +158,20 @@ export function NavMain({ accessibleModuleSlugs, visibleTabs }: NavMainProps) {
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
+                {/* Con el desplegable cerrado el contador del sub-item no se ve: se repite
+                    sobre el modulo, corrido a la izquierda del chevron. */}
+                {badgeCount > 0 && (
+                  <SidebarMenuBadge
+                    className={cn(BADGE_CLASS, 'right-8 group-data-[state=open]/collapsible:hidden')}
+                  >
+                    {badgeLabel(badgeCount)}
+                  </SidebarMenuBadge>
+                )}
                 <CollapsibleContent>
                   <SidebarMenuSub className="border-sidebar-border/70">
                     {item.items.map((subItem) => {
                       const SubIcon = SUB_ITEM_ICONS[`${item.moduleSlug}:${subItem.tabSlug}`];
+                      const subCount = countFor(subItem.badge);
 
                       return (
                         <SidebarMenuSubItem key={subItem.tabSlug}>
@@ -164,6 +183,16 @@ export function NavMain({ accessibleModuleSlugs, visibleTabs }: NavMainProps) {
                             <Link href={`${item.href}?tab=${subItem.tabSlug}`}>
                               {SubIcon && <SubIcon />}
                               <span>{subItem.name}</span>
+                              {subCount > 0 && (
+                                <span
+                                  className={cn(
+                                    BADGE_CLASS,
+                                    'ml-auto flex h-5 min-w-5 items-center justify-center px-1 text-xs font-medium tabular-nums'
+                                  )}
+                                >
+                                  {badgeLabel(subCount)}
+                                </span>
+                              )}
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>

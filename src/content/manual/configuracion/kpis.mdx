@@ -1,0 +1,122 @@
+---
+title: KPIs
+summary: Cómo definir los indicadores de la empresa (umbral, fórmula, vigencia), llevar el historial de cambios y seguir su evolución en los gráficos.
+keywords: KPI, indicador, indicadores, umbral, meta, objetivo, vigencia, fórmula, gráficos, ausentismo, productividad, disponibilidad, movimientos internos, revisiones
+updated: 2026-10-07
+---
+
+En **Configuración → General → KPIs** la empresa define sus **indicadores clave**: qué se mide, cuál es el valor objetivo (el umbral) y desde cuándo rige. Al lado, en **Gráficos**, se ve cómo vienen evolucionando los indicadores que calcula el sistema contra ese umbral. Lo usan la dirección y los responsables de cada área.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+La subpestaña **KPIs** tiene dos vistas:
+
+| Vista | Para qué sirve |
+|---|---|
+| **Indicadores** | La lista de KPIs de la empresa, con el formulario para crearlos y editarlos. |
+| **Gráficos** | La evolución diaria de los indicadores calculados por el sistema, comparada con su umbral. |
+
+## Indicadores
+
+Si tenés permiso para crear o editar KPIs, la vista se divide en dos: a la izquierda el formulario y a la derecha la tabla. Si solo podés ver, ocupa todo el ancho la tabla.
+
+| Columna | Qué muestra |
+|---|---|
+| **Código** | Lo asigna el sistema al crear el KPI (KPI-0001, KPI-0002…). |
+| **Nombre** | El nombre del indicador. |
+| **Número** | El umbral u objetivo (por ejemplo 85,5 para un 85,5 %). |
+| **Vigencia** | Hasta cuándo rige el umbral. Si ya pasó, se marca **(Vencido)**. |
+| **Fórmula** | Cómo se calcula. |
+| **Oportunidades de Mejora** | Las acciones propuestas para mejorar el indicador. |
+| **Soporte Técnico** | **Sí** o **No**. |
+| **Estado** | **Activo** o **Inactivo**. Los inactivos van al final. |
+| **Creado** | Cuándo se dio de alta. |
+
+Podés buscar con **Buscar por código o nombre...**, filtrar por **Estado**, **Soporte Técnico**, fechas y textos (incluidos **Fórmula** y **Oportunidades de Mejora**), y exportar a Excel. En cada fila, **Ver** abre el detalle y **Editar** carga el KPI en el formulario.
+
+### Cómo crear un KPI
+
+<Steps>
+<Step title="Completá el formulario">
+En **Crear KPI** cargá el **Nombre del KPI**, el **Número (Umbral)** (por ejemplo "85.5", el porcentaje objetivo), la **Fecha de Vigencia** y la **Fórmula de Cálculo**. Nombre, fecha de vigencia y fórmula son obligatorios.
+</Step>
+<Step title="Agregá oportunidades de mejora (opcional)">
+En **Oportunidades de Mejora** dejá las acciones previstas si el indicador no se cumple.
+</Step>
+<Step title="Elegí el estado">
+**Activo** o **Inactivo**.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear**. Vas a ver **KPI creado correctamente**. El código se asigna solo.
+</Step>
+</Steps>
+
+### Cómo cambiar el umbral o la vigencia
+
+El umbral y la vigencia son lo que se audita, así que su cambio queda registrado con un motivo:
+
+<Steps>
+<Step title="Abrí el detalle">
+En la fila del KPI, hacé clic en **Ver**.
+</Step>
+<Step title="Bajá hasta Editar Número y Vigencia">
+Al pie de la pestaña **Detalle** está el bloque **Editar Número y Vigencia**.
+</Step>
+<Step title="Cargá los valores nuevos y el motivo">
+**Nuevo Número**, **Nueva Fecha de Vigencia** y **Motivo del Cambio** son obligatorios.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Actualizar**. Vas a ver **Número y vigencia actualizados correctamente**.
+</Step>
+</Steps>
+
+Cada cambio queda en la pestaña **Revisiones** del detalle, con **Número Anterior**, **Número Nuevo**, **Vigencia Anterior**, **Vigencia Nueva**, **Motivo del Cambio** y **Fecha**. Para el resto de los datos (nombre, fórmula, oportunidades de mejora, estado) usá **Editar** en la tabla: el formulario pasa a **Editar KPI**.
+
+## Gráficos
+
+La vista **Gráficos** muestra una tarjeta por cada uno de los seis indicadores que el sistema calcula solo, todos los días, a partir de lo que se carga en los demás módulos:
+
+| Código | Indicador | Qué mide |
+|---|---|---|
+| **KPI-0001** | Ausentismo diario | Empleados ausentes sobre el total de empleados activos. |
+| **KPI-0002** | Personal en movimientos internos | Personal asignado a movimientos internos sobre el personal apto. |
+| **KPI-0003** | Productividad del personal | Personal asignado a clientes sobre el personal disponible. |
+| **KPI-0004** | Disponibilidad operacional de mantenimiento | Equipos no operativos sobre el total de equipos aptos. |
+| **KPI-0005** | Equipos en movimientos internos | Equipos asignados a movimientos internos sobre los operativos. |
+| **KPI-0006** | Equipos operativos en cliente | Equipos operativos asignados a clientes sobre los disponibles. |
+
+Cada tarjeta muestra el nombre y la descripción del indicador, un selector de período (**Últimos 7 días**, **Últimos 30 días**, **Últimos 3 meses**, **Último año**) y la línea del indicador día por día. El **Número (Umbral)** que cargaste en **Indicadores** para ese código se dibuja como una línea punteada de meta.
+
+Cada punto se pinta en verde si cumple la meta y en rojo si no. En la mayoría de los indicadores "cumplir" es quedar **por debajo** del umbral (menos ausentismo, menos equipos fuera de servicio); en **KPI-0003** y **KPI-0006** es al revés, porque más es mejor.
+
+<Callout type="info" title="Un KPI nuevo no tiene gráfico">
+Los gráficos existen solo para los seis indicadores que calcula el sistema. Si creás un KPI propio (KPI-0007 en adelante), queda registrado con su umbral, fórmula y revisiones, pero no se dibuja.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- **Los gráficos se alimentan de lo que se carga en otros módulos**: el ausentismo, de las novedades de los diagramas (las que tienen **Computa para ausentismo**, ver <GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>); la productividad y los movimientos internos, de las afectaciones a clientes y los diagramas; la disponibilidad, de la condición de los equipos. Si esos datos están desactualizados, el indicador también.
+- **El umbral** que se define acá es la línea de meta de los gráficos.
+- **El Dashboard** tiene sus propios números y gráficos (tarjetas de la pantalla principal, estadísticas de RRHH, operaciones y mantenimiento), que se calculan aparte y no dependen de esta configuración (<GuideLink to="dashboard-principal">Dashboard principal</GuideLink> y <GuideLink to="dashboard-estadisticas">Estadísticas</GuideLink>).
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la subpestaña KPIs | **Ver** en **KPIs** |
+| Ver la lista de indicadores | **Ver** en **Indicadores** |
+| Ver los gráficos | **Ver** en **Gráficos** |
+| Crear un KPI | **Crear** en **KPIs** |
+| Editar un KPI y cambiar número y vigencia | **Editar** en **KPIs** |
+
+## Problemas frecuentes
+
+<Callout type="tip" title="El gráfico dice &quot;No hay datos disponibles para el rango seleccionado&quot;">
+El sistema todavía no calculó valores para ese período (por ejemplo, una empresa recién empezada). Probá con un rango más corto o esperá a que se acumulen días.
+</Callout>
+
+<Callout type="info" title="La línea de meta no aparece">
+El KPI de ese código no tiene **Número (Umbral)** cargado, o es cero. Cargalo desde **Editar Número y Vigencia**.
+</Callout>

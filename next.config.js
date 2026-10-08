@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // Las guías del manual se leen del disco en runtime (`src/features/Ayuda/Manual/lib`): sin esto,
+  // el trazado de `standalone` no las copia y en producción el manual queda vacío.
+  outputFileTracingIncludes: {
+    '/dashboard/help': ['./src/content/manual/**/*']
+  },
   cacheComponents: true,
   transpilePackages: ['@react-pdf/renderer'],
   experimental: {

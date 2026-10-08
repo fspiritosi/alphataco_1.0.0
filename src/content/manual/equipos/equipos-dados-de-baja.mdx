@@ -1,0 +1,99 @@
+---
+title: Equipos dados de baja
+summary: Cómo se da de baja un vehículo o equipamiento, qué motivos y fecha se registran, qué cambia en el resto del sistema y cómo se lo reactiva.
+keywords: baja, dar de baja, dado de baja, inactivo, reactivar, activar equipo, reintegro, motivo de baja, venta, destrucción total, devolución, fecha de baja
+updated: 2026-10-07
+---
+
+Cuando un equipo deja de formar parte de la flota (se vendió, se destruyó, se devolvió al propietario), **no se borra**: se lo **da de baja**. Así se conserva su historia (documentos, mantenimientos, checklists) y deja de aparecer en el trabajo diario. Si vuelve a la flota, se lo reactiva.
+
+La subpestaña **Dados de Baja** reúne todos los equipos dados de baja de la empresa.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Está en **Equipos → Equipos → Dados de Baja** y tiene dos pestañas propias: **Vehículos** y **Otros Equipos** (el equipamiento).
+
+Las tablas son iguales a las del listado activo, con las columnas de la baja a la vista: **Motivo de baja** y **Fecha de baja**. Los filtros visibles de entrada son **Motivo de baja**, **Condición** y **Tipo**; con **Filtros** mostrás el resto. El buscador de vehículos busca por dominio, N° interno o chassis.
+
+**Excel** exporta los equipos dados de baja que cumplen los filtros (el archivo de vehículos se llama "Vehículos Dados de Baja").
+
+Hacé clic en el dominio, el N° interno o el N° de serie para abrir la ficha: en el encabezado vas a ver el estado **Dado de Baja** y, abajo, la **Fecha de Baja** y la **Razón de Baja**.
+
+## Cómo dar de baja un equipo
+
+La baja se hace desde la ficha del equipo, no desde esta pestaña.
+
+<Steps>
+<Step title="Abrí la ficha del equipo">
+Desde **Vehículos** o **Equipamiento**, hacé clic en el equipo.
+</Step>
+<Step title="Abrí el menú de acciones">
+En el encabezado, hacé clic en el botón de los tres puntos (al lado de **Editar**) y elegí **Dar de Baja Equipo**.
+</Step>
+<Step title="Elegí el motivo">
+En **Motivo de Baja** elegí una de las opciones: **venta**, **destrucción total**, **devolución** u **otro**. Es obligatorio.
+</Step>
+<Step title="Indicá la fecha">
+En **Fecha de Baja** elegí el día en que el equipo dejó la flota. Es obligatoria y no puede ser una fecha futura.
+</Step>
+<Step title="Confirmá">
+Hacé clic en **Dar de baja**. Vas a ver **Equipo dado de baja correctamente** y el equipo pasa a **Dados de Baja**.
+</Step>
+</Steps>
+
+## Qué pasa cuando das de baja un equipo
+
+- **Sale del listado activo** y aparece en **Dados de Baja**. Deja de ofrecerse para partes diarios, pedidos y el resto de los selectores de equipos activos.
+- **Condición**: un **vehículo** dado de baja queda en **No operativo**. El **equipamiento** conserva la condición que tenía.
+- **Documentación** (solo vehículos): el sistema deja de pedirle los documentos que todavía no tenía cargados, salvo los tipos marcados como **documento de baja**, que siguen exigiéndose porque son justamente la documentación del egreso. Los documentos que ya tenían archivo **no se borran**. Además, sus documentos dejan de aparecer en las tablas de **Documentación** y en los vencimientos del Dashboard. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+- **Historial**: la ficha sigue disponible para consulta, con sus pestañas de mantenimiento, checklists y cubiertas.
+
+<Callout type="info" title="Las afectaciones a clientes no se quitan">
+Dar de baja no desafecta al equipo de sus clientes: si querés que deje de figurar en un cliente, quitalo también desde la pestaña **Asignación** de la ficha o desde Comercial → Clientes.
+</Callout>
+
+## Cómo reactivar un equipo
+
+<Steps>
+<Step title="Abrí la ficha desde Dados de Baja">
+Hacé clic en el equipo en **Equipos → Equipos → Dados de Baja**.
+</Step>
+<Step title="Activalo">
+En el menú de los tres puntos elegí **Activar Equipo** y confirmá con **Activar**.
+</Step>
+</Steps>
+
+Al reactivarlo, el equipo vuelve al listado activo, se borran el motivo y la fecha de baja, y el sistema vuelve a calcular los documentos que se le exigen. La condición **no cambia**: un vehículo reactivado sigue **No operativo** hasta que Mantenimiento lo habilite.
+
+<States title="Ciclo de alta y baja">
+<State name="Activo" tone="success" next="Dado de Baja">
+Forma parte de la flota y aparece en el listado.
+</State>
+<State name="Dado de Baja" tone="danger" next="Activo">
+Fuera de la flota, con motivo y fecha registrados. Se puede reactivar.
+</State>
+</States>
+
+## Cómo se conecta con el resto del sistema
+
+Para ver cómo se encadenan las altas y bajas de empleados y equipos con la documentación y los diagramas, leé <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver la pestaña **Dados de Baja** | **Ver** en Equipos → Dados de Baja |
+| Dar de baja o reactivar un vehículo | **Editar** en Detalle de Equipo |
+| Dar de baja o reactivar equipamiento | **Editar** en Detalle de Otro Equipo |
+
+## Problemas frecuentes
+
+<Callout type="warning" title="No veo el botón de los tres puntos">
+El menú **Dar de Baja Equipo** / **Activar Equipo** solo aparece si tenés permiso de edición sobre la ficha.
+</Callout>
+
+<Callout type="tip" title="Equivocaste el motivo o la fecha">
+No hay una opción para corregirlos directamente: reactivá el equipo y volvé a darlo de baja con los datos correctos.
+</Callout>

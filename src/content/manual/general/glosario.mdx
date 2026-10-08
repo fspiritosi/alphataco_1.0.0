@@ -1,0 +1,185 @@
+---
+title: Glosario
+summary: Qué significa cada término que usa el sistema (legajo, afectación, alerta, parte diario, desvío, certificación, CAE, OT, etc.) y dónde se trabaja.
+keywords: glosario, términos, definiciones, significado, qué es, vocabulario
+updated: 2026-10-07
+---
+
+Los términos del sistema, en orden alfabético. Cada uno indica dónde se trabaja, con un enlace a la guía correspondiente. Si un término tiene dos usos en el sistema (como **desvío** o **pedido**), están los dos.
+
+## A
+
+### Afectación (afectado a un cliente)
+
+Vínculo entre un empleado o un equipo y un **cliente**: indica que ese recurso trabaja para ese cliente. Un mismo recurso puede estar afectado a varios clientes. En la ficha del empleado figura como **Asignado a contratistas**, en la del equipo como **Asignación a Contratistas**, y en las listas de documentos como la columna **Afectado a**. La afectación importa porque **cambia los documentos que se le exigen** al recurso (un cliente puede pedir documentación propia) y porque en el parte diario un recurso no afectado al cliente de la línea genera un **desvío**. Se carga desde la ficha del recurso o desde el cliente. Ver <GuideLink to="clientes">Clientes</GuideLink> y <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+
+### Alerta (documento pendiente)
+
+Un documento que **el sistema exige pero que todavía no se subió**. El sistema la crea solo para cada tipo de documento **obligatorio** que corresponde a un empleado, equipo o a la empresa, y figura con el estado **Pendiente** y sin archivo. Desaparece como alerta cuando se sube el archivo. Las alertas son las que hacen que un recurso figure **Incompleto**. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+### ARCA simulado (modo demo)
+
+Modo de la facturación en el que los comprobantes **no se informan a ARCA y no tienen validez fiscal**: sirve para probar el circuito sin certificado. Los comprobantes llevan la marca **Simulado** y la pantalla lo avisa ("**ARCA simulado (modo demo)…**"). Ver <GuideLink to="facturacion">Facturación</GuideLink>.
+
+### Archivado ("Ya no aplica")
+
+Un documento que **se había subido pero dejó de corresponderle al recurso** (por ejemplo, porque el empleado cambió de puesto y ese documento solo se pide para el puesto anterior). No se borra: queda guardado como historial con la marca **Ya no aplica**, y no cuenta para el estado de documentación ni genera avisos. Si el recurso vuelve a cumplir la condición, o si se vuelve a subir el documento, se reactiva. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+## C
+
+### CAE
+
+**Código de Autorización Electrónico** que devuelve ARCA cuando aprueba una factura o nota. Un comprobante con CAE está **Autorizado** y ya no se puede modificar ni borrar: solo se corrige con una nota de crédito o de débito. Ver <GuideLink to="facturacion">Facturación</GuideLink>.
+
+### Candidato (pre ingreso)
+
+Persona en proceso de selección, antes de ser empleado. Se trabaja en **Selección**. Pasa por los estados **En proceso**, **Pre ingreso**, **Rechazado** y **Legajo creado**: mientras está en proceso o pre ingreso se le pueden cargar datos y documentos, y al **aprobarlo** el sistema crea su legajo de empleado con esos datos y documentos. Ver <GuideLink to="candidatos">Candidatos</GuideLink> y <GuideLink to="de-candidato-a-legajo">De candidato a legajo</GuideLink>.
+
+### Certificación
+
+Documento comercial que **certifica ante el cliente el trabajo realizado** en un período (a partir de las líneas ejecutadas de los partes diarios) y es la base para facturar. Estados: **Borrador**, **Emitida**, **Confirmada**, **Anulada** y **Facturada**. Solo un borrador se puede editar o eliminar, y solo una certificación **Confirmada** se puede facturar. En los partes diarios, una línea incluida en una certificación figura **En certificación**. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink> y <GuideLink to="del-pedido-a-la-factura">Del pedido a la factura</GuideLink>.
+
+### Checklist
+
+Formulario de inspección de un equipo, con ítems que se responden **Bueno**, **Malo** o **No aplica**. Lo completa el chofer o el mecánico desde el celular escaneando el QR del equipo. Cada ítem **Malo** es un desvío y puede convertirse en una **solicitud de mantenimiento**. Las plantillas de checklist se definen por tipo y subtipo de equipo. Ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>, <GuideLink to="formularios">Formularios</GuideLink> y <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+### Condición del equipo
+
+Estado operativo de un equipo: **Operativo**, **No operativo**, **En reparación**, **Operativo condicionado** o **En preparación**. La mueve sobre todo el circuito de mantenimiento (por ejemplo, al terminar un trabajo en el taller vuelve a **Operativo** si no quedan otros pedidos en taller). Un equipo que no está operativo genera **desvío** si se lo asigna en un parte diario. Ver <GuideLink to="ficha-del-vehiculo">Ficha del vehículo</GuideLink>.
+
+### Cubierta
+
+Neumático de un equipo, que se sigue individualmente en **Gomería**: puede estar **Disponible**, **Instalada**, **En reparación**, **Descartada** o **Extraviada**. Ver <GuideLink to="gomeria">Gomería</GuideLink>.
+
+## D
+
+### Desvío
+
+Tiene dos usos:
+
+- **En el parte diario**: un problema con un recurso asignado a una línea. Por ejemplo: el empleado está asignado en varias líneas, **No asignado al cliente de esta fila**, **Sin diagrama cargado para este día**, un día no laboral según su diagrama, o un equipo **No operativo** o **En reparación**. Los desvíos se marcan en la línea y se resumen en el Dashboard. Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink> y <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+- **En un checklist**: un ítem respondido **Malo**. Se registra eligiendo el supervisor de turno y genera una solicitud de mantenimiento. Ver <GuideLink to="equipos-con-desvios">Equipos con desvíos</GuideLink>.
+
+### Diagrama
+
+El esquema de trabajo de un empleado: qué **novedad** tiene cada día (trabaja, franco, licencia, etc.). Cada empleado tiene un tipo de diagrama (por ejemplo, tantos días de trabajo y tantos de descanso) y se cargan sus días en **Empleados → Diagramas**. El parte diario usa el diagrama para detectar si un empleado asignado no debía trabajar ese día. Ver <GuideLink to="diagramas">Diagramas</GuideLink>.
+
+### Documento de baja
+
+Tipo de documento marcado como **Documento de baja**: es documentación de egreso, que **se sigue exigiendo aunque el empleado o equipo esté dado de baja**. El resto de los documentos pendientes de un recurso se dejan de pedir cuando se lo da de baja. Ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>.
+
+### Documento especial (condicional)
+
+Tipo de documento que **solo se exige a los recursos que cumplen ciertas condiciones** (por ejemplo, ciertos puestos, convenios o tipos de equipo). Se configura activando **Documento condicional**. Si un recurso deja de cumplir la condición, sus pendientes de ese tipo se borran y los que ya estaban subidos se archivan como **Ya no aplica**. Ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>.
+
+### Documento permanente / mensual
+
+- **Permanente**: se presenta una vez y vale hasta que vence o se reemplaza (por ejemplo, el DNI o la licencia de conducir).
+- **Mensual**: se presenta **una vez por período** (por ejemplo, un recibo de sueldo o un seguro mensual). Lleva el período al que corresponde.
+
+En **Documentación** cada uno tiene su pestaña (**Documentos Permanentes** y **Documentos Mensuales**). Se define al crear el tipo, con **Es mensual**. Ver <GuideLink to="documentos-de-empleados">Documentos de empleados</GuideLink>.
+
+## E
+
+### Empresa activa
+
+La empresa con la que estás trabajando, elegida arriba del menú lateral. Todo lo que ves y cargás pertenece a ella, y tus permisos dependen de ella. Ver <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>.
+
+### Estado de documentación
+
+Resumen de cómo está la documentación de un empleado o un equipo:
+
+- **Completo**: todos sus documentos exigidos están presentados.
+- **Completo con doc vencida**: alguno de sus documentos figura **Vencido**.
+- **Incompleto**: le falta presentar algún documento (tiene alertas pendientes). Es el estado con el que arranca todo recurso nuevo.
+
+El sistema lo recalcula solo cada vez que se sube, reemplaza o borra un documento del recurso, o cambia lo que se le exige. Los documentos archivados no cuentan. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+## F
+
+### Factura, nota de crédito y nota de débito
+
+Los **comprobantes** que se emiten desde **Comercial → Facturación**, en sus letras A, B o C. La **factura** cobra un trabajo; la **nota de crédito** la anula total o parcialmente (por ejemplo, por un error); la **nota de débito** suma un cargo. Un comprobante pasa por **Borrador**, **Emitiendo**, **Pendiente en ARCA**, **Rechazada** o **Autorizada**. Solo los borradores y rechazados se pueden editar, borrar o volver a emitir. Ver <GuideLink to="facturacion">Facturación</GuideLink>.
+
+## G
+
+### Gomería
+
+Sección de Mantenimiento para gestionar las **cubiertas**: catálogo, plantillas por tipo de equipo, marcas, tipos y órdenes de gomería (reemplazo, reparación, calibración, extravío). Ver <GuideLink to="gomeria">Gomería</GuideLink>.
+
+## H
+
+### Homologación / Producción
+
+Los dos ambientes de ARCA. En **Homologación** los comprobantes son **de prueba** y no tienen validez fiscal ("**Estás en homologación…**"); en **Producción** son comprobantes reales. Cada ambiente tiene su propio certificado y su propia numeración. Ver <GuideLink to="datos-fiscales">Datos fiscales</GuideLink>.
+
+## L
+
+### Legajo
+
+El **número de legajo** es el identificador interno de cada empleado, y es la forma más segura de encontrarlo (dos personas pueden llamarse igual, pero no tener el mismo legajo). Por eso aparece en todas las listas y buscadores de empleados. "Legajo" también se usa para la ficha completa del empleado. Ver <GuideLink to="ficha-del-empleado">Ficha del empleado</GuideLink>.
+
+### Línea del parte
+
+Cada renglón de un parte diario: un servicio para un cliente en ese día, con sus **recursos** (empleados y equipos). Estados: **Pendiente**, **Sin recursos**, **Ejecutado**, **Reprogramado**, **Cancelado** y **En certificación**. Una línea pasa sola de **Sin recursos** a **Pendiente** cuando se le asignan los recursos necesarios. Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+
+## N
+
+### Novedad
+
+Lo que un empleado hizo (o no) un día determinado según su diagrama: por ejemplo, trabajo, franco, vacaciones o enfermedad. Cada **tipo de novedad** indica si es **Laboralmente Activo** (el empleado trabaja ese día) y si **Computa ausentismo**. Los tipos se configuran en **Configuración → RRHH**. Ver <GuideLink to="diagramas">Diagramas</GuideLink> y <GuideLink to="catalogos-de-rrhh">Catálogos de RRHH</GuideLink>.
+
+## O
+
+### OT (orden de trabajo)
+
+La parte de un pedido de mantenimiento que le toca a **un sector del taller** (por ejemplo, Mecánica o Pintura). La trabaja el operario desde su panel: la inicia, completa las tareas y la cierra. Estados: **Pendiente**, **En Proceso**, **Pausada**, **Completada**, **Completada Parcial** y **Cancelada**. Ver <GuideLink to="panel-del-operario">Panel del operario</GuideLink> y <GuideLink to="taller">Taller</GuideLink>.
+
+## P
+
+### Parte diario
+
+El registro de **todo el trabajo de un día**: un parte por fecha, con una línea por cada servicio. Mientras es el día en curso está **Abierto**; después el sistema lo cierra solo como **Cerrado completo** (todas las líneas resueltas) o **Cerrado incompleto** (quedaron líneas pendientes). Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink>.
+
+### Pedido
+
+Tiene dos usos:
+
+- **En Operaciones (Gestor de Pedidos)**: un trabajo que el cliente pide para una fecha. Estados: **Pendiente**, **Confirmado**, **Reprogramado**, **Cancelado**, **Rechazado** y **Vencido** (un pendiente cuya fecha pasó sin confirmarse). Al confirmarlo se crea su línea en el parte diario de ese día. Ver <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink>.
+- **En Mantenimiento (pedido u orden de mantenimiento)**: el trabajo de taller que se genera al aprobar una solicitud. Pasa por la programación, el ingreso al taller, las OT de cada sector y la validación final. Ver <GuideLink to="taller">Taller</GuideLink>.
+
+### Permiso
+
+La habilitación para hacer **una acción** (**Ver**, **Crear**, **Editar**, **Eliminar**, **Aprobar**, **Ver precios e importes**, etc.) en **una pantalla**. Sin permiso, la pantalla o el botón no aparecen. Ver <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>.
+
+### Punto de venta
+
+Número que ARCA asigna a cada punto de emisión de comprobantes de la empresa. Se cargan en **Datos fiscales** y cada factura se emite desde uno activo; la numeración es propia de cada punto de venta y tipo de comprobante. Ver <GuideLink to="datos-fiscales">Datos fiscales</GuideLink>.
+
+## R
+
+### Recurso
+
+Un **empleado o un equipo**. Se habla de recursos al asignarlos a las líneas del parte diario y al hablar de la documentación (a quién se le exige cada documento). Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+
+### Rol
+
+Conjunto de permisos con nombre que se asigna a los usuarios. Hay roles de sistema (acceso total) y roles personalizados que arma cada empresa. Ver <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>.
+
+## S
+
+### Solicitud de mantenimiento
+
+El **reporte de algo que hay que reparar o revisar** en un equipo. Se origina en un checklist con desvíos, en una carga manual o en un mantenimiento preventivo. Queda **Pendiente** hasta que el supervisor la **aprueba** (y se convierte en un pedido para el taller) o la **rechaza**. Ver <GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink> y <GuideLink to="nuevo-pedido-de-mantenimiento">Nuevo pedido de mantenimiento</GuideLink>.
+
+## T
+
+### Ticket
+
+Un reporte o pedido al **equipo de soporte** del sistema, con su número **TKT-…**, su estado y su conversación. Ver <GuideLink to="soporte-tickets">Soporte y tickets</GuideLink>.
+
+## V
+
+### Vencido / vencimiento
+
+Los tipos de documento marcados **Tiene vencimiento** valen hasta una fecha. Un documento **vencido** ya no está vigente: hay que subir la versión nueva. Los documentos vencidos y los próximos a vencer se siguen desde el Dashboard. Ver <GuideLink to="dashboard-vencimientos">Vencimientos</GuideLink>.

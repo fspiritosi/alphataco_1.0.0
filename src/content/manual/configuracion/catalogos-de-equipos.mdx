@@ -1,0 +1,108 @@
+---
+title: Catálogos de equipos
+summary: Los tipos de unidad, subtipos, marcas, modelos y titulares que se eligen al cargar vehículos y otros equipos, y qué controla cada uno.
+keywords: tipo de unidad, tipo de equipo, subtipo, marca, modelo, titular, propietario, leasing, alquiler, prendado, unidad tractora, enganche, checklist, operativo, parte diario, QR, catálogo
+updated: 2026-10-07
+---
+
+La pestaña **Equipos** de Configuración tiene las listas que se eligen en la ficha de cada vehículo y de cada equipo: de qué tipo es, qué marca y modelo tiene y a quién pertenece. Algunas de estas listas, además, deciden **cómo se comporta** el equipo en el resto del sistema (si entra al parte diario, qué checklist se le hace, con qué se puede enganchar). Conviene armarlas antes de cargar la flota.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+| Subpestaña | Qué se configura |
+|---|---|
+| **Tipos de Unidad** | Los tipos de vehículo y de equipo (camioneta, tractor, semirremolque, grupo electrógeno…). |
+| **Marcas** | Las marcas. |
+| **Modelos** | Los modelos de cada marca. |
+| **Subtipos** | La subdivisión de cada tipo. |
+| **Titulares** | Los dueños de los equipos que no son propios (leasing, alquiler, prendados). |
+
+Todas funcionan igual: si tenés permiso para crear o editar, a la izquierda está el formulario y a la derecha la tabla; en la tabla, **Editar** carga la fila en el formulario. Las tablas tienen búsqueda, filtros por columna y exportación a Excel. Ningún elemento se borra: se pasa a **Inactivo**.
+
+## Tipos de Unidad
+
+| Campo | Qué es |
+|---|---|
+| **Nombre** | Obligatorio. |
+| **Aplica a** | **Vehículos** u **Otros Equipos**. Define en qué listado aparece el tipo al cargar un equipo. |
+| **Es operativo** | Solo para **Otros Equipos**: "Los equipos de este tipo aparecerán en el parte diario y podrán tener mantenimiento". Si queda apagado, los equipos de ese tipo se registran pero no se usan en partes ni en mantenimiento. |
+| **Estado** | **Activo** o **Inactivo**. |
+| **Unidad Tractora** | Solo para **Vehículos**: indica que la unidad arrastra a otras (por ejemplo, un tractor). |
+| **Lleva Enganche** | Aparece si es unidad tractora: indica que engancha otras unidades. |
+| **Tipos compatibles para enganche** | Aparece si lleva enganche: qué tipos puede enganchar (por ejemplo, semirremolques). |
+| **Checklists aplicables** | Qué checklists se le pueden hacer a los equipos de este tipo. |
+
+La tabla muestra además **Operativo** y **Genera QR** (ocultas de entrada: mostralas con el selector de columnas). **Genera QR** indica si los equipos del tipo tienen código QR (en los otros equipos, decide si su ficha muestra la pestaña del QR). Viene encendido de fábrica y no se cambia desde este formulario.
+
+## Subtipos
+
+Cada subtipo pertenece a un tipo. Por ejemplo, el tipo "Semirremolque" puede tener los subtipos "Batea" y "Playo".
+
+| Campo | Qué es |
+|---|---|
+| **Nombre** | Obligatorio. |
+| **Tipo de Unidad** | El tipo al que pertenece. Obligatorio. |
+| **Estado** | **Activo** o **Inactivo**. |
+| **Subtipos/Tipos compatibles para enganche** | Afina el enganche a nivel subtipo: con qué subtipos o tipos es compatible. |
+| **Checklists aplicables** | Los checklists que aplican a este subtipo en particular. |
+
+En la ficha del equipo, el **Sub Tipo de Unidad** se elige después del **Tipo**.
+
+## Marcas y Modelos
+
+- **Marcas** pide el **Nombre de la Marca** y el **Estado**.
+- **Modelos** pide la **Marca** a la que pertenece, el **Nombre del Modelo** y el **Estado**.
+
+En la ficha del equipo, primero se elige la marca y después uno de sus modelos. Cargá la marca antes que sus modelos.
+
+## Titulares
+
+Los **titulares** son los dueños de los equipos que la empresa usa pero no son propios.
+
+| Campo | Qué es |
+|---|---|
+| **Nombre** | Obligatorio. |
+| **CUIT** | Obligatorio (al menos 6 caracteres). |
+| **Tipos de Contrato** | Con qué modalidad le da equipos a la empresa: **Leasing**, **Alquiler** y/o **Prendado**. Hay que tildar al menos uno. |
+| **Estado** | **Activo** o **Inactivo**. |
+
+En la ficha del equipo, cuando el **Tipo de Contrato** no es **Propio**, se elige el **Propietario** entre estos titulares.
+
+En la tabla, **Ver Equipos** abre la lista de equipos de ese titular, con su condición, estado documental, tipo, subtipo y estado, y su propia exportación a Excel ("Equipos de: …").
+
+## Qué pasa cuando desactivás un elemento en uso
+
+Si pasás a **Inactivo** un **tipo**, un **subtipo** o un **titular** que todavía tiene equipos, se abre **Confirmar desactivación** con la lista de equipos que lo usan (dominio y chasis). Para seguir, elegí en **Opciones de reemplazo** el valor que van a pasar a tener esos equipos (o **Dejar vacío**) y confirmá con **Reemplazar y desactivar**.
+
+<Callout type="warning" title="El reemplazo cambia la ficha de todos esos equipos">
+Se aplica a todos los equipos de la lista de una vez. Si el tipo o el subtipo es condición de algún tipo de documento, los documentos que se les piden pueden cambiar (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>). Revisalo después de confirmar.
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+- **Fichas de equipos**: tipo, subtipo, marca, modelo y propietario salen de estas listas (<GuideLink to="ficha-del-vehiculo">Ficha del vehículo</GuideLink> y <GuideLink to="ficha-de-otro-equipo">Ficha de otro equipo</GuideLink>).
+- **Documentos**: marca, modelo, tipo y subtipo se pueden usar como **condiciones** de un tipo de documento. Cambiarle el tipo a un equipo puede hacer que se le pidan otros documentos (<GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>).
+- **Partes diarios y mantenimiento**: un tipo de "Otros Equipos" con **Es operativo** apagado no entra en los partes ni en el circuito de mantenimiento.
+- **Checklists**: los **Checklists aplicables** del tipo y del subtipo definen qué checklists se le hacen al equipo, y los enganches compatibles, qué se le puede enganchar al registrarlo (<GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>).
+- **Mantenimiento**: los tipos de equipo son también los que cada rol puede ver u ocultar en las solicitudes de mantenimiento (<GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>).
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la pestaña Equipos | **Ver** en **Vehículos** (la pestaña de Configuración) |
+| Ver cada subpestaña | **Ver** en **Tipos de Unidad**, **Marcas**, **Modelos**, **Subtipos** o **Titulares** |
+| Crear | **Crear** en la subpestaña |
+| Editar (incluye activar y desactivar) | **Editar** en la subpestaña |
+
+## Problemas frecuentes
+
+<Callout type="tip" title="Un equipo nuevo no aparece en el parte diario">
+Si es de **Otros Equipos**, revisá que su tipo tenga **Es operativo** encendido.
+</Callout>
+
+<Callout type="tip" title="El modelo que busco no aparece en la ficha del equipo">
+Los modelos se filtran por la marca elegida. Revisá en **Modelos** que esté cargado con la marca correcta.
+</Callout>

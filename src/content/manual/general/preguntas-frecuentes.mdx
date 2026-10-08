@@ -1,0 +1,161 @@
+---
+title: Preguntas frecuentes
+summary: Respuestas concretas a las dudas más comunes de quien empieza: accesos, documentación, partes diarios, facturación, bajas, mantenimiento y soporte.
+keywords: preguntas, dudas, FAQ, no puedo, no veo, por qué, cómo hago, error, problema
+updated: 2026-10-07
+---
+
+Las dudas que más se repiten al empezar a usar el sistema, agrupadas por tema. Cada respuesta enlaza a la guía donde está el detalle.
+
+## Acceso y permisos
+
+### No puedo entrar al sistema. ¿Qué hago?
+
+- Si **nunca entraste**: el alta la hace un administrador de tu empresa; no hay registro libre. Pedile que te cree el usuario o te invite.
+- Si **te olvidaste la contraseña**: usá **¿Olvidaste tu contraseña?** en la pantalla de ingreso. Te llega un enlace que vence en 24 horas.
+- Si ves "**Tu acceso ha sido revocado…**": tu usuario fue dado de baja (o tu legajo de empleado). Hablá con el administrador.
+- Si ves "**Demasiados intentos…**": esperá unos minutos antes de volver a probar.
+
+Ver <GuideLink to="primeros-pasos#cómo-entrar-al-sistema">Cómo entrar al sistema</GuideLink>.
+
+### ¿Por qué no veo un módulo que otro compañero sí ve?
+
+Porque tu rol no tiene el permiso **Ver** en ninguna sección de ese módulo. El menú solo muestra lo que podés abrir. Pedile el acceso a quien administra los usuarios, diciendo qué pantalla necesitás. Ver <GuideLink to="empresa-usuarios-y-permisos#qué-pasa-cuando-no-tenés-un-permiso">Qué pasa cuando no tenés un permiso</GuideLink>.
+
+### Veo la pantalla pero no el botón para crear, editar o borrar. ¿Es un error?
+
+No: los botones de cada acción solo aparecen si tenés ese permiso (**Crear**, **Editar**, **Eliminar**, **Aprobar**…). Tener **Ver** solo te deja consultar. Ver <GuideLink to="empresa-usuarios-y-permisos#roles-y-permisos">Roles y permisos</GuideLink>.
+
+### No veo los importes en certificaciones o facturas
+
+Para ver valores en pesos hace falta, además de **Ver**, el permiso **Ver precios e importes** en esa pantalla. Ver <GuideLink to="empresa-usuarios-y-permisos#qué-es-un-permiso">Qué es un permiso</GuideLink>.
+
+### Cargué algo y ahora no lo encuentro
+
+Fijate en la **empresa activa** (arriba del menú lateral): si trabajás en más de una empresa, lo que cargaste quedó en la que estaba activa en ese momento. Si es la correcta, revisá los filtros de la tabla con **Limpiar filtros**. Ver <GuideLink to="primeros-pasos#la-empresa-activa">La empresa activa</GuideLink>.
+
+### ¿Por qué no me deja borrar un rol?
+
+Los roles de sistema (**Admin**, **Administrador**, **Full Access Provisional**) no se pueden eliminar. Un rol personalizado no se puede eliminar mientras tenga usuarios asignados ("**No se puede eliminar: N usuario(s) asignado(s)**"): primero quitáselo a esos usuarios. Ver <GuideLink to="usuarios-y-roles">Usuarios y roles</GuideLink>.
+
+### No encuentro una guía del manual
+
+El manual solo muestra las guías de las pantallas que tenés habilitadas. Si no ves una guía, es porque no tenés esa pantalla. Ver <GuideLink to="como-usar-el-manual#por-qué-no-ves-todas-las-guías">Por qué no ves todas las guías</GuideLink>.
+
+## Empleados, equipos y documentación
+
+### ¿Por qué un empleado figura "Incompleto"?
+
+Porque tiene al menos un documento exigido sin presentar (una **alerta** pendiente). Todo empleado nuevo arranca **Incompleto** hasta que se sube su documentación. Para resolverlo, abrí su ficha, pestaña **Documentación**, y subí los documentos que figuran **Pendiente**. El estado se actualiza solo. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+### ¿Por qué a un empleado le aparecieron documentos nuevos para presentar?
+
+Porque cambió algo que define qué se le exige: su puesto, categoría, convenio, sector, a qué clientes está afectado, o se creó un tipo de documento nuevo obligatorio que le corresponde. El sistema genera las alertas solo y el empleado puede pasar a **Incompleto**. Ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>.
+
+### ¿Qué significa "Ya no aplica" en un documento?
+
+Que ese documento se había subido pero **dejó de corresponderle** al recurso (por ejemplo, cambió de puesto y ese documento solo se pide para el anterior). No se borra: queda como historial y no cuenta para el estado. Si vuelve a corresponderle, se reactiva solo. Ver <GuideLink to="glosario#archivado-ya-no-aplica">Archivado</GuideLink>.
+
+### ¿Cómo doy de baja a un empleado?
+
+Desde su ficha, menú de acciones, **Dar de Baja Empleado**. Hay que indicar el **Motivo de Baja** y la **Fecha de Baja**. Se puede revertir con **Activar Empleado** desde **Empleados Inactivos**. Ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>.
+
+### ¿Qué pasa con los documentos de alguien dado de baja?
+
+- Los documentos **ya subidos se conservan**.
+- Los **pendientes sin archivo se dejan de pedir** (se borran las alertas)…
+- …salvo los tipos marcados como **Documento de baja**, que son la documentación de egreso y se siguen exigiendo.
+- Sus días de diagrama se desactivan y, si tenía un usuario vinculado, pierde el acceso al sistema.
+
+Ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>.
+
+### Di de baja un equipo por error. ¿Lo puedo recuperar?
+
+Sí. Buscalo en **Equipos → Dados de Baja**, abrí su ficha y usá **Activar Equipo**. Ver <GuideLink to="equipos-dados-de-baja">Equipos dados de baja</GuideLink>.
+
+### ¿Cómo convierto un candidato en empleado?
+
+En **Selección**, cuando el candidato está en **Pre ingreso** y tiene sus datos completos, **Aprobar y crear legajo** (requiere el permiso **Aprobar**). El sistema crea el legajo con sus datos y le pasa los documentos ya cargados. Ver <GuideLink to="de-candidato-a-legajo">De candidato a legajo</GuideLink>.
+
+## Operaciones
+
+### ¿Por qué no puedo editar una línea del parte diario?
+
+Puede ser por alguno de estos motivos:
+
+- La línea está **En certificación**: ya forma parte de una certificación y no se toca.
+- La línea está **Ejecutado** y el parte no es el de hoy.
+- No tenés el permiso **Editar** en el detalle del parte.
+
+En la edición masiva, si alguna línea seleccionada está **Ejecutado** el sistema pide deseleccionarla. Ver <GuideLink to="detalle-del-parte">Detalle del parte</GuideLink>.
+
+### ¿Por qué no puedo agregar líneas a un parte de otro día?
+
+Solo se pueden agregar líneas a un parte **Abierto** o al de hoy. Los partes de días pasados los cierra el sistema solo ("**El parte está cerrado y no es el día de hoy**"). Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink>.
+
+### ¿Por qué no puedo borrar un parte diario?
+
+Porque tiene líneas cargadas: "**No se puede eliminar un parte diario que contiene registros**". Solo se borran partes vacíos. Ver <GuideLink to="partes-diarios">Partes diarios</GuideLink>.
+
+### ¿Qué significa que un recurso tenga un desvío en el parte?
+
+Que hay algo raro en esa asignación: el empleado no está afectado al cliente de la línea, no tiene diagrama ese día o su novedad no es laboral, está en dos líneas a la vez, o el equipo no está operativo. Revisá la asignación o el dato que lo provoca (afectación, diagrama o condición del equipo). Ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>.
+
+### Un pedido figura "Vencido". ¿Qué pasó?
+
+Era un pedido **Pendiente** cuya fecha pasó sin que nadie lo confirmara: el sistema lo marca solo cada noche. Ver <GuideLink to="gestor-de-pedidos">Gestor de pedidos</GuideLink>.
+
+## Comercial
+
+### ¿Por qué no puedo emitir una factura?
+
+El sistema revisa todo antes de mandarla a ARCA y te dice qué falta. Lo más común:
+
+- **Falta configuración fiscal**: datos fiscales incompletos, ningún punto de venta, o falta (o venció) el certificado del ambiente. Se completa en **Datos fiscales**.
+- **Datos del cliente**: CUIT inválido, sin condición frente al IVA o sin domicilio fiscal. Se corrige en la ficha del cliente.
+- **La fecha de emisión** está fuera del rango que permite ARCA (hasta 5 días antes o después de hoy para productos, 10 para servicios).
+- **En servicios**, falta el período facturado completo o el vencimiento del pago.
+- **Las líneas**: sin descripción, cantidad o importe en cero.
+- **No tenés el permiso Aprobar** en Facturación, que es el que permite emitir.
+
+Ver <GuideLink to="facturacion">Facturación</GuideLink> y <GuideLink to="datos-fiscales">Datos fiscales</GuideLink>.
+
+### ¿Puedo modificar o borrar una factura ya autorizada?
+
+No. Una factura **Autorizada** (con CAE) es definitiva: se corrige emitiendo una **nota de crédito** (o de débito). Ver <GuideLink to="facturacion">Facturación</GuideLink>.
+
+### ¿Por qué no puedo facturar una certificación?
+
+Solo se facturan certificaciones **Confirmadas**. Si está en **Borrador** o **Emitida**, primero hay que llevarla a **Confirmada**; si ya está **Facturada**, ya está en otro comprobante. Ver <GuideLink to="certificaciones">Certificaciones</GuideLink>.
+
+### Los comprobantes dicen "Simulado" o "homologación". ¿Son válidos?
+
+No: en **ARCA simulado** y en **homologación** los comprobantes son de prueba y no tienen validez fiscal. Ver <GuideLink to="glosario#homologación--producción">Homologación / Producción</GuideLink>.
+
+## Mantenimiento
+
+### El chofer hizo el checklist con fallas. ¿Dónde lo veo?
+
+Las fallas registradas generan una **solicitud de mantenimiento** pendiente para el supervisor que eligió el chofer, en **Mantenimiento → Operaciones**. Si el chofer no registró los desvíos, el equipo aparece en **Equipos con Desvíos**. Ver <GuideLink to="del-checklist-al-taller">Del checklist al taller</GuideLink>.
+
+### ¿Por qué el chofer no ve ningún checklist al escanear el QR?
+
+Porque no hay plantillas de checklist configuradas para el tipo y subtipo de ese equipo. Ver <GuideLink to="qr-del-equipo#cómo-completar-un-checklist">Cómo completar un checklist</GuideLink>.
+
+### El checklist no me acepta el kilometraje
+
+No se puede cargar un kilometraje (u horómetro) **menor** al que ya tiene registrado el equipo. Revisá el número; si el registrado está mal, corregilo en la ficha del equipo. Ver <GuideLink to="qr-del-equipo">QR del equipo</GuideLink>.
+
+### Un operario no puede entrar a su panel
+
+Necesita un usuario vinculado a su empleado y que ese empleado tenga **Sectores de Taller** asignados. Ver <GuideLink to="panel-del-operario#quién-puede-usarlo">Quién puede usarlo</GuideLink>.
+
+## Soporte
+
+### Encontré un error. ¿Cómo lo reporto?
+
+Desde **Ayuda → Tickets**, con **Reportar un problema**. Indicá la pantalla, el registro y el mensaje de error, y adjuntá una captura. Ver <GuideLink to="soporte-tickets#cómo-reportar-un-problema">Cómo reportar un problema</GuideLink>.
+
+### Me marcaron un ticket como resuelto pero sigue fallando
+
+Abrilo desde **Para revisar** y usá **No quedó resuelto**, explicando qué sigue fallando. Ver <GuideLink to="soporte-tickets#cómo-confirmar-que-quedó-resuelto-o-pedir-la-reapertura">Confirmar o pedir la reapertura</GuideLink>.

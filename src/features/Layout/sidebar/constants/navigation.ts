@@ -2,6 +2,7 @@ import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { MODULE_ICONS, type ModuleIcon } from '@/shared/constants/module-icons';
 import {
   ArrowLeftRight,
+  BookOpen,
   Building2,
   ChartColumn,
   CircleDot,
@@ -13,6 +14,7 @@ import {
   HandHelping,
   House,
   Layers,
+  LifeBuoy,
   Package,
   Plus,
   Settings,
@@ -46,7 +48,12 @@ export type NavigationSubLink = {
    * pagina si montaba la tab — el menu y la pagina decian cosas distintas.
    */
   permission?: { moduleSlug: ModuleSlug; tabSlug: string };
+  /** Contador a mostrar junto al sub-item (y, plegado, sobre el modulo). */
+  badge?: NavBadge;
 };
+
+/** Contadores que puede llevar un item del sidebar. */
+export type NavBadge = 'support-tickets';
 
 export type NavigationLink = {
   name: string;
@@ -56,12 +63,12 @@ export type NavigationLink = {
   position: number;
   /**
    * Tabs de primer nivel del modulo, en el orden en que las declara su componente.
-   * Se omite en los modulos de una sola tab (Comercial, Formularios) y en los que no
-   * tienen tabs (Ayuda): un desplegable con un solo hijo es ruido.
+   * Se omite en los modulos de una sola tab (Comercial, Formularios, Seleccion): un
+   * desplegable con un solo hijo es ruido.
    */
   items?: NavigationSubLink[];
-  // Conteo opcional para mostrar como badge en el sidebar (ej: tickets sin leer).
-  badgeCount?: number;
+  /** Contador del modulo cuando se dibuja como link directo (sin sub-items visibles). */
+  badge?: NavBadge;
 };
 
 /**
@@ -202,6 +209,10 @@ export const navigationLinks: NavigationLink[] = [
     href: '/dashboard/help',
     icon: MODULE_ICONS.ayuda,
     position: 11,
+    items: [
+      { name: 'Tickets', tabSlug: 'tickets', badge: 'support-tickets' },
+      { name: 'Manual de uso', tabSlug: 'manual' },
+    ],
   },
   {
     name: 'Configuración',
@@ -258,4 +269,6 @@ export const SUB_ITEM_ICONS: Record<string, NavIcon> = {
   'almacenes:materiales': Package,
   'almacenes:depositos': Warehouse,
   'almacenes:config-almacen': Settings,
+  'ayuda:tickets': LifeBuoy,
+  'ayuda:manual': BookOpen,
 };

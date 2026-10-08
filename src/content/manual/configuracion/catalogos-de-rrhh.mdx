@@ -1,0 +1,159 @@
+---
+title: Catálogos de RRHH
+summary: Las listas que usa Recursos Humanos - tipos de diagrama, tipos de novedad, convenios colectivos, tipos de contrato, puestos y aptitudes técnicas - y para qué sirve cada una.
+keywords: RRHH, diagrama de trabajo, novedad, franco, licencia, laboralmente activo, ausentismo, CCT, convenio, sindicato, gremio, categoría, tipo de contrato, puesto, sector, aptitud técnica, catálogo
+updated: 2026-10-07
+---
+
+La pestaña **RRHH** de Configuración tiene las listas que después se eligen en la ficha de cada empleado y que usan los diagramas, los partes diarios, los indicadores y las condiciones de los documentos. Conviene armarlas antes de cargar empleados. La usan RRHH y quien administra el sistema.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+| Subpestaña | Qué se configura | Dónde se usa |
+|---|---|---|
+| **Tipos de Diagramas** | Los ciclos de trabajo (por ejemplo 14x14). | Ficha del empleado (**Diagrama de trabajo**), carga masiva de diagramas. |
+| **Tipos de Novedades** | Lo que se registra cada día: trabajo, franco, licencia… | Diagramas, partes diarios, ausentismo. |
+| **CCT** | Sindicatos, convenios y categorías. | Ficha del empleado (**Gremio**, **Convenio**, **Categoría**). |
+| **Tipos de Contrato** | Las modalidades de contratación. | Ficha del empleado (**Tipo de contrato**). |
+| **Puestos** | Los puestos de trabajo y a qué sectores pertenecen. | Ficha del empleado (**Puesto en la empresa**). |
+| **Aptitudes Técnicas** | Las habilitaciones o competencias de las personas. | Ficha del empleado. |
+| **Artículos** | El catálogo de indumentaria y EPP. | Ver <GuideLink to="catalogo-de-indumentaria">Catálogo de indumentaria</GuideLink>. |
+
+Casi todas las subpestañas funcionan igual: si tenés permiso para crear o editar, a la izquierda está el formulario y a la derecha la tabla; en la tabla, **Editar** carga la fila en el formulario, que cambia su título y su botón a **Actualizar**. Las tablas tienen búsqueda, filtros por columna (incluido **Estado**) y exportación a Excel.
+
+<Callout type="info" title="En los catálogos no se borra: se desactiva">
+Para dejar de usar un elemento, editalo y pasalo a **Inactivo**. Así no se pierde en las fichas de los empleados que ya lo tienen cargado.
+</Callout>
+
+## Tipos de Novedades
+
+Una **novedad** es lo que se anota para un empleado en un día: Trabajo, Franco, Licencia, Enfermedad, etc. Es la pieza más importante de esta pestaña, porque de ella depende cómo el sistema interpreta cada día de cada persona.
+
+| Campo | Qué es |
+|---|---|
+| **Nombre de la novedad** | Obligatorio. |
+| **Descripción corta** | El código de hasta 3 caracteres que se ve en la grilla de diagramas (por ejemplo "TD"). Obligatoria. |
+| **Color** | El color con que se pinta en la grilla. |
+| **Laboralmente Activo** | Encendido = ese día la persona **trabaja**. |
+| **Computa para ausentismo** | Encendido = ese día cuenta como **ausencia** en el indicador de ausentismo. Solo se puede encender si **Laboralmente Activo** está apagado. |
+| **Estado** | **Activo** o **Inactivo**. |
+
+En la tabla, **Lab. Activa** y **Computa ausentismo** muestran estas dos marcas.
+
+<Callout type="warning" title="Estas dos marcas cambian números en todo el sistema">
+- Un día con una novedad **no** laboralmente activa es un día en que la persona no trabaja. Si igual se la incluye en un parte diario de ese día, el parte marca un **desvío** (ver <GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>).
+- Las novedades que **computan para ausentismo** son las que suman en el indicador de ausentismo diario de **Configuración → KPIs** (ver <GuideLink to="kpis">KPIs</GuideLink>).
+
+Por ejemplo, un **Franco** no es laboralmente activo ni computa ausentismo; una **Enfermedad** no es laboralmente activa y sí computa ausentismo. Revisalas con cuidado antes de empezar a cargar diagramas.
+</Callout>
+
+## Tipos de Diagramas
+
+Un **diagrama de trabajo** es un ciclo que se repite: una cantidad de días trabajando y una cantidad de días de descanso. Cada empleado tiene uno asignado en su ficha (**Diagrama de trabajo**), y se usa en **Empleados → Diagramas → Carga Masiva** para llenar muchos días de una vez (ver <GuideLink to="diagramas">Diagramas</GuideLink>).
+
+| Campo | Qué es |
+|---|---|
+| **Nombre del diagrama** | Por ejemplo "14x14" o "5x2". |
+| **Días activos** | Cuántos días seguidos se trabaja en cada ciclo. |
+| **Días inactivos** | Cuántos días seguidos se descansa. |
+| **Novedad activa** | La o las novedades que se cargan en los días activos. Si elegís más de una, en la carga masiva se elige cuál usar. |
+| **Novedad inactiva** | La novedad que se carga en los días inactivos (normalmente un franco). |
+| **Estado** | **Activo** o **Inactivo**. |
+
+Ejemplo: un diagrama "14x14" con 14 días activos (novedad Trabajo) y 14 inactivos (novedad Franco). En la carga masiva, el sistema arranca en la fecha de inicio y alterna 14 días de Trabajo y 14 de Franco hasta la fecha final.
+
+Las novedades que se eligen acá salen de **Tipos de Novedades**: creá primero las novedades y después los diagramas.
+
+## CCT (convenios colectivos de trabajo)
+
+**CCT** muestra un árbol de tres niveles: **Sindicatos** → convenios → categorías. Cada nivel tiene su botón para agregar debajo:
+
+<Steps>
+<Step title="Agregá el sindicato">
+En la raíz **Sindicatos**, usá **Nuevo sindicato** (se abre **Agregar Asociación Gremial**) y cargá el nombre.
+</Step>
+<Step title="Agregá el convenio">
+En la fila del sindicato, usá **Nuevo convenio** y cargá su nombre.
+</Step>
+<Step title="Agregá las categorías">
+En la fila del convenio, usá **Nueva categoria** para cada categoría del convenio.
+</Step>
+</Steps>
+
+Hacé clic en un sindicato o convenio para desplegar lo que tiene adentro. Todos los nombres piden al menos 2 caracteres.
+
+Algunos sindicatos son **comunes a todas las empresas** del sistema: los ves y les podés colgar convenios propios, pero no se modifican. Los convenios y categorías que cargás son siempre de tu empresa.
+
+En la ficha del empleado se elige primero el **Gremio**, después un **Convenio** de ese gremio y después una **Categoría** de ese convenio.
+
+## Tipos de Contrato
+
+Las modalidades de contratación (por ejemplo "Por tiempo indeterminado", "Eventual"). Cada uno tiene **Nombre del Tipo de Contrato** (obligatorio), **Descripción** y **Estado**. Se eligen en la ficha del empleado, en **Tipo de contrato**.
+
+## Puestos
+
+Los puestos de trabajo de la empresa (por ejemplo "Chofer", "Mecánico", "Administrativo").
+
+| Campo | Qué es |
+|---|---|
+| **Puesto** | El nombre. Obligatorio. |
+| **Sector/Departamento** | A qué sectores del organigrama pertenece. Puede ser más de uno. |
+| **Aptitudes Técnicas** | Las aptitudes asociadas al puesto. |
+| **Estado** | **Activo** o **Inactivo**. |
+
+El **Sector/Departamento** importa: en la ficha del empleado, primero se elige el **Sector** y el campo **Puesto en la empresa** muestra solo los puestos de ese sector. Un puesto sin sector no aparece para ningún empleado. Los sectores se cargan en **General → Organigrama** (ver <GuideLink to="datos-de-la-empresa">Datos de la empresa</GuideLink>).
+
+## Aptitudes Técnicas
+
+Las competencias o habilitaciones que puede tener una persona (por ejemplo "Manejo de autoelevador" o "Trabajo en altura"). Cada una tiene **Nombre**, **Puestos** (los puestos que requieren esa aptitud) y **Estado**.
+
+En la ficha del empleado, las aptitudes que se ofrecen son las del puesto elegido: una aptitud sin puestos no se le puede asignar a nadie.
+
+## Qué pasa cuando desactivás un elemento en uso
+
+Si pasás a **Inactivo** un tipo de diagrama, un tipo de contrato o un puesto que todavía tienen empleados, el sistema abre **Confirmar desactivación** con la lista de empleados que lo usan (legajo, apellido, nombre, documento). Para seguir tenés que elegir en **Opciones de reemplazo** el valor que van a pasar a tener esos empleados, o **Dejar vacío** para quitarles el dato, y confirmar con **Reemplazar y desactivar**.
+
+<Callout type="warning" title="Reemplazar cambia la ficha de todos esos empleados">
+El reemplazo se aplica a todos los empleados de la lista de una vez. Si el dato reemplazado es una condición de algún tipo de documento (por ejemplo, un documento que se pide solo a cierto puesto), los documentos que se les exigen pueden cambiar. El propio aviso lo recuerda: "Por favor revisa si este registro tiene documentos especiales asociados luego de proceder."
+</Callout>
+
+## Cómo se conecta con el resto del sistema
+
+<Flow title="De la configuración al día a día">
+<FlowStep title="Catálogos de RRHH" module="Configuración">Novedades, diagramas, puestos, convenios.</FlowStep>
+<FlowStep title="Ficha del empleado" module="Empleados" to="ficha-del-empleado">Se eligen sector, puesto, diagrama, convenio, contrato.</FlowStep>
+<FlowStep title="Diagramas" module="Empleados" to="diagramas">Cada día del empleado queda con una novedad.</FlowStep>
+<FlowStep title="Partes y desvíos" module="Operaciones" to="partes-diarios" tone="warning">Un día no laboral en el parte es un desvío.</FlowStep>
+<FlowStep title="Indicadores" module="Configuración" to="kpis" tone="info">Ausentismo y productividad.</FlowStep>
+</Flow>
+
+- **Documentos**: puesto, sector, diagrama, tipo de contrato, gremio, convenio, categoría y aptitudes se pueden usar como **condiciones** de un tipo de documento. Cambiarle uno de estos datos a un empleado puede hacer que se le pidan documentos nuevos o que algunos dejen de aplicarle (<GuideLink to="tipos-de-documento">Tipos de documento</GuideLink> y <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>).
+- **Selección**: los sectores, puestos, convenios, categorías y diagramas que se eligen al proponer y aprobar un candidato salen de estas listas (<GuideLink to="candidatos">Candidatos</GuideLink>).
+- **Diagramas y desvíos**: la marca **Laboralmente Activo** de cada novedad decide si un día es trabajado (<GuideLink to="diagramas-afectaciones-y-desvios">Diagramas, afectaciones y desvíos</GuideLink>).
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la pestaña RRHH | **Ver** en **RRHH** |
+| Ver cada subpestaña | **Ver** en esa subpestaña (**Tipos de Diagramas**, **Tipos de Novedades**, **CCT**, **Tipos de Contrato**, **Puestos**, **Aptitudes Técnicas**) |
+| Crear | **Crear** en la subpestaña |
+| Editar (incluye activar y desactivar) | **Editar** en la subpestaña |
+
+En **CCT** solo existe **Crear**: sindicatos, convenios y categorías no se editan desde la pantalla.
+
+## Problemas frecuentes
+
+<Callout type="tip" title="El empleado no tiene puestos para elegir">
+Su **Sector** no tiene puestos asociados. Editá el puesto en **Puestos** y agregale ese sector en **Sector/Departamento**.
+</Callout>
+
+<Callout type="tip" title="No puedo encender &quot;Computa para ausentismo&quot;">
+Está bloqueado mientras **Laboralmente Activo** esté encendido: un día trabajado no puede ser una ausencia. Apagá primero **Laboralmente Activo**.
+</Callout>
+
+<Callout type="tip" title="El indicador de ausentismo da muy alto o muy bajo">
+Revisá qué novedades tienen **Computa para ausentismo**. Una novedad mal marcada (por ejemplo, un franco que computa) distorsiona el indicador de todos los días en que se usó.
+</Callout>

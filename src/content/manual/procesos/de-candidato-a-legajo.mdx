@@ -1,0 +1,110 @@
+---
+title: De candidato a legajo
+summary: Cómo un postulante pasa por Selección, se aprueba y se convierte en empleado, y qué pasa con los documentos que se le cargaron.
+keywords: candidato, selección, pre legajo, pre ingreso, aprobar, rechazar, legajo, ingreso, documentos
+updated: 2026-10-07
+---
+
+Antes de ser empleado, una persona es un **candidato**. RRHH lo carga en **Selección**, le va pidiendo la documentación de ingreso y, cuando está listo, alguien con permiso para decidir lo **aprueba**: en ese momento el sistema crea el legajo con los datos del candidato y le pasa los documentos que ya tenía. Esta guía recorre ese camino completo.
+
+<Flow title="Del postulante al empleado">
+  <FlowStep title="Alta del candidato" module="Selección" to="candidatos">RRHH carga datos personales, de contacto y el sector y puesto propuestos.</FlowStep>
+  <FlowStep title="Documentación" module="Selección" to="candidatos">Se suben los documentos habilitados para candidatos.</FlowStep>
+  <FlowStep title="Pre ingreso" module="Selección" tone="info" to="candidatos">RRHH lo envía a pre ingreso para que se decida.</FlowStep>
+  <FlowStep title="Aprobación" module="Selección" tone="success" to="candidatos">Se completan los datos laborales y se crea el legajo.</FlowStep>
+  <FlowStep title="Empleado" module="Empleados" to="ficha-del-empleado">El nuevo legajo recibe sus documentos y sus alertas pendientes.</FlowStep>
+</Flow>
+
+## Paso 1: cargar el candidato
+
+En <GuideLink to="candidatos">Selección → Candidatos</GuideLink>, **Nuevo Candidato** abre la ficha con las pestañas **Datos Personales**, **Datos de Contacto**, **Datos Laborales** y **Documentos**.
+
+- **Datos Personales** y **Datos de Contacto** se completan enteros, igual que en un legajo (nombre, apellido, CUIL, documento, nacionalidad, domicilio, teléfono, email, etc.).
+- **Datos Laborales**: en esta etapa solo se piden **Sector propuesto** y **Puesto propuesto**. El resto se completa al aprobar.
+- El **N° de Candidato** lo asigna el sistema al crear (formato PL-0001).
+
+Se guarda con **Crear candidato**. La pestaña **Documentos** se habilita recién después de crearlo.
+
+<Callout type="warning" title="El DNI o CUIL de un empleado existente bloquea">
+Si ya hay un empleado con ese DNI o CUIL, el sistema no deja guardar y lo dice: "Ya existe un empleado con ese DNI o CUIL: … (legajo …)". En cambio, **dos candidatos con el mismo DNI se guardan sin aviso**: antes de cargar uno nuevo, buscalo en la bandeja.
+</Callout>
+
+## Paso 2: la documentación del candidato
+
+La pestaña **Documentos** muestra la lista de documentos que se le pueden pedir a un candidato, con el progreso **Documentación cargada** (X de N). Los obligatorios llevan el distintivo **Obligatorio** y se listan primero. Cada uno se carga con **Subir** (PDF o imagen; la fecha de vencimiento es opcional), se mira con **Ver** y se cambia con **Reemplazar**.
+
+¿Qué documentos aparecen? Los tipos de documento de empleados que tengan tildada la opción **Puede cargarse desde un candidato**. Esa opción se configura en <GuideLink to="tipos-de-documento">los tipos de documento</GuideLink>. Si no hay ninguno habilitado, la pestaña lo avisa.
+
+<Callout type="info" title="El candidato no tiene alertas">
+A diferencia de un empleado, el candidato no genera alertas ni vencimientos. La lista es una ayuda para que RRHH vea qué falta; nada se exige automáticamente hasta que existe el legajo.
+</Callout>
+
+<Callout type="danger" title="Eliminar un documento del candidato es inmediato">
+El ícono de papelera borra el archivo en el acto, sin pedir confirmación, y no se puede recuperar.
+</Callout>
+
+## Paso 3: enviar a pre ingreso, aprobar o rechazar
+
+<States title="Estados de un candidato">
+  <State name="En proceso" tone="warning" next="Pre ingreso, Rechazado">RRHH está cargando datos y documentos.</State>
+  <State name="Pre ingreso" tone="info" next="Legajo creado, Rechazado">Listo para la decisión. Se pasa con **Enviar a pre ingreso**.</State>
+  <State name="Rechazado" tone="danger" next="En proceso">Se rechazó con motivo. No se puede editar. **Reabrir** lo vuelve a En proceso.</State>
+  <State name="Legajo creado" tone="success">Se aprobó y ya es empleado. Queda de solo lectura, con el botón **Ver legajo N° …**.</State>
+</States>
+
+- **Enviar a pre ingreso** no exige que la documentación esté completa: es una decisión de RRHH.
+- **Rechazar** pide un **Motivo del rechazo** (mínimo 10 caracteres). El motivo, la fecha y quién rechazó se ven en la ficha. Los documentos cargados no se borran.
+- **Reabrir** devuelve un rechazado a **En proceso** y **borra el motivo del rechazo**.
+- No se puede aprobar directamente desde **En proceso**: primero tiene que pasar a **Pre ingreso**.
+
+## Paso 4: aprobar y crear el legajo
+
+Desde **Pre ingreso**, **Aprobar y crear legajo** abre un panel con los datos laborales que faltan. Los datos personales y de contacto se toman del candidato.
+
+<Steps>
+  <Step title="Completar los datos laborales">Son obligatorios **Legajo**, **Sector**, **Puesto en la empresa** (vienen con lo propuesto y se pueden cambiar) y **Diagrama de trabajo**. El resto (tipo de contrato, fecha de ingreso, gremio, convenio, categoría, centro de costo, aptitudes, clientes a los que se lo afecta, etc.) es opcional.</Step>
+  <Step title="Confirmar">**Confirmar y crear legajo**. El sistema vuelve a controlar que el DNI o CUIL no sea de un empleado existente.</Step>
+  <Step title="Revisar el resultado">Aparece "Legajo creado" con el detalle de cuántos documentos pasaron, y se abre la ficha del nuevo empleado.</Step>
+</Steps>
+
+<Callout type="warning" title="Revisá estos dos datos antes de confirmar">
+- Si dejás vacía la **Fecha de ingreso**, se guarda la fecha de hoy.
+- El sistema no controla que el **Legajo** no esté repetido: verificá el número antes.
+</Callout>
+
+## Qué pasa con los documentos al aprobar
+
+Al crearse, el empleado recibe la documentación que le corresponde según su puesto, categoría, convenio, clientes y demás datos (ver <GuideLink to="documentos-alertas-y-estado">Documentos, alertas y estado</GuideLink>). Los documentos del candidato se cruzan contra esa lista:
+
+- **Pasan al legajo** los documentos de tipos **obligatorios** que **le aplican** al empleado según la función asignada. Entran como **Presentado**, con su archivo y su vencimiento.
+- **Quedan en el historial del candidato** (no pasan) los de tipos que no aplican a la función asignada y los de tipos **no obligatorios**. Siguen visibles en la pestaña Documentos del candidato.
+- Todo lo demás que el empleado deba presentar queda como alerta **Pendiente** en su legajo.
+
+El mensaje final lo dice con números: "{T} de {Total} documentos se incorporaron al legajo. {S} no aplican a la función asignada y quedaron en el historial del candidato."
+
+Desde ahí el empleado sigue el circuito normal: su documentación se ve en la pestaña **Documentación** de su <GuideLink to="ficha-del-empleado">ficha</GuideLink> y en <GuideLink to="documentos-de-empleados">Documentos de Empleados</GuideLink>, y su estado (Completo / Incompleto) se calcula como el de cualquier empleado.
+
+## Permisos
+
+Selección → Candidatos tiene cuatro permisos:
+
+| Permiso | Habilita |
+|---|---|
+| **Ver** | Entrar a la bandeja y a las fichas. |
+| **Crear** | **Nuevo Candidato**. |
+| **Editar** | Editar datos, subir y borrar documentos, **Enviar a pre ingreso** y **Reabrir**. |
+| **Aprobar** | **Aprobar y crear legajo** y **Rechazar**. |
+
+La separación es a propósito: RRHH carga y gerencia decide.
+
+## Problemas frecuentes
+
+**"Un documento no aparece en la lista del candidato"**: el tipo no tiene tildada **Puede cargarse desde un candidato**, está inactivo o no es de empleados.
+
+**"Aprobé y algunos documentos no pasaron al legajo"**: no eran obligatorios o no aplican a la función asignada. Siguen en el historial del candidato; si hacen falta en el legajo, subilos desde la ficha del empleado.
+
+**"No puedo editar el candidato"**: está **Rechazado** (hay que reabrirlo) o ya tiene **Legajo creado** (los cambios se hacen en el legajo).
+
+<Callout type="danger" title="Aprobar no tiene vuelta atrás">
+Una vez creado el legajo, el candidato queda en **Legajo creado** para siempre y el empleado existe. Si se aprobó por error, hay que gestionarlo desde el legajo (ver <GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+</Callout>

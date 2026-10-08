@@ -1,0 +1,70 @@
+---
+title: Vista Taller
+summary: El taller por sector: qué órdenes de trabajo tiene abiertas cada uno, cuántas unidades hay adentro y si el sector está por encima de su cupo.
+keywords: vista taller, sector, cupo, capacidad, orden de trabajo, OT, pendiente, en progreso, pausada, ocupación
+updated: 2026-10-07
+---
+
+La **Vista Taller** muestra el trabajo pendiente del taller agrupado **por sector**. Sirve para ver de un vistazo qué tiene cada sector, cuántas unidades hay adentro y si alguno está sobrecargado. Es una pantalla de consulta: no se carga ni se modifica nada desde acá.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Un acordeón por cada sector activo del taller. Podés abrir varios a la vez. Aunque estén cerrados, cada sector muestra en su encabezado:
+
+| Dato | Qué significa |
+|---|---|
+| Nombre, taller y descripción | Cómo está cargado el sector en la configuración. |
+| **Cupo del sector: N** | Cuántas unidades entran en el sector. Aparece solo si el sector tiene cupo configurado. |
+| **Cupos disponibles: N** | Lugares libres. Verde si queda lugar, rojo si el sector está completo. |
+| **Cupo excedido (+N)** | Aparece cuando hay más unidades que el cupo. Todo el sector se marca en rojo. |
+| Contadores de OT | Cuántas órdenes de trabajo hay **pendientes**, **en progreso** y **pausadas** (solo se muestran los que tienen alguna). |
+| **N sin OT** | Tareas asignadas al sector que todavía no tienen orden de trabajo generada. |
+
+<Callout type="info" title="Qué ocupa un cupo">
+Ocupan lugar las órdenes de trabajo **en progreso** y **pausadas**: alguien las empezó, así que la unidad está adentro. Las **pendientes** no ocupan cupo porque el equipo todavía no entró al sector. El cupo no es un límite: el sistema deja asignar más trabajo, pero lo marca como excedido.
+</Callout>
+
+## La tabla de cada sector
+
+Al abrir un sector ves sus órdenes de trabajo **abiertas** (pendientes, en progreso o pausadas). Las terminadas, parciales y canceladas no se muestran: esta pantalla es la del trabajo que falta.
+
+| Columna | Qué muestra |
+|---|---|
+| **N° OT** | Número de la orden de trabajo, con su estado. |
+| **Equipo** | El equipo que se está reparando. |
+| **N° OM** | La orden de mantenimiento a la que pertenece. |
+| **Tareas** | Cantidad de tareas de la OT. |
+| **Inicio Plan.** y **Fin Plan.** | Fechas planificadas que cargó el jefe de taller al generar las OT. |
+| **Iniciada el** | Cuándo la empezó el operario. |
+| **Creada el** | Cuándo se generó. |
+
+- **Filtros**: a la vista **Estado OT**, **Equipo** y **Tipo de Reparación**; además **Estado OM**, **Crítica**, **Rechazada**, **Diagnóstico**, las fechas (**Inicio Plan.**, **Fin Plan.**, **Iniciada el**, **Creada el**), **N° OT** y **N° OM**.
+- **Buscar por N° OT, N° OM o descripción de la tarea...**
+- Se puede exportar a Excel.
+
+**Ver** abre la OT con todas sus tareas: descripción, estado de cada una, tipos de reparación, si es **Crítica**, de **Diagnóstico** o fue **Rechazada** (con su **Motivo de rechazo**), y las fechas planificadas.
+
+## Cómo se conecta con el resto del sistema
+
+- **De dónde salen las OT**: las genera el jefe de taller desde **Taller → En Taller → Gestionar** (ver <GuideLink to="taller">Taller</GuideLink>), una por cada sector por el que pasa el equipo.
+- **Quién las mueve**: los operarios de cada sector, desde el <GuideLink to="panel-del-operario">Panel del operario</GuideLink>. Cuando un operario inicia, pausa o termina una OT, el cambio se ve acá y en los contadores del sector.
+- **Sectores y cupos**: se configuran en <GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink> (talleres y sectores). Si un sector no tiene cupo cargado, no muestra el semáforo.
+- **Tipos de equipamiento ocultos**: si tu rol tiene tipos de equipamiento ocultos para mantenimiento, sus OT tampoco aparecen acá.
+
+## Permisos
+
+| Para… | Hace falta |
+|---|---|
+| Ver la pestaña Vista Taller | **Ver** en **Vista Taller** del módulo Mantenimiento. |
+
+## Problemas frecuentes
+
+<Callout type="info" title="Dice Sin sectores configurados">
+No hay sectores de taller activos. Hay que crearlos en Configuración (ver <GuideLink to="catalogos-de-mantenimiento">Catálogos de mantenimiento</GuideLink>).
+</Callout>
+
+<Callout type="info" title="Un sector tiene tareas sin OT">
+El chip **sin OT** indica tareas que ya tienen este sector asignado pero cuya orden de trabajo todavía no se generó. Se resuelve terminando el asistente **Gestionar** de esa orden en el paso **En Taller**.
+</Callout>

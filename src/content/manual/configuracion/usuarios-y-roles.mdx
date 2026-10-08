@@ -1,0 +1,293 @@
+---
+title: Usuarios y roles
+summary: Cómo dar de alta e invitar usuarios, darlos de baja, vincularlos a un legajo, armar roles con sus permisos y crear accesos externos de solo lectura.
+keywords: usuario, alta de usuario, invitar, contraseña, rol, roles, permisos, dar de baja usuario, banear, reactivar, vincular empleado, gestión de roles, accesos externos, API, clave, rotar, revocar, tipos de equipamiento
+updated: 2026-10-07
+---
+
+Acá se decide **quién entra al sistema y qué puede hacer**. Se usa al incorporar a una persona, cuando alguien cambia de función o deja la empresa, y cuando otro sistema necesita consultar datos de la empresa. Si todavía no tenés claros los conceptos de usuario, rol y permiso, empezá por <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>.
+
+<OpenScreen />
+
+## Qué ves en la pantalla
+
+Está en **Configuración → General → Usuarios** y tiene tres pestañas:
+
+| Pestaña | Para qué sirve |
+|---|---|
+| **Usuarios** | Las personas que tienen acceso a esta empresa: alta, baja, rol y vínculo con su legajo. |
+| **Gestión de Roles** | Los roles de la empresa y los permisos de cada uno. |
+| **Accesos Externos** | Usuarios y claves para que otro sistema consulte información de la empresa. |
+
+## Pestaña Usuarios
+
+La tabla **Usuarios de la Empresa** lista a todas las personas con acceso a la empresa activa.
+
+| Columna | Qué muestra |
+|---|---|
+| **Nombre** | Nombre y foto. Hacé clic en el nombre para abrir el detalle del usuario. El propietario de la empresa lleva una corona y no tiene detalle. |
+| **Correo** | El correo con el que entra. |
+| **Estado** | **Activo** o **Baneado** (dado de baja). |
+| **Rol** | El rol asignado. Si tiene varios, se ve el primero con un **+N**; pasá el mouse para ver el resto. **Sin rol** si no tiene ninguno; **Propietario** si es el dueño sin rol asignado. |
+| **Empleado vinculado** | El legajo con el que está vinculado, o el botón **Vincular**. |
+| **Fecha de alta** | Hace cuánto se le dio acceso. |
+
+Podés buscar con **Buscar por nombre o correo...**, filtrar por **Estado**, **Rol**, **Empleado vinculado**, **Fecha de alta**, **Nombre** y **Correo**, y exportar a Excel ("Usuarios de la Empresa").
+
+### Cómo dar de alta un usuario
+
+<Steps>
+<Step title="Abrí el formulario">
+Hacé clic en **Agregar Usuario**. Se abre **Compartir acceso a la empresa**, con dos pestañas: **Crear usuario** e **Invitar usuario**.
+</Step>
+<Step title="Elegí cómo darle acceso">
+Con **Crear usuario** le ponés vos la contraseña. Con **Invitar usuario** solo cargás el correo y la persona define su contraseña desde un correo que le llega. Las dos opciones se explican abajo.
+</Step>
+<Step title="Elegí el rol">
+El **Rol** es obligatorio en las dos opciones. Define qué va a ver la persona apenas entre. Después podés sumarle más roles o permisos puntuales desde su detalle.
+</Step>
+<Step title="Confirmá">
+Hacé clic en **Crear usuario** o **Invitar usuario**. Vas a ver **Usuario creado exitosamente** y la persona aparece en la tabla.
+</Step>
+</Steps>
+
+**Crear usuario** pide:
+
+| Campo | Qué valida |
+|---|---|
+| **Nombre** y **Apellido** | Entre 2 y 30 caracteres, solo letras. |
+| **Correo electrónico** | Un correo válido. |
+| **Contraseña** y **Confirmar contraseña** | Iguales; entre 8 y 50 caracteres, con al menos una mayúscula, una minúscula, un número y un carácter especial. El ojo de al lado muestra lo que escribiste. |
+| **Rol** | Obligatorio. |
+
+La contraseña que cargás es provisoria: la primera vez que la persona entre, el sistema le va a pedir que la cambie. Pasásela por un medio seguro.
+
+**Invitar usuario** pide solo **Correo electrónico** y **Rol**. Qué pasa depende de si la persona ya tiene usuario:
+
+- **Si no tenía usuario**, se le crea y le llega un correo de invitación con un enlace para definir su contraseña.
+- **Si ya tenía usuario** (por ejemplo, trabaja en otra empresa que usa el sistema), se le suma esta empresa con el rol elegido. No hace falta que cree nada: la próxima vez que entre la va a ver en su selector de empresas.
+
+<Callout type="tip" title="Si el correo de invitación no llega">
+El usuario ya quedó creado aunque el correo no salga. La persona puede entrar con **¿Olvidaste tu contraseña?** usando ese mismo correo y definir su contraseña desde ahí.
+</Callout>
+
+### Cómo vincular un usuario con su legajo
+
+Usuario y empleado son cosas distintas: el usuario es el acceso, el empleado es el legajo de RRHH. Vincularlos hace falta para los paneles de campo (<GuideLink to="panel-del-operario">Panel del operario</GuideLink> y <GuideLink to="entrega-de-indumentaria">Entrega de indumentaria</GuideLink>) y para que la baja de uno pueda arrastrar a la del otro.
+
+<Steps>
+<Step title="Abrí el buscador">
+En la columna **Empleado vinculado**, hacé clic en **Vincular**. Se abre **Vincular empleado**.
+</Step>
+<Step title="Buscá el legajo">
+Escribí al menos 2 caracteres del nombre, el CUIL o el legajo (por ejemplo "García", "20-12345678-9" o "L001") y hacé clic en **Buscar** (o apretá <Kbd>Enter</Kbd>).
+</Step>
+<Step title="Elegí al empleado">
+Hacé clic en el empleado correcto. Vas a ver **Empleado vinculado exitosamente**.
+</Step>
+</Steps>
+
+Para deshacerlo, hacé clic en el ícono de desvincular al lado del nombre (**Desvincular empleado**). Si el buscador dice **No se encontraron empleados**, probá con otro dato o revisá que ese legajo no esté ya vinculado a otro usuario.
+
+### Cómo dar de baja un usuario
+
+Dar de baja un usuario le corta el acceso: no puede volver a iniciar sesión. No se borra nada: queda **Baneado** y se lo puede reactivar.
+
+<Steps>
+<Step title="Elegí al usuario">
+En su fila, hacé clic en **Dar de baja**.
+</Step>
+<Step title="Si tiene un empleado vinculado y activo, decidí qué pasa con el legajo">
+El sistema pregunta "¿Deseas tambien dar de baja al empleado?". **Solo quitar acceso** baja el usuario y deja el legajo como está. **Si, ambos** abre **Datos de baja del empleado**, donde cargás el motivo y la fecha de baja del legajo.
+</Step>
+<Step title="Confirmá">
+Hacé clic en **Dar de baja**. Vas a ver **Usuario dado de baja exitosamente**.
+</Step>
+</Steps>
+
+<Callout type="warning" title="Dar de baja también al empleado tiene efectos en todo el sistema">
+Elegir **Si, ambos** es lo mismo que dar de baja el legajo desde su ficha: el empleado sale de los listados activos y de los partes, y deja de pedírsele documentación salvo la de egreso. Ver <GuideLink to="ficha-del-empleado#dar-de-baja-un-empleado">Dar de baja un empleado</GuideLink>.
+</Callout>
+
+Para **reactivar**, hacé clic en **Reactivar** en la fila del usuario baneado. Si su empleado vinculado también está dado de baja, el sistema pregunta si querés reactivar al empleado: **Solo restaurar acceso** o **Si, ambos**.
+
+El propietario de la empresa no se puede dar de baja: su fila no tiene botones.
+
+### El detalle de un usuario
+
+Al hacer clic en el nombre se abre su detalle. Arriba está su ficha (nombre, correo y empleado vinculado); con **Editar nombre** podés corregir cómo se muestra su nombre en toda la plataforma, o tomar el del legajo con **Usar nombre del empleado**.
+
+Abajo, en **Permisos de Usuario**, hay dos bloques:
+
+- **Roles / Presets**: todos los roles de la empresa como tarjetas con casilla. Tildá o destildá para asignar o quitar un rol; el cambio se guarda en el momento ("**El rol ha sido asignado correctamente**"). Una persona con varios roles suma los permisos de todos.
+- **Permisos por Módulo**: la misma matriz que en los roles (ver más abajo), pero para esta persona sola. Sirve para darle un permiso puntual sin crear un rol nuevo.
+
+En **Permisos por Módulo**, cada permiso que viene de un rol muestra la inicial del rol con su color y está bloqueado: no se puede quitar desde acá. Para sacarlo, quitale el rol o cambiá el rol. Los que tildás acá son **permisos personalizados** de esa persona.
+
+**Limpiar Permisos** ofrece dos opciones: **Solo Permisos Personalizados** (borra lo que se tildó a mano y deja los roles) y **Eliminar Todo (Roles + Permisos)** (le saca también todos los roles: la persona se queda sin acceso a nada hasta que le asignes uno).
+
+Dentro del módulo **Mantenimiento** aparece además el bloque **Tipos de equipamiento** de esa persona (se explica más abajo, en **Tipos de equipamiento en mantenimiento**).
+
+## Pestaña Gestión de Roles
+
+Muestra los roles en dos grupos, **Roles Personalizados** y **Roles de Sistema**, cada uno como una tarjeta con su nombre, su descripción, la cantidad de usuarios que lo tienen, la cantidad de permisos y la marca **Sistema** o **Personalizado**. Arriba podés buscar con **Buscar roles por nombre o descripción...**.
+
+| Tipo de rol | Qué se puede hacer |
+|---|---|
+| **Sistema** | Vienen con el sistema y dan acceso total (Admin, Administrador, Full Access Provisional). Solo se les asignan usuarios con **Asignar Usuarios**: no se editan ni se borran. |
+| **Personalizado** | Los crea la empresa. Se editan (**Editar**), se les asignan usuarios (ícono de personas) y se borran (ícono de papelera). |
+
+<Callout type="info" title="Pantallas nuevas y roles personalizados">
+Cuando el sistema incorpora una pantalla nueva, los roles de sistema de acceso total la reciben solos. Los roles personalizados **no**: si querés que la vean, editá el rol y tildá la pantalla nueva.
+</Callout>
+
+### Cómo crear un rol
+
+<Steps>
+<Step title="Abrí el formulario">
+Hacé clic en **Crear Rol**. Se abre **Crear Nuevo Rol**.
+</Step>
+<Step title="Poné nombre, color y descripción">
+**Nombre del Rol** es obligatorio ("El nombre del rol es requerido"). El **Color del Rol** es el que se va a ver en las etiquetas del rol en todo el sistema. La **Descripción** es opcional y ayuda a que otros entiendan para qué es.
+</Step>
+<Step title="Partí de otros roles (opcional)">
+En **Importar Permisos desde Roles Existentes (Opcional)** tildá uno o más roles y hacé clic en **Importar Permisos**. Sus permisos se suman a los que ya tengas tildados (no los reemplazan) y vas a ver cuántos se importaron. Después podés ajustar.
+</Step>
+<Step title="Tildá los permisos">
+En **Permisos del Rol** marcá lo que el rol puede hacer (ver la matriz abajo). Al pie ves el **Total de permisos seleccionados**.
+</Step>
+<Step title="Guardá">
+Hacé clic en **Crear Rol**. Vas a ver **Rol creado**.
+</Step>
+</Steps>
+
+Para cambiar un rol personalizado, hacé clic en **Editar** en su tarjeta: es el mismo formulario y el botón dice **Guardar Cambios**. Los cambios rigen para todos los usuarios que tienen ese rol la próxima vez que carguen una pantalla.
+
+### La matriz de permisos
+
+Los permisos se organizan en tres niveles: **módulo → sección (pestaña o subpestaña) → acción**.
+
+- Cada **módulo** es un grupo desplegable (Dashboard, Configuración, Empleados, Equipos, etc.).
+- Dentro, cada **sección** tiene su casilla y sus acciones. La casilla de la sección tilda o destilda todas sus acciones y las de sus subsecciones de una vez.
+- Cada **acción** es un botón con casilla.
+
+Qué significa cada acción, en palabras simples:
+
+| Acción | Qué habilita |
+|---|---|
+| **Ver** | Que la sección aparezca y se pueda abrir. Es la base: al tildar cualquier otra acción, **Ver** se tilda solo, y no se puede destildar mientras haya otra acción tildada. |
+| **Crear** | Los botones para cargar algo nuevo (**Agregar**, **Nuevo**, **Crear**, **Subir**). |
+| **Editar** | Modificar lo que ya existe. En las solicitudes de mantenimiento es lo que permite aprobarlas o rechazarlas; en Usuarios, reactivar a un usuario baneado. |
+| **Eliminar** | Borrar o dar de baja. En Usuarios, es lo que permite **Dar de baja**. |
+| **Aprobar** | Confirmar un paso del circuito: certificaciones, emisión de facturas, aprobar un candidato. |
+| **Ver Todas** (Ver todas las solicitudes) | En las solicitudes de mantenimiento, ver las de todos y no solo las propias. |
+| **Ver Privados** | Ver los documentos de tipos marcados como privados. |
+| **Subir Privados** | Cargar documentos privados. Al tildarlo se tilda solo **Ver Privados**. |
+| **Asignar Recursos** | En el detalle del parte diario, asignar empleados y equipos. |
+| **Ver precios e importes** | Ver los valores en pesos en Comercial. |
+| **Modificar precios** | Cambiar los precios de los ítems de los contratos. |
+
+Cada sección muestra solo las acciones que tienen sentido para ella.
+
+<Callout type="warning" title="Para ver una subsección hace falta ver la sección que la contiene">
+Las subpestañas viven dentro de su pestaña. Si un rol tiene **Ver** en **Usuarios** pero no en **General**, la persona no llega a la pestaña General y por lo tanto tampoco a Usuarios. Tildá siempre **Ver** en toda la cadena.
+</Callout>
+
+Algunas pantallas toman el permiso de otra sección; la matriz lo avisa con un recuadro azul (por ejemplo, la pestaña de documentación de la ficha del empleado usa el permiso de **Documentos de Empleados**).
+
+### Tipos de equipamiento en mantenimiento
+
+Al editar un rol, dentro del módulo **Mantenimiento** aparece el bloque **Tipos de equipamiento**: la lista de tipos de equipo con una casilla cada uno. Destildá los tipos cuyas solicitudes de mantenimiento ese rol **no** debe ver. Por ejemplo, un rol de supervisor de grúas puede ver solo las solicitudes de grúas. Los vehículos no se ven afectados: esto filtra solo las solicitudes de mantenimiento.
+
+Si una persona tiene varios roles, ve un tipo si **alguno** de sus roles lo muestra. En el detalle del usuario podés hacer una excepción para esa persona: mostrarle un tipo que sus roles ocultan, u ocultarle uno que muestran. La leyenda de cada tipo explica de dónde viene ("Lo ve por el rol…", "Excepción de este usuario…") y el ícono de deshacer lo vuelve a dejar como dicen sus roles.
+
+### Cómo asignar un rol a varias personas
+
+En la tarjeta del rol, hacé clic en **Asignar Usuarios** (roles de sistema) o en el ícono de personas (roles personalizados). Se abre una lista con dos grupos, **Con este rol** y **Sin este rol**; buscá con **Buscar usuarios por nombre o email...** y usá los botones de cada persona para agregarla o quitarla.
+
+### Por qué no se puede borrar un rol
+
+El botón de papelera aparece deshabilitado cuando el rol tiene usuarios: pasá el mouse para ver "No se puede eliminar: N usuario(s) asignado(s)". Primero quitáselo a todos (con **Asignar Usuarios**) y después borralo. Los roles de sistema no se borran nunca.
+
+<Callout type="danger" title="Borrar un rol no se puede deshacer">
+Se pide confirmación ("¿Eliminar rol?") y se pierden sus permisos configurados. Si dudás, dejalo sin usuarios en lugar de borrarlo.
+</Callout>
+
+## Pestaña Accesos Externos
+
+Sirve para que **otro sistema** (por ejemplo, un ERP contable) consulte información de la empresa sin usar el usuario de una persona. Cada acceso es un par **usuario + clave** de **solo lectura**: puede consultar clientes, sus áreas y sectores, empleados, vehículos y otros equipos, pero no puede modificar nada.
+
+| Columna | Qué muestra |
+|---|---|
+| **Sistema** | El nombre del sistema externo. |
+| **Usuario** | El usuario del acceso. |
+| **Estado** | **Activo** o **Revocado**. |
+| **Última consulta** | La última vez que el sistema externo lo usó, o **Nunca**. |
+| **Creado** / **Creado por** | Cuándo y quién lo creó. |
+| **Notas** | El contacto o la referencia que se cargó. |
+
+### Cómo crear un acceso externo
+
+<Steps>
+<Step title="Abrí el formulario">
+Hacé clic en **Nuevo acceso externo**.
+</Step>
+<Step title="Identificá al sistema">
+En **Nombre del sistema** poné con qué sistema se corresponde (entre 3 y 150 caracteres, por ejemplo "ERP Contable - Consulta de legajos"). En **Notas / contacto (opcional)** dejá a quién avisar antes de rotar la clave o revocar el acceso.
+</Step>
+<Step title="Copiá las credenciales">
+Al confirmar aparecen **Credenciales generadas**: el **Usuario** y la **Clave**, cada uno con su botón para copiar. Entregáselos al responsable del sistema externo.
+</Step>
+<Step title="Cerrá solo cuando ya la copiaste">
+Si intentás cerrar, el sistema pregunta "**¿Ya copiaste la clave?**". Confirmá con **Sí, ya la copié**.
+</Step>
+</Steps>
+
+<Callout type="warning" title="La clave se muestra una sola vez">
+Por seguridad no se vuelve a mostrar. Si se pierde, hay que rotarla. No la compartas por mail ni por chat.
+</Callout>
+
+**Rotar clave** genera una clave nueva para el mismo usuario: la anterior deja de funcionar apenas confirmás, así que coordiná antes con el responsable del sistema externo. **Revocar** corta el acceso de inmediato y no se puede deshacer: si hace falta volver a integrarlo, se crea un acceso nuevo.
+
+## Cómo se conecta con el resto del sistema
+
+- **El rol define todo lo que la persona ve**: el menú, las pantallas, los botones y también las guías de este manual.
+- **Vincular usuario y legajo** habilita los paneles de campo y hace que la baja de uno ofrezca la baja del otro. Al dar de baja un empleado desde su ficha, su usuario también pierde el acceso (<GuideLink to="altas-y-bajas">Altas y bajas</GuideLink>).
+- **Ver Privados / Subir Privados** deciden quién ve la documentación sensible en Documentación y en las fichas (<GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>).
+- **Tipos de equipamiento** filtra qué solicitudes ve cada uno en <GuideLink to="validar-solicitudes">Validar solicitudes</GuideLink> y el resto del circuito de mantenimiento.
+- Los **accesos externos** permiten integrar otros sistemas sin compartir contraseñas de personas.
+
+## Permisos
+
+| Acción | Permiso necesario |
+|---|---|
+| Ver la pestaña Usuarios | **Ver** en **Usuarios** (y en **General**) |
+| **Agregar Usuario** | **Crear** en **Usuarios** (la sección interna) |
+| **Dar de baja** un usuario | **Eliminar** en **Usuarios** |
+| **Reactivar** un usuario | **Editar** en **Usuarios** |
+| Abrir el detalle de un usuario | **Ver** en **Detalle de Usuario** |
+| Cambiar roles, permisos o nombre desde el detalle | **Editar** en **Detalle de Usuario** |
+| Ver los roles | **Ver** en **Gestión de Roles** |
+| **Crear Rol** | **Crear** en **Gestión de Roles** |
+| Editar un rol o asignarle usuarios | **Editar** en **Gestión de Roles** |
+| Borrar un rol | **Eliminar** en **Gestión de Roles** |
+| Ver los accesos externos / crearlos | **Ver** / **Crear** en **Accesos Externos** |
+| **Rotar clave** / **Revocar** | **Editar** / **Eliminar** en **Accesos Externos** |
+
+## Problemas frecuentes
+
+<Callout type="info" title="&quot;No puedes compartir la empresa contigo mismo&quot;">
+Escribiste tu propio correo. Cada persona tiene que darse de alta con su correo.
+</Callout>
+
+<Callout type="info" title="&quot;El usuario ya tiene acceso a esta empresa&quot;">
+Ese correo ya figura en la tabla. Si está **Baneado**, usá **Reactivar** en vez de darlo de alta de nuevo.
+</Callout>
+
+<Callout type="info" title="Una persona no ve una pantalla que debería ver">
+Abrí su detalle y revisá en **Permisos por Módulo** que tenga **Ver** en la sección y en todas las que la contienen. Si la pantalla es nueva y la persona tiene un rol personalizado, probablemente falte tildarla en el rol.
+</Callout>
+
+<Callout type="warning" title="&quot;Eliminar Todo (Roles + Permisos)&quot; deja a la persona sin acceso">
+La persona sigue pudiendo iniciar sesión, pero no va a ver ningún módulo hasta que le asignes un rol.
+</Callout>
