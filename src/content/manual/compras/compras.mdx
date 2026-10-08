@@ -1,0 +1,72 @@
+---
+title: Cómo funciona Compras
+summary: Qué es el módulo Compras, qué hace cada sección, cómo se conecta con Almacenes y qué permisos usa.
+keywords: compras, compra, proveedor, proveedores, solicitud de compra, SC, aprobación, aprobar, rechazar, rubro, CUIT, pedido de materiales, faltante
+updated: 2026-10-08
+---
+
+**Compras** es donde se organiza lo que la empresa le compra a terceros: quiénes son los **proveedores** y qué se necesita comprar. Alguien carga una **solicitud de compra** (qué hace falta, cuánto y para qué), un responsable la **aprueba** o la **rechaza**, y queda registrado quién pidió, quién decidió y por qué.
+
+<OpenScreen />
+
+<Callout type="info" title="Lo que viene">
+Por ahora Compras cubre **proveedores** y **solicitudes de compra con aprobación**. Las cotizaciones, las órdenes de compra, la recepción de lo comprado (que va a entrar solo a Almacenes), las facturas y los pagos se suman en las próximas versiones.
+</Callout>
+
+## Las ideas básicas
+
+| Concepto | Qué es |
+|---|---|
+| **Proveedor** | A quién se le compra. Tiene razón social, CUIT, condición frente al IVA, contactos, rubros, plazo de pago, datos bancarios y documentos con vencimiento. |
+| **Rubro** | Qué vende un proveedor: repuestos, cubiertas, lubricantes, servicios de taller… Sirve para encontrar rápido a quién pedirle. |
+| **Solicitud de compra** | El pedido interno de comprar algo. Lleva un número correlativo (**SC-000001**, **SC-000002**…), las líneas de lo que se necesita y, si corresponde, a quién se imputa. |
+| **Línea** | Cada cosa que se pide. Puede ser un **material** del catálogo de Almacenes (algo que se guarda en un depósito) o un **texto libre** (un servicio o una compra que no se stockea, como un rectificado o una reparación). |
+
+## Qué hay en cada sección
+
+En el menú lateral, **Compras** tiene tres secciones:
+
+| Sección | Para qué sirve | Guía |
+|---|---|---|
+| **Solicitudes** | Pedir una compra, aprobarla o rechazarla, y seguir en qué estado está cada una. | <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink> |
+| **Proveedores** | El padrón de proveedores con sus datos, contactos, rubros y documentos. | <GuideLink to="proveedores">Proveedores</GuideLink> |
+| **Configuración** | Los rubros de proveedor. | <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink> |
+
+## Cómo se conecta con Almacenes
+
+| Desde | Qué pasa | Guía |
+|---|---|---|
+| **Pedidos de materiales** | Cuando un pedido aprobado no se puede entregar por falta de stock, desde el mismo pedido se genera una solicitud de compra con lo que falta. La solicitud queda vinculada al pedido y se ve desde los dos lados. | <GuideLink to="pedidos-de-materiales">Pedidos de materiales</GuideLink> |
+| **Materiales** | Las líneas de material de una solicitud usan el catálogo de Almacenes. | <GuideLink to="materiales">Materiales</GuideLink> |
+| **Destinos** | Una solicitud se puede imputar a un empleado, un vehículo, un equipo, una orden de mantenimiento o un cliente, igual que una salida de Almacenes. | <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink> |
+
+## Permisos
+
+| Sección | Acción | Qué habilita |
+|---|---|---|
+| **Solicitudes** | **Ver** | Ver **tus** solicitudes. |
+| | **Ver todas las solicitudes** | Ver las solicitudes de todos, no solo las tuyas. |
+| | **Crear** | Cargar solicitudes (también desde un pedido de materiales) y copiar una rechazada o anulada. |
+| | **Editar** | Editar y anular borradores y solicitudes pendientes de otros. Las tuyas las podés editar y anular sin este permiso. |
+| | **Aprobar** | Aprobar o rechazar solicitudes pendientes. |
+| **Proveedores** | **Ver** | La lista y la ficha de los proveedores. |
+| | **Crear** | Dar de alta proveedores. |
+| | **Editar** | Modificar la ficha, cargar documentos y reactivar un proveedor. |
+| | **Eliminar** | **Dar de baja** un proveedor. |
+| **Configuración** | **Ver** / **Editar** | Ver los rubros; crear, renombrar, desactivar o reactivar rubros. |
+
+<Callout type="info" title="Quién aprueba">
+Quien aprueba solicitudes de otros necesita **Aprobar** y además **Ver todas las solicitudes**; si no, solo ve las suyas.
+</Callout>
+
+Los roles de sistema (**Admin**, **Administrador** y **Full Access Provisional**) tienen todo. A los roles de tu empresa se les asignan a mano desde **Configuración → General → Usuarios** (ver <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>).
+
+## Problemas frecuentes
+
+<Callout type="info" title="No veo la solicitud de un compañero">
+Te falta **Ver todas las solicitudes** en **Solicitudes**. Con **Ver** solo se ven las propias.
+</Callout>
+
+<Callout type="info" title="No aparece el botón &quot;Generar solicitud de compra&quot; en un pedido">
+Aparece solo en pedidos **Aprobados** o **Entregados en parte**, y solo si tenés **Crear** en **Compras → Solicitudes**.
+</Callout>

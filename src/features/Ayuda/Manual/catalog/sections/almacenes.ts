@@ -70,7 +70,14 @@ export const almacenesSection = defineSection({
         { path: '/dashboard/warehouse', tab: 'pedidos' },
         { path: '/dashboard/warehouse/requests/*' },
       ],
-      related: ['circuito-de-materiales', 'movimientos-de-stock', 'configuracion-de-almacenes', 'taller', 'panel-del-operario'],
+      related: [
+        'circuito-de-materiales',
+        'movimientos-de-stock',
+        'configuracion-de-almacenes',
+        'taller',
+        'panel-del-operario',
+        'solicitudes-de-compra',
+      ],
     },
     {
       slug: 'materiales',

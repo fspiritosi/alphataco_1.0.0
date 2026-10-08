@@ -1414,6 +1414,46 @@ export const PERMISSIONS = {
     },
   },
 
+  // ============================================
+  // 13. COMPRAS
+  // ============================================
+  // Proveedores y solicitudes de compra (spec docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md).
+  // Prefijo de ids `c0000000-`. Las paginas de detalle (solicitud, proveedor) heredan el permiso
+  // del tab desde el que se llega.
+  compras: {
+    slug: 'compras',
+    name: 'Compras',
+    moduleId: 'c0000000-0000-0000-0000-000000000000',
+    tabs: {
+      solicitudes: {
+        slug: 'solicitudes',
+        name: 'Solicitudes',
+        tabId: 'c0000000-0000-0000-0000-000000000001',
+        parent: null,
+        // 'view' ve las propias, 'view_all_requests' todas; 'update' edita borradores ajenos y
+        // anula; 'approve' aprueba o rechaza.
+        allowedActions: ['view', 'view_all_requests', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      proveedores: {
+        slug: 'proveedores',
+        name: 'Proveedores',
+        tabId: 'c0000000-0000-0000-0000-000000000002',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'delete'],
+        subtabs: {},
+      },
+      'config-compras': {
+        slug: 'config-compras',
+        name: 'Configuración',
+        tabId: 'c0000000-0000-0000-0000-000000000003',
+        parent: null,
+        allowedActions: ['view', 'update'],
+        subtabs: {},
+      },
+    },
+  },
+
 } as const;
 
 // ============================================

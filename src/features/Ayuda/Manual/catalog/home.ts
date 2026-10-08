@@ -100,6 +100,12 @@ export const READING_PATHS: ReadingPath[] = [
     ],
   },
   {
+    id: 'compras',
+    title: 'Comprar',
+    audience: 'Compras y quien pide compras',
+    steps: ['compras', 'proveedores', 'solicitudes-de-compra', 'configuracion-de-compras'],
+  },
+  {
     id: 'comercial',
     title: 'Certificar y facturar',
     audience: 'Comercial y facturación',

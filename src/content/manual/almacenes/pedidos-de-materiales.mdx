@@ -140,6 +140,12 @@ Los repuestos de una reparación se piden con este mismo circuito, imputados a l
 
 Esos pedidos se aprueban y se entregan acá como cualquier otro, y su detalle muestra la **Orden de trabajo**. Mientras una orden tenga pedidos **Pendientes de aprobación**, **Aprobados** o **Entregados en parte**, el taller **no puede cerrarla**: hay que entregarlos, cerrarlos o cancelarlos. Lo entregado se ve en el detalle de la orden, agrupado por OT, y en el PDF de la orden, en **Materiales utilizados**.
 
+## Cuando no hay stock: solicitud de compra
+
+Si un pedido **Aprobado** o **Entregado en parte** no se puede entregar porque falta stock, en su detalle aparece la tarjeta **Solicitudes de compra** con el botón **Generar solicitud de compra** (hace falta **Crear** en **Compras → Solicitudes**). Abre una solicitud de compra ya cargada con lo que **falta**: lo pendiente de entregar menos el stock de toda la empresa, imputada al mismo destino del pedido.
+
+La tarjeta lista las solicitudes generadas desde el pedido, con su número y su estado; puede haber más de una. El circuito de la compra está en <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink>.
+
 ## Permisos
 
 | Para… | Hace falta en **Pedidos** |

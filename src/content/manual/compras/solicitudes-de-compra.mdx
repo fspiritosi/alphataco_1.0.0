@@ -1,0 +1,114 @@
+---
+title: Solicitudes de compra
+summary: Cómo pedir una compra (materiales o servicios), cómo se aprueba o rechaza, cómo se anula o se copia, y cómo generar una solicitud con lo que falta de un pedido de materiales.
+keywords: solicitud de compra, SC, comprar, pedir compra, aprobar, rechazar, anular, copiar, borrador, enviar a aprobación, texto libre, servicio, proveedor sugerido, para stock, imputar, faltante, pedido de materiales
+updated: 2026-10-08
+---
+
+Una **solicitud de compra** es el pedido interno de comprar algo. Quien la carga dice **qué** hace falta, **cuánto**, **para cuándo** y, si corresponde, **a quién se imputa**; un responsable la **aprueba** o la **rechaza**. Cada solicitud lleva un número correlativo (**SC-000001**, **SC-000002**…) y guarda el historial de quién la pidió y quién decidió.
+
+<OpenScreen />
+
+## El circuito de una solicitud
+
+<Flow title="De la necesidad a la aprobación">
+  <FlowStep title="Borrador" module="Solicitudes" tone="default">Se carga lo que hace falta. Se puede seguir editando.</FlowStep>
+  <FlowStep title="Envío" module="Solicitudes" tone="warning">Se envía a aprobación; ya no se edita.</FlowStep>
+  <FlowStep title="Decisión" module="Solicitudes" tone="success">Un responsable la aprueba o la rechaza con motivo, y se le avisa por mail a quien la pidió.</FlowStep>
+</Flow>
+
+<States title="Estados de una solicitud">
+  <State name="Borrador" tone="default" next="Pendiente de aprobación, Anulada">Recién cargada. Quien la pidió la puede seguir editando.</State>
+  <State name="Pendiente de aprobación" tone="warning" next="Aprobada, Rechazada, Anulada">Enviada. Espera la decisión de un responsable.</State>
+  <State name="Aprobada" tone="success">Autorizada. Es la que después se cotiza y se compra.</State>
+  <State name="Rechazada" tone="danger">No se aprobó. Lleva el motivo. Es definitiva: para volver a pedirla se copia como nueva.</State>
+  <State name="Anulada" tone="default">Se canceló antes de que se decidiera. Lleva el motivo.</State>
+</States>
+
+## Cargar una solicitud
+
+En **Solicitudes**, tocá **Nueva solicitud**. El formulario tiene dos partes.
+
+**Datos de la solicitud**
+
+| Campo | Qué poner |
+|---|---|
+| **Se imputa a** | **Para stock (sin imputar)** si lo comprado va a un depósito sin destino particular. Si es para alguien en concreto, elegí el tipo (empleado, vehículo, equipo, orden de mantenimiento o cliente) y después quién. Solo se ofrece lo vigente: empleados y equipos activos, órdenes abiertas. |
+| **Se necesita para** | La fecha en que hace falta. Se puede escribir (DD/MM/AAAA) o elegir en el calendario. |
+| **Para qué se necesita** | Contexto para quien aprueba y para quien compra. Opcional. |
+
+**Qué se compra**: una o más líneas. Con **Agregar línea** sumás otra y con el tacho la quitás. Cada línea es de uno de dos tipos, que se eligen arriba de la línea:
+
+- **Material**: algo del catálogo de Almacenes. Se busca por código o nombre y la cantidad va en su unidad (por ejemplo **Cantidad (l)** para un aceite).
+- **Texto libre**: un servicio o una compra que no se guarda en un depósito, como **Rectificado de tapa de cilindros**. Se escribe la descripción y se elige la unidad.
+
+En las dos se puede indicar un **Proveedor sugerido** (se busca por razón social o CUIT) y **Observaciones** (marca preferida, medida, urgencia…).
+
+Al final, dos botones:
+
+- **Guardar como borrador**: queda en **Borrador** para seguir más tarde. Es también lo que pasa si apretás Enter en un campo.
+- **Enviar a aprobación**: queda **Pendiente de aprobación** y ya no se edita.
+
+<Callout type="tip" title="¿Material o texto libre?">
+Si lo que se compra va a entrar a un depósito, cargalo como **material**: después se va a poder recibir contra el stock. Si el material todavía no existe en el catálogo, pedile a Almacenes que lo dé de alta (ver <GuideLink to="materiales">Materiales</GuideLink>). El texto libre es para servicios y compras que no se guardan.
+</Callout>
+
+## El detalle de una solicitud
+
+Tocá el número en la lista para abrirla. Arriba se ven el estado y los botones que te corresponden; abajo, a quién se imputa, para cuándo se necesita, el pedido de Almacenes de origen (si lo tiene), las líneas y el **Historial** con cada paso, quién lo hizo y cuándo.
+
+Los botones dependen del estado y de tus permisos:
+
+| Botón | Cuándo aparece | Qué hace |
+|---|---|---|
+| **Editar** | En **Borrador**, para quien la pidió o con **Editar**. | Abre el formulario para cambiarla. |
+| **Enviar a aprobación** | En **Borrador**, para quien la pidió. | La pasa a **Pendiente de aprobación**. Antes de enviarla el sistema vuelve a revisar todo: si mientras tanto un material, un proveedor o el destino quedó inactivo o cerrado, avisa cuál y no la envía. |
+| **Aprobar** | En **Pendiente de aprobación**, con **Aprobar**. | La aprueba. Se puede dejar un comentario. |
+| **Rechazar** | En **Pendiente de aprobación**, con **Aprobar**. | La rechaza. El motivo es obligatorio. |
+| **Anular** | En **Borrador** o **Pendiente de aprobación**, para quien la pidió o con **Editar**. | La anula. El motivo es obligatorio. |
+| **Copiar como nueva** | En **Rechazada** o **Anulada**, con **Crear**. | Crea un borrador nuevo con las mismas líneas, para corregirlo y volver a enviarlo. |
+
+Al aprobar o rechazar, quien pidió la solicitud recibe un **mail** con la decisión y el comentario o el motivo.
+
+<Callout type="info" title="&quot;La solicitud ya fue aprobada&quot;">
+Si dos personas deciden la misma solicitud a la vez, gana la primera y la otra ve este aviso. Recargá la página para ver el estado actual.
+</Callout>
+
+## Desde un pedido de materiales
+
+Cuando un pedido de materiales de Almacenes está aprobado pero no hay stock para entregarlo, en el detalle del pedido aparece la tarjeta **Solicitudes de compra** con el botón **Generar solicitud de compra**.
+
+<Steps>
+  <Step title="Abrí el pedido">En Almacenes → Pedidos, abrí el pedido **Aprobado** o **Entregado en parte**.</Step>
+  <Step title="Generá la solicitud">Tocá **Generar solicitud de compra**. El formulario viene cargado con lo que **falta**: lo pendiente de entregar menos el stock que hay en toda la empresa. Los materiales que alcanzan con el stock no se proponen.</Step>
+  <Step title="Ajustá y enviá">Podés cambiar cantidades, quitar líneas o sugerir proveedor. El destino es el del pedido y solo se pueden pedir materiales del pedido.</Step>
+</Steps>
+
+La solicitud queda vinculada: en el detalle del pedido se listan sus solicitudes de compra con su estado, y en la solicitud aparece el número del pedido. Un pedido puede tener más de una solicitud (por ejemplo, una por proveedor).
+
+<Callout type="info" title="&quot;El pedido no tiene faltantes&quot;">
+Hay stock para entregar todo lo pendiente: entregalo desde Almacenes en vez de comprar. Ver <GuideLink to="pedidos-de-materiales">Pedidos de materiales</GuideLink>.
+</Callout>
+
+## La lista de solicitudes
+
+| Columna | Qué muestra |
+|---|---|
+| **Número** | **SC-** y el correlativo; enlace al detalle. |
+| **Fecha** | Cuándo se cargó. |
+| **Solicitante** | Quién la pidió. |
+| **Tipo de destino** y **Destino** | A quién se imputa, o **Para stock**. |
+| **Estado** | Uno de los cinco de arriba. |
+| **Líneas** | Cuántas cosas pide. |
+| **Se necesita para** | La fecha pedida. |
+| **Pedido de origen** | El pedido de Almacenes del que salió, si corresponde; enlace al pedido. |
+
+El buscador dice **Buscar por número o notas**. A la vista hay tres filtros, **Estado**, **Tipo de destino** y **Fecha**, y con **Filtros** sumás **Se necesita para**, **Solicitante**, **Número**, **Destino** y **Pedido de origen**. **Excel** exporta "Solicitudes de compra".
+
+<Callout type="tip" title="La bandeja de quien aprueba">
+Filtrá **Estado** en **Pendiente de aprobación**.
+</Callout>
+
+<Callout type="info" title="¿Por qué no veo las solicitudes de los demás?">
+Con **Ver** en **Solicitudes** ves solo **tus** solicitudes. Para ver las de todos hace falta **Ver todas las solicitudes**.
+</Callout>

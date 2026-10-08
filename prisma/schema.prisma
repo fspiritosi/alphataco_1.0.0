@@ -620,6 +620,10 @@ model company {
   warehouse_settings   warehouse_settings?
   clothing_item_materials      clothing_item_materials[]
   tire_materials               tire_materials[]
+  suppliers                    suppliers[]
+  supplier_categories          supplier_categories[]
+  purchase_requests            purchase_requests[]
+
   @@schema("public")
 }
 
@@ -790,6 +794,8 @@ model customer_services {
 
   stock_movements      stock_movements[]
   material_requests    material_requests[]
+  purchase_requests purchase_requests[]
+
   @@schema("public")
 }
 
@@ -832,6 +838,8 @@ model customers {
   stock_movements            stock_movements[]
   material_requests          material_requests[]
 
+
+  purchase_requests purchase_requests[]
 
   @@unique([company_id, cuit], map: "customers_company_id_cuit_key")
   @@schema("public")
@@ -1250,6 +1258,8 @@ model employees {
   managed_warehouses   warehouses[]       @relation("warehouse_manager")
   stock_movements      stock_movements[]  @relation("stock_movement_employee")
   material_requests    material_requests[] @relation("material_request_employee")
+  purchase_requests purchase_requests[] @relation("purchase_request_employee")
+
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
   @@schema("public")
 }
@@ -1606,6 +1616,8 @@ model maintenance_orders {
 
   stock_movements      stock_movements[]
   material_requests    material_requests[]
+  purchase_requests purchase_requests[]
+
   @@index([equipment_id], map: "idx_maintenance_orders_equipment")
   @@index([order_number], map: "idx_maintenance_orders_order_number")
   @@index([maintenance_request_id], map: "idx_maintenance_orders_request")
@@ -1864,6 +1876,8 @@ model other_equipment {
 
   stock_movements      stock_movements[]
   material_requests    material_requests[]
+  purchase_requests purchase_requests[]
+
   @@index([company_id], map: "idx_other_equipment_company_id")
   @@index([is_active], map: "idx_other_equipment_is_active")
   @@index([linked_vehicle_id], map: "idx_other_equipment_linked_vehicle")
@@ -2120,6 +2134,11 @@ model profile {
   material_requests_decided  material_requests[] @relation("material_request_decider")
   material_requests_closed   material_requests[] @relation("material_request_closer")
   clothing_deliveries_cancelled clothing_deliveries[] @relation("clothing_delivery_canceller")
+  purchase_requests_requested purchase_requests[] @relation("purchase_request_requester")
+  purchase_requests_decided   purchase_requests[] @relation("purchase_request_decider")
+  purchase_requests_cancelled purchase_requests[] @relation("purchase_request_canceller")
+  supplier_documents_uploaded supplier_documents[]
+
   @@index([employee_id], map: "idx_profile_employee_id")
   @@schema("public")
 }
@@ -2649,6 +2668,8 @@ model vehicles {
 
   stock_movements      stock_movements[]
   material_requests    material_requests[]
+  purchase_requests purchase_requests[]
+
   @@schema("public")
 }
 
@@ -4292,6 +4313,8 @@ model measurement_units {
   company      company     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   materials    materials[]
 
+  purchase_request_lines purchase_request_lines[]
+
   @@unique([company_id, name])
   @@unique([company_id, abbreviation])
   @@schema("public")
@@ -4326,6 +4349,8 @@ model materials {
   request_lines     material_request_lines[]
   clothing_combination clothing_item_materials?
   tire_combination     tire_materials?
+
+  purchase_request_lines purchase_request_lines[]
 
   @@unique([company_id, code])
   @@index([company_id], map: "idx_materials_company_id")
@@ -4545,6 +4570,8 @@ model material_requests {
   lines                material_request_lines[]
   deliveries           stock_movements[]
 
+  purchase_requests purchase_requests[]
+
   @@unique([company_id, number])
   @@index([company_id, status], map: "idx_material_requests_company_status")
   @@index([requested_by], map: "idx_material_requests_requested_by")
@@ -4574,5 +4601,180 @@ model warehouse_settings {
   updated_by             String?  @db.Uuid
   company                company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@schema("public")
+}
+
+// ── Compras (etapa 1): proveedores y solicitudes de compra ─────────────────────
+// Spec: docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md
+
+enum purchase_request_status {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@schema("public")
+}
+
+/// Proveedor. No se borra si tiene uso: se desactiva.
+model suppliers {
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id        String                    @db.Uuid
+  name              String
+  trade_name        String?
+  /// CUIT normalizado (solo digitos).
+  cuit              BigInt
+  /// Id de ARCA de la condicion frente al IVA (RECEIVER_VAT_CONDITIONS).
+  vat_condition_id  Int
+  street            String?
+  city              String?
+  province          String?
+  postal_code       String?
+  payment_term_days Int?
+  bank_cbu          String?
+  bank_alias        String?
+  notes             String?
+  is_active         Boolean                   @default(true)
+  created_at        DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+  company           company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  contacts          supplier_contacts[]
+  category_links    supplier_category_links[]
+  documents         supplier_documents[]
+  suggested_in      purchase_request_lines[]
+
+  @@unique([company_id, cuit], map: "suppliers_company_id_cuit_key")
+  @@index([company_id], map: "idx_suppliers_company_id")
+  @@schema("public")
+}
+
+model supplier_contacts {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplier_id String    @db.Uuid
+  name        String
+  email       String?
+  phone       String?
+  role        String?
+  /// Uno solo por proveedor (indice unico parcial en la migracion).
+  is_primary  Boolean   @default(false)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  supplier    suppliers @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+
+  @@index([supplier_id], map: "idx_supplier_contacts_supplier_id")
+  @@schema("public")
+}
+
+/// Rubros de proveedor, catalogo por empresa.
+model supplier_categories {
+  id         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id String                    @db.Uuid
+  name       String
+  is_active  Boolean                   @default(true)
+  created_at DateTime                  @default(now()) @db.Timestamptz(6)
+  company    company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  links      supplier_category_links[]
+
+  @@unique([company_id, name], map: "supplier_categories_company_id_name_key")
+  @@schema("public")
+}
+
+model supplier_category_links {
+  supplier_id String              @db.Uuid
+  category_id String              @db.Uuid
+  created_at  DateTime            @default(now()) @db.Timestamptz(6)
+  supplier    suppliers           @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  category    supplier_categories @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  @@id([supplier_id, category_id])
+  @@index([category_id], map: "idx_supplier_category_links_category_id")
+  @@schema("public")
+}
+
+/// Documento del proveedor. Reemplazar crea uno nuevo; el anterior queda con `replaced_by_id`.
+model supplier_documents {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplier_id    String               @db.Uuid
+  name           String
+  file_path      String
+  file_name      String
+  expires_at     DateTime?            @db.Date
+  replaced_by_id String?              @unique @db.Uuid
+  uploaded_by    String               @db.Uuid
+  created_at     DateTime             @default(now()) @db.Timestamptz(6)
+  supplier       suppliers            @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  uploader       profile              @relation(fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replaced_by    supplier_documents?  @relation("supplier_document_replacement", fields: [replaced_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replaces       supplier_documents?  @relation("supplier_document_replacement")
+
+  @@index([supplier_id], map: "idx_supplier_documents_supplier_id")
+  @@schema("public")
+}
+
+/// Solicitud de compra. Destino opcional (sin destino = para stock).
+model purchase_requests {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id           String                   @db.Uuid
+  number               String
+  status               purchase_request_status  @default(DRAFT)
+  requested_by         String                   @db.Uuid
+  needed_by            DateTime?                @db.Date
+  notes                String?
+  destination_type     stock_destination_type?
+  employee_id          String?                  @db.Uuid
+  vehicle_id           String?                  @db.Uuid
+  other_equipment_id   String?                  @db.Uuid
+  maintenance_order_id String?                  @db.Uuid
+  customer_id          String?                  @db.Uuid
+  customer_service_id  String?                  @db.Uuid
+  /// Pedido de materiales de Almacenes que la origino.
+  material_request_id  String?                  @db.Uuid
+  submitted_at         DateTime?                @db.Timestamptz(6)
+  decided_by           String?                  @db.Uuid
+  decided_at           DateTime?                @db.Timestamptz(6)
+  decision_notes       String?
+  cancelled_by         String?                  @db.Uuid
+  cancelled_at         DateTime?                @db.Timestamptz(6)
+  cancel_reason        String?
+  created_at           DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
+  company              company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  requester            profile                  @relation("purchase_request_requester", fields: [requested_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  decider              profile?                 @relation("purchase_request_decider", fields: [decided_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller            profile?                 @relation("purchase_request_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employee             employees?               @relation("purchase_request_employee", fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicle              vehicles?                @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_equipment      other_equipment?         @relation(fields: [other_equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenance_order    maintenance_orders?      @relation(fields: [maintenance_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer             customers?               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer_service     customer_services?       @relation(fields: [customer_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  material_request     material_requests?       @relation(fields: [material_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines                purchase_request_lines[]
+
+  @@unique([company_id, number], map: "purchase_requests_company_id_number_key")
+  @@index([company_id, status], map: "idx_purchase_requests_company_status")
+  @@index([requested_by], map: "idx_purchase_requests_requested_by")
+  @@index([material_request_id], map: "idx_purchase_requests_material_request")
+  @@schema("public")
+}
+
+/// Linea de una solicitud: material del catalogo o texto libre (CHECK). Sin precio (etapa 2).
+model purchase_request_lines {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id            String            @db.Uuid
+  position              Int
+  material_id           String?           @db.Uuid
+  description           String?
+  quantity              Decimal           @db.Decimal(15, 4)
+  unit_id               String            @db.Uuid
+  suggested_supplier_id String?           @db.Uuid
+  notes                 String?
+  request               purchase_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  material              materials?        @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  unit                  measurement_units @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  suggested_supplier    suppliers?        @relation(fields: [suggested_supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_purchase_request_lines_request_id")
+  @@index([material_id], map: "idx_purchase_request_lines_material_id")
   @@schema("public")
 }

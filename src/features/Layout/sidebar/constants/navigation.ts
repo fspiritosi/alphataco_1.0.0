@@ -197,18 +197,30 @@ export const navigationLinks: NavigationLink[] = [
     ],
   },
   {
+    name: 'Compras',
+    moduleSlug: 'compras',
+    href: '/dashboard/purchases',
+    icon: MODULE_ICONS.compras,
+    position: 10,
+    items: [
+      { name: 'Solicitudes', tabSlug: 'solicitudes' },
+      { name: 'Proveedores', tabSlug: 'proveedores' },
+      { name: 'Configuración', tabSlug: 'config-compras' },
+    ],
+  },
+  {
     name: 'Formularios',
     moduleSlug: 'formularios',
     href: '/dashboard/forms',
     icon: MODULE_ICONS.formularios,
-    position: 10,
+    position: 11,
   },
   {
     name: 'Ayuda',
     moduleSlug: 'ayuda',
     href: '/dashboard/help',
     icon: MODULE_ICONS.ayuda,
-    position: 11,
+    position: 12,
     items: [
       { name: 'Tickets', tabSlug: 'tickets', badge: 'support-tickets' },
       { name: 'Manual de uso', tabSlug: 'manual' },
@@ -219,7 +231,7 @@ export const navigationLinks: NavigationLink[] = [
     moduleSlug: 'configuracion',
     href: '/dashboard/configuration',
     icon: MODULE_ICONS.configuracion,
-    position: 12,
+    position: 13,
     items: [
       { name: 'General', tabSlug: 'general' },
       { name: 'RRHH', tabSlug: 'rrhh' },
@@ -269,6 +281,9 @@ export const SUB_ITEM_ICONS: Record<string, NavIcon> = {
   'almacenes:materiales': Package,
   'almacenes:depositos': Warehouse,
   'almacenes:config-almacen': Settings,
+  'compras:solicitudes': ClipboardList,
+  'compras:proveedores': Truck,
+  'compras:config-compras': Settings,
   'ayuda:tickets': LifeBuoy,
   'ayuda:manual': BookOpen,
 };

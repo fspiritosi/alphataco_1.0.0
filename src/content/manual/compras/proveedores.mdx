@@ -1,0 +1,85 @@
+---
+title: Proveedores
+summary: Cómo dar de alta y mantener la ficha de un proveedor (CUIT, IVA, contactos, rubros, pago, banco), cargar sus documentos con vencimiento y darlo de baja.
+keywords: proveedor, proveedores, alta de proveedor, CUIT, condición de IVA, contacto, contacto principal, rubro, plazo de pago, CBU, alias, documento, constancia, ARCA, vencimiento, vencido, dar de baja, reactivar
+updated: 2026-10-08
+---
+
+La sección **Proveedores** es el padrón de a quién le compra la empresa. Cada proveedor tiene una **ficha** con sus datos fiscales, sus contactos, qué vende (sus **rubros**), cómo se le paga y sus **documentos** con vencimiento.
+
+<OpenScreen />
+
+## La lista de proveedores
+
+| Columna | Qué muestra |
+|---|---|
+| **Razón social** | Enlace a la ficha. Debajo, el nombre de fantasía si tiene. |
+| **CUIT** | Con guiones. |
+| **Condición de IVA** | Frente al IVA, según ARCA. |
+| **Rubros** | Qué vende. |
+| **Contacto principal** | Nombre y mail o teléfono. |
+| **Documentos** | **Vencido** si alguno de sus documentos vigentes venció, **Por vencer** si alguno vence en los próximos 30 días, **Al día** o **Sin documentos**. Pasando el mouse se ve el próximo vencimiento. |
+| **Estado** | **Activo** o **Inactivo**. Los inactivos van al final. |
+
+El buscador dice **Buscar por razón social, fantasía o CUIT** (el CUIT se puede escribir con o sin guiones). A la vista hay tres filtros, **Condición de IVA**, **Rubros** y **Documentos**, y con **Filtros** sumás **Estado**, **Fecha de alta**, **Razón social**, **CUIT** y **Contacto principal**. **Excel** exporta "Proveedores".
+
+<Callout type="tip" title="Proveedores con papeles vencidos">
+Filtrá **Documentos** en **Vencido** o **Por vencer** para saber a quién pedirle la documentación actualizada.
+</Callout>
+
+## Dar de alta un proveedor
+
+Tocá **Nuevo proveedor**. La ficha es un solo formulario:
+
+**Datos del proveedor**
+
+| Campo | Qué poner |
+|---|---|
+| **Razón social** | Obligatoria. |
+| **Nombre de fantasía** | Opcional. |
+| **CUIT** | Obligatorio. Se puede escribir con o sin guiones; el sistema controla el dígito verificador y avisa **CUIT inválido** si está mal. No puede haber dos proveedores con el mismo CUIT en la empresa: si ya existe, el aviso dice cuál es. |
+| **Condición frente al IVA** | Obligatoria. Incluye **Proveedor del Exterior**. |
+| **Dirección**, **Localidad**, **Provincia**, **CP** | Opcionales. |
+
+**Contactos**: a quién se le piden precios y se le van a enviar las órdenes de compra. Con **Agregar contacto** sumás uno (nombre, mail, teléfono y puesto). La **estrella** marca el **contacto principal**: hay uno solo por proveedor y es el que se muestra en la lista.
+
+**Rubros, pago y banco**
+
+| Campo | Qué poner |
+|---|---|
+| **Rubros** | Uno o varios. Se crean en <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink>. |
+| **Plazo de pago (días)** | Cuántos días después de la factura se le paga (de 0 a 365). |
+| **CBU** | 22 dígitos; el sistema controla los dígitos verificadores. Opcional. |
+| **Alias** | De 6 a 20 letras, números, puntos o guiones. Opcional. |
+| **Observaciones** | Opcional. |
+
+Tocá **Crear proveedor**. Se abre su ficha.
+
+## Editar la ficha
+
+En la ficha, cambiá lo que necesites y tocá **Guardar cambios** (se habilita cuando hay algún cambio). Quitar un contacto con el tacho lo borra al guardar; los que no tocás quedan como están.
+
+Sin el permiso **Editar** la ficha se ve pero no se puede modificar.
+
+## Documentos
+
+En la tarjeta **Documentos** de la ficha se cargan las constancias del proveedor: inscripción en ARCA, Ingresos Brutos, seguros…
+
+<Steps>
+  <Step title="Cargá el documento">Tocá **Cargar documento**, escribí qué documento es (el campo sugiere los nombres que ya se usaron), elegí el archivo (PDF o imagen, hasta 10 MB) y, si vence, la fecha de vencimiento.</Step>
+  <Step title="Consultalo">Con **Ver** se abre el archivo. Cada documento muestra si **Vence el**…, **Vence en N días** (cuando faltan 30 o menos) o **Vencido el**….</Step>
+  <Step title="Reemplazalo cuando lo renuevan">Con **Reemplazar** se carga la versión nueva. La anterior no se borra: queda en **Ver reemplazados**, como historial.</Step>
+</Steps>
+
+## Dar de baja y reactivar
+
+Con **Dar de baja**, en el encabezado de la ficha:
+
+- Si el proveedor **no tiene solicitudes ni documentos**, se elimina.
+- Si **los tiene**, se **desactiva**: deja de ofrecerse como proveedor sugerido en las solicitudes nuevas, pero conserva su historial. Las solicitudes que ya lo tenían no cambian.
+
+Un proveedor inactivo se reactiva desde su ficha con **Reactivar**.
+
+<Callout type="info" title="&quot;El proveedor X está inactivo&quot; al enviar una solicitud">
+Un borrador sugería un proveedor que después se dio de baja. Sacalo de la línea o elegí otro, y volvé a enviar. Ver <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink>.
+</Callout>
