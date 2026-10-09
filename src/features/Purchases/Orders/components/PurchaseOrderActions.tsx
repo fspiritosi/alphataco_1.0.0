@@ -1,11 +1,12 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Ban, Check, CheckCheck, Pencil, Send, X } from 'lucide-react';
+import { Ban, Check, CheckCheck, Lock, PackageCheck, Pencil, Send, X } from 'lucide-react';
 import Link from 'next/link';
 import {
   approvePurchaseOrder,
   cancelPurchaseOrder,
+  closePurchaseOrder,
   getPurchaseOrderPdf,
   markPurchaseOrderSent,
   rejectPurchaseOrder,
@@ -52,7 +53,11 @@ export function PurchaseOrderActions({ order }: { order: PurchaseOrderDetail }) 
             variant="default"
             label="Aprobar"
             title={`¿Aprobar ${order.number}?`}
-            description="Queda lista para enviar al proveedor. Se le avisa por mail a quien la creó."
+            description={
+              order.complements
+                ? 'Queda recibida: el excedente ya está en el depósito. Se le avisa por mail a quien la creó.'
+                : 'Queda lista para enviar al proveedor. Se le avisa por mail a quien la creó.'
+            }
             confirmLabel="Aprobar"
             successMessage={`Orden ${order.number} aprobada`}
             run={() => approvePurchaseOrder(order.id)}
@@ -93,7 +98,28 @@ export function PurchaseOrderActions({ order }: { order: PurchaseOrderDetail }) 
           />
         </>
       )}
+      {can.receive && (
+        <Button asChild size="sm">
+          <Link href={`/dashboard/purchases/receipts/new?order=${order.id}`}>
+            <PackageCheck className="mr-1 h-4 w-4" />
+            Registrar recepción
+          </Link>
+        </Button>
+      )}
       <DownloadPdfButton load={() => getPurchaseOrderPdf(order.id)} />
+      {can.close && (
+        <ConfirmAction
+          icon={Lock}
+          variant="outline"
+          label="Cerrar"
+          title={`¿Cerrar ${order.number}?`}
+          description="Se da por terminada sin recibir lo que falta. Lo no recibido vuelve a quedar pendiente en sus solicitudes, para pedirlo a otro proveedor."
+          confirmLabel="Cerrar orden"
+          successMessage={`Orden ${order.number} cerrada`}
+          motive={{ label: 'Motivo', placeholder: 'Obligatorio', required: true }}
+          run={(notes) => closePurchaseOrder(order.id, notes)}
+        />
+      )}
       {can.cancel && (
         <ConfirmAction
           icon={Ban}

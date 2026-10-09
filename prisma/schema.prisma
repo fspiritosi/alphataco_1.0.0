@@ -625,6 +625,7 @@ model company {
   purchase_requests            purchase_requests[]
   purchase_quotes              purchase_quotes[]
   purchase_orders              purchase_orders[]
+  purchase_receipts            purchase_receipts[]
 
   @@schema("public")
 }
@@ -2148,6 +2149,9 @@ model profile {
   purchase_orders_sent        purchase_orders[]   @relation("purchase_order_sender")
   purchase_orders_cancelled   purchase_orders[]   @relation("purchase_order_canceller")
   purchase_order_rejections   purchase_order_rejections[]
+  purchase_orders_closed      purchase_orders[]   @relation("purchase_order_closer")
+  purchase_receipts_created   purchase_receipts[] @relation("purchase_receipt_creator")
+  purchase_receipts_cancelled purchase_receipts[] @relation("purchase_receipt_canceller")
   supplier_documents_uploaded supplier_documents[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
@@ -4292,6 +4296,7 @@ model warehouses {
   movements           stock_movements[] @relation("movement_warehouse")
   incoming_transfers  stock_movements[] @relation("movement_target_warehouse")
   clothing_deliveries clothing_deliveries[]
+  purchase_receipts   purchase_receipts[]
 
   @@unique([company_id, code])
   @@unique([company_id, name])
@@ -4480,6 +4485,8 @@ model stock_movements {
   clothing_delivery    clothing_deliveries?
   tire_item_mounts     tire_service_items[]    @relation("tire_item_mount")
   tire_item_returns    tire_service_items[]    @relation("tire_item_return")
+  purchase_receipt     purchase_receipts?      @relation("purchase_receipt_movement")
+  purchase_receipt_reversal purchase_receipts?   @relation("purchase_receipt_reversal")
 
   @@unique([company_id, number])
   @@index([company_id, occurred_on, created_at], map: "idx_stock_movements_company_date")
@@ -4661,6 +4668,7 @@ model suppliers {
   suggested_in      purchase_request_lines[]
   purchase_quotes   purchase_quotes[]
   purchase_orders   purchase_orders[]
+  purchase_receipts purchase_receipts[]
 
   @@unique([company_id, cuit], map: "suppliers_company_id_cuit_key")
   @@index([company_id], map: "idx_suppliers_company_id")
@@ -4822,6 +4830,10 @@ enum purchase_order_status {
   APPROVED
   SENT
   CANCELLED
+  /// Etapa 3: estado de recepcion (recalculado) y cierre con faltante.
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
 
   @@schema("public")
 }
@@ -4910,11 +4922,22 @@ model purchase_orders {
   cancelled_by      String?                @db.Uuid
   cancelled_at      DateTime?              @db.Timestamptz(6)
   cancel_reason     String?
+  closed_by         String?                @db.Uuid
+  closed_at         DateTime?              @db.Timestamptz(6)
+  close_reason      String?
+  /// OC complementaria: la original cuyo excedente regulariza y la recepcion que lo origino.
+  complements_order_id   String?           @db.Uuid
+  complements_receipt_id String?           @db.Uuid
   created_at        DateTime               @default(now()) @db.Timestamptz(6)
   updated_at        DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
   company           company                @relation(fields: [company_id], references: [id], onDelete: Cascade)
   supplier          suppliers              @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quote             purchase_quotes?       @relation(fields: [quote_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  closer            profile?               @relation("purchase_order_closer", fields: [closed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  complements       purchase_orders?       @relation("purchase_order_complement", fields: [complements_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  complemented_by   purchase_orders[]      @relation("purchase_order_complement")
+  complements_receipt purchase_receipts?   @relation("purchase_receipt_complement", fields: [complements_receipt_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receipts          purchase_receipts[]
   creator           profile                @relation("purchase_order_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approver          profile?               @relation("purchase_order_approver", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rejecter          profile?               @relation("purchase_order_rejecter", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -4944,6 +4967,7 @@ model purchase_order_lines {
   order           purchase_orders        @relation(fields: [order_id], references: [id], onDelete: Cascade)
   request_line    purchase_request_lines @relation(fields: [request_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quote_line      purchase_quote_lines?  @relation(fields: [quote_line_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  receipt_lines   purchase_receipt_lines[]
 
   @@index([order_id], map: "idx_purchase_order_lines_order_id")
   @@index([request_line_id], map: "idx_purchase_order_lines_request_line_id")
@@ -4961,5 +4985,62 @@ model purchase_order_rejections {
   rejecter    profile         @relation(fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_purchase_order_rejections_order_id")
+  @@schema("public")
+}
+
+/// Recepcion de lo comprado contra una OC (RC-000001). Las lineas de material entran a Almacenes
+/// por el motor de stock (un movimiento ENTRY); las de servicio no tocan el stock.
+model purchase_receipts {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id           String                   @db.Uuid
+  number               String
+  order_id             String                   @db.Uuid
+  supplier_id          String                   @db.Uuid
+  /// Obligatorio si alguna linea es de material.
+  warehouse_id         String?                  @db.Uuid
+  received_on          DateTime                 @db.Date
+  delivery_note        String?
+  attachment_path      String?
+  attachment_name      String?
+  notes                String?
+  stock_movement_id    String?                  @unique @db.Uuid
+  created_by           String                   @db.Uuid
+  created_at           DateTime                 @default(now()) @db.Timestamptz(6)
+  cancelled_by         String?                  @db.Uuid
+  cancelled_at         DateTime?                @db.Timestamptz(6)
+  cancel_reason        String?
+  reversal_movement_id String?                  @unique @db.Uuid
+  company              company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  order                purchase_orders          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplier             suppliers                @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouse            warehouses?              @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stock_movement       stock_movements?         @relation("purchase_receipt_movement", fields: [stock_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversal_movement    stock_movements?         @relation("purchase_receipt_reversal", fields: [reversal_movement_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator              profile                  @relation("purchase_receipt_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller            profile?                 @relation("purchase_receipt_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines                purchase_receipt_lines[]
+  complement_orders    purchase_orders[]        @relation("purchase_receipt_complement")
+
+  @@unique([company_id, number], map: "purchase_receipts_company_id_number_key")
+  @@index([order_id], map: "idx_purchase_receipts_order_id")
+  @@index([warehouse_id], map: "idx_purchase_receipts_warehouse_id")
+  @@schema("public")
+}
+
+model purchase_receipt_lines {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receipt_id       String               @db.Uuid
+  order_line_id    String               @db.Uuid
+  quantity         Decimal              @db.Decimal(15, 4)
+  /// Neto unitario de la linea de OC (costo de la entrada).
+  unit_cost        Decimal              @db.Decimal(15, 4)
+  batch_number     String?
+  batch_expires_on DateTime?            @db.Date
+  serial_numbers   String[]             @default([])
+  receipt          purchase_receipts    @relation(fields: [receipt_id], references: [id], onDelete: Cascade)
+  order_line       purchase_order_lines @relation(fields: [order_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([receipt_id], map: "idx_purchase_receipt_lines_receipt_id")
+  @@index([order_line_id], map: "idx_purchase_receipt_lines_order_line_id")
   @@schema("public")
 }

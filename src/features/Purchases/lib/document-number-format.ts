@@ -3,6 +3,7 @@ export const PURCHASE_DOCUMENT_PREFIXES = {
   request: 'SC',
   quote: 'PC',
   order: 'OC',
+  receipt: 'RC',
 } as const;
 
 export type PurchaseDocumentKind = keyof typeof PURCHASE_DOCUMENT_PREFIXES;

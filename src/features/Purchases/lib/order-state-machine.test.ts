@@ -4,6 +4,7 @@ import {
   canApplyPurchaseOrderAction,
   purchaseOrderStatusAfter,
   purchaseOrderWatermark,
+  receiptStatus,
   type PurchaseOrderAction,
   type PurchaseOrderStatus,
 } from './order-state-machine';
@@ -16,6 +17,8 @@ const allowed: Record<PurchaseOrderAction, PurchaseOrderStatus[]> = {
   send: ['APPROVED'],
   markSent: ['APPROVED'],
   cancel: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT'],
+  receive: ['SENT', 'PARTIALLY_RECEIVED'],
+  close: ['SENT', 'PARTIALLY_RECEIVED'],
 };
 
 describe('maquina de estados de la orden de compra', () => {
@@ -34,6 +37,7 @@ describe('maquina de estados de la orden de compra', () => {
     expect(purchaseOrderStatusAfter('send')).toBe('SENT');
     expect(purchaseOrderStatusAfter('markSent')).toBe('SENT');
     expect(purchaseOrderStatusAfter('cancel')).toBe('CANCELLED');
+    expect(purchaseOrderStatusAfter('close')).toBe('CLOSED');
   });
 
   it('marca de agua del PDF segun el estado', () => {
@@ -42,5 +46,12 @@ describe('maquina de estados de la orden de compra', () => {
     expect(purchaseOrderWatermark({ status: 'APPROVED', approvedAt: new Date() })).toBeNull();
     expect(purchaseOrderWatermark({ status: 'SENT', approvedAt: new Date() })).toBeNull();
     expect(purchaseOrderWatermark({ status: 'CANCELLED', approvedAt: new Date() })).toBe('ANULADA');
+    expect(purchaseOrderWatermark({ status: 'CLOSED', approvedAt: new Date() })).toBeNull();
+  });
+
+  it('estado de recepcion segun lo recibido', () => {
+    expect(receiptStatus([{ ordered: '10', received: '0' }])).toBe('SENT');
+    expect(receiptStatus([{ ordered: '10', received: '4' }, { ordered: '1', received: '0' }])).toBe('PARTIALLY_RECEIVED');
+    expect(receiptStatus([{ ordered: '10', received: '10.0000' }, { ordered: '1', received: '1' }])).toBe('RECEIVED');
   });
 });

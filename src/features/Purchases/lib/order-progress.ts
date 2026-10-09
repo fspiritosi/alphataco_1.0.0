@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { QUANTITY_SCALE, formatScaled, parseScaled } from '@/features/Comercial/Facturacion/lib/invoice-math';
-import type { Prisma } from '@/generated/prisma/client';
+import { Prisma } from '@/generated/prisma/client';
+import { orderedQuantitySql } from './ordered-quantity-sql';
 import { PurchaseError } from './purchase-errors';
 import { formatQuantityWithUnit } from './quantity-format';
 import {
@@ -12,8 +13,8 @@ import {
 
 /**
  * "Lo que falta" de cada linea de solicitud y el avance de la solicitud (spec Compras etapa 2
- * §2.3 y §3). Pedido en OC = suma de las lineas de OC NO anuladas (incluye borradores); falta =
- * pedido en la solicitud - pedido en OC.
+ * §2.3 y §3, etapa 3 §3). Pedido en OC = `orderedQuantitySql` (OC no anuladas, incluidos los
+ * borradores; de las cerradas, solo lo recibido); falta = pedido en la solicitud - pedido en OC.
  *
  * Concurrencia: quien va a escribir lineas de OC (o de cotizacion) lockea primero las SOLICITUDES
  * de esas lineas, ordenadas por id. Dos compradores sobre la misma linea quedan en fila: el
@@ -125,13 +126,9 @@ export async function orderedByLine(
   if (ids.length === 0) return result;
   const exclude = options.excludeOrderId ?? null;
   const rows = await tx.$queryRaw<{ request_line_id: string; ordered: string }[]>`
-    SELECT ol.request_line_id, SUM(ol.quantity)::text AS ordered
-    FROM purchase_order_lines ol
-    JOIN purchase_orders o ON o.id = ol.order_id
-    WHERE ol.request_line_id = ANY(${ids}::uuid[])
-      AND o.status <> 'CANCELLED'
-      AND (${exclude}::uuid IS NULL OR o.id <> ${exclude}::uuid)
-    GROUP BY ol.request_line_id
+    SELECT l.id AS request_line_id, ${orderedQuantitySql(Prisma.raw('l.id'), exclude)}::text AS ordered
+    FROM purchase_request_lines l
+    WHERE l.id = ANY(${ids}::uuid[])
   `;
   for (const row of rows) result.set(row.request_line_id, row.ordered);
   return result;
@@ -177,11 +174,7 @@ export async function recomputeRequestProgress(tx: RawTx, requestIds: readonly s
   if (ids.length === 0) return;
   const rows = await tx.$queryRaw<{ request_id: string; status: PurchaseRequestStatus; requested: string; ordered: string }[]>`
     SELECT r.id AS request_id, r.status::text AS status, l.quantity::text AS requested,
-           COALESCE((
-             SELECT SUM(ol.quantity) FROM purchase_order_lines ol
-             JOIN purchase_orders o ON o.id = ol.order_id
-             WHERE ol.request_line_id = l.id AND o.status <> 'CANCELLED'
-           ), 0)::text AS ordered
+           ${orderedQuantitySql(Prisma.raw('l.id'))}::text AS ordered
     FROM purchase_requests r
     JOIN purchase_request_lines l ON l.request_id = r.id
     WHERE r.id = ANY(${ids}::uuid[])
@@ -251,11 +244,7 @@ export async function findOrderableRequestLines(
     WITH candidates AS (
       SELECT l.id, l.request_id, r.number, l.position, m.code, m.name, l.description, u.abbreviation,
              l.quantity AS requested, l.suggested_supplier_id,
-             COALESCE((
-               SELECT SUM(ol.quantity) FROM purchase_order_lines ol
-               JOIN purchase_orders o ON o.id = ol.order_id
-               WHERE ol.request_line_id = l.id AND o.status <> 'CANCELLED'
-             ), 0) AS ordered
+             ${orderedQuantitySql(Prisma.raw('l.id'))} AS ordered
       FROM purchase_request_lines l
       JOIN purchase_requests r ON r.id = l.request_id
       JOIN measurement_units u ON u.id = l.unit_id

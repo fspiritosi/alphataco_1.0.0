@@ -19,7 +19,7 @@ export default async function OrdersTabContent({
 
   return (
     <div className="space-y-4">
-      {permissions['compras:ordenesreate'] === true && (
+      {permissions['compras:ordenes:create'] === true && (
         <div className="flex justify-end">
           <Button asChild variant="brand" size="sm">
             <Link href="/dashboard/purchases/orders/new">

@@ -3,7 +3,7 @@
 -- tests prueban la red de seguridad. 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(24);
+SELECT plan(30);
 
 SELECT has_table('public', 'suppliers', 'existe suppliers');
 SELECT has_table('public', 'purchase_requests', 'existe purchase_requests');
@@ -172,6 +172,49 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$UPDATE purchase_requests SET status = 'CLOSED' WHERE id = 'a2000000-0000-0000-0000-000000000020'$$,
   '23514', NULL, 'una solicitud cerrada lleva el cierre con motivo'
+);
+
+-- ── Etapa 3: recepciones ────────────────────────────────────────────────────
+INSERT INTO purchase_order_lines (id, order_id, request_line_id, position, quantity, unit_price, vat_rate_id, net_total, vat_amount)
+VALUES ('a2000000-0000-0000-0000-000000000041', 'a2000000-0000-0000-0000-000000000040', 'a2000000-0000-0000-0000-000000000021', 1, 5, 10, 5, 50, 10.5);
+
+INSERT INTO purchase_receipts (id, company_id, number, order_id, supplier_id, received_on, created_by)
+VALUES ('a2000000-0000-0000-0000-000000000050', 'a2000000-0000-0000-0000-000000000001', 'RC-000001',
+        'a2000000-0000-0000-0000-000000000040', 'a2000000-0000-0000-0000-000000000010', current_date,
+        'a2000000-0000-0000-0000-000000000002');
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_receipt_lines (receipt_id, order_line_id, quantity, unit_cost)
+    VALUES ('a2000000-0000-0000-0000-000000000050', 'a2000000-0000-0000-0000-000000000041', 0, 10)$$,
+  '23514', NULL, 'la cantidad recibida es mayor a 0'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_receipt_lines (receipt_id, order_line_id, quantity, unit_cost)
+    VALUES ('a2000000-0000-0000-0000-000000000050', 'a2000000-0000-0000-0000-000000000041', 1, -1)$$,
+  '23514', NULL, 'el costo no es negativo'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_receipts SET cancelled_at = now() WHERE id = 'a2000000-0000-0000-0000-000000000050'$$,
+  '23514', NULL, 'la anulacion de la recepcion va completa'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_receipts (company_id, number, order_id, supplier_id, received_on, created_by)
+    VALUES ('a2000000-0000-0000-0000-000000000001', 'RC-000001', 'a2000000-0000-0000-0000-000000000040',
+            'a2000000-0000-0000-0000-000000000010', current_date, 'a2000000-0000-0000-0000-000000000002')$$,
+  '23505', NULL, 'el numero de recepcion es unico por empresa'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_orders SET status = 'CLOSED' WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
+  '23514', NULL, 'una OC cerrada lleva el cierre con motivo'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_orders SET complements_order_id = 'a2000000-0000-0000-0000-000000000040' WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
+  '23514', NULL, 'una OC complementaria lleva la recepcion que la origino'
 );
 
 SELECT * FROM finish();

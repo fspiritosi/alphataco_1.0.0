@@ -21,8 +21,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** Estados en los que se muestra lo recibido por linea. */
+const WITH_RECEIPTS = new Set(['SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED']);
+
 /** Detalle de la OC: cabecera, condiciones, lineas con su solicitud de origen, totales e historial. */
 export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail }) {
+  const showReceipts = WITH_RECEIPTS.has(order.status);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -39,7 +43,33 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
           <AlertDescription className="whitespace-pre-wrap">{order.rejectionNotes}</AlertDescription>
         </Alert>
       )}
-      {order.status !== 'CANCELLED' && order.status !== 'SENT' && (
+      {order.complements && (
+        <Alert>
+          <AlertTitle>OC complementaria</AlertTitle>
+          <AlertDescription>
+            Regulariza el excedente recibido en{' '}
+            {order.complements.receipt ? (
+              <Link href={`/dashboard/purchases/receipts/${order.complements.receipt.id}`} className="font-mono underline">
+                {order.complements.receipt.number}
+              </Link>
+            ) : (
+              'una recepción'
+            )}{' '}
+            de la orden{' '}
+            <Link href={`/dashboard/purchases/orders/${order.complements.id}`} className="font-mono underline">
+              {order.complements.number}
+            </Link>
+            . Lo recibido ya está en el depósito: al aprobarla queda recibida.
+          </AlertDescription>
+        </Alert>
+      )}
+      {order.closeReason && order.status === 'CLOSED' && (
+        <Alert>
+          <AlertTitle>Cerrada sin recibir lo que faltaba</AlertTitle>
+          <AlertDescription className="whitespace-pre-wrap">{order.closeReason}</AlertDescription>
+        </Alert>
+      )}
+      {!['CANCELLED', 'SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CLOSED'].includes(order.status) && (
         <ExpiredSupplierDocumentsAlert supplierId={order.supplier.id} documents={order.expiredDocuments} />
       )}
 
@@ -94,6 +124,8 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
                   <TableHead className="text-right">Unitario neto</TableHead>
                   <TableHead className="text-right">IVA</TableHead>
                   <TableHead className="text-right">Neto</TableHead>
+                  {showReceipts && <TableHead className="text-right">Recibido</TableHead>}
+                  {showReceipts && <TableHead className="text-right">Falta recibir</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -113,6 +145,16 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
                     <TableCell className="text-right tabular-nums">{formatUnitCost(line.unitPrice)}</TableCell>
                     <TableCell className="text-right tabular-nums">{isVatRateId(line.vatRateId) ? VAT_RATE_LABELS[line.vatRateId] : ''}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatMoney(line.netTotal)}</TableCell>
+                    {showReceipts && (
+                      <TableCell className="text-right tabular-nums">
+                        {formatQuantity(line.received)} {line.unitAbbr}
+                      </TableCell>
+                    )}
+                    {showReceipts && (
+                      <TableCell className="text-right tabular-nums">
+                        {Number(line.pendingReceipt) > 0 ? `${formatQuantity(line.pendingReceipt)} ${line.unitAbbr}` : '—'}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -128,6 +170,41 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
           </dl>
         </CardContent>
       </Card>
+
+      {(order.receipts.length > 0 || order.complementedBy.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recepciones</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="divide-y">
+              {order.receipts.map((receipt) => (
+                <li key={receipt.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                  <Link href={`/dashboard/purchases/receipts/${receipt.id}`} className="font-mono underline">
+                    {receipt.number}
+                  </Link>
+                  <span>{moment(receipt.receivedOn, 'YYYY-MM-DD').format('DD/MM/YYYY')}</span>
+                  {receipt.deliveryNote && <span className="text-muted-foreground">Remito {receipt.deliveryNote}</span>}
+                  {receipt.cancelled && <span className="text-destructive">Anulada</span>}
+                </li>
+              ))}
+            </ul>
+            {order.complementedBy.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span>OC complementaria por excedente:</span>
+                {order.complementedBy.map((c) => (
+                  <span key={c.id} className="flex items-center gap-1">
+                    <Link href={`/dashboard/purchases/orders/${c.id}`} className="font-mono underline">
+                      {c.number}
+                    </Link>
+                    <PurchaseOrderStatusBadge status={c.status} />
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <HistoryCard history={order.history} />
     </div>

@@ -1,10 +1,11 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { ClipboardList, FileCheck, FileQuestion, Settings, Truck } from 'lucide-react';
+import { ClipboardList, FileCheck, FileQuestion, PackageCheck, Settings, Truck } from 'lucide-react';
 import { Suspense } from 'react';
 import OrdersTabContent from './Orders/OrdersTabContent';
 import QuotesTabContent from './Quotes/QuotesTabContent';
+import ReceiptsTabContent from './Receipts/ReceiptsTabContent';
 import RequestsTabContent from './Requests/RequestsTabContent';
 import SettingsTabContent from './Settings/SettingsTabContent';
 import { PurchasesSettingsSkeleton } from './Settings/fallback/PurchasesSettingsSkeleton';
@@ -65,6 +66,17 @@ export default async function PurchasesComponent({ searchParams }: { searchParam
           content: (
             <Suspense fallback={<PurchasesSectionSkeleton />}>
               <OrdersTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'recepciones',
+          label: label(PackageCheck, 'Recepciones'),
+          moduleSlug: 'compras',
+          tabSlug: 'recepciones',
+          content: (
+            <Suspense fallback={<PurchasesSectionSkeleton />}>
+              <ReceiptsTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

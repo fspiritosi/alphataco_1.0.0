@@ -6,7 +6,9 @@ import moment from 'moment';
 import type { PurchaseOrderInput } from '../schemas/orders';
 import {
   PURCHASE_ORDER_STATUS_PAST,
+  RECEIVING_ORDER_STATUSES,
   canApplyPurchaseOrderAction,
+  receiptStatus,
   type PurchaseOrderAction,
   type PurchaseOrderStatus,
 } from './order-state-machine';
@@ -84,7 +86,7 @@ export async function validatePurchaseOrderInput(
   tx: Tx,
   companyId: string,
   input: PurchaseOrderInput,
-  options: { orderId?: string } = {}
+  options: { orderId?: string; complement?: boolean } = {}
 ): Promise<ValidatedOrder> {
   if (input.lines.length === 0) throw new PurchaseError('Agregá al menos una línea');
 
@@ -113,8 +115,11 @@ export async function validatePurchaseOrderInput(
     }
   }
 
+  // Una OC complementaria regulariza un excedente que YA llego: sus lineas no pasan por el estado
+  // de la solicitud ni por "no pedir de mas" (spec etapa 3 §3).
+  const complement = options.complement === true;
   const orderable: readonly PurchaseRequestStatus[] = ORDERABLE_REQUEST_STATUSES;
-  for (const line of locked.values()) {
+  for (const line of complement ? [] : locked.values()) {
     // Lo ya pedido en OC "sigue su curso" aunque la solicitud se haya completado o cerrado.
     const keepsOwnLine =
       alreadyInOrder.has(line.requestLineId) && (line.requestStatus === 'ORDERED' || line.requestStatus === 'CLOSED');
@@ -132,7 +137,7 @@ export async function validatePurchaseOrderInput(
   }
   for (const [requestLineId, quantity] of asked) {
     const line = locked.get(requestLineId)!;
-    if (line.requestStatus !== 'CLOSED') continue;
+    if (complement || line.requestStatus !== 'CLOSED') continue;
     const before = alreadyInOrder.get(requestLineId) ?? new Prisma.Decimal(0);
     if (quantity.gt(before)) {
       throw new PurchaseError(
@@ -148,7 +153,7 @@ export async function validatePurchaseOrderInput(
     input.lines.map((line) => line.requestLineId),
     { excludeOrderId: options.orderId }
   );
-  assertWithinRemaining(input.lines, locked, ordered);
+  if (!complement) assertWithinRemaining(input.lines, locked, ordered);
 
   const lines = input.lines.map((line, i): ValidatedOrderLine => {
     const amounts = computeOrderLine(line);
@@ -241,3 +246,49 @@ export async function expiredSupplierDocuments(
   });
   return documents.map((doc) => ({ id: doc.id, name: doc.name, expiresAt: moment.utc(doc.expires_at).format('YYYY-MM-DD') }));
 }
+
+/** Recibido por linea de OC en recepciones vigentes (texto decimal; '0' si no hay). */
+export async function receivedByOrderLine(
+  tx: Pick<Prisma.TransactionClient, '$queryRaw'>,
+  orderLineIds: readonly string[]
+): Promise<Map<string, string>> {
+  const ids = [...new Set(orderLineIds)];
+  const result = new Map(ids.map((id) => [id, '0']));
+  if (ids.length === 0) return result;
+  const rows = await tx.$queryRaw<{ order_line_id: string; received: string }[]>`
+    SELECT rl.order_line_id, SUM(rl.quantity)::text AS received
+    FROM purchase_receipt_lines rl
+    JOIN purchase_receipts r ON r.id = rl.receipt_id
+    WHERE rl.order_line_id = ANY(${ids}::uuid[]) AND r.cancelled_at IS NULL
+    GROUP BY rl.order_line_id
+  `;
+  for (const row of rows) result.set(row.order_line_id, row.received);
+  return result;
+}
+
+/**
+ * Recalcula SENT / PARTIALLY_RECEIVED / RECEIVED de la OC con lo recibido. En cualquier otro
+ * estado (borrador, aprobada, cerrada, anulada) no toca nada. Solo escribe si cambia.
+ */
+export async function recomputeOrderReceiptStatus(
+  tx: Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw' | 'purchase_orders' | 'purchase_order_lines'>,
+  orderId: string
+): Promise<PurchaseOrderStatus> {
+  const order = await tx.purchase_orders.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+  const status = order.status as PurchaseOrderStatus;
+  const receiving: readonly PurchaseOrderStatus[] = RECEIVING_ORDER_STATUSES;
+  if (!receiving.includes(status)) return status;
+  const lines = await tx.purchase_order_lines.findMany({ where: { order_id: orderId }, select: { id: true, quantity: true } });
+  const received = await receivedByOrderLine(
+    tx,
+    lines.map((line) => line.id)
+  );
+  const next = receiptStatus(lines.map((line) => ({ ordered: line.quantity.toString(), received: received.get(line.id) ?? '0' })));
+  if (next !== status) {
+    await tx.$executeRaw`
+      UPDATE purchase_orders SET status = ${next}::purchase_order_status, updated_at = now() WHERE id = ${orderId}::uuid
+    `;
+  }
+  return next;
+}
+

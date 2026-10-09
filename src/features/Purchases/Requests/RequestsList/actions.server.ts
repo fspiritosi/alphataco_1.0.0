@@ -17,6 +17,7 @@ import type { DataTableSearchParams } from '@/shared/components/common/DataTable
 import { prisma } from '@/shared/lib/prisma';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { pickFilters } from '@/features/Warehouses/lib/filters';
+import { orderedQuantitySql } from '../../lib/ordered-quantity-sql';
 import { DESTINATION_SELECT, destinationLabel } from '@/features/Warehouses/lib/labels';
 
 const logger = new Logger('features/Purchases/Requests/RequestsList');
@@ -130,26 +131,21 @@ const NO_PROGRESS_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'REJECTED', '
 
 /**
  * Avance (%) pedido en OC por solicitud, en UNA query agregada para toda la pagina (sin N+1):
- * Σ min(pedido en OC no anuladas, cantidad de la linea) / Σ cantidad de las lineas.
+ * Σ min(pedido en OC, cantidad de la linea) / Σ cantidad de las lineas.
+ * El "pedido en OC" sale de `orderedQuantitySql` (definicion unica: las OC cerradas cuentan solo
+ * por lo recibido).
  */
 async function getOrderProgressByRequest(requestIds: string[]): Promise<Map<string, number>> {
   if (requestIds.length === 0) return new Map();
-  const rows = await prisma.$queryRaw<{ request_id: string; progress: number | null }[]>`
-    SELECT rl.request_id,
+  const rows = await prisma.$queryRaw<{ request_id: string; progress: number | null }[]>(Prisma.sql`
+    SELECT prl.request_id,
            ROUND(
-             100 * SUM(LEAST(COALESCE(o.ordered, 0), rl.quantity)) / NULLIF(SUM(rl.quantity), 0)
+             100 * SUM(LEAST(${orderedQuantitySql(Prisma.raw('prl.id'))}, prl.quantity)) / NULLIF(SUM(prl.quantity), 0)
            )::float8 AS progress
-    FROM purchase_request_lines rl
-    LEFT JOIN (
-      SELECT ol.request_line_id, SUM(ol.quantity) AS ordered
-      FROM purchase_order_lines ol
-      JOIN purchase_orders po ON po.id = ol.order_id
-      WHERE po.status <> 'CANCELLED'
-      GROUP BY ol.request_line_id
-    ) o ON o.request_line_id = rl.id
-    WHERE rl.request_id = ANY(${requestIds}::uuid[])
-    GROUP BY rl.request_id
-  `;
+    FROM purchase_request_lines prl
+    WHERE prl.request_id = ANY(${requestIds}::uuid[])
+    GROUP BY prl.request_id
+  `);
   return new Map(rows.map((r) => [r.request_id, Math.round(r.progress ?? 0)]));
 }
 

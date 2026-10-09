@@ -2,7 +2,7 @@
 title: Órdenes de compra
 summary: Cómo armar una orden de compra (directa o desde una cotización), aprobarla o rechazarla, enviarla al proveedor con su PDF y anularla, y cómo se descuenta de lo que falta en las solicitudes.
 keywords: orden de compra, órdenes de compra, OC, comprar, aprobar orden, rechazar orden, enviar al proveedor, PDF, borrador no válida, anular orden, faltante, quedan, pedida en parte, IVA, neto, total, plazo de pago, lugar de entrega, documentos vencidos
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 La **orden de compra** (OC) es el pedido formal a un proveedor: qué se le compra, a qué precio, cuándo y dónde se entrega y cómo se paga. Se arma con líneas de **solicitudes de compra aprobadas**, se **aprueba** y recién ahí se **envía** al proveedor. Cada orden lleva un número correlativo (**OC-000001**, **OC-000002**…).
@@ -15,14 +15,18 @@ La **orden de compra** (OC) es el pedido formal a un proveedor: qué se le compr
   <FlowStep title="Borrador" module="Órdenes de compra" tone="default">Se arma la orden: proveedor, líneas, precios y condiciones.</FlowStep>
   <FlowStep title="Aprobación" module="Órdenes de compra" tone="warning">Se envía a aprobación; un responsable la aprueba o la devuelve con el motivo.</FlowStep>
   <FlowStep title="Envío" module="Órdenes de compra" tone="success">Aprobada, se le manda al proveedor por mail con el PDF.</FlowStep>
+  <FlowStep title="Recepción" module="Recepciones" tone="success">Se registra lo que entrega el proveedor y el material entra a Almacenes.</FlowStep>
 </Flow>
 
 <States title="Estados de una orden de compra">
   <State name="Borrador" tone="default" next="Pendiente de aprobación, Anulada">Se puede editar. Si la rechazaron, muestra el motivo arriba.</State>
   <State name="Pendiente de aprobación" tone="warning" next="Aprobada, Borrador, Anulada">Espera la decisión. Rechazarla la devuelve a borrador.</State>
   <State name="Aprobada" tone="success" next="Enviada, Anulada">Lista para mandar al proveedor.</State>
-  <State name="Enviada" tone="success" next="Anulada">El proveedor ya la tiene.</State>
-  <State name="Anulada" tone="default">Quedó sin efecto, con el motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes.</State>
+  <State name="Enviada" tone="success" next="Recibida en parte, Recibida, Cerrada, Anulada">El proveedor ya la tiene.</State>
+  <State name="Recibida en parte" tone="warning" next="Recibida, Cerrada">Llegó una parte. Cambia sola con cada recepción.</State>
+  <State name="Recibida" tone="success">Llegó todo lo pedido.</State>
+  <State name="Cerrada" tone="default">Se dio por terminada sin recibir lo que faltaba, con motivo. Lo no recibido vuelve a quedar pendiente en sus solicitudes.</State>
+  <State name="Anulada" tone="default">Quedó sin efecto, con el motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes. Solo se anula antes de recibir.</State>
 </States>
 
 ## Armar una orden de compra
@@ -73,7 +77,9 @@ En el detalle de la orden, los botones dependen del estado y de tus permisos:
 | **Enviar al proveedor** | En **Aprobada**, con **Editar**. | Manda un mail con el PDF adjunto al contacto principal (o a quien elijas). Queda **Enviada**. |
 | **Marcar como enviada** | En **Aprobada**, con **Editar**. | Para cuando se la hiciste llegar por otro medio. No manda mail. |
 | **Descargar PDF** | Siempre. | Hasta que se aprueba, el PDF lleva la marca **BORRADOR — NO VÁLIDA**. |
-| **Anular** | En cualquier estado menos **Anulada**, con **Editar**. | La anula con motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes. |
+| **Anular** | Antes de recibir algo, con **Editar**. | La anula con motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes. |
+| **Registrar recepción** | En **Enviada** o **Recibida en parte**, con **Crear** en **Recepciones**. | Carga lo que llegó. Ver <GuideLink to="recepciones">Recepciones</GuideLink>. |
+| **Cerrar** | En **Enviada** o **Recibida en parte**, con **Editar**. | La da por terminada sin recibir lo que falta. |
 
 Al aprobar o rechazar, quien armó la orden recibe un **mail** con la decisión.
 
@@ -85,9 +91,22 @@ El mail no salió: la orden **sigue aprobada** y no se marca como enviada. Revis
 Si el proveedor tiene una constancia vencida, la orden lo avisa al armarla, al aprobarla y al enviarla, con un enlace a su ficha. **No bloquea**: es para que decidas. Ver <GuideLink to="proveedores">Proveedores</GuideLink>.
 </Callout>
 
+## Recepción y cierre
+
+En una OC **Enviada** o **Recibida en parte**:
+
+- **Registrar recepción** abre el formulario para cargar lo que llegó (ver <GuideLink to="recepciones">Recepciones</GuideLink>). Cada línea muestra **Recibido** y **Falta recibir**, y abajo aparece la lista de recepciones.
+- **Cerrar** (con motivo) da la OC por terminada cuando el proveedor no va a entregar lo que falta. Lo no recibido vuelve a quedar pendiente en sus solicitudes.
+
+Una OC con recepciones **no se puede anular**: "**La orden OC-… tiene recepciones: no se puede anular. Si no va a llegar lo que falta, cerrala**".
+
+<Callout type="info" title="OC complementaria">
+Si el proveedor entrega más de lo pedido, la recepción crea una **OC complementaria** en borrador por el excedente, con el mismo precio. Se aprueba como cualquier OC y, aprobada, queda **Recibida** (no se envía: lo que regulariza ya llegó). Si la rechazan, al editarla solo se corrigen el precio, la alícuota y las notas: el proveedor y las cantidades son las que llegaron. En el detalle se ve a qué OC y a qué recepción complementa.
+</Callout>
+
 ## Cómo afecta a las solicitudes
 
-Cada orden **no anulada** (incluidos los borradores) descuenta de lo que falta en sus líneas de solicitud. La solicitud cambia sola de estado:
+Cada orden **no anulada** (incluidos los borradores) descuenta de lo que falta en sus líneas de solicitud. De una orden **cerrada** solo cuenta lo que se recibió. La solicitud cambia sola de estado:
 
 - **Pedida en parte**: alguna línea tiene algo en órdenes de compra, pero no todo.
 - **Pedida**: todas las líneas están cubiertas.

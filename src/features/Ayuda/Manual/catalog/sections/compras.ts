@@ -8,7 +8,7 @@ import { defineSection, tab } from '../define.ts';
 export const comprasSection = defineSection({
   key: 'compras',
   title: 'Compras',
-  description: 'Proveedores, solicitudes de compra, pedidos de cotización y órdenes de compra.',
+  description: 'Proveedores, solicitudes de compra, pedidos de cotización, órdenes de compra y recepciones.',
   icon: 'purchases',
   guides: [
     {
@@ -18,6 +18,7 @@ export const comprasSection = defineSection({
         tab('compras', 'solicitudes'),
         tab('compras', 'cotizaciones'),
         tab('compras', 'ordenes'),
+        tab('compras', 'recepciones'),
         tab('compras', 'proveedores'),
         tab('compras', 'config-compras'),
       ],
@@ -26,6 +27,7 @@ export const comprasSection = defineSection({
         'solicitudes-de-compra',
         'pedidos-de-cotizacion',
         'ordenes-de-compra',
+        'recepciones',
         'proveedores',
         'configuracion-de-compras',
         'pedidos-de-materiales',
@@ -56,7 +58,16 @@ export const comprasSection = defineSection({
         { path: '/dashboard/purchases', tab: 'ordenes' },
         { path: '/dashboard/purchases/orders/*' },
       ],
-      related: ['solicitudes-de-compra', 'pedidos-de-cotizacion', 'proveedores', 'compras'],
+      related: ['solicitudes-de-compra', 'pedidos-de-cotizacion', 'recepciones', 'proveedores', 'compras'],
+    },
+    {
+      slug: 'recepciones',
+      access: [tab('compras', 'recepciones')],
+      screens: [
+        { path: '/dashboard/purchases', tab: 'recepciones' },
+        { path: '/dashboard/purchases/receipts/*' },
+      ],
+      related: ['ordenes-de-compra', 'solicitudes-de-compra', 'movimientos-de-stock', 'compras'],
     },
     {
       slug: 'proveedores',

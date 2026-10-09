@@ -59,6 +59,8 @@ interface PurchaseOrderFormProps {
   defaultValues: PurchaseOrderFormValues;
   initialSupplierLabel: string | null;
   initialLineOptions: LineOptions;
+  /** OC complementaria: solo se corrigen precio, alicuota, notas y condiciones (lo demas es lo que llego). */
+  complement?: boolean;
 }
 
 /**
@@ -66,7 +68,7 @@ interface PurchaseOrderFormProps {
  * pago precargado), lineas tomadas de solicitudes con faltante, condiciones y totales en vivo.
  * Los totales que valen son los del servidor; aca son vista previa con la misma funcion.
  */
-export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, initialLineOptions }: PurchaseOrderFormProps) {
+export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, initialLineOptions, complement = false }: PurchaseOrderFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [supplierLabel, setSupplierLabel] = useState<string | null>(initialSupplierLabel);
@@ -131,6 +133,7 @@ export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, i
                     <SearchCombobox
                       queryKey={['purchase-supplier-options']}
                       search={searchSupplierOptions}
+                      disabled={complement}
                       value={field.value}
                       selectedLabel={supplierLabel}
                       onSelect={(option) => {
@@ -230,12 +233,18 @@ export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, i
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div className="space-y-1">
               <CardTitle className="text-base">Qué se compra</CardTitle>
-              <CardDescription>Líneas de solicitudes aprobadas con faltante. Se pueden juntar líneas de varias solicitudes.</CardDescription>
+              <CardDescription>
+                {complement
+                  ? 'OC complementaria: las cantidades son las que llegaron de más. Solo se corrigen el precio y la alícuota.'
+                  : 'Líneas de solicitudes aprobadas con faltante. Se pueden juntar líneas de varias solicitudes.'}
+              </CardDescription>
             </div>
-            <Button type="button" size="sm" variant="outline" onClick={() => lines.append(emptyPurchaseOrderLine())}>
-              <Plus className="mr-1 h-4 w-4" />
-              Agregar línea
-            </Button>
+            {!complement && (
+              <Button type="button" size="sm" variant="outline" onClick={() => lines.append(emptyPurchaseOrderLine())}>
+                <Plus className="mr-1 h-4 w-4" />
+                Agregar línea
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {lines.fields.map((field, index) => (
@@ -245,7 +254,8 @@ export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, i
                   form={form}
                   index={index}
                   option={lineOptions[watchedLines?.[index]?.requestLineId ?? ''] ?? null}
-                  canRemove={lines.fields.length > 1}
+                  canRemove={!complement && lines.fields.length > 1}
+                  locked={complement}
                   onRemove={() => lines.remove(index)}
                   onOption={(option) => setLineOptions((prev) => ({ ...prev, [option.requestLineId]: option }))}
                 />
@@ -291,9 +301,11 @@ interface OrderLineFieldsProps {
   canRemove: boolean;
   onRemove: () => void;
   onOption: (option: OrderableRequestLineOption) => void;
+  /** Linea y cantidad fijas (OC complementaria). */
+  locked: boolean;
 }
 
-function OrderLineFields({ form, index, option, canRemove, onRemove, onOption }: OrderLineFieldsProps) {
+function OrderLineFields({ form, index, option, canRemove, onRemove, onOption, locked }: OrderLineFieldsProps) {
   const line = useWatch({ control: form.control, name: `lines.${index}` });
   const amounts = line ? computeOrderLine(line) : null;
 
@@ -310,6 +322,7 @@ function OrderLineFields({ form, index, option, canRemove, onRemove, onOption }:
                 <SearchCombobox
                   queryKey={['purchase-orderable-lines']}
                   search={searchLineOptions}
+                  disabled={locked}
                   value={field.value}
                   selectedLabel={option ? lineOptionLabel(option) : null}
                   onSelect={(selected) => {
@@ -358,7 +371,7 @@ function OrderLineFields({ form, index, option, canRemove, onRemove, onOption }:
             <FormItem>
               <FormLabel>Cantidad{option ? ` (${option.unitAbbr})` : ''}</FormLabel>
               <FormControl>
-                <Input inputMode="decimal" className="tabular-nums" placeholder="0" {...field} />
+                <Input inputMode="decimal" className="tabular-nums" placeholder="0" readOnly={locked} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

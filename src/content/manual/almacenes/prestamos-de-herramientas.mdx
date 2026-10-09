@@ -18,6 +18,8 @@ Un préstamo no se carga aparte: **toda salida de un material controlado por nú
 
 Los materiales por cantidad o por lote (aceite, guantes, grasa) se consumen: no generan préstamos.
 
+Para prestar una herramienta, tocá **Prestar herramienta** arriba de la lista (aparece si tenés **Crear** en **Movimientos**): abre un movimiento nuevo con el tipo **Salida** ya elegido. Ahí elegís el depósito, a quién se entrega y las unidades por número de serie.
+
 <Flow title="La vida de una herramienta">
   <FlowStep title="Entrada" module="Movimientos" to="movimientos-de-stock">Ingresa con su número de serie.</FlowStep>
   <FlowStep title="Salida" module="Movimientos o Pedidos" tone="info" to="movimientos-de-stock">Se entrega a alguien: queda prestada.</FlowStep>

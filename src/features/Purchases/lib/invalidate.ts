@@ -7,7 +7,7 @@ import { PURCHASES_QUERY_KEYS } from './query-keys';
  * `router.refresh()` solo no las actualiza).
  */
 export function invalidatePurchases(queryClient: QueryClient): void {
-  for (const queryKey of [PURCHASES_QUERY_KEYS.requests, PURCHASES_QUERY_KEYS.quotes, PURCHASES_QUERY_KEYS.orders]) {
+  for (const queryKey of [PURCHASES_QUERY_KEYS.requests, PURCHASES_QUERY_KEYS.quotes, PURCHASES_QUERY_KEYS.orders, PURCHASES_QUERY_KEYS.receipts]) {
     void queryClient.invalidateQueries({ queryKey });
   }
 }

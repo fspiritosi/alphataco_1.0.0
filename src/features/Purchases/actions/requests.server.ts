@@ -15,8 +15,7 @@ import { NO_PERMISSION, UUID_RE, firstIssue, toPurchaseActionError } from '../li
 import { materialRequestShortfall, type MaterialRequestShortfall } from '../lib/from-material-request';
 import { PurchaseError } from '../lib/purchase-errors';
 import { nextPurchaseRequestNumber } from '../lib/request-numbering';
-import { sumQuantities } from '@/features/Comercial/Facturacion/lib/invoice-math';
-import { remainingOf } from '../lib/order-progress';
+import { orderedByLine, remainingOf } from '../lib/order-progress';
 import {
   ORDERABLE_REQUEST_STATUSES,
   canApplyPurchaseRequestAction,
@@ -588,16 +587,17 @@ export async function getPurchaseRequestDetail(id: string) {
           material: { select: { id: true, code: true, name: true } },
           unit: { select: { abbreviation: true } },
           suggested_supplier: { select: { id: true, name: true } },
-          order_lines: {
-            where: { order: { status: { not: 'CANCELLED' } } },
-            select: { quantity: true },
-          },
         },
         orderBy: { position: 'asc' },
       },
     },
   });
   if (!request) return null;
+
+  const orderedByRequestLine = await orderedByLine(
+    prisma,
+    request.lines.map((l) => l.id)
+  );
 
   // OC que cubren alguna linea (las anuladas tambien: quedan como historia).
   const orders = canViewOrders
@@ -645,8 +645,8 @@ export async function getPurchaseRequestDetail(id: string) {
       unit: l.unit.abbreviation,
       notes: l.notes,
       suggestedSupplier: l.suggested_supplier,
-      ordered: sumQuantities(l.order_lines.map((o) => o.quantity.toString())),
-      remaining: remainingOf(l.quantity.toString(), sumQuantities(l.order_lines.map((o) => o.quantity.toString()))),
+      ordered: orderedByRequestLine.get(l.id) ?? '0',
+      remaining: remainingOf(l.quantity.toString(), orderedByRequestLine.get(l.id) ?? '0'),
     })),
     orders: orders.map((o) => ({
       id: o.id,

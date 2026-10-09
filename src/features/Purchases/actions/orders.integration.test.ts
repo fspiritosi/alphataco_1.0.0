@@ -577,4 +577,22 @@ describe.skipIf(!RUN)('ordenes de compra (integracion)', () => {
     );
     expect((await order(created.id)).status).toBe('CANCELLED');
   });
+
+  // ── Etapa 3 ────────────────────────────────────────────────────────────────
+
+  it('cerrar una OC enviada sin recibir devuelve lo pedido a la solicitud', async () => {
+    const actions = await import('./orders.server');
+    const req = await approvedRequest([10]);
+    const draft = expectOk(await actions.createPurchaseOrder(orderForm([orderLine(req.lineIds[0], '10')]), { submit: true }));
+    expect(expectFail(await actions.closePurchaseOrder(draft.id, 'No llega'))).toContain('ya fue');
+    expectOk(await actions.approvePurchaseOrder(draft.id));
+    expectOk(await actions.markPurchaseOrderSent(draft.id));
+    expect(await requestStatus(req.id)).toBe('ORDERED');
+    expect(expectFail(await actions.closePurchaseOrder(draft.id, ''))).toBeTruthy();
+    expectOk(await actions.closePurchaseOrder(draft.id, 'El proveedor no tiene stock'));
+    expect((await order(draft.id)).status).toBe('CLOSED');
+    expect(await requestStatus(req.id)).toBe('APPROVED');
+    const search = await actions.searchOrderableRequestLines(req.number);
+    expect(search.items.map((i) => i.remaining)).toEqual(['10.0000']);
+  });
 });

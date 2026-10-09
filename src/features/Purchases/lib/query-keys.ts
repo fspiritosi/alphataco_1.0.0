@@ -7,4 +7,5 @@ export const PURCHASES_QUERY_KEYS = {
   suppliers: ['suppliers'],
   quotes: ['purchase-quotes'],
   orders: ['purchase-orders'],
+  receipts: ['purchase-receipts'],
 } as const;

@@ -92,6 +92,7 @@ export function EditPurchaseOrderPage({ order }: { order: PurchaseOrderDetail })
         defaultValues={order.form}
         initialSupplierLabel={order.supplier.name}
         initialLineOptions={lineOptions}
+        complement={order.complements !== null}
       />
     </Shell>
   );

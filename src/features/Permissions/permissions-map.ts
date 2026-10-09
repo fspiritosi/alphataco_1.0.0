@@ -1454,6 +1454,15 @@ export const PERMISSIONS = {
         allowedActions: ['view', 'create', 'update', 'approve'],
         subtabs: {},
       },
+      // Etapa 3. 'create' registra recepciones; 'update' las anula.
+      recepciones: {
+        slug: 'recepciones',
+        name: 'Recepciones',
+        tabId: 'c0000000-0000-0000-0000-000000000006',
+        parent: null,
+        allowedActions: ['view', 'create', 'update'],
+        subtabs: {},
+      },
       proveedores: {
         slug: 'proveedores',
         name: 'Proveedores',

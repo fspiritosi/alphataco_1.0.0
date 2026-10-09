@@ -21,9 +21,16 @@ import {
   requestLineLabel,
 } from '../lib/order-progress';
 import { canApplyPurchaseOrderAction, purchaseOrderStatusAfter, type PurchaseOrderStatus } from '../lib/order-state-machine';
-import { expiredSupplierDocuments, lockPurchaseOrder, validatePurchaseOrderInput, type ValidatedOrderLine } from '../lib/orders';
+import {
+  expiredSupplierDocuments,
+  lockPurchaseOrder,
+  receivedByOrderLine,
+  validatePurchaseOrderInput,
+  type ValidatedOrderLine,
+} from '../lib/orders';
 import { PurchaseError } from '../lib/purchase-errors';
 import { lockPurchaseQuote } from '../lib/quotes';
+import { computeOrderLine, computeOrderTotals } from '../lib/order-totals';
 import { dateColumn } from '../lib/requests';
 import { ORDERABLE_REQUEST_STATUSES, type PurchaseRequestStatus } from '../lib/request-state-machine';
 import { mailNotSentMessage, supplierRecipients } from '../lib/supplier-send';
@@ -60,6 +67,62 @@ async function quoteIdOf(tx: Tx, lines: readonly { quote_line_id: string | null 
     distinct: ['quote_id'],
   });
   return quotes.length === 1 ? quotes[0].quote_id : null;
+}
+
+/**
+ * Borrador de una OC complementaria: solo se corrigen precio, alicuota, notas y condiciones. Las
+ * lineas NO se reescriben (las lineas de la recepcion del excedente las apuntan) y proveedor,
+ * lineas y cantidades son las que llegaron.
+ */
+async function updateComplementDraft(tx: Tx, orderId: string, input: PurchaseOrderInput): Promise<void> {
+  const order = await tx.purchase_orders.findUniqueOrThrow({
+    where: { id: orderId },
+    select: { supplier_id: true, lines: { orderBy: { position: 'asc' }, select: { id: true, request_line_id: true, quantity: true } } },
+  });
+  const unchanged =
+    input.supplierId === order.supplier_id &&
+    input.lines.length === order.lines.length &&
+    input.lines.every((line, i) => {
+      const current = order.lines[i]!;
+      return line.requestLineId === current.request_line_id && new Prisma.Decimal(line.quantity).equals(current.quantity);
+    });
+  if (!unchanged) {
+    throw new PurchaseError(
+      'En una OC complementaria solo se corrigen el precio, la alícuota y las notas: el proveedor y las cantidades son las que llegaron'
+    );
+  }
+  for (const [i, line] of input.lines.entries()) {
+    const amounts = computeOrderLine(line);
+    if (!amounts) throw new PurchaseError(`Línea ${i + 1}: revisá el precio y la alícuota`);
+    await tx.purchase_order_lines.update({
+      where: { id: order.lines[i]!.id },
+      data: {
+        unit_price: new Prisma.Decimal(line.unitPrice),
+        vat_rate_id: line.vatRateId,
+        net_total: new Prisma.Decimal(amounts.netTotal),
+        vat_amount: new Prisma.Decimal(amounts.vatAmount),
+        quote_line_id: null,
+      },
+    });
+  }
+  const totals = computeOrderTotals(input.lines);
+  await tx.purchase_orders.update({
+    where: { id: orderId },
+    data: {
+      delivery_date: dateColumn(input.deliveryDate),
+      delivery_place: input.deliveryPlace,
+      payment_term_days: input.paymentTermDays,
+      notes: input.notes,
+      subtotal: new Prisma.Decimal(totals.subtotal),
+      vat_total: new Prisma.Decimal(totals.vatTotal),
+      total: new Prisma.Decimal(totals.total),
+    },
+  });
+}
+
+async function isComplementOrder(tx: Tx, orderId: string): Promise<boolean> {
+  const order = await tx.purchase_orders.findUniqueOrThrow({ where: { id: orderId }, select: { complements_order_id: true } });
+  return order.complements_order_id !== null;
 }
 
 async function requestIdsOfOrder(tx: Tx, orderId: string): Promise<string[]> {
@@ -249,7 +312,12 @@ export async function updatePurchaseOrderDraft(id: string, values: PurchaseOrder
         ...previousLines.map((line) => line.request_line_id),
         ...input.lines.map((line) => line.requestLineId),
       ]);
-      const validated = await validatePurchaseOrderInput(tx, companyId, input, { orderId: id });
+      const complement = await isComplementOrder(tx, id);
+      if (complement) {
+        await updateComplementDraft(tx, id, input);
+        return;
+      }
+      const validated = await validatePurchaseOrderInput(tx, companyId, input, { orderId: id, complement });
       await tx.purchase_order_lines.deleteMany({ where: { order_id: id } });
       await writeOrderLines(tx, id, validated.lines);
       await tx.purchase_orders.update({
@@ -284,7 +352,10 @@ export async function submitPurchaseOrder(id: string): Promise<ActionResult> {
   try {
     await prisma.$transaction(async (tx) => {
       await lockPurchaseOrder(tx, companyId, id, 'submit');
-      await validatePurchaseOrderInput(tx, companyId, await inputFromStoredOrder(tx, id), { orderId: id });
+      await validatePurchaseOrderInput(tx, companyId, await inputFromStoredOrder(tx, id), {
+        orderId: id,
+        complement: await isComplementOrder(tx, id),
+      });
       await tx.purchase_orders.update({
         where: { id },
         data: { status: purchaseOrderStatusAfter('submit'), submitted_at: new Date() },
@@ -327,9 +398,16 @@ export async function approvePurchaseOrder(id: string): Promise<ActionResult> {
   try {
     await prisma.$transaction(async (tx) => {
       await lockPurchaseOrder(tx, companyId, id, 'approve');
+      // Una complementaria regulariza un excedente que ya llego: aprobada, queda recibida.
+      const complement = await isComplementOrder(tx, id);
       await tx.purchase_orders.update({
         where: { id },
-        data: { status: purchaseOrderStatusAfter('approve'), approved_by: profile.id, approved_at: new Date(), rejection_notes: null },
+        data: {
+          status: complement ? 'RECEIVED' : purchaseOrderStatusAfter('approve'),
+          approved_by: profile.id,
+          approved_at: new Date(),
+          rejection_notes: null,
+        },
       });
     });
   } catch (error) {
@@ -380,6 +458,14 @@ export async function cancelPurchaseOrder(id: string, reason: string): Promise<A
   const companyId = await getActiveCompanyId();
   try {
     await prisma.$transaction(async (tx) => {
+      // Con recepciones vigentes no se anula (en cualquier estado): se cierra.
+      const receipts = await tx.purchase_receipts.count({ where: { order_id: id, cancelled_at: null, company_id: companyId } });
+      const current = await tx.purchase_orders.findFirst({ where: { id, company_id: companyId }, select: { number: true } });
+      if (current && receipts > 0) {
+        throw new PurchaseError(
+          `La orden ${current.number} tiene recepciones: no se puede anular. Si no va a llegar lo que falta, cerrala.`
+        );
+      }
       await lockPurchaseOrder(tx, companyId, id, 'cancel');
       const requestIds = await requestIdsOfOrder(tx, id);
       // Mismo orden de locks que al crear: primero las solicitudes, despues se escribe.
@@ -400,6 +486,40 @@ export async function cancelPurchaseOrder(id: string, reason: string): Promise<A
     return ok(null);
   } catch (error) {
     return toPurchaseActionError(error, logger, 'anular la orden de compra');
+  }
+}
+
+/**
+ * Cierra una OC enviada o recibida en parte sin recibir lo que falta (con motivo). Desde ahi la OC
+ * cuenta solo lo recibido: lo no entregado vuelve a quedar pendiente en sus solicitudes.
+ */
+export async function closePurchaseOrder(id: string, reason: string): Promise<ActionResult> {
+  if (!(await checkPermissionServer('compras', 'ordenes', 'update'))) return fail(NO_PERMISSION);
+  if (!UUID_RE.test(id)) return fail('La orden de compra no existe');
+  const motive = requiredReasonSchema.safeParse(reason);
+  if (!motive.success) return fail(firstIssue(motive.error));
+  const profile = await getServerAuthProfile();
+  if (!profile) return fail(SESSION_EXPIRED);
+  const companyId = await getActiveCompanyId();
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockPurchaseOrder(tx, companyId, id, 'close');
+      const lines = await tx.purchase_order_lines.findMany({ where: { order_id: id }, select: { request_line_id: true } });
+      const locked = await lockRequestsForLines(
+        tx,
+        companyId,
+        lines.map((line) => line.request_line_id)
+      );
+      await tx.purchase_orders.update({
+        where: { id },
+        data: { status: purchaseOrderStatusAfter('close'), closed_by: profile.id, closed_at: new Date(), close_reason: motive.data },
+      });
+      await recomputeRequestProgress(tx, [...new Set([...locked.values()].map((line) => line.requestId))]);
+    });
+    revalidate();
+    return ok(null);
+  } catch (error) {
+    return toPurchaseActionError(error, logger, 'cerrar la orden de compra');
   }
 }
 
@@ -552,10 +672,11 @@ const userName = (p: { fullname: string | null; email: string | null } | null) =
 /** Detalle de la OC: cabecera, lineas con su solicitud de origen, historial y que se puede hacer. */
 export async function getPurchaseOrderDetail(id: string) {
   if (!UUID_RE.test(id)) return null;
-  const [canView, canUpdate, canApprove] = await Promise.all([
+  const [canView, canUpdate, canApprove, canReceive] = await Promise.all([
     checkPermissionServer('compras', 'ordenes', 'view'),
     checkPermissionServer('compras', 'ordenes', 'update'),
     checkPermissionServer('compras', 'ordenes', 'approve'),
+    checkPermissionServer('compras', 'recepciones', 'create'),
   ]);
   if (!canView) return null;
   const companyId = await getActiveCompanyId();
@@ -582,6 +703,24 @@ export async function getPurchaseOrderDetail(id: string) {
       sent_to: true,
       cancelled_at: true,
       cancel_reason: true,
+      closed_at: true,
+      close_reason: true,
+      closer: { select: { fullname: true, email: true } },
+      complements: { select: { id: true, number: true } },
+      complements_receipt: { select: { id: true, number: true } },
+      complemented_by: { select: { id: true, number: true, status: true }, orderBy: { created_at: 'asc' } },
+      receipts: {
+        orderBy: { created_at: 'asc' },
+        select: {
+          id: true,
+          number: true,
+          received_on: true,
+          delivery_note: true,
+          created_at: true,
+          cancelled_at: true,
+          creator: { select: { fullname: true, email: true } },
+        },
+      },
       supplier: { select: { id: true, name: true, cuit: true } },
       quote: { select: { id: true, number: true } },
       creator: { select: { fullname: true, email: true } },
@@ -621,10 +760,14 @@ export async function getPurchaseOrderDetail(id: string) {
 
   const status = order.status as PurchaseOrderStatus;
   const requestLineIds = order.lines.map((line) => line.request_line_id);
-  const [orderedOthers, expiredDocuments, recipients] = await Promise.all([
+  const [orderedOthers, expiredDocuments, recipients, received] = await Promise.all([
     orderedByLine(prisma, requestLineIds, { excludeOrderId: order.id }),
     expiredSupplierDocuments(prisma, order.supplier_id),
     supplierRecipients(prisma, order.supplier_id),
+    receivedByOrderLine(
+      prisma,
+      order.lines.map((line) => line.id)
+    ),
   ]);
   const at = (d: Date | null) => d?.toISOString() ?? null;
 
@@ -647,6 +790,8 @@ export async function getPurchaseOrderDetail(id: string) {
       vatRateId: line.vat_rate_id,
       netTotal: line.net_total.toFixed(2),
       vatAmount: line.vat_amount.toFixed(2),
+      received: received.get(line.id) ?? '0',
+      pendingReceipt: remainingOf(line.quantity.toString(), received.get(line.id) ?? '0'),
     };
   });
 
@@ -664,6 +809,16 @@ export async function getPurchaseOrderDetail(id: string) {
     creator: userName(order.creator),
     rejectionNotes: status === 'DRAFT' ? order.rejection_notes : null,
     sentTo: order.sent_to,
+    closeReason: order.close_reason,
+    complements: order.complements ? { ...order.complements, receipt: order.complements_receipt } : null,
+    complementedBy: order.complemented_by,
+    receipts: order.receipts.map((receipt) => ({
+      id: receipt.id,
+      number: receipt.number,
+      receivedOn: receipt.received_on.toISOString().slice(0, 10),
+      deliveryNote: receipt.delivery_note,
+      cancelled: receipt.cancelled_at !== null,
+    })),
     lines,
     expiredDocuments,
     recipients,
@@ -712,6 +867,13 @@ export async function getPurchaseOrderDetail(id: string) {
             },
           ]
         : []),
+      ...order.receipts.map((receipt) => ({
+        event: `Recepción ${receipt.number}${receipt.cancelled_at ? ' (anulada)' : ''}`,
+        at: at(receipt.created_at),
+        by: userName(receipt.creator),
+        notes: null,
+      })),
+      ...(order.closed_at ? [{ event: 'Cerrada', at: at(order.closed_at), by: userName(order.closer), notes: order.close_reason }] : []),
       ...(order.cancelled_at
         ? [{ event: 'Anulada', at: at(order.cancelled_at), by: userName(order.canceller), notes: order.cancel_reason }]
         : []),
@@ -721,7 +883,9 @@ export async function getPurchaseOrderDetail(id: string) {
       submit: canApplyPurchaseOrderAction(status, 'submit') && canUpdate,
       approve: canApplyPurchaseOrderAction(status, 'approve') && canApprove,
       send: canApplyPurchaseOrderAction(status, 'send') && canUpdate,
-      cancel: canApplyPurchaseOrderAction(status, 'cancel') && canUpdate,
+      cancel: canApplyPurchaseOrderAction(status, 'cancel') && canUpdate && order.receipts.every((receipt) => receipt.cancelled_at),
+      receive: canApplyPurchaseOrderAction(status, 'receive') && canReceive,
+      close: canApplyPurchaseOrderAction(status, 'close') && canUpdate,
     },
   };
 }

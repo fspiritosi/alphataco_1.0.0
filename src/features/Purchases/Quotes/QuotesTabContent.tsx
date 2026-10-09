@@ -19,7 +19,7 @@ export default async function QuotesTabContent({
 
   return (
     <div className="space-y-4">
-      {permissions['compras:cotizacionesreate'] === true && (
+      {permissions['compras:cotizaciones:create'] === true && (
         <div className="flex justify-end">
           <Button asChild variant="brand" size="sm">
             <Link href="/dashboard/purchases/quotes/new">

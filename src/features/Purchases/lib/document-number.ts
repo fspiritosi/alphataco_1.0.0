@@ -13,10 +13,11 @@ const TABLES: Record<PurchaseDocumentKind, string> = {
   request: 'purchase_requests',
   quote: 'purchase_quotes',
   order: 'purchase_orders',
+  receipt: 'purchase_receipts',
 };
 
 /**
- * Siguiente numero del documento en la empresa (`SC-`, `PC-`, `OC-`). Advisory lock de transaccion
+ * Siguiente numero del documento en la empresa (`SC-`, `PC-`, `OC-`, `RC-`). Advisory lock de transaccion
  * por empresa y tipo, y `MAX()+1`: mismo criterio que `nextMaterialRequestNumber` de Almacenes.
  */
 export async function nextPurchaseDocumentNumber(

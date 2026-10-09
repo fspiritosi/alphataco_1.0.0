@@ -573,6 +573,12 @@ El PR #5 (Almacenes) pasó `npm run check-types` y el CI, pero el deploy falló 
 
 Reglas: (1) una función de `lib/` que se llama con el cliente completo **y** con un `tx` se tipa con lo que usa (`Pick<Prisma.TransactionClient, 'tires'>`), no con el `TransactionClient` entero; (2) antes de abrir un PR que agrega modelos o mucho código server, correr `NODE_OPTIONS=--max-old-space-size=8192 npx next build` en local — es lo único que reproduce el build de la imagen.
 
+### Generar archivos con heredoc en zsh: `$var:x` es un modificador, no texto
+
+Generé `QuotesTabContent.tsx` y `OrdersTabContent.tsx` con un loop de bash que interpolaba `'compras:$perm:create'` dentro de un heredoc. El shell es **zsh**, y en zsh `$var:c` es un **modificador** de la variable (como `:h`, `:t`, `:r`, `:u`): se comió el `:c` y escribió `'compras:cotizacionesreate'`. El botón "Nuevo pedido de cotización" (y "Nueva orden de compra") quedó oculto para todos durante una etapa entera; `check-types` no lo ve porque la clave es un string libre, y yo no lo noté al verificar porque probé desde el detalle, no desde la tab. Lo reportó el usuario.
+
+Reglas: (1) en heredocs o strings de shell, interpolar SIEMPRE con llaves (`${perm}:create`) o generar el archivo con la herramienta de escritura, no con `cat <<EOF` + variables; (2) las claves `modulo:tab:accion` escritas a mano en las tabs tienen un test que las valida contra `permissions-map.ts` (`src/features/Purchases/tab-permission-keys.test.ts`): replicarlo al crear un módulo nuevo; (3) al verificar en el navegador, entrar a CADA tab nueva como el usuario y confirmar que estén sus botones de alta, no solo los detalles.
+
 ---
 
 _Update this file continuously. Every mistake Claude makes is a learning opportunity._
