@@ -11,6 +11,7 @@ import { Prisma } from '../../../src/generated/prisma/client.ts';
 import { addPdf, type Ctx } from '../lib/ctx.ts';
 import { toDmy } from '../lib/dates.ts';
 import { demoId } from '../lib/ids.ts';
+import { seedSupplierInvoices } from './supplier-invoices.ts';
 
 export const SUPPLIER_DOCUMENTS_BUCKET = 'supplier-documents';
 
@@ -40,6 +41,9 @@ const SUPPLIERS: DemoSupplier[] = [
   { key: 'hidraulica-vaca-muerta', name: 'Hidráulica Vaca Muerta SRL', tradeName: 'HVM', cuitPrefix: '3071888999', vat: 1, city: 'Añelo', paymentDays: 60, categories: ['Repuestos', 'Servicios de taller'], contact: { name: 'Pablo Sosa', role: 'Jefe de servicio' }, arcaExpiry: 25 },
   { key: 'ferreteria-industrial', name: 'Ferretería Industrial Neuquén SA', tradeName: null, cuitPrefix: '3070333444', vat: 1, city: 'Neuquén', paymentDays: 30, categories: ['Repuestos', 'Ropa y EPP'], contact: { name: 'Sofía Herrera', role: 'Mostrador' }, arcaExpiry: 90 },
   { key: 'filtros-norte', name: 'Filtros Norte', tradeName: null, cuitPrefix: '2033445566', vat: 6, city: 'Centenario', paymentDays: 0, categories: ['Repuestos', 'Lubricantes'], contact: { name: 'Diego Molina', role: 'Titular' }, arcaExpiry: 150 },
+  // Etapa 4: proveedores de gastos sin OC (luz y honorarios).
+  { key: 'energia-patagonica', name: 'Energía Patagónica Cooperativa', tradeName: null, cuitPrefix: '3070555111', vat: 1, city: 'Neuquén', paymentDays: 15, categories: [], contact: { name: 'Mesa de ayuda', role: 'Atención a empresas' }, arcaExpiry: 240 },
+  { key: 'estudio-ramirez', name: 'Estudio Contable Ramírez', tradeName: null, cuitPrefix: '2027888999', vat: 6, city: 'Neuquén', paymentDays: 10, categories: [], contact: { name: 'Laura Ramírez', role: 'Titular' }, arcaExpiry: 200 },
 ];
 
 /** CUIT valido a partir de 10 digitos (misma regla que `isValidCuit`). */
@@ -270,8 +274,9 @@ export async function seedPurchases(ctx: Ctx): Promise<void> {
   await tx.purchase_request_lines.createMany({ data: lines });
   const quotesAndOrders = await seedQuotesAndOrders(ctx, lines);
   const receipts = await seedReceipts(ctx);
+  const invoices = await seedSupplierInvoices(ctx);
   ctx.log(
-    `compras: ${suppliers.length} proveedores, ${requests.length} solicitudes${materialRequest ? ` (una desde ${materialRequest.number})` : ''}, ${quotesAndOrders}, ${receipts}`
+    `compras: ${suppliers.length} proveedores, ${requests.length} solicitudes${materialRequest ? ` (una desde ${materialRequest.number})` : ''}, ${quotesAndOrders}, ${receipts}, ${invoices}`
   );
 }
 

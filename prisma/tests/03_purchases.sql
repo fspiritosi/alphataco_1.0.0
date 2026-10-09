@@ -3,7 +3,7 @@
 -- tests prueban la red de seguridad. 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(30);
+SELECT plan(46);
 
 SELECT has_table('public', 'suppliers', 'existe suppliers');
 SELECT has_table('public', 'purchase_requests', 'existe purchase_requests');
@@ -215,6 +215,120 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$UPDATE purchase_orders SET complements_order_id = 'a2000000-0000-0000-0000-000000000040' WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
   '23514', NULL, 'una OC complementaria lleva la recepcion que la origino'
+);
+
+-- Etapa 4: comprobantes de proveedor
+INSERT INTO purchase_expense_categories (id, company_id, name)
+VALUES ('a2000000-0000-0000-0000-000000000060', 'a2000000-0000-0000-0000-000000000001', 'Luz');
+
+INSERT INTO supplier_invoices (id, company_id, supplier_id, cbte_type, sales_point, number, issue_date, vat_period,
+  net_taxed, net_untaxed, exempt, vat_total, vat_perceptions, gross_income_perceptions, other_taxes, total,
+  status, created_by)
+VALUES ('a2000000-0000-0000-0000-000000000061', 'a2000000-0000-0000-0000-000000000001',
+        'a2000000-0000-0000-0000-000000000010', 1, 3, 12345, current_date, to_char(current_date, 'YYYY-MM'),
+        100, 0, 0, 21, 0, 0, 0, 121, 'CONFORMING', 'a2000000-0000-0000-0000-000000000002');
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET sales_point = 0 WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'el punto de venta va de 1 a 99999'
+);
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET number = 0 WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'el numero va de 1 a 99999999'
+);
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET vat_period = '2026-13' WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'el periodo de IVA es YYYY-MM'
+);
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET cancelled_at = now() WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'la anulacion del comprobante va completa'
+);
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET status = 'CANCELLED' WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'un comprobante anulado lleva la anulacion'
+);
+
+SELECT throws_ok(
+  $$UPDATE supplier_invoices SET resolution_comment = 'ok' WHERE id = 'a2000000-0000-0000-0000-000000000061'$$,
+  '23514', NULL, 'la resolucion va completa'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoices (company_id, supplier_id, cbte_type, sales_point, number, issue_date, vat_period,
+      net_taxed, net_untaxed, exempt, vat_total, vat_perceptions, gross_income_perceptions, other_taxes, total,
+      status, created_by)
+    VALUES ('a2000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000010', 1, 3, 12345,
+      current_date, to_char(current_date, 'YYYY-MM'), 0, 0, 0, 0, 0, 0, 0, 0, 'CONFORMING',
+      'a2000000-0000-0000-0000-000000000002')$$,
+  '23505', NULL, 'el comprobante es unico por proveedor, tipo, punto de venta y numero'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_lines (invoice_id, position, order_line_id, quantity, unit_price, expense_category_id,
+      description, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 1, 'a2000000-0000-0000-0000-000000000041', 1, 10,
+      'a2000000-0000-0000-0000-000000000060', 'x', 5, 10, 2.1)$$,
+  '23514', NULL, 'una linea es de OC o de gasto, no las dos'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_lines (invoice_id, position, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 1, 5, 10, 2.1)$$,
+  '23514', NULL, 'una linea es de OC o de gasto, alguna de las dos'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_lines (invoice_id, position, order_line_id, unit_price, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 1, 'a2000000-0000-0000-0000-000000000041', 10, 5, 10, 2.1)$$,
+  '23514', NULL, 'la linea de OC lleva cantidad'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_lines (invoice_id, position, expense_category_id, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 1, 'a2000000-0000-0000-0000-000000000060', 5, 10, 2.1)$$,
+  '23514', NULL, 'la linea de gasto lleva descripcion'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_taxes (invoice_id, kind, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 'GROSS_INCOME_PERCEPTION', 10)$$,
+  '23514', NULL, 'la percepcion de IIBB lleva provincia'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_taxes (invoice_id, kind, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 'OTHER_TAX', 10)$$,
+  '23514', NULL, 'otro tributo lleva descripcion'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_invoice_taxes (invoice_id, kind, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 'VAT_PERCEPTION', 0)$$,
+  '23514', NULL, 'el tributo es mayor a 0'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO supplier_invoice_lines (invoice_id, position, expense_category_id, description, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000061', 1, 'a2000000-0000-0000-0000-000000000060', 'Luz octubre', 5, 100, 21)$$,
+  'una linea de gasto completa se guarda'
+);
+
+UPDATE supplier_invoices SET status = 'CANCELLED', cancelled_by = 'a2000000-0000-0000-0000-000000000002',
+  cancelled_at = now(), cancel_reason = 'mal cargada' WHERE id = 'a2000000-0000-0000-0000-000000000061';
+
+SELECT lives_ok(
+  $$INSERT INTO supplier_invoices (company_id, supplier_id, cbte_type, sales_point, number, issue_date, vat_period,
+      net_taxed, net_untaxed, exempt, vat_total, vat_perceptions, gross_income_perceptions, other_taxes, total,
+      status, created_by)
+    VALUES ('a2000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000010', 1, 3, 12345,
+      current_date, to_char(current_date, 'YYYY-MM'), 0, 0, 0, 0, 0, 0, 0, 0, 'CONFORMING',
+      'a2000000-0000-0000-0000-000000000002')$$,
+  'un comprobante anulado se puede volver a cargar'
 );
 
 SELECT * FROM finish();

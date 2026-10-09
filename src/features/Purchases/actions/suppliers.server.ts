@@ -381,11 +381,12 @@ export async function getSupplierDocumentNameSuggestions() {
  * razon social, nombre de fantasia o el comienzo del CUIT.
  */
 export async function searchSupplierOptions(query: string) {
-  // Lo usan la solicitud (proveedor sugerido), el pedido de cotizacion y la orden de compra.
+  // Lo usan la solicitud (proveedor sugerido), el pedido de cotizacion, la orden de compra y la factura.
   const allowed = await Promise.all([
     checkPermissionServer('compras', 'solicitudes', 'create'),
     checkPermissionServer('compras', 'cotizaciones', 'create'),
     checkPermissionServer('compras', 'ordenes', 'create'),
+    checkPermissionServer('compras', 'facturas', 'create'),
   ]);
   if (!allowed.some(Boolean)) return { items: [], total: 0 };
   const companyId = await getActiveCompanyId();

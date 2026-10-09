@@ -26,7 +26,7 @@ describe('claves de permiso de las tabs de Compras', () => {
   const files = tabContents();
 
   it('encuentra las tabs', () => {
-    expect(files.length).toBeGreaterThanOrEqual(5);
+    expect(files.length).toBeGreaterThanOrEqual(7);
   });
 
   for (const file of files) {

@@ -28,6 +28,7 @@ import {
   validatePurchaseOrderInput,
   type ValidatedOrderLine,
 } from '../lib/orders';
+import { getOrderInvoicesSummary } from '../lib/invoices';
 import { PurchaseError } from '../lib/purchase-errors';
 import { lockPurchaseQuote } from '../lib/quotes';
 import { computeOrderLine, computeOrderTotals } from '../lib/order-totals';
@@ -760,12 +761,18 @@ export async function getPurchaseOrderDetail(id: string) {
 
   const status = order.status as PurchaseOrderStatus;
   const requestLineIds = order.lines.map((line) => line.request_line_id);
-  const [orderedOthers, expiredDocuments, recipients, received] = await Promise.all([
+  const [orderedOthers, expiredDocuments, recipients, received, invoicing] = await Promise.all([
     orderedByLine(prisma, requestLineIds, { excludeOrderId: order.id }),
     expiredSupplierDocuments(prisma, order.supplier_id),
     supplierRecipients(prisma, order.supplier_id),
     receivedByOrderLine(
       prisma,
+      order.lines.map((line) => line.id)
+    ),
+    getOrderInvoicesSummary(
+      prisma,
+      companyId,
+      order.id,
       order.lines.map((line) => line.id)
     ),
   ]);
@@ -792,6 +799,8 @@ export async function getPurchaseOrderDetail(id: string) {
       vatAmount: line.vat_amount.toFixed(2),
       received: received.get(line.id) ?? '0',
       pendingReceipt: remainingOf(line.quantity.toString(), received.get(line.id) ?? '0'),
+      /** Facturado neto (facturas y ND menos NC, sin anulados ni rechazados). */
+      invoiced: invoicing.invoiced.get(line.id) ?? '0',
     };
   });
 
@@ -819,6 +828,7 @@ export async function getPurchaseOrderDetail(id: string) {
       deliveryNote: receipt.delivery_note,
       cancelled: receipt.cancelled_at !== null,
     })),
+    invoices: invoicing.invoices,
     lines,
     expiredDocuments,
     recipients,

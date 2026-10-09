@@ -1463,6 +1463,24 @@ export const PERMISSIONS = {
         allowedActions: ['view', 'create', 'update'],
         subtabs: {},
       },
+      // Etapa 4. 'create' carga comprobantes; 'update' los edita, anula y constata en ARCA;
+      // 'approve' aprueba o rechaza los observados.
+      facturas: {
+        slug: 'facturas',
+        name: 'Facturas',
+        tabId: 'c0000000-0000-0000-0000-000000000007',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      'libro-iva': {
+        slug: 'libro-iva',
+        name: 'Libro IVA',
+        tabId: 'c0000000-0000-0000-0000-000000000008',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
       proveedores: {
         slug: 'proveedores',
         name: 'Proveedores',

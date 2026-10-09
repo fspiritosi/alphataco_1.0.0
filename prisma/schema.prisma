@@ -626,6 +626,8 @@ model company {
   purchase_quotes              purchase_quotes[]
   purchase_orders              purchase_orders[]
   purchase_receipts            purchase_receipts[]
+  supplier_invoices            supplier_invoices[]
+  purchase_expense_categories  purchase_expense_categories[]
 
   @@schema("public")
 }
@@ -2152,6 +2154,10 @@ model profile {
   purchase_orders_closed      purchase_orders[]   @relation("purchase_order_closer")
   purchase_receipts_created   purchase_receipts[] @relation("purchase_receipt_creator")
   purchase_receipts_cancelled purchase_receipts[] @relation("purchase_receipt_canceller")
+  supplier_invoices_created   supplier_invoices[] @relation("supplier_invoice_creator")
+  supplier_invoices_updated   supplier_invoices[] @relation("supplier_invoice_updater")
+  supplier_invoices_resolved  supplier_invoices[] @relation("supplier_invoice_resolver")
+  supplier_invoices_cancelled supplier_invoices[] @relation("supplier_invoice_canceller")
   supplier_documents_uploaded supplier_documents[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
@@ -2168,6 +2174,7 @@ model provinces {
   company       company[]
   company_fiscal_profiles company_fiscal_profiles[]
   customers               customers[]
+  supplier_invoice_taxes  supplier_invoice_taxes[]
   employees     employees[]
   workshops     workshops[]
   pre_employees pre_employees[]
@@ -4669,6 +4676,7 @@ model suppliers {
   purchase_quotes   purchase_quotes[]
   purchase_orders   purchase_orders[]
   purchase_receipts purchase_receipts[]
+  supplier_invoices supplier_invoices[]
 
   @@unique([company_id, cuit], map: "suppliers_company_id_cuit_key")
   @@index([company_id], map: "idx_suppliers_company_id")
@@ -4968,6 +4976,7 @@ model purchase_order_lines {
   request_line    purchase_request_lines @relation(fields: [request_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quote_line      purchase_quote_lines?  @relation(fields: [quote_line_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   receipt_lines   purchase_receipt_lines[]
+  invoice_lines   supplier_invoice_lines[]
 
   @@index([order_id], map: "idx_purchase_order_lines_order_id")
   @@index([request_line_id], map: "idx_purchase_order_lines_request_line_id")
@@ -5042,5 +5051,164 @@ model purchase_receipt_lines {
 
   @@index([receipt_id], map: "idx_purchase_receipt_lines_receipt_id")
   @@index([order_line_id], map: "idx_purchase_receipt_lines_order_line_id")
+  @@schema("public")
+}
+
+/// Comprobante recibido de un proveedor (factura, ND o NC). No se emite ni se numera: se carga
+/// y se controla contra la OC y lo recibido. "A pagar" (etapa 5) = CONFORMING o APPROVED.
+model supplier_invoices {
+  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id               String                   @db.Uuid
+  supplier_id              String                   @db.Uuid
+  /// Id de CBTE_TYPES (1/2/3 A, 6/7/8 B, 11/12/13 C). Unico por proveedor + tipo + punto de venta +
+  /// numero entre los NO anulados: indice parcial `supplier_invoices_voucher_key` (en SQL).
+  cbte_type                Int
+  sales_point              Int
+  number                   BigInt
+  issue_date               DateTime                 @db.Date
+  /// Vencimiento del pago.
+  due_date                 DateTime?                @db.Date
+  /// Periodo del Libro IVA (YYYY-MM).
+  vat_period               String                   @db.Char(7)
+  cae                      String?                  @db.VarChar(14)
+  cae_due_date             DateTime?                @db.Date
+  net_taxed                Decimal                  @db.Decimal(15, 2)
+  net_untaxed              Decimal                  @db.Decimal(15, 2)
+  exempt                   Decimal                  @db.Decimal(15, 2)
+  vat_total                Decimal                  @db.Decimal(15, 2)
+  vat_perceptions          Decimal                  @db.Decimal(15, 2)
+  gross_income_perceptions Decimal                  @db.Decimal(15, 2)
+  other_taxes              Decimal                  @db.Decimal(15, 2)
+  total                    Decimal                  @db.Decimal(15, 2)
+  /// Factura que corrige una NC o ND (mismo proveedor y letra).
+  related_invoice_id       String?                  @db.Uuid
+  status                   supplier_invoice_status
+  /// Diferencias del ultimo control: [{ code, message, lineId? }].
+  observations             Json                     @default("[]")
+  resolved_by              String?                  @db.Uuid
+  resolved_at              DateTime?                @db.Timestamptz(6)
+  resolution_comment       String?
+  cancelled_by             String?                  @db.Uuid
+  cancelled_at             DateTime?                @db.Timestamptz(6)
+  cancel_reason            String?
+  arca_check_result        arca_check_result?
+  arca_checked_at          DateTime?                @db.Timestamptz(6)
+  arca_check_detail        String?
+  attachment_path          String?
+  attachment_name          String?
+  notes                    String?
+  created_by               String                   @db.Uuid
+  created_at               DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_by               String?                  @db.Uuid
+  updated_at               DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
+  company                  company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  supplier                 suppliers                @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  related_invoice          supplier_invoices?       @relation("supplier_invoice_related", fields: [related_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  related_notes            supplier_invoices[]      @relation("supplier_invoice_related")
+  creator                  profile                  @relation("supplier_invoice_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updater                  profile?                 @relation("supplier_invoice_updater", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolver                 profile?                 @relation("supplier_invoice_resolver", fields: [resolved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller                profile?                 @relation("supplier_invoice_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines                    supplier_invoice_lines[]
+  vat                      supplier_invoice_vat[]
+  taxes                    supplier_invoice_taxes[]
+
+  @@index([supplier_id], map: "idx_supplier_invoices_supplier_id")
+  @@index([company_id, vat_period], map: "idx_supplier_invoices_vat_period")
+  @@index([company_id, status], map: "idx_supplier_invoices_status")
+  @@index([related_invoice_id], map: "idx_supplier_invoices_related_invoice_id")
+  @@schema("public")
+}
+
+/// Linea de un comprobante: de OC (cantidad y precio) o de gasto (concepto y descripcion).
+model supplier_invoice_lines {
+  id                  String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id          String                       @db.Uuid
+  position            Int
+  order_line_id       String?                      @db.Uuid
+  quantity            Decimal?                     @db.Decimal(15, 4)
+  unit_price          Decimal?                     @db.Decimal(15, 4)
+  expense_category_id String?                      @db.Uuid
+  description         String?
+  /// Nulo en comprobantes C (el precio incluye todo).
+  vat_rate_id         Int?
+  net_total           Decimal                      @db.Decimal(15, 2)
+  vat_amount          Decimal                      @db.Decimal(15, 2)
+  invoice             supplier_invoices            @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  order_line          purchase_order_lines?        @relation(fields: [order_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expense_category    purchase_expense_categories? @relation(fields: [expense_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([invoice_id], map: "idx_supplier_invoice_lines_invoice_id")
+  @@index([order_line_id], map: "idx_supplier_invoice_lines_order_line_id")
+  @@schema("public")
+}
+
+/// IVA por alicuota del comprobante (lo que va al Libro IVA).
+model supplier_invoice_vat {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id  String            @db.Uuid
+  vat_rate_id Int
+  base        Decimal           @db.Decimal(15, 2)
+  amount      Decimal           @db.Decimal(15, 2)
+  invoice     supplier_invoices @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@unique([invoice_id, vat_rate_id], map: "supplier_invoice_vat_invoice_id_vat_rate_id_key")
+  @@schema("public")
+}
+
+model supplier_invoice_taxes {
+  id          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id  String                    @db.Uuid
+  kind        supplier_invoice_tax_kind
+  /// Obligatoria para percepciones de IIBB.
+  province_id BigInt?
+  /// Obligatoria para otros tributos.
+  description String?
+  amount      Decimal                   @db.Decimal(15, 2)
+  invoice     supplier_invoices         @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  province    provinces?                @relation(fields: [province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([invoice_id], map: "idx_supplier_invoice_taxes_invoice_id")
+  @@schema("public")
+}
+
+/// Conceptos para las lineas de gasto sin OC (luz, honorarios, fletes sueltos).
+model purchase_expense_categories {
+  id         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id String                   @db.Uuid
+  name       String
+  is_active  Boolean                  @default(true)
+  created_at DateTime                 @default(now()) @db.Timestamptz(6)
+  company    company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  lines      supplier_invoice_lines[]
+
+  @@unique([company_id, name], map: "purchase_expense_categories_company_id_name_key")
+  @@schema("public")
+}
+
+enum supplier_invoice_status {
+  CONFORMING
+  OBSERVED
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@schema("public")
+}
+
+enum supplier_invoice_tax_kind {
+  VAT_PERCEPTION
+  GROSS_INCOME_PERCEPTION
+  INTERNAL_TAX
+  OTHER_TAX
+
+  @@schema("public")
+}
+
+enum arca_check_result {
+  APPROVED
+  REJECTED
+  UNAVAILABLE
+
   @@schema("public")
 }

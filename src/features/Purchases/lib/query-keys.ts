@@ -8,4 +8,7 @@ export const PURCHASES_QUERY_KEYS = {
   quotes: ['purchase-quotes'],
   orders: ['purchase-orders'],
   receipts: ['purchase-receipts'],
+  invoices: ['supplier-invoices'],
+  vatBook: ['purchases-vat-book'],
+  expenseCategories: ['purchase-expense-categories'],
 } as const;

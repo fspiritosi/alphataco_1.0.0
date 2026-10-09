@@ -9,6 +9,7 @@ import Link from 'next/link';
 import type { PurchaseOrderDetail } from '../../actions/orders.server';
 import { ExpiredSupplierDocumentsAlert } from '../../components/ExpiredSupplierDocumentsAlert';
 import { HistoryCard } from '../../components/HistoryCard';
+import { SupplierInvoiceStatusBadge } from '../../Invoices/components/SupplierInvoiceStatusBadge';
 import { PurchaseOrderActions } from './PurchaseOrderActions';
 import { PurchaseOrderStatusBadge } from './PurchaseOrderStatusBadge';
 
@@ -126,6 +127,7 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
                   <TableHead className="text-right">Neto</TableHead>
                   {showReceipts && <TableHead className="text-right">Recibido</TableHead>}
                   {showReceipts && <TableHead className="text-right">Falta recibir</TableHead>}
+                  {showReceipts && <TableHead className="text-right">Facturado</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,6 +155,11 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
                     {showReceipts && (
                       <TableCell className="text-right tabular-nums">
                         {Number(line.pendingReceipt) > 0 ? `${formatQuantity(line.pendingReceipt)} ${line.unitAbbr}` : '—'}
+                      </TableCell>
+                    )}
+                    {showReceipts && (
+                      <TableCell className="text-right tabular-nums">
+                        {Number(line.invoiced) !== 0 ? `${formatQuantity(line.invoiced)} ${line.unitAbbr}` : '—'}
                       </TableCell>
                     )}
                   </TableRow>
@@ -202,6 +209,31 @@ export function PurchaseOrderDetailView({ order }: { order: PurchaseOrderDetail 
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {order.invoices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Comprobantes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {order.invoices.map((invoice) => (
+                <li key={invoice.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                  <Link href={`/dashboard/purchases/invoices/${invoice.id}`} className="underline">
+                    {invoice.label}
+                  </Link>
+                  <span>{moment(invoice.issueDate, 'YYYY-MM-DD').format('DD/MM/YYYY')}</span>
+                  <span className="tabular-nums">{formatMoney(invoice.total)}</span>
+                  <SupplierInvoiceStatusBadge status={invoice.status} />
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              «Facturado» suma facturas y notas de débito y resta notas de crédito; no cuenta los comprobantes anulados ni rechazados.
+            </p>
           </CardContent>
         </Card>
       )}

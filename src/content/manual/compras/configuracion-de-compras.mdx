@@ -1,11 +1,11 @@
 ---
 title: Configuración de Compras
-summary: Cómo crear, renombrar, desactivar y reactivar los rubros de proveedor.
-keywords: configuración de compras, rubro, rubros, rubro de proveedor, categoría de proveedor, repuestos, cubiertas, lubricantes, servicios de taller
-updated: 2026-10-08
+summary: Cómo crear, renombrar, desactivar y reactivar los rubros de proveedor y los conceptos de gasto.
+keywords: configuración de compras, concepto de gasto, conceptos de gasto, gastos sin OC, luz, honorarios, fletes, rubro, rubros, rubro de proveedor, categoría de proveedor, repuestos, cubiertas, lubricantes, servicios de taller
+updated: 2026-10-09
 ---
 
-En **Configuración** se mantienen los **rubros de proveedor**: qué vende cada proveedor (repuestos, cubiertas, lubricantes, servicios de taller…). Los rubros se asignan en la ficha del proveedor y sirven para filtrar la lista de <GuideLink to="proveedores">Proveedores</GuideLink>.
+En **Configuración** se mantienen los **conceptos de gasto** (ver más abajo) y los **rubros de proveedor**: qué vende cada proveedor (repuestos, cubiertas, lubricantes, servicios de taller…). Los rubros se asignan en la ficha del proveedor y sirven para filtrar la lista de <GuideLink to="proveedores">Proveedores</GuideLink>.
 
 <OpenScreen />
 
@@ -20,4 +20,10 @@ Cada rubro muestra cuántos proveedores lo tienen.
 | **Desactivar** | El botón de encendido. | Deja de ofrecerse al cargar o editar un proveedor. **No** se quita de los proveedores que ya lo tienen. |
 | **Reactivar** | La flecha circular, en un rubro **Inactivo**. | Vuelve a ofrecerse. |
 
-Para ver los rubros alcanza con **Ver** en **Configuración**; para crearlos, cambiarlos, desactivarlos o reactivarlos hace falta **Editar**.
+## Conceptos de gasto
+
+Los conceptos clasifican los comprobantes que no vienen de una orden de compra: la luz, los honorarios, un flete suelto. Se eligen en las líneas **de gasto** al cargar un comprobante (ver <GuideLink to="facturas-de-proveedor">Facturas de proveedor</GuideLink>). Cada concepto muestra en cuántas líneas se usó.
+
+Se crean, renombran, desactivan y reactivan igual que los rubros. Desactivar un concepto no lo quita de los comprobantes ya cargados: solo deja de ofrecerse. No puede haber dos con el mismo nombre, aunque cambien las mayúsculas.
+
+Para ver los rubros y los conceptos alcanza con **Ver** en **Configuración**; para crearlos, cambiarlos, desactivarlos o reactivarlos hace falta **Editar**.

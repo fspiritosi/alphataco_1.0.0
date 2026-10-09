@@ -1,8 +1,8 @@
 ---
 title: Cómo funciona Compras
-summary: Qué es el módulo Compras, el circuito de la solicitud a la orden de compra, qué hace cada sección, cómo se conecta con Almacenes y qué permisos usa.
-keywords: compras, compra, proveedor, proveedores, solicitud de compra, SC, pedido de cotización, PC, orden de compra, OC, aprobación, aprobar, rechazar, rubro, CUIT, pedido de materiales, faltante, permisos
-updated: 2026-10-08
+summary: Qué es el módulo Compras, el circuito de la solicitud a la factura del proveedor, qué hace cada sección, cómo se conecta con Almacenes y qué permisos usa.
+keywords: compras, compra, proveedor, proveedores, factura de proveedor, libro iva compras, solicitud de compra, SC, pedido de cotización, PC, orden de compra, OC, aprobación, aprobar, rechazar, rubro, CUIT, pedido de materiales, faltante, permisos
+updated: 2026-10-09
 ---
 
 **Compras** es donde se organiza lo que la empresa le compra a terceros. Alguien carga una **solicitud de compra** (qué hace falta, cuánto y para qué) y un responsable la **aprueba**. Compras le **pide precio** a uno o varios proveedores (opcional), compara, arma la **orden de compra**, la hace **aprobar** y se la **envía** al proveedor con su PDF. Queda registrado quién pidió, quién decidió, a quién se le compró y por qué.
@@ -10,7 +10,7 @@ updated: 2026-10-08
 <OpenScreen />
 
 <Callout type="info" title="Lo que viene">
-Por ahora Compras llega hasta la **recepción de lo comprado**, que entra sola a Almacenes. Las facturas del proveedor y los pagos se suman en las próximas versiones.
+Por ahora Compras llega hasta la **factura del proveedor** y el **Libro IVA Compras**. La cuenta corriente de los proveedores, los pagos y las retenciones se suman en la próxima versión.
 </Callout>
 
 ## Las ideas básicas
@@ -24,11 +24,13 @@ Por ahora Compras llega hasta la **recepción de lo comprado**, que entra sola a
 | **Pedido de cotización** | El pedido de precio a un proveedor (**PC-000001**…). Se manda por mail con un PDF y la respuesta la carga el comprador. |
 | **Orden de compra** | El pedido formal a un proveedor, con precios, IVA y condiciones (**OC-000001**…). Junta líneas de una o varias solicitudes; se aprueba y se envía. |
 | **Recepción** | Lo que entregó el proveedor contra una OC (**RC-000001**…). Los materiales entran solos a un depósito de Almacenes con el costo de la OC. |
+| **Comprobante de proveedor** | La factura, nota de débito o nota de crédito que emite el proveedor. Se controla contra la OC y lo recibido: queda **conforme**, u **observada** hasta que alguien la apruebe o la rechace. |
+| **Concepto de gasto** | Para cargar comprobantes sin OC (luz, honorarios, fletes sueltos). |
 | **Falta** | Lo que queda por pedir de una línea de solicitud: lo pedido menos lo que ya está en órdenes de compra no anuladas. Nunca se puede pedir más de lo que falta. |
 
 ## Qué hay en cada sección
 
-En el menú lateral, **Compras** tiene seis secciones:
+En el menú lateral, **Compras** tiene ocho secciones:
 
 | Sección | Para qué sirve | Guía |
 |---|---|---|
@@ -36,8 +38,10 @@ En el menú lateral, **Compras** tiene seis secciones:
 | **Cotizaciones** | Pedirles precio a los proveedores, cargar sus respuestas y comparar. | <GuideLink to="pedidos-de-cotizacion">Pedidos de cotización</GuideLink> |
 | **Órdenes de compra** | Armar las órdenes, aprobarlas y enviárselas al proveedor. | <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink> |
 | **Recepciones** | Lo recibido de cada OC y su entrada a Almacenes. | <GuideLink to="recepciones">Recepciones</GuideLink> |
+| **Facturas** | Cargar y controlar los comprobantes de los proveedores, aprobar los observados y constatarlos en ARCA. | <GuideLink to="facturas-de-proveedor">Facturas de proveedor</GuideLink> |
+| **Libro IVA** | El Libro IVA Compras de cada mes, en Excel y con los archivos para ARCA. | <GuideLink to="libro-iva-compras">Libro IVA Compras</GuideLink> |
 | **Proveedores** | El padrón de proveedores con sus datos, contactos, rubros y documentos. | <GuideLink to="proveedores">Proveedores</GuideLink> |
-| **Configuración** | Los rubros de proveedor. | <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink> |
+| **Configuración** | Los rubros de proveedor y los conceptos de gasto. | <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink> |
 
 ## Cómo se conecta con Almacenes
 
@@ -69,11 +73,16 @@ En el menú lateral, **Compras** tiene seis secciones:
 | **Recepciones** | **Ver** | La lista y el detalle de las recepciones. |
 | | **Crear** | Registrar recepciones desde la orden de compra. |
 | | **Editar** | Anular recepciones. |
+| **Facturas** | **Ver** | La lista y el detalle de los comprobantes de proveedor. |
+| | **Crear** | Cargar comprobantes. |
+| | **Editar** | Editar, anular y constatar en ARCA. |
+| | **Aprobar** | Aprobar o rechazar los comprobantes observados. |
+| **Libro IVA** | **Ver** | Ver el Libro IVA Compras y descargar el Excel y los TXT. |
 | **Proveedores** | **Ver** | La lista y la ficha de los proveedores. |
 | | **Crear** | Dar de alta proveedores. |
 | | **Editar** | Modificar la ficha, cargar documentos y reactivar un proveedor. |
 | | **Eliminar** | **Dar de baja** un proveedor. |
-| **Configuración** | **Ver** / **Editar** | Ver los rubros; crear, renombrar, desactivar o reactivar rubros. |
+| **Configuración** | **Ver** / **Editar** | Ver los rubros y los conceptos de gasto; crearlos, renombrarlos, desactivarlos o reactivarlos. |
 
 <Callout type="info" title="Quién aprueba">
 Quien aprueba solicitudes de otros necesita **Aprobar** y además **Ver todas las solicitudes**; si no, solo ve las suyas.

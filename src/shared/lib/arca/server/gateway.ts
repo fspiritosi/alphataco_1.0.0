@@ -15,7 +15,8 @@ import {
   type ConsultedVoucher,
   type DummyStatus,
 } from '../wsfe';
-import { getArcaSession, invalidateArcaToken } from './session';
+import { checkVoucher, type VoucherCheckRequest, type VoucherCheckResult } from '../wscdc';
+import { getArcaSession, invalidateArcaToken, type ArcaService } from './session';
 
 /**
  * Única puerta de la app hacia ARCA. Dos implementaciones:
@@ -49,12 +50,18 @@ export function isArcaMockMode(): boolean {
 const MOCK_RATES: Record<string, string> = { DOL: '1450.500000', '060': '1575.250000' };
 
 /** Reintenta una vez si ARCA rechaza el ticket (600/601): descarta el guardado y pide otro. */
-async function withTokenRetry<T>(companyId: string, env: arca_environment, run: () => Promise<T>, refresh: () => Promise<void>): Promise<T> {
+async function withTokenRetry<T>(
+  companyId: string,
+  env: arca_environment,
+  run: () => Promise<T>,
+  refresh: () => Promise<void>,
+  service: ArcaService = 'wsfe'
+): Promise<T> {
   try {
     return await run();
   } catch (error) {
     if (!(error instanceof ArcaServiceError) || !error.isInvalidToken) throw error;
-    await invalidateArcaToken(companyId, env);
+    await invalidateArcaToken(companyId, env, service);
     await refresh();
     return run();
   }
@@ -172,4 +179,39 @@ export async function getArcaGateway(
   opts: { invoiceId?: string } = {}
 ): Promise<ArcaGateway> {
   return isArcaMockMode() ? mockGateway(companyId, env) : realGateway(companyId, env, opts.invoiceId);
+}
+
+/**
+ * Constatacion de un comprobante recibido (WSCDC), con el ticket del servicio `wscdc`. Va aparte
+ * del gateway de emision para no autenticar WSFE cuando solo se constata. En modo simulado
+ * aprueba, salvo `ARCA_MOCK_SCENARIO=reject` (rechaza) o `timeout` (sin respuesta).
+ */
+export async function checkVoucherWithArca(
+  companyId: string,
+  env: arca_environment,
+  req: VoucherCheckRequest
+): Promise<VoucherCheckResult> {
+  if (isArcaMockMode()) {
+    const scenario = process.env.ARCA_MOCK_SCENARIO;
+    if (scenario === 'timeout') {
+      throw new ArcaTransportError('Simulación: ARCA no respondió (ARCA_MOCK_SCENARIO=timeout)', true);
+    }
+    if (scenario === 'reject') {
+      return {
+        result: 'R',
+        observations: [{ code: 21, message: 'Simulación: el CAE no corresponde al comprobante (ARCA_MOCK_SCENARIO=reject)' }],
+      };
+    }
+    return { result: 'A', observations: [] };
+  }
+  let session = await getArcaSession(companyId, env, { service: 'wscdc' });
+  return withTokenRetry(
+    companyId,
+    env,
+    () => checkVoucher(session.ctx, session.auth, req),
+    async () => {
+      session = await getArcaSession(companyId, env, { service: 'wscdc' });
+    },
+    'wscdc'
+  );
 }
