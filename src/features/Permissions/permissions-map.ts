@@ -1435,6 +1435,25 @@ export const PERMISSIONS = {
         allowedActions: ['view', 'view_all_requests', 'create', 'update', 'approve'],
         subtabs: {},
       },
+      // Etapa 2. 'update' envia, carga la respuesta, marca "no cotiza" y anula.
+      cotizaciones: {
+        slug: 'cotizaciones',
+        name: 'Cotizaciones',
+        tabId: 'c0000000-0000-0000-0000-000000000004',
+        parent: null,
+        allowedActions: ['view', 'create', 'update'],
+        subtabs: {},
+      },
+      // 'update' edita borradores, envia a aprobacion, envia al proveedor y anula; 'approve'
+      // aprueba o rechaza.
+      ordenes: {
+        slug: 'ordenes',
+        name: 'Órdenes de compra',
+        tabId: 'c0000000-0000-0000-0000-000000000005',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
       proveedores: {
         slug: 'proveedores',
         name: 'Proveedores',

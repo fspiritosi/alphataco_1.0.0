@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { getRequestQuoteComparison } from '@/features/Purchases/actions/quotes.server';
 import { getPurchaseRequestDetail } from '@/features/Purchases/actions/requests.server';
 import { PurchaseRequestDetailView } from '@/features/Purchases/Requests/components/PurchaseRequestDetailView';
 import { ArrowLeft } from 'lucide-react';
@@ -15,7 +16,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function PurchaseRequestPage({ params }: { params: Promise<{ id: string }> }) {
-  const request = await getRequest((await params).id);
+  const { id } = await params;
+  const [request, comparison] = await Promise.all([getRequest(id), getRequestQuoteComparison(id)]);
   if (!request) notFound();
 
   return (
@@ -26,7 +28,7 @@ export default async function PurchaseRequestPage({ params }: { params: Promise<
           Solicitudes
         </Link>
       </Button>
-      <PurchaseRequestDetailView request={request} />
+      <PurchaseRequestDetailView request={request} comparison={comparison} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { getServerAuthProfile } from '@/shared/actions/auth.actions';
 import { prisma } from '@/shared/lib/prisma';
 import { storageRemove, storageUpload } from '@/shared/lib/storage';
 import { buildStorageFileUrl } from '@/shared/lib/storage-url';
+import { SUPPLIER_FILES_BUCKET, safeFileName } from '../lib/storage-files';
 import { getActiveCompanyId } from '@/shared/lib/tenant';
 import { NO_PERMISSION, UUID_RE, firstIssue, toPurchaseActionError } from '../lib/action-errors';
 import { PurchaseError } from '../lib/purchase-errors';
@@ -26,7 +27,7 @@ import {
 const logger = new Logger('features/Purchases/suppliers');
 
 const PURCHASES_PATH = '/dashboard/purchases';
-const DOCUMENTS_BUCKET = 'supplier-documents';
+const DOCUMENTS_BUCKET = SUPPLIER_FILES_BUCKET;
 
 type Tx = Prisma.TransactionClient;
 
@@ -225,12 +226,6 @@ export async function reactivateSupplier(id: string): Promise<ActionResult> {
 
 // ── Documentos ──────────────────────────────────────────────────────────────
 
-/** Nombre de archivo seguro para la key (sin barras ni caracteres raros). */
-function safeFileName(name: string): string {
-  const cleaned = name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_');
-  return cleaned.slice(-120) || 'documento';
-}
-
 /**
  * Sube un documento del proveedor. `replacesId` marca el documento que reemplaza: el anterior
  * queda en el historial y su archivo no se borra. Si la base falla, se borra el archivo subido.
@@ -386,7 +381,13 @@ export async function getSupplierDocumentNameSuggestions() {
  * razon social, nombre de fantasia o el comienzo del CUIT.
  */
 export async function searchSupplierOptions(query: string) {
-  if (!(await checkPermissionServer('compras', 'solicitudes', 'create'))) return { items: [], total: 0 };
+  // Lo usan la solicitud (proveedor sugerido), el pedido de cotizacion y la orden de compra.
+  const allowed = await Promise.all([
+    checkPermissionServer('compras', 'solicitudes', 'create'),
+    checkPermissionServer('compras', 'cotizaciones', 'create'),
+    checkPermissionServer('compras', 'ordenes', 'create'),
+  ]);
+  if (!allowed.some(Boolean)) return { items: [], total: 0 };
   const companyId = await getActiveCompanyId();
   const term = query.trim();
   const digits = term.replace(/\D/g, '');

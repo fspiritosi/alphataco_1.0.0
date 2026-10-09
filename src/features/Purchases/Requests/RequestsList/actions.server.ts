@@ -125,7 +125,38 @@ const REQUEST_SELECT = {
 
 const profileName = (p: { fullname: string | null; email: string | null }) => p.fullname ?? p.email ?? '-';
 
-function shape(rows: Prisma.purchase_requestsGetPayload<{ select: typeof REQUEST_SELECT }>[]) {
+/** Estados en los que "Avance" no tiene sentido (todavia no se puede pedir, o ya no se va a pedir). */
+const NO_PROGRESS_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED']);
+
+/**
+ * Avance (%) pedido en OC por solicitud, en UNA query agregada para toda la pagina (sin N+1):
+ * Σ min(pedido en OC no anuladas, cantidad de la linea) / Σ cantidad de las lineas.
+ */
+async function getOrderProgressByRequest(requestIds: string[]): Promise<Map<string, number>> {
+  if (requestIds.length === 0) return new Map();
+  const rows = await prisma.$queryRaw<{ request_id: string; progress: number | null }[]>`
+    SELECT rl.request_id,
+           ROUND(
+             100 * SUM(LEAST(COALESCE(o.ordered, 0), rl.quantity)) / NULLIF(SUM(rl.quantity), 0)
+           )::float8 AS progress
+    FROM purchase_request_lines rl
+    LEFT JOIN (
+      SELECT ol.request_line_id, SUM(ol.quantity) AS ordered
+      FROM purchase_order_lines ol
+      JOIN purchase_orders po ON po.id = ol.order_id
+      WHERE po.status <> 'CANCELLED'
+      GROUP BY ol.request_line_id
+    ) o ON o.request_line_id = rl.id
+    WHERE rl.request_id = ANY(${requestIds}::uuid[])
+    GROUP BY rl.request_id
+  `;
+  return new Map(rows.map((r) => [r.request_id, Math.round(r.progress ?? 0)]));
+}
+
+async function shape(rows: Prisma.purchase_requestsGetPayload<{ select: typeof REQUEST_SELECT }>[]) {
+  const progress = await getOrderProgressByRequest(
+    rows.filter((r) => !NO_PROGRESS_STATUSES.has(r.status)).map((r) => r.id)
+  );
   return rows.map((r) => ({
     id: r.id,
     number: r.number,
@@ -137,6 +168,8 @@ function shape(rows: Prisma.purchase_requestsGetPayload<{ select: typeof REQUEST
     requester: { id: r.requester.id, name: profileName(r.requester) },
     material_request: r.material_request,
     lines_count: r._count.lines,
+    // null = no aplica por el estado (borrador, pendiente, rechazada, anulada)
+    progress: NO_PROGRESS_STATUSES.has(r.status) ? null : (progress.get(r.id) ?? 0),
   }));
 }
 
@@ -166,7 +199,7 @@ export async function getPurchaseRequestsPaginated(searchParams: DataTableSearch
       prisma.purchase_requests.findMany({ where, orderBy, skip, take, select: REQUEST_SELECT }),
       prisma.purchase_requests.count({ where }),
     ]);
-    return { data: shape(rows), total };
+    return { data: await shape(rows), total };
   } catch (error) {
     logger.error('Error al obtener solicitudes de compra', { data: { error } });
     throw new Error('No se pudo obtener la lista de solicitudes de compra');
@@ -189,7 +222,7 @@ export async function getAllPurchaseRequestsForExport(searchParams: DataTableSea
       orderBy: [{ created_at: 'desc' }, { number: 'desc' }],
       select: REQUEST_SELECT,
     });
-    return shape(rows);
+    return await shape(rows);
   } catch (error) {
     logger.error('Error al exportar solicitudes de compra', { data: { error } });
     throw new Error('No se pudo exportar la lista de solicitudes de compra');

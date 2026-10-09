@@ -1,0 +1,113 @@
+---
+title: Órdenes de compra
+summary: Cómo armar una orden de compra (directa o desde una cotización), aprobarla o rechazarla, enviarla al proveedor con su PDF y anularla, y cómo se descuenta de lo que falta en las solicitudes.
+keywords: orden de compra, órdenes de compra, OC, comprar, aprobar orden, rechazar orden, enviar al proveedor, PDF, borrador no válida, anular orden, faltante, quedan, pedida en parte, IVA, neto, total, plazo de pago, lugar de entrega, documentos vencidos
+updated: 2026-10-08
+---
+
+La **orden de compra** (OC) es el pedido formal a un proveedor: qué se le compra, a qué precio, cuándo y dónde se entrega y cómo se paga. Se arma con líneas de **solicitudes de compra aprobadas**, se **aprueba** y recién ahí se **envía** al proveedor. Cada orden lleva un número correlativo (**OC-000001**, **OC-000002**…).
+
+<OpenScreen />
+
+## El circuito
+
+<Flow title="De la solicitud al proveedor">
+  <FlowStep title="Borrador" module="Órdenes de compra" tone="default">Se arma la orden: proveedor, líneas, precios y condiciones.</FlowStep>
+  <FlowStep title="Aprobación" module="Órdenes de compra" tone="warning">Se envía a aprobación; un responsable la aprueba o la devuelve con el motivo.</FlowStep>
+  <FlowStep title="Envío" module="Órdenes de compra" tone="success">Aprobada, se le manda al proveedor por mail con el PDF.</FlowStep>
+</Flow>
+
+<States title="Estados de una orden de compra">
+  <State name="Borrador" tone="default" next="Pendiente de aprobación, Anulada">Se puede editar. Si la rechazaron, muestra el motivo arriba.</State>
+  <State name="Pendiente de aprobación" tone="warning" next="Aprobada, Borrador, Anulada">Espera la decisión. Rechazarla la devuelve a borrador.</State>
+  <State name="Aprobada" tone="success" next="Enviada, Anulada">Lista para mandar al proveedor.</State>
+  <State name="Enviada" tone="success" next="Anulada">El proveedor ya la tiene.</State>
+  <State name="Anulada" tone="default">Quedó sin efecto, con el motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes.</State>
+</States>
+
+## Armar una orden de compra
+
+Hay tres caminos:
+
+- **Desde una cotización respondida**: **Generar OC** en el comparativo de la solicitud o en el detalle del pedido de cotización. Viene con los precios cotizados (ver <GuideLink to="pedidos-de-cotizacion">Pedidos de cotización</GuideLink>).
+- **Desde una solicitud**: **Generar OC** en el detalle de una solicitud **Aprobada** o **Pedida en parte**. Viene con las líneas que tienen faltante y el proveedor sugerido.
+- **Desde la sección Órdenes de compra**: **Nueva orden de compra**, en blanco.
+
+**Proveedor y condiciones**
+
+| Campo | Qué poner |
+|---|---|
+| **Proveedor** | A quién se le compra. Si tiene documentos vencidos aparece un aviso (no impide seguir). |
+| **Fecha de entrega** | Opcional. Se puede escribir (DD/MM/AAAA) o elegir en el calendario. |
+| **Lugar de entrega** | Opcional: "Base Neuquén", "Obrador Añelo"… |
+| **Plazo de pago (días)** | Vacío usa el de la ficha del proveedor. |
+| **Observaciones** | Van en el PDF. |
+
+**Qué se compra**: cada línea es una **línea de solicitud**. Se busca por número de solicitud, material o descripción; el buscador solo ofrece las que tienen algo por pedir y muestra cuánto falta. Se pueden juntar líneas de **varias solicitudes** en la misma orden.
+
+| Campo | Qué poner |
+|---|---|
+| **Cantidad** | Viene con lo que falta; podés pedir menos (el resto queda pendiente). |
+| **Precio unitario neto** | Sin IVA. Se puede escribir con coma (`1.234,50`). |
+| **IVA** | La alícuota del ítem. |
+
+Abajo se ven el subtotal neto, el IVA y el total. Al final:
+
+- **Guardar como borrador**: también con Enter.
+- **Enviar a aprobación**.
+
+<Callout type="warning" title="&quot;De la línea 2 de SC-000012 (Aceite 15W40) quedan 5 l&quot;">
+Esa línea ya está pedida en parte en otra orden (en borrador, pendiente, aprobada o enviada) y te pasaste de lo que falta. Bajá la cantidad. Si dice **ya está pedida completa**, sacá la línea de esta orden. Si dos personas arman órdenes sobre la misma línea al mismo tiempo, la segunda ve este aviso.
+</Callout>
+
+## Aprobar, rechazar y enviar
+
+En el detalle de la orden, los botones dependen del estado y de tus permisos:
+
+| Botón | Cuándo aparece | Qué hace |
+|---|---|---|
+| **Editar** | En **Borrador**, con **Editar**. | Abre el formulario. |
+| **Enviar a aprobación** | En **Borrador**, con **Editar**. | Vuelve a revisar el proveedor y lo que falta de cada línea, y la deja **Pendiente de aprobación**. |
+| **Aprobar** | En **Pendiente de aprobación**, con **Aprobar**. | La deja **Aprobada**. Avisa si el proveedor tiene documentos vencidos. |
+| **Rechazar** | En **Pendiente de aprobación**, con **Aprobar**. | La devuelve a **Borrador** con el motivo, que queda en el historial (cada rechazo). |
+| **Enviar al proveedor** | En **Aprobada**, con **Editar**. | Manda un mail con el PDF adjunto al contacto principal (o a quien elijas). Queda **Enviada**. |
+| **Marcar como enviada** | En **Aprobada**, con **Editar**. | Para cuando se la hiciste llegar por otro medio. No manda mail. |
+| **Descargar PDF** | Siempre. | Hasta que se aprueba, el PDF lleva la marca **BORRADOR — NO VÁLIDA**. |
+| **Anular** | En cualquier estado menos **Anulada**, con **Editar**. | La anula con motivo. Lo que pedía vuelve a quedar pendiente en sus solicitudes. |
+
+Al aprobar o rechazar, quien armó la orden recibe un **mail** con la decisión.
+
+<Callout type="warning" title="&quot;No se pudo enviar el mail&quot;">
+El mail no salió: la orden **sigue aprobada** y no se marca como enviada. Revisá los destinatarios y probá de nuevo, o usá **Marcar como enviada** si se la mandaste por otro medio.
+</Callout>
+
+<Callout type="info" title="Documentos vencidos del proveedor">
+Si el proveedor tiene una constancia vencida, la orden lo avisa al armarla, al aprobarla y al enviarla, con un enlace a su ficha. **No bloquea**: es para que decidas. Ver <GuideLink to="proveedores">Proveedores</GuideLink>.
+</Callout>
+
+## Cómo afecta a las solicitudes
+
+Cada orden **no anulada** (incluidos los borradores) descuenta de lo que falta en sus líneas de solicitud. La solicitud cambia sola de estado:
+
+- **Pedida en parte**: alguna línea tiene algo en órdenes de compra, pero no todo.
+- **Pedida**: todas las líneas están cubiertas.
+
+Si se anula una orden, la solicitud vuelve atrás. Ver <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink>.
+
+## La lista de órdenes de compra
+
+| Columna | Qué muestra |
+|---|---|
+| **Número** | **OC-** y el correlativo; enlace al detalle. |
+| **Proveedor** | A quién se le compra. |
+| **Estado** | Uno de los cinco de arriba. |
+| **Fecha de alta**, **Fecha de entrega**, **Enviada** | Cuándo se armó, cuándo se espera y cuándo se le mandó. |
+| **Total** | Con IVA. |
+| **Solicitudes de origen** | De qué solicitudes son las líneas. |
+| **Creó** y **Aprobó** | Quién la armó y quién la aprobó. |
+
+El buscador dice **Buscar por número o proveedor**. A la vista hay tres filtros, **Estado**, **Proveedor** y **Fecha de alta**, y con **Filtros** sumás los demás (el de **Total** busca el importe exacto). **Excel** exporta "Órdenes de compra".
+
+<Callout type="tip" title="La bandeja de quien aprueba">
+Filtrá **Estado** en **Pendiente de aprobación**.
+</Callout>

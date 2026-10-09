@@ -1,8 +1,10 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { ClipboardList, Settings, Truck } from 'lucide-react';
+import { ClipboardList, FileCheck, FileQuestion, Settings, Truck } from 'lucide-react';
 import { Suspense } from 'react';
+import OrdersTabContent from './Orders/OrdersTabContent';
+import QuotesTabContent from './Quotes/QuotesTabContent';
 import RequestsTabContent from './Requests/RequestsTabContent';
 import SettingsTabContent from './Settings/SettingsTabContent';
 import { PurchasesSettingsSkeleton } from './Settings/fallback/PurchasesSettingsSkeleton';
@@ -10,7 +12,8 @@ import SuppliersTabContent from './Suppliers/SuppliersTabContent';
 import { PurchasesSectionSkeleton } from './fallback/PurchasesSectionSkeleton';
 
 /**
- * Modulo Compras (spec docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md).
+ * Modulo Compras (specs docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md y
+ * 2026-10-08-compras-etapa-2-design.md).
  *
  * Secciones elegidas desde el sidebar (`?tab=`). Los iconos son los mismos que
  * `SUB_ITEM_ICONS` de `navigation.ts`, para que cada seccion se vea igual en los dos lados.
@@ -40,6 +43,28 @@ export default async function PurchasesComponent({ searchParams }: { searchParam
           content: (
             <Suspense fallback={<PurchasesSectionSkeleton />}>
               <RequestsTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'cotizaciones',
+          label: label(FileQuestion, 'Cotizaciones'),
+          moduleSlug: 'compras',
+          tabSlug: 'cotizaciones',
+          content: (
+            <Suspense fallback={<PurchasesSectionSkeleton />}>
+              <QuotesTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'ordenes',
+          label: label(FileCheck, 'Órdenes de compra'),
+          moduleSlug: 'compras',
+          tabSlug: 'ordenes',
+          content: (
+            <Suspense fallback={<PurchasesSectionSkeleton />}>
+              <OrdersTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

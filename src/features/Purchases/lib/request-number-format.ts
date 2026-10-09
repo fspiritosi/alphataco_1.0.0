@@ -1,4 +1,6 @@
+import { formatPurchaseDocumentNumber } from './document-number-format';
+
 /** `SC-000001`. Mas de 999999 solicitudes sigue creciendo sin truncar. */
 export function formatPurchaseRequestNumber(sequence: number): string {
-  return `SC-${String(sequence).padStart(6, '0')}`;
+  return formatPurchaseDocumentNumber('request', sequence);
 }

@@ -93,6 +93,17 @@ export function getColumns(): ColumnDef<PurchaseRequestListItem>[] {
       cell: ({ row }) => <span className="tabular-nums">{row.original.lines_count}</span>,
     },
     {
+      id: 'progress',
+      accessorFn: (row) => (row.progress == null ? '' : `${row.progress}%`),
+      meta: { title: 'Avance' },
+      // Derivado de las OC (no es campo de la base): sin orden ni filtro server-side. El estado ya filtra el avance.
+      enableSorting: false,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Avance" />,
+      cell: ({ row }) => (
+        <span className="tabular-nums">{row.original.progress == null ? '—' : `${row.original.progress}%`}</span>
+      ),
+    },
+    {
       id: 'needed_by',
       accessorFn: (row) => row.needed_by,
       meta: { title: 'Se necesita para' },

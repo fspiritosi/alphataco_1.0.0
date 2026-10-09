@@ -41,14 +41,14 @@ Tocá **Nuevo proveedor**. La ficha es un solo formulario:
 | **Condición frente al IVA** | Obligatoria. Incluye **Proveedor del Exterior**. |
 | **Dirección**, **Localidad**, **Provincia**, **CP** | Opcionales. |
 
-**Contactos**: a quién se le piden precios y se le van a enviar las órdenes de compra. Con **Agregar contacto** sumás uno (nombre, mail, teléfono y puesto). La **estrella** marca el **contacto principal**: hay uno solo por proveedor y es el que se muestra en la lista.
+**Contactos**: a quién se le piden precios y se le envían las órdenes de compra. Con **Agregar contacto** sumás uno (nombre, mail, teléfono y puesto). La **estrella** marca el **contacto principal**: hay uno solo por proveedor, es el que se muestra en la lista y el que viene elegido al **enviar** un pedido de cotización o una orden de compra (los otros contactos con mail se pueden tildar).
 
 **Rubros, pago y banco**
 
 | Campo | Qué poner |
 |---|---|
 | **Rubros** | Uno o varios. Se crean en <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink>. |
-| **Plazo de pago (días)** | Cuántos días después de la factura se le paga (de 0 a 365). |
+| **Plazo de pago (días)** | Cuántos días después de la factura se le paga (de 0 a 365). Es el que toma la orden de compra si no se carga otro. |
 | **CBU** | 22 dígitos; el sistema controla los dígitos verificadores. Opcional. |
 | **Alias** | De 6 a 20 letras, números, puntos o guiones. Opcional. |
 | **Observaciones** | Opcional. |
@@ -70,6 +70,8 @@ En la tarjeta **Documentos** de la ficha se cargan las constancias del proveedor
   <Step title="Consultalo">Con **Ver** se abre el archivo. Cada documento muestra si **Vence el**…, **Vence en N días** (cuando faltan 30 o menos) o **Vencido el**….</Step>
   <Step title="Reemplazalo cuando lo renuevan">Con **Reemplazar** se carga la versión nueva. La anterior no se borra: queda en **Ver reemplazados**, como historial.</Step>
 </Steps>
+
+Si un documento vigente está **vencido**, las órdenes de compra a ese proveedor lo **avisan** al armarlas, al aprobarlas y al enviarlas (no impide comprarle). Ver <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink>.
 
 ## Dar de baja y reactivar
 

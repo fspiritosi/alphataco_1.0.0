@@ -32,3 +32,62 @@ export async function sendPurchaseRequestDecisionEmail(params: {
     ),
   });
 }
+
+/**
+ * Aviso a quien creo la orden de compra de que se aprobo o se rechazo (Compras etapa 2). Mismo
+ * contrato que el de la solicitud: se llama despues de la transaccion y un fallo no cambia nada.
+ */
+export async function sendPurchaseOrderDecisionEmail(params: {
+  to: string;
+  name: string | null;
+  number: string;
+  approved: boolean;
+  notes: string | null;
+  orderId: string;
+}): Promise<boolean> {
+  const url = `${appUrl()}/dashboard/purchases/orders/${params.orderId}`;
+  const verdict = params.approved ? 'aprobada' : 'rechazada';
+  const greeting = params.name ? `Hola ${params.name}` : 'Hola';
+  const reason = params.notes ? ` Motivo: ${params.notes}` : '';
+  const next = params.approved ? ' Ya se puede enviar al proveedor.' : ' Volvió a borrador para corregirla.';
+  return sendMail({
+    to: params.to,
+    subject: `Orden de compra ${params.number} ${verdict}`,
+    text: `${greeting}, la orden de compra ${params.number} fue ${verdict}.${reason}${next} Detalle: ${url}`,
+    html: renderActionEmail(
+      `Orden de compra ${params.number} ${verdict}`,
+      `${greeting}, la orden de compra ${params.number} fue ${verdict}.${reason}${next}`,
+      { url, label: 'Ver la orden de compra' }
+    ),
+  });
+}
+
+/**
+ * Mail al proveedor con el pedido de cotizacion o la orden de compra en PDF (Compras etapa 2).
+ * A diferencia de los avisos internos, aca el envio ES la accion: quien lo llama solo marca el
+ * documento como enviado si esto devuelve `true`.
+ */
+export async function sendSupplierDocumentEmail(params: {
+  kind: 'quote' | 'order';
+  to: readonly string[];
+  number: string;
+  companyName: string;
+  supplierName: string;
+  message: string | null;
+  attachment: { filename: string; content: Uint8Array };
+}): Promise<boolean> {
+  const label = params.kind === 'quote' ? 'Pedido de cotización' : 'Orden de compra';
+  const intro =
+    params.kind === 'quote'
+      ? `${params.companyName} le solicita cotización por los ítems del pedido ${params.number}, que va adjunto en PDF.`
+      : `${params.companyName} le envía la orden de compra ${params.number}, adjunta en PDF.`;
+  const body = [`Estimados ${params.supplierName}:`, '', intro, ...(params.message ? ['', params.message] : []), '', 'Saludos cordiales,', params.companyName].join(
+    '\n'
+  );
+  return sendMail({
+    to: params.to,
+    subject: `${label} ${params.number} — ${params.companyName}`,
+    text: body,
+    attachments: [{ filename: params.attachment.filename, content: params.attachment.content, contentType: 'application/pdf' }],
+  });
+}

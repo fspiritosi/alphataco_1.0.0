@@ -623,6 +623,8 @@ model company {
   suppliers                    suppliers[]
   supplier_categories          supplier_categories[]
   purchase_requests            purchase_requests[]
+  purchase_quotes              purchase_quotes[]
+  purchase_orders              purchase_orders[]
 
   @@schema("public")
 }
@@ -2137,6 +2139,15 @@ model profile {
   purchase_requests_requested purchase_requests[] @relation("purchase_request_requester")
   purchase_requests_decided   purchase_requests[] @relation("purchase_request_decider")
   purchase_requests_cancelled purchase_requests[] @relation("purchase_request_canceller")
+  purchase_requests_closed    purchase_requests[] @relation("purchase_request_closer")
+  purchase_quotes_created     purchase_quotes[]   @relation("purchase_quote_creator")
+  purchase_quotes_cancelled   purchase_quotes[]   @relation("purchase_quote_canceller")
+  purchase_orders_created     purchase_orders[]   @relation("purchase_order_creator")
+  purchase_orders_approved    purchase_orders[]   @relation("purchase_order_approver")
+  purchase_orders_rejected    purchase_orders[]   @relation("purchase_order_rejecter")
+  purchase_orders_sent        purchase_orders[]   @relation("purchase_order_sender")
+  purchase_orders_cancelled   purchase_orders[]   @relation("purchase_order_canceller")
+  purchase_order_rejections   purchase_order_rejections[]
   supplier_documents_uploaded supplier_documents[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
@@ -4613,6 +4624,11 @@ enum purchase_request_status {
   APPROVED
   REJECTED
   CANCELLED
+  /// Etapa 2: avance calculado de las OC no anuladas.
+  PARTIALLY_ORDERED
+  ORDERED
+  /// Cerrada a mano sin comprar lo que faltaba (con motivo).
+  CLOSED
 
   @@schema("public")
 }
@@ -4643,6 +4659,8 @@ model suppliers {
   category_links    supplier_category_links[]
   documents         supplier_documents[]
   suggested_in      purchase_request_lines[]
+  purchase_quotes   purchase_quotes[]
+  purchase_orders   purchase_orders[]
 
   @@unique([company_id, cuit], map: "suppliers_company_id_cuit_key")
   @@index([company_id], map: "idx_suppliers_company_id")
@@ -4736,9 +4754,13 @@ model purchase_requests {
   cancelled_by         String?                  @db.Uuid
   cancelled_at         DateTime?                @db.Timestamptz(6)
   cancel_reason        String?
+  closed_by            String?                  @db.Uuid
+  closed_at            DateTime?                @db.Timestamptz(6)
+  close_reason         String?
   created_at           DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at           DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
   company              company                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  closer               profile?                 @relation("purchase_request_closer", fields: [closed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requester            profile                  @relation("purchase_request_requester", fields: [requested_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   decider              profile?                 @relation("purchase_request_decider", fields: [decided_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   canceller            profile?                 @relation("purchase_request_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -4773,8 +4795,171 @@ model purchase_request_lines {
   material              materials?        @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   unit                  measurement_units @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   suggested_supplier    suppliers?        @relation(fields: [suggested_supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote_lines           purchase_quote_lines[]
+  order_lines           purchase_order_lines[]
 
   @@index([request_id], map: "idx_purchase_request_lines_request_id")
   @@index([material_id], map: "idx_purchase_request_lines_material_id")
+  @@schema("public")
+}
+
+// ── Compras etapa 2: pedidos de cotizacion y ordenes de compra ──────────────
+// Spec docs/superpowers/specs/2026-10-08-compras-etapa-2-design.md §2.
+
+enum purchase_quote_status {
+  DRAFT
+  SENT
+  RECEIVED
+  DECLINED
+  CANCELLED
+
+  @@schema("public")
+}
+
+enum purchase_order_status {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  CANCELLED
+
+  @@schema("public")
+}
+
+/// Pedido de cotizacion a UN proveedor (PC-000001). Los precios los carga el comprador con la
+/// respuesta del proveedor.
+model purchase_quotes {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id      String                 @db.Uuid
+  number          String
+  supplier_id     String                 @db.Uuid
+  status          purchase_quote_status  @default(DRAFT)
+  created_by      String                 @db.Uuid
+  /// Mails a los que salio; vacio si se marco como enviado a mano.
+  sent_at         DateTime?              @db.Timestamptz(6)
+  sent_to         String[]               @default([])
+  received_at     DateTime?              @db.Date
+  valid_until     DateTime?              @db.Date
+  delivery_days   Int?
+  supplier_notes  String?
+  attachment_path String?
+  attachment_name String?
+  notes           String?
+  cancelled_by    String?                @db.Uuid
+  cancelled_at    DateTime?              @db.Timestamptz(6)
+  cancel_reason   String?
+  created_at      DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  company         company                @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  supplier        suppliers              @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator         profile                @relation("purchase_quote_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller       profile?               @relation("purchase_quote_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines           purchase_quote_lines[]
+  orders          purchase_orders[]
+
+  @@unique([company_id, number], map: "purchase_quotes_company_id_number_key")
+  @@index([company_id, status], map: "idx_purchase_quotes_company_status")
+  @@index([supplier_id], map: "idx_purchase_quotes_supplier_id")
+  @@schema("public")
+}
+
+model purchase_quote_lines {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id        String                 @db.Uuid
+  request_line_id String                 @db.Uuid
+  quantity        Decimal                @db.Decimal(15, 4)
+  /// Neto unitario; nulo hasta cargar la respuesta.
+  unit_price      Decimal?               @db.Decimal(15, 4)
+  /// Id de VAT_RATES (ARCA).
+  vat_rate_id     Int?
+  not_quoted      Boolean                @default(false)
+  quote           purchase_quotes        @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  request_line    purchase_request_lines @relation(fields: [request_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order_lines     purchase_order_lines[]
+
+  @@unique([quote_id, request_line_id], map: "purchase_quote_lines_quote_id_request_line_id_key")
+  @@index([request_line_id], map: "idx_purchase_quote_lines_request_line_id")
+  @@schema("public")
+}
+
+/// Orden de compra (OC-000001). Sus lineas cubren lineas de solicitudes aprobadas (N<->N).
+model purchase_orders {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id        String                 @db.Uuid
+  number            String
+  supplier_id       String                 @db.Uuid
+  quote_id          String?                @db.Uuid
+  status            purchase_order_status  @default(DRAFT)
+  created_by        String                 @db.Uuid
+  delivery_date     DateTime?              @db.Date
+  delivery_place    String?
+  payment_term_days Int?
+  notes             String?
+  subtotal          Decimal                @default(0) @db.Decimal(15, 2)
+  vat_total         Decimal                @default(0) @db.Decimal(15, 2)
+  total             Decimal                @default(0) @db.Decimal(15, 2)
+  submitted_at      DateTime?              @db.Timestamptz(6)
+  approved_by       String?                @db.Uuid
+  approved_at       DateTime?              @db.Timestamptz(6)
+  rejection_notes   String?
+  rejected_by       String?                @db.Uuid
+  rejected_at       DateTime?              @db.Timestamptz(6)
+  sent_at           DateTime?              @db.Timestamptz(6)
+  sent_to           String[]               @default([])
+  sent_by           String?                @db.Uuid
+  cancelled_by      String?                @db.Uuid
+  cancelled_at      DateTime?              @db.Timestamptz(6)
+  cancel_reason     String?
+  created_at        DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  company           company                @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  supplier          suppliers              @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote             purchase_quotes?       @relation(fields: [quote_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  creator           profile                @relation("purchase_order_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver          profile?               @relation("purchase_order_approver", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rejecter          profile?               @relation("purchase_order_rejecter", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sender            profile?               @relation("purchase_order_sender", fields: [sent_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller         profile?               @relation("purchase_order_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines             purchase_order_lines[]
+  rejections        purchase_order_rejections[]
+
+  @@unique([company_id, number], map: "purchase_orders_company_id_number_key")
+  @@index([company_id, status], map: "idx_purchase_orders_company_status")
+  @@index([supplier_id], map: "idx_purchase_orders_supplier_id")
+  @@index([quote_id], map: "idx_purchase_orders_quote_id")
+  @@schema("public")
+}
+
+model purchase_order_lines {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id        String                 @db.Uuid
+  request_line_id String                 @db.Uuid
+  quote_line_id   String?                @db.Uuid
+  position        Int
+  quantity        Decimal                @db.Decimal(15, 4)
+  unit_price      Decimal                @db.Decimal(15, 4)
+  vat_rate_id     Int
+  net_total       Decimal                @db.Decimal(15, 2)
+  vat_amount      Decimal                @db.Decimal(15, 2)
+  order           purchase_orders        @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  request_line    purchase_request_lines @relation(fields: [request_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote_line      purchase_quote_lines?  @relation(fields: [quote_line_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_purchase_order_lines_order_id")
+  @@index([request_line_id], map: "idx_purchase_order_lines_request_line_id")
+  @@schema("public")
+}
+
+/// Cada rechazo de una OC (la cabecera guarda solo el ultimo): historial del detalle.
+model purchase_order_rejections {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id    String          @db.Uuid
+  rejected_by String          @db.Uuid
+  rejected_at DateTime        @default(now()) @db.Timestamptz(6)
+  reason      String
+  order       purchase_orders @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  rejecter    profile         @relation(fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_purchase_order_rejections_order_id")
   @@schema("public")
 }

@@ -1,7 +1,7 @@
 ---
 title: Solicitudes de compra
-summary: Cómo pedir una compra (materiales o servicios), cómo se aprueba o rechaza, cómo se anula o se copia, y cómo generar una solicitud con lo que falta de un pedido de materiales.
-keywords: solicitud de compra, SC, comprar, pedir compra, aprobar, rechazar, anular, copiar, borrador, enviar a aprobación, texto libre, servicio, proveedor sugerido, para stock, imputar, faltante, pedido de materiales
+summary: Cómo pedir una compra (materiales o servicios), cómo se aprueba o rechaza, cómo avanza hasta quedar pedida en órdenes de compra, cómo se cierra, anula o copia, y cómo generar una solicitud con lo que falta de un pedido de materiales.
+keywords: solicitud de compra, SC, comprar, pedir compra, aprobar, rechazar, anular, copiar, cerrar, borrador, enviar a aprobación, texto libre, servicio, proveedor sugerido, para stock, imputar, faltante, pedido de materiales, avance, pedida en parte, pedida, pedir cotización, generar OC, comparativo
 updated: 2026-10-08
 ---
 
@@ -15,12 +15,16 @@ Una **solicitud de compra** es el pedido interno de comprar algo. Quien la carga
   <FlowStep title="Borrador" module="Solicitudes" tone="default">Se carga lo que hace falta. Se puede seguir editando.</FlowStep>
   <FlowStep title="Envío" module="Solicitudes" tone="warning">Se envía a aprobación; ya no se edita.</FlowStep>
   <FlowStep title="Decisión" module="Solicitudes" tone="success">Un responsable la aprueba o la rechaza con motivo, y se le avisa por mail a quien la pidió.</FlowStep>
+  <FlowStep title="Compra" module="Cotizaciones y Órdenes de compra" tone="success">Aprobada, Compras pide precio (opcional) y la pide en órdenes de compra hasta cubrirla.</FlowStep>
 </Flow>
 
 <States title="Estados de una solicitud">
   <State name="Borrador" tone="default" next="Pendiente de aprobación, Anulada">Recién cargada. Quien la pidió la puede seguir editando.</State>
   <State name="Pendiente de aprobación" tone="warning" next="Aprobada, Rechazada, Anulada">Enviada. Espera la decisión de un responsable.</State>
-  <State name="Aprobada" tone="success">Autorizada. Es la que después se cotiza y se compra.</State>
+  <State name="Aprobada" tone="success" next="Pedida en parte, Pedida, Cerrada">Autorizada. Es la que se cotiza y se pide en órdenes de compra.</State>
+  <State name="Pedida en parte" tone="warning" next="Pedida, Aprobada, Cerrada">Alguna línea ya está en órdenes de compra, pero falta algo. Cambia sola.</State>
+  <State name="Pedida" tone="success">Todas sus líneas están cubiertas por órdenes de compra. Si se anula una orden, vuelve atrás sola.</State>
+  <State name="Cerrada" tone="default">Se dio por terminada sin comprar lo que faltaba. Lleva el motivo.</State>
   <State name="Rechazada" tone="danger">No se aprobó. Lleva el motivo. Es definitiva: para volver a pedirla se copia como nueva.</State>
   <State name="Anulada" tone="default">Se canceló antes de que se decidiera. Lleva el motivo.</State>
 </States>
@@ -67,8 +71,18 @@ Los botones dependen del estado y de tus permisos:
 | **Rechazar** | En **Pendiente de aprobación**, con **Aprobar**. | La rechaza. El motivo es obligatorio. |
 | **Anular** | En **Borrador** o **Pendiente de aprobación**, para quien la pidió o con **Editar**. | La anula. El motivo es obligatorio. |
 | **Copiar como nueva** | En **Rechazada** o **Anulada**, con **Crear**. | Crea un borrador nuevo con las mismas líneas, para corregirlo y volver a enviarlo. |
+| **Pedir cotización** | En **Aprobada** o **Pedida en parte**, con **Crear** en **Cotizaciones**. | Arma pedidos de cotización a uno o varios proveedores. Ver <GuideLink to="pedidos-de-cotizacion">Pedidos de cotización</GuideLink>. |
+| **Generar OC** | En **Aprobada** o **Pedida en parte**, con **Crear** en **Órdenes de compra**. | Abre una orden de compra con las líneas que tienen faltante. Ver <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink>. |
+| **Cerrar** | En **Aprobada** o **Pedida en parte**, con **Editar**. | La da por terminada sin comprar lo que falta. El motivo es obligatorio. Lo ya pedido en órdenes de compra sigue su curso. |
 
 Al aprobar o rechazar, quien pidió la solicitud recibe un **mail** con la decisión y el comentario o el motivo.
+
+## Lo pedido y lo que falta
+
+Desde que se aprueba, cada línea muestra **Pedido en OC** (la suma de las órdenes de compra no anuladas que la cubren, incluidos los borradores) y **Falta**. Abajo aparecen:
+
+- **Cotizaciones**: el comparativo de precios de los proveedores a los que se les pidió, con el menor de cada línea resaltado y el botón **Generar OC** por proveedor.
+- **Órdenes de compra**: las órdenes que cubren la solicitud, con su estado y total.
 
 <Callout type="info" title="&quot;La solicitud ya fue aprobada&quot;">
 Si dos personas deciden la misma solicitud a la vez, gana la primera y la otra ve este aviso. Recargá la página para ver el estado actual.
@@ -98,8 +112,9 @@ Hay stock para entregar todo lo pendiente: entregalo desde Almacenes en vez de c
 | **Fecha** | Cuándo se cargó. |
 | **Solicitante** | Quién la pidió. |
 | **Tipo de destino** y **Destino** | A quién se imputa, o **Para stock**. |
-| **Estado** | Uno de los cinco de arriba. |
+| **Estado** | Uno de los de arriba. |
 | **Líneas** | Cuántas cosas pide. |
+| **Avance** | Qué porcentaje de lo pedido ya está en órdenes de compra. **—** si todavía no está aprobada. |
 | **Se necesita para** | La fecha pedida. |
 | **Pedido de origen** | El pedido de Almacenes del que salió, si corresponde; enlace al pedido. |
 
@@ -107,6 +122,10 @@ El buscador dice **Buscar por número o notas**. A la vista hay tres filtros, **
 
 <Callout type="tip" title="La bandeja de quien aprueba">
 Filtrá **Estado** en **Pendiente de aprobación**.
+</Callout>
+
+<Callout type="tip" title="Lo que falta comprar">
+Filtrá **Estado** en **Aprobada** y **Pedida en parte**: son las solicitudes que Compras tiene que cotizar o pedir.
 </Callout>
 
 <Callout type="info" title="¿Por qué no veo las solicitudes de los demás?">

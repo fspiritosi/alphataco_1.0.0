@@ -3,7 +3,7 @@
 -- tests prueban la red de seguridad. 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(13);
+SELECT plan(24);
 
 SELECT has_table('public', 'suppliers', 'existe suppliers');
 SELECT has_table('public', 'purchase_requests', 'existe purchase_requests');
@@ -93,6 +93,85 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$UPDATE purchase_requests SET cancelled_at = now() WHERE id = 'a2000000-0000-0000-0000-000000000020'$$,
   '23514', NULL, 'una anulacion tiene fecha, quien y motivo juntos'
+);
+
+-- ── Etapa 2: cotizaciones y ordenes de compra ───────────────────────────────
+INSERT INTO purchase_request_lines (id, request_id, position, description, quantity, unit_id)
+VALUES ('a2000000-0000-0000-0000-000000000021', 'a2000000-0000-0000-0000-000000000020', 1, 'Servicio', 10,
+        'a2000000-0000-0000-0000-000000000003');
+
+INSERT INTO purchase_quotes (id, company_id, number, supplier_id, created_by)
+VALUES ('a2000000-0000-0000-0000-000000000030', 'a2000000-0000-0000-0000-000000000001', 'PC-000001',
+        'a2000000-0000-0000-0000-000000000010', 'a2000000-0000-0000-0000-000000000002');
+
+INSERT INTO purchase_quote_lines (quote_id, request_line_id, quantity)
+VALUES ('a2000000-0000-0000-0000-000000000030', 'a2000000-0000-0000-0000-000000000021', 10);
+
+INSERT INTO purchase_orders (id, company_id, number, supplier_id, created_by)
+VALUES ('a2000000-0000-0000-0000-000000000040', 'a2000000-0000-0000-0000-000000000001', 'OC-000001',
+        'a2000000-0000-0000-0000-000000000010', 'a2000000-0000-0000-0000-000000000002');
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_quote_lines (quote_id, request_line_id, quantity)
+    VALUES ('a2000000-0000-0000-0000-000000000030', 'a2000000-0000-0000-0000-000000000021', 5)$$,
+  '23505', NULL, 'una linea de solicitud va una sola vez por cotizacion'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_quote_lines SET not_quoted = true, unit_price = 10, vat_rate_id = 5
+    WHERE quote_id = 'a2000000-0000-0000-0000-000000000030'$$,
+  '23514', NULL, 'una linea que no se cotiza no lleva precio'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_quote_lines SET unit_price = 10 WHERE quote_id = 'a2000000-0000-0000-0000-000000000030'$$,
+  '23514', NULL, 'el precio cotizado va con su alicuota'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_quotes SET cancelled_at = now() WHERE id = 'a2000000-0000-0000-0000-000000000030'$$,
+  '23514', NULL, 'la anulacion de la cotizacion va completa'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_order_lines (order_id, request_line_id, position, quantity, unit_price, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000040', 'a2000000-0000-0000-0000-000000000021', 1, 0, 1, 5, 0, 0)$$,
+  '23514', NULL, 'la cantidad de la OC es mayor a 0'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_order_lines (order_id, request_line_id, position, quantity, unit_price, vat_rate_id, net_total, vat_amount)
+    VALUES ('a2000000-0000-0000-0000-000000000040', 'a2000000-0000-0000-0000-000000000021', 1, 1, -1, 5, 0, 0)$$,
+  '23514', NULL, 'el precio de la OC no es negativo'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_orders SET status = 'APPROVED' WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
+  '23514', NULL, 'una OC aprobada tiene la aprobacion'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_orders
+    SET status = 'SENT', approved_by = 'a2000000-0000-0000-0000-000000000002', approved_at = now()
+    WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
+  '23514', NULL, 'una OC enviada tiene el envio'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_orders SET cancel_reason = 'x' WHERE id = 'a2000000-0000-0000-0000-000000000040'$$,
+  '23514', NULL, 'la anulacion de la OC va completa'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO purchase_orders (company_id, number, supplier_id, created_by)
+    VALUES ('a2000000-0000-0000-0000-000000000001', 'OC-000001', 'a2000000-0000-0000-0000-000000000010',
+            'a2000000-0000-0000-0000-000000000002')$$,
+  '23505', NULL, 'el numero de OC es unico por empresa'
+);
+
+SELECT throws_ok(
+  $$UPDATE purchase_requests SET status = 'CLOSED' WHERE id = 'a2000000-0000-0000-0000-000000000020'$$,
+  '23514', NULL, 'una solicitud cerrada lleva el cierre con motivo'
 );
 
 SELECT * FROM finish();

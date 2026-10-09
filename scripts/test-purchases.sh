@@ -32,4 +32,6 @@ npx prisma migrate deploy
 echo "==> Corriendo los tests de integracion de Compras..."
 npx vitest run \
   src/features/Purchases/actions/suppliers.integration.test.ts \
-  src/features/Purchases/actions/requests.integration.test.ts
+  src/features/Purchases/actions/requests.integration.test.ts \
+  src/features/Purchases/actions/orders.integration.test.ts \
+  src/features/Purchases/actions/quotes.integration.test.ts

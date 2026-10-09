@@ -15,7 +15,10 @@ import { NO_PERMISSION, UUID_RE, firstIssue, toPurchaseActionError } from '../li
 import { materialRequestShortfall, type MaterialRequestShortfall } from '../lib/from-material-request';
 import { PurchaseError } from '../lib/purchase-errors';
 import { nextPurchaseRequestNumber } from '../lib/request-numbering';
+import { sumQuantities } from '@/features/Comercial/Facturacion/lib/invoice-math';
+import { remainingOf } from '../lib/order-progress';
 import {
+  ORDERABLE_REQUEST_STATUSES,
   canApplyPurchaseRequestAction,
   canCopyPurchaseRequest,
   purchaseRequestStatusAfter,
@@ -38,6 +41,11 @@ import {
 } from '../schemas/requests';
 
 const logger = new Logger('features/Purchases/requests');
+
+function isOrderableRequest(status: PurchaseRequestStatus): boolean {
+  const orderable: readonly PurchaseRequestStatus[] = ORDERABLE_REQUEST_STATUSES;
+  return orderable.includes(status);
+}
 
 const PURCHASES_PATH = '/dashboard/purchases';
 const SESSION_EXPIRED = 'Tu sesión expiró. Volvé a ingresar.';
@@ -340,6 +348,38 @@ export async function cancelPurchaseRequest(id: string, reason: string): Promise
   }
 }
 
+/**
+ * Cierra una solicitud aprobada o pedida en parte sin comprar lo que falta (con motivo). Lo ya
+ * pedido en OC sigue su curso; la solicitud deja de ofrecerse para cotizar y pedir.
+ */
+export async function closePurchaseRequest(id: string, reason: string): Promise<ActionResult> {
+  if (!(await checkPermissionServer('compras', 'solicitudes', 'update'))) return fail(NO_PERMISSION);
+  if (!UUID_RE.test(id)) return fail('La solicitud no existe');
+  const motive = requiredReasonSchema.safeParse(reason);
+  if (!motive.success) return fail(firstIssue(motive.error));
+  const profile = await getServerAuthProfile();
+  if (!profile) return fail(SESSION_EXPIRED);
+  const companyId = await getActiveCompanyId();
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockPurchaseRequest(tx, companyId, id, 'close');
+      await tx.purchase_requests.update({
+        where: { id },
+        data: {
+          status: purchaseRequestStatusAfter('close'),
+          closed_by: profile.id,
+          closed_at: new Date(),
+          close_reason: motive.data,
+        },
+      });
+    });
+    revalidate(id);
+    return ok(null);
+  } catch (error) {
+    return toPurchaseActionError(error, logger, 'cerrar la solicitud');
+  }
+}
+
 /** Copia una rechazada o anulada como un borrador nuevo del usuario actual. */
 export async function copyPurchaseRequest(id: string): Promise<ActionResult<{ id: string; number: string }>> {
   if (!(await checkPermissionServer('compras', 'solicitudes', 'create'))) return fail(NO_PERMISSION);
@@ -493,14 +533,18 @@ export async function getPurchaseRequestsForMaterialRequest(materialRequestId: s
 /** Detalle de una solicitud. Con solo `view`, nada mas las propias. */
 export async function getPurchaseRequestDetail(id: string) {
   if (!UUID_RE.test(id)) return null;
-  const [canView, canViewAll, canCreate, canUpdate, canApprove, profile] = await Promise.all([
-    checkPermissionServer('compras', 'solicitudes', 'view'),
-    checkPermissionServer('compras', 'solicitudes', 'view_all_requests'),
-    checkPermissionServer('compras', 'solicitudes', 'create'),
-    checkPermissionServer('compras', 'solicitudes', 'update'),
-    checkPermissionServer('compras', 'solicitudes', 'approve'),
-    getServerAuthProfile(),
-  ]);
+  const [canView, canViewAll, canCreate, canUpdate, canApprove, canCreateQuote, canCreateOrder, canViewOrders, profile] =
+    await Promise.all([
+      checkPermissionServer('compras', 'solicitudes', 'view'),
+      checkPermissionServer('compras', 'solicitudes', 'view_all_requests'),
+      checkPermissionServer('compras', 'solicitudes', 'create'),
+      checkPermissionServer('compras', 'solicitudes', 'update'),
+      checkPermissionServer('compras', 'solicitudes', 'approve'),
+      checkPermissionServer('compras', 'cotizaciones', 'create'),
+      checkPermissionServer('compras', 'ordenes', 'create'),
+      checkPermissionServer('compras', 'ordenes', 'view'),
+      getServerAuthProfile(),
+    ]);
   if (!canView || !profile) return null;
   const companyId = await getActiveCompanyId();
 
@@ -518,10 +562,13 @@ export async function getPurchaseRequestDetail(id: string) {
       decision_notes: true,
       cancelled_at: true,
       cancel_reason: true,
+      closed_at: true,
+      close_reason: true,
       requested_by: true,
       requester: { select: { fullname: true, email: true } },
       decider: { select: { fullname: true, email: true } },
       canceller: { select: { fullname: true, email: true } },
+      closer: { select: { fullname: true, email: true } },
       material_request: { select: { id: true, number: true } },
       ...DESTINATION_SELECT,
       employee_id: true,
@@ -541,12 +588,25 @@ export async function getPurchaseRequestDetail(id: string) {
           material: { select: { id: true, code: true, name: true } },
           unit: { select: { abbreviation: true } },
           suggested_supplier: { select: { id: true, name: true } },
+          order_lines: {
+            where: { order: { status: { not: 'CANCELLED' } } },
+            select: { quantity: true },
+          },
         },
         orderBy: { position: 'asc' },
       },
     },
   });
   if (!request) return null;
+
+  // OC que cubren alguna linea (las anuladas tambien: quedan como historia).
+  const orders = canViewOrders
+    ? await prisma.purchase_orders.findMany({
+        where: { company_id: companyId, lines: { some: { request_line: { request_id: request.id } } } },
+        select: { id: true, number: true, status: true, total: true, created_at: true, supplier: { select: { name: true } } },
+        orderBy: { created_at: 'asc' },
+      })
+    : [];
 
   const userName = (p: { fullname: string | null; email: string | null } | null) =>
     p ? (p.fullname ?? p.email ?? 'Usuario') : null;
@@ -585,6 +645,15 @@ export async function getPurchaseRequestDetail(id: string) {
       unit: l.unit.abbreviation,
       notes: l.notes,
       suggestedSupplier: l.suggested_supplier,
+      ordered: sumQuantities(l.order_lines.map((o) => o.quantity.toString())),
+      remaining: remainingOf(l.quantity.toString(), sumQuantities(l.order_lines.map((o) => o.quantity.toString()))),
+    })),
+    orders: orders.map((o) => ({
+      id: o.id,
+      number: o.number,
+      status: o.status,
+      supplierName: o.supplier.name,
+      total: o.total.toFixed(2),
     })),
     history: [
       { event: 'Creada', at: at(request.created_at), by: userName(request.requester) },
@@ -602,6 +671,9 @@ export async function getPurchaseRequestDetail(id: string) {
       ...(request.cancelled_at
         ? [{ event: 'Anulada', at: at(request.cancelled_at), by: userName(request.canceller), notes: request.cancel_reason }]
         : []),
+      ...(request.closed_at
+        ? [{ event: 'Cerrada', at: at(request.closed_at), by: userName(request.closer), notes: request.close_reason }]
+        : []),
     ],
     can: {
       edit: canApplyPurchaseRequestAction(status, 'edit') && (isRequester || canUpdate),
@@ -609,6 +681,9 @@ export async function getPurchaseRequestDetail(id: string) {
       approve: canApplyPurchaseRequestAction(status, 'approve') && canApprove,
       cancel: canApplyPurchaseRequestAction(status, 'cancel') && (isRequester || canUpdate),
       copy: canCopyPurchaseRequest(status) && canCreate,
+      close: canApplyPurchaseRequestAction(status, 'close') && canUpdate,
+      requestQuote: isOrderableRequest(status) && canCreateQuote,
+      createOrder: isOrderableRequest(status) && canCreateOrder,
     },
   };
 }

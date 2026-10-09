@@ -1,10 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatQuantity } from '@/features/Warehouses/lib/format';
+import { formatMoney, formatQuantity } from '@/features/Warehouses/lib/format';
 import { DESTINATION_TYPE_LABELS } from '@/features/Warehouses/lib/labels';
 import moment from 'moment';
 import Link from 'next/link';
+import type { RequestQuoteComparison } from '../../actions/quotes.server';
 import type { PurchaseRequestDetail } from '../../actions/requests.server';
+import { HistoryCard } from '../../components/HistoryCard';
+import { PurchaseOrderStatusBadge } from '../../Orders/components/PurchaseOrderStatusBadge';
+import { QuoteComparison } from './QuoteComparison';
 import { PurchaseRequestActions } from './PurchaseRequestActions';
 import { PurchaseRequestStatusBadge } from './PurchaseRequestStatusBadge';
 
@@ -16,11 +20,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+/** Estados en los que se muestra el avance por linea (pedido en OC y falta). */
+const WITH_PROGRESS = new Set(['APPROVED', 'PARTIALLY_ORDERED', 'ORDERED', 'CLOSED']);
 
-
-/** Detalle de la solicitud: cabecera, lineas e historial, con las acciones que correspondan. */
-export function PurchaseRequestDetailView({ request }: { request: PurchaseRequestDetail }) {
-  const at = (iso: string | null) => (iso ? moment(iso).format('DD/MM/YYYY HH:mm') : '—');
+/**
+ * Detalle de la solicitud: cabecera, lineas (con lo pedido en OC y lo que falta), cotizaciones,
+ * ordenes de compra e historial, con las acciones que correspondan.
+ */
+export function PurchaseRequestDetailView({
+  request,
+  comparison,
+}: {
+  request: PurchaseRequestDetail;
+  comparison: RequestQuoteComparison | null;
+}) {
+  const showProgress = WITH_PROGRESS.has(request.status);
 
   return (
     <div className="space-y-4">
@@ -71,6 +85,8 @@ export function PurchaseRequestDetailView({ request }: { request: PurchaseReques
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Material o descripción</TableHead>
                 <TableHead className="text-right">Cantidad</TableHead>
+                {showProgress && <TableHead className="text-right">Pedido en OC</TableHead>}
+                {showProgress && <TableHead className="text-right">Falta</TableHead>}
                 <TableHead>Proveedor sugerido</TableHead>
                 <TableHead>Observaciones</TableHead>
               </TableRow>
@@ -91,6 +107,16 @@ export function PurchaseRequestDetailView({ request }: { request: PurchaseReques
                   <TableCell className="text-right tabular-nums">
                     {formatQuantity(line.quantity)} {line.unit}
                   </TableCell>
+                  {showProgress && (
+                    <TableCell className="text-right tabular-nums">
+                      {formatQuantity(line.ordered)} {line.unit}
+                    </TableCell>
+                  )}
+                  {showProgress && (
+                    <TableCell className="text-right tabular-nums">
+                      {Number(line.remaining) > 0 ? `${formatQuantity(line.remaining)} ${line.unit}` : '—'}
+                    </TableCell>
+                  )}
                   <TableCell>
                     {line.suggestedSupplier ? (
                       <Link href={`/dashboard/purchases/suppliers/${line.suggestedSupplier.id}`} className="hover:underline">
@@ -108,25 +134,31 @@ export function PurchaseRequestDetailView({ request }: { request: PurchaseReques
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Historial</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="space-y-3">
-            {request.history.map((h) => (
-              <li key={`${h.event}-${h.at}`} className="text-sm">
-                <span className="font-medium">{h.event}</span>
-                <span className="text-muted-foreground">
-                  {' '}
-                  · {h.by ?? 'Usuario'} · {at(h.at)}
-                </span>
-                {'notes' in h && h.notes && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{h.notes}</p>}
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+      {comparison && showProgress && <QuoteComparison comparison={comparison} />}
+
+      {request.orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Órdenes de compra</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {request.orders.map((order) => (
+                <li key={order.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                  <Link href={`/dashboard/purchases/orders/${order.id}`} className="font-mono underline">
+                    {order.number}
+                  </Link>
+                  <PurchaseOrderStatusBadge status={order.status} />
+                  <span>{order.supplierName}</span>
+                  <span className="ml-auto tabular-nums">{formatMoney(order.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      <HistoryCard history={request.history} />
     </div>
   );
 }

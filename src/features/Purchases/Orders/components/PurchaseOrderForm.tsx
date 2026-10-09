@@ -1,0 +1,411 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EnhancedDatePicker } from '@/components/ui/enhanced-datepicket';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { SearchCombobox } from '@/features/Warehouses/components/SearchCombobox';
+import { formatMoney, formatQuantity } from '@/features/Warehouses/lib/format';
+import { unwrapAction } from '@/features/Warehouses/lib/unwrap-action';
+import { Logger } from '@/lib/logger';
+import { VAT_RATE_LABELS, VAT_RATES } from '@/shared/lib/arca/catalogs';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Trash2 } from 'lucide-react';
+import moment from 'moment';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useFieldArray, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
+import {
+  createPurchaseOrder,
+  getSupplierPurchaseContext,
+  searchOrderableRequestLines,
+  updatePurchaseOrderDraft,
+  type OrderableRequestLineOption,
+} from '../../actions/orders.server';
+import { searchSupplierOptions } from '../../actions/suppliers.server';
+import { ExpiredSupplierDocumentsAlert } from '../../components/ExpiredSupplierDocumentsAlert';
+import { invalidatePurchases } from '../../lib/invalidate';
+import { computeOrderLine, computeOrderTotals } from '../../lib/order-totals';
+import { trimDecimals } from '../../lib/quantity-format';
+import { emptyPurchaseOrderLine, purchaseOrderFormSchema, type PurchaseOrderFormValues } from '../../schemas/orders';
+
+const logger = new Logger('Purchases/PurchaseOrderForm');
+
+const VAT_RATE_IDS = Object.keys(VAT_RATES).map(Number) as (keyof typeof VAT_RATES)[];
+
+export type PurchaseOrderFormMode = { kind: 'create' } | { kind: 'edit'; orderId: string; number: string };
+
+/** Lineas de solicitud conocidas por id (las elegidas y las precargadas), para mostrar su faltante. */
+export type LineOptions = Record<string, OrderableRequestLineOption>;
+
+function lineOptionLabel(option: OrderableRequestLineOption): string {
+  return `${option.requestNumber} · línea ${option.position} · ${option.itemLabel}`;
+}
+
+/** Busqueda de lineas pendientes con el formato que pide el combobox (`id` + `label`). */
+async function searchLineOptions(query: string) {
+  const result = await searchOrderableRequestLines(query);
+  return { items: result.items.map((item) => ({ ...item, id: item.requestLineId, label: lineOptionLabel(item) })), total: result.total };
+}
+
+interface PurchaseOrderFormProps {
+  mode: PurchaseOrderFormMode;
+  defaultValues: PurchaseOrderFormValues;
+  initialSupplierLabel: string | null;
+  initialLineOptions: LineOptions;
+}
+
+/**
+ * Orden de compra en un solo formulario: proveedor (con aviso de documentos vencidos y plazo de
+ * pago precargado), lineas tomadas de solicitudes con faltante, condiciones y totales en vivo.
+ * Los totales que valen son los del servidor; aca son vista previa con la misma funcion.
+ */
+export function PurchaseOrderForm({ mode, defaultValues, initialSupplierLabel, initialLineOptions }: PurchaseOrderFormProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [supplierLabel, setSupplierLabel] = useState<string | null>(initialSupplierLabel);
+  const [lineOptions, setLineOptions] = useState<LineOptions>(initialLineOptions);
+
+  const form = useForm<PurchaseOrderFormValues>({
+    resolver: zodResolver(purchaseOrderFormSchema),
+    defaultValues,
+  });
+  const lines = useFieldArray({ control: form.control, name: 'lines' });
+  const supplierId = useWatch({ control: form.control, name: 'supplierId' });
+  const watchedLines = useWatch({ control: form.control, name: 'lines' });
+  const totals = computeOrderTotals(watchedLines ?? []);
+
+  const supplier = useQuery({
+    queryKey: ['purchase-supplier-context', supplierId],
+    queryFn: () => getSupplierPurchaseContext(supplierId),
+    enabled: Boolean(supplierId),
+    staleTime: 60_000,
+  });
+
+  const save = useMutation({
+    mutationFn: async ({ values, submit }: { values: PurchaseOrderFormValues; submit: boolean }) => {
+      if (mode.kind === 'edit') {
+        unwrapAction(await updatePurchaseOrderDraft(mode.orderId, values));
+        return { id: mode.orderId, number: mode.number, submit };
+      }
+      return { ...unwrapAction(await createPurchaseOrder(values, { submit })), submit };
+    },
+    onSuccess: ({ id, number, submit }) => {
+      toast.success(
+        mode.kind === 'edit' ? `Orden ${number} guardada` : submit ? `Orden ${number} enviada a aprobación` : `Orden ${number} guardada como borrador`
+      );
+      invalidatePurchases(queryClient);
+      router.push(`/dashboard/purchases/orders/${id}`);
+      router.refresh();
+    },
+    onError: (error) => {
+      logger.error('Error al guardar la orden de compra', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar la orden de compra');
+    },
+  });
+
+  const submitWith = (submit: boolean) => form.handleSubmit((values) => save.mutate({ values, submit }));
+
+  return (
+    <Form {...form}>
+      {/* Enter guarda borrador: enviar a aprobacion es siempre un click explicito. */}
+      <form onSubmit={submitWith(false)} className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Proveedor y condiciones</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="supplierId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Proveedor</FormLabel>
+                  <FormControl>
+                    <SearchCombobox
+                      queryKey={['purchase-supplier-options']}
+                      search={searchSupplierOptions}
+                      value={field.value}
+                      selectedLabel={supplierLabel}
+                      onSelect={(option) => {
+                        field.onChange(option?.id ?? '');
+                        setSupplierLabel(option?.label ?? null);
+                        form.setValue('paymentTermDays', '');
+                        // Los precios cotizados son de otro proveedor: las lineas dejan de venir de la cotizacion.
+                        form.getValues('lines').forEach((_, i) => form.setValue(`lines.${i}.quoteLineId`, ''));
+                      }}
+                      placeholder="Elegí el proveedor"
+                      searchPlaceholder="Razón social o CUIT…"
+                      noun="proveedores"
+                      renderOption={(o) => (
+                        <span className="flex flex-col">
+                          <span>{o.label}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">{o.cuit}</span>
+                        </span>
+                      )}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {supplier.data && <ExpiredSupplierDocumentsAlert supplierId={supplier.data.id} documents={supplier.data.expiredDocuments} />}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="deliveryDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de entrega (opcional)</FormLabel>
+                    <FormControl>
+                      <EnhancedDatePicker
+                        date={field.value ? moment(field.value, 'YYYY-MM-DD').toDate() : undefined}
+                        setDate={(date) => field.onChange(date ? moment(date).format('YYYY-MM-DD') : '')}
+                        placeholder="DD/MM/AAAA"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="deliveryPlace"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lugar de entrega (opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Base Neuquén, obrador Añelo…" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="paymentTermDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plazo de pago (días)</FormLabel>
+                    <FormControl>
+                      <Input
+                        inputMode="numeric"
+                        className="tabular-nums"
+                        placeholder={
+                          supplier.data?.paymentTermDays != null ? `${supplier.data.paymentTermDays} (del proveedor)` : 'Sin plazo'
+                        }
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>Vacío: el de la ficha del proveedor.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones (opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea rows={2} placeholder="Van en el PDF de la orden" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="text-base">Qué se compra</CardTitle>
+              <CardDescription>Líneas de solicitudes aprobadas con faltante. Se pueden juntar líneas de varias solicitudes.</CardDescription>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => lines.append(emptyPurchaseOrderLine())}>
+              <Plus className="mr-1 h-4 w-4" />
+              Agregar línea
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {lines.fields.map((field, index) => (
+              <div key={field.id}>
+                {index > 0 && <Separator className="mb-4" />}
+                <OrderLineFields
+                  form={form}
+                  index={index}
+                  option={lineOptions[watchedLines?.[index]?.requestLineId ?? ''] ?? null}
+                  canRemove={lines.fields.length > 1}
+                  onRemove={() => lines.remove(index)}
+                  onOption={(option) => setLineOptions((prev) => ({ ...prev, [option.requestLineId]: option }))}
+                />
+              </div>
+            ))}
+            {form.formState.errors.lines?.root?.message && (
+              <p className="text-sm text-destructive">{form.formState.errors.lines.root.message}</p>
+            )}
+            <Separator />
+            <dl className="ml-auto grid w-full max-w-xs grid-cols-2 gap-1 text-sm tabular-nums">
+              <dt className="text-muted-foreground">Subtotal neto</dt>
+              <dd className="text-right">{formatMoney(totals.subtotal)}</dd>
+              <dt className="text-muted-foreground">IVA</dt>
+              <dd className="text-right">{formatMoney(totals.vatTotal)}</dd>
+              <dt className="font-medium">Total</dt>
+              <dd className="text-right font-medium">{formatMoney(totals.total)}</dd>
+            </dl>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={save.isPending}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="secondary" onClick={submitWith(false)} disabled={save.isPending}>
+            {mode.kind === 'edit' ? 'Guardar borrador' : 'Guardar como borrador'}
+          </Button>
+          {mode.kind !== 'edit' && (
+            <Button type="button" onClick={submitWith(true)} disabled={save.isPending}>
+              {save.isPending ? 'Guardando…' : 'Enviar a aprobación'}
+            </Button>
+          )}
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+interface OrderLineFieldsProps {
+  form: UseFormReturn<PurchaseOrderFormValues>;
+  index: number;
+  option: OrderableRequestLineOption | null;
+  canRemove: boolean;
+  onRemove: () => void;
+  onOption: (option: OrderableRequestLineOption) => void;
+}
+
+function OrderLineFields({ form, index, option, canRemove, onRemove, onOption }: OrderLineFieldsProps) {
+  const line = useWatch({ control: form.control, name: `lines.${index}` });
+  const amounts = line ? computeOrderLine(line) : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2">
+        <FormField
+          control={form.control}
+          name={`lines.${index}.requestLineId`}
+          render={({ field }) => (
+            <FormItem className="min-w-0 flex-1">
+              <FormLabel>Línea de solicitud</FormLabel>
+              <FormControl>
+                <SearchCombobox
+                  queryKey={['purchase-orderable-lines']}
+                  search={searchLineOptions}
+                  value={field.value}
+                  selectedLabel={option ? lineOptionLabel(option) : null}
+                  onSelect={(selected) => {
+                    field.onChange(selected?.id ?? '');
+                    // Una linea nueva no viene de una cotizacion; la cantidad propuesta es lo que falta.
+                    form.setValue(`lines.${index}.quoteLineId`, '');
+                    if (selected) {
+                      onOption(selected);
+                      form.setValue(`lines.${index}.quantity`, trimDecimals(selected.remaining));
+                    }
+                  }}
+                  placeholder="Elegí la línea"
+                  searchPlaceholder="Número de solicitud, material o descripción…"
+                  noun="líneas"
+                  renderOption={(o) => (
+                    <span className="flex flex-col">
+                      <span>{o.label}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        Falta {formatQuantity(o.remaining)} {o.unitAbbr}
+                      </span>
+                    </span>
+                  )}
+                />
+              </FormControl>
+              {option && (
+                <FormDescription className="tabular-nums">
+                  Pedido en la solicitud: {formatQuantity(option.requested)} {option.unitAbbr} · se puede pedir hasta{' '}
+                  {formatQuantity(option.remaining)} {option.unitAbbr}
+                </FormDescription>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {canRemove && (
+          <Button type="button" size="icon" variant="ghost" className="mt-8 shrink-0" onClick={onRemove} aria-label={`Quitar la línea ${index + 1}`}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <FormField
+          control={form.control}
+          name={`lines.${index}.quantity`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cantidad{option ? ` (${option.unitAbbr})` : ''}</FormLabel>
+              <FormControl>
+                <Input inputMode="decimal" className="tabular-nums" placeholder="0" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={`lines.${index}.unitPrice`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Precio unitario neto</FormLabel>
+              <FormControl>
+                <Input inputMode="decimal" className="tabular-nums" placeholder="0,00" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={`lines.${index}.vatRateId`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>IVA</FormLabel>
+              <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {VAT_RATE_IDS.map((id) => (
+                    <SelectItem key={id} value={String(id)}>
+                      {VAT_RATE_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Neto de la línea</p>
+          <p className="py-2 text-sm tabular-nums">{amounts ? formatMoney(amounts.netTotal) : '—'}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
