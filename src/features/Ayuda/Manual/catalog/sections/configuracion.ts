@@ -139,7 +139,6 @@ export const configuracionSection = defineSection({
         { path: CONFIG, tab: 'documentos', subtab: 'Personas' },
         { path: CONFIG, tab: 'documentos', subtab: 'Equipos' },
         { path: CONFIG, tab: 'documentos', subtab: 'Empresa' },
-        { path: '/dashboard/equipment', tab: 'tipos-de-documentos' },
       ],
       related: [
         'documentos-alertas-y-estado',

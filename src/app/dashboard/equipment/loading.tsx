@@ -4,20 +4,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Loading() {
   return (
     <div className="space-y-6">
-      {/* 4 tabs */}
-      <div className="flex gap-1 border-b">
-        <Skeleton className="h-10 w-24 rounded-none" />
-        <Skeleton className="h-10 w-44 rounded-none" />
-        <Skeleton className="h-10 w-40 rounded-none" />
-        <Skeleton className="h-10 w-36 rounded-none" />
-      </div>
-
-      {/* 3 subtabs */}
-      <div className="flex gap-1 border-b">
-        <Skeleton className="h-9 w-28 rounded-none" />
-        <Skeleton className="h-9 w-20 rounded-none" />
-        <Skeleton className="h-9 w-32 rounded-none" />
-      </div>
+      {/* Titulo de la seccion: las secciones se eligen desde el sidebar, no hay barra de tabs */}
+      <Skeleton className="h-7 w-40" />
 
       {/* Vehicle DataTable in Card */}
       <Card>

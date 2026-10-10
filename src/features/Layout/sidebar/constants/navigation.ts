@@ -4,6 +4,7 @@ import {
   ArrowLeftRight,
   BookOpen,
   Building2,
+  Car,
   ChartColumn,
   CircleDot,
   ClipboardList,
@@ -30,6 +31,7 @@ import {
   Users,
   Warehouse,
   Wrench,
+  XCircle,
 } from 'lucide-react';
 
 /** Icono de un item del sidebar. Misma forma que la del mapa compartido de modulos. */
@@ -45,15 +47,6 @@ export type NavIcon = ModuleIcon;
 export type NavigationSubLink = {
   name: string;
   tabSlug: string;
-  /**
-   * De donde leer el permiso, cuando la tab NO pertenece al modulo de este link.
-   *
-   * Pasa con las pantallas que un modulo MONTA pero no POSEE: Equipos y Empleados muestran
-   * "Tipos de Documentos", cuya tab vive en Configuracion. Sin esto el sub-item se filtraba
-   * contra un permiso inexistente (`equipos:documentos:view`) y no aparecia nunca, aunque la
-   * pagina si montaba la tab — el menu y la pagina decian cosas distintas.
-   */
-  permission?: { moduleSlug: ModuleSlug; tabSlug: string };
   /** Contador a mostrar junto al sub-item (y, plegado, sobre el modulo). */
   badge?: NavBadge;
 };
@@ -84,7 +77,7 @@ export type NavigationLink = {
  * incluyen entradas que no son tabs sino rutas de detalle (`detalle-empleado`,
  * `detalle-equipo`, `detalle-parte-diario`, `detalle-de-documento`) y, al reves, hay tabs
  * reales que el mapa no lista en primer nivel (`equipments_with_deviations` en Mantenimiento,
- * `tipos-de-documentos` en Equipos y Empleados). Derivarlos del mapa generaria items que
+ * `vehicles`/`others`/`inactive` en Equipos, que son subtabs de `equipos`). Derivarlos del mapa generaria items que
  * apuntan a un `?tab=` inexistente y el modulo caeria a su tab por defecto en silencio.
  *
  * Por eso se declaran aca, espejando las tabs que realmente monta cada modulo, y se filtran
@@ -131,14 +124,9 @@ export const navigationLinks: NavigationLink[] = [
     icon: MODULE_ICONS.equipos,
     position: 4,
     items: [
-      { name: 'Equipos', tabSlug: 'equipos' },
-      { name: 'Documentos de Equipos', tabSlug: 'documentos-de-equipos' },
-      {
-        name: 'Tipos de Documentos',
-        tabSlug: 'tipos-de-documentos',
-        permission: { moduleSlug: 'configuracion', tabSlug: 'documentos' },
-      },
-      { name: 'Mantenimiento', tabSlug: 'type_of_repairs' },
+      { name: 'Vehículos', tabSlug: 'vehicles' },
+      { name: 'Equipamiento', tabSlug: 'others' },
+      { name: 'Dados de Baja', tabSlug: 'inactive' },
     ],
   },
   {
@@ -259,7 +247,8 @@ export const navigationLinks: NavigationLink[] = [
  * Iconos por tab, para los sub-items. Son los mismos que usa cada modulo en el label de su
  * `TabsManagerServer`: el precedente manda, para que la tab se vea igual en los dos lados.
  * La clave es `<moduleSlug>:<tabSlug>` porque hay slugs repetidos entre modulos
- * (`tipos-de-documentos` esta en empleados, equipos y documentacion).
+ * (`documentos-de-equipos` esta en documentacion y en el detalle del equipo, `vehicles` en
+ * equipos y configuracion).
  */
 export const SUB_ITEM_ICONS: Record<string, NavIcon> = {
   'dashboard:principal': House,
@@ -272,10 +261,9 @@ export const SUB_ITEM_ICONS: Record<string, NavIcon> = {
   'configuracion:documentos': FileType,
   'empleados:employees': Users,
   'empleados:diagrams': GitBranch,
-  'equipos:equipos': Truck,
-  'equipos:documentos-de-equipos': FileText,
-  'equipos:tipos-de-documentos': FileType,
-  'equipos:type_of_repairs': Wrench,
+  'equipos:vehicles': Car,
+  'equipos:others': Package,
+  'equipos:inactive': XCircle,
   'documentacion:documentos-de-empleados': Users,
   'documentacion:documentos-de-equipos': Truck,
   'documentacion:documentos-de-empresa': Building2,

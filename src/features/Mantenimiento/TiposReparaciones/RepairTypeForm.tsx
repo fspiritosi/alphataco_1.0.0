@@ -165,8 +165,8 @@ export function RepairTypeForm({
   const { hasPermission } = usePermissions();
 
   // Verificar permisos
-  const canCreate = hasPermission('equipos', 'type_of_repair', 'create');
-  const canUpdate = hasPermission('equipos', 'type_of_repair', 'update');
+  const canCreate = hasPermission('configuracion', 'type_of_repair', 'create');
+  const canUpdate = hasPermission('configuracion', 'type_of_repair', 'update');
   const canCreateOrUpdate = canCreate || canUpdate;
 
   const typeOfRepair = z.object({

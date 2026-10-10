@@ -30,13 +30,17 @@ export async function ensureCity(prisma: PrismaClient): Promise<{ id: bigint; pr
  * se puede crear sin él. Lo siembra `scripts/seed-company.ts`, no las migraciones: en CI la base
  * de trabajo sale vacía de `0_init` y cualquier alta de perfil fallaba con `profile_role_fkey`.
  * Mismos valores que el seed; no se borra al terminar porque es catálogo compartido.
+ *
+ * `ON CONFLICT DO NOTHING` y no `prisma.roles.upsert`: el upsert de Prisma lee y después inserta,
+ * y vitest corre los archivos en paralelo. Con la base vacía de CI, dos suites que llegaban a la
+ * vez insertaban las dos y una caía con `roles_name_key` (P2002).
  */
 export async function ensureDefaultRole(prisma: PrismaClient): Promise<void> {
-  await prisma.roles.upsert({
-    where: { name: 'User' },
-    update: {},
-    create: { name: 'User', slug: 'user', is_system: true, is_active: true },
-  });
+  await prisma.$executeRaw`
+    INSERT INTO roles (name, slug, is_system, is_active)
+    VALUES ('User', 'user', true, true)
+    ON CONFLICT DO NOTHING
+  `;
 }
 
 /** Un país cualquiera (FK de `employees.birthplace`), creándolo si no hay ninguno. */

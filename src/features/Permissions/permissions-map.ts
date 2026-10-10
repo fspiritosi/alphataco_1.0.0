@@ -622,65 +622,6 @@ export const PERMISSIONS = {
           },
         },
       },
-      'documentos-de-equipos': {
-        slug: 'documentos-de-equipos',
-        name: 'Documentos de Equipos',
-        tabId: '30000000-0000-0000-0000-000000000002',
-        parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {
-          'docs-equipos-permanentes': {
-            slug: 'docs-equipos-permanentes',
-            name: 'Permanentes',
-            tabId: '30000000-0000-0000-0000-000000000021',
-            parent: 'documentos-de-equipos',
-            allowedActions: ['view', 'update'],
-          },
-          'docs-equipos-mensuales': {
-            slug: 'docs-equipos-mensuales',
-            name: 'Mensuales',
-            tabId: '30000000-0000-0000-0000-000000000022',
-            parent: 'documentos-de-equipos',
-            allowedActions: ['view', 'update'],
-          },
-        },
-      },
-      // 'tipos-de-documentos': HEREDA permisos de 'documentacion/tipos-de-documentos'
-      // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
-      // Ver implementación en: src/features/Equipos/EquiposComponent.tsx
-      type_of_repairs: {
-        slug: 'type_of_repairs',
-        name: 'Mantenimiento',
-        tabId: '30000000-0000-0000-0000-000000000004',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {
-          type_of_repair: {
-            slug: 'type_of_repair',
-            name: 'Tipos de Reparación',
-            tabId: '30000000-0000-0000-0000-000000000042',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'create', 'update'],
-          },
-          equipments_with_deviations: {
-            slug: 'equipments_with_deviations',
-            name: 'Equipos con Desvíos',
-            // UUID propio: antes compartía '...015' con mantenimiento/equipments_with_deviations
-            // (mismo id de tab en dos módulos distintos). El seed hacía upsert por `id`, así que
-            // la última fila en pisar ganaba (mantenimiento) y esta entrada quedaba sin fila en BD.
-            tabId: '60000000-0000-0000-0000-000000000019',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
-          },
-          maintenance_groups: {
-            slug: 'maintenance_groups',
-            name: 'Grupos',
-            tabId: '30000000-0000-0000-0000-000000000044',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'create', 'update'],
-          },
-        },
-      },
       'checklist-equipo': {
         slug: 'checklist-equipo',
         name: 'Checklist',
@@ -756,9 +697,6 @@ export const PERMISSIONS = {
           },
           // 'documentos-equipo': HEREDA permisos de 'documentacion/documentos-de-equipos'
           // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
-          // Ver implementación en: src/features/Equipos/EquipoID/components/vehicle-tabs.tsx
-          // 'reparaciones': HEREDA permisos de 'equipos/type_of_repairs'
-          // Esta tab no debe estar aquí porque hereda permisos del módulo de equipos.
           // Ver implementación en: src/features/Equipos/EquipoID/components/vehicle-tabs.tsx
           'qr-equipo': {
             slug: 'qr-equipo',

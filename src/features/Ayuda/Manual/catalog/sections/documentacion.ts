@@ -18,17 +18,9 @@ export const documentacionSection = defineSection({
     },
     {
       slug: 'documentos-de-equipos',
-      access: [tab('documentacion', 'documentos-de-equipos'), tab('equipos', 'documentos-de-equipos')],
-      covers: [
-        tab('documentacion', 'docs-equipos-permanentes'),
-        tab('documentacion', 'docs-equipos-mensuales'),
-        tab('equipos', 'docs-equipos-permanentes'),
-        tab('equipos', 'docs-equipos-mensuales'),
-      ],
-      screens: [
-        { path: '/dashboard/document', tab: 'documentos-de-equipos' },
-        { path: '/dashboard/equipment', tab: 'documentos-de-equipos' },
-      ],
+      access: [tab('documentacion', 'documentos-de-equipos')],
+      covers: [tab('documentacion', 'docs-equipos-permanentes'), tab('documentacion', 'docs-equipos-mensuales')],
+      screens: [{ path: '/dashboard/document', tab: 'documentos-de-equipos' }],
       related: ['documentos-alertas-y-estado', 'tipos-de-documento', 'detalle-de-documento', 'ficha-del-vehiculo'],
     },
     {
