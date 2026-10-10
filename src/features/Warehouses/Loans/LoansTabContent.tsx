@@ -1,4 +1,7 @@
+import { Button } from '@/components/ui/button';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { HandHelping } from 'lucide-react';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { NoPermission } from '../fallback/NoPermission';
 import { canWarehouse, type PermissionsMap } from '../lib/permissions';
@@ -15,9 +18,23 @@ export default async function LoansTabContent({
 }) {
   if (!canWarehouse(permissions, 'prestamos', 'view')) return <NoPermission />;
 
+  // Un prestamo nace de una salida de herramienta en Movimientos: el acceso abre esa salida.
   return (
-    <Suspense fallback={<LoansTableSkeleton />}>
-      <LoansList searchParams={searchParams} permissionsMap={permissions} />
-    </Suspense>
+    <div className="space-y-4">
+      {canWarehouse(permissions, 'movimientos', 'create') && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <p className="text-sm text-muted-foreground">Un préstamo es la salida de una herramienta con número de serie.</p>
+          <Button asChild variant="brand" size="sm">
+            <Link href="/dashboard/warehouse/movements/new?type=EXIT">
+              <HandHelping className="mr-2 h-4 w-4" />
+              Prestar herramienta
+            </Link>
+          </Button>
+        </div>
+      )}
+      <Suspense fallback={<LoansTableSkeleton />}>
+        <LoansList searchParams={searchParams} permissionsMap={permissions} />
+      </Suspense>
+    </div>
   );
 }

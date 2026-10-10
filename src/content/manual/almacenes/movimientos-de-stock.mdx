@@ -155,12 +155,14 @@ Qué pasa en cada caso:
 
 <Callout type="warning" title="Movimientos que se corrigen en otro lado">
 - **Cubiertas**: sus movimientos no se anulan desde acá ("**Los movimientos de cubiertas no se anulan desde Almacenes: se corrigen desde Gomería**"). Los de una orden de gomería se revierten anulando la orden.
+- **Recepciones de Compras**: la entrada que genera una recepción se anula **desde la recepción** ("**Se anula desde la recepción RC-…, en Compras**"), así la orden de compra queda al día. Ver <GuideLink to="recepciones">Recepciones</GuideLink>.
 - **Entregas de ropa**: anulalas desde la ficha del empleado o desde **Reportes** de indumentaria. Así se anula la salida **y** la entrega queda marcada **Anulada**. Si anulás solo la salida desde acá, el stock vuelve pero la entrega sigue figurando **Vigente** hasta que alguien la anule allá.
 </Callout>
 
 ## Cómo se conecta con el resto del sistema
 
 - **Stock**: cada movimiento cambia el stock del depósito y aparece en el kardex del material (<GuideLink to="stock-y-ficha-del-material">Stock y ficha del material</GuideLink>).
+- **Compras**: cada recepción con materiales genera una entrada, con referencia "RC-… · OC-…" y el costo de la orden de compra (<GuideLink to="recepciones">Recepciones</GuideLink>).
 - **Pedidos**: cada entrega de un pedido es una salida, y su anulación devuelve lo pendiente (<GuideLink to="pedidos-de-materiales">Pedidos de materiales</GuideLink>).
 - **Préstamos**: las salidas de herramientas abren préstamos; las devoluciones los cierran (<GuideLink to="prestamos-de-herramientas">Préstamos de herramientas</GuideLink>).
 - **Mantenimiento**: lo entregado a una orden de mantenimiento se ve en el detalle de la orden y en su PDF (<GuideLink to="taller">Taller</GuideLink>).

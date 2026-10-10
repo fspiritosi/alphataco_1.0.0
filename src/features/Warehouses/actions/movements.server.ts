@@ -158,6 +158,15 @@ export async function reverseStockMovementAction(movementId: string, reason: str
             'Los movimientos de cubiertas no se anulan desde Almacenes: se corrigen desde Gomería'
           );
         }
+        // La entrada de una recepcion de Compras se anula desde la recepcion: si no, la recepcion
+        // seguiria vigente con un stock que ya no esta.
+        const receipt = await tx.purchase_receipts.findFirst({
+          where: { stock_movement_id: movementId, company_id: companyId },
+          select: { number: true },
+        });
+        if (receipt) {
+          throw new StockError('MANAGED_ELSEWHERE', `Se anula desde la recepción ${receipt.number}, en Compras`);
+        }
         return reverseStockMovement(tx, companyId, profile.id, movementId, reason);
       },
       prisma,

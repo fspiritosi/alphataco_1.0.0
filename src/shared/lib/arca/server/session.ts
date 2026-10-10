@@ -16,6 +16,9 @@ const logger = new Logger('shared/lib/arca/session');
 /** Margen para no usar un ticket que vence a mitad de una operación. */
 const TOKEN_SAFETY_MS = 10 * 60 * 1000;
 
+/** Servicios de ARCA con ticket propio de WSAA: facturacion (wsfe) y constatacion (wscdc). */
+export type ArcaService = 'wsfe' | 'wscdc';
+
 export type ArcaSession = {
   env: arca_environment;
   credentialId: string;
@@ -76,15 +79,16 @@ async function loadActiveCredential(companyId: string, env: arca_environment) {
 }
 
 /**
- * Contexto y credenciales de WSFE para una empresa y ambiente. Reutiliza el ticket de WSAA
+ * Contexto y credenciales de un servicio de ARCA (WSFE por defecto, o WSCDC) para una empresa y ambiente. Reutiliza el ticket de WSAA
  * guardado; si no hay uno vigente, pide otro con un lease para que dos procesos no lo pidan a la
  * vez (ARCA rechaza el segundo) y lo guarda cifrado ANTES de usarlo.
  */
 export async function getArcaSession(
   companyId: string,
   env: arca_environment,
-  opts: { invoiceId?: string } = {}
+  opts: { invoiceId?: string; service?: ArcaService } = {}
 ): Promise<ArcaSession> {
+  const service = opts.service ?? 'wsfe';
   if (env === 'produccion' && !isProductionAllowed()) {
     throw new ArcaConfigError('Este servidor no está habilitado para emitir en producción (ARCA_ALLOW_PRODUCTION).');
   }
@@ -98,7 +102,7 @@ export async function getArcaSession(
 
   const readCachedToken = async () => {
     const row = await prisma.arca_tokens.findUnique({
-      where: { company_id_environment_service: { company_id: companyId, environment: env, service: 'wsfe' } },
+      where: { company_id_environment_service: { company_id: companyId, environment: env, service } },
       select: { credential_id: true, token_enc: true, sign_enc: true, expires_at: true },
     });
     if (!row || row.credential_id !== credential.id) return null;
@@ -113,7 +117,7 @@ export async function getArcaSession(
   const ticket =
     (await readCachedToken()) ??
     (await withLease(
-      `wsaa:${companyId}:${env}:wsfe`,
+      `wsaa:${companyId}:${env}:${service}`,
       { ttlMs: 60_000, waitMs: 25_000, busyMessage: 'Otro proceso está autenticando con ARCA. Probá de nuevo en unos segundos.' },
       async () => {
         // Puede haberlo renovado otro proceso mientras esperábamos el lease.
@@ -122,7 +126,7 @@ export async function getArcaSession(
 
         const fresh = await requestAccessTicket({
           env,
-          service: 'wsfe',
+          service,
           certificatePem: credential.certificatePem,
           privateKeyPem: credential.privateKeyPem,
           now: new Date(),
@@ -135,11 +139,11 @@ export async function getArcaSession(
           expires_at: fresh.expiresAt,
         };
         await prisma.arca_tokens.upsert({
-          where: { company_id_environment_service: { company_id: companyId, environment: env, service: 'wsfe' } },
-          create: { company_id: companyId, environment: env, service: 'wsfe', ...data },
+          where: { company_id_environment_service: { company_id: companyId, environment: env, service } },
+          create: { company_id: companyId, environment: env, service, ...data },
           update: data,
         });
-        logger.info('Ticket de WSAA renovado', { data: { companyId, env, expiresAt: fresh.expiresAt } });
+        logger.info('Ticket de WSAA renovado', { data: { companyId, env, service, expiresAt: fresh.expiresAt } });
         return { token: fresh.token, sign: fresh.sign, expiresAt: fresh.expiresAt };
       }
     ));
@@ -154,6 +158,6 @@ export async function getArcaSession(
 }
 
 /** Descarta el ticket guardado (ARCA lo rechazó con 600/601): el próximo uso pide uno nuevo. */
-export async function invalidateArcaToken(companyId: string, env: arca_environment): Promise<void> {
-  await prisma.arca_tokens.deleteMany({ where: { company_id: companyId, environment: env, service: 'wsfe' } });
+export async function invalidateArcaToken(companyId: string, env: arca_environment, service: ArcaService = 'wsfe'): Promise<void> {
+  await prisma.arca_tokens.deleteMany({ where: { company_id: companyId, environment: env, service } });
 }

@@ -33,6 +33,7 @@ import { seedOperations } from './domains/operations.ts';
 import { seedMaintenance } from './domains/maintenance.ts';
 import { seedCertifications } from './domains/commercial.ts';
 import { seedCandidates, seedClothing, seedKpis } from './domains/hr.ts';
+import { SUPPLIER_DOCUMENTS_BUCKET, seedPurchases } from './domains/purchases.ts';
 import { seedTires } from './domains/tires.ts';
 import { seedWarehouses } from './domains/warehouses.ts';
 import { seedUsers } from './domains/users.ts';
@@ -103,6 +104,8 @@ async function main(): Promise<void> {
           // Almacenes antes que Gomeria: las cubiertas son unidades de stock del deposito base.
           await seedWarehouses(ctx, employees, vehicles, others);
           await seedTires(ctx, vehicles);
+          // Compras despues de Almacenes: usa sus materiales y sus pedidos aprobados.
+          await seedPurchases(ctx);
           await seedCandidates(ctx, employees);
           await seedClothing(ctx, employees);
           await seedKpis(ctx);
@@ -113,7 +116,7 @@ async function main(): Promise<void> {
           if (dry) throw new DryRunRollback();
 
           // invoice-pdfs: los PDF fiscales que se generan al facturar en vivo durante la demo.
-          await ensureBuckets(s3, [DOCUMENT_BUCKET, REMIT_BUCKET, 'invoice-pdfs']);
+          await ensureBuckets(s3, [DOCUMENT_BUCKET, REMIT_BUCKET, 'invoice-pdfs', SUPPLIER_DOCUMENTS_BUCKET]);
           await uploadAll(s3, files);
           log(`${files.length} archivos subidos`);
         },
@@ -128,6 +131,7 @@ async function main(): Promise<void> {
     const removed = await pruneObjects(s3, files, [
       { bucket: DOCUMENT_BUCKET, prefix: `${companyFolder()}/` },
       { bucket: REMIT_BUCKET, prefix: `${REMIT_PREFIX}/` },
+      { bucket: SUPPLIER_DOCUMENTS_BUCKET, prefix: `${DEMO_COMPANY_ID}/` },
     ]).catch((error) => {
       log(`no se pudieron limpiar archivos viejos: ${String(error)}`);
       return 0;

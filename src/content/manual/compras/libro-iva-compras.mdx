@@ -1,0 +1,54 @@
+---
+title: Libro IVA Compras
+summary: Qué muestra el Libro IVA Compras de cada mes, cómo se imputa un comprobante a un período, cómo restan las notas de crédito y cómo se descargan el Excel y los archivos TXT para el Libro IVA Digital de ARCA.
+keywords: libro iva, libro iva compras, iva compras, período, mes, crédito fiscal, alícuotas, percepciones, libro iva digital, txt, archivo ARCA, importar, comprobantes, alicuotas, excel, totales del período
+updated: 2026-10-09
+---
+
+El **Libro IVA Compras** reúne, mes por mes, los <GuideLink to="facturas-de-proveedor">comprobantes de proveedor</GuideLink> cargados en Compras, con sus netos, el IVA por alícuota, las percepciones y los totales. De acá salen los archivos para el **Libro IVA Digital** de ARCA.
+
+<OpenScreen />
+
+## Qué comprobantes entran
+
+- Todos los comprobantes del **período IVA** elegido, que es el que se indica al cargarlos (por defecto, el mes de emisión).
+- Entran los **conformes**, los **observados**, los **aprobados** y también los **rechazados**: el proveedor los emitió igual. Los **anulados** no entran.
+- Las **notas de crédito restan**: en pantalla y en el Excel aparecen con signo negativo, en rojo.
+
+## La pantalla
+
+Arriba se elige el **período** (mes y año). La tabla tiene una fila por comprobante:
+
+| Columna | Qué muestra |
+|---|---|
+| **Fecha** y **Comprobante** | La fecha de emisión y el comprobante (con enlace al detalle). |
+| **Proveedor** y **CUIT** | Quién lo emitió. |
+| **Neto gravado**, **No gravado**, **Exento** | Los importes del comprobante. En los C, el importe de las líneas va como neto. |
+| **IVA 21 %**, **IVA 10,5 %**… | Una columna por cada alícuota usada en el período. |
+| **Perc. IVA**, **Perc. IIBB**, **Otros tributos** | Percepciones e impuestos (internos y otros). |
+| **Total** | El total del comprobante. |
+
+La última fila suma el período.
+
+## Excel
+
+**Exportar Excel** descarga la misma tabla, con la fila de totales.
+
+## Archivos para ARCA
+
+**Descargar TXT** baja un ZIP con los dos archivos del Libro IVA Digital, compras:
+
+| Archivo | Contenido |
+|---|---|
+| **LIBRO_IVA_DIGITAL_COMPRAS_CBTE.txt** | Un registro por comprobante. |
+| **LIBRO_IVA_DIGITAL_COMPRAS_ALICUOTAS.txt** | Un registro por cada alícuota de cada comprobante A o B. Los C no llevan. |
+
+Se importan en el **Libro IVA Digital** de ARCA, con la opción de importar los comprobantes de compras del período.
+
+<Callout type="warning" title="Antes de presentar">
+Revisá que estén cargados todos los comprobantes del mes y que no queden observados sin resolver. El sistema no cierra los períodos: si después se carga o anula un comprobante de un mes ya presentado, el libro de ese mes cambia.
+</Callout>
+
+## Permisos
+
+Para ver el libro y descargar los archivos hace falta **Libro IVA → Ver**.

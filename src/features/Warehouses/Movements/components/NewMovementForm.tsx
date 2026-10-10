@@ -49,16 +49,18 @@ interface NewMovementFormProps {
   /** Sin salida directa una salida va por pedido de materiales (spec etapa 3 §3.4). */
   canDirectExit: boolean;
   canRequest: boolean;
+  /** Tipo con el que abre el formulario (p. ej. "Prestar herramienta" abre una salida). Si no esta permitido, se ignora. */
+  initialType?: StockMovementTypeValue;
 }
 
-export function NewMovementForm({ lookups, allowedTypes, canDirectExit, canRequest }: NewMovementFormProps) {
+export function NewMovementForm({ lookups, allowedTypes, canDirectExit, canRequest, initialType }: NewMovementFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const form = useForm<StockMovementFormValues>({
     resolver: zodResolver(stockMovementSchema),
     defaultValues: {
-      type: allowedTypes[0] ?? 'ENTRY',
+      type: initialType && allowedTypes.includes(initialType) ? initialType : (allowedTypes[0] ?? 'ENTRY'),
       warehouseId: lookups.warehouses.length === 1 ? lookups.warehouses[0]!.id : '',
       targetWarehouseId: '',
       occurredOn: new Date(),

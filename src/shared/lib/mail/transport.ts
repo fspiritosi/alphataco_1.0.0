@@ -62,6 +62,14 @@ export interface MailMessage {
    */
   text?: string;
   html?: string;
+  /** Archivos adjuntos (Compras etapa 2: el PDF del pedido de cotizacion o de la orden de compra). */
+  attachments?: readonly MailAttachment[];
+}
+
+export interface MailAttachment {
+  filename: string;
+  content: Uint8Array;
+  contentType: string;
 }
 
 /** Firma del emisor, para poder inyectar un doble en los tests de los jobs. */
@@ -114,6 +122,11 @@ export const sendMail: SendMail = async (message) => {
       subject: message.subject,
       text,
       html,
+      attachments: message.attachments?.map((attachment) => ({
+        filename: attachment.filename,
+        content: Buffer.from(attachment.content),
+        contentType: attachment.contentType,
+      })),
     });
     logger.info('Mail enviado', { data: { to, subject: message.subject } });
     return true;

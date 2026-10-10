@@ -1,0 +1,120 @@
+---
+title: Recepciones
+summary: Cómo registrar lo que entrega el proveedor contra la orden de compra (en una o varias veces), cómo entra el material a Almacenes, qué pasa con lo recibido de más, cómo se anula una recepción y cómo se cierra una OC que no se va a completar.
+keywords: recepción, recepciones, RC, recibir, remito, entrega del proveedor, ingreso, entrada a almacenes, depósito, lote, número de serie, recibida en parte, recibida, excedente, de más, OC complementaria, anular recepción, cerrar orden, servicio recibido
+updated: 2026-10-09
+---
+
+Una **recepción** registra lo que el proveedor entregó contra una <GuideLink to="ordenes-de-compra">orden de compra</GuideLink>. Los **materiales** entran solos al depósito que elijas, con el costo de la OC; los **servicios** se dan por recibidos. Cada recepción lleva un número correlativo (**RC-000001**, **RC-000002**…). Una OC se puede recibir en varias veces.
+
+<OpenScreen />
+
+## El circuito
+
+<Flow title="De la OC enviada al stock">
+  <FlowStep title="OC enviada" module="Órdenes de compra" tone="default">El proveedor tiene la orden.</FlowStep>
+  <FlowStep title="Recepción" module="Recepciones" tone="success">Se registra lo que llegó. El material entra al depósito con un movimiento de Almacenes.</FlowStep>
+  <FlowStep title="OC recibida" module="Órdenes de compra" tone="success">Cuando llegó todo, la OC queda **Recibida**. Si no va a llegar el resto, se **cierra**.</FlowStep>
+</Flow>
+
+## Registrar una recepción
+
+Se registra **desde la orden de compra**: abrí una OC **Enviada** o **Recibida en parte** y tocá **Registrar recepción**.
+
+**Datos de la recepción**
+
+| Campo | Qué poner |
+|---|---|
+| **Depósito** | Dónde entra el material. Aparece solo si la OC tiene materiales. |
+| **Fecha de recepción** | Cuándo llegó. Se puede escribir (DD/MM/AAAA) o elegir en el calendario. |
+| **Número de remito** | El del remito del proveedor. Opcional. |
+| **Remito escaneado** | El PDF o la foto del remito, hasta 10 MB. Opcional. |
+| **Observaciones** | Estado de la mercadería, quién recibió… |
+
+**Qué llegó**: una tarjeta por línea de la OC, con lo pedido, lo ya recibido y lo que **falta**. La cantidad viene cargada con lo que falta: cambiala por lo que llegó, o dejala en **0** si no llegó. Cada tarjeta muestra además de qué solicitud viene y a quién estaba imputada.
+
+| Si el material se controla por… | Además se carga |
+|---|---|
+| **Cantidad** | Solo la **Cantidad recibida**. |
+| **Lote** | El **lote** y, si tiene, su **vencimiento**. |
+| **Número de serie** | Los **Números de serie**, uno por línea. El contador avisa cuántos cargaste de cuántos hacen falta. |
+
+Tocá **Registrar recepción**. El aviso dice el número de la recepción y el movimiento de Almacenes que generó, por ejemplo "**RC-000003: 2 líneas, entrada MOV-000045 en Depósito Base Neuquén**".
+
+<Callout type="info" title="Compras imputadas a un destino">
+La recepción **solo hace la entrada al depósito**. Si la solicitud era para una orden de mantenimiento, un equipo o un empleado, la salida al destino la hace Almacenes después, como siempre. Ver <GuideLink to="movimientos-de-stock">Movimientos de stock</GuideLink>.
+</Callout>
+
+<Callout type="tip" title="Cubiertas">
+Las cubiertas que se reciben aparecen solas en Gomería, con su número de serie.
+</Callout>
+
+## Lo que llega de más
+
+Si en una línea se recibe **más de lo que falta**, la tarjeta lo avisa: "**Se reciben 2 u de más: se va a crear una OC complementaria en borrador por el excedente**".
+
+Al registrar:
+
+- todo lo recibido entra al depósito;
+- el sistema crea una **OC complementaria** en **Borrador**: mismo proveedor, mismo precio, por la cantidad de más;
+- esa OC se envía a aprobación como cualquier otra. Al **aprobarla** queda directamente **Recibida**, porque lo que regulariza ya llegó.
+
+<Callout type="warning" title="Excedente sin OC">
+Si la OC complementaria se anula, lo recibido de más sigue en el depósito sin una orden que lo respalde, y la recepción lo marca **Excedente sin OC**. Resolvelo con una devolución o un ajuste en Almacenes.
+</Callout>
+
+## Servicios
+
+Las líneas de **texto libre** (un rectificado, horas de grúa) se reciben igual: indicá la cantidad y listo. No tocan el stock. Si la OC es solo de servicios, no se pide depósito.
+
+## El detalle de una recepción
+
+Muestra la OC, el proveedor, la fecha, el remito (con el archivo, si se subió), el depósito, el **movimiento de Almacenes** que generó, las líneas con su lote o sus números de serie, la OC complementaria si hubo excedente, y el historial.
+
+## Anular una recepción
+
+Con **Anular** (y el motivo):
+
+- se anula su entrada en Almacenes: el material sale del depósito;
+- la OC vuelve a esperar lo que se había recibido;
+- si la recepción generó una OC complementaria, también se anula, aunque ya estuviera aprobada: existía solo por ese excedente.
+
+No se puede anular cuando:
+
+| Caso | Qué hacer |
+|---|---|
+| **El material ya salió del depósito** | El mensaje de Almacenes dice cuánto hay y cuánto haría falta. Primero hay que devolverlo al depósito. |
+| **Trae cubiertas** | Se corrigen desde Gomería. |
+
+<Callout type="info" title="&quot;Se anula desde la recepción RC-…&quot;">
+La entrada que genera una recepción no se anula desde **Almacenes → Movimientos**: hay que anular la recepción, así la OC queda al día.
+</Callout>
+
+## Cuando no va a llegar el resto
+
+Si el proveedor no va a entregar lo que falta, abrí la OC y tocá **Cerrar** (con motivo). La OC queda **Cerrada** y lo no recibido **vuelve a quedar pendiente** en sus solicitudes, para pedirlo a otro proveedor. Ver <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink>.
+
+## La lista de recepciones
+
+| Columna | Qué muestra |
+|---|---|
+| **Número** | **RC-** y el correlativo; enlace al detalle. |
+| **Fecha de recepción** | Cuándo llegó. |
+| **OC** y **Proveedor** | De qué orden y de quién. |
+| **Depósito** | Dónde entró; **Sin depósito (servicios)** si no hubo materiales. |
+| **Remito** | El número del remito. |
+| **Estado** | **Vigente** o **Anulada**. |
+| **Solicitudes de origen** | De qué solicitudes son las líneas. |
+| **Creó** | Quién la registró. |
+
+A la vista hay tres filtros, **Estado**, **Proveedor** y **Fecha de recepción**, y con **Filtros** sumás los demás. **Excel** exporta "Recepciones".
+
+## Permisos
+
+| Para… | Hace falta en **Recepciones** |
+|---|---|
+| Ver la lista y el detalle | **Ver** |
+| Registrar recepciones (desde la OC) | **Crear** |
+| Anular recepciones | **Editar** |
+
+Quien recibe en el pañol necesita **Crear** en **Recepciones** y **Ver** en **Órdenes de compra** para llegar a la OC; no hace falta darle permisos de Almacenes.

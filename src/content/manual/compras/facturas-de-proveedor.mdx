@@ -1,0 +1,127 @@
+---
+title: Facturas de proveedor
+summary: Cómo cargar las facturas, notas de débito y notas de crédito de los proveedores, contra una orden de compra o como gastos sin OC; qué controla el sistema (letra, IVA, precio, alícuota y cantidad), cómo se aprueba o rechaza un comprobante observado, cómo se constata en ARCA y cómo se anula.
+keywords: factura, facturas de proveedor, comprobante, nota de crédito, NC, nota de débito, ND, cargar factura, control contra OC, observada, conforme, aprobar factura, rechazar factura, diferencia de precio, facturado de más, letra, factura A, factura B, factura C, IVA, alícuota, percepción de IVA, percepción de IIBB, impuestos internos, no gravado, exento, CAE, constatar, ARCA, gastos, sin OC, luz, honorarios, anular factura, a pagar
+updated: 2026-10-09
+---
+
+Acá se cargan los comprobantes que **emiten los proveedores**: facturas, notas de débito y notas de crédito, de letra A, B o C. Cada comprobante se controla contra lo que se pidió en la <GuideLink to="ordenes-de-compra">orden de compra</GuideLink> y lo que llegó en las <GuideLink to="recepciones">recepciones</GuideLink>. Lo que queda **conforme** o **aprobado** es lo que después se paga con una <GuideLink to="ordenes-de-pago">orden de pago</GuideLink>.
+
+<OpenScreen />
+
+## El circuito
+
+<Flow title="De la recepción al comprobante a pagar">
+  <FlowStep title="Recepción" module="Recepciones" tone="default">Llegó la mercadería o se prestó el servicio.</FlowStep>
+  <FlowStep title="Comprobante" module="Facturas" tone="default">Se carga la factura del proveedor. El sistema la controla al guardar.</FlowStep>
+  <FlowStep title="Conforme" module="Facturas" tone="success">Sin diferencias: queda a pagar.</FlowStep>
+  <FlowStep title="Observada" module="Facturas" tone="warning">Con diferencias: alguien con permiso la **aprueba** (queda a pagar) o la **rechaza**.</FlowStep>
+</Flow>
+
+## Cargar un comprobante
+
+En **Compras → Facturas**, tocá **Cargar comprobante**. Es un solo formulario con tres partes y un solo botón **Guardar**.
+
+**Datos del comprobante**
+
+| Campo | Qué poner |
+|---|---|
+| **Proveedor** | Buscalo por razón social o CUIT. Debajo aparece qué letra tiene que emitirte (ver más abajo). |
+| **Tipo** | Factura, Nota de Débito o Nota de Crédito, A, B o C. |
+| **Punto de venta** y **Número** | Los del comprobante: `0003` y `00012345`. |
+| **Fecha de emisión** | Se puede escribir (DD/MM/AAAA) o elegir en el calendario. |
+| **Vencimiento del pago** | Opcional. |
+| **Período IVA** | El mes del Libro IVA en que va el comprobante. Viene con el mes de emisión; si llegó tarde, imputalo al mes en curso. No puede ser anterior al de emisión. |
+| **CAE** y **Vto. CAE** | Los del comprobante. Hacen falta para constatarlo en ARCA. |
+| **Factura que corrige** | Solo en notas de crédito y de débito: la factura del mismo proveedor y la misma letra. |
+| **Comprobante escaneado** | El PDF o la foto, hasta 10 MB. Opcional. |
+
+**Líneas**
+
+- **Agregar desde OC**: muestra las órdenes del proveedor con lo **recibido y todavía no facturado**. Tildá las líneas y se agregan con la cantidad pendiente, el precio y la alícuota de la OC. Corregí lo que diga la factura.
+- **Agregar gasto**: para lo que no tiene OC, como la luz, los honorarios o un flete suelto. Se elige el **concepto**, se escribe una descripción y el neto. Los conceptos se crean en <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink>.
+
+Un mismo comprobante puede tener líneas de OC y gastos.
+
+**IVA, tributos y total**
+
+- El **IVA de cada alícuota** se calcula solo a partir de las líneas. Si el proveedor redondeó distinto, escribí el importe de la factura.
+- **No gravado** y **Exento**: los importes que figuran así en la factura.
+- **Percepciones e impuestos**: percepción de IVA, percepción de IIBB (con la provincia), impuestos internos u otro tributo (con su descripción).
+- El **total** se actualiza mientras cargás. Compará con el de la factura antes de guardar.
+
+Al guardar, el aviso dice cómo quedó: "**Factura A 00003-00012345 cargada: conforme**" u "**observada, 2 diferencias (precio, cantidad)**".
+
+<Callout type="info" title="Comprobantes C">
+Un monotributista o un exento emite **Factura C**: no discrimina IVA. En las líneas se carga el **precio final**, y el sistema lo compara contra el precio de la OC más su IVA.
+</Callout>
+
+## Qué controla el sistema
+
+| Control | Cuándo observa |
+|---|---|
+| **Letra** | Un proveedor Responsable Inscripto le factura **A** a la empresa (Responsable Inscripta o monotributista) y **B** si la empresa es exenta. Un monotributista o un exento factura **C**. Si la letra no es la esperada, queda observada. |
+| **IVA** | El IVA informado de una alícuota difiere en más de **$1** de lo calculado. |
+| **Precio** | El precio de una línea es distinto del de la OC. |
+| **Alícuota** | La alícuota de una línea es distinta de la de la OC. |
+| **Cantidad** | Lo facturado de una línea de OC (sumando todos los comprobantes) supera lo **recibido**: "Filtro de aceite: facturado 12 u, recibido 10 u en la OC-000007". |
+
+Hay cosas que directamente **no se pueden guardar**:
+
+- un comprobante que ya está cargado (mismo proveedor, tipo, punto de venta y número);
+- una línea de una OC de **otro proveedor**, o de una OC en borrador, pendiente de aprobación o anulada;
+- una nota de crédito por más de lo facturado en esa línea.
+
+<Callout type="tip" title="Lo facturado de una OC">
+Suman las facturas y notas de débito y **restan las notas de crédito**. Los comprobantes **anulados** y los **rechazados** no cuentan. Se ve por línea, en la columna **Facturado** del detalle de la OC.
+</Callout>
+
+## Aprobar o rechazar un comprobante observado
+
+En el detalle, el recuadro amarillo lista cada diferencia, y en la tabla de líneas se resalta la fila con el problema. Quien tiene el permiso **Aprobar** de Facturas decide:
+
+- **Aprobar**, con un comentario de por qué se acepta (por ejemplo, un aumento acordado por teléfono). Queda **a pagar**.
+- **Rechazar**, con el motivo. No se paga tal cual y deja de contar como facturado. Lo habitual es pedirle al proveedor la nota de crédito o el comprobante correcto.
+
+Si después se **edita** un comprobante aprobado o rechazado, el sistema lo vuelve a controlar y la decisión anterior se borra.
+
+## Notas de crédito y de débito
+
+Se cargan igual que una factura, eligiendo el tipo. Conviene vincularlas a la **factura que corrigen**. Una nota de crédito sobre líneas de OC **libera** lo facturado: si el proveedor acredita 2 unidades, se pueden volver a facturar.
+
+## Constatar en ARCA
+
+Con **Constatar en ARCA**, el sistema le pregunta a ARCA si el comprobante existe con ese CAE, fecha, importe y receptor. Hace falta cargar el CAE.
+
+| Resultado | Qué pasa |
+|---|---|
+| **Constatada** | Queda registrado con la fecha. |
+| **Rechazada por ARCA** | El comprobante pasa a **Observada**, con lo que respondió ARCA. Revisalo con el proveedor. |
+| **ARCA no respondió** | No cambia nada. Probá de nuevo más tarde. |
+
+<Callout type="warning" title="Certificado habilitado">
+Para constatar, el certificado digital de la empresa tiene que tener asociado en ARCA el servicio **Constatación de comprobantes**. Si no lo tiene, el sistema lo avisa. Se asocia en ARCA → Administración de certificados digitales.
+</Callout>
+
+## Anular un comprobante
+
+Con **Anular** y el motivo, el comprobante sale del Libro IVA y libera lo facturado. Sirve para un comprobante **mal cargado**: después se puede volver a cargar con el mismo número.
+
+Una factura con una nota de crédito o de débito vinculada no se anula: primero hay que anular la nota. Tampoco se anula un comprobante que está en una orden de pago.
+
+## Los pagos del comprobante
+
+El detalle tiene un recuadro **Pagos** con lo **pagado**, lo **pendiente** y las órdenes de pago en las que está el comprobante. Mientras esté en una orden de pago sin anular, **no se puede editar ni anular**: primero hay que anular la orden. Lo que falta pagar de cada comprobante se ve en <GuideLink to="cuenta-corriente-y-vencimientos">Vencimientos</GuideLink>.
+
+## La lista
+
+**Compras → Facturas** muestra todos los comprobantes con su tipo, fecha, proveedor, total, vencimiento, estado, constatación y las OC vinculadas. Se puede filtrar por cualquiera de esas columnas y exportar a Excel. Los totales del período se ven en el <GuideLink to="libro-iva-compras">Libro IVA Compras</GuideLink>.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver la lista y los detalles | **Facturas → Ver** |
+| Cargar comprobantes | **Facturas → Crear** |
+| Editar, anular y constatar en ARCA | **Facturas → Editar** |
+| Aprobar o rechazar observados | **Facturas → Aprobar** |

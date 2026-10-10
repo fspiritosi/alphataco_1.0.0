@@ -60,6 +60,8 @@ const SEARCHES: Record<
   },
 };
 
+const NO_DESTINATION = '__none__';
+
 /**
  * A quien se imputa una salida (o un pedido de materiales). Solo se ofrece lo vigente (activos,
  * ordenes abiertas). Sirve a cualquier form que tenga los campos de `destinationFieldsSchema`.
@@ -67,9 +69,15 @@ const SEARCHES: Record<
 export function DestinationFields<T extends FieldValues & DestinationFormValues>({
   form: typedForm,
   customers,
+  noneLabel,
 }: {
   form: UseFormReturn<T>;
   customers: MovementFormLookups['customers'];
+  /**
+   * Opt-in: el destino es OPCIONAL y esta es la opcion "sin destino" (Compras: "Para stock").
+   * Sin esta prop el destino es obligatorio, como en salidas y pedidos de Almacenes.
+   */
+  noneLabel?: string;
 }) {
   // React Hook Form no acepta un form "mas grande" donde se espera uno con menos campos (sus
   // tipos son invariantes). `T` garantiza que los campos de destino existen con estos tipos.
@@ -87,13 +95,18 @@ export function DestinationFields<T extends FieldValues & DestinationFormValues>
         render={({ field }) => (
           <FormItem>
             <FormLabel>Se imputa a</FormLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
+            <Select
+              // Radix no admite un item con valor vacio: "sin destino" viaja como NO_DESTINATION.
+              value={noneLabel && !field.value ? NO_DESTINATION : field.value}
+              onValueChange={(v) => field.onChange(v === NO_DESTINATION ? '' : v)}
+            >
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Elegí el destino" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
+                {noneLabel && <SelectItem value={NO_DESTINATION}>{noneLabel}</SelectItem>}
                 {STOCK_DESTINATION_TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
                     {DESTINATION_TYPE_LABELS[t]}

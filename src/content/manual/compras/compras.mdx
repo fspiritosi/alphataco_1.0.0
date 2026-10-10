@@ -1,0 +1,114 @@
+---
+title: Cómo funciona Compras
+summary: Qué es el módulo Compras, el circuito de la solicitud al pago al proveedor, qué hace cada sección, cómo se conecta con Almacenes y qué permisos usa.
+keywords: compras, compra, orden de pago, OP, pagos, retenciones, cuenta corriente, vencimientos, proveedor, proveedores, factura de proveedor, libro iva compras, solicitud de compra, SC, pedido de cotización, PC, orden de compra, OC, aprobación, aprobar, rechazar, rubro, CUIT, pedido de materiales, faltante, permisos
+updated: 2026-10-09
+---
+
+**Compras** es donde se organiza lo que la empresa le compra a terceros. Alguien carga una **solicitud de compra** (qué hace falta, cuánto y para qué) y un responsable la **aprueba**. Compras le **pide precio** a uno o varios proveedores (opcional), compara, arma la **orden de compra**, la hace **aprobar** y se la **envía** al proveedor con su PDF. Después se **recibe** lo comprado, se carga y controla la **factura** del proveedor y se le **paga** con una orden de pago, practicando las **retenciones**. Queda registrado quién pidió, quién decidió, a quién se le compró, por qué y cuándo se le pagó.
+
+<OpenScreen />
+
+<Callout type="info" title="Lo que viene">
+Compras registra **cómo** se le pagó a cada proveedor, pero no mueve los saldos de los bancos ni de las cajas. Eso lo va a hacer el módulo de **Tesorería**: saldos y movimientos de cuentas y cajas, cheques y conciliación bancaria.
+</Callout>
+
+## Las ideas básicas
+
+| Concepto | Qué es |
+|---|---|
+| **Proveedor** | A quién se le compra. Tiene razón social, CUIT, condición frente al IVA, contactos, rubros, plazo de pago, datos bancarios y documentos con vencimiento. |
+| **Rubro** | Qué vende un proveedor: repuestos, cubiertas, lubricantes, servicios de taller… Sirve para encontrar rápido a quién pedirle. |
+| **Solicitud de compra** | El pedido interno de comprar algo. Lleva un número correlativo (**SC-000001**, **SC-000002**…), las líneas de lo que se necesita y, si corresponde, a quién se imputa. |
+| **Línea** | Cada cosa que se pide. Puede ser un **material** del catálogo de Almacenes (algo que se guarda en un depósito) o un **texto libre** (un servicio o una compra que no se stockea, como un rectificado o una reparación). |
+| **Pedido de cotización** | El pedido de precio a un proveedor (**PC-000001**…). Se manda por mail con un PDF y la respuesta la carga el comprador. |
+| **Orden de compra** | El pedido formal a un proveedor, con precios, IVA y condiciones (**OC-000001**…). Junta líneas de una o varias solicitudes; se aprueba y se envía. |
+| **Recepción** | Lo que entregó el proveedor contra una OC (**RC-000001**…). Los materiales entran solos a un depósito de Almacenes con el costo de la OC. |
+| **Comprobante de proveedor** | La factura, nota de débito o nota de crédito que emite el proveedor. Se controla contra la OC y lo recibido: queda **conforme**, u **observada** hasta que alguien la apruebe o la rechace. |
+| **Concepto de gasto** | Para cargar comprobantes sin OC (luz, honorarios, fletes sueltos). |
+| **Orden de pago** | Lo que se le paga a un proveedor de una vez (**OP-000001**…): comprobantes completos o en parte, notas de crédito y anticipos, menos las retenciones. Se aprueba y se registra con sus medios de pago. |
+| **Retención** | La parte del pago que se le descuenta al proveedor para depositarla al fisco (Ganancias, IVA, IIBB Neuquén o SUSS), con su certificado. |
+| **Falta** | Lo que queda por pedir de una línea de solicitud: lo pedido menos lo que ya está en órdenes de compra no anuladas. Nunca se puede pedir más de lo que falta. |
+
+## Qué hay en cada sección
+
+En el menú lateral, **Compras** tiene diez secciones:
+
+| Sección | Para qué sirve | Guía |
+|---|---|---|
+| **Solicitudes** | Pedir una compra, aprobarla o rechazarla, y seguir en qué estado está cada una. | <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink> |
+| **Cotizaciones** | Pedirles precio a los proveedores, cargar sus respuestas y comparar. | <GuideLink to="pedidos-de-cotizacion">Pedidos de cotización</GuideLink> |
+| **Órdenes de compra** | Armar las órdenes, aprobarlas y enviárselas al proveedor. | <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink> |
+| **Recepciones** | Lo recibido de cada OC y su entrada a Almacenes. | <GuideLink to="recepciones">Recepciones</GuideLink> |
+| **Facturas** | Cargar y controlar los comprobantes de los proveedores, aprobar los observados y constatarlos en ARCA. | <GuideLink to="facturas-de-proveedor">Facturas de proveedor</GuideLink> |
+| **Libro IVA** | El Libro IVA Compras de cada mes, en Excel y con los archivos para ARCA. | <GuideLink to="libro-iva-compras">Libro IVA Compras</GuideLink> |
+| **Pagos** | Los vencimientos y las órdenes de pago: armarlas, aprobarlas, registrar el pago y enviarlas con los certificados. | <GuideLink to="ordenes-de-pago">Órdenes de pago</GuideLink>, <GuideLink to="cuenta-corriente-y-vencimientos">Cuenta corriente y vencimientos</GuideLink> |
+| **Retenciones** | Las retenciones practicadas en el mes, en Excel y con los archivos para declarar. | <GuideLink to="retenciones">Retenciones</GuideLink> |
+| **Proveedores** | El padrón de proveedores con sus datos, situación impositiva, cuenta corriente, contactos, rubros y documentos. | <GuideLink to="proveedores">Proveedores</GuideLink> |
+| **Configuración** | Los rubros de proveedor, los conceptos de gasto, las cuentas y cajas y los regímenes de retención. | <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink> |
+
+## Cómo se conecta con Almacenes
+
+| Desde | Qué pasa | Guía |
+|---|---|---|
+| **Pedidos de materiales** | Cuando un pedido aprobado no se puede entregar por falta de stock, desde el mismo pedido se genera una solicitud de compra con lo que falta. La solicitud queda vinculada al pedido y se ve desde los dos lados. | <GuideLink to="pedidos-de-materiales">Pedidos de materiales</GuideLink> |
+| **Materiales** | Las líneas de material de una solicitud usan el catálogo de Almacenes. | <GuideLink to="materiales">Materiales</GuideLink> |
+| **Movimientos de stock** | Cada recepción con materiales genera una entrada en el depósito elegido, con el costo de la OC; se anula desde la recepción. | <GuideLink to="recepciones">Recepciones</GuideLink> |
+| **Destinos** | Una solicitud se puede imputar a un empleado, un vehículo, un equipo, una orden de mantenimiento o un cliente, igual que una salida de Almacenes. | <GuideLink to="solicitudes-de-compra">Solicitudes de compra</GuideLink> |
+
+## Permisos
+
+| Sección | Acción | Qué habilita |
+|---|---|---|
+| **Solicitudes** | **Ver** | Ver **tus** solicitudes. |
+| | **Ver todas las solicitudes** | Ver las solicitudes de todos, no solo las tuyas. |
+| | **Crear** | Cargar solicitudes (también desde un pedido de materiales) y copiar una rechazada o anulada. |
+| | **Editar** | Editar y anular borradores y solicitudes pendientes de otros. Las tuyas las podés editar y anular sin este permiso. |
+| | **Aprobar** | Aprobar o rechazar solicitudes pendientes. |
+| | **Editar** | Además, **cerrar** una solicitud aprobada o pedida en parte. |
+| **Cotizaciones** | **Ver** | La lista, el detalle y el PDF de los pedidos de cotización, y el comparativo en la solicitud. |
+| | **Crear** | Pedir cotización (desde la solicitud o desde la sección). |
+| | **Editar** | Editar borradores, enviar al proveedor, cargar o corregir la respuesta, marcar "no cotiza" y anular. |
+| **Órdenes de compra** | **Ver** | La lista, el detalle y el PDF de las órdenes. |
+| | **Crear** | Armar órdenes (directas, desde una solicitud o desde una cotización). |
+| | **Editar** | Editar borradores, enviar a aprobación, enviar al proveedor, marcar como enviada y anular. |
+| | **Aprobar** | Aprobar o rechazar órdenes pendientes. |
+| | **Editar** | Además, **cerrar** una orden enviada o recibida en parte. |
+| **Recepciones** | **Ver** | La lista y el detalle de las recepciones. |
+| | **Crear** | Registrar recepciones desde la orden de compra. |
+| | **Editar** | Anular recepciones. |
+| **Facturas** | **Ver** | La lista y el detalle de los comprobantes de proveedor. |
+| | **Crear** | Cargar comprobantes. |
+| | **Editar** | Editar, anular y constatar en ARCA. |
+| | **Aprobar** | Aprobar o rechazar los comprobantes observados. |
+| **Libro IVA** | **Ver** | Ver el Libro IVA Compras y descargar el Excel y los TXT. |
+| **Pagos** | **Ver** | Los vencimientos, las órdenes de pago con su PDF y la cuenta corriente de los proveedores. |
+| | **Crear** | Armar órdenes de pago. |
+| | **Editar** | Editar borradores, enviar a aprobación, volver a borrador, registrar el pago, enviar al proveedor y anular. |
+| | **Aprobar** | Aprobar o rechazar órdenes de pago. |
+| **Retenciones** | **Ver** | El listado de retenciones del mes, el Excel y los archivos para declarar. |
+| **Proveedores** | **Ver** | La lista y la ficha de los proveedores. |
+| | **Crear** | Dar de alta proveedores. |
+| | **Editar** | Modificar la ficha y la situación impositiva, cargar documentos y reactivar un proveedor. |
+| | **Eliminar** | **Dar de baja** un proveedor. |
+| **Configuración** | **Ver** / **Editar** | Ver los rubros, los conceptos de gasto, las cuentas y cajas y los regímenes de retención; crearlos, cambiarlos, desactivarlos o reactivarlos. |
+
+<Callout type="info" title="Quién aprueba">
+Quien aprueba solicitudes de otros necesita **Aprobar** y además **Ver todas las solicitudes**; si no, solo ve las suyas.
+</Callout>
+
+Los roles de sistema (**Admin**, **Administrador** y **Full Access Provisional**) tienen todo. A los roles de tu empresa se les asignan a mano desde **Configuración → General → Usuarios** (ver <GuideLink to="empresa-usuarios-y-permisos">Empresa, usuarios y permisos</GuideLink>).
+
+## Problemas frecuentes
+
+<Callout type="info" title="No veo la solicitud de un compañero">
+Te falta **Ver todas las solicitudes** en **Solicitudes**. Con **Ver** solo se ven las propias.
+</Callout>
+
+<Callout type="info" title="No aparecen &quot;Pedir cotización&quot; ni &quot;Generar OC&quot; en una solicitud">
+Aparecen solo en solicitudes **Aprobadas** o **Pedidas en parte**, y solo con **Crear** en **Cotizaciones** o en **Órdenes de compra**.
+</Callout>
+
+<Callout type="info" title="No aparece el botón &quot;Generar solicitud de compra&quot; en un pedido">
+Aparece solo en pedidos **Aprobados** o **Entregados en parte**, y solo si tenés **Crear** en **Compras → Solicitudes**.
+</Callout>

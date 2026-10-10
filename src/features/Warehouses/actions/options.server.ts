@@ -42,6 +42,14 @@ async function canUseMovementForm(): Promise<boolean> {
   return checks.some(Boolean);
 }
 
+/**
+ * Los destinos (empleados, equipos, ordenes, clientes) tambien los usa Compras, para imputar una
+ * solicitud de compra. Solo eso: materiales, lotes, unidades y depositos siguen siendo de Almacenes.
+ */
+async function canSearchDestinations(): Promise<boolean> {
+  return (await canUseMovementForm()) || checkPermissionServer('compras', 'solicitudes', 'create');
+}
+
 export interface SearchResult<T> {
   items: T[];
   total: number;
@@ -51,14 +59,18 @@ const empty = <T,>(): SearchResult<T> => ({ items: [], total: 0 });
 
 /** Depositos activos y clientes activos con sus contratos: listas cortas, se cargan con la pagina. */
 export async function getMovementFormLookups() {
-  if (!(await canUseMovementForm())) return { warehouses: [], customers: [] };
+  const [canMove, canDestinations] = await Promise.all([canUseMovementForm(), canSearchDestinations()]);
+  if (!canDestinations) return { warehouses: [], customers: [] };
   const companyId = await getActiveCompanyId();
   const [warehouses, customers] = await Promise.all([
-    prisma.warehouses.findMany({
-      where: { company_id: companyId, is_active: true },
-      select: { id: true, code: true, name: true },
-      orderBy: { name: 'asc' },
-    }),
+    // Los depositos son de Almacenes: quien solo pide compras recibe la lista vacia.
+    canMove
+      ? prisma.warehouses.findMany({
+          where: { company_id: companyId, is_active: true },
+          select: { id: true, code: true, name: true },
+          orderBy: { name: 'asc' },
+        })
+      : Promise.resolve([]),
     prisma.customers.findMany({
       where: { company_id: companyId, is_active: true },
       select: {
@@ -123,12 +135,12 @@ export type MaterialOption = {
 };
 
 export async function searchEmployeeOptions(query: string) {
-  if (!(await canUseMovementForm())) return empty<{ id: string; label: string }>();
+  if (!(await canSearchDestinations())) return empty<{ id: string; label: string }>();
   return findEmployeeOptions(await getActiveCompanyId(), query, OPTIONS_LIMIT);
 }
 
 export async function searchVehicleOptions(query: string) {
-  if (!(await canUseMovementForm())) return empty<{ id: string; label: string }>();
+  if (!(await canSearchDestinations())) return empty<{ id: string; label: string }>();
   const companyId = await getActiveCompanyId();
   const where = {
     company_id: companyId,
@@ -156,7 +168,7 @@ export async function searchVehicleOptions(query: string) {
 }
 
 export async function searchOtherEquipmentOptions(query: string) {
-  if (!(await canUseMovementForm())) return empty<{ id: string; label: string }>();
+  if (!(await canSearchDestinations())) return empty<{ id: string; label: string }>();
   const companyId = await getActiveCompanyId();
   const where = {
     company_id: companyId,
@@ -184,7 +196,7 @@ export async function searchOtherEquipmentOptions(query: string) {
 }
 
 export async function searchMaintenanceOrderOptions(query: string) {
-  if (!(await canUseMovementForm())) return empty<{ id: string; label: string }>();
+  if (!(await canSearchDestinations())) return empty<{ id: string; label: string }>();
   const companyId = await getActiveCompanyId();
   const where = {
     company_id: companyId,

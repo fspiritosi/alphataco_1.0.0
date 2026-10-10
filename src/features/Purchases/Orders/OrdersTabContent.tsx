@@ -1,0 +1,37 @@
+import { Button } from '@/components/ui/button';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Suspense } from 'react';
+import { NoPermission } from '../fallback/NoPermission';
+import { OrdersList } from './OrdersList/OrdersList';
+import { OrdersTableSkeleton } from './OrdersList/fallback/OrdersTableSkeleton';
+
+/** Órdenes de compra (spec Compras etapa 2 §4). */
+export default async function OrdersTabContent({
+  searchParams,
+  permissions,
+}: {
+  searchParams: DataTableSearchParams;
+  permissions: Record<string, boolean>;
+}) {
+  if (permissions['compras:ordenes:view'] !== true) return <NoPermission />;
+
+  return (
+    <div className="space-y-4">
+      {permissions['compras:ordenes:create'] === true && (
+        <div className="flex justify-end">
+          <Button asChild variant="brand" size="sm">
+            <Link href="/dashboard/purchases/orders/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva orden de compra
+            </Link>
+          </Button>
+        </div>
+      )}
+      <Suspense fallback={<OrdersTableSkeleton />}>
+        <OrdersList searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}

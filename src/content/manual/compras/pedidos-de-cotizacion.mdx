@@ -1,0 +1,110 @@
+---
+title: Pedidos de cotización
+summary: Cómo pedirle precio a uno o varios proveedores, enviar el pedido por mail con su PDF, cargar la respuesta, comparar y generar la orden de compra desde la mejor.
+keywords: cotización, cotizaciones, pedido de cotización, PC, presupuesto, pedir precio, comparar precios, comparativo, mejor precio, no cotiza, validez, plazo de entrega, enviar al proveedor, PDF, generar orden de compra
+updated: 2026-10-08
+---
+
+Un **pedido de cotización** es el pedido de precio a **un** proveedor por líneas de solicitudes de compra aprobadas. Se le puede pedir a varios proveedores lo mismo y después comparar. Cada pedido lleva un número correlativo (**PC-000001**, **PC-000002**…).
+
+Cotizar es **opcional**: si ya sabés a quién comprarle, armá la <GuideLink to="ordenes-de-compra">orden de compra</GuideLink> directamente.
+
+<OpenScreen />
+
+## El circuito
+
+<Flow title="Del pedido de precio a la orden de compra">
+  <FlowStep title="Pedido" module="Cotizaciones" tone="default">Se arma un pedido por proveedor con lo que falta de cada línea.</FlowStep>
+  <FlowStep title="Envío" module="Cotizaciones" tone="warning">Se le manda al proveedor por mail con el PDF, o se marca como enviado si se lo pediste por otro medio.</FlowStep>
+  <FlowStep title="Respuesta" module="Cotizaciones" tone="success">El proveedor contesta por fuera y vos cargás sus precios, el plazo, la validez y el presupuesto.</FlowStep>
+  <FlowStep title="Orden de compra" module="Órdenes de compra" tone="success">Se compara y se genera la orden desde la mejor cotización.</FlowStep>
+</Flow>
+
+<States title="Estados de un pedido de cotización">
+  <State name="Borrador" tone="default" next="Enviada, Anulada">Recién armado. Se puede editar.</State>
+  <State name="Enviada" tone="warning" next="Respondida, No cotiza, Anulada">Se le pidió al proveedor. Espera su respuesta.</State>
+  <State name="Respondida" tone="success">Se cargaron los precios. Desde acá se genera la orden de compra.</State>
+  <State name="No cotiza" tone="default">El proveedor no cotizó nada.</State>
+  <State name="Anulada" tone="default">Se canceló antes de la respuesta. Lleva el motivo.</State>
+</States>
+
+## Pedir cotización
+
+Hay dos caminos:
+
+- **Desde la solicitud** (lo más común): en el detalle de una solicitud **Aprobada** o **Pedida en parte**, tocá **Pedir cotización**. Elegí las líneas (vienen tildadas las que tienen algo por pedir) y uno o varios proveedores: vienen cargados los **proveedores sugeridos** de las líneas y podés sumar otros. Se crea **un pedido por proveedor**, en borrador.
+- **Desde la sección Cotizaciones**: **Nuevo pedido de cotización**, elegí el proveedor y agregá líneas de **cualquier** solicitud con faltante. Sirve para pedirle a un proveedor cosas de varias solicitudes juntas.
+
+En los dos casos la cantidad de cada línea es **lo que falta comprar**: lo pedido en la solicitud menos lo que ya está en órdenes de compra.
+
+## Enviarlo al proveedor
+
+En el detalle del pedido:
+
+| Botón | Qué hace |
+|---|---|
+| **Enviar al proveedor** | Manda un mail con el PDF del pedido adjunto. Por defecto va al **contacto principal** del proveedor; podés tildar otros contactos, escribir otros mails y agregar un mensaje. Con **Ver PDF** lo mirás antes. |
+| **Marcar como enviado** | Para cuando se lo pediste por teléfono o WhatsApp: queda **Enviada** sin mandar ningún mail. |
+| **Descargar PDF** | El PDF del pedido, en cualquier estado. |
+
+El PDF lleva el membrete de la empresa, los datos del proveedor y los ítems con su cantidad, y le pide precio neto, IVA, plazo de entrega, validez y condición de pago.
+
+<Callout type="warning" title="&quot;No se pudo enviar el mail&quot;">
+El mail no salió (un destinatario mal escrito o el servidor de correo caído). El pedido **sigue en borrador**: no se marca como enviado. Revisá los mails y probá de nuevo, o mandáselo por otro medio y usá **Marcar como enviado**.
+</Callout>
+
+## Cargar la respuesta
+
+Cuando el proveedor contesta, tocá **Cargar respuesta**:
+
+| Campo | Qué poner |
+|---|---|
+| **Unitario neto** e **IVA** | Por cada ítem, el precio sin IVA y la alícuota (21 %, 10,5 %, 27 %, 5 %, 2,5 % o 0 %). |
+| **No cotiza** | Tildalo en los ítems que el proveedor no cotizó. |
+| **Fecha de la respuesta** | Cuándo contestó. |
+| **Válida hasta** | Hasta cuándo mantiene el precio. Opcional. |
+| **Plazo de entrega (días)** | Opcional. |
+| **Notas del proveedor** | Condiciones, marca ofrecida, forma de pago… |
+| **Presupuesto del proveedor** | El PDF o la foto del presupuesto, hasta 10 MB. Opcional. |
+
+El pedido queda **Respondida**. Si cargaste algo mal, **Corregir respuesta** lo deja cambiar mientras no se haya generado una orden de compra desde ese pedido.
+
+Si el proveedor no cotiza **nada**, usá **No cotiza** en vez de cargar la respuesta.
+
+## Comparar y generar la orden de compra
+
+En el detalle de la **solicitud**, la tarjeta **Cotizaciones** muestra una columna por proveedor y una fila por línea, con el precio unitario neto de cada uno. El **menor precio** de cada línea va resaltado con un trofeo. Abajo de cada proveedor se ve el total con IVA, el plazo de entrega y la validez (en rojo si ya venció).
+
+**Generar OC** (en el comparativo o en el detalle del pedido) crea una orden de compra en borrador para ese proveedor con sus precios:
+
+- toma lo que **falta** de cada línea, como mucho lo cotizado;
+- omite las líneas que el proveedor no cotizó y las que ya están pedidas completas.
+
+Después revisás la orden y la enviás a aprobación (ver <GuideLink to="ordenes-de-compra">Órdenes de compra</GuideLink>).
+
+<Callout type="info" title="&quot;No queda nada por pedir de esta cotización&quot;">
+Todo lo que cotizó ese proveedor ya está en otras órdenes de compra. Si hay que comprar más, primero se anula la orden que lo cubre.
+</Callout>
+
+<Callout type="info" title="&quot;La cotización ya tiene una orden de compra: no se puede corregir&quot;">
+Sus precios ya se usaron en una orden. Si el precio cambió, corregilo en la orden de compra (mientras esté en borrador).
+</Callout>
+
+## La lista de pedidos de cotización
+
+| Columna | Qué muestra |
+|---|---|
+| **Número** | **PC-** y el correlativo; enlace al detalle. |
+| **Proveedor** | A quién se le pidió. |
+| **Estado** | Uno de los cinco de arriba. |
+| **Fecha de alta**, **Enviada**, **Respondida** | Cuándo se armó, se envió y se cargó la respuesta. |
+| **Validez** | Hasta cuándo vale el precio; **(vencida)** en rojo si ya pasó. |
+| **Total cotizado** | Con IVA, de los ítems con precio. |
+| **Solicitudes de origen** | De qué solicitudes son las líneas. |
+| **Creó** | Quién armó el pedido. |
+
+El buscador dice **Buscar por número o proveedor**. A la vista hay tres filtros, **Estado**, **Proveedor** y **Fecha de alta**, y con **Filtros** sumás los demás. **Excel** exporta "Pedidos de cotización".
+
+<Callout type="tip" title="A quién falta reclamarle">
+Filtrá **Estado** en **Enviada**: son los proveedores que todavía no contestaron.
+</Callout>

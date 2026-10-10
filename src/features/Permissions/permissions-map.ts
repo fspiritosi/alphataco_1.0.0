@@ -1414,6 +1414,110 @@ export const PERMISSIONS = {
     },
   },
 
+  // ============================================
+  // 13. COMPRAS
+  // ============================================
+  // Proveedores y solicitudes de compra (spec docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md).
+  // Prefijo de ids `c0000000-`. Las paginas de detalle (solicitud, proveedor) heredan el permiso
+  // del tab desde el que se llega.
+  compras: {
+    slug: 'compras',
+    name: 'Compras',
+    moduleId: 'c0000000-0000-0000-0000-000000000000',
+    tabs: {
+      solicitudes: {
+        slug: 'solicitudes',
+        name: 'Solicitudes',
+        tabId: 'c0000000-0000-0000-0000-000000000001',
+        parent: null,
+        // 'view' ve las propias, 'view_all_requests' todas; 'update' edita borradores ajenos y
+        // anula; 'approve' aprueba o rechaza.
+        allowedActions: ['view', 'view_all_requests', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      // Etapa 2. 'update' envia, carga la respuesta, marca "no cotiza" y anula.
+      cotizaciones: {
+        slug: 'cotizaciones',
+        name: 'Cotizaciones',
+        tabId: 'c0000000-0000-0000-0000-000000000004',
+        parent: null,
+        allowedActions: ['view', 'create', 'update'],
+        subtabs: {},
+      },
+      // 'update' edita borradores, envia a aprobacion, envia al proveedor y anula; 'approve'
+      // aprueba o rechaza.
+      ordenes: {
+        slug: 'ordenes',
+        name: 'Órdenes de compra',
+        tabId: 'c0000000-0000-0000-0000-000000000005',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      // Etapa 3. 'create' registra recepciones; 'update' las anula.
+      recepciones: {
+        slug: 'recepciones',
+        name: 'Recepciones',
+        tabId: 'c0000000-0000-0000-0000-000000000006',
+        parent: null,
+        allowedActions: ['view', 'create', 'update'],
+        subtabs: {},
+      },
+      // Etapa 4. 'create' carga comprobantes; 'update' los edita, anula y constata en ARCA;
+      // 'approve' aprueba o rechaza los observados.
+      facturas: {
+        slug: 'facturas',
+        name: 'Facturas',
+        tabId: 'c0000000-0000-0000-0000-000000000007',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      // Etapa 5. 'create' arma órdenes de pago; 'update' las edita, envía a aprobación, vuelve a
+      // borrador, registra el pago, envía al proveedor y anula; 'approve' aprueba o rechaza.
+      pagos: {
+        slug: 'pagos',
+        name: 'Pagos',
+        tabId: 'c0000000-0000-0000-0000-000000000009',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      retenciones: {
+        slug: 'retenciones',
+        name: 'Retenciones',
+        tabId: 'c0000000-0000-0000-0000-000000000010',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+      'libro-iva': {
+        slug: 'libro-iva',
+        name: 'Libro IVA',
+        tabId: 'c0000000-0000-0000-0000-000000000008',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+      proveedores: {
+        slug: 'proveedores',
+        name: 'Proveedores',
+        tabId: 'c0000000-0000-0000-0000-000000000002',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'delete'],
+        subtabs: {},
+      },
+      'config-compras': {
+        slug: 'config-compras',
+        name: 'Configuración',
+        tabId: 'c0000000-0000-0000-0000-000000000003',
+        parent: null,
+        allowedActions: ['view', 'update'],
+        subtabs: {},
+      },
+    },
+  },
+
 } as const;
 
 // ============================================

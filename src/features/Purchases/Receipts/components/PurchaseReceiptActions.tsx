@@ -1,0 +1,26 @@
+'use client';
+
+import { Ban } from 'lucide-react';
+import { cancelPurchaseReceipt, type PurchaseReceiptDetail } from '../../actions/receipts.server';
+import { ConfirmAction } from '../../components/ConfirmAction';
+
+/** Anular la recepcion: anula su entrada a Almacenes y la OC complementaria si no se aprobo. */
+export function PurchaseReceiptActions({ receipt }: { receipt: PurchaseReceiptDetail }) {
+  if (!receipt.can.cancel) return null;
+  return (
+    <ConfirmAction
+      icon={Ban}
+      label="Anular"
+      title={`¿Anular ${receipt.number}?`}
+      description={
+        receipt.movement
+          ? `Se anula la entrada ${receipt.movement.number} en Almacenes (si ese stock ya salió, no se puede) y la orden vuelve a esperar lo recibido.`
+          : 'La orden vuelve a esperar lo recibido.'
+      }
+      confirmLabel="Anular recepción"
+      successMessage={`Recepción ${receipt.number} anulada`}
+      motive={{ label: 'Motivo', placeholder: 'Obligatorio', required: true }}
+      run={(notes) => cancelPurchaseReceipt(receipt.id, notes)}
+    />
+  );
+}

@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button';
+import { getPurchaseRequestsForMaterialRequest } from '@/features/Purchases/actions/requests.server';
+import { checkPermissionServer } from '@/features/Permissions';
 import { getMaterialRequestDetail } from '@/features/Warehouses/actions/requests.server';
 import { RequestDetail } from '@/features/Warehouses/Requests/components/RequestDetail';
 import { ArrowLeft } from 'lucide-react';
@@ -17,6 +19,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function MaterialRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const request = await getRequest((await params).id);
   if (!request) notFound();
+  const [purchaseItems, canCreatePurchase] = await Promise.all([
+    getPurchaseRequestsForMaterialRequest(request.id),
+    checkPermissionServer('compras', 'solicitudes', 'create'),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -26,7 +32,7 @@ export default async function MaterialRequestPage({ params }: { params: Promise<
           Pedidos
         </Link>
       </Button>
-      <RequestDetail request={request} />
+      <RequestDetail request={request} purchases={{ items: purchaseItems, canCreate: canCreatePurchase }} />
     </div>
   );
 }

@@ -1,4 +1,8 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PurchaseRequestStatusBadge } from '@/features/Purchases/Requests/components/PurchaseRequestStatusBadge';
+import type { PurchaseRequestStatus } from '@/features/Purchases/lib/request-state-machine';
+import { ShoppingCart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import moment from 'moment';
@@ -20,8 +24,18 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const DECISION_TITLE: Record<string, string> = { REJECTED: 'Rechazado por' };
 
-/** Detalle del pedido: cabecera, lineas con lo entregado y pendiente, y sus entregas. */
-export function RequestDetail({ request }: { request: MaterialRequestDetail }) {
+/** Solicitudes de compra del pedido (Compras etapa 1) y si se puede generar una nueva. */
+export interface RequestPurchases {
+  items: { id: string; number: string; status: PurchaseRequestStatus }[];
+  canCreate: boolean;
+}
+
+/** Estados en los que el pedido espera entregas: ahi tiene sentido comprar lo que falta. */
+const AWAITING_DELIVERY = new Set(['APPROVED', 'PARTIALLY_DELIVERED']);
+
+/** Detalle del pedido: cabecera, lineas con lo entregado y pendiente, sus entregas y sus compras. */
+export function RequestDetail({ request, purchases }: { request: MaterialRequestDetail; purchases: RequestPurchases }) {
+  const canGeneratePurchase = purchases.canCreate && AWAITING_DELIVERY.has(request.status);
   const at = (iso: string) => moment(iso).format('DD/MM/YYYY HH:mm');
 
   return (
@@ -139,6 +153,40 @@ export function RequestDetail({ request }: { request: MaterialRequestDetail }) {
           )}
         </CardContent>
       </Card>
+
+      {(purchases.items.length > 0 || canGeneratePurchase) && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Solicitudes de compra</CardTitle>
+            {canGeneratePurchase && (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/dashboard/purchases/requests/new?fromMaterialRequest=${request.id}`}>
+                  <ShoppingCart className="mr-1 h-4 w-4" />
+                  Generar solicitud de compra
+                </Link>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {purchases.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Si falta stock para entregar, se puede pedir la compra de lo que falta.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {purchases.items.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                    <Link href={`/dashboard/purchases/requests/${p.id}`} className="font-mono underline">
+                      {p.number}
+                    </Link>
+                    <PurchaseRequestStatusBadge status={p.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

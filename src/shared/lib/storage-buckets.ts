@@ -28,6 +28,8 @@ export const STORAGE_BUCKETS = [
   'preparte-img',
   /** PDF fiscal de los comprobantes autorizados por ARCA (`<companyId>/<invoiceId>.pdf`). */
   'invoice-pdfs',
+  /** Documentación de los proveedores de Compras (`<companyId>/<supplierId>/<archivo>`). */
+  'supplier-documents',
 ] as const;
 
 export type StorageBucket = (typeof STORAGE_BUCKETS)[number];
@@ -51,6 +53,7 @@ export const COMPANY_PREFIXED_BUCKETS: readonly StorageBucket[] = [
   'tire-discards',
   'preparte-img',
   'invoice-pdfs',
+  'supplier-documents',
 ];
 
 export function isCompanyPrefixedBucket(bucket: string): bucket is StorageBucket {
