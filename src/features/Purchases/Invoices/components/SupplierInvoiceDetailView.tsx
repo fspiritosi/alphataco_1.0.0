@@ -13,6 +13,7 @@ import { ARCA_CHECK_LABELS } from '../../lib/invoice-status';
 import { SUPPLIER_INVOICE_TAX_LABELS } from '../../schemas/invoices';
 import { SupplierInvoiceActions } from './SupplierInvoiceActions';
 import { SupplierInvoiceStatusBadge } from './SupplierInvoiceStatusBadge';
+import { PaymentOrderStatusBadge } from '../../Payments/components/PaymentOrderStatusBadge';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -255,6 +256,42 @@ export function SupplierInvoiceDetailView({ invoice }: { invoice: SupplierInvoic
           </dl>
         </CardContent>
       </Card>
+
+      {invoice.status !== 'CANCELLED' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pagos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <dl className="grid grid-cols-2 gap-4 sm:max-w-md">
+              <div>
+                <dt className="text-xs text-muted-foreground">Pagado</dt>
+                <dd className="font-semibold tabular-nums">{formatMoney(invoice.payment.paid)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Pendiente (sin orden de pago)</dt>
+                <dd className="font-semibold tabular-nums">{formatMoney(invoice.payment.pending)}</dd>
+              </div>
+            </dl>
+            {invoice.payment.orders.length > 0 ? (
+              <ul className="divide-y">
+                {invoice.payment.orders.map((o) => (
+                  <li key={o.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
+                    <Link href={`/dashboard/purchases/payments/${o.id}`} className="font-mono underline">
+                      {o.number}
+                    </Link>
+                    <PaymentOrderStatusBadge status={o.status} />
+                    {o.paidOn && <span className="text-muted-foreground">pagada {moment(o.paidOn, 'YYYY-MM-DD').format('DD/MM/YYYY')}</span>}
+                    <span className="ml-auto tabular-nums">{formatMoney(o.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Todavía no está en ninguna orden de pago.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <HistoryCard history={invoice.history} />
     </div>

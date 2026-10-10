@@ -627,6 +627,9 @@ model company {
   purchase_orders              purchase_orders[]
   purchase_receipts            purchase_receipts[]
   supplier_invoices            supplier_invoices[]
+  treasury_accounts            treasury_accounts[]
+  payment_orders               payment_orders[]
+  withholding_regimes          withholding_regimes[]
   purchase_expense_categories  purchase_expense_categories[]
 
   @@schema("public")
@@ -2158,6 +2161,12 @@ model profile {
   supplier_invoices_updated   supplier_invoices[] @relation("supplier_invoice_updater")
   supplier_invoices_resolved  supplier_invoices[] @relation("supplier_invoice_resolver")
   supplier_invoices_cancelled supplier_invoices[] @relation("supplier_invoice_canceller")
+  payment_orders_created      payment_orders[] @relation("payment_order_creator")
+  payment_orders_approved     payment_orders[] @relation("payment_order_approver")
+  payment_orders_rejected     payment_orders[] @relation("payment_order_rejecter")
+  payment_orders_paid         payment_orders[] @relation("payment_order_payer")
+  payment_orders_cancelled    payment_orders[] @relation("payment_order_canceller")
+  payment_order_rejections    payment_order_rejections[] @relation("payment_order_rejection_author")
   supplier_documents_uploaded supplier_documents[]
 
   @@index([employee_id], map: "idx_profile_employee_id")
@@ -4677,6 +4686,8 @@ model suppliers {
   purchase_orders   purchase_orders[]
   purchase_receipts purchase_receipts[]
   supplier_invoices supplier_invoices[]
+  payment_orders    payment_orders[]
+  withholding_profiles supplier_withholding_profiles[]
 
   @@unique([company_id, cuit], map: "suppliers_company_id_cuit_key")
   @@index([company_id], map: "idx_suppliers_company_id")
@@ -4946,6 +4957,7 @@ model purchase_orders {
   complemented_by   purchase_orders[]      @relation("purchase_order_complement")
   complements_receipt purchase_receipts?   @relation("purchase_receipt_complement", fields: [complements_receipt_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receipts          purchase_receipts[]
+  payment_lines     payment_order_lines[]
   creator           profile                @relation("purchase_order_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approver          profile?               @relation("purchase_order_approver", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rejecter          profile?               @relation("purchase_order_rejecter", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -5112,6 +5124,7 @@ model supplier_invoices {
   lines                    supplier_invoice_lines[]
   vat                      supplier_invoice_vat[]
   taxes                    supplier_invoice_taxes[]
+  payment_lines            payment_order_lines[]
 
   @@index([supplier_id], map: "idx_supplier_invoices_supplier_id")
   @@index([company_id, vat_period], map: "idx_supplier_invoices_vat_period")
@@ -5209,6 +5222,255 @@ enum arca_check_result {
   APPROVED
   REJECTED
   UNAVAILABLE
+
+  @@schema("public")
+}
+
+/// Cuenta bancaria o caja desde la que se paga. Catálogo de Tesorería: hoy se administra en
+/// Configuración de Compras; el módulo de Tesorería le suma saldos, chequeras y conciliación.
+model treasury_accounts {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     String                    @db.Uuid
+  kind           treasury_account_kind
+  name           String
+  bank_name      String?
+  account_number String?
+  cbu            String?                   @db.VarChar(22)
+  is_active      Boolean                   @default(true)
+  created_at     DateTime                  @default(now()) @db.Timestamptz(6)
+  company        company                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  payments       payment_order_payments[]
+
+  @@unique([company_id, name], map: "treasury_accounts_company_id_name_key")
+  @@schema("public")
+}
+
+/// Orden de pago a un proveedor (OP-000001): comprobantes, NC y anticipos aplicados, retenciones y medios.
+model payment_orders {
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id         String                       @db.Uuid
+  number             String
+  supplier_id        String                       @db.Uuid
+  status             payment_order_status
+  planned_on         DateTime                     @db.Date
+  paid_on            DateTime?                    @db.Date
+  notes              String?
+  invoices_total     Decimal                      @db.Decimal(15, 2)
+  credits_total      Decimal                      @db.Decimal(15, 2)
+  advance_total      Decimal                      @db.Decimal(15, 2)
+  withholdings_total Decimal                      @db.Decimal(15, 2)
+  net_total          Decimal                      @db.Decimal(15, 2)
+  /// Bases de retencion de la orden (neta e IVA). Se guardan aunque no se retenga: el acumulado
+  /// mensual de Ganancias suma todos los pagos del mes.
+  withholding_net_base Decimal                    @default(0) @db.Decimal(15, 2)
+  withholding_vat_base Decimal                    @default(0) @db.Decimal(15, 2)
+  submitted_at       DateTime?                    @db.Timestamptz(6)
+  approved_by        String?                      @db.Uuid
+  approved_at        DateTime?                    @db.Timestamptz(6)
+  rejected_by        String?                      @db.Uuid
+  rejected_at        DateTime?                    @db.Timestamptz(6)
+  rejection_notes    String?
+  paid_by            String?                      @db.Uuid
+  sent_at            DateTime?                    @db.Timestamptz(6)
+  sent_to            String[]                     @default([])
+  cancelled_by       String?                      @db.Uuid
+  cancelled_at       DateTime?                    @db.Timestamptz(6)
+  cancel_reason      String?
+  created_by         String                       @db.Uuid
+  created_at         DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                     @default(now()) @updatedAt @db.Timestamptz(6)
+  company            company                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  supplier           suppliers                    @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator            profile                      @relation("payment_order_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver           profile?                     @relation("payment_order_approver", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rejecter           profile?                     @relation("payment_order_rejecter", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payer              profile?                     @relation("payment_order_payer", fields: [paid_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller          profile?                     @relation("payment_order_canceller", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines              payment_order_lines[]
+  withholdings       payment_order_withholdings[]
+  payments           payment_order_payments[]
+  rejections         payment_order_rejections[]
+
+  @@unique([company_id, number], map: "payment_orders_company_id_number_key")
+  @@index([supplier_id], map: "idx_payment_orders_supplier_id")
+  @@index([company_id, status], map: "idx_payment_orders_status")
+  @@schema("public")
+}
+
+/// Cada rechazo de una orden de pago (la cabecera guarda solo el último): historial del detalle.
+model payment_order_rejections {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_order_id String         @db.Uuid
+  rejected_by      String         @db.Uuid
+  rejected_at      DateTime       @default(now()) @db.Timestamptz(6)
+  reason           String
+  payment_order    payment_orders @relation(fields: [payment_order_id], references: [id], onDelete: Cascade)
+  rejecter         profile        @relation("payment_order_rejection_author", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([payment_order_id], map: "idx_payment_order_rejections_order_id")
+  @@schema("public")
+}
+
+/// Qué paga la orden: una factura/ND (INVOICE), una NC aplicada (CREDIT_NOTE), un anticipo nuevo
+/// (ADVANCE) o un anticipo anterior que se consume (ADVANCE_APPLIED).
+model payment_order_lines {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_order_id  String                @db.Uuid
+  position          Int
+  kind              payment_line_kind
+  amount            Decimal               @db.Decimal(15, 2)
+  invoice_id        String?               @db.Uuid
+  purchase_order_id String?               @db.Uuid
+  description       String?
+  source_line_id    String?               @db.Uuid
+  payment_order     payment_orders        @relation(fields: [payment_order_id], references: [id], onDelete: Cascade)
+  invoice           supplier_invoices?    @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchase_order    purchase_orders?      @relation(fields: [purchase_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  source_line       payment_order_lines?  @relation("advance_applications", fields: [source_line_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  applications      payment_order_lines[] @relation("advance_applications")
+
+  @@index([payment_order_id], map: "idx_payment_order_lines_order_id")
+  @@index([invoice_id], map: "idx_payment_order_lines_invoice_id")
+  @@index([source_line_id], map: "idx_payment_order_lines_source_line_id")
+  @@schema("public")
+}
+
+/// Retención practicada en una orden de pago. El número de certificado se asigna al pagar.
+model payment_order_withholdings {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_order_id   String              @db.Uuid
+  tax                withholding_tax
+  regime_id          String              @db.Uuid
+  base               Decimal             @db.Decimal(15, 2)
+  rate               Decimal             @db.Decimal(7, 4)
+  amount             Decimal             @db.Decimal(15, 2)
+  detail             String
+  manual             Boolean             @default(false)
+  /// Situacion del proveedor y exclusion aplicadas al calcular (para el certificado y los TXT).
+  supplier_status    withholding_status?
+  exclusion_percentage Decimal?          @db.Decimal(7, 4)
+  certificate_number String?
+  cancelled_at       DateTime?           @db.Timestamptz(6)
+  payment_order      payment_orders      @relation(fields: [payment_order_id], references: [id], onDelete: Cascade)
+  regime             withholding_regimes @relation(fields: [regime_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([payment_order_id], map: "idx_payment_order_withholdings_order_id")
+  @@schema("public")
+}
+
+/// Medio con el que se pagó (uno o varios por orden), desde una cuenta o caja.
+model payment_order_payments {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_order_id    String            @db.Uuid
+  method              payment_method
+  treasury_account_id String            @db.Uuid
+  amount              Decimal           @db.Decimal(15, 2)
+  reference           String?
+  check_number        String?
+  check_bank          String?
+  check_due_on        DateTime?         @db.Date
+  payment_order       payment_orders    @relation(fields: [payment_order_id], references: [id], onDelete: Cascade)
+  treasury_account    treasury_accounts @relation(fields: [treasury_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([payment_order_id], map: "idx_payment_order_payments_order_id")
+  @@index([treasury_account_id], map: "idx_payment_order_payments_account_id")
+  @@schema("public")
+}
+
+/// Régimen de retención (Ganancias, IVA, IIBB, SUSS) con sus alícuotas y mínimos.
+model withholding_regimes {
+  id                    String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id            String                          @db.Uuid
+  tax                   withholding_tax
+  /// Código de régimen de SICORE/SIRE (3 dígitos).
+  code                  String                          @db.VarChar(3)
+  description           String
+  rate_registered       Decimal                         @db.Decimal(7, 4)
+  rate_unregistered     Decimal?                        @db.Decimal(7, 4)
+  monthly_exempt_amount Decimal                         @default(0) @db.Decimal(15, 2)
+  minimum_withholding   Decimal                         @default(0) @db.Decimal(15, 2)
+  /// Escala de honorarios: [{ from, to?, fixed, rate }].
+  scale                 Json?
+  /// IVA: porcentaje del IVA de la factura que se retiene.
+  vat_percentage        Decimal?                        @db.Decimal(7, 4)
+  is_active             Boolean                         @default(true)
+  created_at            DateTime                        @default(now()) @db.Timestamptz(6)
+  company               company                         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  withholdings          payment_order_withholdings[]
+  profiles              supplier_withholding_profiles[]
+
+  @@unique([company_id, tax, code], map: "withholding_regimes_company_tax_code_key")
+  @@schema("public")
+}
+
+/// Situación del proveedor frente a cada retención: inscripción, régimen, alícuota de padrón y exclusión.
+model supplier_withholding_profiles {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplier_id           String               @db.Uuid
+  tax                   withholding_tax
+  status                withholding_status
+  regime_id             String?              @db.Uuid
+  rate                  Decimal?             @db.Decimal(7, 4)
+  exclusion_percentage  Decimal?             @db.Decimal(7, 4)
+  exclusion_from        DateTime?            @db.Date
+  exclusion_to          DateTime?            @db.Date
+  exclusion_certificate String?
+  updated_at            DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
+  supplier              suppliers            @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  regime                withholding_regimes? @relation(fields: [regime_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([supplier_id, tax], map: "supplier_withholding_profiles_supplier_tax_key")
+  @@schema("public")
+}
+
+enum treasury_account_kind {
+  BANK
+  CASH
+
+  @@schema("public")
+}
+
+enum payment_order_status {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+
+  @@schema("public")
+}
+
+enum payment_line_kind {
+  INVOICE
+  CREDIT_NOTE
+  ADVANCE
+  ADVANCE_APPLIED
+
+  @@schema("public")
+}
+
+enum withholding_tax {
+  GANANCIAS
+  IVA
+  IIBB
+  SUSS
+
+  @@schema("public")
+}
+
+enum withholding_status {
+  SUBJECT
+  NOT_REGISTERED
+  EXEMPT
+
+  @@schema("public")
+}
+
+enum payment_method {
+  TRANSFER
+  CHECK
+  ECHECK
+  CASH
 
   @@schema("public")
 }

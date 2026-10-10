@@ -41,6 +41,8 @@ interface DemoInvoice {
   cae?: boolean;
   checked?: boolean;
   notes?: string;
+  /** Dias desde la emision hasta el vencimiento del pago (30 si no se indica). */
+  dueIn?: number;
 }
 
 export const EXPENSE_CATEGORIES = ['Luz', 'Honorarios', 'Fletes'] as const;
@@ -126,6 +128,8 @@ export async function seedSupplierInvoices(ctx: Ctx): Promise<string> {
       lines: [{ orderKey: 'oc-filtros', quantity: 10, price: 10769, rate: null }],
       status: 'CONFORMING',
       cae: true,
+      // Vencida: aparece en Vencimientos.
+      dueIn: 2,
     },
     {
       key: 'fc-grua',
@@ -225,7 +229,7 @@ export async function seedSupplierInvoices(ctx: Ctx): Promise<string> {
         sales_point: plan.salesPoint,
         number: plan.number,
         issue_date: new Date(`${issue}T00:00:00.000Z`),
-        due_date: new Date(`${cal.ymd(plan.day + 30)}T00:00:00.000Z`),
+        due_date: new Date(`${cal.ymd(plan.day + (plan.dueIn ?? 30))}T00:00:00.000Z`),
         vat_period: issue.slice(0, 7),
         cae: plan.cae ? `7${String(plan.salesPoint).padStart(4, '0')}${String(plan.number).padStart(9, '0')}` : null,
         cae_due_date: plan.cae ? new Date(`${cal.ymd(plan.day + 10)}T00:00:00.000Z`) : null,

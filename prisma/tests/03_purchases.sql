@@ -3,7 +3,7 @@
 -- tests prueban la red de seguridad. 23514 = check_violation, 23505 = unique_violation.
 BEGIN;
 
-SELECT plan(46);
+SELECT plan(55);
 
 SELECT has_table('public', 'suppliers', 'existe suppliers');
 SELECT has_table('public', 'purchase_requests', 'existe purchase_requests');
@@ -329,6 +329,69 @@ SELECT lives_ok(
       current_date, to_char(current_date, 'YYYY-MM'), 0, 0, 0, 0, 0, 0, 0, 0, 'CONFORMING',
       'a2000000-0000-0000-0000-000000000002')$$,
   'un comprobante anulado se puede volver a cargar'
+);
+
+-- Etapa 5: ordenes de pago y retenciones
+INSERT INTO treasury_accounts (id, company_id, kind, name)
+VALUES ('a2000000-0000-0000-0000-000000000070', 'a2000000-0000-0000-0000-000000000001', 'BANK', 'Banco prueba');
+
+INSERT INTO withholding_regimes (id, company_id, tax, code, description, rate_registered)
+VALUES ('a2000000-0000-0000-0000-000000000071', 'a2000000-0000-0000-0000-000000000001', 'GANANCIAS', '078', 'Bienes', 2);
+
+INSERT INTO payment_orders (id, company_id, number, supplier_id, status, planned_on, invoices_total, credits_total,
+  advance_total, withholdings_total, net_total, created_by)
+VALUES ('a2000000-0000-0000-0000-000000000072', 'a2000000-0000-0000-0000-000000000001', 'OP-000001',
+  'a2000000-0000-0000-0000-000000000010', 'DRAFT', current_date, 0, 0, 0, 0, 0, 'a2000000-0000-0000-0000-000000000002');
+
+SELECT throws_ok(
+  $$INSERT INTO withholding_regimes (company_id, tax, code, description, rate_registered)
+    VALUES ('a2000000-0000-0000-0000-000000000001', 'IVA', '12', 'x', 1)$$,
+  '23514', NULL, 'el codigo de regimen tiene 3 digitos'
+);
+
+SELECT throws_ok(
+  $$UPDATE payment_orders SET status = 'PAID' WHERE id = 'a2000000-0000-0000-0000-000000000072'$$,
+  '23514', NULL, 'una orden pagada lleva la fecha de pago'
+);
+
+SELECT throws_ok(
+  $$UPDATE payment_orders SET cancelled_at = now() WHERE id = 'a2000000-0000-0000-0000-000000000072'$$,
+  '23514', NULL, 'la anulacion de la orden va completa'
+);
+
+SELECT throws_ok(
+  $$UPDATE payment_orders SET net_total = -1 WHERE id = 'a2000000-0000-0000-0000-000000000072'$$,
+  '23514', NULL, 'el neto a pagar no es negativo'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO payment_order_lines (payment_order_id, position, kind, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000072', 1, 'INVOICE', 10)$$,
+  '23514', NULL, 'una linea de factura lleva el comprobante'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO payment_order_lines (payment_order_id, position, kind, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000072', 1, 'ADVANCE', 0)$$,
+  '23514', NULL, 'el importe de una linea es mayor a 0'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO payment_order_payments (payment_order_id, method, treasury_account_id, amount)
+    VALUES ('a2000000-0000-0000-0000-000000000072', 'CHECK', 'a2000000-0000-0000-0000-000000000070', 10)$$,
+  '23514', NULL, 'un cheque lleva numero y fecha'
+);
+
+SELECT throws_ok(
+  $$INSERT INTO supplier_withholding_profiles (supplier_id, tax, status, exclusion_percentage)
+    VALUES ('a2000000-0000-0000-0000-000000000010', 'GANANCIAS', 'SUBJECT', 50)$$,
+  '23514', NULL, 'la exclusion lleva su vigencia'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO payment_order_lines (payment_order_id, position, kind, amount, description)
+    VALUES ('a2000000-0000-0000-0000-000000000072', 1, 'ADVANCE', 1000, 'Anticipo')$$,
+  'un anticipo se guarda'
 );
 
 SELECT * FROM finish();

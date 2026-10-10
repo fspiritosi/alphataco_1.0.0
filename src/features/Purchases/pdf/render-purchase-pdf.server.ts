@@ -13,13 +13,13 @@ import { buildOrderPdfData, buildQuotePdfData, type PurchasePdfSource } from './
 const logger = new Logger('features/Purchases/pdf');
 
 /** Ver `render-invoice-pdf.server.ts`: react-pdf se resuelve desde node_modules, fuera del bundle. */
-function loadReactPdf(): Promise<ReactPdf> {
+export function loadReactPdf(): Promise<ReactPdf> {
   return import(/* webpackIgnore: true */ /* turbopackIgnore: true */ '@react-pdf/renderer');
 }
 
 export type RenderedPdf = { filename: string; content: Uint8Array };
 
-const COMPANY_SELECT = {
+export const COMPANY_SELECT = {
   company_name: true,
   company_cuit: true,
   address: true,
@@ -28,7 +28,7 @@ const COMPANY_SELECT = {
   provinces: { select: { name: true } },
 } as const;
 
-const SUPPLIER_SELECT = {
+export const SUPPLIER_SELECT = {
   name: true,
   cuit: true,
   vat_condition_id: true,
@@ -47,7 +47,7 @@ const REQUEST_LINE_SELECT = {
  * Logo de la empresa leido directo de MinIO (la URL guardada apunta al proxy `/api/files`, que
  * pide sesion). Si no se puede leer, el PDF sale sin logo: nunca se cae por eso.
  */
-async function loadCompanyLogo(logoUrl: string | null): Promise<PdfLogo> {
+export async function loadCompanyLogo(logoUrl: string | null): Promise<PdfLogo> {
   if (!logoUrl) return null;
   const parsed = parseStorageFileUrl(logoUrl);
   if (!parsed || !isSafeStorageKey(parsed.path)) return null;
@@ -70,7 +70,7 @@ type CompanyRow = {
   provinces: { name: string } | null;
 };
 
-function companySource(company: CompanyRow): PurchasePdfSource['company'] {
+export function companySource(company: CompanyRow): PurchasePdfSource['company'] {
   return {
     name: company.company_name,
     cuit: company.company_cuit,
@@ -82,7 +82,7 @@ function companySource(company: CompanyRow): PurchasePdfSource['company'] {
 
 type SupplierRow = { name: string; cuit: bigint; vat_condition_id: number; street: string | null; city: string | null; province: string | null };
 
-function supplierSource(supplier: SupplierRow): PurchasePdfSource['supplier'] {
+export function supplierSource(supplier: SupplierRow): PurchasePdfSource['supplier'] {
   return {
     name: supplier.name,
     cuit: supplier.cuit.toString(),

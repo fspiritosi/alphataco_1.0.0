@@ -1,0 +1,117 @@
+---
+title: Órdenes de pago
+summary: Cómo armar una orden de pago a un proveedor con sus comprobantes, notas de crédito y anticipos; cómo se calculan y corrigen las retenciones; el circuito de aprobación; cómo se registra el pago con uno o varios medios, se envía al proveedor con los certificados y se anula.
+keywords: orden de pago, OP, pagar, pago a proveedor, pagos, pago parcial, anticipo, pago a cuenta, nota de crédito, aplicar anticipo, retenciones, retención, certificado de retención, Ganancias, IVA, IIBB, SUSS, aprobar pago, registrar pago, transferencia, cheque, e-cheq, efectivo, cuenta bancaria, caja, neto a pagar, anular pago, enviar al proveedor
+updated: 2026-10-09
+---
+
+La **orden de pago** junta lo que se le paga a un proveedor de una vez: uno o varios comprobantes (completos o en parte), las notas de crédito y los anticipos que se descuentan, y las **retenciones** que se le practican. Se aprueba, se registra el pago con los medios que se usaron y se le manda al proveedor con los **certificados de retención**.
+
+<OpenScreen />
+
+## El circuito
+
+<Flow title="Del comprobante al pago">
+  <FlowStep title="Borrador" module="Pagos" tone="default">Se arma la orden. Las retenciones se calculan al guardar.</FlowStep>
+  <FlowStep title="Pendiente de aprobación" module="Pagos" tone="warning">Quien tiene **Aprobar** la aprueba o la rechaza (vuelve a borrador).</FlowStep>
+  <FlowStep title="Aprobada" module="Pagos" tone="default">Lista para pagar con esas retenciones.</FlowStep>
+  <FlowStep title="Pagada" module="Pagos" tone="success">Se registraron los medios de pago. Los certificados toman número.</FlowStep>
+</Flow>
+
+Una orden se puede **anular** en cualquier estado. Una aprobada o pendiente puede **volver a borrador** para corregirla; después hay que aprobarla de nuevo.
+
+<Callout type="info" title="Solo se registra el pago">
+El sistema registra **cómo** se pagó (medio, cuenta o caja, referencia), pero no mueve plata ni concilia bancos. Eso llega con el módulo de **Tesorería**.
+</Callout>
+
+## Armar una orden de pago
+
+Hay dos caminos:
+
+- En **Compras → Pagos → Vencimientos**, tildá los comprobantes de **un** proveedor y tocá **Armar orden de pago**: el formulario se abre con esos comprobantes ya cargados.
+- En **Compras → Pagos → Órdenes de pago**, **Nueva orden de pago**, y elegí el proveedor.
+
+El formulario tiene tres partes y un solo botón **Guardar**.
+
+**Proveedor y fecha**
+
+| Campo | Qué poner |
+|---|---|
+| **Proveedor** | A quién se le paga. Una vez guardada la orden no se puede cambiar. |
+| **Fecha prevista de pago** | Se puede escribir (DD/MM/AAAA) o elegir en el calendario. Las retenciones se calculan **para ese mes**, y el pago se tiene que registrar en el **mismo mes**. |
+| **Observaciones** | Opcional. Salen en el PDF. |
+
+**Qué se paga**
+
+- **Comprobantes pendientes**: las facturas y notas de débito a pagar (conformes o aprobadas) con lo que les falta pagar. Tildá las que van y, si es un **pago parcial**, bajá el importe.
+- **Notas de crédito para aplicar** y **Anticipos para aplicar**: restan del total. Se aplican completos o en parte.
+- **Anticipo (opcional)**: un pago a cuenta **sin factura**, con descripción y, si corresponde, la OC a la que va. Queda disponible para aplicarlo a una factura en una orden posterior.
+
+Un comprobante que ya está en otra orden sin anular solo ofrece lo que queda por pagar.
+
+**Retenciones y neto a pagar**
+
+Las retenciones se calculan solas con la **situación impositiva del proveedor** (ver <GuideLink to="retenciones">Retenciones</GuideLink>) y los **regímenes** cargados en <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink>. Cada una muestra el cálculo: _"Acumulado del mes $ 500.000,00 − mínimo no sujeto $ 224.000,00 = $ 276.000,00 × 2 % = $ 5.520,00"_.
+
+Si una retención no es correcta, tocá el lápiz, escribí el **importe corregido** y el **motivo** (obligatorio). Queda marcada como **corregida** y el motivo se guarda.
+
+El **neto a pagar** es: comprobantes + anticipo − notas de crédito y anticipos aplicados − retenciones.
+
+Al guardar, la orden queda en **borrador** con su número (**OP-000001**, **OP-000002**…). Para que la aprueben, tocá **Enviar a aprobación** en el detalle.
+
+<Callout type="warning" title="Si cambia algo antes de pagar">
+Al **aprobar** y al **registrar el pago** el sistema vuelve a controlar que los comprobantes sigan a pagar, que no se haya pagado más de lo que deben y que las **retenciones** den lo mismo. Pasa, por ejemplo, si se armaron dos órdenes del mismo proveedor en el mes y una se pagó antes: el acumulado de Ganancias cambió. Si algo cambió, avisa y hay que volver la orden a borrador y guardarla para recalcularla.
+</Callout>
+
+## Aprobar o rechazar
+
+Quien tiene **Aprobar** en **Pagos** ve **Aprobar** y **Rechazar** en una orden pendiente.
+
+- **Aprobar**: queda lista para pagar, con las retenciones como están.
+- **Rechazar**, con el motivo: vuelve a borrador para que la corrijan. El motivo queda en el detalle.
+
+## Registrar el pago
+
+En una orden **aprobada**, **Registrar pago**:
+
+| Campo | Qué poner |
+|---|---|
+| **Fecha de pago** | Tiene que ser del mismo mes que la fecha prevista. |
+| **Medio** | Transferencia, Cheque, E-cheq o Efectivo. Se pueden agregar varios: por ejemplo, un e-cheq y el resto por transferencia. |
+| **Cuenta o caja** | Desde dónde se paga. Se cargan en <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink>. |
+| **Importe** | Lo de ese medio. La suma de los medios tiene que dar **exactamente** el neto a pagar. |
+| **Referencia** | El número de transferencia, opcional. |
+| **N° de cheque** y **Fecha de pago del cheque** | Solo en cheques y e-cheqs. |
+
+Si el neto a pagar es **$ 0** (los comprobantes se compensan con notas de crédito o anticipos), el pago se registra sin medios: solo la fecha.
+
+Al confirmar, la orden queda **Pagada** y cada retención toma su número de certificado: **GAN-000001**, **IVA-000001**, **IIBB-000001**, **SUSS-000001**. Los comprobantes pagados completos dejan de figurar en Vencimientos.
+
+## El PDF y el envío al proveedor
+
+**Descargar PDF** baja la orden. Si está pagada, trae a continuación **un certificado de retención por hoja**, con los datos de la empresa como agente de retención, los del proveedor, el régimen, la base, la alícuota y el importe. Antes de pagarse, el PDF sale con la marca **BORRADOR — NO VÁLIDA**.
+
+Una orden pagada se le puede **enviar al proveedor** por mail, con el PDF adjunto, a los contactos de su ficha.
+
+## Anular una orden
+
+**Anular**, con el motivo. Libera lo que la orden pagaba: los comprobantes vuelven a quedar pendientes y los anticipos aplicados vuelven a estar disponibles.
+
+Si la orden ya estaba **pagada**, sus certificados quedan **anulados** (el número no se vuelve a usar) y salen del listado de retenciones a declarar. Usalo cuando el pago no se hizo o se revirtió.
+
+<Callout type="info" title="Comprobantes en una orden de pago">
+Mientras un comprobante esté en una orden sin anular, no se puede editar ni anular desde **Facturas**. Primero hay que anular la orden.
+</Callout>
+
+## La lista
+
+**Compras → Pagos → Órdenes de pago** muestra todas las órdenes con su número, proveedor, fechas, importes y estado. Se puede filtrar por cualquiera de esas columnas y exportar a Excel.
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver las órdenes, los vencimientos y la cuenta corriente | **Pagos → Ver** |
+| Armar órdenes de pago | **Pagos → Crear** |
+| Editar, enviar a aprobación, volver a borrador, registrar el pago, enviar al proveedor y anular | **Pagos → Editar** |
+| Aprobar o rechazar | **Pagos → Aprobar** |

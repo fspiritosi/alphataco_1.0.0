@@ -4,6 +4,7 @@ export const PURCHASE_DOCUMENT_PREFIXES = {
   quote: 'PC',
   order: 'OC',
   receipt: 'RC',
+  payment: 'OP',
 } as const;
 
 export type PurchaseDocumentKind = keyof typeof PURCHASE_DOCUMENT_PREFIXES;

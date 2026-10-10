@@ -1,10 +1,13 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { SectionManagerServer } from '@/features/TabsManager';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { BookOpenText, ClipboardList, FileCheck, FileQuestion, PackageCheck, ReceiptText, Settings, Truck } from 'lucide-react';
+import { Banknote, BookOpenText, ClipboardList, FileCheck, FileQuestion, PackageCheck, Percent, ReceiptText, Settings, Truck } from 'lucide-react';
 import { Suspense } from 'react';
 import InvoicesTabContent from './Invoices/InvoicesTabContent';
 import OrdersTabContent from './Orders/OrdersTabContent';
+import PaymentsTabContent from './Payments/PaymentsTabContent';
+import WithholdingsTabContent from './Withholdings/WithholdingsTabContent';
+import { WithholdingsSkeleton } from './Withholdings/fallback/WithholdingsSkeleton';
 import QuotesTabContent from './Quotes/QuotesTabContent';
 import ReceiptsTabContent from './Receipts/ReceiptsTabContent';
 import RequestsTabContent from './Requests/RequestsTabContent';
@@ -17,7 +20,7 @@ import { PurchasesSectionSkeleton } from './fallback/PurchasesSectionSkeleton';
 
 /**
  * Modulo Compras (specs docs/superpowers/specs/2026-10-08-compras-etapa-1-design.md y
- * 2026-10-08-compras-etapa-2-design.md, y las de las etapas 3 y 4).
+ * 2026-10-08-compras-etapa-2-design.md, y las de las etapas 3 a 5).
  *
  * Secciones elegidas desde el sidebar (`?tab=`). Los iconos son los mismos que
  * `SUB_ITEM_ICONS` de `navigation.ts`, para que cada seccion se vea igual en los dos lados.
@@ -91,6 +94,28 @@ export default async function PurchasesComponent({ searchParams }: { searchParam
           content: (
             <Suspense fallback={<PurchasesSectionSkeleton />}>
               <InvoicesTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'pagos',
+          label: label(Banknote, 'Pagos'),
+          moduleSlug: 'compras',
+          tabSlug: 'pagos',
+          content: (
+            <Suspense fallback={<PurchasesSectionSkeleton />}>
+              <PaymentsTabContent searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'retenciones',
+          label: label(Percent, 'Retenciones'),
+          moduleSlug: 'compras',
+          tabSlug: 'retenciones',
+          content: (
+            <Suspense fallback={<WithholdingsSkeleton />}>
+              <WithholdingsTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

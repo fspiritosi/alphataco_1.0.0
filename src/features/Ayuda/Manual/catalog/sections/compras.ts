@@ -2,13 +2,13 @@ import { defineSection, tab } from '../define.ts';
 
 /**
  * Módulo Compras (`/dashboard/purchases`). Cada sección del menú es un `?tab=`; las pantallas de
- * detalle y de alta (solicitud, cotización, orden de compra, recepción, factura, proveedor) tienen el id en la URL y se declaran con el comodín
+ * detalle y de alta (solicitud, cotización, orden de compra, recepción, factura, orden de pago, proveedor) tienen el id en la URL y se declaran con el comodín
  * `/*` para que el botón "?" abra la guía de la sección desde la que se llega.
  */
 export const comprasSection = defineSection({
   key: 'compras',
   title: 'Compras',
-  description: 'Proveedores, solicitudes de compra, pedidos de cotización, órdenes de compra, recepciones, facturas de proveedor y Libro IVA Compras.',
+  description: 'Proveedores, solicitudes de compra, pedidos de cotización, órdenes de compra, recepciones, facturas de proveedor, Libro IVA Compras, órdenes de pago, cuenta corriente y retenciones.',
   icon: 'purchases',
   guides: [
     {
@@ -21,6 +21,8 @@ export const comprasSection = defineSection({
         tab('compras', 'recepciones'),
         tab('compras', 'facturas'),
         tab('compras', 'libro-iva'),
+        tab('compras', 'pagos'),
+        tab('compras', 'retenciones'),
         tab('compras', 'proveedores'),
         tab('compras', 'config-compras'),
       ],
@@ -32,6 +34,9 @@ export const comprasSection = defineSection({
         'recepciones',
         'facturas-de-proveedor',
         'libro-iva-compras',
+        'ordenes-de-pago',
+        'cuenta-corriente-y-vencimientos',
+        'retenciones',
         'proveedores',
         'configuracion-de-compras',
         'pedidos-de-materiales',
@@ -80,13 +85,33 @@ export const comprasSection = defineSection({
         { path: '/dashboard/purchases', tab: 'facturas' },
         { path: '/dashboard/purchases/invoices/*' },
       ],
-      related: ['ordenes-de-compra', 'recepciones', 'libro-iva-compras', 'configuracion-de-compras', 'compras'],
+      related: ['ordenes-de-compra', 'recepciones', 'libro-iva-compras', 'ordenes-de-pago', 'cuenta-corriente-y-vencimientos', 'configuracion-de-compras', 'compras'],
     },
     {
       slug: 'libro-iva-compras',
       access: [tab('compras', 'libro-iva')],
       screens: [{ path: '/dashboard/purchases', tab: 'libro-iva' }],
-      related: ['facturas-de-proveedor', 'compras'],
+      related: ['facturas-de-proveedor', 'retenciones', 'compras'],
+    },
+    {
+      slug: 'ordenes-de-pago',
+      access: [tab('compras', 'pagos')],
+      screens: [
+        { path: '/dashboard/purchases', tab: 'pagos' },
+        { path: '/dashboard/purchases/payments/*' },
+      ],
+      related: ['cuenta-corriente-y-vencimientos', 'retenciones', 'facturas-de-proveedor', 'proveedores', 'configuracion-de-compras', 'compras'],
+    },
+    {
+      slug: 'cuenta-corriente-y-vencimientos',
+      access: [tab('compras', 'pagos')],
+      related: ['ordenes-de-pago', 'facturas-de-proveedor', 'proveedores', 'compras'],
+    },
+    {
+      slug: 'retenciones',
+      access: [tab('compras', 'retenciones')],
+      screens: [{ path: '/dashboard/purchases', tab: 'retenciones' }],
+      related: ['ordenes-de-pago', 'proveedores', 'configuracion-de-compras', 'libro-iva-compras', 'compras'],
     },
     {
       slug: 'proveedores',
@@ -95,13 +120,13 @@ export const comprasSection = defineSection({
         { path: '/dashboard/purchases', tab: 'proveedores' },
         { path: '/dashboard/purchases/suppliers/*' },
       ],
-      related: ['compras', 'configuracion-de-compras', 'solicitudes-de-compra', 'ordenes-de-compra'],
+      related: ['compras', 'configuracion-de-compras', 'solicitudes-de-compra', 'ordenes-de-compra', 'cuenta-corriente-y-vencimientos', 'retenciones'],
     },
     {
       slug: 'configuracion-de-compras',
       access: [tab('compras', 'config-compras')],
       screens: [{ path: '/dashboard/purchases', tab: 'config-compras' }],
-      related: ['proveedores', 'facturas-de-proveedor', 'compras'],
+      related: ['proveedores', 'facturas-de-proveedor', 'ordenes-de-pago', 'retenciones', 'compras'],
     },
   ],
 });

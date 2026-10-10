@@ -14,6 +14,8 @@ export function invalidatePurchases(queryClient: QueryClient): void {
     PURCHASES_QUERY_KEYS.receipts,
     PURCHASES_QUERY_KEYS.invoices,
     PURCHASES_QUERY_KEYS.vatBook,
+    PURCHASES_QUERY_KEYS.payments,
+    PURCHASES_QUERY_KEYS.dueInvoices,
   ]) {
     void queryClient.invalidateQueries({ queryKey });
   }

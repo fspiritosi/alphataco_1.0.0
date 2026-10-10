@@ -7,5 +7,6 @@ describe('numeracion de compras', () => {
     expect(formatPurchaseDocumentNumber('quote', 3)).toBe('PC-000003');
     expect(formatPurchaseDocumentNumber('order', 1234567)).toBe('OC-1234567');
     expect(formatPurchaseDocumentNumber('receipt', 3)).toBe('RC-000003');
+    expect(formatPurchaseDocumentNumber('payment', 7)).toBe('OP-000007');
   });
 });

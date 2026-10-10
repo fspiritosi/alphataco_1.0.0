@@ -36,4 +36,5 @@ npx vitest run \
   src/features/Purchases/actions/orders.integration.test.ts \
   src/features/Purchases/actions/quotes.integration.test.ts \
   src/features/Purchases/actions/receipts.integration.test.ts \
-  src/features/Purchases/actions/invoices.integration.test.ts
+  src/features/Purchases/actions/invoices.integration.test.ts \
+  src/features/Purchases/actions/payments.integration.test.ts

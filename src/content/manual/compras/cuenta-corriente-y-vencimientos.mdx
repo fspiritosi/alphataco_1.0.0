@@ -1,0 +1,54 @@
+---
+title: Cuenta corriente y vencimientos
+summary: Qué se le debe a cada proveedor y cuándo vence; la lista de vencimientos para armar las órdenes de pago y la cuenta corriente del proveedor con su saldo, sus movimientos y los anticipos disponibles.
+keywords: cuenta corriente, saldo, saldo proveedor, deuda, qué le debemos, vencimientos, vencido, a vencer, facturas a pagar, pendiente de pago, anticipos disponibles, debe, haber, movimientos, extracto, resumen de cuenta, Excel
+updated: 2026-10-09
+---
+
+Lo que se le debe a un proveedor sale de sus **comprobantes a pagar** (facturas y notas de débito conformes o aprobadas), menos las **notas de crédito** y lo que ya se pagó con **órdenes de pago**. Se ve de dos formas: todos los proveedores juntos, ordenados por vencimiento, o la cuenta de uno solo.
+
+<OpenScreen to="ordenes-de-pago" label="Abrir Pagos" />
+
+## Vencimientos
+
+**Compras → Pagos → Vencimientos** lista los comprobantes con algo pendiente de pago: proveedor, comprobante, fecha, **vencimiento**, total y **pendiente**. Los vencidos se resaltan.
+
+El pendiente es el total del comprobante menos lo que ya está en órdenes de pago sin anular (pagadas o no). Un comprobante que está **entero** en una orden todavía no pagada deja de figurar acá: ya está en camino.
+
+Para pagar, tildá los comprobantes de **un mismo proveedor** y tocá **Armar orden de pago**: se abre el formulario de la <GuideLink to="ordenes-de-pago">orden de pago</GuideLink> con esos comprobantes cargados.
+
+Se puede filtrar por proveedor, por vencimiento y por cualquiera de las columnas, y exportar a Excel.
+
+## La cuenta corriente del proveedor
+
+En la ficha del proveedor (**Compras → Proveedores**, y el proveedor), la pestaña **Cuenta corriente** muestra:
+
+| Indicador | Qué es |
+|---|---|
+| **Saldo** | Lo que se le debe hoy. |
+| **Vencido sin orden de pago** | Lo que ya venció y todavía no está en ninguna orden. |
+| **A vencer sin orden de pago** | Lo que vence más adelante y todavía no está en ninguna orden. |
+| **Anticipos disponibles** | Lo pagado a cuenta que todavía no se aplicó a una factura. |
+
+Abajo, los **movimientos** del período elegido (**Desde** y **Hasta**), con el **saldo anterior** al principio:
+
+| Movimiento | Columna |
+|---|---|
+| Factura o nota de débito a pagar | **Debe** |
+| Nota de crédito | **Haber** |
+| Orden de pago pagada (lo pagado más sus retenciones) | **Haber** |
+| Anticipo pagado | **Haber**, y queda como anticipo disponible |
+
+Cada fila lleva el **saldo** acumulado y se puede abrir el documento. **Excel** baja los movimientos, y **Nueva orden de pago** abre el formulario con el proveedor ya elegido.
+
+<Callout type="info" title="Qué no cuenta">
+Los comprobantes **observados**, **rechazados** o **anulados** no suman a la deuda, y las órdenes de pago **sin pagar** todavía no restan. Cuando una orden se paga, el comprobante baja su pendiente.
+</Callout>
+
+## En el detalle del comprobante
+
+El detalle de cada factura (<GuideLink to="facturas-de-proveedor">Facturas de proveedor</GuideLink>) tiene un recuadro **Pagos** con lo **pagado**, lo **pendiente** y las órdenes de pago en las que está.
+
+## Permisos
+
+La lista de vencimientos y la cuenta corriente del proveedor se ven con **Pagos → Ver**. Para armar una orden de pago desde Vencimientos hace falta **Pagos → Crear**.

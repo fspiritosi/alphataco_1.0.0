@@ -68,7 +68,7 @@ export async function sendPurchaseOrderDecisionEmail(params: {
  * documento como enviado si esto devuelve `true`.
  */
 export async function sendSupplierDocumentEmail(params: {
-  kind: 'quote' | 'order';
+  kind: 'quote' | 'order' | 'payment';
   to: readonly string[];
   number: string;
   companyName: string;
@@ -76,11 +76,13 @@ export async function sendSupplierDocumentEmail(params: {
   message: string | null;
   attachment: { filename: string; content: Uint8Array };
 }): Promise<boolean> {
-  const label = params.kind === 'quote' ? 'Pedido de cotización' : 'Orden de compra';
+  const label = params.kind === 'quote' ? 'Pedido de cotización' : params.kind === 'order' ? 'Orden de compra' : 'Orden de pago';
   const intro =
     params.kind === 'quote'
       ? `${params.companyName} le solicita cotización por los ítems del pedido ${params.number}, que va adjunto en PDF.`
-      : `${params.companyName} le envía la orden de compra ${params.number}, adjunta en PDF.`;
+      : params.kind === 'order'
+        ? `${params.companyName} le envía la orden de compra ${params.number}, adjunta en PDF.`
+        : `${params.companyName} le informa el pago de la orden ${params.number}. Adjuntamos en PDF el detalle y los certificados de las retenciones practicadas.`;
   const body = [`Estimados ${params.supplierName}:`, '', intro, ...(params.message ? ['', params.message] : []), '', 'Saludos cordiales,', params.companyName].join(
     '\n'
   );

@@ -12,6 +12,7 @@ import { addPdf, type Ctx } from '../lib/ctx.ts';
 import { toDmy } from '../lib/dates.ts';
 import { demoId } from '../lib/ids.ts';
 import { seedSupplierInvoices } from './supplier-invoices.ts';
+import { seedSupplierPayments } from './supplier-payments.ts';
 
 export const SUPPLIER_DOCUMENTS_BUCKET = 'supplier-documents';
 
@@ -275,8 +276,9 @@ export async function seedPurchases(ctx: Ctx): Promise<void> {
   const quotesAndOrders = await seedQuotesAndOrders(ctx, lines);
   const receipts = await seedReceipts(ctx);
   const invoices = await seedSupplierInvoices(ctx);
+  const payments = await seedSupplierPayments(ctx);
   ctx.log(
-    `compras: ${suppliers.length} proveedores, ${requests.length} solicitudes${materialRequest ? ` (una desde ${materialRequest.number})` : ''}, ${quotesAndOrders}, ${receipts}, ${invoices}`
+    `compras: ${suppliers.length} proveedores, ${requests.length} solicitudes${materialRequest ? ` (una desde ${materialRequest.number})` : ''}, ${quotesAndOrders}, ${receipts}, ${invoices}, ${payments}`
   );
 }
 

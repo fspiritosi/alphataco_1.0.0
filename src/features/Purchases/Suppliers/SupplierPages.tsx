@@ -14,6 +14,12 @@ import { emptySupplierContact, type SupplierFormValues } from '../schemas/suppli
 import { SupplierDocuments } from './components/SupplierDocuments';
 import { SupplierForm } from './components/SupplierForm';
 import { SupplierStatusActions } from './components/SupplierStatusActions';
+import { SupplierTaxProfile } from './components/SupplierTaxProfile';
+import { getSupplierWithholdingProfiles } from '../actions/withholding-profiles.server';
+import { getWithholdingRegimes } from '../actions/withholding-regimes.server';
+import { getSupplierAccount } from '../actions/supplier-account.server';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SupplierAccountView } from './components/SupplierAccountView';
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -57,10 +63,13 @@ export async function NewSupplierPage() {
 }
 
 export async function SupplierDetailPage({ supplier }: { supplier: SupplierDetail }) {
-  const [{ categories }, nameSuggestions, permissions] = await Promise.all([
+  const [{ categories }, nameSuggestions, permissions, taxProfiles, regimes, account] = await Promise.all([
     getSupplierFormLookups(),
     getSupplierDocumentNameSuggestions(),
     getUserPermissionsMapServer(),
+    getSupplierWithholdingProfiles(supplier.id),
+    getWithholdingRegimes(),
+    getSupplierAccount(supplier.id),
   ]);
   const canUpdate = permissions['compras:proveedores:update'] === true;
   const canDelete = permissions['compras:proveedores:delete'] === true;
@@ -116,6 +125,12 @@ export async function SupplierDetailPage({ supplier }: { supplier: SupplierDetai
           />
         </div>
       </div>
+      <Tabs defaultValue="datos" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="datos">Datos</TabsTrigger>
+          {account && <TabsTrigger value="cuenta">Cuenta corriente</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="datos" className="space-y-4">
       {/* `key`: tras guardar, el form se remonta con los datos frescos (ids de contactos nuevos). */}
       <SupplierForm
         key={supplier.updatedAt}
@@ -130,6 +145,14 @@ export async function SupplierDetailPage({ supplier }: { supplier: SupplierDetai
         nameSuggestions={nameSuggestions}
         canUpdate={canUpdate}
       />
+      <SupplierTaxProfile supplierId={supplier.id} profiles={taxProfiles} regimes={regimes} canUpdate={canUpdate} />
+        </TabsContent>
+        {account && (
+          <TabsContent value="cuenta">
+            <SupplierAccountView initial={account} canCreatePayment={permissions['compras:pagos:create'] === true} />
+          </TabsContent>
+        )}
+      </Tabs>
     </Shell>
   );
 }

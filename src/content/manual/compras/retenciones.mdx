@@ -1,0 +1,76 @@
+---
+title: Retenciones
+summary: Cómo calcula el sistema las retenciones de Ganancias, IVA, IIBB Neuquén y SUSS al pagar a un proveedor; qué hay que cargar (regímenes y situación impositiva), cómo se corrigen, los certificados y el listado mensual con los archivos para declarar.
+keywords: retenciones, retención, agente de retención, Ganancias, IVA, IIBB, Ingresos Brutos, Neuquén, Rentas, SUSS, régimen, código de régimen, mínimo no sujeto, retención mínima, no inscripto, exento, exclusión, certificado de exclusión, alícuota de padrón, escala, honorarios, certificado de retención, SICORE, SIRE, F.2003, F.2004, declarar retenciones, archivo de importación, ZIP
+updated: 2026-10-09
+---
+
+Cuando la empresa es **agente de retención**, al pagarle a un proveedor se le descuenta una parte que se deposita al fisco a su nombre, y se le entrega un **certificado**. El sistema calcula las retenciones de **Ganancias**, **IVA**, **IIBB Neuquén** y **SUSS** en cada <GuideLink to="ordenes-de-pago">orden de pago</GuideLink>, numera los certificados al pagar y arma el listado del mes con los archivos para declarar.
+
+<OpenScreen />
+
+## Qué hay que cargar
+
+<Steps>
+  <Step title="Los regímenes">
+    En <GuideLink to="configuracion-de-compras">Configuración de Compras</GuideLink> → **Regímenes de retención**, uno por cada código que use la empresa: el impuesto, el código, la alícuota, el mínimo no sujeto mensual y la retención mínima. Sin régimen, no se retiene.
+  </Step>
+  <Step title="La situación de cada proveedor">
+    En la ficha del proveedor (<GuideLink to="proveedores">Proveedores</GuideLink>) → **Situación impositiva**: para cada impuesto, si está **sujeto a retención**, **no inscripto**, **exento** o si **no aplica**, con qué régimen y, si tiene, su exclusión.
+  </Step>
+</Steps>
+
+<Callout type="warning" title="Revisá los valores">
+Las alícuotas, mínimos y códigos cambian con las normas. Cargalos con los vigentes y revisalos cuando haya cambios: el sistema calcula con lo que esté cargado.
+</Callout>
+
+## Cómo se calcula cada una
+
+| Impuesto | Base | Cálculo |
+|---|---|---|
+| **Ganancias** | Neto sin IVA de lo que se paga. | Se suma lo pagado al proveedor **en el mes** (órdenes pagadas más esta). Al acumulado se le resta el **mínimo no sujeto**, se aplica la alícuota (o la **escala**, en honorarios) y se descuenta lo ya retenido en el mes. A un **no inscripto** se le aplica la alícuota de no inscriptos sobre lo que se paga, sin mínimo. |
+| **IVA** | IVA de lo que se paga. | El porcentaje del régimen sobre el IVA. Solo a proveedores **Responsables Inscriptos** sujetos a retención. |
+| **IIBB Neuquén** | Neto sin IVA. | La **alícuota de padrón** del proveedor si la tiene cargada; si no, la del régimen. |
+| **SUSS** | Neto sin IVA. | La alícuota del régimen. |
+
+En los pagos parciales, la base es la parte proporcional del comprobante. Las notas de crédito aplicadas restan de la base. Un anticipo es base cuando se **paga**; por eso, cuando después se aplica a una factura, se descuenta de la base de esa orden.
+
+Después del cálculo:
+
+- Si el proveedor tiene una **exclusión** vigente a la fecha prevista de pago, la retención baja en ese porcentaje.
+- Si la retención no llega a la **retención mínima** del régimen, no se practica.
+- Un proveedor **exento** no tiene retención de ese impuesto.
+
+Cada retención muestra el detalle del cálculo en la orden de pago, para controlarlo antes de aprobar.
+
+## Corregir una retención
+
+En el borrador de la orden, el lápiz de una retención permite escribir otro importe con el **motivo**. Queda marcada como **corregida**. Si la orden vuelve a borrador y se guarda de nuevo, la corrección se mantiene.
+
+Si el error está en la situación del proveedor o en el régimen, conviene corregirlos ahí: así las próximas órdenes salen bien.
+
+## Los certificados
+
+Cada retención toma su número cuando la orden se **paga**: **GAN-000001**, **IVA-000001**, **IIBB-000001**, **SUSS-000001**, cada impuesto con su propia numeración. Los certificados salen en el **PDF de la orden de pago**, uno por hoja, y viajan con ella cuando se le envía al proveedor.
+
+Si se anula una orden pagada, sus certificados quedan **anulados** y el número no se reusa.
+
+## El listado del mes
+
+**Compras → Retenciones** muestra las retenciones practicadas en un **período** (por fecha de pago), con fecha, certificado, proveedor, CUIT, impuesto, régimen, base, alícuota e importe, y los totales por régimen. Se puede filtrar por impuesto.
+
+- **Excel**: el listado completo, incluidas las anuladas.
+- **Archivos para declarar**: un ZIP con un archivo por impuesto, sin las anuladas: **SICORE** (Ganancias), **SIRE F.2003** (IVA), **SIRE F.2004** (SUSS) y **Rentas Neuquén** (IIBB).
+
+<Callout type="warning" title="Validar los archivos la primera vez">
+Los archivos de **SIRE** y de **Rentas Neuquén** se armaron con el diseño publicado, pero todavía no se probaron con el aplicativo. La primera vez que los importes, revisá que entren bien y avisá si hay que ajustar algo.
+</Callout>
+
+## Permisos
+
+| Acción | Permiso |
+|---|---|
+| Ver el listado y descargar el Excel y los archivos | **Retenciones → Ver** |
+| Cargar y cambiar los regímenes | **Configuración → Editar** |
+| Cargar la situación impositiva de un proveedor | **Proveedores → Editar** |
+| Corregir una retención en una orden | **Pagos → Crear** o **Editar** (en el borrador) |

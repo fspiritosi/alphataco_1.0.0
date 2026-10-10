@@ -48,6 +48,7 @@ async function db() {
 async function cleanup() {
   const prisma = await db();
   const company_id = { in: [COMPANY, OTHER_COMPANY] };
+  await prisma.payment_orders.deleteMany({ where: { company_id } });
   await prisma.supplier_invoices.updateMany({ where: { company_id }, data: { related_invoice_id: null } });
   await prisma.supplier_invoices.deleteMany({ where: { company_id } });
   await prisma.purchase_expense_categories.deleteMany({ where: { company_id } });
@@ -608,6 +609,44 @@ describe.skipIf(!RUN)('facturas de proveedor (integracion)', () => {
       const row = await invoiceRow(invoice.id);
       expect(row.status).toBe('REJECTED');
       expect(codes(row.observations as { code: string }[])).toEqual(['PRICE', 'ARCA']);
+    });
+
+    it('etapa 5: en una orden de pago pagada, ARCA no lo saca de la deuda; observado en una orden no se rechaza', async () => {
+      const actions = await import('./invoices.server');
+      const prisma = await db();
+      const order = await receivedOrder([{ quantity: 2, received: 2 }]);
+      const invoice = expectOk(await actions.createSupplierInvoice(invoiceForm([orderLine(order.lineIds[0]!, '1')], { cae: '76543210987654' })));
+      const total = (await prisma.supplier_invoices.findUniqueOrThrow({ where: { id: invoice.id }, select: { total: true } })).total;
+      const payment = await prisma.payment_orders.create({
+        data: {
+          company_id: COMPANY,
+          number: 'OP-900001',
+          supplier_id: SUPPLIER,
+          status: 'PAID',
+          planned_on: new Date(),
+          paid_on: new Date(),
+          paid_by: BUYER,
+          approved_by: BUYER,
+          approved_at: new Date(),
+          invoices_total: total,
+          credits_total: 0,
+          advance_total: 0,
+          withholdings_total: 0,
+          net_total: total,
+          withholding_net_base: 0,
+          withholding_vat_base: 0,
+          created_by: BUYER,
+          lines: { create: [{ position: 1, kind: 'INVOICE', amount: total, invoice_id: invoice.id }] },
+        },
+      });
+      expectOk(await withScenario('reject', () => actions.checkSupplierInvoiceInArca(invoice.id)));
+      const row = await invoiceRow(invoice.id);
+      expect(row.status).toBe('CONFORMING');
+      expect(codes(row.observations as { code: string }[])).toEqual(['ARCA']);
+      // Si igual quedara observado dentro de una orden, rechazarlo no se permite.
+      await prisma.supplier_invoices.update({ where: { id: invoice.id }, data: { status: 'OBSERVED' } });
+      expect(expectFail(await actions.rejectSupplierInvoice(invoice.id, 'No va'))).toBe('Está en la OP-900001: anulala o sacalo de ahí primero');
+      await prisma.payment_orders.delete({ where: { id: payment.id } });
     });
 
     it('sin CAE no se constata', async () => {

@@ -1473,6 +1473,24 @@ export const PERMISSIONS = {
         allowedActions: ['view', 'create', 'update', 'approve'],
         subtabs: {},
       },
+      // Etapa 5. 'create' arma órdenes de pago; 'update' las edita, envía a aprobación, vuelve a
+      // borrador, registra el pago, envía al proveedor y anula; 'approve' aprueba o rechaza.
+      pagos: {
+        slug: 'pagos',
+        name: 'Pagos',
+        tabId: 'c0000000-0000-0000-0000-000000000009',
+        parent: null,
+        allowedActions: ['view', 'create', 'update', 'approve'],
+        subtabs: {},
+      },
+      retenciones: {
+        slug: 'retenciones',
+        name: 'Retenciones',
+        tabId: 'c0000000-0000-0000-0000-000000000010',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
       'libro-iva': {
         slug: 'libro-iva',
         name: 'Libro IVA',

@@ -5,7 +5,7 @@ keywords: factura, facturas de proveedor, comprobante, nota de crédito, NC, not
 updated: 2026-10-09
 ---
 
-Acá se cargan los comprobantes que **emiten los proveedores**: facturas, notas de débito y notas de crédito, de letra A, B o C. Cada comprobante se controla contra lo que se pidió en la <GuideLink to="ordenes-de-compra">orden de compra</GuideLink> y lo que llegó en las <GuideLink to="recepciones">recepciones</GuideLink>. Lo que queda **conforme** o **aprobado** es lo que después se paga.
+Acá se cargan los comprobantes que **emiten los proveedores**: facturas, notas de débito y notas de crédito, de letra A, B o C. Cada comprobante se controla contra lo que se pidió en la <GuideLink to="ordenes-de-compra">orden de compra</GuideLink> y lo que llegó en las <GuideLink to="recepciones">recepciones</GuideLink>. Lo que queda **conforme** o **aprobado** es lo que después se paga con una <GuideLink to="ordenes-de-pago">orden de pago</GuideLink>.
 
 <OpenScreen />
 
@@ -107,7 +107,11 @@ Para constatar, el certificado digital de la empresa tiene que tener asociado en
 
 Con **Anular** y el motivo, el comprobante sale del Libro IVA y libera lo facturado. Sirve para un comprobante **mal cargado**: después se puede volver a cargar con el mismo número.
 
-Una factura con una nota de crédito o de débito vinculada no se anula: primero hay que anular la nota.
+Una factura con una nota de crédito o de débito vinculada no se anula: primero hay que anular la nota. Tampoco se anula un comprobante que está en una orden de pago.
+
+## Los pagos del comprobante
+
+El detalle tiene un recuadro **Pagos** con lo **pagado**, lo **pendiente** y las órdenes de pago en las que está el comprobante. Mientras esté en una orden de pago sin anular, **no se puede editar ni anular**: primero hay que anular la orden. Lo que falta pagar de cada comprobante se ve en <GuideLink to="cuenta-corriente-y-vencimientos">Vencimientos</GuideLink>.
 
 ## La lista
 

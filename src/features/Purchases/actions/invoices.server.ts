@@ -35,6 +35,8 @@ import {
 import { requestLineLabel } from '../lib/order-progress';
 import { RECEIVING_ORDER_STATUSES } from '../lib/order-state-machine';
 import { receivedByOrderLine } from '../lib/orders';
+import { invoicePending } from '../lib/payment-balances';
+import { assertNotInPaymentOrder, paymentOrderOfInvoice } from '../lib/payments';
 import { PurchaseError } from '../lib/purchase-errors';
 import { SUPPLIER_FILES_BUCKET, safeFileName } from '../lib/storage-files';
 import {
@@ -294,6 +296,7 @@ export async function updateSupplierInvoice(
         const lockedOrders = await lockOrdersForLines(tx, companyId, [...previous, ...orderLineIdsOf(input)]);
         const locked = await lockSupplierInvoice(tx, companyId, id);
         await assertInvoiceLinesLocked(tx, id, lockedOrders);
+        await assertNotInPaymentOrder(tx, id);
         const current = await tx.supplier_invoices.findUniqueOrThrow({
           where: { id },
           select: {
@@ -409,6 +412,8 @@ async function resolveInvoice(id: string, comment: string, decision: 'APPROVED' 
       const invoice = await lockSupplierInvoice(tx, companyId, id);
       await assertInvoiceLinesLocked(tx, id, lockedOrders);
       if (invoice.status !== 'OBSERVED') throw new PurchaseError(`La ${invoice.label} no está observada`);
+      // Rechazar un comprobante que ya esta en una orden de pago la dejaria pagando algo que no se debe.
+      if (decision === 'REJECTED') await assertNotInPaymentOrder(tx, id);
       await tx.supplier_invoices.update({
         where: { id },
         data: { status: decision, resolved_by: profile.id, resolved_at: new Date(), resolution_comment: motive.data },
@@ -448,6 +453,7 @@ export async function cancelSupplierInvoice(id: string, reason: string): Promise
       const lockedOrders = await lockOrdersForLines(tx, companyId, lines);
       await lockSupplierInvoice(tx, companyId, id);
       await assertInvoiceLinesLocked(tx, id, lockedOrders);
+      await assertNotInPaymentOrder(tx, id);
       const note = await tx.supplier_invoices.findFirst({
         where: { related_invoice_id: id, status: { not: 'CANCELLED' } },
         select: { cbte_type: true, sales_point: true, number: true },
@@ -538,8 +544,10 @@ export async function checkSupplierInvoiceInArca(id: string): Promise<ActionResu
     await withActor(profile.credentialId, async (tx) => {
       const locked = await lockSupplierInvoice(tx, companyId, id);
       const current = await tx.supplier_invoices.findUniqueOrThrow({ where: { id }, select: { observations: true } });
-      // Un rechazado sigue rechazado: la constatacion solo suma su observacion.
-      const keepStatus = locked.status === 'REJECTED';
+      // Un rechazado sigue rechazado, y uno ya pagado en una orden no deja de estar a pagar (sacarlo
+      // de la deuda descuadraria la cuenta corriente): la constatacion solo suma su observacion. En una
+      // orden sin pagar si pasa a observado, y eso frena aprobarla y pagarla.
+      const keepStatus = locked.status === 'REJECTED' || (await paymentOrderOfInvoice(tx, id, { paidOnly: true })) !== null;
       const checkData = { arca_check_result: outcome.result, arca_checked_at: new Date(), arca_check_detail: outcome.detail };
       if (outcome.observation) {
         const observations = [
@@ -781,6 +789,14 @@ export async function getSupplierInvoiceDetail(id: string) {
   });
   if (!invoice) return null;
   const { letter, kind } = voucherInfo(invoice.cbte_type);
+  const [pendingMap, paymentLines] = await Promise.all([
+    invoicePending(prisma, [invoice.id]),
+    prisma.payment_order_lines.findMany({
+      where: { invoice_id: invoice.id, payment_order: { status: { not: 'CANCELLED' } } },
+      select: { amount: true, payment_order: { select: { id: true, number: true, status: true, paid_on: true } } },
+      orderBy: { payment_order: { number: 'asc' } },
+    }),
+  ]);
   const status = invoice.status as SupplierInvoiceStatus;
   const observations = parseObservations(invoice.observations);
   const at = (d: Date | null) => d?.toISOString() ?? null;
@@ -866,6 +882,21 @@ export async function getSupplierInvoiceDetail(id: string) {
       description: t.description,
       amount: t.amount.toString(),
     })),
+    /** Etapa 5: lo pendiente de pago y las ordenes de pago (no anuladas) donde esta. */
+    payment: {
+      pending: pendingMap.get(invoice.id) ?? invoice.total.toString(),
+      paid: paymentLines
+        .filter((l) => l.payment_order.status === 'PAID')
+        .reduce((acc, l) => acc.plus(l.amount), new Prisma.Decimal(0))
+        .toFixed(2),
+      orders: paymentLines.map((l) => ({
+        id: l.payment_order.id,
+        number: l.payment_order.number,
+        status: l.payment_order.status,
+        paidOn: l.payment_order.paid_on ? l.payment_order.paid_on.toISOString().slice(0, 10) : null,
+        amount: l.amount.toFixed(2),
+      })),
+    },
     history: [
       { event: 'Cargada', at: at(invoice.created_at), by: userName(invoice.creator), notes: null },
       ...(invoice.updater ? [{ event: 'Editada', at: at(invoice.updated_at), by: userName(invoice.updater), notes: null }] : []),
