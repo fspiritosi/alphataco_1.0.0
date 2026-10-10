@@ -58,11 +58,11 @@ describe('resolveVisibleTabs', () => {
   });
 
   it('no mezcla módulos que comparten el slug de tab', () => {
-    // `documentos-de-equipos` existe como tab propia en equipos y en documentacion.
-    const visible = resolveVisibleTabs({ 'equipos:documentos-de-equipos:view': true });
+    // `vehicles` existe en equipos (subtab de `equipos`) y en configuracion (tab propia).
+    const visible = resolveVisibleTabs({ 'configuracion:vehicles:view': true });
 
-    expect(visible.equipos).toContain('documentos-de-equipos');
-    expect(visible.documentacion).not.toContain('documentos-de-equipos');
+    expect(visible.configuracion).toContain('vehicles');
+    expect(visible.equipos).not.toContain('vehicles');
   });
 
   it('conserva el orden declarado en navigationLinks, no el de los permisos', () => {
@@ -82,17 +82,18 @@ describe('resolveVisibleTabs', () => {
   });
 });
 
-describe('resolveVisibleTabs con permiso heredado', () => {
-  it('muestra la tab que el módulo monta pero no posee, leyendo el permiso del dueño', () => {
-    // Equipos monta "Tipos de Documentos", cuya tab vive en Configuración.
-    const visible = resolveVisibleTabs({ 'configuracion:documentos:view': true });
+describe('resolveVisibleTabs en Equipos', () => {
+  it('ofrece como sub-items las subtabs de `equipos`, cada una con su propio permiso', () => {
+    // Vehículos, Equipamiento y Dados de Baja son subtabs de `equipos` en permissions-map,
+    // pero en la página son secciones de primer nivel.
+    const visible = resolveVisibleTabs({ 'equipos:others:view': true, 'equipos:inactive:view': true });
 
-    expect(visible.equipos).toContain('tipos-de-documentos');
+    expect(visible.equipos).toEqual(['others', 'inactive']);
   });
 
-  it('la oculta si el permiso del módulo dueño no está concedido', () => {
+  it('el view de la tab padre no alcanza para ver sus subtabs', () => {
     const visible = resolveVisibleTabs({ 'equipos:equipos:view': true });
 
-    expect(visible.equipos).not.toContain('tipos-de-documentos');
+    expect(visible.equipos).toEqual([]);
   });
 });

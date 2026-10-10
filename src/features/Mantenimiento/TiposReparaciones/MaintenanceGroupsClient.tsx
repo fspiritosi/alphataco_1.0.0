@@ -26,8 +26,8 @@ export default function MaintenanceGroupsClient({
   const { hasPermission } = usePermissions();
 
   // Verificar permisos
-  const canCreate = hasPermission('equipos', 'maintenance_groups', 'create');
-  const canUpdate = hasPermission('equipos', 'maintenance_groups', 'update');
+  const canCreate = hasPermission('configuracion', 'maintenance_groups', 'create');
+  const canUpdate = hasPermission('configuracion', 'maintenance_groups', 'update');
   const canCreateOrUpdate = canCreate || canUpdate;
 
   return (

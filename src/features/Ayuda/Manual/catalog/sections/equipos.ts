@@ -8,21 +8,19 @@ export const equiposSection = defineSection({
   guides: [
     {
       slug: 'equipos-listado',
-      access: [tab('equipos', 'equipos')],
-      covers: [tab('equipos', 'vehicles'), tab('equipos', 'others')],
+      access: [tab('equipos', 'vehicles'), tab('equipos', 'others')],
+      covers: [tab('equipos', 'equipos')],
       screens: [
         { path: '/dashboard/equipment' },
-        { path: '/dashboard/equipment', tab: 'equipos' },
-        { path: '/dashboard/equipment', tab: 'equipos', subtab: 'vehicles' },
-        { path: '/dashboard/equipment', tab: 'equipos', subtab: 'others' },
+        { path: '/dashboard/equipment', tab: 'vehicles' },
+        { path: '/dashboard/equipment', tab: 'others' },
       ],
       related: ['ficha-del-vehiculo', 'ficha-de-otro-equipo', 'equipos-dados-de-baja', 'documentos-de-equipos'],
     },
     {
       slug: 'equipos-dados-de-baja',
-      access: [tab('equipos', 'equipos')],
-      covers: [tab('equipos', 'inactive')],
-      screens: [{ path: '/dashboard/equipment', tab: 'equipos', subtab: 'inactive' }],
+      access: [tab('equipos', 'inactive')],
+      screens: [{ path: '/dashboard/equipment', tab: 'inactive' }],
       related: ['equipos-listado', 'ficha-del-vehiculo', 'altas-y-bajas', 'documentos-alertas-y-estado'],
     },
     {

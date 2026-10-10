@@ -20,12 +20,7 @@ export function resolveVisibleTabs(permissions: Readonly<Record<string, boolean>
     if (!link.items) continue;
 
     visibleTabs[link.moduleSlug] = link.items
-      .filter((item) => {
-        // Por defecto el permiso vive en el modulo del link; `permission` lo redirige cuando
-        // la pantalla la monta un modulo que no es dueno de la tab.
-        const { moduleSlug, tabSlug } = item.permission ?? { moduleSlug: link.moduleSlug, tabSlug: item.tabSlug };
-        return isTabVisible(moduleSlug, tabSlug);
-      })
+      .filter((item) => isTabVisible(link.moduleSlug, item.tabSlug))
       .map(({ tabSlug }) => tabSlug);
   }
 

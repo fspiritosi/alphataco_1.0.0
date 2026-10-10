@@ -2,7 +2,7 @@
 title: Listado de equipos
 summary: Dónde ves toda la flota activa (vehículos y equipamiento), cómo la filtrás y exportás, cómo das de alta un equipo y qué significa su condición.
 keywords: equipos, vehículos, flota, equipamiento, dominio, número interno, condición, operativo, no operativo, en preparación, alta, filtros, exportar, excel
-updated: 2026-10-07
+updated: 2026-10-10
 ---
 
 El módulo **Equipos** es el registro de la flota de la empresa. Acá ves todos los equipos activos, los buscás y filtrás por cualquier dato, exportás el listado a Excel y das de alta equipos nuevos. Lo usan quienes administran la flota, Mantenimiento, Operaciones y quienes controlan la documentación de los equipos.
@@ -16,19 +16,13 @@ El sistema distingue dos clases de equipos, cada una con su propia pestaña y su
 
 ## Qué ves en la pantalla
 
-Arriba está la barra de pestañas del módulo:
-
-| Pestaña | Qué tiene |
-|---|---|
-| **Equipos** | El listado de la flota, separado en **Vehículos**, **Equipamiento** y **Dados de Baja**. Es la pantalla de esta guía. |
-| **Documentos de Equipos** | Los documentos exigidos a los vehículos. Ver <GuideLink to="documentos-de-equipos">Documentos de equipos</GuideLink>. |
-| **Tipos de Documentos** | El catálogo de tipos de documento que se piden a los equipos. Ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>. |
-
-Dentro de **Equipos** hay tres subpestañas:
+En el menú lateral, **Equipos** se despliega en tres secciones:
 
 - **Vehículos**: los vehículos activos.
 - **Equipamiento**: el equipamiento activo.
 - **Dados de Baja**: los equipos que ya no forman parte de la flota. Ver <GuideLink to="equipos-dados-de-baja">Equipos dados de baja</GuideLink>.
+
+Los documentos de los vehículos están en **Documentación → Documentos de Equipos** (ver <GuideLink to="documentos-de-equipos">Documentos de equipos</GuideLink>) y el catálogo de tipos de documento en **Configuración → Documentos** (ver <GuideLink to="tipos-de-documento">Tipos de documento</GuideLink>).
 
 ### Columnas de Vehículos
 
@@ -101,7 +95,7 @@ El Dashboard cuenta como fuera de servicio a los equipos **No operativo**, **En 
 
 <Steps>
 <Step title="Abrí el formulario">
-En la subpestaña **Vehículos**, hacé clic en **Agregar vehículo**. Se abre la ficha vacía.
+En la sección **Vehículos**, hacé clic en **Agregar vehículo**. Se abre la ficha vacía.
 </Step>
 <Step title="Completá los Datos Básicos">
 Los obligatorios llevan asterisco rojo: **Tipo de equipo**, **Marca**, **Modelo**, **Año**, **Tipo**, **Chasis del equipo** (entre 2 y 30 caracteres) y **Dominio del equipo**. Podés sumar **Foto del equipo**, **Motor del equipo**, **Sub Tipo de Unidad**, **Kilometraje**, **Horómetro**, **Tipo de Contrato** y **Propietario**, **Número de Contrato**, **Valor del equipo** y **Número interno del equipo**.
@@ -123,7 +117,7 @@ Si el contrato es **Leasing**, **Alquiler** o **Prendado**, el campo **Propietar
 
 <Steps>
 <Step title="Abrí el formulario">
-En la subpestaña **Equipamiento**, hacé clic en **Nuevo equipo**.
+En la sección **Equipamiento**, hacé clic en **Nuevo equipo**.
 </Step>
 <Step title="Completá los datos">
 El único campo obligatorio es **Tipo**. Cargá además lo que identifique al equipo: **N° de Serie** y/o **N° Interno** (no pueden repetirse con otro equipo de la empresa), **Sub Tipo**, **Marca**, **Modelo**, **Año**, **Horómetro**, **Placa del Fabricante**, **Composición**, **N° de Factura**, **Valor Inicial**, **Fecha de Compra**, contrato, propietario, certificación y **Vehículo Vinculado**.
@@ -154,8 +148,7 @@ Las fotos, los planos y los documentos del equipamiento se cargan después, desd
 
 | Acción | Permiso |
 |---|---|
-| Ver el módulo y el listado | **Ver** en Equipos → Equipos |
-| Ver cada subpestaña | **Ver** en Vehículos, Equipamiento o Dados de Baja |
+| Ver cada sección | **Ver** en Vehículos, Equipamiento o Dados de Baja (dentro de Equipos → Equipos) |
 | **Agregar vehículo** | **Crear** en Vehículos |
 | **Nuevo equipo** (equipamiento) | **Crear** en Equipamiento |
 | Abrir la ficha | **Ver** en Detalle de Equipo o Detalle de Otro Equipo |
@@ -163,7 +156,7 @@ Las fotos, los planos y los documentos del equipamiento se cargan después, desd
 ## Problemas frecuentes
 
 <Callout type="warning" title="No encuentro un equipo">
-El listado muestra solo equipos **activos**. Si lo dieron de baja, está en **Dados de Baja**. Revisá también que no haya filtros activos (botón **Limpiar filtros**) y que estés en la subpestaña correcta: un vehículo no aparece en **Equipamiento** ni al revés.
+El listado muestra solo equipos **activos**. Si lo dieron de baja, está en **Dados de Baja**. Revisá también que no haya filtros activos (botón **Limpiar filtros**) y que estés en la sección correcta: un vehículo no aparece en **Equipamiento** ni al revés.
 </Callout>
 
 <Callout type="warning" title="No puedo pasar un equipo a Operativo">

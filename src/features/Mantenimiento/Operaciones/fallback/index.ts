@@ -1,1 +1,0 @@
-export { OperacionesTableSkeleton } from './OperacionesTableSkeleton';

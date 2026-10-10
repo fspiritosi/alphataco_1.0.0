@@ -27,7 +27,8 @@ vi.mock('@/shared/lib/session', () => ({
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
 
 const EQUIPOS_MODULE_ID = '34d7f9e5-7c01-4def-9446-6b3f52d761a0';
-const EQUIPMENTS_WITH_DEVIATIONS_TAB_ID = '60000000-0000-0000-0000-000000000019';
+// Equipos → Dados de Baja: una tab cualquiera del módulo, sólo para tener un permiso concreto.
+const INACTIVE_EQUIPMENT_TAB_ID = '30000000-0000-0000-0000-000000000013';
 
 describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', () => {
   const testUserId = randomUUID();
@@ -61,7 +62,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     ({ prisma } = await import('@/shared/lib/prisma'));
 
     const [tab, viewAction] = await Promise.all([
-      prisma.tabs.findUniqueOrThrow({ where: { id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID } }),
+      prisma.tabs.findUniqueOrThrow({ where: { id: INACTIVE_EQUIPMENT_TAB_ID } }),
       prisma.actions.findFirstOrThrow({ where: { slug: 'view' } }),
     ]);
     expect(tab.module_id).toBe(EQUIPOS_MODULE_ID);
@@ -77,7 +78,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     roleId = role.id;
 
     await prisma.role_permissions.create({
-      data: { role_id: roleId, tab_id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID, action_id: viewActionId },
+      data: { role_id: roleId, tab_id: INACTIVE_EQUIPMENT_TAB_ID, action_id: viewActionId },
     });
     const city = await prisma.cities.findFirstOrThrow({ select: { id: true } });
     companyId = await createTestCompany(`3099${testUserId.slice(0, 7).replace(/\D/g, '').padEnd(7, '1')}`, city.id);
@@ -105,7 +106,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
 
     const map = await getUserPermissionsMapServer();
 
-    expect(map['equipos:equipments_with_deviations:view']).toBe(true);
+    expect(map['equipos:inactive:view']).toBe(true);
   });
 
   it('getUserPermissionsMapServer: uuid inexistente → mapa vacío', async () => {
@@ -123,7 +124,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     getSessionCompanyClaimMock.mockResolvedValue(companyId);
     const { checkPermissionServer } = await import('./permissions.server');
 
-    await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(true);
+    await expect(checkPermissionServer('equipos', 'inactive', 'view')).resolves.toBe(true);
   });
 
   it('checkPermissionServer / user_has_permission: false para una acción no concedida', async () => {
@@ -131,7 +132,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     getSessionCompanyClaimMock.mockResolvedValue(companyId);
     const { checkPermissionServer } = await import('./permissions.server');
 
-    await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'delete')).resolves.toBe(false);
+    await expect(checkPermissionServer('equipos', 'inactive', 'delete')).resolves.toBe(false);
   });
 
   it('el rol no sale de su empresa: en otra empresa el mismo usuario no tiene el permiso', async () => {
@@ -139,7 +140,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     getSessionCompanyClaimMock.mockResolvedValue(otherCompanyId);
     const { checkPermissionServer, getUserPermissionsMapServer } = await import('./permissions.server');
 
-    await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(false);
+    await expect(checkPermissionServer('equipos', 'inactive', 'view')).resolves.toBe(false);
     await expect(getUserPermissionsMapServer()).resolves.toEqual({});
   });
 
@@ -152,7 +153,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     await prisma.user_permissions.create({
       data: {
         user_id: testUserId,
-        tab_id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID,
+        tab_id: INACTIVE_EQUIPMENT_TAB_ID,
         action_id: deleteAction.id,
         company_id: companyId,
         is_granted: true,
@@ -164,10 +165,10 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
 
       getSessionUserIdMock.mockResolvedValue(testUserId);
       getSessionCompanyClaimMock.mockResolvedValue(companyId);
-      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'delete')).resolves.toBe(true);
+      await expect(checkPermissionServer('equipos', 'inactive', 'delete')).resolves.toBe(true);
 
       getSessionCompanyClaimMock.mockResolvedValue(otherCompanyId);
-      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'delete')).resolves.toBe(false);
+      await expect(checkPermissionServer('equipos', 'inactive', 'delete')).resolves.toBe(false);
     } finally {
       await prisma.user_permissions.deleteMany({ where: { user_id: testUserId } });
     }
@@ -179,7 +180,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     await prisma.user_permissions.create({
       data: {
         user_id: testUserId,
-        tab_id: EQUIPMENTS_WITH_DEVIATIONS_TAB_ID,
+        tab_id: INACTIVE_EQUIPMENT_TAB_ID,
         action_id: viewActionId,
         company_id: otherCompanyId,
         is_granted: false,
@@ -191,7 +192,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
 
       getSessionUserIdMock.mockResolvedValue(testUserId);
       getSessionCompanyClaimMock.mockResolvedValue(companyId);
-      await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(true);
+      await expect(checkPermissionServer('equipos', 'inactive', 'view')).resolves.toBe(true);
     } finally {
       await prisma.user_permissions.deleteMany({ where: { user_id: testUserId } });
     }
@@ -202,7 +203,7 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     getSessionCompanyClaimMock.mockResolvedValue(null);
     const { checkPermissionServer } = await import('./permissions.server');
 
-    await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(false);
+    await expect(checkPermissionServer('equipos', 'inactive', 'view')).resolves.toBe(false);
   });
 
   it('checkPermissionServer: uuid inexistente → false', async () => {
@@ -210,6 +211,6 @@ describe.skipIf(!process.env.DATABASE_URL)('permissions.server (integración)', 
     getSessionCompanyClaimMock.mockResolvedValue(companyId);
     const { checkPermissionServer } = await import('./permissions.server');
 
-    await expect(checkPermissionServer('equipos', 'equipments_with_deviations', 'view')).resolves.toBe(false);
+    await expect(checkPermissionServer('equipos', 'inactive', 'view')).resolves.toBe(false);
   });
 });
